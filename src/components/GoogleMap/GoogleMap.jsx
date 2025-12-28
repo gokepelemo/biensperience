@@ -18,9 +18,12 @@ import { lang } from '../../lang.constants';
  * @param {string} [props.className] - Additional CSS classes
  * @param {boolean} [props.showDirections=true] - Whether to show the Get Directions button
  */
+// Default API key from environment variable (Vite)
+const DEFAULT_GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
 export default function GoogleMap({
   location,
-  apiKey = "AIzaSyDqWtvNnjYES1pd6ssnZ7gvddUVHrlNaR0",
+  apiKey = DEFAULT_GOOGLE_MAPS_API_KEY,
   height = 300,
   width = "100%",
   title,

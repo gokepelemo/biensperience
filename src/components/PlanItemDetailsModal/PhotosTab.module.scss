@@ -1,0 +1,153 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * PhotosTab Styles
+ * Two-column layout with PhotoCard on left and PhotoUpload on right
+ */
+
+.photosTab {
+  padding: $space-4;
+  min-height: 400px;
+}
+
+.errorMessage {
+  background: var(--color-error-bg, #fef2f2);
+  color: var(--color-error, #dc2626);
+  padding: $space-3 $space-4;
+  border-radius: var(--radius-md);
+  margin-bottom: $space-4;
+  font-size: $font-size-sm;
+
+  @media (prefers-color-scheme: dark) {
+    background: rgba(220, 38, 38, 0.15);
+  }
+}
+
+.photosContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-6;
+  align-items: start;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: $space-4;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  margin-bottom: $space-3;
+  padding-bottom: $space-2;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  font-size: $font-size-base;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.savingIndicator {
+  display: inline-flex;
+  align-items: center;
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  animation: fadeInOut 1.5s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.photoCardSection {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: $space-4;
+  min-height: 300px;
+  max-height: 600px;
+  overflow-y: auto;
+
+  // PhotoCard adjustments
+  :global(.photoFrame) {
+    margin: 0;
+  }
+
+  :global(.photoCard) {
+    border-radius: var(--radius-md);
+  }
+}
+
+.photoUploadSection {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: $space-4;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.photoUploadWrapper {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 400px;
+
+  // PhotoUpload component adjustments
+  :global(.uploadZone) {
+    min-height: 150px;
+  }
+}
+
+.readOnlyMessage {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: $space-8;
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-8;
+  color: var(--color-text-secondary);
+  font-size: $font-size-sm;
+}
+
+// Empty state container adjustments
+.photoCardSection :global(.emptyState) {
+  padding: $space-6;
+}
+
+// ============================================
+// Photo Delete Styles
+// ============================================
+
+.photoDeleteActions {
+  margin-top: $space-3;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.deletePhotoButton {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}

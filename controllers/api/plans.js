@@ -11,8 +11,9 @@ const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail } = require('../../utilities/email-service');
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
-const { hasFeatureFlag } = require('../../utilities/feature-flags');
-const { broadcastEvent } = require('../../utilities/websocket-server');
+const { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAG_CONTEXT } = require('../../utilities/feature-flags');
+const { broadcastEvent, sendEventToUser } = require('../../utilities/websocket-server');
+const { upsertMessagingChannel, getStreamServerClient, syncChannelMembers } = require('../../utilities/stream-chat');
 
 /**
  * Sanitize location data to prevent GeoJSON validation errors
@@ -987,8 +988,10 @@ const deletePlan = asyncHandler(async (req, res) => {
   // We'll do this check without fetching the full experience first
   if (plan.experience) {
     updateExperiencePromise = (async () => {
+      const experienceId = plan.experience?._id || plan.experience;
+
       // Use a lean query with only the fields we need (much faster)
-      const experience = await Experience.findById(plan.experience)
+      const experience = await Experience.findById(experienceId)
         .select('permissions user')
         .lean();
 
@@ -1002,7 +1005,7 @@ const deletePlan = asyncHandler(async (req, res) => {
           // OPTIMIZATION 3: Use updateOne instead of find + save
           // This is a single atomic operation
           await Experience.updateOne(
-            { _id: plan.experience },
+            { _id: experienceId },
             { 
               $pull: { 
                 permissions: { 
@@ -1123,6 +1126,108 @@ const addCollaborator = asyncHandler(async (req, res) => {
 
   if (!result.success) {
     return res.status(400).json({ error: result.error });
+  }
+
+  // Best-effort: ensure plan group chat membership stays in sync.
+  // Requirement: plan owner + all collaborators are auto-added to plan group chat.
+  try {
+    const updatedForChat = await Plan.findById(plan._id).select('user permissions experience');
+    const ownerId = updatedForChat?.user?.toString();
+
+    const [experienceDoc, ownerUser] = await Promise.all([
+      Experience.findById(updatedForChat.experience).select('name').lean(),
+      ownerId ? User.findById(ownerId).select('name role flags').lean() : Promise.resolve(null)
+    ]);
+
+    const chatEnabled = hasFeatureFlagInContext({
+      loggedInUser: req.user,
+      entityCreatorUser: ownerUser,
+      flagKey: 'stream_chat',
+      context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
+    });
+
+    if (chatEnabled) {
+      const collaboratorIds = (updatedForChat?.permissions || [])
+        .filter(p => p && p.entity === 'user' && p._id && ['owner', 'collaborator'].includes(p.type))
+        .map(p => p._id.toString());
+
+      const members = Array.from(new Set([ownerId, ...collaboratorIds].filter(Boolean)));
+      const channelId = `plan_${plan._id.toString()}`;
+
+      const channelName = `${experienceDoc?.name || 'Experience'} - ${ownerUser?.name || 'Owner'}`;
+
+      await upsertMessagingChannel({
+        channelId,
+        members,
+        createdById: ownerId || req.user._id,
+        name: channelName,
+        planId: plan._id.toString()
+      });
+
+      // Also sync membership across any existing plan-scoped group chats (e.g. plan item chats).
+      try {
+        const streamClient = getStreamServerClient();
+        const planChannels = await streamClient.queryChannels(
+          { type: 'messaging', planId: plan._id.toString() },
+          { last_message_at: -1 },
+          { limit: 100 }
+        );
+
+        await Promise.all(
+          (planChannels || []).map(ch => syncChannelMembers({ channel: ch, desiredMembers: members }))
+        );
+      } catch (syncErr) {
+        backendLogger.warn('[Stream Chat] Failed to sync plan-scoped channels after addCollaborator', {
+          planId: plan._id.toString(),
+          error: syncErr.message,
+          code: syncErr.code
+        });
+      }
+    }
+  } catch (chatErr) {
+    backendLogger.warn('[Stream Chat] Failed to sync plan chat after addCollaborator', {
+      planId: plan._id.toString(),
+      error: chatErr.message,
+      code: chatErr.code
+    });
+  }
+
+  // Broadcast collaborator addition via WebSocket.
+  // Important: the newly-added collaborator might already be viewing this experience,
+  // but may NOT have been able to join the experience room before the permission existed.
+  // Sending directly to the user ensures their UI updates immediately.
+  try {
+    const experienceId = (plan.experience?._id || plan.experience)?.toString?.() || plan.experience;
+    const planId = plan._id.toString();
+    const collaboratorUserId = userId.toString();
+
+    // Notify the collaborator directly (covers the "currently on the experience" case)
+    sendEventToUser(collaboratorUserId, {
+      type: 'plan:collaborator:added',
+      payload: {
+        planId,
+        experienceId,
+        collaboratorAdded: collaboratorUserId,
+        action: 'collaborator_added'
+      }
+    });
+
+    // Also notify anyone already in the experience room (best effort)
+    if (experienceId) {
+      broadcastEvent('experience', experienceId, {
+        type: 'plan:collaborator:added',
+        payload: {
+          planId,
+          experienceId,
+          collaboratorAdded: collaboratorUserId,
+          action: 'collaborator_added'
+        }
+      }, req.user._id.toString());
+    }
+  } catch (wsErr) {
+    backendLogger.warn('[WebSocket] Failed to broadcast plan collaborator addition', {
+      error: wsErr.message
+    });
   }
 
   // Permission saved by enforcer, no need to save again
@@ -1359,6 +1464,69 @@ const removeCollaborator = asyncHandler(async (req, res) => {
     return res.status(400).json({ error: result.error });
   }
 
+  // Best-effort: keep plan group chat membership in sync after removal.
+  try {
+    const updatedForChat = await Plan.findById(plan._id).select('user permissions experience');
+    const ownerId = updatedForChat?.user?.toString();
+
+    const [experienceDoc, ownerUser] = await Promise.all([
+      Experience.findById(updatedForChat.experience).select('name').lean(),
+      ownerId ? User.findById(ownerId).select('name role flags').lean() : Promise.resolve(null)
+    ]);
+
+    const chatEnabled = hasFeatureFlagInContext({
+      loggedInUser: req.user,
+      entityCreatorUser: ownerUser,
+      flagKey: 'stream_chat',
+      context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
+    });
+
+    if (chatEnabled) {
+      const collaboratorIds = (updatedForChat?.permissions || [])
+        .filter(p => p && p.entity === 'user' && p._id && ['owner', 'collaborator'].includes(p.type))
+        .map(p => p._id.toString());
+
+      const members = Array.from(new Set([ownerId, ...collaboratorIds].filter(Boolean)));
+      const channelId = `plan_${plan._id.toString()}`;
+
+      const channelName = `${experienceDoc?.name || 'Experience'} - ${ownerUser?.name || 'Owner'}`;
+
+      await upsertMessagingChannel({
+        channelId,
+        members,
+        createdById: ownerId || req.user._id,
+        name: channelName,
+        planId: plan._id.toString()
+      });
+
+      // Also sync membership across any existing plan-scoped group chats (e.g. plan item chats).
+      try {
+        const streamClient = getStreamServerClient();
+        const planChannels = await streamClient.queryChannels(
+          { type: 'messaging', planId: plan._id.toString() },
+          { last_message_at: -1 },
+          { limit: 100 }
+        );
+
+        await Promise.all(
+          (planChannels || []).map(ch => syncChannelMembers({ channel: ch, desiredMembers: members }))
+        );
+      } catch (syncErr) {
+        backendLogger.warn('[Stream Chat] Failed to sync plan-scoped channels after removeCollaborator', {
+          planId: plan._id.toString(),
+          error: syncErr.message,
+          code: syncErr.code
+        });
+      }
+    }
+  } catch (chatErr) {
+    backendLogger.warn('[Stream Chat] Failed to sync plan chat after removeCollaborator', {
+      planId: plan._id.toString(),
+      error: chatErr.message,
+      code: chatErr.code
+    });
+  }
+
   await plan.save();
 
   res.json({ message: "Collaborator removed successfully" });
@@ -1367,13 +1535,14 @@ const removeCollaborator = asyncHandler(async (req, res) => {
 /**
  * Update a specific plan item within a plan
  * Accepts: complete, cost, planning_days, text, url, activity_type, location, lat, lng, address,
- *          scheduled_date, scheduled_time
+ *          scheduled_date, scheduled_time, photos (array of photo ObjectIds)
  */
 const updatePlanItem = asyncHandler(async (req, res) => {
   const { id, itemId } = req.params;
   const {
     complete, cost, planning_days, text, url, activity_type,
-    location, lat, lng, address, scheduled_date, scheduled_time
+    location, lat, lng, address, scheduled_date, scheduled_time,
+    photos
   } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(itemId)) {
@@ -1438,7 +1607,8 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   const requestedKeys = Object.keys(req.body || {}).filter(k => k);
   const allowedScalarKeys = ['complete', 'cost', 'planning_days', 'text', 'url', 'activity_type', 'scheduled_date', 'scheduled_time'];
   const locationKeys = ['location', 'lat', 'lng', 'address'];
-  const allAllowedKeys = [...allowedScalarKeys, ...locationKeys];
+  const arrayKeys = ['photos'];
+  const allAllowedKeys = [...allowedScalarKeys, ...locationKeys, ...arrayKeys];
   const onlyAllowed = requestedKeys.length > 0 && requestedKeys.every(k => allAllowedKeys.includes(k));
 
   if (onlyAllowed) {
@@ -1504,6 +1674,23 @@ const updatePlanItem = asyncHandler(async (req, res) => {
         });
       }
       setObj['plan.$.location'] = locationData;
+    }
+
+    // Process photos array - validate ObjectIds and store references
+    if (photos !== undefined) {
+      if (Array.isArray(photos)) {
+        // Validate all photo IDs are valid ObjectIds
+        const validPhotoIds = photos.filter(id => mongoose.Types.ObjectId.isValid(id));
+        setObj['plan.$.photos'] = validPhotoIds.map(id => new mongoose.Types.ObjectId(id));
+        backendLogger.debug('Setting plan item photos', {
+          planId: id,
+          itemId,
+          photoCount: validPhotoIds.length
+        });
+      } else if (photos === null) {
+        // Allow clearing photos
+        setObj['plan.$.photos'] = [];
+      }
     }
 
     // Preserve previous state for tracking
@@ -1627,6 +1814,23 @@ const updatePlanItem = asyncHandler(async (req, res) => {
           coordinates: [lng, lat] // GeoJSON uses [lng, lat]
         };
       }
+    }
+  }
+
+  // Process photos array for in-memory update
+  if (photos !== undefined) {
+    if (Array.isArray(photos)) {
+      // Validate all photo IDs are valid ObjectIds
+      const validPhotoIds = photos.filter(id => mongoose.Types.ObjectId.isValid(id));
+      planItem.photos = validPhotoIds.map(id => new mongoose.Types.ObjectId(id));
+      backendLogger.debug('Setting plan item photos (in-memory)', {
+        planId: id,
+        itemId,
+        photoCount: validPhotoIds.length
+      });
+    } else if (photos === null) {
+      // Allow clearing photos
+      planItem.photos = [];
     }
   }
 
@@ -2553,6 +2757,39 @@ const addPlanItemDetail = asyncHandler(async (req, res) => {
     userId: req.user._id.toString()
   });
 
+  // Real-time sync: broadcast full plan update + a granular detail event.
+  try {
+    const version = Date.now();
+    const experienceId = plan.experience?._id || plan.experience;
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        experienceId: experienceId?.toString ? experienceId.toString() : experienceId,
+        plan,
+        action: 'detail_added',
+        version
+      }
+    }, req.user._id.toString());
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:item:detail:added',
+      version,
+      payload: {
+        planId: id.toString(),
+        itemId: itemId.toString(),
+        detailType: type,
+        data: plan,
+        action: 'detail_added',
+        version
+      }
+    }, req.user._id.toString());
+  } catch (e) {
+    // Non-fatal
+  }
+
   // Log activity
   const planItemName = planItem.text || 'Unnamed item';
   await Activity.log({
@@ -2702,6 +2939,40 @@ const updatePlanItemDetail = asyncHandler(async (req, res) => {
     userId: req.user._id.toString()
   });
 
+  // Real-time sync: broadcast full plan update + a granular detail event.
+  try {
+    const version = Date.now();
+    const experienceId = plan.experience?._id || plan.experience;
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        experienceId: experienceId?.toString ? experienceId.toString() : experienceId,
+        plan,
+        action: 'detail_updated',
+        version
+      }
+    }, req.user._id.toString());
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:item:detail:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        itemId: itemId.toString(),
+        detailId: detailId?.toString ? detailId.toString() : detailId,
+        detailType: type,
+        data: plan,
+        action: 'detail_updated',
+        version
+      }
+    }, req.user._id.toString());
+  } catch (e) {
+    // Non-fatal
+  }
+
   // Log activity
   const planItemName = planItem.text || 'Unnamed item';
   await Activity.log({
@@ -2832,6 +3103,40 @@ const deletePlanItemDetail = asyncHandler(async (req, res) => {
     detailType: type,
     userId: req.user._id.toString()
   });
+
+  // Real-time sync: broadcast full plan update + a granular detail event.
+  try {
+    const version = Date.now();
+    const experienceId = plan.experience?._id || plan.experience;
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        experienceId: experienceId?.toString ? experienceId.toString() : experienceId,
+        plan,
+        action: 'detail_deleted',
+        version
+      }
+    }, req.user._id.toString());
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:item:detail:deleted',
+      version,
+      payload: {
+        planId: id.toString(),
+        itemId: itemId.toString(),
+        detailId: detailId?.toString ? detailId.toString() : detailId,
+        detailType: type,
+        data: plan,
+        action: 'detail_deleted',
+        version
+      }
+    }, req.user._id.toString());
+  } catch (e) {
+    // Non-fatal
+  }
 
   // Log activity
   const planItemName = planItem.text || 'Unnamed item';
@@ -3164,6 +3469,37 @@ const addCost = asyncHandler(async (req, res) => {
     addedBy: req.user._id.toString()
   });
 
+  // Real-time sync: notify all clients in the plan room.
+  try {
+    const version = Date.now();
+    const experienceId = plan.experience?._id || plan.experience;
+    const costObj = addedCost && typeof addedCost.toObject === 'function' ? addedCost.toObject() : addedCost;
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        experienceId: experienceId?.toString ? experienceId.toString() : experienceId,
+        plan,
+        action: 'cost_added',
+        version
+      }
+    }, req.user._id.toString());
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:cost_added',
+      version,
+      payload: {
+        planId: id.toString(),
+        cost: costObj,
+        version
+      }
+    }, req.user._id.toString());
+  } catch (e) {
+    // Non-fatal: do not block cost creation on broadcast failures
+  }
+
   res.status(201).json(plan);
 });
 
@@ -3339,6 +3675,38 @@ const updateCost = asyncHandler(async (req, res) => {
   await plan.populate('experience', 'name');
   await plan.populate('costs.collaborator', 'name email');
 
+  // Real-time sync: notify all clients in the plan room.
+  try {
+    const version = Date.now();
+    const updatedCost = plan.costs?.id(costId);
+    const experienceId = plan.experience?._id || plan.experience;
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        experienceId: experienceId?.toString ? experienceId.toString() : experienceId,
+        plan,
+        action: 'cost_updated',
+        version
+      }
+    }, req.user._id.toString());
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:cost_updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        costId: costId.toString(),
+        cost: updatedCost && typeof updatedCost.toObject === 'function' ? updatedCost.toObject() : updatedCost,
+        version
+      }
+    }, req.user._id.toString());
+  } catch (e) {
+    // Non-fatal
+  }
+
   backendLogger.info('Cost updated', {
     planId: id,
     costId,
@@ -3385,6 +3753,33 @@ const deleteCost = asyncHandler(async (req, res) => {
 
   plan.costs.pull(costId);
   await plan.save();
+
+  // Real-time sync: notify all clients in the plan room.
+  try {
+    const version = Date.now();
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      version,
+      payload: {
+        planId: id.toString(),
+        plan,
+        action: 'cost_deleted',
+        version
+      }
+    }, req.user._id.toString());
+
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:cost_deleted',
+      version,
+      payload: {
+        planId: id.toString(),
+        costId: costId.toString(),
+        version
+      }
+    }, req.user._id.toString());
+  } catch (e) {
+    // Non-fatal
+  }
 
   backendLogger.info('Cost deleted', {
     planId: id,

@@ -32,6 +32,7 @@ import {
 } from 'react-icons/fa';
 import { formatCurrencyDisambiguated } from '../../utilities/currency-utils';
 import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
+import { exportToCsv, formatDateForCsv } from '../../utilities/csv-utils';
 import { lang } from '../../lang.constants';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import styles from './CostSummary.module.scss';
@@ -446,12 +447,7 @@ export default function CostSummary({
       return;
     }
 
-    // Default CSV export implementation
-    const rows = [
-      ['Title', 'Amount', 'Currency', 'Category', 'Date', 'Paid By', 'Plan Item']
-    ];
-
-    // Collect all costs
+    // Collect all costs with paidBy information
     const allCosts = [];
     (calculatedSummary.costsByCollaborator || []).forEach(c =>
       c.costs.forEach(cost => allCosts.push({ ...cost, paidBy: c.collaborator?.name }))
@@ -463,35 +459,35 @@ export default function CostSummary({
       }
     });
 
-    allCosts.forEach(cost => {
-      rows.push([
-        cost.title || '',
-        cost.cost || 0,
-        cost.currency || currency,
-        cost.category || '',
-        cost.date ? new Date(cost.date).toLocaleDateString() : '',
-        cost.paidBy || '',
-        cost.plan_item ? 'Yes' : ''
-      ]);
+    // Add a total row marker
+    allCosts.push({
+      _isTotal: true,
+      title: 'Total',
+      cost: calculatedSummary.totalCost,
+      currency: currency
     });
 
-    // Add totals
-    rows.push([]);
-    rows.push(['Total', calculatedSummary.totalCost, currency, '', '', '', '']);
-
-    // Generate CSV
-    const csv = rows.map(row => row.map(cell =>
-      typeof cell === 'string' && cell.includes(',') ? `"${cell}"` : cell
-    ).join(',')).join('\n');
-
-    // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `cost-summary-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    // Export using csv-utils
+    exportToCsv(allCosts, `cost-summary-${new Date().toISOString().split('T')[0]}`, {
+      columns: ['title', 'cost', 'currency', 'category', 'date', 'paidBy', 'plan_item'],
+      headers: {
+        title: 'Title',
+        cost: 'Amount',
+        currency: 'Currency',
+        category: 'Category',
+        date: 'Date',
+        paidBy: 'Paid By',
+        plan_item: 'Plan Item'
+      },
+      formatters: {
+        cost: (val) => val || 0,
+        currency: (val, row) => val || (row._isTotal ? currency : ''),
+        category: (val) => val || '',
+        date: (val) => val ? formatDateForCsv(val, { format: 'date' }) : '',
+        paidBy: (val) => val || '',
+        plan_item: (val) => val ? 'Yes' : ''
+      }
+    });
   }, [calculatedSummary, currency, onExportCsv]);
 
   if (loading) {

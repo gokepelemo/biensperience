@@ -131,22 +131,24 @@ describe('Destinations API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(newDestination);
 
+      const body = response.body?.data || response.body;
+
       logger.endTimer('POST /api/destinations');
       logger.response(response.status, response.body);
 
-      expect(response.status).toBe(200);
-      validators.isValidDestination(response.body);
-      expect(response.body.name).toBe(newDestination.name);
-      expect(response.body.country).toBe(newDestination.country);
-      expect(response.body.state).toBe(newDestination.state);
-      expect(response.body.travel_tips).toEqual(newDestination.travel_tips);
-      expect(response.body.permissions).toBeDefined();
-      expect(Array.isArray(response.body.permissions)).toBe(true);
-      expect(response.body.permissions.length).toBeGreaterThan(0);
+      expect(response.status).toBe(201);
+      validators.isValidDestination(body);
+      expect(body.name).toBe(newDestination.name);
+      expect(body.country).toBe(newDestination.country);
+      expect(body.state).toBe(newDestination.state);
+      expect(body.travel_tips).toEqual(newDestination.travel_tips);
+      expect(body.permissions).toBeDefined();
+      expect(Array.isArray(body.permissions)).toBe(true);
+      expect(body.permissions.length).toBeGreaterThan(0);
 
       logger.success('Destination created successfully', {
-        id: response.body._id,
-        name: response.body.name,
+        id: body._id,
+        name: body.name,
       });
     });
 
@@ -175,7 +177,7 @@ describe('Destinations API Routes', () => {
       logger.response(response.status, response.body);
       expect(response.status).toBe(409);
       validators.isValidError(response, 409);
-      expect(response.body.error).toBe('Duplicate destination');
+      expect(response.body.error).toMatch(/already exists/i);
       logger.success('Duplicate correctly rejected');
     });
 
@@ -235,13 +237,15 @@ describe('Destinations API Routes', () => {
         .get(`/api/destinations/${destination._id}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       logger.endTimer('GET single destination');
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(200);
-      validators.isValidDestination(response.body);
-      expect(response.body._id.toString()).toBe(destination._id.toString());
-      expect(response.body.name).toBe(destination.name);
+      validators.isValidDestination(body);
+      expect(body._id.toString()).toBe(destination._id.toString());
+      expect(body.name).toBe(destination.name);
 
       logger.success('Single destination fetched successfully');
     });
@@ -303,14 +307,16 @@ describe('Destinations API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(updateData);
 
+      const body = response.body?.data || response.body;
+
       logger.endTimer('PUT /api/destinations/:id');
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(200);
-      validators.isValidDestination(response.body);
-      expect(response.body.name).toBe(updateData.name);
-      expect(response.body.country).toBe(updateData.country);
-      expect(response.body.travel_tips).toEqual(updateData.travel_tips);
+      validators.isValidDestination(body);
+      expect(body.name).toBe(updateData.name);
+      expect(body.country).toBe(updateData.country);
+      expect(body.travel_tips).toEqual(updateData.travel_tips);
 
       logger.success('Destination updated successfully');
     });
@@ -435,15 +441,17 @@ describe('Destinations API Routes', () => {
         .post(`/api/destinations/${destination._id}/user/${user._id}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       logger.endTimer('Toggle favorite (add)');
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(201);
-      validators.isValidDestination(response.body);
-      expect(response.body.users_favorite).toContain(user._id.toString());
+      validators.isValidDestination(body);
+      expect(body.users_favorite).toContain(user._id.toString());
 
       logger.success('Destination added to favorites', {
-        favorites: response.body.users_favorite,
+        favorites: body.users_favorite,
       });
     });
 
@@ -464,15 +472,17 @@ describe('Destinations API Routes', () => {
         .post(`/api/destinations/${destination._id}/user/${user._id}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       logger.endTimer('Toggle favorite (remove)');
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(200);
-      validators.isValidDestination(response.body);
-      expect(response.body.users_favorite).not.toContainEqual(user._id);
+      validators.isValidDestination(body);
+      expect(body.users_favorite).not.toContainEqual(user._id);
 
       logger.success('Destination removed from favorites', {
-        favorites: response.body.users_favorite,
+        favorites: body.users_favorite,
       });
     });
 
@@ -526,25 +536,27 @@ describe('Destinations API Routes', () => {
         .get(`/api/destinations/${destination._id}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       logger.table(
         {
-          _id: typeof response.body._id,
-          name: typeof response.body.name,
-          country: typeof response.body.country,
-          state: typeof response.body.state,
-          user: typeof response.body.user,
-          users_favorite: Array.isArray(response.body.users_favorite) ? 'array' : 'not array',
-          travel_tips: Array.isArray(response.body.travel_tips) ? 'array' : 'not array',
+          _id: typeof body._id,
+          name: typeof body.name,
+          country: typeof body.country,
+          state: typeof body.state,
+          user: typeof body.user,
+          users_favorite: Array.isArray(body.users_favorite) ? 'array' : 'not array',
+          travel_tips: Array.isArray(body.travel_tips) ? 'array' : 'not array',
         },
         'Destination Field Types'
       );
 
-      expect(typeof response.body._id).toBe('string');
-      expect(typeof response.body.name).toBe('string');
-      expect(typeof response.body.country).toBe('string');
-      expect(typeof response.body.state).toBe('string');
-      expect(Array.isArray(response.body.users_favorite)).toBe(true);
-      expect(Array.isArray(response.body.travel_tips)).toBe(true);
+      expect(typeof body._id).toBe('string');
+      expect(typeof body.name).toBe('string');
+      expect(typeof body.country).toBe('string');
+      expect(typeof body.state).toBe('string');
+      expect(Array.isArray(body.users_favorite)).toBe(true);
+      expect(Array.isArray(body.travel_tips)).toBe(true);
 
       logger.success('All data types validated successfully');
     });

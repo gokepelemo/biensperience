@@ -3,7 +3,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-hooks';
-import { useDestinationManagement } from '../useDestinationManagement';
+import { useDestinationManagement } from '../../src/hooks/useDestinationManagement';
 
 describe('useDestinationManagement', () => {
   const mockDestinations = [
@@ -70,9 +70,12 @@ describe('useDestinationManagement', () => {
     });
 
     expect(result.current.showDestinationModal).toBe(true);
-    expect(setFormData).toHaveBeenCalledWith(
-      expect.objectContaining({ destination: '' })
-    );
+
+    // Hook uses functional setState (called multiple times); ensure one call clears destination.
+    const updaterCalls = setFormData.mock.calls.map((c) => c[0]).filter((v) => typeof v === 'function');
+    expect(updaterCalls.length).toBeGreaterThan(0);
+    const cleared = updaterCalls.some((fn) => fn({ destination: 'Berlin' }).destination === '');
+    expect(cleared).toBe(true);
   });
 
   it('should handle destination created', () => {
@@ -91,7 +94,10 @@ describe('useDestinationManagement', () => {
     });
 
     expect(setDestinations).toHaveBeenCalledWith(expect.any(Function));
-    expect(setFormData).toHaveBeenCalledWith(
+
+    const updater = setFormData.mock.calls[0][0];
+    expect(typeof updater).toBe('function');
+    expect(updater({ destination: '' })).toEqual(
       expect.objectContaining({ destination: 'Berlin, Germany' })
     );
     expect(result.current.showDestinationModal).toBe(false);
@@ -157,7 +163,7 @@ describe('useDestinationManagement', () => {
 
     act(() => {
       result.current.handleDestinationChange({
-        target: { value: 'Create New: Amsterdam' }
+        target: { value: '✚ Create New: Amsterdam' }
       });
     });
 

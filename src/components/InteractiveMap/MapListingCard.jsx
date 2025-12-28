@@ -59,10 +59,14 @@ function MapListingCard({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
-      role="button"
+      onFocus={() => onHover?.(id)}
+      onBlur={() => onLeave?.(id)}
+      role="option"
+      aria-selected={isActive}
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
           handleClick(e);
         }
       }}

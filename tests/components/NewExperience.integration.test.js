@@ -6,17 +6,17 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import NewExperience from '../NewExperience';
-import { UserProvider } from '../../../contexts/UserContext';
-import { DataProvider } from '../../../contexts/DataContext';
-import { ToastProvider } from '../../../contexts/ToastContext';
-import { createExperience } from '../../../utilities/experiences-api';
+import NewExperience from '../../src/components/NewExperience/NewExperience';
+import { UserProvider } from '../../src/contexts/UserContext';
+import { DataProvider } from '../../src/contexts/DataContext';
+import { ToastProvider } from '../../src/contexts/ToastContext';
+import { createExperience } from '../../src/utilities/experiences-api';
 
 // Increase timeout for async tests
 jest.setTimeout(15000);
 
 // Mock modules
-jest.mock('../../../utilities/experiences-api');
+jest.mock('../../src/utilities/experiences-api');
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn()

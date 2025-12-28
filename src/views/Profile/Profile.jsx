@@ -18,6 +18,7 @@ import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from '../../components/PhotoUploadModal/PhotoUploadModal';
+import MessagesModal from '../../components/ChatModal/MessagesModal';
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { resendConfirmation } from "../../utilities/users-api";
@@ -39,7 +40,7 @@ import { broadcastEvent } from "../../utilities/event-bus";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
-import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
+import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowRelationship, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
@@ -81,6 +82,7 @@ export default function Profile() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [followRelationship, setFollowRelationship] = useState(null); // { isFollowing, isFollowedBy, isMutual }
   const [followButtonHovered, setFollowButtonHovered] = useState(false);
 
   // Follows tab state
@@ -95,6 +97,10 @@ export default function Profile() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const photoSaveTimerRef = useRef(null);
+  // Messages modal state for initiating DMs from profile
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [initialChannelId, setInitialChannelId] = useState(null);
+  const [initialTargetUserId, setInitialTargetUserId] = useState(null);
 
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
@@ -855,11 +861,13 @@ export default function Profile() {
 
     const fetchFollowData = async () => {
       try {
-        const [status, counts] = await Promise.all([
-          getFollowStatus(userId),
+        // Get full relationship (isFollowing, isFollowedBy, isMutual)
+        const [relationship, counts] = await Promise.all([
+          getFollowRelationship(userId),
           getFollowCounts(userId)
         ]);
-        setIsFollowing(status);
+        setIsFollowing(Boolean(relationship?.isFollowing));
+        setFollowRelationship(relationship || null);
         setFollowCounts(counts);
       } catch (err) {
         logger.error('[Profile] Failed to fetch follow data', { error: err.message });
@@ -970,6 +978,12 @@ export default function Profile() {
       setIsFollowing(true);
       setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
       success(lang.current.success.nowFollowing);
+      try {
+        const rel = await getFollowRelationship(userId);
+        setFollowRelationship(rel || null);
+      } catch (e) {
+        // ignore relationship refresh errors
+      }
     } catch (err) {
       const message = handleError(err, { context: 'Follow user' });
       showError(message || 'Failed to follow user');
@@ -994,6 +1008,12 @@ export default function Profile() {
       setIsFollowing(false);
       setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
       success(lang.current.success.unfollowed);
+      try {
+        const rel = await getFollowRelationship(userId);
+        setFollowRelationship(rel || null);
+      } catch (e) {
+        // ignore relationship refresh errors
+      }
     } catch (err) {
       const message = handleError(err, { context: 'Unfollow user' });
       showError(message || 'Failed to unfollow user');
@@ -1583,9 +1603,20 @@ export default function Profile() {
 
                 {/* Action Buttons */}
                 <div className={styles.profileActions}>
-                  {!isOwner && (
+                  {!isOwner && followRelationship?.isMutual && (
                     <>
-                      <Button variant="outline" style={{ borderRadius: 'var(--radius-full)' }}>
+                      <Button
+                        variant="outline"
+                        style={{ borderRadius: 'var(--radius-full)' }}
+                        onClick={() => {
+                          // Defensive: ensure profile loaded and not messaging self
+                          if (!currentProfile || currentProfile._id === user._id) return;
+                          // Open MessagesModal and let it locate or create a DM channel
+                          setInitialChannelId(null);
+                          setInitialTargetUserId(currentProfile._id);
+                          setShowMessagesModal(true);
+                        }}
+                      >
                         <FaEnvelope /> Message
                       </Button>
                       {isFollowing ? (
@@ -2206,6 +2237,19 @@ export default function Profile() {
               throw err;
             }
           }}
+        />
+      )}
+      {/* Messages modal - used to start 1:1 DMs from profile view */}
+      {showMessagesModal && (
+        <MessagesModal
+          show={showMessagesModal}
+          onClose={() => {
+            setShowMessagesModal(false);
+            setInitialChannelId(null);
+            setInitialTargetUserId(null);
+          }}
+          initialChannelId={initialChannelId}
+          targetUserId={initialTargetUserId}
         />
       )}
       </Container>

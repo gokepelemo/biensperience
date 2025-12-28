@@ -201,6 +201,16 @@ const documentSchema = new Schema(
       default: 'public'
     },
 
+    // Visibility control for collaborative access
+    // 'collaborators' = visible to all plan/experience collaborators
+    // 'private' = visible only to the document owner
+    visibility: {
+      type: String,
+      enum: ['collaborators', 'private'],
+      default: 'collaborators',
+      index: true
+    },
+
     // Processing status
     status: {
       type: String,
@@ -280,6 +290,24 @@ const documentSchema = new Schema(
     maxProcessAttempts: {
       type: Number,
       default: 3
+    },
+
+    // Soft delete fields
+    isDisabled: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    disabledAt: {
+      type: Date
+    },
+    disabledBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    disabledReason: {
+      type: String,
+      trim: true
     }
   },
   {
@@ -464,6 +492,46 @@ documentSchema.methods.getMetadataObject = function() {
     result[entry.key] = entry.value;
   }
   return result;
+};
+
+/**
+ * Instance: Soft delete (disable) the document
+ * @param {ObjectId} userId - User who disabled the document
+ * @param {string} reason - Optional reason for disabling
+ * @returns {Promise} Saved document
+ */
+documentSchema.methods.disable = function(userId, reason = '') {
+  this.isDisabled = true;
+  this.disabledAt = new Date();
+  this.disabledBy = userId;
+  this.disabledReason = reason;
+  return this.save();
+};
+
+/**
+ * Instance: Restore a disabled document
+ * @returns {Promise} Saved document
+ */
+documentSchema.methods.restore = function() {
+  this.isDisabled = false;
+  this.disabledAt = undefined;
+  this.disabledBy = undefined;
+  this.disabledReason = undefined;
+  return this.save();
+};
+
+/**
+ * Static: Find active (non-disabled) documents for an entity
+ */
+documentSchema.statics.findActiveByEntity = function(entityType, entityId) {
+  return this.find({ entityType, entityId, isDisabled: { $ne: true } }).sort({ createdAt: -1 });
+};
+
+/**
+ * Static: Find disabled documents for an entity (admin only)
+ */
+documentSchema.statics.findDisabledByEntity = function(entityType, entityId) {
+  return this.find({ entityType, entityId, isDisabled: true }).sort({ disabledAt: -1 });
 };
 
 module.exports = mongoose.model("Document", documentSchema);

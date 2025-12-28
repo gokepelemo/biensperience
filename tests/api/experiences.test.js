@@ -158,13 +158,15 @@ describe('Experiences API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(newExperience);
 
+      const body = response.body?.data || response.body;
+
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(201);
-      validators.isValidExperience(response.body);
-      expect(response.body.name).toBe(newExperience.name);
-      expect(response.body.overview).toBe(newExperience.overview);
-      expect(response.body.permissions.length).toBeGreaterThan(0);
+      validators.isValidExperience(body);
+      expect(body.name).toBe(newExperience.name);
+      expect(body.overview).toBe(newExperience.overview);
+      expect(body.permissions.length).toBeGreaterThan(0);
 
       logger.success('Experience created successfully');
     });
@@ -219,11 +221,13 @@ describe('Experiences API Routes', () => {
         .get(`/api/experiences/${experience._id}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(200);
-      validators.isValidExperience(response.body);
-      expect(response.body._id.toString()).toBe(experience._id.toString());
+      validators.isValidExperience(body);
+      expect(body._id.toString()).toBe(experience._id.toString());
 
       logger.success('Single experience fetched successfully');
     });
@@ -283,11 +287,13 @@ describe('Experiences API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(updateData);
 
+      const body = response.body?.data || response.body;
+
       logger.response(response.status, response.body);
 
       expect(response.status).toBe(200);
-      expect(response.body.name).toBe(updateData.name);
-      expect(response.body.overview).toBe(updateData.overview);
+      expect(body.name).toBe(updateData.name);
+      expect(body.overview).toBe(updateData.overview);
 
       logger.success('Experience updated successfully');
     });
@@ -393,9 +399,11 @@ describe('Experiences API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(planItemData);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(201);
-      expect(response.body.plan_items.length).toBe(1);
-      expect(response.body.plan_items[0].text).toBe(planItemData.text);
+      expect(body.plan_items.length).toBe(1);
+      expect(body.plan_items[0].text).toBe(planItemData.text);
 
       logger.success('Plan item created successfully');
     });
@@ -425,8 +433,10 @@ describe('Experiences API Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(updateData);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(200);
-      const updatedItem = response.body.plan_items.find(item => item._id.toString() === planItemId.toString());
+      const updatedItem = body.plan_items.find(item => item._id.toString() === planItemId.toString());
       expect(updatedItem.text).toBe(updateData.text);
       expect(updatedItem.cost_estimate).toBe(updateData.cost_estimate);
 
@@ -453,8 +463,10 @@ describe('Experiences API Routes', () => {
         .delete(`/api/experiences/${experience._id}/plan-item/${planItemId}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(200);
-      expect(response.body.plan_items.length).toBe(0);
+      expect(body.plan_items.length).toBe(0);
 
       logger.success('Plan item deleted successfully');
     });
@@ -480,9 +492,9 @@ describe('Experiences API Routes', () => {
           type: 'collaborator'
         });
 
+      const responseExperience = response.body?.data || response.body;
+
       expect(response.status).toBe(201);
-      // API returns { message, experience } - check experience.permissions
-      const responseExperience = response.body.experience;
       expect(responseExperience).toBeTruthy();
       const collaboratorPerm = responseExperience.permissions.find(
         p => p._id.toString() === collaborator._id.toString() && p.type === 'collaborator'
@@ -504,9 +516,11 @@ describe('Experiences API Routes', () => {
         .get(`/api/experiences/${experience._id}/permissions`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.permissions)).toBe(true);
-      expect(response.body.permissions.length).toBeGreaterThan(0);
+      expect(Array.isArray(body.permissions)).toBe(true);
+      expect(body.permissions.length).toBeGreaterThan(0);
 
       logger.success('Permissions fetched successfully');
     });
@@ -530,9 +544,9 @@ describe('Experiences API Routes', () => {
         .delete(`/api/experiences/${experience._id}/permissions/${collaborator._id}/user`)
         .set('Authorization', `Bearer ${ownerToken}`);
 
+      const responseExperience = response.body?.data?.experience || response.body?.data || response.body?.experience;
+
       expect(response.status).toBe(200);
-      // API returns { message, removed, experience } - check experience.permissions
-      const responseExperience = response.body.experience;
       expect(responseExperience).toBeTruthy();
       const removedPerm = responseExperience.permissions.find(
         p => p._id.toString() === collaborator._id.toString() && p.type === 'collaborator'
@@ -610,8 +624,11 @@ describe('Experiences API Routes', () => {
         .get(`/api/experiences/user/${user._id}`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(200);
-      expect(response.body.length).toBeGreaterThanOrEqual(2);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThanOrEqual(2);
 
       logger.success('User experiences fetched successfully');
     });
@@ -629,8 +646,11 @@ describe('Experiences API Routes', () => {
         .get(`/api/experiences/user/${user._id}/created`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(200);
-      expect(response.body.length).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThanOrEqual(1);
 
       logger.success('User created experiences fetched successfully');
     });
@@ -649,8 +669,10 @@ describe('Experiences API Routes', () => {
         .get(`/api/experiences/${experience._id}/with-context`)
         .set('Authorization', `Bearer ${token}`);
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('experience');
+      expect(body).toHaveProperty('experience');
 
       logger.success('Experience with context fetched successfully');
     });

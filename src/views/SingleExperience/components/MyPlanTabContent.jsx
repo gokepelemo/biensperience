@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsListUl, BsCardList, BsCalendarWeek, BsThreeDotsVertical } from 'react-icons/bs';
+import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsListUl, BsCardList, BsCalendarWeek, BsThreeDotsVertical, BsChatDots } from 'react-icons/bs';
 import {
   FaEdit,
   FaTrash,
@@ -54,6 +54,8 @@ import SearchableSelect from '../../../components/FormField/SearchableSelect';
 import AddDateModal from '../../../components/AddDateModal';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { updatePlanItem, pinPlanItem } from '../../../utilities/plans-api';
+import { getOrCreatePlanChannel } from '../../../utilities/chat-api';
+import { hasFeatureFlag, FEATURE_FLAGS } from '../../../utilities/feature-flags';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
@@ -61,6 +63,7 @@ import { formatCostEstimate } from '../../../utilities/cost-utils';
 import { lang } from '../../../lang.constants';
 import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 import debug from '../../../utilities/debug';
+import MessagesModal from '../../../components/ChatModal/MessagesModal';
 import {
   getActivityType,
   getActivityTypeIcon,
@@ -218,7 +221,10 @@ function PlanActionsDropdown({
   loading,
   handleAddPlanInstanceItem,
   openCollaboratorModal,
-  handleSyncPlan
+  handleSyncPlan,
+  chatEnabled,
+  chatLoading,
+  openPlanChat
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -235,7 +241,7 @@ function PlanActionsDropdown({
   }, []);
 
   // Don't render if no actions are available
-  if (!canEdit && !isPlanOwner && !showSyncButton) {
+  if (!canEdit && !isPlanOwner && !showSyncButton && !chatEnabled) {
     return null;
   }
 
@@ -252,6 +258,19 @@ function PlanActionsDropdown({
       </button>
       {isOpen && (
         <div className="plan-actions-menu">
+          {chatEnabled && (
+            <button
+              className="plan-actions-item"
+              onClick={() => {
+                openPlanChat();
+                setIsOpen(false);
+              }}
+              disabled={chatLoading}
+            >
+              <BsChatDots className="me-2" />
+              {chatLoading ? 'Opening…' : 'Chat'}
+            </button>
+          )}
           {canEdit && (
             <button
               className="plan-actions-item"
@@ -1856,6 +1875,13 @@ export default function MyPlanTabContent({
   planMembers = [],
   setTyping
 }) {
+  // Check if chat is enabled (Stream Chat API key configured)
+  const chatEnabled = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
+
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
@@ -2243,6 +2269,23 @@ export default function MyPlanTabContent({
     );
   const canEdit = isSuperAdmin || isPlanOwner || isPlanCollaborator;
 
+  const openPlanChat = useCallback(async () => {
+    if (!currentPlan?._id) return;
+
+    setChatError('');
+    setChatLoading(true);
+
+    try {
+      const result = await getOrCreatePlanChannel(currentPlan._id);
+      setMessagesInitialChannelId(result?.id || '');
+      setShowMessagesModal(true);
+    } catch (err) {
+      setChatError(err?.message || 'Failed to open plan chat');
+    } finally {
+      setChatLoading(false);
+    }
+  }, [currentPlan?._id]);
+
   // Compute earliest scheduled date from plan items as fallback
   // NOTE: ALL useMemo hooks must be called BEFORE any early returns to maintain hooks order
   const earliestScheduledDate = useMemo(() => {
@@ -2494,12 +2537,12 @@ export default function MyPlanTabContent({
     },
     {
       id: 'total-cost',
-      title: (lang?.current?.label?.costEstimate || 'Estimated Cost').replace(':', '').replace(' ($)', ''),
+      title: lang?.current?.label?.costEstimate || 'Cost Estimate',
       type: 'cost',
       value: currentPlan.total_cost || 0,
       icon: <FaDollarSign />,
-      // Tooltip always shows the actual cost estimate value with prefix
-      tooltip: `${(lang.current.label.costEstimate || 'Cost Estimate').replace(' ($)', '')}: ${formatCurrency(currentPlan.total_cost || 0)}`
+      // Tooltip shows per-person context with the actual cost estimate value
+      tooltip: `${lang.current.label.costEstimatePerPersonTooltip || 'Estimated cost per person'}: ${formatCurrency(currentPlan.total_cost || 0)}`
     },
     {
       id: 'completion',
@@ -2610,8 +2653,20 @@ export default function MyPlanTabContent({
             handleAddPlanInstanceItem={handleAddPlanInstanceItem}
             openCollaboratorModal={openCollaboratorModal}
             handleSyncPlan={handleSyncPlan}
+            chatEnabled={chatEnabled}
+            chatLoading={chatLoading}
+            openPlanChat={openPlanChat}
           />
         </div>
+        {chatError && (
+          <p style={{ color: 'var(--bs-danger)' }}>{chatError}</p>
+        )}
+        <MessagesModal
+          show={showMessagesModal}
+          onClose={() => setShowMessagesModal(false)}
+          initialChannelId={messagesInitialChannelId}
+          title="Messages"
+        />
         {planMetadata}
         <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
           {lang.current.alert.noPlanItems}
@@ -2670,8 +2725,22 @@ export default function MyPlanTabContent({
           handleAddPlanInstanceItem={handleAddPlanInstanceItem}
           openCollaboratorModal={openCollaboratorModal}
           handleSyncPlan={handleSyncPlan}
+          chatEnabled={chatEnabled}
+          chatLoading={chatLoading}
+          openPlanChat={openPlanChat}
         />
       </div>
+
+      {chatError && (
+        <p style={{ color: 'var(--bs-danger)' }}>{chatError}</p>
+      )}
+
+      <MessagesModal
+        show={showMessagesModal}
+        onClose={() => setShowMessagesModal(false)}
+        initialChannelId={messagesInitialChannelId}
+        title="Messages"
+      />
 
       {/* Plan Metrics Cards */}
       {planMetadata}

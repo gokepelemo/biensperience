@@ -18,7 +18,9 @@ const backendLogger = require("./utilities/backend-logger");
 const cookieParser = require("cookie-parser");
 const { doubleCsrf } = require("csrf-csrf");
 
-require("dotenv").config();
+// Load environment variables from the repo-root .env reliably.
+// This avoids issues when the server is started from a different CWD (e.g. pm2, scripts).
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 // Only require database connection if not in test environment
 if (process.env.NODE_ENV !== 'test') {
@@ -342,6 +344,7 @@ app.use("/api/activities", require("./routes/api/activities"));
 app.use("/api/dashboard", require("./routes/api/dashboard"));
 app.use("/api/follows", require("./routes/api/follows"));
 app.use("/api/ai", require("./routes/api/ai"));
+app.use("/api/chat", require("./routes/api/chat"));
 app.use("/api/geocode", require("./routes/api/geocode"));
 app.use("/api/countries", require("./routes/api/countries"));
 app.use("/health-check", (req, res) => {
@@ -355,7 +358,7 @@ app.use('/api', (err, req, res, next) => {
   // If headers already sent, delegate to default handler
   if (res.headersSent) return next(err);
   // Use standardized error response payload
-  const status = err && err.statusCode ? err.statusCode : 500;
+  const status = (err && (err.statusCode || err.status)) ? (err.statusCode || err.status) : 500;
   return res.status(status).json({ success: false, error: (err && err.message) || 'Internal server error' });
 });
 

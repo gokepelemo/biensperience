@@ -19,12 +19,14 @@ import {
   MyPlans,
   Preferences,
 } from '../../components/Dashboard';
+import MessagesModal from '../../components/ChatModal/MessagesModal';
 import ViewNav from '../../components/ViewNav';
 import styles from './Dashboard.module.scss';
 
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const user = getUser();
@@ -38,6 +40,19 @@ export default function Dashboard() {
     try {
       const hash = (window.location.hash || '').replace('#', '');
       if (!hash) return;
+
+      // Messages is modal-only (no dedicated tab content)
+      if (hash === 'messages') {
+        setShowMessagesModal(true);
+        // Restore the previous tab to avoid navigating to an empty view
+        try {
+          window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#overview`);
+        } catch (e) {
+          // ignore
+        }
+        return;
+      }
+
       if (['overview', 'plans', 'preferences'].includes(hash)) {
         setActiveTab(hash);
         return;
@@ -74,11 +89,43 @@ export default function Dashboard() {
   const quickActionsRef = useRef(null);
   const upcomingPlansRef = useRef(null);
 
+  const handleSelectNav = (key) => {
+    if (key === 'messages') {
+      setShowMessagesModal(true);
+      return;
+    }
+    setActiveTab(key);
+  };
+
+  const handleCloseMessagesModal = () => {
+    setShowMessagesModal(false);
+    // Clean up the URL hash if it's currently '#messages' to prevent re-triggering
+    if (window.location.hash === '#messages') {
+      try {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${activeTab}`);
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
   useEffect(() => {
     const onHashChange = () => {
       try {
         const hash = (window.location.hash || '').replace('#', '');
         if (!hash) return;
+
+        // Messages is modal-only (no dedicated tab content)
+        if (hash === 'messages') {
+          setShowMessagesModal(true);
+          try {
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${activeTab}`);
+          } catch (e) {
+            // ignore
+          }
+          return;
+        }
+
         if (['overview', 'plans', 'preferences'].includes(hash)) {
           setActiveTab(hash);
           return;
@@ -96,7 +143,7 @@ export default function Dashboard() {
 
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  }, [activeTab]);
 
   async function fetchDashboardData() {
     try {
@@ -165,6 +212,7 @@ export default function Dashboard() {
   const navItems = [
     { key: 'overview', label: lang.current.label.dashboard },
     { key: 'plans', label: lang.current.heading.plans, badge: activePlansValue || undefined },
+    { key: 'messages', label: lang.current.label.messages },
     { key: 'preferences', label: lang.current.label.preferences },
   ];
 
@@ -175,7 +223,7 @@ export default function Dashboard() {
         <ViewNav
           items={navItems}
           activeKey={activeTab}
-          onSelect={setActiveTab}
+          onSelect={handleSelectNav}
         />
       </div>
 
@@ -186,7 +234,7 @@ export default function Dashboard() {
           <ViewNav
             items={navItems}
             activeKey={activeTab}
-            onSelect={setActiveTab}
+            onSelect={handleSelectNav}
           />
         </aside>
 
@@ -259,6 +307,11 @@ export default function Dashboard() {
           )}
         </main>
       </div>
+
+      <MessagesModal
+        show={showMessagesModal}
+        onClose={handleCloseMessagesModal}
+      />
     </div>
   );
 }
@@ -272,8 +325,8 @@ function DashboardSkeleton() {
         <aside className={styles.skeletonSidebar}>
           <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonSidebarTitle} />
           <div className={styles.skeletonNavItems}>
-            {/* 3 nav items to match actual navigation */}
-            {Array.from({ length: 3 }).map((_, i) => (
+            {/* 4 nav items to match actual navigation */}
+            {Array.from({ length: 4 }).map((_, i) => (
               <SkeletonLoader key={i} variant="rectangle" width="100%" height={40} />
             ))}
           </div>

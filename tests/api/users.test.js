@@ -61,9 +61,9 @@ describe('Users API', () => {
         .send(updateData)
         .expect(200);
 
-      expect(response.body.user.name).toBe(updateData.name);
-      expect(response.body.user.email).toBe(updateData.email);
-      expect(response.body.token).toBeDefined();
+      expect(response.body.data.user.name).toBe(updateData.name);
+      expect(response.body.data.user.email).toBe(updateData.email);
+      expect(response.body.data.token).toBeDefined();
     });
 
     it('should allow super admin to update any user profile', async () => {
@@ -78,9 +78,9 @@ describe('Users API', () => {
         .send(updateData)
         .expect(200);
 
-      expect(response.body.user.name).toBe(updateData.name);
-      expect(response.body.user.email).toBe(updateData.email);
-      expect(response.body.token).toBeDefined();
+      expect(response.body.data.user.name).toBe(updateData.name);
+      expect(response.body.data.user.email).toBe(updateData.email);
+      expect(response.body.data.token).toBeDefined();
     });
 
     it('should not allow user to update another user profile', async () => {
@@ -163,7 +163,7 @@ describe('Users API', () => {
         .send(updateData)
         .expect(200);
 
-      expect(response.body.token).toBeDefined();
+      expect(response.body.data.token).toBeDefined();
     });
   });
 
@@ -179,7 +179,7 @@ describe('Users API', () => {
         .send(updateData)
         .expect(200);
 
-      expect(response.body.user.emailConfirmed).toBe(true);
+      expect(response.body.data.user.emailConfirmed).toBe(true);
     });
 
     it('should allow super admin to update user password without old password', async () => {
@@ -193,7 +193,7 @@ describe('Users API', () => {
         .send(updateData)
         .expect(200);
 
-      expect(response.body.user).toBeDefined();
+      expect(response.body.data.user).toBeDefined();
     });
 
     it('should not allow regular user to use admin update endpoint', async () => {
@@ -276,8 +276,10 @@ describe('Users API', () => {
         .set('Authorization', `Bearer ${regularUserToken}`)
         .expect(200);
 
-      expect(response.body._id).toBe(regularUser._id.toString());
-      expect(response.body.name).toBe(regularUser.name);
+      const body = response.body?.data || response.body;
+
+      expect(body._id).toBe(regularUser._id.toString());
+      expect(body.name).toBe(regularUser.name);
     });
 
     it('should allow super admin to view any user', async () => {
@@ -286,7 +288,9 @@ describe('Users API', () => {
         .set('Authorization', `Bearer ${superAdminToken}`)
         .expect(200);
 
-      expect(response.body._id).toBe(regularUser._id.toString());
+      const body = response.body?.data || response.body;
+
+      expect(body._id).toBe(regularUser._id.toString());
     });
   });
 });

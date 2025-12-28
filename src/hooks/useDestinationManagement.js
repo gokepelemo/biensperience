@@ -50,7 +50,7 @@ export function useDestinationManagement(destinations, formData, setFormData, se
    */
   const handleDestinationChange = useCallback((e) => {
     const inputValue = e.target.value;
-    setDestinationInput(inputValue);
+    const previousInput = destinationInput;
 
     // Update form data
     setFormData(prev => ({
@@ -58,17 +58,24 @@ export function useDestinationManagement(destinations, formData, setFormData, se
       destination: inputValue
     }));
 
+    // Track the current input value for autocomplete/search
+    setDestinationInput(inputValue);
+
     // Check if user selected create new destination option
     if (inputValue.includes('✚ Create New') ||
         inputValue === '+ Create New Destination' ||
         inputValue.startsWith('Create "')) {
 
-      // Extract the input text if present
+      // Prefer the text the user was typing before selecting the create option.
+      // This keeps prefill stable even though the select value becomes the create-label.
+      const fallbackPrefill = (previousInput || formData.destination || '').trim();
+
+      // Extract the input text if present in the option label
       const match = inputValue.match(/Create New[:\s]*(.+)/);
       if (match && match[1]) {
         setPrefillName(match[1].trim());
       } else {
-        setPrefillName(destinationInput);
+        setPrefillName(fallbackPrefill);
       }
 
       setShowDestinationModal(true);
@@ -77,7 +84,7 @@ export function useDestinationManagement(destinations, formData, setFormData, se
       setFormData(prev => ({ ...prev, destination: '' }));
       setDestinationInput('');
     }
-  }, [destinationInput, setFormData]);
+  }, [destinationInput, formData.destination, setFormData]);
 
   /**
    * Handle when a new destination is created
@@ -108,10 +115,10 @@ export function useDestinationManagement(destinations, formData, setFormData, se
    */
   const handleCreateDestinationClick = useCallback((e) => {
     e.preventDefault();
-    // Use destinationInput which tracks the autocomplete search query
-    setPrefillName(destinationInput);
+    // Prefer current form field content; fallback to the tracked input.
+    setPrefillName((formData.destination || destinationInput || '').trim());
     setShowDestinationModal(true);
-  }, [destinationInput]);
+  }, [destinationInput, formData.destination]);
 
   /**
    * Close destination modal

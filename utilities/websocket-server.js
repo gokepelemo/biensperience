@@ -269,6 +269,8 @@ async function isExperienceMember(userId, experienceId) {
     }
 
     const Experience = mongoose.model('Experience');
+    const Plan = mongoose.model('Plan');
+    
     const experience = await Experience.findById(experienceId, 'permissions').lean();
 
     if (!experience) {
@@ -276,16 +278,33 @@ async function isExperienceMember(userId, experienceId) {
       return false;
     }
 
-    // Check if user is in permissions array with owner or collaborator role
-    const isMember = experience.permissions?.some(p =>
+    // Check if user is in permissions array with owner, collaborator, or contributor role
+    const hasPermission = experience.permissions?.some(p =>
       p.entity === 'user' &&
       p._id?.toString() === userId?.toString() &&
-      (p.type === 'owner' || p.type === 'collaborator')
+      (p.type === 'owner' || p.type === 'collaborator' || p.type === 'contributor')
     );
+
+    // Also check if user has an active plan for this experience
+    // This handles cases where contributor permission wasn't added yet
+    let hasPlan = false;
+    if (!hasPermission) {
+      const planCount = await Plan.countDocuments({
+        experience: experienceId,
+        'permissions._id': userId,
+        'permissions.entity': 'user',
+        'permissions.type': { $in: ['owner', 'collaborator'] }
+      });
+      hasPlan = planCount > 0;
+    }
+
+    const isMember = hasPermission || hasPlan;
 
     backendLogger.debug('[WebSocket] Experience membership check', {
       userId,
       experienceId,
+      hasPermission,
+      hasPlan,
       isMember,
       permissionCount: experience.permissions?.length || 0
     });
@@ -547,13 +566,33 @@ function handleMessage(ws, data) {
     const message = JSON.parse(data.toString());
     const { type, payload } = message;
 
+    // Skip messages with missing or empty payload (except ping which doesn't need one)
+    if (type !== 'ping' && (!payload || typeof payload !== 'object' || Object.keys(payload).length === 0)) {
+      backendLogger.warn('[WebSocket] Message with invalid/empty payload ignored', {
+        type,
+        userId: client.userId,
+        hasPayload: !!payload,
+        payloadType: typeof payload
+      });
+      return;
+    }
+
+    // Log incoming messages for debugging
+    if (type === 'room:join' || type === 'room:leave' || type === 'presence:update' || type === 'event:broadcast') {
+      backendLogger.info('[WebSocket] Incoming message', {
+        type,
+        payloadKeys: Object.keys(payload),
+        userId: client.userId
+      });
+    }
+
     // Skip rate limiting for ping/pong (heartbeat)
     if (type === 'ping') {
       send(ws, { type: 'pong', timestamp: Date.now() });
       return;
     }
 
-    backendLogger.debug('[WebSocket] Message received', {
+    backendLogger.info('[WebSocket] Processing message', {
       type,
       userId: client.userId,
       sessionId: client.sessionId
@@ -561,19 +600,45 @@ function handleMessage(ws, data) {
 
     switch (type) {
       case 'room:join':
-        handleJoinRoom(ws, client, payload);
+        handleJoinRoom(ws, client, payload).catch(error => {
+          backendLogger.error('[WebSocket] Error in handleJoinRoom', { 
+            error: error.message,
+            userId: client.userId 
+          }, error);
+        });
         break;
 
       case 'room:leave':
-        handleLeaveRoom(ws, client, payload);
+        try {
+          handleLeaveRoom(ws, client, payload);
+        } catch (error) {
+          backendLogger.error('[WebSocket] Error in handleLeaveRoom', { 
+            error: error.message,
+            userId: client.userId 
+          }, error);
+        }
         break;
 
       case 'event:broadcast':
-        handleEventBroadcast(ws, client, payload);
+        try {
+          handleEventBroadcast(ws, client, payload);
+        } catch (error) {
+          backendLogger.error('[WebSocket] Error in handleEventBroadcast', { 
+            error: error.message,
+            userId: client.userId 
+          }, error);
+        }
         break;
 
       case 'presence:update':
-        handlePresenceUpdate(ws, client, payload);
+        try {
+          handlePresenceUpdate(ws, client, payload);
+        } catch (error) {
+          backendLogger.error('[WebSocket] Error in handlePresenceUpdate', { 
+            error: error.message,
+            userId: client.userId 
+          }, error);
+        }
         break;
 
       default:
@@ -612,10 +677,23 @@ function handleMessage(ws, data) {
  * @param {object} payload - Join payload with roomId, experienceId, planId, type, tab
  */
 async function handleJoinRoom(ws, client, payload) {
-  const { roomId, experienceId, planId, type, tab } = payload;
+  // Safety check: ensure payload exists
+  if (!payload || typeof payload !== 'object') {
+    backendLogger.warn('[WebSocket] Invalid payload in room:join', {
+      userId: client.userId,
+      payload: payload
+    });
+    send(ws, {
+      type: 'error',
+      payload: { message: 'Invalid room join payload', code: 'INVALID_PAYLOAD' }
+    });
+    return;
+  }
 
-  // Determine room type and ID
-  let roomType = type;
+  const { roomId, experienceId, planId, type, roomType: roomTypeParam, tab } = payload;
+
+  // Determine room type and ID (use roomType from payload or fall back to type)
+  let roomType = roomTypeParam || type;
   let resourceId = null;
   let actualRoomId = roomId;
 
@@ -705,7 +783,7 @@ async function handleJoinRoom(ws, client, payload) {
   // Only broadcast presence:joined if user doesn't have a private profile
   // Private profile users should appear as offline to others
   if (!isPrivate) {
-    broadcastToRoom(actualRoomId, {
+    const presenceMessage = {
       type: 'presence:joined',
       payload: {
         userId: client.userId,
@@ -716,7 +794,16 @@ async function handleJoinRoom(ws, client, payload) {
         tab,
         timestamp: Date.now()
       }
-    }, ws);
+    };
+    
+    backendLogger.info('[WebSocket] Broadcasting presence:joined', {
+      roomId: actualRoomId,
+      userId: client.userId,
+      roomSize: room.size,
+      excludingSelf: true
+    });
+    
+    broadcastToRoom(actualRoomId, presenceMessage, ws);
   }
 
   // Send room info to the joining client (including all members they can see)
@@ -740,6 +827,15 @@ async function handleJoinRoom(ws, client, payload) {
  * @param {object} payload - Leave payload with roomId, experienceId, or planId
  */
 function handleLeaveRoom(ws, client, payload) {
+  // Safety check: ensure payload exists
+  if (!payload || typeof payload !== 'object') {
+    backendLogger.warn('[WebSocket] Invalid payload in room:leave', {
+      userId: client.userId,
+      payload: payload
+    });
+    return;
+  }
+
   const { roomId, experienceId, planId } = payload;
 
   // Determine the actual room ID
@@ -814,6 +910,15 @@ function leaveRoom(ws, client, roomId) {
  * @param {object} payload - Event payload including roomId, experienceId, or planId
  */
 function handleEventBroadcast(ws, client, payload) {
+  // Safety check: ensure payload exists
+  if (!payload || typeof payload !== 'object') {
+    backendLogger.warn('[WebSocket] Invalid payload in event:broadcast', {
+      userId: client.userId,
+      payload: payload
+    });
+    return;
+  }
+
   const { roomId, experienceId, planId, ...eventData } = payload;
 
   // Determine the target room
@@ -873,6 +978,15 @@ function handleEventBroadcast(ws, client, payload) {
  * @param {object} payload - Presence data including roomId, experienceId, or planId
  */
 function handlePresenceUpdate(ws, client, payload) {
+  // Safety check: ensure payload exists
+  if (!payload || typeof payload !== 'object') {
+    backendLogger.warn('[WebSocket] Invalid payload in presence:update', {
+      userId: client.userId,
+      payload: payload
+    });
+    return;
+  }
+
   const { roomId, experienceId, planId, ...presenceData } = payload;
 
   // Determine the target room
@@ -946,12 +1060,24 @@ function handleDisconnect(ws) {
  */
 function broadcastToRoom(planId, message, excludeWs = null) {
   const room = rooms.get(planId);
-  if (!room) return;
+  if (!room) {
+    backendLogger.debug('[WebSocket] Room not found for broadcast', { roomId: planId });
+    return;
+  }
 
+  let sentCount = 0;
   room.forEach((ws) => {
     if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
       send(ws, message);
+      sentCount++;
     }
+  });
+  
+  backendLogger.debug('[WebSocket] Broadcast sent to room', {
+    roomId: planId,
+    messageType: message.type,
+    recipientCount: sentCount,
+    totalRoomSize: room.size
   });
 }
 
@@ -1091,10 +1217,139 @@ function broadcastEvent(roomType, resourceId, event, excludeUserId = null) {
   });
 }
 
+/**
+ * Send an event directly to a specific user's active WebSocket connections.
+ *
+ * This is useful when a user should be notified immediately (e.g. added as a
+ * collaborator) but they may not yet be a member of an experience/plan room.
+ *
+ * @param {string} userId - Target user ID
+ * @param {object} event - Event to send
+ * @param {string} event.type - Event type
+ * @param {object} event.payload - Event payload
+ */
+function sendEventToUser(userId, event) {
+  if (!userId || !event) {
+    backendLogger.warn('[WebSocket] sendEventToUser called with invalid params', {
+      hasUserId: !!userId,
+      hasEvent: !!event
+    });
+    return;
+  }
+
+  const userIdStr = userId.toString();
+  const connections = userConnections.get(userIdStr);
+
+  if (!connections || connections.size === 0) {
+    backendLogger.debug('[WebSocket] No active connections for user, skipping direct send', {
+      userId: userIdStr,
+      eventType: event.type
+    });
+    return;
+  }
+
+  const message = {
+    type: event.type || 'event:received',
+    payload: {
+      ...event.payload,
+      timestamp: Date.now(),
+      version: event.version || Date.now()
+    }
+  };
+
+  let sentCount = 0;
+  connections.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      send(ws, message);
+      sentCount++;
+    }
+  });
+
+  backendLogger.debug('[WebSocket] Direct user event sent', {
+    userId: userIdStr,
+    eventType: event.type,
+    sentCount,
+    totalConnections: connections.size
+  });
+}
+
+// =====================
+// Periodic Cleanup
+// =====================
+
+/**
+ * Cleanup interval in milliseconds (1 minute)
+ */
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+
+/**
+ * Cleanup stale entries from caches and connection tracking
+ * Runs periodically to prevent memory leaks
+ */
+function performCleanup() {
+  const now = Date.now();
+  let cleanedVisibility = 0;
+  let cleanedConnections = 0;
+
+  // 1. Clean stale visibility cache entries (older than 2x TTL)
+  for (const [userId, entry] of userVisibilityCache) {
+    if (now - entry.cachedAt > VISIBILITY_CACHE_TTL * 2) {
+      userVisibilityCache.delete(userId);
+      cleanedVisibility++;
+    }
+  }
+
+  // 2. Clean stale user connections (WebSockets that are no longer open)
+  for (const [userId, connections] of userConnections) {
+    for (const ws of connections) {
+      if (ws.readyState !== 1) { // WebSocket.OPEN = 1
+        connections.delete(ws);
+        cleanedConnections++;
+      }
+    }
+    // Remove user entry if no connections left
+    if (connections.size === 0) {
+      userConnections.delete(userId);
+    }
+  }
+
+  // 3. Clean stale clients from client tracking
+  for (const [ws, client] of clients) {
+    if (ws.readyState !== 1) {
+      clients.delete(ws);
+    }
+  }
+
+  // 4. Clean empty rooms
+  for (const [roomId, room] of rooms) {
+    if (room.size === 0) {
+      rooms.delete(roomId);
+    }
+  }
+
+  if (cleanedVisibility > 0 || cleanedConnections > 0) {
+    backendLogger.debug('[WebSocket] Cleanup completed', {
+      cleanedVisibilityCacheEntries: cleanedVisibility,
+      cleanedStaleConnections: cleanedConnections,
+      currentVisibilityCacheSize: userVisibilityCache.size,
+      currentUserConnections: userConnections.size,
+      currentClients: clients.size,
+      currentRooms: rooms.size
+    });
+  }
+}
+
+// Start periodic cleanup
+const cleanupInterval = setInterval(performCleanup, CLEANUP_INTERVAL_MS);
+
+// Ensure cleanup interval doesn't prevent process exit
+cleanupInterval.unref();
+
 module.exports = {
   createWebSocketServer,
   getStats,
   broadcastEvent,
+  sendEventToUser,
   broadcastToRoom,
   // Cache invalidation for when user updates profile visibility
   invalidateVisibilityCache,

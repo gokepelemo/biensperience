@@ -155,9 +155,39 @@ router.post('/:id/reprocess', ensureLoggedIn, documentsCtrl.reprocess);
 
 /**
  * @route   DELETE /api/documents/:id
- * @desc    Delete a document (from S3 and database)
+ * @desc    Soft delete a document (disables it, keeps in S3)
  * @access  Private (owner only)
  */
 router.delete('/:id', ensureLoggedIn, documentsCtrl.delete);
+
+/**
+ * @route   DELETE /api/documents/:id/permanent
+ * @desc    Permanently delete a document (removes from S3 and database)
+ * @access  Private (super admin only)
+ */
+router.delete('/:id/permanent', ensureLoggedIn, documentsCtrl.permanentDelete);
+
+/**
+ * @route   POST /api/documents/:id/restore
+ * @desc    Restore a disabled document
+ * @access  Private (super admin only)
+ */
+router.post('/:id/restore', ensureLoggedIn, documentsCtrl.restore);
+
+/**
+ * @route   PATCH /api/documents/:id/visibility
+ * @desc    Update document visibility (collaborators or private)
+ * @access  Private (owner only)
+ * @body    { visibility: 'collaborators' | 'private' }
+ */
+router.patch('/:id/visibility', ensureLoggedIn, documentsCtrl.updateVisibility);
+
+/**
+ * @route   GET /api/documents/:id/preview
+ * @desc    Get a signed URL for document preview/download
+ * @access  Private (owner, collaborator, or entity access)
+ * @returns { url: string, filename: string, mimeType: string, expiresIn: number }
+ */
+router.get('/:id/preview', ensureLoggedIn, documentsCtrl.getPreviewUrl);
 
 module.exports = router;

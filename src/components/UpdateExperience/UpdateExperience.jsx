@@ -428,7 +428,7 @@ export default function UpdateExperience() {
         <Banner
           type="info"
           variant="bordered"
-          title={lang.current.form.changesDetected}
+          title={lang.current.alert.changesDetected}
           className="mb-4"
           showIcon={true}
         >
@@ -482,7 +482,7 @@ export default function UpdateExperience() {
 
             <div className="mb-4">
               <Form.Group>
-                <Form.Label>
+                <Form.Label htmlFor="destination-autocomplete">
                   {lang.current.label.destinationLabel}
                   {' '}
                   <span className="text-danger">*</span>
@@ -493,6 +493,7 @@ export default function UpdateExperience() {
                   />
                 </Form.Label>
                 <Autocomplete
+                  inputId="destination-autocomplete"
                   placeholder={lang.current.placeholder.destination}
                   entityType="destination"
                   items={(() => {

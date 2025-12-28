@@ -61,10 +61,12 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
+      const body = response.body?.data || response.body;
+
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('_id');
-      expect(response.body.experience._id).toBe(experience._id.toString());
-      expect(response.body.user._id).toBe(user._id.toString());
+      expect(body).toHaveProperty('_id');
+      expect(body.experience._id).toBe(experience._id.toString());
+      expect(body.user._id).toBe(user._id.toString());
 
       // Verify plan was created in database
       const plan = await Plan.findOne({ experience: experience._id, user: user._id });
@@ -120,7 +122,8 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
-      const planId = createResponse.body._id;
+      const createdPlan = createResponse.body?.data || createResponse.body;
+      const planId = createdPlan._id;
 
       // Delete plan
       const deleteResponse = await request(app)
@@ -156,8 +159,10 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
+      const createdPlan = createResponse.body?.data || createResponse.body;
+
       await request(app)
-        .delete(`/api/plans/${createResponse.body._id}`)
+        .delete(`/api/plans/${createdPlan._id}`)
         .set('Authorization', authToken);
 
       // Verify owner permission still exists
@@ -183,8 +188,10 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
+      const createdPlan = createResponse.body?.data || createResponse.body;
+
       await request(app)
-        .delete(`/api/plans/${createResponse.body._id}`)
+        .delete(`/api/plans/${createdPlan._id}`)
         .set('Authorization', authToken);
 
       // Verify collaborator permission still exists
@@ -203,7 +210,9 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
-      const plan = await Plan.findById(response.body._id);
+      const createdPlan = response.body?.data || response.body;
+
+      const plan = await Plan.findById(createdPlan._id);
       
       expect(plan.plan).toHaveLength(2);
       expect(plan.plan[0].text).toBe('Plan Item 1');
@@ -223,6 +232,8 @@ describe('Plan Integration Tests', () => {
         .set('Authorization', authToken)
         .send({ planned_date: new Date() });
 
+      const createdPlan = response.body?.data || response.body;
+
       // Modify experience plan items using findOneAndUpdate to avoid version conflicts
       await Experience.findOneAndUpdate(
         { _id: experience._id },
@@ -231,7 +242,7 @@ describe('Plan Integration Tests', () => {
       );
 
       // Verify plan snapshot unchanged
-      const plan = await Plan.findById(response.body._id);
+      const plan = await Plan.findById(createdPlan._id);
       expect(plan.plan[0].text).toBe('Plan Item 1'); // Original text
     });
   });

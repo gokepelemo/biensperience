@@ -140,11 +140,47 @@ export function useDateManagement({
   }, [displayedPlannedDate]);
 
   /**
+   * Helper to update an existing plan's date
+   * @param {string} planId - Plan ID to update
+   * @returns {Promise<void>}
+   */
+  const updateExistingPlanDate = useCallback(async (planId) => {
+    const dateToSend = plannedDate
+      ? new Date(plannedDate).toISOString()
+      : null;
+
+    // Optimistically update displayed date
+    setDisplayedPlannedDate(dateToSend);
+
+    // Update server - event reconciliation handles state synchronization
+    await updatePlan(planId, { planned_date: dateToSend });
+
+    // Refresh plans - version-based reconciliation prevents overwrites
+    fetchUserPlan().catch(() => {});
+    fetchSharedPlans().catch(() => {});
+    fetchPlans().catch(() => {});
+
+    debug.log("Plan date updated successfully", { planId });
+  }, [plannedDate, updatePlan, setDisplayedPlannedDate, fetchUserPlan, fetchSharedPlans, fetchPlans]);
+
+  /**
+   * Helper to finalize date update (cleanup UI state)
+   */
+  const finalizeDateUpdate = useCallback(() => {
+    closeModal();
+    setIsEditingDate(false);
+    setPlannedDate("");
+  }, [closeModal, setIsEditingDate, setPlannedDate]);
+
+  /**
    * Handle date update for plans and experiences.
-   * Supports updating:
-   * - Selected collaborative plan's date (My Plan tab)
-   * - User's own plan date (Experience tab for non-owners)
-   * - Owner's personal plan date (Experience tab for owners)
+   *
+   * Logic flow:
+   * 1. CREATE mode (isEditingDate=false): Always create a new plan for the user
+   *    - This allows users to create their own plan even when viewing a shared plan
+   * 2. EDIT mode (isEditingDate=true): Update an existing plan's date
+   *    - On "My Plan" tab: Update the selected plan's date
+   *    - On "Experience" tab: Update user's own plan date (if exists)
    */
   const handleDateUpdate = useCallback(async () => {
     if (!plannedDate) return;
@@ -152,97 +188,50 @@ export function useDateManagement({
     try {
       setLoading(true);
 
-      // If viewing "My Plan" tab, update the selected plan's date
-      if (activeTab === "myplan" && selectedPlanId) {
-        // Convert date string to ISO format for the API
-        const dateToSend = plannedDate
-          ? new Date(plannedDate).toISOString()
-          : null;
-
-        // Optimistically update displayed date immediately
-        setDisplayedPlannedDate(dateToSend);
-
-        // Update server - event reconciliation handles state synchronization
-        await updatePlan(selectedPlanId, { planned_date: dateToSend });
-
-        // Refresh plans immediately - version-based reconciliation prevents overwrites
-        fetchUserPlan().catch(() => {});
-        fetchSharedPlans().catch(() => {});
-        fetchPlans().catch(() => {});
-
-        debug.log("Plan date updated successfully");
-      } else if (!isOwner(user, experience)) {
-        // Only non-owners can update planned date on Experience tab
-        // Owners don't have a planned date since they manage the experience directly
-
-        // Check if user already has a plan for this experience
-        if (userPlan) {
-          // Update existing plan's date
-          // Convert date string to ISO format for the API
-          const dateToSend = plannedDate
-            ? new Date(plannedDate).toISOString()
-            : null;
-
-          // Optimistically update displayed date
-          setDisplayedPlannedDate(dateToSend);
-
-          // Update server - event reconciliation handles state synchronization
-          await updatePlan(userPlan._id, { planned_date: dateToSend });
-
-          // Refresh plans immediately - version-based reconciliation prevents overwrites
-          fetchUserPlan().catch(() => {});
-          fetchSharedPlans().catch(() => {});
-          fetchPlans().catch(() => {});
-
-          debug.log("Existing plan date updated successfully");
-        } else {
-          // Create new plan by adding experience
-          await handleAddExperience();
-        }
-
-        // Refresh experience to get updated state
+      // === CREATE MODE ===
+      // When user clicks "Plan This Experience" button (not editing existing date)
+      if (!isEditingDate) {
+        await handleAddExperience();
         await fetchAllData();
-      } else if (isOwner(user, experience)) {
-        // Owners can now create plans for their own experiences
-        // Check if owner already has a plan
-        if (userPlan) {
-          // Update existing plan's date
-          const dateToSend = plannedDate
-            ? new Date(plannedDate).toISOString()
-            : null;
+        finalizeDateUpdate();
+        return;
+      }
 
-          // Optimistically update displayed date
-          setDisplayedPlannedDate(dateToSend);
+      // === EDIT MODE ===
+      // User is editing an existing plan's date
 
-          // Update server - event reconciliation handles state synchronization
-          await updatePlan(userPlan._id, { planned_date: dateToSend });
-
-          // Refresh plans immediately - version-based reconciliation prevents overwrites
-          fetchUserPlan().catch(() => {});
-          fetchSharedPlans().catch(() => {});
-          fetchPlans().catch(() => {});
-
-          debug.log("Owner's existing plan date updated successfully");
-        } else {
-          // Create new plan by adding experience
-          await handleAddExperience();
-        }
-
-        // Refresh experience to get updated state
+      // Case 1: Editing selected plan on "My Plan" tab
+      if (activeTab === "myplan" && selectedPlanId) {
+        await updateExistingPlanDate(selectedPlanId);
+      }
+      // Case 2: Editing user's own plan on "Experience" tab
+      else if (userPlan) {
+        await updateExistingPlanDate(userPlan._id);
+        await fetchAllData();
+      }
+      // Case 3: No existing plan (shouldn't happen in edit mode, but handle gracefully)
+      else {
+        debug.log("Edit mode but no plan exists - creating new plan");
+        await handleAddExperience();
         await fetchAllData();
       }
 
-      closeModal();
-      setIsEditingDate(false);
-      setPlannedDate("");
+      finalizeDateUpdate();
     } catch (err) {
-      // Special-case email verification errors to give a clear action to the user
-      const msgLower = (err && err.message ? err.message.toLowerCase() : "");
-      if (msgLower.includes("email verification") || msgLower.includes("email_not_verified") || msgLower.includes("email not verified") || msgLower.includes("verify your email") || msgLower.includes("email_confirmed") ) {
+      // Handle email verification errors with specific message
+      const msgLower = err?.message?.toLowerCase() || "";
+      const isEmailError = [
+        "email verification",
+        "email_not_verified",
+        "email not verified",
+        "verify your email",
+        "email_confirmed"
+      ].some(phrase => msgLower.includes(phrase));
+
+      if (isEmailError) {
         showError('Email verification required. Please verify your email address (check your inbox for a verification link)');
       } else {
-        const errorMsg = handleError(err, { context: "Update date" });
-        showError(errorMsg);
+        showError(handleError(err, { context: "Update date" }));
       }
     } finally {
       setLoading(false);
@@ -251,17 +240,13 @@ export function useDateManagement({
     plannedDate,
     activeTab,
     selectedPlanId,
-    user,
-    experience,
     userPlan,
+    isEditingDate,
     handleAddExperience,
-    fetchUserPlan,
-    fetchSharedPlans,
-    fetchPlans,
     fetchAllData,
-    updatePlan,
+    updateExistingPlanDate,
+    finalizeDateUpdate,
     setLoading,
-    closeModal,
     showError
   ]);
 

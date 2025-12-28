@@ -89,7 +89,10 @@ export async function sendRequest(url, method = "GET", payload = null, requestOp
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
 
-    const fetchOptions = { method, signal: controller.signal };
+    // Always include cookies (session + CSRF) for API requests.
+    // This is required for CSRF validation and for any cookie-based auth/session features.
+    // It also prevents subtle failures when frontend/backend run on different ports.
+    const fetchOptions = { method, signal: controller.signal, credentials: 'include' };
     
     // Add CSRF token for state-changing requests
     const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
@@ -304,10 +307,23 @@ export async function uploadFile(url, method = "POST", payload = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
 
-    const options = { method, signal: controller.signal };
+    const options = { method, signal: controller.signal, credentials: 'include' };
     if (payload) {
         options.body = payload;
     }
+
+    // Add CSRF token for state-changing requests (uploads are typically POST)
+    const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
+    if (isStateChanging) {
+        try {
+            const csrfTokenValue = await getCsrfToken();
+            options.headers = options.headers || {};
+            options.headers['x-csrf-token'] = csrfTokenValue;
+        } catch (error) {
+            logger.error('[send-request] Failed to get CSRF token for upload', { error: error.message }, error);
+        }
+    }
+
     const token = getToken();
     if (token) {
         options.headers = options.headers || {};
@@ -346,7 +362,21 @@ export async function uploadFile(url, method = "POST", payload = null) {
             statusText: res.statusText,
             errorText
         });
-        throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+
+        // Try to extract the actual error message from JSON response
+        let errorMessage = `Upload failed: ${res.status} ${res.statusText}`;
+        try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.error) {
+                errorMessage = errorData.error;
+            }
+        } catch {
+            // If not JSON, use the text if it's short enough
+            if (errorText && errorText.length < 200) {
+                errorMessage = errorText;
+            }
+        }
+        throw new Error(errorMessage);
     } catch (error) {
         if (error.name === 'AbortError') {
             logger.error('File upload timed out', { url, method, timeoutMs: DEFAULT_TIMEOUT });

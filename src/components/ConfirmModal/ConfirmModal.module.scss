@@ -1,6 +1,23 @@
 @use '../../styles/scss/abstracts' as *;
 
+/**
+ * ConfirmModal Bootstrap Overrides
+ * 
+ * These global selectors override Bootstrap modal defaults for ConfirmModal.
+ * Note: These affect ALL Bootstrap modals on the page when this module is loaded.
+ * Consider using the Modal component with scoped styles for new modals.
+ * 
+ * TODO: Migrate to scoped approach using .confirmModalContainer wrapper class
+ * once all modals are converted to the design system Modal component.
+ */
+
+/* Container class for future scoped styling migration */
+.confirmModalContainer {
+  /* Placeholder for migration to scoped selectors */
+}
+
 /* Bootstrap modal overrides - using :global() for Bootstrap classes */
+/* These global styles are necessary for Bootstrap modal compatibility */
 :global(.modal-backdrop) {
   background-color: rgba(0, 0, 0, 0.5);
   position: fixed !important;
@@ -33,6 +50,9 @@
   margin: 0 auto;
   position: relative;
   z-index: 1102;
+  flex: 0 0 auto; /* Prevent flex stretching */
+  height: auto !important;
+  max-height: 90vh;
 }
 
 :global(.modal-content) {

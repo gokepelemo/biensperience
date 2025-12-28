@@ -86,11 +86,21 @@ export class WebSocketClient {
       throw new Error('WebSocket URL not configured. Set REACT_APP_WEBSOCKET_URL environment variable.');
     }
 
+    // Don't attempt connection without auth token
+    // The EventBus will call setAuthToken after login to reconnect
+    if (!this.authToken) {
+      logger.debug('[WebSocketClient] No auth token - waiting for login');
+      this.setState(ConnectionState.DISCONNECTED);
+      return;
+    }
+
     if (this.state === ConnectionState.CONNECTED || this.state === ConnectionState.CONNECTING) {
       logger.debug('[WebSocketClient] Already connected or connecting');
       return;
     }
 
+    // Reset reconnect attempts for a fresh connection
+    this.reconnectAttempts = 0;
     this.setState(ConnectionState.CONNECTING);
 
     return new Promise((resolve, reject) => {
@@ -108,7 +118,12 @@ export class WebSocketClient {
           ? `${this.url}?${params.toString()}`
           : this.url;
 
-        logger.info('[WebSocketClient] Connecting', { url: this.url });
+        logger.info('[WebSocketClient] Connecting', { 
+          url: this.url,
+          hasAuthToken: !!this.authToken,
+          hasSessionId: !!this.sessionId,
+          authTokenLength: this.authToken?.length || 0
+        });
         this.socket = new WebSocket(urlWithParams);
 
         // Store resolve/reject for handlers
@@ -153,14 +168,25 @@ export class WebSocketClient {
 
   /**
    * Send a message through the WebSocket
-   * @param {object} message - Message to send
+   * Transforms EventBus event format to WebSocket server format:
+   * EventBus: { type, version, timestamp, ...eventData }
+   * WebSocket: { type, payload: { ...eventData } }
+   * 
+   * @param {object} message - Message to send (EventBus format)
    * @returns {boolean} True if sent immediately, false if queued
    */
   send(message) {
     if (this.state === ConnectionState.CONNECTED && this.socket?.readyState === WebSocket.OPEN) {
       try {
-        this.socket.send(JSON.stringify(message));
-        logger.debug('[WebSocketClient] Message sent', { type: message.type });
+        // Transform EventBus format to WebSocket server format
+        const { type, version, timestamp, vectorClock, sessionId, userId, ...eventData } = message;
+        const wsMessage = {
+          type,
+          payload: eventData
+        };
+        
+        this.socket.send(JSON.stringify(wsMessage));
+        logger.debug('[WebSocketClient] Message sent', { type: wsMessage.type });
         return true;
       } catch (error) {
         logger.error('[WebSocketClient] Failed to send message', {
@@ -221,7 +247,14 @@ export class WebSocketClient {
 
       if (this.socket?.readyState === WebSocket.OPEN) {
         try {
-          this.socket.send(JSON.stringify(message));
+          // Transform EventBus format to WebSocket server format
+          const { type, version, timestamp, vectorClock, sessionId, userId, ...eventData } = message;
+          const wsMessage = {
+            type,
+            payload: eventData
+          };
+          
+          this.socket.send(JSON.stringify(wsMessage));
         } catch (error) {
           // Re-queue failed messages at the front
           this.pendingMessages.unshift(message);
@@ -433,6 +466,13 @@ export class WebSocketClient {
    */
   scheduleReconnect() {
     if (this.reconnectTimer) return;
+
+    // Don't reconnect without auth token
+    if (!this.authToken) {
+      logger.debug('[WebSocketClient] Skipping reconnect - no auth token');
+      this.setState(ConnectionState.DISCONNECTED);
+      return;
+    }
 
     this.reconnectAttempts++;
     this.setState(ConnectionState.RECONNECTING);

@@ -3,11 +3,27 @@ import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import envCompatible from 'vite-plugin-env-compatible';
 import path from 'path';
+import { execSync } from 'child_process';
+import pkg from './package.json' with { type: 'json' };
+
+// Get git commit hash for version tracking
+function getGitCommitHash() {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'unknown';
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on mode (development, production, etc.)
   const env = loadEnv(mode, process.cwd(), '');
+
+  // Get version info
+  const appVersion = pkg.version;
+  const commitHash = getGitCommitHash();
+  const buildTime = new Date().toISOString();
 
   return {
     plugins: [
@@ -31,6 +47,10 @@ export default defineConfig(({ mode }) => {
 
     // Define environment variables without VITE_ prefix
     define: {
+      // App Version Info (injected at build time)
+      'import.meta.env.APP_VERSION': JSON.stringify(appVersion),
+      'import.meta.env.COMMIT_HASH': JSON.stringify(commitHash),
+      'import.meta.env.BUILD_TIME': JSON.stringify(buildTime),
       // AI Configuration
       'import.meta.env.AI_DEFAULT_PROVIDER': JSON.stringify(env.AI_DEFAULT_PROVIDER || 'openai'),
       'import.meta.env.OPENAI_API_KEY': JSON.stringify(env.OPENAI_API_KEY || ''),

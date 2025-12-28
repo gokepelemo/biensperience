@@ -4,7 +4,7 @@
  * Refactored to use unified Autocomplete component and design tokens
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaTimes, FaUserPlus, FaEnvelope, FaCheck } from 'react-icons/fa';
 import Modal from '../../../components/Modal/Modal';
 import Autocomplete from '../../../components/Autocomplete/Autocomplete';
@@ -43,6 +43,9 @@ export default function CollaboratorModal({
   const [emailSuccess, setEmailSuccess] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  const autoCloseTimerRef = useRef(null);
+  const emailSuccessTimerRef = useRef(null);
+
   const title = context === 'plan' ? 'Manage Plan Collaborators' : 'Manage Experience Collaborators';
 
   // Filter out existing collaborators from selected collaborators
@@ -53,23 +56,46 @@ export default function CollaboratorModal({
   // Check if there are any changes to apply
   const hasChanges = removedCollaborators.length > 0 || newlySelectedCollaborators.length > 0;
 
-  // Reset step when modal opens/closes
+  // Reset internal modal state when (re)opening, and cleanup timers on close.
   useEffect(() => {
+    // Always clear timers on show/hide transitions
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    if (emailSuccessTimerRef.current) {
+      clearTimeout(emailSuccessTimerRef.current);
+      emailSuccessTimerRef.current = null;
+    }
+
     if (show) {
       setStep('edit');
+      setMode('search');
+      setEmailForm({ email: '', name: '' });
+      setEmailError('');
+      setEmailSuccess(false);
+      setIsSendingEmail(false);
     }
   }, [show]);
 
   // Auto-close modal after successful add/remove
+  // Guarded by `show` so stale success state can't close a freshly opened modal.
   useEffect(() => {
-    if (addSuccess || actuallyRemovedCollaborators.length > 0) {
-      // Close after 1.5 seconds to show success message
-      const timeout = setTimeout(() => {
-        onHide();
-      }, 1500);
-      return () => clearTimeout(timeout);
-    }
-  }, [addSuccess, actuallyRemovedCollaborators, onHide]);
+    if (!show) return;
+    if (!(addSuccess || actuallyRemovedCollaborators.length > 0)) return;
+
+    // Close after 1.5 seconds to show success message
+    autoCloseTimerRef.current = setTimeout(() => {
+      onHide();
+    }, 1500);
+
+    return () => {
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current);
+        autoCloseTimerRef.current = null;
+      }
+    };
+  }, [show, addSuccess, actuallyRemovedCollaborators.length, onHide]);
 
   const handleEmailChange = (field, value) => {
     setEmailForm(prev => ({ ...prev, [field]: value }));
@@ -105,7 +131,10 @@ export default function CollaboratorModal({
       setEmailForm({ email: '', name: '' });
 
       // Clear success message after 5 seconds
-      setTimeout(() => setEmailSuccess(false), 5000);
+      if (emailSuccessTimerRef.current) {
+        clearTimeout(emailSuccessTimerRef.current);
+      }
+      emailSuccessTimerRef.current = setTimeout(() => setEmailSuccess(false), 5000);
     } catch (error) {
       logger.error('Error sending email invite', { error: error.message });
       setEmailError(error.message || 'Failed to send email invite');

@@ -11,6 +11,83 @@
 const logger = require('./backend-logger');
 
 /**
+ * Feature flag evaluation contexts.
+ *
+ * - ENTITY_CREATOR: check the user who created/owns the entity
+ * - LOGGED_IN_USER: check the currently authenticated user
+ */
+const FEATURE_FLAG_CONTEXT = {
+  ENTITY_CREATOR: 'entity_creator',
+  LOGGED_IN_USER: 'logged_in_user'
+};
+
+function normalizeFeatureFlagContext(context) {
+  const normalized = String(context || '').trim().toLowerCase();
+
+  if (
+    normalized === FEATURE_FLAG_CONTEXT.ENTITY_CREATOR ||
+    normalized === 'creator' ||
+    normalized === 'owner'
+  ) {
+    return FEATURE_FLAG_CONTEXT.ENTITY_CREATOR;
+  }
+
+  if (
+    normalized === FEATURE_FLAG_CONTEXT.LOGGED_IN_USER ||
+    normalized === 'user' ||
+    normalized === 'actor' ||
+    normalized === 'viewer'
+  ) {
+    return FEATURE_FLAG_CONTEXT.LOGGED_IN_USER;
+  }
+
+  // Default to creator-context for safety (fail-closed for entity-scoped features)
+  return FEATURE_FLAG_CONTEXT.ENTITY_CREATOR;
+}
+
+/**
+ * Check a feature flag in a specific context.
+ *
+ * This is useful for entity-scoped features where the flag should be evaluated
+ * against the user who created the entity (Scenario 1), while still allowing
+ * user-scoped features to be evaluated against the logged-in user (Scenario 2).
+ *
+ * Super admin bypass is evaluated on the logged-in user (the actor), regardless
+ * of the selected context.
+ *
+ * @param {Object} params
+ * @param {Object} params.loggedInUser - Currently authenticated user
+ * @param {Object} params.entityCreatorUser - User who created/owns the entity
+ * @param {string} params.flagKey - Feature flag key
+ * @param {string} params.context - FEATURE_FLAG_CONTEXT.* or alias
+ * @param {Object} params.options - Options forwarded to hasFeatureFlag
+ * @returns {boolean}
+ */
+function hasFeatureFlagInContext(params = {}) {
+  const {
+    loggedInUser,
+    entityCreatorUser,
+    flagKey,
+    context = FEATURE_FLAG_CONTEXT.ENTITY_CREATOR,
+    options = {}
+  } = params;
+
+  // Super admins bypass checks regardless of which user-context is being evaluated.
+  if (options.allowSuperAdmin !== false && loggedInUser && (loggedInUser.role === 'super_admin' || loggedInUser.isSuperAdmin)) {
+    return true;
+  }
+
+  const normalizedContext = normalizeFeatureFlagContext(context);
+
+  if (normalizedContext === FEATURE_FLAG_CONTEXT.LOGGED_IN_USER) {
+    return hasFeatureFlag(loggedInUser, flagKey, options);
+  }
+
+  // Creator-context: if creator user not provided, fail closed.
+  return hasFeatureFlag(entityCreatorUser, flagKey, options);
+}
+
+/**
  * Known feature flags registry
  * Add new flags here with their default configuration
  */
@@ -76,6 +153,15 @@ const FEATURE_FLAGS = {
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'curator'
+  },
+
+  // Stream Chat (messaging)
+  STREAM_CHAT: {
+    key: 'stream_chat',
+    description: 'In-app messaging powered by Stream Chat',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'beta'
   }
 };
 
@@ -352,9 +438,11 @@ module.exports = {
   // Constants
   FEATURE_FLAGS,
   GLOBAL_FLAGS,
+  FEATURE_FLAG_CONTEXT,
 
   // User flag functions
   hasFeatureFlag,
+  hasFeatureFlagInContext,
   getFeatureFlagConfig,
   getUserFeatureFlags,
   addFeatureFlag,

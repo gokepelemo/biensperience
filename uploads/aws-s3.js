@@ -41,12 +41,21 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     throw new Error('Invalid file path');
   }
 
-  // Resolve the path and ensure it's within the expected directory
+  // Resolve the path and ensure it's within the expected directories
   const resolvedPath = path.resolve(file);
-  const uploadDir = path.resolve('./uploads'); // Assuming uploads are in ./uploads
 
-  // Check if the resolved path is within the upload directory
-  if (!resolvedPath.startsWith(uploadDir)) {
+  // Allowed directories for uploads
+  const allowedDirs = [
+    path.resolve('./uploads'),
+    path.resolve('./uploads/documents'),
+    path.resolve('./uploads/images'),
+    path.resolve('./uploads/temp')
+  ];
+
+  // Check if the resolved path is within any allowed directory
+  const isAllowed = allowedDirs.some(dir => resolvedPath.startsWith(dir + path.sep) || resolvedPath === dir);
+  if (!isAllowed) {
+    backendLogger.error('S3 upload path validation failed', { resolvedPath, allowedDirs });
     throw new Error('Invalid file path - path traversal detected');
   }
 
@@ -58,13 +67,24 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     throw new Error('Protected bucket not configured. Set S3_PROTECTED_BUCKET_NAME environment variable.');
   }
 
-  // Sanitize user-controlled file names
-  newName = sanitizeFileName(slugify(newName, { lower: true }));
-  backendLogger.debug('Processing file upload', { originalName, newName, bucketName, isProtected });
+  // Sanitize user-controlled file names while preserving path structure
+  // Split by '/' to handle paths like 'documents/userId/timestamp-filename'
+  const pathParts = newName.split('/');
+  const sanitizedParts = pathParts.map((part, index) => {
+    // Only slugify the final filename part, preserve directory structure
+    if (index === pathParts.length - 1) {
+      return sanitizeFileName(slugify(part, { lower: true }));
+    }
+    // For directory parts, just sanitize without slugify to preserve structure
+    return sanitizeFileName(part);
+  });
+  const sanitizedName = sanitizedParts.join('/');
+
+  backendLogger.debug('Processing file upload', { originalName, newName: sanitizedName, bucketName, isProtected });
   const contentType = mime.lookup(originalName);
   const extension = mime.extension(contentType);
   const stream = fs.createReadStream(file);
-  const key = `${newName}.${extension}`;
+  const key = `${sanitizedName}.${extension}`;
   const params = {
     Bucket: bucketName,
     Key: key,

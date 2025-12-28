@@ -1,13 +1,15 @@
-import { useEffect } from "react";
-import styles from "./Modal.module.scss";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import styles from "./Modal.module.scss";
 import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
 import { useModalEscape } from "../../hooks/useKeyboardNavigation";
 
 /**
  * Flexible modal component with customizable size, buttons, and content.
- * See PropTypes for full prop documentation.
+ *
+ * Uses createPortal to render at document.body level to ensure proper z-index stacking.
+ * The body overflow is managed to prevent background scrolling.
  */
 export default function Modal({
   show,
@@ -35,32 +37,18 @@ export default function Modal({
   // ESC key closes modal
   useModalEscape(onClose, show);
 
-  // Lock body scroll when modal is open to prevent background scrolling
-  // Enhanced for iOS Safari which requires additional fixes
+  // Track scroll position for simple overflow hidden approach
+  const scrollYRef = useRef(0);
+
+  // Simplified scroll lock - just overflow:hidden, no position:fixed
+  // This avoids the Chrome compositor issues with position:fixed on body
   useEffect(() => {
     if (show) {
-      // Store original styles to restore later
-      const originalOverflow = document.body.style.overflow;
-      const originalPosition = document.body.style.position;
-      const originalTop = document.body.style.top;
-      const originalWidth = document.body.style.width;
-      const scrollY = window.scrollY;
-
-      // Apply scroll lock - this approach works reliably on iOS Safari
+      scrollYRef.current = window.scrollY;
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
 
       return () => {
-        // Restore original styles
-        document.body.style.overflow = originalOverflow;
-        document.body.style.position = originalPosition;
-        document.body.style.top = originalTop;
-        document.body.style.width = originalWidth;
-
-        // Restore scroll position
-        window.scrollTo(0, scrollY);
+        document.body.style.overflow = '';
       };
     }
   }, [show]);
@@ -71,6 +59,14 @@ export default function Modal({
     e.preventDefault();
     if (onSubmit && !disableSubmit && !loading) {
       onSubmit(e);
+    }
+  };
+
+  // Handle backdrop click
+  const handleBackdropClick = (e) => {
+    // Only close if clicking directly on the backdrop, not the modal content
+    if (e.target === e.currentTarget) {
+      onClose();
     }
   };
 
@@ -100,8 +96,22 @@ export default function Modal({
     bodyClassName
   ].filter(Boolean).join(" ");
 
+  // Render via createPortal to document.body for proper z-index stacking
   const modalContent = (
-    <div className={`${styles.modalShow} modal show d-block`} tabIndex="-1">
+    <div
+      className={`${styles.modalShow} modal show d-block`}
+      tabIndex="-1"
+      onClick={handleBackdropClick}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1050,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)'
+      }}
+    >
       <div className={modalDialogClasses}>
         <div className={modalContentClasses}>
           {/* Header */}
@@ -156,7 +166,6 @@ export default function Modal({
     </div>
   );
 
-  // Render modal at document body level to ensure proper positioning
   return createPortal(modalContent, document.body);
 }
 

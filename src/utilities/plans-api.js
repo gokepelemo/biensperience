@@ -266,18 +266,31 @@ export function updatePlanItem(planId, itemId, updates) {
     .then((result) => {
       // Emit events via event bus (handles local + cross-tab dispatch)
       try {
-        const rawExp = result?.experience?._id || result?.experience || null;
+        const updatedPlan = extractData(result);
+
+        const rawExp = updatedPlan?.experience?._id || updatedPlan?.experience || null;
         const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
         const version = Date.now();
+
+        // Derive the updated item when the API returns the full plan
+        const updatedItem = Array.isArray(updatedPlan?.plan)
+          ? updatedPlan.plan.find((it) => {
+            const itId = it?._id?.toString ? it._id.toString() : it?._id;
+            const targetId = itemId?.toString ? itemId.toString() : itemId;
+            return itId && targetId && itId === targetId;
+          })
+          : null;
 
         // Standardized event payload
         const eventPayload = {
           planId,
           itemId,
+          planItemId: itemId,
           experienceId,
           version,
-          data: result,
+          data: updatedPlan,
           changes: normalizedUpdates,
+          planItem: updatedItem,
           action: normalizedUpdates.completed !== undefined
             ? (normalizedUpdates.completed ? 'item_completed' : 'item_uncompleted')
             : 'item_updated'

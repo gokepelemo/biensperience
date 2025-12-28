@@ -363,8 +363,8 @@ export function isErrorResponse(response) {
 export function extractError(response) {
   if (!response) return null;
 
-  // Check for structured error response
-  if (response.error) {
+  // Check for structured error response where error is an object
+  if (response.error && typeof response.error === 'object') {
     return response.error;
   }
 
@@ -373,12 +373,31 @@ export function extractError(response) {
     return response.data.error;
   }
 
+  // Feature flag denial format: { success: false, error: string, message: string, code: string }
+  // The user-friendly message is in response.message, not response.error
+  if (response.code && response.message) {
+    return {
+      code: response.code,
+      userMessage: response.message,
+      message: response.message
+    };
+  }
+
   // Check for message property (legacy format)
   if (response.message) {
     return {
       code: 'INTERNAL_ERROR',
       userMessage: response.message,
       message: response.message
+    };
+  }
+
+  // Fallback: error is a string
+  if (response.error && typeof response.error === 'string') {
+    return {
+      code: response.code || 'UNKNOWN_ERROR',
+      userMessage: response.error,
+      message: response.error
     };
   }
 

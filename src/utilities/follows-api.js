@@ -104,6 +104,21 @@ export async function getFollowStatus(userId) {
 }
 
 /**
+ * Get follow relationship between current user and a target user
+ * @param {string} userId - Target user ID
+ * @returns {Promise<{isFollowing:boolean,isFollowedBy:boolean,isMutual:boolean}>}
+ */
+export async function getFollowRelationship(userId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${userId}/relationship`);
+    return result.relationship;
+  } catch (error) {
+    logger.error('Error getting follow relationship', { error: error.message, userId });
+    throw error;
+  }
+}
+
+/**
  * Get follower and following counts for a user
  * @param {string} userId - ID of user to get counts for
  * @returns {Promise<Object>} Object with followers and following counts

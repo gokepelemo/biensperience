@@ -162,7 +162,7 @@ export default function FormField({
   return (
     <Form.Group className="mb-3">
       {label && (
-        <Form.Label>
+        <Form.Label htmlFor={name}>
           {label}
           {required && <span className="text-danger ms-1">*</span>}
           {tooltip && <FormTooltip content={tooltip} placement={tooltipPlacement} />}

@@ -37,6 +37,27 @@ const DOCUMENT_ICONS = {
 // Dynamic import for react-pdf to avoid loading it unnecessarily
 let Document = null;
 let Page = null;
+let pdfWorkerConfigured = false;
+
+/**
+ * Configure PDF.js worker before Document component is used
+ * Must be called before any PDF rendering
+ */
+async function configurePdfWorker() {
+  if (pdfWorkerConfigured) return;
+
+  try {
+    // Import react-pdf which exports pdfjs
+    const { pdfjs } = await import('react-pdf');
+    // Use unpkg CDN which hosts npm packages directly
+    const pdfjsVersion = pdfjs.version;
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsVersion}/build/pdf.worker.min.mjs`;
+    pdfWorkerConfigured = true;
+    logger.debug('PDF.js worker configured via react-pdf', { version: pdfjsVersion });
+  } catch (err) {
+    logger.error('Failed to configure PDF.js worker', { error: err.message });
+  }
+}
 
 /**
  * DocumentViewerModal Component
@@ -47,11 +68,11 @@ let Page = null;
 export default function DocumentViewerModal({
   show,
   onClose,
-  documentUrl,
-  fileName,
-  mimeType,
-  title,
-  onDownload,
+  documentUrl = null,
+  fileName = null,
+  mimeType = null,
+  title = null,
+  onDownload = null,
   ...modalProps
 }) {
   const [document, setDocument] = useState(null);
@@ -100,7 +121,10 @@ export default function DocumentViewerModal({
       setDocument(doc);
 
       if (doc.docType === 'PDF') {
-        // Load react-pdf components dynamically
+        // CRITICAL: Configure worker BEFORE loading react-pdf components
+        await configurePdfWorker();
+
+        // Now load react-pdf components
         if (!Document || !Page) {
           const pdfModule = await import('react-pdf');
           Document = pdfModule.Document;
@@ -196,7 +220,7 @@ export default function DocumentViewerModal({
             )}
             <div className={styles.pdfControls}>
               <Button
-                variant="outline-secondary"
+                variant="outline"
                 size="sm"
                 onClick={goToPrevPage}
                 disabled={pageNumber <= 1}
@@ -207,7 +231,7 @@ export default function DocumentViewerModal({
                 Page {pageNumber} of {numPages || '?'}
               </span>
               <Button
-                variant="outline-secondary"
+                variant="outline"
                 size="sm"
                 onClick={goToNextPage}
                 disabled={pageNumber >= numPages}
@@ -303,7 +327,7 @@ export default function DocumentViewerModal({
       )}
       <div className={styles.documentActions}>
         <Button
-          variant="outline-secondary"
+          variant="outline"
           onClick={handleDownload}
           disabled={loading}
         >
@@ -311,7 +335,7 @@ export default function DocumentViewerModal({
           Download
         </Button>
         <Button
-          variant="secondary"
+          variant="light"
           onClick={onClose}
           disabled={loading}
         >
@@ -349,10 +373,3 @@ DocumentViewerModal.propTypes = {
   onDownload: PropTypes.func
 };
 
-DocumentViewerModal.defaultProps = {
-  documentUrl: null,
-  fileName: null,
-  mimeType: null,
-  title: null,
-  onDownload: null
-};

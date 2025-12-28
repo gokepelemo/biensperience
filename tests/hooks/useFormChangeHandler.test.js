@@ -3,7 +3,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-hooks';
-import { useFormChangeHandler, useChangeTrackingHandler } from '../useFormChangeHandler';
+import { useFormChangeHandler, useChangeTrackingHandler } from '../../src/hooks/useFormChangeHandler';
 
 describe('useFormChangeHandler', () => {
   it('should handle input change', () => {
@@ -20,9 +20,10 @@ describe('useFormChangeHandler', () => {
       });
     });
 
-    expect(setFormData).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'John Doe' })
-    );
+    // Hook uses functional setState; validate by applying updater.
+    const updater = setFormData.mock.calls[0][0];
+    expect(typeof updater).toBe('function');
+    expect(updater(formData)).toEqual(expect.objectContaining({ name: 'John Doe' }));
   });
 
   it('should handle checkbox change', () => {
@@ -39,9 +40,9 @@ describe('useFormChangeHandler', () => {
       });
     });
 
-    expect(setFormData).toHaveBeenCalledWith(
-      expect.objectContaining({ newsletter: true })
-    );
+    const updater = setFormData.mock.calls[0][0];
+    expect(typeof updater).toBe('function');
+    expect(updater(formData)).toEqual(expect.objectContaining({ newsletter: true }));
   });
 
   it('should call onFieldChange callback when provided', () => {

@@ -31,9 +31,13 @@
 /* Modal Dialog Centered */
 .modalDialogCentered {
   margin: 0 auto;
+  padding: $space-4;
   position: relative;
   z-index: $z-index-modal + 1;
-  pointer-events: auto !important; /* Ensure dialog captures clicks */
+  pointer-events: none; /* Let clicks through to backdrop */
+  flex: 0 0 auto; /* CRITICAL: Prevent flex child from stretching */
+  height: auto;
+  /* Parent .modalShow handles centering with flexbox */
 }
 
 /* Modal Content */
@@ -175,15 +179,38 @@
 /* Size Variants */
 .modalSm {
   max-width: 400px; /* Small modal for simple dialogs */
+  width: auto;
+
+  .modalContent {
+    width: 100%;
+    height: auto;
+    max-height: 90vh;
+    pointer-events: auto; /* Enable clicks on content */
+  }
 }
 
 .modalLg {
   max-width: 800px; /* Standard large modal */
+  width: auto;
+  height: auto;
+  max-height: 90vh;
+
+  .modalContent {
+    height: auto;
+    max-height: 90vh;
+  }
 }
 
 .modalXl {
   max-width: 1200px; /* Extra large modal for notes, documents, complex content */
   width: 95%; /* Use most of viewport width on smaller screens */
+  height: auto;
+  max-height: 90vh;
+
+  .modalContent {
+    height: auto;
+    max-height: 90vh;
+  }
 }
 
 .modalFullscreen {
@@ -204,7 +231,7 @@
     height: 100dvh;
     max-height: 100%;
     max-height: 100dvh;
-    border-radius: 0; /* Edge-to-edge fullscreen */
+    border-radius: $radius-lg; /* Keep rounded corners - dialog has padding */
     overflow: hidden; /* Let children handle their own scrolling */
     display: flex;
     flex-direction: column;

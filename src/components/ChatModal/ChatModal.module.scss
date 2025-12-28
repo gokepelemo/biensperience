@@ -1,0 +1,7 @@
+.chatContainer {
+  height: 60vh;
+}
+
+.chatContainer :global(.str-chat__container) {
+  height: 100%;
+}
