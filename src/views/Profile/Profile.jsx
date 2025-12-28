@@ -1674,8 +1674,8 @@ export default function Profile() {
 
                 {/* Action Buttons */}
                 <div className={styles.profileActions}>
-                  {/* Message button: show for super admins OR mutual follows */}
-                  {!isOwner && (isSuperAdmin(user) || followRelationship?.isMutual) && (
+                  {/* Message button: show for super admins OR mutual follows. Always allow super admins (but not when messaging self) */}
+                    {(currentProfile && currentProfile._id !== user._id) && (isSuperAdmin(user) || followRelationship?.isMutual) && (
                     <Button
                       variant="outline"
                       style={{ borderRadius: 'var(--radius-full)' }}
