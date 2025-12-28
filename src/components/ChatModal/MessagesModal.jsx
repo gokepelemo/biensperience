@@ -510,121 +510,121 @@ export default function MessagesModal({
 
             {!loading && client && (
               <div className={styles.messagesContainer}>
+                {/* Mobile channel selector - rendered OUTSIDE Chat component to avoid Stream re-render issues */}
+                {channels.length > 0 && (
+                  <div className={styles.mobileChannelSelector} ref={mobileSelectorRef}>
+                    <button
+                      type="button"
+                      className={styles.mobileDropdownToggle}
+                      onClick={() => {
+                        const next = !mobileDropdownOpen;
+                        setMobileDropdownOpen(next);
+                        try {
+                          const el = mobileSelectorRef.current;
+                          if (el && next) {
+                            const r = el.getBoundingClientRect();
+                            setMobileDropdownStyle({
+                              top: r.bottom + window.scrollY,
+                              left: r.left + window.scrollX,
+                              width: r.width
+                            });
+                          }
+                        } catch (e) {
+                          // ignore
+                        }
+                      }}
+                      aria-expanded={mobileDropdownOpen}
+                      aria-haspopup="listbox"
+                    >
+                      <span className={styles.mobileDropdownLabel}>
+                        {activeChannel
+                          ? getDisplayNameForChannel({ channel: activeChannel, currentUserId: currentUser?.id })
+                          : 'Select conversation'}
+                      </span>
+                      <FaChevronDown className={`${styles.mobileDropdownIcon} ${mobileDropdownOpen ? styles.open : ''}`} />
+                    </button>
+                    {mobileDropdownOpen && (
+                      (typeof document !== 'undefined' && mobileDropdownStyle)
+                        ? createPortal(
+                            <ul
+                              ref={mobileDropdownRef}
+                              className={styles.mobileDropdownList}
+                              role="listbox"
+                              style={{ position: 'absolute', top: mobileDropdownStyle.top, left: mobileDropdownStyle.left, width: mobileDropdownStyle.width }}
+                            >
+                              {channels.map((ch) => {
+                                const label = getDisplayNameForChannel({
+                                  channel: ch,
+                                  currentUserId: currentUser?.id
+                                });
+                                const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                                const unreadCount = ch?.state?.unreadCount || 0;
+
+                                return (
+                                  <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
+                                    <button
+                                      type="button"
+                                      className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); setMobileDropdownOpen(false); }}
+                                    >
+                                      <ChannelTitle
+                                        label={label}
+                                        className={styles.mobileDropdownItemLabel}
+                                        innerClassName={styles.mobileChannelTitleInner}
+                                      />
+                                      {unreadCount > 0 && (
+                                        <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                          {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                      )}
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>,
+                            document.body
+                          )
+                          : (
+                            <ul ref={mobileDropdownRef} className={styles.mobileDropdownList} role="listbox">
+                              {channels.map((ch) => {
+                                const label = getDisplayNameForChannel({
+                                  channel: ch,
+                                  currentUserId: currentUser?.id
+                                });
+                                const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                                const unreadCount = ch?.state?.unreadCount || 0;
+
+                                return (
+                                  <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
+                                    <button
+                                      type="button"
+                                      className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); setMobileDropdownOpen(false); }}
+                                    >
+                                      <ChannelTitle
+                                        label={label}
+                                        className={styles.mobileDropdownItemLabel}
+                                        innerClassName={styles.mobileChannelTitleInner}
+                                      />
+                                      {unreadCount > 0 && (
+                                        <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                          {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                      )}
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )
+                    )}
+                  </div>
+                )}
+
                 <Chat
                   client={client}
                   theme={uiTheme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}
                 >
-                  {/* Mobile channel selector dropdown */}
-                  {channels.length > 0 && (
-                    <div className={styles.mobileChannelSelector} ref={mobileSelectorRef}>
-                      <button
-                        type="button"
-                        className={styles.mobileDropdownToggle}
-                        onClick={() => {
-                          const next = !mobileDropdownOpen;
-                          setMobileDropdownOpen(next);
-                          try {
-                            const el = mobileSelectorRef.current;
-                            if (el && next) {
-                              const r = el.getBoundingClientRect();
-                              setMobileDropdownStyle({
-                                top: r.bottom + window.scrollY,
-                                left: r.left + window.scrollX,
-                                width: r.width
-                              });
-                            }
-                          } catch (e) {
-                            // ignore
-                          }
-                        }}
-                        aria-expanded={mobileDropdownOpen}
-                        aria-haspopup="listbox"
-                      >
-                        <span className={styles.mobileDropdownLabel}>
-                          {activeChannel
-                            ? getDisplayNameForChannel({ channel: activeChannel, currentUserId: currentUser?.id })
-                            : 'Select conversation'}
-                        </span>
-                        <FaChevronDown className={`${styles.mobileDropdownIcon} ${mobileDropdownOpen ? styles.open : ''}`} />
-                      </button>
-                      {mobileDropdownOpen && (
-                        (typeof document !== 'undefined' && mobileDropdownStyle)
-                          ? createPortal(
-                              <ul
-                                ref={mobileDropdownRef}
-                                className={styles.mobileDropdownList}
-                                role="listbox"
-                                style={{ position: 'absolute', top: mobileDropdownStyle.top, left: mobileDropdownStyle.left, width: mobileDropdownStyle.width }}
-                              >
-                                {channels.map((ch) => {
-                                  const label = getDisplayNameForChannel({
-                                    channel: ch,
-                                    currentUserId: currentUser?.id
-                                  });
-                                  const isActive = activeChannel?.id && ch?.id === activeChannel.id;
-                                  const unreadCount = ch?.state?.unreadCount || 0;
-
-                                  return (
-                                    <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
-                                      <button
-                                        type="button"
-                                        className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); }}
-                                      >
-                                        <ChannelTitle
-                                          label={label}
-                                          className={styles.mobileDropdownItemLabel}
-                                          innerClassName={styles.mobileChannelTitleInner}
-                                        />
-                                        {unreadCount > 0 && (
-                                          <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
-                                            {unreadCount > 99 ? '99+' : unreadCount}
-                                          </span>
-                                        )}
-                                      </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>,
-                              document.body
-                            )
-                            : (
-                              <ul ref={mobileDropdownRef} className={styles.mobileDropdownList} role="listbox">
-                                {channels.map((ch) => {
-                                  const label = getDisplayNameForChannel({
-                                    channel: ch,
-                                    currentUserId: currentUser?.id
-                                  });
-                                  const isActive = activeChannel?.id && ch?.id === activeChannel.id;
-                                  const unreadCount = ch?.state?.unreadCount || 0;
-
-                                  return (
-                                    <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
-                                      <button
-                                        type="button"
-                                        className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
-                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); }}
-                                      >
-                                        <ChannelTitle
-                                          label={label}
-                                          className={styles.mobileDropdownItemLabel}
-                                          innerClassName={styles.mobileChannelTitleInner}
-                                        />
-                                        {unreadCount > 0 && (
-                                          <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
-                                            {unreadCount > 99 ? '99+' : unreadCount}
-                                          </span>
-                                        )}
-                                      </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )
-                      )}
-                    </div>
-                  )}
-
                   <div className={styles.layout}>
                     <aside className={styles.sidebar} aria-label="Channels">
                       {(channels || []).length === 0 ? (

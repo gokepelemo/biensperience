@@ -110,13 +110,16 @@
   min-height: 0; /* allow flex children to shrink inside constrained containers */
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
 }
 
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr;
   gap: 0;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
 
   @include breakpoint-max(md) {
     grid-template-columns: 1fr;
@@ -430,6 +433,14 @@
 .mobileDropdownItem:hover .mobileChannelTitleInner,
 .mobileDropdownItem:focus .mobileChannelTitleInner {
   visibility: visible;
+}
+
+/* Ensure the Stream Chat wrapper fills remaining space after mobile selector */
+.messagesContainer :global(.str-chat) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Stream Chat (scoped) token alignment */
