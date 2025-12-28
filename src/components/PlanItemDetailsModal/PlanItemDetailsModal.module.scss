@@ -650,6 +650,94 @@
   border-color: var(--color-border-medium) !important;
 }
 
+/* Reaction selector - the emoji picker popup/pill */
+.chatContainer :global(.str-chat__reaction-selector),
+.chatContainer :global(.str-chat__reaction-selector-list),
+.chatContainer :global(.str-chat__simple-reactions-list-container),
+.chatContainer :global(.str-chat__simple-reactions-list) {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border-medium) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  border-radius: 999px !important;
+}
+
+/* Individual reaction buttons in the selector */
+.chatContainer :global(.str-chat__reaction-selector-button),
+.chatContainer :global(.str-chat__reaction-selector li),
+.chatContainer :global(.str-chat__simple-reactions-list-item) {
+  background: transparent !important;
+  border-radius: 50% !important;
+
+  &:hover {
+    background: var(--color-bg-hover) !important;
+  }
+}
+
+/* Reactions shown on messages */
+.chatContainer :global(.str-chat__message-reactions-list),
+.chatContainer :global(.str-chat__message-reactions-list-item),
+.chatContainer :global(.str-chat__reaction-bubble) {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border-light) !important;
+}
+
+/* Thread panel and header */
+.chatContainer :global(.str-chat__thread),
+.chatContainer :global(.str-chat__thread-container),
+.chatContainer :global(.str-chat__thread-list) {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary);
+}
+
+.chatContainer :global(.str-chat__thread-header) {
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.chatContainer :global(.str-chat__thread-header-title),
+.chatContainer :global(.str-chat__thread-header__title),
+.chatContainer :global(.str-chat__thread-header strong) {
+  color: var(--color-text-primary) !important;
+}
+
+.chatContainer :global(.str-chat__thread-header-subtitle),
+.chatContainer :global(.str-chat__thread-header__subtitle),
+.chatContainer :global(.str-chat__thread-header span) {
+  color: var(--color-text-secondary) !important;
+}
+
+/* Thread close button */
+.chatContainer :global(.str-chat__thread-header-close-button),
+.chatContainer :global(.str-chat__thread-header button),
+.chatContainer :global(.str-chat__close-thread-button) {
+  color: var(--color-text-secondary) !important;
+  background: transparent !important;
+
+  &:hover {
+    color: var(--color-text-primary) !important;
+    background: var(--color-bg-hover) !important;
+  }
+}
+
+/* Thread message list */
+.chatContainer :global(.str-chat__thread-message-list),
+.chatContainer :global(.str-chat__thread .str-chat__message-list) {
+  background: var(--color-bg-primary) !important;
+}
+
+/* Reply count button */
+.chatContainer :global(.str-chat__message-replies-count-button),
+.chatContainer :global(.str-chat__message-replies-count) {
+  color: var(--color-primary) !important;
+  background: transparent !important;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 /* Context menu / popover */
 .chatContainer :global(.str-chat__popover),
 .chatContainer :global(.str-chat__tooltip) {
