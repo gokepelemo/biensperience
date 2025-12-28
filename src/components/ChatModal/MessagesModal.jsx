@@ -17,6 +17,78 @@ import { FaChevronDown, FaTimes } from 'react-icons/fa';
 import Alert from '../Alert/Alert';
 import styles from './MessagesModal.module.scss';
 
+// Channel title with hover marquee when truncated
+function ChannelTitle({ label, className, innerClassName }) {
+  const containerRef = useRef(null);
+  const innerRef = useRef(null);
+  const styleTagRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (styleTagRef.current) {
+        try { styleTagRef.current.remove(); } catch (e) {}
+        styleTagRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+    const scrollW = inner.scrollWidth;
+    const clientW = container.clientWidth;
+    if (scrollW <= clientW) return;
+
+    const distance = scrollW - clientW;
+    const speed = 40; // px per second
+    const duration = Math.max(3, distance / speed * 2); // back-and-forth
+
+    const name = `marquee_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+    const keyframes = `@keyframes ${name} { 0%{transform:translateX(0);} 45%{transform:translateX(-${distance}px);} 55%{transform:translateX(-${distance}px);} 100%{transform:translateX(0);} }`;
+
+    const styleTag = document.createElement('style');
+    styleTag.type = 'text/css';
+    styleTag.id = name;
+    styleTag.appendChild(document.createTextNode(keyframes));
+    document.head.appendChild(styleTag);
+    styleTagRef.current = styleTag;
+
+    inner.style.animation = `${name} ${duration}s linear infinite`;
+    inner.style.willChange = 'transform';
+  };
+
+  const handleMouseLeave = () => {
+    if (styleTagRef.current) {
+      try { styleTagRef.current.remove(); } catch (e) {}
+      styleTagRef.current = null;
+    }
+    if (innerRef.current) {
+      innerRef.current.style.animation = '';
+      innerRef.current.style.willChange = '';
+    }
+  };
+
+  return (
+    <span
+      ref={containerRef}
+      className={className}
+      onMouseEnter={handleMouseEnter}
+      onFocus={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onBlur={handleMouseLeave}
+      tabIndex={-1}
+    >
+      {/* Static clipped label (shows ellipsis) */}
+      <span className={styles.channelTitleStatic} aria-hidden>{label}</span>
+      {/* Animated label used for marquee; initially hidden and shown on hover */}
+      <span ref={innerRef} className={`${innerClassName} ${styles.channelTitleAnimating}`} aria-hidden>
+        {label}
+      </span>
+    </span>
+  );
+}
+
 import { getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
 
@@ -37,7 +109,7 @@ function getDisplayNameForChannel({ channel, currentUserId }) {
         .filter(u => u && u.id && u.id !== currentUserId)
         .find(Boolean);
 
-      if (other?.name) return `Message ${other.name}`;
+      if (other?.name) return other.name;
     } catch (e) {
       // ignore
     }
@@ -82,6 +154,9 @@ export default function MessagesModal({
   const [channelSwitching, setChannelSwitching] = useState(false);
   const [error, setError] = useState('');
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  const mobileSelectorRef = useRef(null);
+  const [mobileDropdownStyle, setMobileDropdownStyle] = useState(null);
+  const mobileDropdownRef = useRef(null);
 
   // Handle close - notify parent FIRST, then cleanup
   const handleClose = useCallback(() => {
@@ -141,6 +216,33 @@ export default function MessagesModal({
       };
     }
   }, [show]);
+
+  // Close mobile dropdown when clicking outside or on resize
+  useEffect(() => {
+    if (!mobileDropdownOpen) return undefined;
+
+    const onDocClick = (e) => {
+      try {
+        // If click happened inside the toggle or inside the dropdown (portal or inline), ignore
+        if (mobileSelectorRef.current && mobileSelectorRef.current.contains(e.target)) return;
+        if (mobileDropdownRef.current && mobileDropdownRef.current.contains(e.target)) return;
+
+        setMobileDropdownOpen(false);
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    const onResize = () => setMobileDropdownOpen(false);
+
+    document.addEventListener('click', onDocClick, true);
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      document.removeEventListener('click', onDocClick, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [mobileDropdownOpen]);
 
   const canInit = useMemo(() => {
     return Boolean(show && apiKey);
@@ -235,11 +337,10 @@ export default function MessagesModal({
 
         // IMPORTANT UX: plan item group chats should ONLY appear inside the
         // PlanItemDetails modal Chat tab, not in the global Messages modal.
-        // Plan channels should also be excluded from the global Messages modal.
+        // Plan group chats are included in the global Messages modal.
         const filtered = (result || []).filter((ch) => {
           if (ch?.data?.planItemId) return false;
           if (typeof ch?.id === 'string' && ch.id.startsWith('planItem_')) return false;
-          if (typeof ch?.id === 'string' && ch.id.startsWith('plan_')) return false;
           return true;
         });
 
@@ -252,12 +353,16 @@ export default function MessagesModal({
 
         if (targetUserId) {
           // Look for an existing DM channel among queried channels that matches both members
+          // DM channels have deterministic IDs: dm_<minUserId>_<maxUserId>
           const existingDm = filtered.find((ch) => {
             try {
               const members = ch?.state?.members || {};
               const memberIds = Object.values(members).map(m => m?.user?.id).filter(Boolean);
-              // Must include both the target and the current user
-              return memberIds.includes(targetUserId) && memberIds.includes(user.id) && memberIds.length === 2;
+              // Must be a DM channel (starts with 'dm_'), include both users, and have exactly 2 members
+              return ch?.id?.startsWith('dm_') &&
+                     memberIds.includes(targetUserId) &&
+                     memberIds.includes(user.id) &&
+                     memberIds.length === 2;
             } catch (e) {
               return false;
             }
@@ -278,6 +383,8 @@ export default function MessagesModal({
               if (channelId) {
                 nextActive = streamClient.channel('messaging', channelId);
                 await nextActive.watch();
+                // Add the newly created DM channel to the channels list so it appears immediately
+                setChannels(prevChannels => [nextActive, ...prevChannels]);
               }
             } catch (e) {
               // fall through to fallback below
@@ -325,7 +432,6 @@ export default function MessagesModal({
     if (!client || !channel) return;
     // Don't reload if already on this channel
     if (activeChannel?.id === channel?.id) {
-      setMobileDropdownOpen(false);
       return;
     }
 
@@ -333,7 +439,6 @@ export default function MessagesModal({
       setChannelSwitching(true);
       await channel.watch();
       setActiveChannel(channel);
-      setMobileDropdownOpen(false);
     } catch (err) {
       logger.error('[MessagesModal] Failed to select channel', err);
       setError(err?.message || 'Failed to open channel');
@@ -341,6 +446,22 @@ export default function MessagesModal({
       setChannelSwitching(false);
     }
   }, [client, activeChannel?.id]);
+
+  const handleRemoveChannel = useCallback((e, channel) => {
+    e.stopPropagation();
+    try {
+      // Remove from local channels list so it disappears from the sidebar
+      setChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== (channel?.id || channel?.cid)));
+      // If the removed channel was active, switch to the first available channel
+      if (activeChannel?.id === channel?.id) {
+        const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== (channel?.id || channel?.cid));
+        const next = remaining.length > 0 ? remaining[0] : null;
+        setActiveChannel(next);
+      }
+    } catch (err) {
+      logger.error('[MessagesModal] Failed to remove channel', err);
+    }
+  }, [activeChannel, channels]);
 
   // Don't render anything if not shown
   if (!show) return null;
@@ -395,11 +516,27 @@ export default function MessagesModal({
                 >
                   {/* Mobile channel selector dropdown */}
                   {channels.length > 0 && (
-                    <div className={styles.mobileChannelSelector}>
+                    <div className={styles.mobileChannelSelector} ref={mobileSelectorRef}>
                       <button
                         type="button"
                         className={styles.mobileDropdownToggle}
-                        onClick={() => setMobileDropdownOpen(prev => !prev)}
+                        onClick={() => {
+                          const next = !mobileDropdownOpen;
+                          setMobileDropdownOpen(next);
+                          try {
+                            const el = mobileSelectorRef.current;
+                            if (el && next) {
+                              const r = el.getBoundingClientRect();
+                              setMobileDropdownStyle({
+                                top: r.bottom + window.scrollY,
+                                left: r.left + window.scrollX,
+                                width: r.width
+                              });
+                            }
+                          } catch (e) {
+                            // ignore
+                          }
+                        }}
                         aria-expanded={mobileDropdownOpen}
                         aria-haspopup="listbox"
                       >
@@ -411,33 +548,79 @@ export default function MessagesModal({
                         <FaChevronDown className={`${styles.mobileDropdownIcon} ${mobileDropdownOpen ? styles.open : ''}`} />
                       </button>
                       {mobileDropdownOpen && (
-                        <ul className={styles.mobileDropdownList} role="listbox">
-                          {channels.map((ch) => {
-                            const label = getDisplayNameForChannel({
-                              channel: ch,
-                              currentUserId: currentUser?.id
-                            });
-                            const isActive = activeChannel?.id && ch?.id === activeChannel.id;
-                            const unreadCount = ch?.state?.unreadCount || 0;
+                        (typeof document !== 'undefined' && mobileDropdownStyle)
+                          ? createPortal(
+                              <ul
+                                ref={mobileDropdownRef}
+                                className={styles.mobileDropdownList}
+                                role="listbox"
+                                style={{ position: 'absolute', top: mobileDropdownStyle.top, left: mobileDropdownStyle.left, width: mobileDropdownStyle.width }}
+                              >
+                                {channels.map((ch) => {
+                                  const label = getDisplayNameForChannel({
+                                    channel: ch,
+                                    currentUserId: currentUser?.id
+                                  });
+                                  const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                                  const unreadCount = ch?.state?.unreadCount || 0;
 
-                            return (
-                              <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
-                                <button
-                                  type="button"
-                                  className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
-                                  onClick={() => handleSelectChannel(ch)}
-                                >
-                                  <span className={styles.mobileDropdownItemLabel}>{label}</span>
-                                  {unreadCount > 0 && (
-                                    <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
-                                      {unreadCount > 99 ? '99+' : unreadCount}
-                                    </span>
-                                  )}
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
+                                  return (
+                                    <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
+                                      <button
+                                        type="button"
+                                        className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); }}
+                                      >
+                                        <ChannelTitle
+                                          label={label}
+                                          className={styles.mobileDropdownItemLabel}
+                                          innerClassName={styles.mobileChannelTitleInner}
+                                        />
+                                        {unreadCount > 0 && (
+                                          <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                          </span>
+                                        )}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>,
+                              document.body
+                            )
+                            : (
+                              <ul ref={mobileDropdownRef} className={styles.mobileDropdownList} role="listbox">
+                                {channels.map((ch) => {
+                                  const label = getDisplayNameForChannel({
+                                    channel: ch,
+                                    currentUserId: currentUser?.id
+                                  });
+                                  const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                                  const unreadCount = ch?.state?.unreadCount || 0;
+
+                                  return (
+                                    <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
+                                      <button
+                                        type="button"
+                                        className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); }}
+                                      >
+                                        <ChannelTitle
+                                          label={label}
+                                          className={styles.mobileDropdownItemLabel}
+                                          innerClassName={styles.mobileChannelTitleInner}
+                                        />
+                                        {unreadCount > 0 && (
+                                          <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                          </span>
+                                        )}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )
                       )}
                     </div>
                   )}
@@ -458,19 +641,39 @@ export default function MessagesModal({
                             const unreadCount = ch?.state?.unreadCount || 0;
 
                             return (
-                              <li key={ch.cid || ch.id}>
-                                <button
-                                  type="button"
+                              <li key={ch.cid || ch.id} className={styles.channelListItem}>
+                                <div
+                                  role="button"
+                                  tabIndex={0}
                                   className={`${styles.channelButton} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
                                   onClick={() => handleSelectChannel(ch)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      handleSelectChannel(ch);
+                                    }
+                                  }}
                                 >
-                                  <span className={styles.channelName}>{label}</span>
+                                  <ChannelTitle
+                                    label={label}
+                                    className={styles.channelName}
+                                    innerClassName={styles.channelTitleInner}
+                                  />
                                   {unreadCount > 0 && (
                                     <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
                                       {unreadCount > 99 ? '99+' : unreadCount}
                                     </span>
                                   )}
-                                </button>
+
+                                  <button
+                                    type="button"
+                                    className={styles.deleteChannelButton}
+                                    onClick={(e) => handleRemoveChannel(e, ch)}
+                                    aria-label="Remove conversation"
+                                  >
+                                    <FaTimes />
+                                  </button>
+                                </div>
                               </li>
                             );
                           })}

@@ -215,7 +215,7 @@ async function dmChannel(req, res) {
       channelId,
       members,
       createdById: currentUserId,
-      name: `${req.user?.name || 'User'} & ${otherUser.name || 'User'}`
+      name: otherUser.name || 'User'
     });
 
     return successResponse(
