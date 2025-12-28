@@ -48,18 +48,17 @@ try {
   // ignore
 }
 
-// As a final enhancement we will attempt a dynamic import if supported.
-// This is non-blocking and will only replace the fallback when resolved.
-if (typeof import === 'function') {
-  try {
-    import('react-dom').then((mod) => {
-      if (mod && typeof mod.unstable_batchedUpdates === 'function') {
-        batchedUpdates = mod.unstable_batchedUpdates;
-      }
-    }).catch(() => {});
-  } catch (e) {
-    // ignore
-  }
+// Attempt a dynamic import using an async IIFE. This avoids using
+// `typeof import` (invalid syntax) while remaining non-blocking.
+try {
+  (async () => {
+    const mod = await import('react-dom');
+    if (mod && typeof mod.unstable_batchedUpdates === 'function') {
+      batchedUpdates = mod.unstable_batchedUpdates;
+    }
+  })().catch(() => {});
+} catch (e) {
+  // ignore
 }
 
 class EventBus {
