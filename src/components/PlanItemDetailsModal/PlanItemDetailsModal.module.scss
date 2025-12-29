@@ -492,23 +492,204 @@
   font-size: $font-size-base;
 }
 
-/* Chat tab wrapper - for Stream Chat component */
+/* =============================================================================
+ * CHAT TAB STYLES - Mirroring MessagesModal design system
+ * =============================================================================
+ * These styles exactly match the MessagesModal Stream Chat integration
+ * to ensure visual consistency across the application.
+ */
+
+/* Chat tab wrapper - no padding, chat fills entire tab area */
 .chatTabWrapper {
   @include tabWrapperBase;
-  @include tabWrapperMobile;
-  padding: $space-4;
-  gap: $space-3;
+  /* NO PADDING - chat component fills the entire tab area like MessagesModal */
+  padding: 0;
+  gap: 0;
+  background: var(--color-bg-primary);
+
+  /* Mobile: Minimum height to ensure usability */
+  @media (max-width: 768px) {
+    min-height: 400px;
+  }
 }
 
 .chatLoading {
   color: var(--color-text-muted);
+  padding: $space-4;
 }
 
+/* Chat pane - mirrors .pane from MessagesModal */
+.chatPane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Chat container - fills the pane */
 .chatContainer {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
 }
+
+/* =============================================================================
+ * STREAM CHAT THEMING - Exact match with MessagesModal
+ * =============================================================================
+ */
+
+/* Base Stream Chat container */
+.chatPane :global(.str-chat__container),
+.chatPane :global(.str-chat) {
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Stream Chat (scoped) token alignment - matches MessagesModal .pane */
+.chatPane :global(.str-chat),
+.chatPane :global(.str-chat__channel),
+.chatPane :global(.str-chat__main-panel),
+.chatPane :global(.str-chat__window) {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Channel header - secondary background with border */
+.chatPane :global(.str-chat__channel-header) {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+/* Message list - primary background */
+.chatPane :global(.str-chat__message-list) {
+  background: var(--color-bg-primary);
+}
+
+/* Message input - secondary background with top border (matches MessagesModal) */
+.chatPane :global(.str-chat__message-input) {
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* Textarea styling */
+.chatPane :global(.str-chat__textarea textarea) {
+  color: var(--color-text-primary);
+}
+
+/* Ensure Stream Chat main panel and message list expand and become scrollable
+   so the visible messages area fills the vertical space of the modal. */
+.chatPane :global(.str-chat__main-panel),
+.chatPane :global(.str-chat__window) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chatPane :global(.str-chat__message-list) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* =============================================================================
+ * CHECKBOX STYLING - Matches MessagesModal checkbox component
+ * =============================================================================
+ */
+
+/* Send to channel checkbox styling - matches Checkbox component */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.chatPane :global(.str-chat__send-to-channel-checkbox__field) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chatPane :global(.str-chat__send-to-channel-checkbox__field label) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  /* Remove upstream Stream Chat padding so our gap controls spacing */
+  padding-inline: 0;
+}
+
+/* Square box as pseudo-element so the label text remains visible */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field label::before) {
+  content: '';
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border-medium);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  display: inline-block;
+}
+
+/* Checkmark icon positioned over the box */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field label::after) {
+  content: '';
+  position: absolute;
+  /* position the checkmark centered inside the 24px box (2px border) */
+  /* expand to occupy most of the inner box for a bold appearance */
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%) scale(1);
+  width: 18px;
+  height: 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
+  border-color: transparent;
+  background: var(--gradient-primary);
+}
+
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
+  opacity: 1;
+  /* larger/thicker checkmark so it visually fills the checkbox */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
+.chatPane :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
+}
+
+/* =============================================================================
+ * LEGACY .chatContainer STYLES - Keep for backwards compatibility
+ * These are used if the component still references .chatContainer
+ * =============================================================================
+ */
 
 .chatContainer :global(.str-chat__container) {
   height: 100%;
@@ -516,6 +697,10 @@
 
 .chatContainer :global(.str-chat) {
   height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Stream Chat dark mode compatibility using design tokens */
@@ -529,7 +714,7 @@
   color: var(--color-text-primary);
 }
 
-/* Channel header */
+/* Channel header - use secondary background like MessagesModal */
 .chatContainer :global(.str-chat__channel-header) {
   background: var(--color-bg-secondary) !important;
   border-bottom: 1px solid var(--color-border-light);
@@ -549,20 +734,20 @@
   background: var(--color-bg-primary) !important;
 }
 
-/* Message input wrapper and container */
+/* Message input wrapper and container - use SECONDARY background like MessagesModal */
 .chatContainer :global(.str-chat__message-input),
 .chatContainer :global(.str-chat__input-flat),
 .chatContainer :global(.str-chat__input-flat-wrapper),
 .chatContainer :global(.str-chat__message-input-inner) {
-  background: var(--color-bg-primary) !important;
+  background: var(--color-bg-secondary) !important;
   border-top: 1px solid var(--color-border-light);
 }
 
-/* Textarea and input - use same background as container for consistency */
+/* Textarea and input - primary background on secondary container */
 .chatContainer :global(.str-chat__textarea textarea),
 .chatContainer :global(.str-chat__message-textarea),
 .chatContainer :global(.str-chat__textarea) {
-  background: var(--color-bg-secondary) !important;
+  background: var(--color-bg-primary) !important;
   color: var(--color-text-primary) !important;
   border: 1px solid var(--color-border-light) !important;
   border-radius: var(--radius-md) !important;
@@ -799,12 +984,12 @@
 .chatContainer :global(.str-chat__thread .str-chat__message-input),
 .chatContainer :global(.str-chat__thread .str-chat__input-flat),
 .chatContainer :global(.str-chat__thread .str-chat__input-flat-wrapper) {
-  background: var(--color-bg-primary) !important;
+  background: var(--color-bg-secondary) !important;
   border-top: 1px solid var(--color-border-light) !important;
 }
 
 .chatContainer :global(.str-chat__thread .str-chat__textarea textarea) {
-  background: var(--color-bg-secondary) !important;
+  background: var(--color-bg-primary) !important;
   color: var(--color-text-primary) !important;
   border: 1px solid var(--color-border-light) !important;
   border-radius: var(--radius-md) !important;

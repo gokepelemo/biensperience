@@ -1749,8 +1749,16 @@ export default function PlanItemDetailsModal({
               {chatLoading && <div className={styles.chatLoading}>Loading chat…</div>}
 
               {!chatLoading && chatClient && chatChannel && (
-                <div className={styles.chatContainer}>
-                  <Chat client={chatClient} theme="str-chat__theme-light">
+                <div className={styles.chatPane}>
+                  <Chat
+                    client={chatClient}
+                    theme={
+                      typeof window !== 'undefined' &&
+                      window.matchMedia?.('(prefers-color-scheme: dark)').matches
+                        ? 'str-chat__theme-dark'
+                        : 'str-chat__theme-light'
+                    }
+                  >
                     <Channel channel={chatChannel}>
                       <Window>
                         {/* No ChannelHeader - chat is already in plan item context (modal title) */}
