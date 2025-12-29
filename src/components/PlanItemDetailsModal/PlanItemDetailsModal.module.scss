@@ -585,8 +585,23 @@
   color: var(--color-text-primary);
 }
 
-/* Ensure Stream Chat main panel and message list expand and become scrollable
-   so the visible messages area fills the vertical space of the modal. */
+/* =============================================================================
+ * THREAD LAYOUT - Display thread panel on the right side
+ * =============================================================================
+ * Stream Chat's Channel component renders Window and Thread as siblings.
+ * We need the container to use row layout so Thread appears on the right.
+ */
+
+/* Channel container - horizontal layout for Window + Thread */
+.chatPane :global(.str-chat__channel) {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Window takes remaining space, Thread has fixed/flex width */
 .chatPane :global(.str-chat__main-panel),
 .chatPane :global(.str-chat__window) {
   display: flex;
@@ -594,6 +609,52 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Thread panel - fixed width on right side */
+.chatPane :global(.str-chat__thread) {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 340px;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  border-left: 1px solid var(--color-border-light);
+
+  /* Mobile: Thread takes full width */
+  @media (max-width: 768px) {
+    flex: 1 1 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    border-left: none;
+  }
+}
+
+/* Thread header styling */
+.chatPane :global(.str-chat__thread-header) {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+/* Thread message list */
+.chatPane :global(.str-chat__thread .str-chat__message-list) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--color-bg-primary);
+}
+
+/* Thread message input */
+.chatPane :global(.str-chat__thread .str-chat__message-input) {
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+  flex-shrink: 0;
 }
 
 .chatPane :global(.str-chat__message-list) {
