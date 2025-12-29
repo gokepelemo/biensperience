@@ -138,6 +138,9 @@ export default function PlanItemDetailsModal({
     async function initChat() {
       if (!canInitChat) return;
 
+      // Skip if already connected (connection persists across tab switches)
+      if (chatClient && chatChannel) return;
+
       setChatLoading(true);
       setChatError('');
 
@@ -184,31 +187,38 @@ export default function PlanItemDetailsModal({
     return () => {
       cancelled = true;
     };
-    // normalizeId is stable (defined in component), but we intentionally
-    // depend on canInitChat + ids to prevent unnecessary reconnects.
+    // We check chatClient/chatChannel to skip if already connected.
+    // This prevents reconnection when switching tabs since we keep connection alive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canInitChat, streamApiKey]);
+  }, [canInitChat, streamApiKey, chatClient, chatChannel]);
 
-  // Cleanup chat connection when modal closes or when leaving the chat tab
+  // Cleanup chat connection when modal closes
+  // NOTE: We only disconnect when the modal closes, NOT when switching tabs.
+  // This prevents the "can't use channel after disconnect" error when using Thread.
+  // The chat connection stays alive while the modal is open (even on other tabs).
   useEffect(() => {
-    const shouldDisconnect = !show || activeTab !== 'chat';
-    if (!shouldDisconnect) return;
+    // Only cleanup when modal is closing
+    if (show) return;
 
+    // Clear state immediately to unmount Stream components first
+    const clientToDisconnect = chatClient;
+    setChatClient(null);
     setChatChannel(null);
     setChatError('');
     setChatLoading(false);
 
-    if (chatClient) {
-      chatClient
-        .disconnectUser()
-        .catch(() => {
-          // ignore
-        })
-        .finally(() => {
-          setChatClient(null);
-        });
+    // Disconnect after state is cleared (components unmounted)
+    if (clientToDisconnect) {
+      // Use setTimeout to ensure React has unmounted Stream components
+      setTimeout(() => {
+        clientToDisconnect
+          .disconnectUser()
+          .catch(() => {
+            // ignore disconnect errors
+          });
+      }, 0);
     }
-  }, [show, activeTab, chatClient]);
+  }, [show, chatClient]);
 
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
