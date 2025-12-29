@@ -68,12 +68,21 @@
   flex: 1 1 0;
 }
 
-/* Custom modal body class for fullscreen height */
+/* Custom modal body class for fullscreen height
+ * This class is passed to Modal via bodyClassName prop.
+ * It ensures the modal body fills available space and becomes a flex container
+ * for the planItemDetailsModal content.
+ */
 .modalBodyFullscreen {
+  /* Flex fill pattern - must match Modal's .modalBody in fullscreen */
+  flex: 1 1 0;
+  min-height: 0;
   height: 100%;
-  overflow: hidden;
+  /* Flex container for content */
   display: flex;
   flex-direction: column;
+  /* Don't scroll - let children handle scrolling */
+  overflow: hidden;
 }
 
 /* Link bar - shown when plan item has external URL */
@@ -394,12 +403,22 @@
   }
 }
 
-/* Notes tab wrapper - explicit styles for PlanItemNotes to fill available height
- * This wrapper ensures the PlanItemNotes component gets 100% of available vertical space.
- * The flex chain is: modal > modalBody > planItemDetailsModal > detailsContent > notesTabWrapper > PlanItemNotes
+/* =============================================================================
+ * TAB WRAPPER BASE STYLES - Shared by all tab content wrappers
+ * =============================================================================
+ * All tab wrappers must use identical flex properties to ensure consistent height.
+ * The flex chain is: modal > modalBody > planItemDetailsModal > detailsContent > [tabWrapper]
+ *
+ * CRITICAL: Each tab wrapper MUST have:
+ * - flex: 1 1 0 (grow, shrink, zero basis)
+ * - min-height: 0 (allow shrinking below content - Safari fix)
+ * - height: 100% (explicit for Safari fallback)
+ * - display: flex + flex-direction: column (for child content)
  */
-.notesTabWrapper {
-  /* Flex container for PlanItemNotes */
+
+/* Mixin for consistent tab wrapper styles */
+@mixin tabWrapperBase {
+  /* Flex container for tab content */
   display: flex;
   flex-direction: column;
   /* Fill all available space */
@@ -410,17 +429,57 @@
   height: 100%;
   /* Max height prevents overflow */
   max-height: 100%;
-  /* Let PlanItemNotes handle its own scrolling */
+  /* Prevent overflow - children handle their own scrolling */
   overflow: hidden;
   /* Ensure width fills container */
   width: 100%;
+}
 
+@mixin tabWrapperMobile {
   /* Mobile: Minimum height to ensure usability */
   @media (max-width: 768px) {
     min-height: 300px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+  }
+}
+
+/* Notes tab wrapper - for PlanItemNotes component */
+.notesTabWrapper {
+  @include tabWrapperBase;
+  @include tabWrapperMobile;
+}
+
+/* Photos tab wrapper - for PhotosTab component */
+.photosTabWrapper {
+  @include tabWrapperBase;
+  @include tabWrapperMobile;
+  padding: $space-4 $space-6;
+  /* Enable vertical scrolling for photo grid */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    padding: $space-3 $space-4;
+  }
+}
+
+/* Documents tab wrapper - for DocumentsTab component */
+.documentsTabWrapper {
+  @include tabWrapperBase;
+  @include tabWrapperMobile;
+  padding: $space-4 $space-6;
+  /* Enable vertical scrolling for document list */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    padding: $space-3 $space-4;
   }
 }
 
@@ -433,22 +492,12 @@
   font-size: $font-size-base;
 }
 
+/* Chat tab wrapper - for Stream Chat component */
 .chatTabWrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
+  @include tabWrapperBase;
+  @include tabWrapperMobile;
   padding: $space-4;
   gap: $space-3;
-
-  /* Mobile: Enable scrolling and minimum height */
-  @media (max-width: 768px) {
-    min-height: 300px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
 }
 
 .chatLoading {
@@ -1331,34 +1380,10 @@
    Details Tab Content - Grouped Detail Types
    ============================================= */
 
-/* Details Tab Content - Container for grouped detail types
- * This must fill 100% of available vertical space within detailsContent.
- * Contains: detailsExportBar (fixed) + detailsGroupedList (scrollable)
- */
+/* Details Tab Content - Container for grouped detail types */
 .detailsTabContent {
-  /* Flex column container */
-  display: flex;
-  flex-direction: column;
-  /* Fill available space */
-  flex: 1 1 0;
-  /* Explicit height for Safari */
-  height: 100%;
-  /* Max height prevents overflow */
-  max-height: 100%;
-  /* Allow shrinking below content size */
-  min-height: 0;
-  /* Prevent overflow - detailsGroupedList handles scrolling */
-  overflow: hidden;
-  /* Full width */
-  width: 100%;
-
-  /* Mobile: Enable scrolling and ensure usable height */
-  @media (max-width: 768px) {
-    min-height: 300px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
+  @include tabWrapperBase;
+  @include tabWrapperMobile;
 }
 
 /* Export bar at top of details tab */
@@ -1599,35 +1624,18 @@
    Location Tab Content
    ============================================= */
 
-/* Location Tab Content - Container for location info and map
- * This must fill 100% of available vertical space within detailsContent.
- * Contains: copyableAddressBar (fixed) + locationMapWrapper (fills remaining space)
- */
+/* Location Tab Content - Container for location info and map */
 .locationTabContent {
-  /* Flex column container */
-  display: flex;
-  flex-direction: column;
-  /* Fill available space */
-  flex: 1 1 0;
-  /* Explicit height for Safari */
-  height: 100%;
-  /* Max height prevents overflow */
-  max-height: 100%;
-  /* Allow shrinking below content size */
-  min-height: 0;
+  @include tabWrapperBase;
   padding: $space-4 $space-6;
-  /* Enable vertical scrolling for mobile when map + address overflow */
+  /* Enable vertical scrolling for map + address content */
   overflow-y: auto;
-  /* Prevent horizontal overflow */
   overflow-x: hidden;
-  /* Prevent scroll chaining to parent */
   overscroll-behavior: contain;
-  /* Smooth scrolling on iOS */
   -webkit-overflow-scrolling: touch;
 
   @media (max-width: 768px) {
     padding: $space-3 $space-4;
-    /* Ensure usable height on mobile */
     min-height: 300px;
   }
 }

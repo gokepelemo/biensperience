@@ -1766,7 +1766,11 @@ export default function PlanItemDetailsModal({
           )}
 
           {/* PhotosTab - keep mounted but hidden to preserve state during tab switches */}
-          <div style={{ display: activeTab === 'photos' ? 'block' : 'none' }}>
+          {/* Use CSS class instead of inline display to maintain flex height chain */}
+          <div
+            className={styles.photosTabWrapper}
+            style={{ display: activeTab === 'photos' ? 'flex' : 'none' }}
+          >
             <PhotosTab
               planItem={planItem}
               plan={plan}
@@ -1776,7 +1780,11 @@ export default function PlanItemDetailsModal({
           </div>
 
           {/* DocumentsTab - keep mounted but hidden to preserve state during tab switches */}
-          <div style={{ display: activeTab === 'documents' ? 'block' : 'none' }}>
+          {/* Use CSS class instead of inline display to maintain flex height chain */}
+          <div
+            className={styles.documentsTabWrapper}
+            style={{ display: activeTab === 'documents' ? 'flex' : 'none' }}
+          >
             <DocumentsTab
               planItem={planItem}
               plan={plan}
