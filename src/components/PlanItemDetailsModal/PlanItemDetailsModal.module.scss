@@ -588,73 +588,100 @@
 /* =============================================================================
  * THREAD LAYOUT - Display thread panel on the right side
  * =============================================================================
- * Stream Chat's Channel component renders Window and Thread as siblings.
- * We need the container to use row layout so Thread appears on the right.
+ * Stream Chat SDK structure (v2):
+ * .str-chat > .str-chat__container > .str-chat__channel > .str-chat__main-panel + .str-chat__thread
+ * The channel container (.str-chat__channel) needs flex-direction: row for side-by-side layout.
  */
 
-/* Channel container - horizontal layout for Window + Thread */
+/* Main Stream Chat container - needs to allow horizontal layout */
+.chatPane :global(.str-chat),
+.chatPane :global(.str-chat__container) {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Channel container - HORIZONTAL layout for Window + Thread side by side */
 .chatPane :global(.str-chat__channel) {
-  display: flex;
-  flex-direction: row;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+  display: flex !important;
+  flex-direction: row !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
 }
 
-/* Window takes remaining space, Thread has fixed/flex width */
-.chatPane :global(.str-chat__main-panel),
+/* Main panel (Window wrapper) - takes remaining space on left */
+.chatPane :global(.str-chat__main-panel) {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Window inside main panel */
 .chatPane :global(.str-chat__window) {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
 }
 
-/* Thread panel - fixed width on right side */
+/* Thread panel - FIXED width on RIGHT side */
 .chatPane :global(.str-chat__thread) {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 340px;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--color-bg-primary);
-  border-left: 1px solid var(--color-border-light);
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 0 0 400px !important;
+  width: 400px !important;
+  min-width: 400px !important;
+  max-width: 400px !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background: var(--color-bg-primary) !important;
+  border-left: 1px solid var(--color-border-light) !important;
+  position: relative !important;
 
-  /* Mobile: Thread takes full width */
+  /* Mobile: Thread takes full width as overlay */
   @media (max-width: 768px) {
-    flex: 1 1 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
-    border-left: none;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 10 !important;
+    border-left: none !important;
   }
 }
 
 /* Thread header styling */
 .chatPane :global(.str-chat__thread-header) {
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-light);
-  color: var(--color-text-primary);
-  flex-shrink: 0;
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+  flex-shrink: 0 !important;
 }
 
 /* Thread message list */
 .chatPane :global(.str-chat__thread .str-chat__message-list) {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  background: var(--color-bg-primary);
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  background: var(--color-bg-primary) !important;
 }
 
 /* Thread message input */
 .chatPane :global(.str-chat__thread .str-chat__message-input) {
-  background: var(--color-bg-secondary);
-  border-top: 1px solid var(--color-border-light);
-  flex-shrink: 0;
+  background: var(--color-bg-secondary) !important;
+  border-top: 1px solid var(--color-border-light) !important;
+  flex-shrink: 0 !important;
 }
 
 .chatPane :global(.str-chat__message-list) {
