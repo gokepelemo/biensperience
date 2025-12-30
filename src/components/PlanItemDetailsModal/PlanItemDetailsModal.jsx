@@ -107,6 +107,23 @@ export default function PlanItemDetailsModal({
   const titleInputRef = useRef(null);
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
+  const tabContentRef = useRef(null);
+  const [tabContentHeight, setTabContentHeight] = useState('auto');
+
+  // Expose height recalculation function for debugging
+  const recalculateHeight = useCallback(() => {
+    const calculateTabContentHeight = () => {
+      // ... existing calculation logic ...
+    };
+    calculateTabContentHeight();
+  }, []);
+
+  // Make it available globally for debugging in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && window) {
+      window.recalculatePlanItemModalHeight = recalculateHeight;
+    }
+  }, [recalculateHeight]);
 
   // Fetch exchange rates for currency conversion
   // Use displayCurrency if provided, otherwise plan currency
@@ -427,6 +444,157 @@ export default function PlanItemDetailsModal({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isEditingAssignment]);
+
+  // Calculate and set tab content height dynamically
+  useEffect(() => {
+    const calculateTabContentHeight = () => {
+      if (!show || !tabContentRef.current) {
+        setTabContentHeight('auto');
+        return;
+      }
+
+      // Use requestAnimationFrame for better timing
+      requestAnimationFrame(() => {
+        try {
+          // Get the modal container (closest parent with modal class)
+          const modalElement = tabContentRef.current.closest('.modal');
+          if (!modalElement) {
+            setTabContentHeight('auto');
+            return;
+          }
+
+          // Get modal dialog and content areas
+          const modalDialog = modalElement.querySelector('.modal-dialog');
+          const modalContent = modalElement.querySelector('.modal-content');
+          const modalBody = modalElement.querySelector('.modal-body');
+
+          if (!modalDialog || !modalContent || !modalBody) {
+            setTabContentHeight('auto');
+            return;
+          }
+
+          // Wait for modal to be fully rendered and visible
+          const modalRect = modalDialog.getBoundingClientRect();
+          const modalStyle = getComputedStyle(modalDialog);
+
+          // Check if modal is actually visible
+          if (modalRect.height === 0 || modalStyle.display === 'none' || modalStyle.visibility === 'hidden') {
+            // Modal not fully rendered yet, try again
+            setTimeout(calculateTabContentHeight, 100);
+            return;
+          }
+
+          // Calculate available height
+          const viewportHeight = window.innerHeight;
+          const modalTop = modalRect.top;
+
+          // Get modal body padding
+          const modalBodyStyle = getComputedStyle(modalBody);
+          const modalBodyPadding = parseFloat(modalBodyStyle.paddingTop) + parseFloat(modalBodyStyle.paddingBottom);
+
+          // Calculate space taken by other elements in the modal body
+          const tabContentRect = tabContentRef.current.getBoundingClientRect();
+          const modalBodyRect = modalBody.getBoundingClientRect();
+
+          // Height available for tab content = viewport height - modal top - modal body padding - other content
+          const availableHeight = viewportHeight - modalTop - modalBodyPadding - (tabContentRect.top - modalBodyRect.top);
+
+          // Debug logging (only in development)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PlanItemDetailsModal] Height calculation:', {
+              viewportHeight,
+              modalTop,
+              modalBodyPadding,
+              tabContentTop: tabContentRect.top,
+              modalBodyTop: modalBodyRect.top,
+              availableHeight,
+              modalRect: modalRect.height
+            });
+          }
+
+          // Ensure minimum height and prevent negative values
+          const minHeight = 300; // Minimum usable height
+          const calculatedHeight = Math.max(minHeight, availableHeight);
+
+          // Cap at reasonable maximum to prevent excessive heights
+          const maxHeight = viewportHeight * 0.8; // Max 80% of viewport
+          const finalHeight = Math.min(calculatedHeight, maxHeight);
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[PlanItemDetailsModal] Final height:', finalHeight);
+          }
+
+          setTabContentHeight(`${finalHeight}px`);
+        } catch (error) {
+          // Fallback on error
+          setTabContentHeight('auto');
+        }
+      });
+    };
+
+    // Calculate height immediately
+    calculateTabContentHeight();
+
+    // Recalculate on window resize with debouncing
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(calculateTabContentHeight, 150);
+    };
+
+    // Also recalculate when modal becomes visible (with multiple delays for different render timings)
+    if (show) {
+      // Immediate calculation
+      setTimeout(calculateTabContentHeight, 50);
+      // After modal animation
+      setTimeout(calculateTabContentHeight, 300);
+      // After content loads
+      setTimeout(calculateTabContentHeight, 600);
+      // Final check
+      setTimeout(calculateTabContentHeight, 1000);
+    }
+
+    window.addEventListener('resize', handleResize);
+
+    // Use ResizeObserver for more accurate detection of modal size changes
+    let resizeObserver;
+    let mutationObserver;
+    if (tabContentRef.current && window.ResizeObserver) {
+      try {
+        resizeObserver = new ResizeObserver(() => {
+          setTimeout(calculateTabContentHeight, 50);
+        });
+        resizeObserver.observe(tabContentRef.current);
+
+        // Also observe the modal body for content changes
+        const modalBody = tabContentRef.current.closest('.modal-body');
+        if (modalBody && window.MutationObserver) {
+          mutationObserver = new MutationObserver(() => {
+            setTimeout(calculateTabContentHeight, 100);
+          });
+          mutationObserver.observe(modalBody, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style', 'class']
+          });
+        }
+      } catch (error) {
+        // ResizeObserver/MutationObserver not supported or failed
+      }
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
+    };
+  }, [show]);
 
   /**
    * Handle entity click from mentions in notes
@@ -1413,7 +1581,15 @@ export default function PlanItemDetailsModal({
         {/* Tab content */}
         <div className={styles.detailsContent}>
           {activeTab === 'details' && (
-            <div className={styles.detailsTabContent}>
+            <div
+              ref={tabContentRef}
+              className={styles.detailsTabContent}
+              style={{
+                '--tab-content-height': tabContentHeight,
+                height: 'var(--tab-content-height, auto)',
+                maxHeight: 'var(--tab-content-height, none)'
+              }}
+            >
               {/* Export PDF button */}
               {totalDetailsCount > 0 && (
                 <div className={styles.detailsExportBar}>

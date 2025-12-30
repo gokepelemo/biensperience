@@ -425,14 +425,20 @@
   flex: 1 1 0;
   /* Allow shrinking below content size - critical for Safari */
   min-height: 0;
-  /* Explicit height for Safari fallback */
-  height: 100%;
-  /* Max height prevents overflow */
-  max-height: 100%;
+  /* Use viewport height as fallback when JavaScript calculation fails */
+  height: 60vh;
+  max-height: 70vh;
   /* Prevent overflow - children handle their own scrolling */
   overflow: hidden;
   /* Ensure width fills container */
   width: 100%;
+
+  /* Mobile adjustments */
+  @media (max-width: 768px) {
+    height: 50vh;
+    max-height: 60vh;
+    min-height: 300px;
+  }
 }
 
 @mixin tabWrapperMobile {
@@ -1632,6 +1638,16 @@
 .detailsTabContent {
   @include tabWrapperBase;
   @include tabWrapperMobile;
+
+  /* Use CSS custom property set by JavaScript, fallback to viewport units */
+  height: var(--tab-content-height, 60vh);
+  max-height: var(--tab-content-height, 70vh);
+
+  /* Mobile fallbacks */
+  @media (max-width: 768px) {
+    height: var(--tab-content-height, 50vh);
+    max-height: var(--tab-content-height, 60vh);
+  }
 }
 
 /* Export bar at top of details tab */
