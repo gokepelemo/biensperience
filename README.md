@@ -6,7 +6,7 @@ A collaborative travel planning application for creating and sharing travel expe
 
 ## Technologies
 
-React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
+React • MongoDB • Bun • Express • AWS S3 • Bootstrap
 
 ## Features
 
@@ -19,10 +19,10 @@ React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
 ## Installation
 
 ### Prerequisites
-- Node.js (v16+)
+- Bun (v1.0+)
 - MongoDB Atlas account (recommended - free tier available at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas))
 - AWS S3 bucket (for photo storage)
-- PM2 (`npm install -g pm2`)
+- PM2 (`bunx pm2`)
 
 ### Quick Start
 
@@ -30,7 +30,7 @@ React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
    ```bash
    git clone https://github.com/gokepelemo/biensperience.git
    cd biensperience
-   npm install
+   bun install
    ```
 
 2. **Configure environment** - Create `.env` file:
@@ -51,7 +51,7 @@ React • MongoDB • Node.js • Express • AWS S3 • Bootstrap
 
 4. **Generate sample data** (optional)
    ```bash
-   node sampleData.js
+   bun run sampleData.js
    # Creates 180 users, 90 destinations, 270 experiences, 450 plans, 600 photos
    ```
 
@@ -82,14 +82,14 @@ pm2 delete all                    # Remove from PM2
 
 **Testing**:
 ```bash
-npm test                    # Frontend tests
-npm run test:api            # Backend tests
-npm run build               # Production build
+bun test                    # Frontend tests
+bun run test:api            # Backend tests
+bun run build               # Production build
 ```
 
 **UI Design System & Storybook**:
 ```bash
-npm run storybook           # Start Storybook at http://localhost:6006
+bun run storybook           # Start Storybook at http://localhost:6006
 ```
 
 Storybook provides interactive documentation for all UI components, design tokens, and patterns. Browse:

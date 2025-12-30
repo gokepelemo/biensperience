@@ -37,6 +37,7 @@ import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
 import Tooltip from '../Tooltip/Tooltip';
 import { getChatToken, getOrCreatePlanItemChannel } from '../../utilities/chat-api';
+import { waitForCSS } from '../../utilities/css-loading';
 
 export default function PlanItemDetailsModal({
   show,
@@ -111,11 +112,11 @@ export default function PlanItemDetailsModal({
   const [tabContentHeight, setTabContentHeight] = useState('auto');
 
   // Expose height recalculation function for debugging
-  const recalculateHeight = useCallback(() => {
-    const calculateTabContentHeight = () => {
+  const recalculateHeight = useCallback(async () => {
+    const calculateTabContentHeight = async () => {
       // ... existing calculation logic ...
     };
-    calculateTabContentHeight();
+    await calculateTabContentHeight();
   }, []);
 
   // Make it available globally for debugging in development
@@ -447,10 +448,19 @@ export default function PlanItemDetailsModal({
 
   // Calculate and set tab content height dynamically
   useEffect(() => {
-    const calculateTabContentHeight = () => {
+    const calculateTabContentHeight = async () => {
       if (!show || !tabContentRef.current) {
         setTabContentHeight('auto');
         return;
+      }
+
+      // Wait for CSS to be fully loaded before calculating
+      try {
+        await waitForCSS();
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[PlanItemDetailsModal] CSS loading detection failed:', error);
+        }
       }
 
       // Use requestAnimationFrame for better timing
@@ -477,9 +487,16 @@ export default function PlanItemDetailsModal({
           const modalRect = modalDialog.getBoundingClientRect();
           const modalStyle = getComputedStyle(modalDialog);
 
-          // Check if modal is actually visible
+          // Check if modal is actually visible and has dimensions
           if (modalRect.height === 0 || modalStyle.display === 'none' || modalStyle.visibility === 'hidden') {
             // Modal not fully rendered yet, try again
+            setTimeout(calculateTabContentHeight, 100);
+            return;
+          }
+
+          // Additional check: ensure modal body has proper dimensions
+          const modalBodyRect = modalBody.getBoundingClientRect();
+          if (modalBodyRect.height === 0) {
             setTimeout(calculateTabContentHeight, 100);
             return;
           }
@@ -494,7 +511,6 @@ export default function PlanItemDetailsModal({
 
           // Calculate space taken by other elements in the modal body
           const tabContentRect = tabContentRef.current.getBoundingClientRect();
-          const modalBodyRect = modalBody.getBoundingClientRect();
 
           // Height available for tab content = viewport height - modal top - modal body padding - other content
           const availableHeight = viewportHeight - modalTop - modalBodyPadding - (tabContentRect.top - modalBodyRect.top);
@@ -508,7 +524,8 @@ export default function PlanItemDetailsModal({
               tabContentTop: tabContentRect.top,
               modalBodyTop: modalBodyRect.top,
               availableHeight,
-              modalRect: modalRect.height
+              modalRect: modalRect.height,
+              modalBodyRect: modalBodyRect.height
             });
           }
 
@@ -527,6 +544,9 @@ export default function PlanItemDetailsModal({
           setTabContentHeight(`${finalHeight}px`);
         } catch (error) {
           // Fallback on error
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[PlanItemDetailsModal] Height calculation error:', error);
+          }
           setTabContentHeight('auto');
         }
       });
@@ -539,19 +559,19 @@ export default function PlanItemDetailsModal({
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(calculateTabContentHeight, 150);
+      resizeTimeout = setTimeout(() => calculateTabContentHeight(), 150);
     };
 
     // Also recalculate when modal becomes visible (with multiple delays for different render timings)
     if (show) {
       // Immediate calculation
-      setTimeout(calculateTabContentHeight, 50);
+      setTimeout(() => calculateTabContentHeight(), 50);
       // After modal animation
-      setTimeout(calculateTabContentHeight, 300);
+      setTimeout(() => calculateTabContentHeight(), 300);
       // After content loads
-      setTimeout(calculateTabContentHeight, 600);
+      setTimeout(() => calculateTabContentHeight(), 600);
       // Final check
-      setTimeout(calculateTabContentHeight, 1000);
+      setTimeout(() => calculateTabContentHeight(), 1000);
     }
 
     window.addEventListener('resize', handleResize);
@@ -562,7 +582,7 @@ export default function PlanItemDetailsModal({
     if (tabContentRef.current && window.ResizeObserver) {
       try {
         resizeObserver = new ResizeObserver(() => {
-          setTimeout(calculateTabContentHeight, 50);
+          setTimeout(() => calculateTabContentHeight(), 50);
         });
         resizeObserver.observe(tabContentRef.current);
 
@@ -570,7 +590,7 @@ export default function PlanItemDetailsModal({
         const modalBody = tabContentRef.current.closest('.modal-body');
         if (modalBody && window.MutationObserver) {
           mutationObserver = new MutationObserver(() => {
-            setTimeout(calculateTabContentHeight, 100);
+            setTimeout(() => calculateTabContentHeight(), 100);
           });
           mutationObserver.observe(modalBody, {
             childList: true,
@@ -581,6 +601,9 @@ export default function PlanItemDetailsModal({
         }
       } catch (error) {
         // ResizeObserver/MutationObserver not supported or failed
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[PlanItemDetailsModal] Observers not supported:', error);
+        }
       }
     }
 

@@ -89,7 +89,10 @@ export default defineConfig(({ mode }) => {
     outDir: 'build',
     sourcemap: true,
     chunkSizeWarningLimit: 1000,
-    cssCodeSplit: false,
+    // Enable CSS code splitting for better caching and loading
+    cssCodeSplit: true,
+    // Consistent CSS minification
+    cssMinify: process.env.NODE_ENV === 'production' ? 'esbuild' : false,
     // Minification options
     minify: 'esbuild',
     rollupOptions: {
@@ -107,7 +110,13 @@ export default defineConfig(({ mode }) => {
         // Optimize chunk file names for caching
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        assetFileNames: (assetInfo) => {
+          // Separate CSS files from other assets for better caching
+          if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            return 'assets/[name]-[hash].css';
+          }
+          return 'assets/[name]-[hash].[ext]';
+        }
       }
     }
     ,
@@ -160,9 +169,33 @@ export default defineConfig(({ mode }) => {
     }
   },
 
-  // CSS configuration
+  // CSS configuration with PostCSS and consistent processing
   css: {
     devSourcemap: true,
+    // Enable CSS code splitting for better caching in production
+    devCodeSplit: false,
+    // PostCSS configuration
+    postcss: './postcss.config.js',
+    // Preprocessor options for SASS
+    preprocessorOptions: {
+      scss: {
+        // Ensure consistent SASS compilation
+        api: 'modern-compiler', // Use modern SASS compiler API
+        silenceDeprecations: ['legacy-js-api'], // Silence legacy API warnings
+        // Include paths for @import resolution
+        includePaths: [
+          path.resolve(__dirname, 'src/styles'),
+          path.resolve(__dirname, 'node_modules'),
+        ],
+      },
+    },
+    // CSS modules configuration
+    modules: {
+      localsConvention: 'camelCase', // Convert CSS class names to camelCase
+      generateScopedName: process.env.NODE_ENV === 'production'
+        ? '[hash:base64:5]' // Short hash in production
+        : '[name]__[local]___[hash:base64:5]', // Descriptive names in development
+    },
   },
 
   // Optimize dependencies

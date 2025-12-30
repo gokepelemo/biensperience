@@ -57,8 +57,8 @@
 // Fluid font size using clamp()
 // Usage: @include fluid-font-size(18px, 26px, 320px, 991px);
 @mixin fluid-font-size($min-size, $max-size, $min-vw: $breakpoint-xs, $max-vw: $breakpoint-lg) {
-  $min-size-rem: if(unit($min-size) == 'px', $min-size / 16px * 1rem, $min-size);
-  $max-size-rem: if(unit($max-size) == 'px', $max-size / 16px * 1rem, $max-size);
+  $min-size-rem: if(sass(unit($min-size) == "px"): $min-size / 16px * 1rem; else: $min-size);
+  $max-size-rem: if(sass(unit($max-size) == "px"): $max-size / 16px * 1rem; else: $max-size);
 
   // Calculate viewport percentage
   $vw-size: calc(#{$min-size-rem} + (#{strip-unit($max-size-rem)} - #{strip-unit($min-size-rem)}) * ((100vw - #{$min-vw}) / (#{strip-unit($max-vw)} - #{strip-unit($min-vw)})));
