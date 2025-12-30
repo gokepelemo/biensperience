@@ -109,7 +109,7 @@ function NoteForm({
  */
 function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true }) {
   // Resolve any missing entities in this note's content
-  const { entityData: mergedEntityData } = useEntityResolver(note.content, entityData);
+  const { entityData: mergedEntityData, loadingEntityIds } = useEntityResolver(note.content, entityData);
 
   // Extract URLs from the note content for previews
   const urls = useMemo(() => extractUrls(note.content), [note.content]);
@@ -151,7 +151,7 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
       )}
 
       {/* Render text with mentions and clickable URLs */}
-      {renderTextWithMentionsAndUrls(note.content, mergedEntityData, onEntityClick)}
+      {renderTextWithMentionsAndUrls(note.content, mergedEntityData, onEntityClick, { loadingEntityIds })}
 
       {/* Link previews/embeds for URLs found in the note */}
       {showLinkPreviews && urls.length > 0 && (

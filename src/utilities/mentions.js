@@ -151,17 +151,25 @@ export function extractUrls(text) {
  * Convert mention to display text
  * @param {string} entityType - Type of entity (user, plan-item, destination, experience)
  * @param {Object} entity - Entity data
+ * @param {string} entityId - Entity ID
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.isLoading - Whether the entity is currently being resolved
  * @returns {string} Display text for the mention
  */
-export function getMentionDisplayText(entityType, entity, entityId) {
+export function getMentionDisplayText(entityType, entity, entityId, options = {}) {
+  const { isLoading = false } = options;
+  const prefix = entityType === 'plan-item' ? '#' : '@';
+
+  // If loading, return a placeholder that indicates loading state
+  if (isLoading) {
+    return `${prefix}Loading...`;
+  }
+
   // If entity not found, provide a more descriptive fallback
   if (!entity) {
-    const prefix = entityType === 'plan-item' ? '#' : '@';
     const typeLabel = entityType.charAt(0).toUpperCase() + entityType.slice(1);
     return `${prefix}${typeLabel} (not found)`;
   }
-
-  const prefix = entityType === 'plan-item' ? '#' : '@';
 
   switch (entityType) {
     case MENTION_TYPES.USER:
@@ -208,12 +216,37 @@ export function getEntityUrl(entityType, entityId, entity) {
  * @param {Object} mention - Mention object from parseMentions
  * @param {Object} entity - Entity data for the popover
  * @param {Function} onEntityClick - Optional click handler
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.isLoading - Whether the entity is currently being resolved
  * @returns {ReactElement} Interactive mention link
  */
-export function renderMention(mention, entity, onEntityClick) {
+export function renderMention(mention, entity, onEntityClick, options = {}) {
   const { entityType, entityId } = mention;
-  const displayText = getMentionDisplayText(entityType, entity, entityId);
+  const { isLoading = false } = options;
+  const displayText = getMentionDisplayText(entityType, entity, entityId, { isLoading });
   const entityUrl = getEntityUrl(entityType, entityId, entity);
+
+  // If loading, render a skeleton-style placeholder
+  if (isLoading) {
+    const prefix = entityType === 'plan-item' ? '#' : '@';
+    return (
+      <span
+        className="mention-link mention-loading"
+        style={{
+          display: 'inline-block',
+          background: 'linear-gradient(90deg, rgba(124,143,240,0.15) 25%, rgba(124,143,240,0.3) 50%, rgba(124,143,240,0.15) 75%)',
+          backgroundSize: '200% 100%',
+          animation: 'mentionShimmer 1.5s ease-in-out infinite',
+          borderRadius: '3px',
+          padding: '0 4px',
+          minWidth: '60px',
+          color: 'transparent'
+        }}
+      >
+        {prefix}Loading...
+      </span>
+    );
+  }
 
   const handleClick = (e) => {
     if (onEntityClick) {
@@ -335,10 +368,15 @@ function renderTextWithLineBreaks(content, keyPrefix) {
  * @param {string} text - Text containing mentions
  * @param {Object} entities - Map of entityId -> entity data
  * @param {Function} onEntityClick - Optional click handler for mentions
+ * @param {Object} options - Optional settings
+ * @param {Set|Array} options.loadingEntityIds - Set or array of entity IDs currently being resolved
  * @returns {ReactElement} Text with interactive mentions
  */
-export function renderTextWithMentions(text, entities = {}, onEntityClick) {
+export function renderTextWithMentions(text, entities = {}, onEntityClick, options = {}) {
   const segments = parseMentions(text);
+  const loadingIds = options.loadingEntityIds
+    ? (options.loadingEntityIds instanceof Set ? options.loadingEntityIds : new Set(options.loadingEntityIds))
+    : new Set();
 
   return (
     <>
@@ -352,9 +390,10 @@ export function renderTextWithMentions(text, entities = {}, onEntityClick) {
           );
         } else if (segment.type === 'mention') {
           const entity = entities[segment.entityId];
+          const isLoading = loadingIds.has(segment.entityId);
 
           // Log missing entities for debugging (can be removed in production)
-          if (!entity) {
+          if (!entity && !isLoading) {
             logger.debug('[renderTextWithMentions] Entity not found in current context', {
               entityId: segment.entityId,
               entityType: segment.entityType,
@@ -364,7 +403,7 @@ export function renderTextWithMentions(text, entities = {}, onEntityClick) {
 
           return (
             <span key={index}>
-              {renderMention(segment, entity, onEntityClick)}
+              {renderMention(segment, entity, onEntityClick, { isLoading })}
             </span>
           );
         }
@@ -420,17 +459,21 @@ function renderUrl(url, key) {
  * @param {Function} onEntityClick - Optional click handler for mentions
  * @param {Object} options - Rendering options
  * @param {boolean} options.renderUrls - Whether to render URLs as links (default: true)
+ * @param {Set|Array} options.loadingEntityIds - Set or array of entity IDs currently being resolved
  * @returns {ReactElement} Text with interactive mentions and URLs
  */
 export function renderTextWithMentionsAndUrls(text, entities = {}, onEntityClick, options = {}) {
-  const { renderUrls = true } = options;
+  const { renderUrls = true, loadingEntityIds } = options;
 
   // If not rendering URLs, use the simpler function
   if (!renderUrls) {
-    return renderTextWithMentions(text, entities, onEntityClick);
+    return renderTextWithMentions(text, entities, onEntityClick, { loadingEntityIds });
   }
 
   const segments = parseMentionsAndUrls(text);
+  const loadingIds = loadingEntityIds
+    ? (loadingEntityIds instanceof Set ? loadingEntityIds : new Set(loadingEntityIds))
+    : new Set();
 
   return (
     <>
@@ -444,8 +487,9 @@ export function renderTextWithMentionsAndUrls(text, entities = {}, onEntityClick
           );
         } else if (segment.type === 'mention') {
           const entity = entities[segment.entityId];
+          const isLoading = loadingIds.has(segment.entityId);
 
-          if (!entity) {
+          if (!entity && !isLoading) {
             logger.debug('[renderTextWithMentionsAndUrls] Entity not found', {
               entityId: segment.entityId,
               entityType: segment.entityType
@@ -454,7 +498,7 @@ export function renderTextWithMentionsAndUrls(text, entities = {}, onEntityClick
 
           return (
             <span key={index}>
-              {renderMention(segment, entity, onEntityClick)}
+              {renderMention(segment, entity, onEntityClick, { isLoading })}
             </span>
           );
         } else if (segment.type === 'url') {

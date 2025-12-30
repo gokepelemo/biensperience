@@ -180,7 +180,16 @@ export default function UpdateExperience() {
       // If there are no current photos, treat default as null
       if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
 
-      const defaultPhotoChanged = normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotoIds.length > 0;
+      // Don't consider it a change if PhotoUpload automatically set the first photo as default
+      // when no default was originally set and photos haven't changed
+      const isAutoDefaultSet = !originalDefaultId && // No original default
+                               currentDefaultId && // Current has default set
+                               !photosChanged && // Photos haven't changed
+                               normalizedCurrentDefault === currentPhotoIds[0]; // Default is first photo
+
+      const defaultPhotoChanged = normalizedOriginalDefault !== normalizedCurrentDefault &&
+                                  currentPhotoIds.length > 0 &&
+                                  !isAutoDefaultSet;
 
       // Use functional update to avoid stale closure issues with changes
       setChanges(prevChanges => {

@@ -1276,8 +1276,11 @@ export default function Profile() {
     });
 
     // Set filter if provided (for followers/following)
+    // Also clear the list and pagination to trigger a fresh fetch
     if (filter) {
       setFollowsFilter(filter);
+      setFollowsList([]);
+      setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
     }
 
     // Update URL hash for deep linking

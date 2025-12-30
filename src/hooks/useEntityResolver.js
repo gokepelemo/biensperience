@@ -17,6 +17,7 @@ import { logger } from '../utilities/logger';
 export default function useEntityResolver(text, localEntityData = {}) {
   const [resolvedEntities, setResolvedEntities] = useState({});
   const [isResolving, setIsResolving] = useState(false);
+  const [loadingEntityIds, setLoadingEntityIds] = useState(new Set());
 
   useEffect(() => {
     if (!text) return;
@@ -33,6 +34,7 @@ export default function useEntityResolver(text, localEntityData = {}) {
       if (missingMentions.length === 0) {
         // No missing entities, clear resolved state
         setResolvedEntities({});
+        setLoadingEntityIds(new Set());
         return;
       }
 
@@ -41,6 +43,9 @@ export default function useEntityResolver(text, localEntityData = {}) {
         missing: missingMentions.length
       });
 
+      // Set loading state for the missing entity IDs
+      const loadingIds = new Set(missingMentions.map(m => m.entityId));
+      setLoadingEntityIds(loadingIds);
       setIsResolving(true);
 
       // Resolve all missing entities in parallel
@@ -61,6 +66,7 @@ export default function useEntityResolver(text, localEntityData = {}) {
 
       setResolvedEntities(resolved);
       setIsResolving(false);
+      setLoadingEntityIds(new Set());
 
       logger.debug('[useEntityResolver] Resolution complete', {
         resolved: Object.keys(resolved).length
@@ -79,6 +85,7 @@ export default function useEntityResolver(text, localEntityData = {}) {
   return {
     entityData: mergedEntityData,
     isResolving,
-    hasResolvedEntities: Object.keys(resolvedEntities).length > 0
+    hasResolvedEntities: Object.keys(resolvedEntities).length > 0,
+    loadingEntityIds
   };
 }
