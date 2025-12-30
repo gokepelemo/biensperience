@@ -588,74 +588,54 @@
 /* =============================================================================
  * THREAD LAYOUT - Display thread panel on the right side
  * =============================================================================
- * Stream Chat SDK structure (v2):
+ * Stream Chat SDK v2 structure:
  * .str-chat > .str-chat__container > .str-chat__channel > .str-chat__main-panel + .str-chat__thread
- * The channel container (.str-chat__channel) needs flex-direction: row for side-by-side layout.
+ *
+ * The key override: .str-chat__channel must use flex-direction: row to place
+ * Thread on the right side instead of below the main panel.
  */
 
-/* Main Stream Chat container - needs to allow horizontal layout */
-.chatPane :global(.str-chat),
-.chatPane :global(.str-chat__container) {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-}
-
-/* Channel container - HORIZONTAL layout for Window + Thread side by side */
-.chatPane :global(.str-chat__channel) {
+/* Force horizontal layout on Channel container */
+.chatPane :global(.str-chat .str-chat__container .str-chat__channel),
+.chatPane :global(.str-chat__channel),
+.chatPane :global(div.str-chat__channel) {
   display: flex !important;
   flex-direction: row !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
+  flex-wrap: nowrap !important;
 }
 
-/* Main panel (Window wrapper) - takes remaining space on left */
+/* Main panel fills remaining space */
 .chatPane :global(.str-chat__main-panel) {
-  display: flex !important;
-  flex-direction: column !important;
   flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
+  min-width: 0 !important;
 }
 
-/* Window inside main panel */
-.chatPane :global(.str-chat__window) {
+/* Thread panel - fixed width on RIGHT side */
+.chatPane :global(.str-chat__thread),
+.chatPane :global(div.str-chat__thread) {
   display: flex !important;
   flex-direction: column !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-}
-
-/* Thread panel - FIXED width on RIGHT side */
-.chatPane :global(.str-chat__thread) {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 0 0 400px !important;
-  width: 400px !important;
-  min-width: 400px !important;
-  max-width: 400px !important;
-  min-height: 0 !important;
-  height: 100% !important;
-  overflow: hidden !important;
-  background: var(--color-bg-primary) !important;
+  flex: 0 0 380px !important;
+  width: 380px !important;
+  min-width: 380px !important;
+  max-width: 380px !important;
+  height: auto !important;
   border-left: 1px solid var(--color-border-light) !important;
+  background: var(--color-bg-primary) !important;
   position: relative !important;
+  order: 2 !important; /* Ensure Thread comes after main panel */
 
   /* Mobile: Thread takes full width as overlay */
   @media (max-width: 768px) {
-    flex: 1 1 100% !important;
-    width: 100% !important;
-    min-width: 100% !important;
-    max-width: 100% !important;
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
+    flex: none !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
     z-index: 10 !important;
     border-left: none !important;
   }
@@ -666,14 +646,10 @@
   background: var(--color-bg-secondary) !important;
   border-bottom: 1px solid var(--color-border-light) !important;
   color: var(--color-text-primary) !important;
-  flex-shrink: 0 !important;
 }
 
 /* Thread message list */
 .chatPane :global(.str-chat__thread .str-chat__message-list) {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow: auto !important;
   background: var(--color-bg-primary) !important;
 }
 
@@ -681,7 +657,6 @@
 .chatPane :global(.str-chat__thread .str-chat__message-input) {
   background: var(--color-bg-secondary) !important;
   border-top: 1px solid var(--color-border-light) !important;
-  flex-shrink: 0 !important;
 }
 
 .chatPane :global(.str-chat__message-list) {
