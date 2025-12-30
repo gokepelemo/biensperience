@@ -196,9 +196,15 @@ function errorResponse(res, err = null, message = 'An error occurred', statusCod
   // Prefer explicit message, fall back to error.message
   const errorMessage = message || (err && err.message) || 'An error occurred';
   const payload = { success: false, error: errorMessage };
-  // In development include details (non-sensitive)
+  // In development include sanitized details (never expose stack traces or sensitive info)
   if (process.env.NODE_ENV !== 'production' && err) {
-    payload.details = err.message || String(err);
+    // Sanitize error message to prevent information leakage
+    let sanitizedDetails = err.message || String(err);
+    // Remove potential stack trace information and sensitive data
+    sanitizedDetails = sanitizedDetails.split('\n')[0]; // Only first line
+    sanitizedDetails = sanitizedDetails.replace(/\/[^\s]+/g, '[REDACTED]'); // Remove file paths
+    sanitizedDetails = sanitizedDetails.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[REDACTED]'); // Remove IPs
+    payload.details = sanitizedDetails;
   }
   try {
     const cache = new Set();

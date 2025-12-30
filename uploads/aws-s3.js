@@ -71,6 +71,17 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     throw new Error('Invalid file path - path traversal detected');
   }
 
+  // Additional security: ensure the file actually exists and is a regular file
+  try {
+    const stats = fs.statSync(resolvedPath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a regular file');
+    }
+  } catch (statErr) {
+    backendLogger.error('File validation failed', { resolvedPath, error: statErr.message });
+    throw new Error('Invalid file path - file does not exist or is not accessible');
+  }
+
   // Determine which bucket to use
   const bucketName = isProtected ? PROTECTED_BUCKET : PUBLIC_BUCKET;
 
@@ -101,6 +112,14 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   backendLogger.debug('Processing file upload', { originalName, newName: sanitizedName, bucketName, isProtected });
   const contentType = mime.lookup(originalName);
   const extension = mime.extension(contentType);
+
+  // Final security check: ensure file path hasn't changed since validation
+  const finalResolvedPath = path.resolve(file);
+  if (finalResolvedPath !== resolvedPath) {
+    backendLogger.error('File path changed during processing', { original: resolvedPath, final: finalResolvedPath });
+    throw new Error('File path validation failed');
+  }
+
   const stream = fs.createReadStream(file);
   const key = `${sanitizedName}.${extension}`;
   const params = {
