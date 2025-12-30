@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import {
   getUserPlans,
@@ -915,13 +915,13 @@ export default function usePlanManagement(experienceId, userId) {
 
   // Compute selected plan from ID
   // Use string comparison since _id can be ObjectId or string
-  const selectedPlan = selectedPlanId
+  const selectedPlan = useMemo(() => selectedPlanId
     ? sharedPlans.find(p => {
         const planId = p._id?.toString ? p._id.toString() : p._id;
         const targetId = selectedPlanId?.toString ? selectedPlanId.toString() : selectedPlanId;
         return planId === targetId;
       }) || userPlan
-    : userPlan;
+    : userPlan, [selectedPlanId, sharedPlans, userPlan]);
 
   return {
     // State

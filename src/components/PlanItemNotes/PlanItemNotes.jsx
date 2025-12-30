@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { Dropdown } from 'react-bootstrap';
 import { Button } from '../../components/design-system';
 import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
@@ -73,17 +74,42 @@ function NoteForm({
       <InteractiveTextArea
         value={content}
         onChange={onContentChange}
-        visibility={visibility}
-        onVisibilityChange={onVisibilityChange}
         availableEntities={availableEntities}
         entityData={entityData}
         placeholder="Type your note... Use @ to mention users, destinations, or experiences"
         rows={4}
         disabled={loading || disabled}
         highlightUrls={true}
+        showFooter={false}
       />
 
       <div className={styles.formActions}>
+        {/* Visibility selector on the left */}
+        <Dropdown onSelect={onVisibilityChange} autoClose={true} className={styles.visibilityDropdown}>
+          <Dropdown.Toggle
+            variant="outline-secondary"
+            size="sm"
+            className={styles.visibilitySelector}
+          >
+            {VISIBILITY_OPTIONS.find(opt => opt.value === visibility)?.icon}{' '}
+            {VISIBILITY_OPTIONS.find(opt => opt.value === visibility)?.label}
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            {VISIBILITY_OPTIONS.map(option => (
+              <Dropdown.Item
+                key={option.value}
+                eventKey={option.value}
+                active={visibility === option.value}
+              >
+                {option.icon} {option.label}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+
+        {/* Spacer to push buttons to the right */}
+        <div className={styles.formActionsSpacer} />
+
         <Button
           variant="outline"
           onClick={onCancel}

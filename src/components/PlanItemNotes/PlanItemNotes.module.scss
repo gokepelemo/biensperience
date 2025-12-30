@@ -268,9 +268,21 @@
 
 .formActions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: $space-2;
   margin-top: $space-3;
+}
+
+.formActionsSpacer {
+  flex: 1;
+}
+
+.visibilityDropdown {
+  flex-shrink: 0;
+}
+
+.visibilitySelector {
+  font-size: $font-size-sm;
 }
 
 /* Chat messages area - THE SCROLLABLE CONTENT CONTAINER

@@ -1895,9 +1895,40 @@ export default function MyPlanTabContent({
   const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
+  // Tab loading state for smooth transitions
+  const [planTabLoading, setPlanTabLoading] = useState(true);
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
+
+  // Get current plan with "stale until updated" pattern to prevent flash
+  // Keep last valid plan when sharedPlans.find() temporarily returns undefined during updates
+  // NOTE: Defined early because handleDragEnd and other functions need it
+  const lastValidPlanRef = useRef(null);
+  const currentPlan = useMemo(() => {
+    const foundPlan = sharedPlans.find(
+      (p) => idEquals(p._id, selectedPlanId)
+    );
+    // If we found a valid plan, update the ref and return it
+    if (foundPlan) {
+      lastValidPlanRef.current = foundPlan;
+      return foundPlan;
+    }
+    // If selectedPlanId changed, we need to clear the stale ref
+    if (lastValidPlanRef.current && !idEquals(lastValidPlanRef.current._id, selectedPlanId)) {
+      lastValidPlanRef.current = null;
+      return undefined;
+    }
+    // Return the last valid plan to prevent flash during optimistic updates
+    return lastValidPlanRef.current;
+  }, [sharedPlans, selectedPlanId, idEquals]);
+
+  // Smooth loading transition for plan tab
+  useEffect(() => {
+    if (currentPlan && currentPlan.plan && currentPlan.plan.length > 0) {
+      requestAnimationFrame(() => setPlanTabLoading(false));
+    }
+  }, [currentPlan]);
 
   // State for scheduling date modal (Timeline view)
   const [showDateModal, setShowDateModal] = useState(false);
@@ -2250,27 +2281,6 @@ export default function MyPlanTabContent({
       .forEach((item) => addItem(item, false));
     return result;
   };
-
-  // Get current plan with "stale until updated" pattern to prevent flash
-  // Keep last valid plan when sharedPlans.find() temporarily returns undefined during updates
-  const lastValidPlanRef = useRef(null);
-  const currentPlan = useMemo(() => {
-    const foundPlan = sharedPlans.find(
-      (p) => idEquals(p._id, selectedPlanId)
-    );
-    // If we found a valid plan, update the ref and return it
-    if (foundPlan) {
-      lastValidPlanRef.current = foundPlan;
-      return foundPlan;
-    }
-    // If selectedPlanId changed, we need to clear the stale ref
-    if (lastValidPlanRef.current && !idEquals(lastValidPlanRef.current._id, selectedPlanId)) {
-      lastValidPlanRef.current = null;
-      return undefined;
-    }
-    // Return the last valid plan to prevent flash during optimistic updates
-    return lastValidPlanRef.current;
-  }, [sharedPlans, selectedPlanId, idEquals]);
 
   // Permission checks
   const isSuperAdmin = user?.role === 'super_admin' || user?.isSuperAdmin === true;
@@ -2681,9 +2691,23 @@ export default function MyPlanTabContent({
           title="Messages"
         />
         {planMetadata}
-        <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
-          {lang.current.alert.noPlanItems}
-        </p>
+        {planTabLoading ? (
+          <div className="plan-items-skeleton mt-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
+                <div className="d-flex gap-3 mb-3">
+                  <SkeletonLoader variant="circle" width={24} height={24} />
+                  <SkeletonLoader variant="text" width="70%" height={20} />
+                </div>
+                <SkeletonLoader variant="text" lines={2} height={16} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
+            {lang.current.alert.noPlanItems}
+          </p>
+        )}
       </div>
     );
   }

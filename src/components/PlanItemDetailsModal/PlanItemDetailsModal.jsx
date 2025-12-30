@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck } from 'react-icons/fa';
+import { Dropdown } from 'react-bootstrap';
+import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown } from 'react-icons/fa';
 import { StreamChat } from 'stream-chat';
 import {
   Chat,
@@ -16,6 +17,7 @@ import {
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import Modal from '../Modal/Modal';
+import Button from '../Button/Button';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
 import AddLocationModal from '../AddLocationModal';
@@ -1369,19 +1371,18 @@ export default function PlanItemDetailsModal({
           {/* Completion toggle - next to assignment */}
           {onToggleComplete && (
             <div className={styles.completionToggle}>
-              <button
-                className={`${styles.completeButton} ${planItem.complete ? styles.completed : ''}`}
+              <Button
+                variant={planItem.complete ? 'success' : 'outline'}
+                size="sm"
                 onClick={() => onToggleComplete(planItem)}
                 disabled={!canEdit}
-                type="button"
                 aria-pressed={!!planItem.complete}
                 title={planItem.complete ? 'Mark as incomplete' : 'Mark as complete'}
+                leftIcon={<span>{planItem.complete ? '✓' : '○'}</span>}
+                className={styles.completeButton}
               >
-                <span className={styles.completeIcon}>{planItem.complete ? '✓' : '○'}</span>
-                <span className={styles.completeText}>
-                  {planItem.complete ? lang.current.planItemDetailsModal.completed : lang.current.planItemDetailsModal.markComplete}
-                </span>
-              </button>
+                {planItem.complete ? lang.current.planItemDetailsModal.completed : lang.current.planItemDetailsModal.markComplete}
+              </Button>
             </div>
           )}
 
@@ -1390,16 +1391,18 @@ export default function PlanItemDetailsModal({
             const safeUrl = sanitizeUrl(planItem.url);
             return safeUrl ? (
               <div className={styles.completionToggle}>
-                <a
+                <Button
+                  as="a"
                   href={safeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.completeButton}
+                  variant="outline"
+                  size="sm"
                   title="Open external link"
+                  leftIcon={<span>🔗</span>}
                 >
-                  <span className={styles.completeIcon}>🔗</span>
-                  <span className={styles.completeText}>View Link</span>
-                </a>
+                  View Link
+                </Button>
               </div>
             ) : null;
           })()}
@@ -1483,17 +1486,17 @@ export default function PlanItemDetailsModal({
                 {canEdit && (onAddCostForItem || onAddDetail) && (
                   <div className={styles.addDropdownWrapper} ref={addDropdownRef}>
                     <Tooltip content="Add costs, reservations, or other details" placement="top">
-                      <button
-                        type="button"
-                        className={styles.addButton}
+                      <Button
+                        variant="gradient"
+                        size="sm"
                         onClick={handleToggleAddDropdown}
                         aria-expanded={showAddDropdown}
                         aria-haspopup="menu"
+                        leftIcon={<FaPlus />}
+                        rightIcon={<span className={styles.addButtonCaret}>▾</span>}
                       >
-                        <FaPlus className={styles.addButtonIcon} />
-                        <span className={styles.addButtonText}>{lang.current.button.add}</span>
-                        <span className={styles.addButtonCaret}>▾</span>
-                      </button>
+                        {lang.current.button.add}
+                      </Button>
                     </Tooltip>
 
                     {showAddDropdown && (
@@ -1540,14 +1543,15 @@ export default function PlanItemDetailsModal({
                 {/* Share Button */}
                 {onShare && (
                   <Tooltip content="Share this plan item" placement="top">
-                    <button
-                      type="button"
-                      className={styles.shareButton}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => onShare(planItem)}
+                      leftIcon={<FaShareAlt />}
+                      fullWidth
                     >
-                      <FaShareAlt className={styles.shareButtonIcon} />
-                      <span className={styles.shareButtonText}>{lang.current.planItemDetailsModal.share}</span>
-                    </button>
+                      {lang.current.planItemDetailsModal.share}
+                    </Button>
                   </Tooltip>
                 )}
               </div>
@@ -1555,51 +1559,60 @@ export default function PlanItemDetailsModal({
           </div>
         )}
 
-        {/* Tabs for different detail types */}
-        <div className={styles.detailsTabs}>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'details' ? styles.active : ''}`}
-            onClick={() => setActiveTab('details')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabDetails} {totalDetailsCount > 0 && `(${totalDetailsCount})`}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'notes' ? styles.active : ''}`}
-            onClick={() => setActiveTab('notes')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabNotes} {notes.length > 0 && `(${notes.length})`}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'location' ? styles.active : ''}`}
-            onClick={() => setActiveTab('location')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabLocation} {planItem?.location?.address && '✓'}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'chat' ? styles.active : ''}`}
-            onClick={() => setActiveTab('chat')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabChat}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'photos' ? styles.active : ''}`}
-            onClick={() => setActiveTab('photos')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabPhotos}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'documents' ? styles.active : ''}`}
-            onClick={() => setActiveTab('documents')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabDocuments}
-          </button>
-        </div>
+        {/* Tab options configuration */}
+        {(() => {
+          const tabOptions = [
+            { key: 'details', label: lang.current.planItemDetailsModal.tabDetails, badge: totalDetailsCount > 0 ? `(${totalDetailsCount})` : null },
+            { key: 'notes', label: lang.current.planItemDetailsModal.tabNotes, badge: notes.length > 0 ? `(${notes.length})` : null },
+            { key: 'location', label: lang.current.planItemDetailsModal.tabLocation, badge: planItem?.location?.address ? '✓' : null },
+            { key: 'chat', label: lang.current.planItemDetailsModal.tabChat, badge: null },
+            { key: 'photos', label: lang.current.planItemDetailsModal.tabPhotos, badge: null },
+            { key: 'documents', label: lang.current.planItemDetailsModal.tabDocuments, badge: null }
+          ];
+          const activeOption = tabOptions.find(opt => opt.key === activeTab) || tabOptions[0];
+
+          return (
+            <>
+              {/* Desktop: Traditional tab buttons */}
+              <div className={styles.detailsTabs}>
+                {tabOptions.map(opt => (
+                  <button
+                    key={opt.key}
+                    className={`${styles.detailsTab} ${activeTab === opt.key ? styles.active : ''}`}
+                    onClick={() => setActiveTab(opt.key)}
+                    type="button"
+                  >
+                    {opt.label} {opt.badge}
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile/Tablet: Dropdown selector */}
+              <div className={styles.tabsDropdownWrapper}>
+                <Dropdown onSelect={(key) => setActiveTab(key)} className={styles.tabsDropdown}>
+                  <Dropdown.Toggle variant="outline-secondary" className={styles.tabsDropdownToggle}>
+                    <span className={styles.tabsDropdownLabel}>
+                      {activeOption.label} {activeOption.badge}
+                    </span>
+                    <FaChevronDown className={styles.tabsDropdownIcon} />
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu className={styles.tabsDropdownMenu}>
+                    {tabOptions.map(opt => (
+                      <Dropdown.Item
+                        key={opt.key}
+                        eventKey={opt.key}
+                        active={activeTab === opt.key}
+                        className={styles.tabsDropdownItem}
+                      >
+                        {opt.label} {opt.badge}
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
+            </>
+          );
+        })()}
 
         {/* Tab content */}
         <div className={styles.detailsContent}>
@@ -1617,14 +1630,14 @@ export default function PlanItemDetailsModal({
               {totalDetailsCount > 0 && (
                 <div className={styles.detailsExportBar}>
                   <Tooltip content="Export all details to PDF" placement="left">
-                    <button
-                      type="button"
-                      className={styles.exportPdfButton}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleExportPDF}
+                      leftIcon={<FaFilePdf />}
                     >
-                      <FaFilePdf className={styles.exportPdfIcon} />
-                      <span>{lang.current.planItemDetailsModal.exportPdf}</span>
-                    </button>
+                      {lang.current.planItemDetailsModal.exportPdf}
+                    </Button>
                   </Tooltip>
                 </div>
               )}
@@ -1894,13 +1907,13 @@ export default function PlanItemDetailsModal({
                       )}
                     </div>
                     {canEdit && (
-                      <button
-                        type="button"
-                        className={styles.changeLocationButton}
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setShowLocationModal(true)}
                       >
                         {lang.current.planItemDetailsModal.change}
-                      </button>
+                      </Button>
                     )}
                   </div>
 

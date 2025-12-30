@@ -119,65 +119,52 @@ const InteractiveTextArea = ({
   const [isResolvingMentions, setIsResolvingMentions] = useState(false);
 
   // Force full width on RichTextarea wrapper to override library's inline width calculation
+  // IMPORTANT: Only target the RichTextarea input container, NOT the footer dropdown
+  const inputWrapperRef = useRef(null);
+
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!inputWrapperRef.current) return;
 
     const forceFullWidth = () => {
-      // Robustly find the rendered textarea (library output) by class
-      const textareaEl = containerRef.current.querySelector('textarea[class*="interactiveTextareaInput"]');
-      if (textareaEl && textareaEl.parentElement) {
-        const wrapper = textareaEl.parentElement; // This is the inline-block wrapper the library creates
+      if (!inputWrapperRef.current) return;
 
-        // Force the wrapper (first child) to be full width
-        try {
-          wrapper.style.setProperty('width', '100%', 'important');
-          wrapper.style.setProperty('display', 'block', 'important');
-          wrapper.style.setProperty('box-sizing', 'border-box', 'important');
-        } catch (err) {
-          // ignore
-        }
+      // Only target elements within the RichTextarea input wrapper
+      const inputContainer = inputWrapperRef.current;
 
-        // Force the wrapper's first child (the inner absolutely-positioned div) to full width as well
-        const innerFirst = wrapper.querySelector(':scope > div:first-child');
-        if (innerFirst) {
-          innerFirst.style.setProperty('width', '100%', 'important');
-          innerFirst.style.setProperty('box-sizing', 'border-box', 'important');
-        }
+      // Force the input container itself
+      inputContainer.style.setProperty('width', '100%', 'important');
+      inputContainer.style.setProperty('display', 'block', 'important');
 
-        // Also ensure the actual textarea is full width
-        try {
-          textareaEl.style.setProperty('width', '100%', 'important');
-          textareaEl.style.setProperty('box-sizing', 'border-box', 'important');
-        } catch (err) {}
-      } else {
-        // Fallback: try previous selector if textarea not found
-        const richTextareaContainer = containerRef.current.querySelector('[class*="interactiveTextareaInput"]');
-        if (richTextareaContainer) {
-          const firstChildDiv = richTextareaContainer.querySelector(':scope > div:first-child');
-          if (firstChildDiv) {
-            firstChildDiv.style.setProperty('width', '100%', 'important');
-            firstChildDiv.style.setProperty('display', 'block', 'important');
-            firstChildDiv.style.setProperty('box-sizing', 'border-box', 'important');
-          }
-          const allDivs = richTextareaContainer.querySelectorAll('div');
-          allDivs.forEach(wrapper => {
-            wrapper.style.setProperty('width', '100%', 'important');
-            wrapper.style.setProperty('box-sizing', 'border-box', 'important');
-          });
-          richTextareaContainer.style.setProperty('width', '100%', 'important');
-        }
+      // Force all descendant divs/spans within the input only
+      const allElements = inputContainer.querySelectorAll('div, span');
+      allElements.forEach(el => {
+        el.style.setProperty('width', '100%', 'important');
+        el.style.setProperty('display', 'block', 'important');
+        el.style.setProperty('box-sizing', 'border-box', 'important');
+      });
+
+      // Force the textarea itself
+      const textarea = inputContainer.querySelector('textarea');
+      if (textarea) {
+        textarea.style.setProperty('width', '100%', 'important');
+        textarea.style.setProperty('box-sizing', 'border-box', 'important');
       }
     };
 
-    // Initial force
+    // Initial force with micro delay to catch initial render
     forceFullWidth();
+    const timeoutId = setTimeout(forceFullWidth, 0);
+    const timeoutId2 = setTimeout(forceFullWidth, 50);
 
     // Use MutationObserver to catch when library adds inline styles
-    const observer = new MutationObserver(forceFullWidth);
-    observer.observe(containerRef.current, {
+    const observer = new MutationObserver(() => {
+      forceFullWidth();
+    });
+    observer.observe(inputWrapperRef.current, {
       attributes: true,
       attributeFilter: ['style'],
-      subtree: true
+      subtree: true,
+      childList: true
     });
 
     // Re-run on window resize (library might recalculate)
@@ -186,6 +173,8 @@ const InteractiveTextArea = ({
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', forceFullWidth);
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
     };
   }, [internalValue, value]); // Re-run when content changes
 
@@ -865,20 +854,23 @@ const InteractiveTextArea = ({
 
   return (
     <div ref={containerRef} className={`${styles.interactiveTextarea} ${className}`}>
-      <RichTextarea
-        ref={textareaRef}
-        value={internalValue}
-        onChange={(e) => handleInputChange(e)}
-        onKeyDown={handleKeyDown}
-        onSelectionChange={handleSelectionChange}
-        placeholder={placeholder}
-        rows={rows}
-        disabled={disabled}
-        className={styles.interactiveTextareaInput}
-        {...props}
-      >
-        {combinedRenderer || undefined}
-      </RichTextarea>
+      {/* Wrapper for RichTextarea - used by forceFullWidth to scope style overrides */}
+      <div ref={inputWrapperRef} className={styles.interactiveTextareaInputWrapper}>
+        <RichTextarea
+          ref={textareaRef}
+          value={internalValue}
+          onChange={(e) => handleInputChange(e)}
+          onKeyDown={handleKeyDown}
+          onSelectionChange={handleSelectionChange}
+          placeholder={placeholder}
+          rows={rows}
+          disabled={disabled}
+          className={styles.interactiveTextareaInput}
+          {...props}
+        >
+          {combinedRenderer || undefined}
+        </RichTextarea>
+      </div>
 
       {/* Suggestions dropdown */}
       {showSuggestions && (
@@ -931,7 +923,7 @@ const InteractiveTextArea = ({
       {/* Visibility selector */}
       {showFooter && (
         <div className={styles.interactiveTextareaFooter}>
-          <Dropdown onSelect={onVisibilityChange}>
+          <Dropdown onSelect={onVisibilityChange} autoClose={true}>
             <Dropdown.Toggle
               variant="outline-secondary"
               size="sm"
@@ -948,10 +940,10 @@ const InteractiveTextArea = ({
                   active={visibility === option.value}
                 >
                   {option.icon} {option.label}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown>
         </div>
       )}
     </div>

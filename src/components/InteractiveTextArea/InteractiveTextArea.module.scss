@@ -7,39 +7,60 @@
   width: 100%;
 }
 
+// Wrapper for RichTextarea - scopes the width override styles
+.interactiveTextareaInputWrapper {
+  width: 100%;
+  display: block;
+}
+
 .interactiveTextareaInput {
   width: 100% !important;
   resize: vertical;
   min-height: 100px;
   box-sizing: border-box;
+  display: block !important;
 
-  // Override RichTextarea's inline width calculation
-  > div {
+  // RichTextarea wraps everything in an inline-block span/div that calculates width
+  // based on content. We need to force ALL descendants to be full width.
+  // The library structure is: .interactiveTextareaInput > div (inline-block wrapper) > div (overlay) + textarea
+
+  // Force the immediate wrapper to be full width block
+  > * {
     width: 100% !important;
     display: block !important;
+    box-sizing: border-box !important;
+  }
+
+  // Override RichTextarea's inline width calculation on all nested divs
+  div {
+    width: 100% !important;
+    display: block !important;
+    box-sizing: border-box !important;
   }
 
   // Ensure RichTextarea's internal elements are also full width
   :global(textarea) {
     width: 100% !important;
-    box-sizing: border-box;
+    box-sizing: border-box !important;
   }
 
   :global(.rich-textarea__overlay) {
     width: 100% !important;
-    box-sizing: border-box;
+    box-sizing: border-box !important;
   }
 
   // Ensure textarea is full width without affecting position
   // NOTE: Do NOT override position - RichTextarea needs absolute positioning for overlay alignment
   textarea {
     width: 100% !important;
+    box-sizing: border-box !important;
   }
 }
 
 .interactiveTextareaFooter {
   display: flex;
   justify-content: flex-end;
+  width: 100%;
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--color-border-medium);

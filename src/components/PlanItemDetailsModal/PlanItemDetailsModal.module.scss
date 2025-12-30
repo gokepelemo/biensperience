@@ -268,57 +268,15 @@
   }
 }
 
+/* Complete button - uses Button component, only layout overrides needed */
 .completeButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  @include transition-all($transition-fast);
-
-  &:hover:not(:disabled) {
-    background: rgba(var(--color-success-rgb, 34, 197, 94), 0.1);
-    border-color: var(--color-success, #22c55e);
-    color: var(--color-success, #22c55e);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &.completed {
-    background: rgba(var(--color-success-rgb, 34, 197, 94), 0.15);
-    border-color: var(--color-success, #22c55e);
-    color: var(--color-success, #22c55e);
-
-    &:hover:not(:disabled) {
-      background: rgba(var(--color-success-rgb, 34, 197, 94), 0.25);
-    }
-  }
-
   @media (max-width: 768px) {
     width: 100%;
     justify-content: center;
   }
 }
 
-.completeIcon {
-  font-size: $font-size-base;
-  line-height: 1;
-}
-
-.completeText {
-  white-space: nowrap;
-}
-
-/* Details tabs */
+/* Details tabs - Desktop only (hidden on mobile/tablet) */
 .detailsTabs {
   display: flex;
   gap: 0;
@@ -329,8 +287,9 @@
   padding: 0 $space-6;
   background: var(--color-bg-secondary);
 
-  @media (max-width: 768px) {
-    padding: 0 $space-4;
+  /* Hide on mobile/tablet - show dropdown instead */
+  @media (max-width: 991px) {
+    display: none;
   }
 }
 
@@ -364,10 +323,101 @@
     cursor: not-allowed;
     color: var(--color-text-muted);
   }
+}
 
-  @media (max-width: 768px) {
-    padding: $space-3 $space-4;
-    font-size: $font-size-xs;
+/* =============================================================================
+ * TABS DROPDOWN - Mobile/Tablet only
+ * =============================================================================
+ * Replaces horizontal tabs with a dropdown on smaller screens for better UX.
+ */
+
+.tabsDropdownWrapper {
+  /* Hidden on desktop - show tabs instead */
+  display: none;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+
+  /* Show on mobile/tablet */
+  @media (max-width: 991px) {
+    display: block;
+  }
+}
+
+.tabsDropdown {
+  width: 100%;
+}
+
+.tabsDropdownToggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $space-3 $space-4 !important;
+  font-size: $font-size-base !important;
+  font-weight: $font-weight-medium !important;
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-primary) !important;
+  border: 1px solid var(--color-border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  text-align: left;
+  @include transition-all($transition-fast);
+
+  &:hover,
+  &:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15) !important;
+  }
+
+  &::after {
+    /* Hide Bootstrap's default caret - we use our own icon */
+    display: none !important;
+  }
+}
+
+.tabsDropdownLabel {
+  flex: 1;
+  @include text-ellipsis;
+}
+
+.tabsDropdownIcon {
+  flex-shrink: 0;
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  margin-left: $space-2;
+  @include transition-all($transition-fast);
+
+  .tabsDropdownToggle[aria-expanded="true"] & {
+    transform: rotate(180deg);
+  }
+}
+
+.tabsDropdownMenu {
+  width: 100%;
+  padding: $space-2 0 !important;
+  background: var(--color-bg-primary) !important;
+  border: 1px solid var(--color-border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  margin-top: $space-1 !important;
+}
+
+.tabsDropdownItem {
+  padding: $space-3 $space-4 !important;
+  font-size: $font-size-base !important;
+  color: var(--color-text-primary) !important;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    background: rgba(var(--color-primary-rgb), 0.1) !important;
+    color: var(--color-primary) !important;
+  }
+
+  &:active,
+  &.active {
+    background: rgba(var(--color-primary-rgb), 0.15) !important;
+    color: var(--color-primary) !important;
+    font-weight: $font-weight-semibold;
   }
 }
 
@@ -1418,58 +1468,15 @@
   white-space: nowrap;
 }
 
-/* + Add Button with Dropdown */
+/* + Add Button with Dropdown - uses Button component */
 .addDropdownWrapper {
   position: relative;
   display: inline-flex;
 }
 
-.addButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  background: var(--gradient-primary);
-  border: none;
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: $font-size-sm;
-  font-weight: $font-weight-semibold;
-  cursor: pointer;
-  @include transition-all($transition-fast);
-  min-width: 100px;
-  justify-content: center;
-
-  &:hover {
-    @include hover-lift;
-    opacity: 0.95;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  @media (max-width: 768px) {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-}
-
-.addButtonIcon {
-  font-size: $font-size-lg;
-  line-height: 1;
-  font-weight: $font-weight-bold;
-}
-
-.addButtonText {
-  white-space: nowrap;
-}
-
 .addButtonCaret {
   font-size: $font-size-xs;
   opacity: 0.8;
-  margin-left: $space-1;
 }
 
 .addDropdownMenu {
@@ -1591,44 +1598,7 @@
   }
 }
 
-/* Share Button - matches Add button styling */
-.shareButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-semibold;
-  cursor: pointer;
-  @include transition-all($transition-fast);
-  justify-content: center;
-  width: 100%;
-
-  &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-    @include hover-lift;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
-
-.shareButtonIcon {
-  font-size: $font-size-base;
-  line-height: 1;
-}
-
-.shareButtonText {
-  white-space: nowrap;
-}
+/* Share Button - uses Button component, no custom styles needed */
 
 /* =============================================
    Details Tab Content - Grouped Detail Types
@@ -1664,36 +1634,7 @@
   }
 }
 
-.exportPdfButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  cursor: pointer;
-  @include transition-all($transition-fast);
-
-  &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
-
-.exportPdfIcon {
-  font-size: $font-size-base;
-  line-height: 1;
-}
+/* Export PDF button - uses Button component, no custom styles needed */
 
 /* Scrollable grouped list container - THE SCROLLABLE CONTENT AREA
  * This must fill remaining vertical space after the export bar.
@@ -1946,29 +1887,7 @@
   color: var(--color-text-muted);
 }
 
-.changeLocationButton {
-  padding: $space-2 $space-4;
-  background: transparent;
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  cursor: pointer;
-  flex-shrink: 0;
-  @include transition-all($transition-fast);
-
-  &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
+/* Change location button - uses Button component, no custom styles needed */
 
 /* Map wrapper - fills remaining vertical space after address bar */
 .locationMapWrapper {
