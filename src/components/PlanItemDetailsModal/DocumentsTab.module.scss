@@ -3,6 +3,15 @@
 .documentsTab {
   padding: var(--space-2);
   position: relative;
+  /* Fill available space from wrapper */
+  flex: 1 1 0;
+  height: 100%;
+  /* Allow flexbox to shrink below content size */
+  min-height: 0;
+  /* Prevent overflow - children handle their own scrolling */
+  overflow: hidden;
+  /* Ensure width fills container */
+  width: 100%;
 }
 
 .hiddenFileInput {

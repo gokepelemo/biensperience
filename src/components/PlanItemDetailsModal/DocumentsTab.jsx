@@ -442,6 +442,7 @@ export default function DocumentsTab({
           primaryAction={canEdit ? (lang.current.planItemDetailsModal?.uploadDocument || 'Upload Document') : null}
           onPrimaryAction={canEdit ? handleUploadClick : null}
           compact
+          fillContainer
         />
       </div>
     );

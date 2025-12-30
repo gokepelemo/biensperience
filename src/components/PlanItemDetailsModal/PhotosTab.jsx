@@ -426,6 +426,7 @@ export default function PhotosTab({
               variant="photos"
               size="sm"
               compact
+              fillContainer
             />
           )}
         </div>

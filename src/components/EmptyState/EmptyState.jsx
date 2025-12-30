@@ -134,6 +134,7 @@ export default function EmptyState({
   size = 'md',
   compact = false,
   className = '',
+  fillContainer = false,
 }) {
   const config = VARIANT_CONFIG[variant] || VARIANT_CONFIG.generic;
 
@@ -163,6 +164,7 @@ export default function EmptyState({
     styles.emptyState,
     styles[`size${size.charAt(0).toUpperCase()}${size.slice(1)}`],
     compact && styles.compact,
+    fillContainer && styles.fillContainer,
     className,
   ].filter(Boolean).join(' ');
 
@@ -241,6 +243,7 @@ EmptyState.propTypes = {
   size: PropTypes.oneOf(['sm', 'md', 'lg']),
   compact: PropTypes.bool,
   className: PropTypes.string,
+  fillContainer: PropTypes.bool,
 };
 
 // Export variant config for use in Storybook

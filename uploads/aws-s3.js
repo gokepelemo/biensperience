@@ -41,8 +41,23 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     throw new Error('Invalid file path');
   }
 
+  // Check for null bytes - immediate rejection
+  if (file.includes('\0')) {
+    backendLogger.error('S3 upload blocked: null byte in path', { path: file });
+    throw new Error('Invalid file path: null bytes not allowed');
+  }
+
+  // Normalize the path to handle .. sequences
+  const normalizedPath = path.normalize(file);
+
+  // Reject paths that start with .. or are absolute after normalization
+  if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+    backendLogger.error('S3 upload blocked: suspicious path pattern', { original: file, normalized: normalizedPath });
+    throw new Error('Invalid file path: path traversal detected');
+  }
+
   // Resolve the path and ensure it's within the expected directories
-  const resolvedPath = path.resolve(file);
+  const resolvedPath = path.resolve(normalizedPath);
 
   // Allowed directories for uploads
   const allowedDirs = [
@@ -52,7 +67,7 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     path.resolve('./uploads/temp')
   ];
 
-  // Check if the resolved path is within any allowed directory using path.relative
+  // Check if the resolved path is within any allowed directory
   const isAllowed = allowedDirs.some(dir => {
     try {
       const relative = path.relative(dir, resolvedPath);
@@ -67,7 +82,7 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   });
 
   if (!isAllowed) {
-    backendLogger.error('S3 upload path validation failed', { resolvedPath, allowedDirs });
+    backendLogger.error('S3 upload path validation failed', { resolvedPath, allowedDirs, originalPath: file });
     throw new Error('Invalid file path - path traversal detected');
   }
 
@@ -76,6 +91,10 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     const stats = fs.statSync(resolvedPath);
     if (!stats.isFile()) {
       throw new Error('Path is not a regular file');
+    }
+    // Check file size is reasonable (prevent huge files)
+    if (stats.size > 100 * 1024 * 1024) { // 100MB limit
+      throw new Error('File too large');
     }
   } catch (statErr) {
     backendLogger.error('File validation failed', { resolvedPath, error: statErr.message });
@@ -114,13 +133,20 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   const extension = mime.extension(contentType);
 
   // Final security check: ensure file path hasn't changed since validation
-  const finalResolvedPath = path.resolve(file);
+  const finalResolvedPath = path.resolve(normalizedPath);
   if (finalResolvedPath !== resolvedPath) {
     backendLogger.error('File path changed during processing', { original: resolvedPath, final: finalResolvedPath });
     throw new Error('File path validation failed');
   }
 
-  const stream = fs.createReadStream(file);
+  // Create read stream with additional validation
+  let stream;
+  try {
+    stream = fs.createReadStream(finalResolvedPath);
+  } catch (streamErr) {
+    backendLogger.error('Failed to create file stream', { path: finalResolvedPath, error: streamErr.message });
+    throw new Error('Unable to read file');
+  }
   const key = `${sanitizedName}.${extension}`;
   const params = {
     Bucket: bucketName,

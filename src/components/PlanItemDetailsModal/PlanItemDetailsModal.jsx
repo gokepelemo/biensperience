@@ -1648,6 +1648,7 @@ export default function PlanItemDetailsModal({
                   title={lang.current.planItemDetailsModal.noDetailsAdded}
                   description={lang.current.planItemDetailsModal.noDetailsDescription}
                   size="md"
+                  fillContainer
                 />
               )}
             </div>
@@ -1740,6 +1741,7 @@ export default function PlanItemDetailsModal({
                   primaryAction={canEdit ? lang.current.planItemDetailsModal.addLocation : null}
                   onPrimaryAction={canEdit ? () => setShowLocationModal(true) : null}
                   size="md"
+                  fillContainer
                 />
               )}
             </div>
