@@ -589,41 +589,41 @@
  * THREAD LAYOUT - Display thread panel on the right side
  * =============================================================================
  * Stream Chat SDK v2 structure:
- * .str-chat > .str-chat__container > .str-chat__channel > .str-chat__main-panel + .str-chat__thread
+ * .str-chat > .str-chat__channel > .str-chat__container > [children: Window + Thread]
  *
- * The key override: .str-chat__channel must use flex-direction: row to place
- * Thread on the right side instead of below the main panel.
+ * Key insight: .str-chat__container has display:flex (horizontal) but both
+ * main-panel and thread-container have width:100%, causing stacking.
+ * Fix: Override widths to allow side-by-side layout.
  */
 
-/* Force horizontal layout on Channel container */
-.chatPane :global(.str-chat .str-chat__container .str-chat__channel),
-.chatPane :global(.str-chat__channel),
-.chatPane :global(div.str-chat__channel) {
+/* Ensure container uses horizontal flex layout */
+.chatPane :global(.str-chat__container) {
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
 }
 
-/* Main panel fills remaining space */
+/* Main panel fills remaining space - override width:100% */
 .chatPane :global(.str-chat__main-panel) {
   flex: 1 1 auto !important;
+  width: auto !important;
   min-width: 0 !important;
 }
 
 /* Thread panel - fixed width on RIGHT side */
-.chatPane :global(.str-chat__thread),
-.chatPane :global(div.str-chat__thread) {
+/* Thread has classes: str-chat__thread-container str-chat__thread */
+.chatPane :global(.str-chat__thread-container),
+.chatPane :global(.str-chat__thread) {
   display: flex !important;
   flex-direction: column !important;
   flex: 0 0 380px !important;
   width: 380px !important;
   min-width: 380px !important;
   max-width: 380px !important;
-  height: auto !important;
+  height: 100% !important;
   border-left: 1px solid var(--color-border-light) !important;
   background: var(--color-bg-primary) !important;
   position: relative !important;
-  order: 2 !important; /* Ensure Thread comes after main panel */
 
   /* Mobile: Thread takes full width as overlay */
   @media (max-width: 768px) {
