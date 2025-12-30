@@ -32,9 +32,11 @@ import styles from './InteractiveTextArea.module.scss';
  * These CSS objects are applied to matched text in the textarea overlay
  */
 const URL_STYLE = { color: '#0066cc', textDecoration: 'underline' };
-const HASHTAG_STYLE = { color: '#1da1f2', fontWeight: '500' };
+// Note: fontWeight removed to prevent cursor misalignment
+const HASHTAG_STYLE = { color: '#1da1f2' };
 const EMOJI_STYLE = { background: 'rgba(255,220,100,0.3)', borderRadius: '2px' };
-const MENTION_STYLE = { background: 'rgba(124,143,240,0.25)', color: '#5b6cdb', borderRadius: '3px', fontWeight: '600' };
+// Note: fontWeight removed to prevent cursor misalignment - overlay text must match textarea text width
+const MENTION_STYLE = { background: 'rgba(124,143,240,0.25)', color: '#5b6cdb', borderRadius: '3px' };
 
 /**
  * Interactive TextArea with mentions support
@@ -83,6 +85,9 @@ const InteractiveTextArea = ({
   const [cursorPosition, setCursorPosition] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
+  // Track entities selected from global search that aren't in availableEntities
+  // These are needed for highlighting to work on newly selected mentions
+  const [dynamicEntities, setDynamicEntities] = useState([]);
   // Track confirmed mention ranges: [{ start, end, entityId, type }]
   const confirmedMentionsRef = useRef([]);
   const textareaRef = useRef(null);
@@ -311,6 +316,16 @@ const InteractiveTextArea = ({
           const localIds = new Set(mergedEntities.map(e => e.id));
           const uniqueGlobalEntities = globalEntities.filter(e => !localIds.has(e.id));
           mergedEntities = [...mergedEntities, ...uniqueGlobalEntities];
+
+          // Add global entities to dynamicEntities so they get highlighted even if not selected
+          if (uniqueGlobalEntities.length > 0) {
+            setDynamicEntities(prev => {
+              // Avoid duplicates
+              const existingIds = new Set(prev.map(e => `${e.type}:${e.id}`));
+              const newEntities = uniqueGlobalEntities.filter(e => !existingIds.has(`${e.type}:${e.id}`));
+              return [...prev, ...newEntities];
+            });
+          }
         } catch (searchError) {
           // If global search fails, just use local matches
           logger.warn('[InteractiveTextArea] Global search failed, using local matches only', {
@@ -343,6 +358,7 @@ const InteractiveTextArea = ({
    * 1. If cursor is immediately after a confirmed mention (even with trailing space), don't trigger
    * 2. If cursor is inside a confirmed mention, don't trigger (user would need to backspace to edit)
    * 3. Only trigger search when user types @ or # followed by a query that doesn't match existing entity
+   * 4. If a @ or # trigger position falls within a confirmed mention, it's not a new trigger
    */
   const findActiveMentionTrigger = useCallback((text, cursorPos) => {
     const confirmed = confirmedMentionsRef.current;
@@ -370,11 +386,11 @@ const InteractiveTextArea = ({
     for (let i = cursorPos - 1; i >= 0; i--) {
       const char = text[i];
 
-      // Stop if we hit a space, newline, or other word boundary (unless it's the trigger itself)
+      // Stop if we hit a space, newline, or other word boundary
+      // A space means any @ or # before it is a separate word/mention
       if (char === ' ' || char === '\n' || char === '\t') {
-        // Check if there's a trigger before this space that we should use
-        // But only if we haven't gone too far back
-        continue;
+        // We hit a word boundary - no active trigger in current word
+        return null;
       }
 
       // Check if this position is inside a confirmed mention - skip search entirely
@@ -385,6 +401,13 @@ const InteractiveTextArea = ({
       }
 
       if (char === '@' || char === '#') {
+        // Check if this trigger position is at the start of a confirmed mention
+        // If so, this is not a new trigger - it's the trigger for an existing mention
+        const isConfirmedMentionTrigger = confirmed.some(m => m.start === i);
+        if (isConfirmedMentionTrigger) {
+          return null;
+        }
+
         // Found a trigger - extract query from trigger to cursor
         const queryText = text.slice(i + 1, cursorPos);
 
@@ -588,20 +611,38 @@ const InteractiveTextArea = ({
         ? availableEntities
         : [...(availableEntities || []), entityWithDisplayName];
 
+      // If entity wasn't in availableEntities, add to dynamicEntities for highlighting
+      if (!entityExists) {
+        setDynamicEntities(prev => {
+          // Avoid duplicates
+          if (prev.some(e => e.id === entity.id && e.type === entity.type)) return prev;
+          return [...prev, entityWithDisplayName];
+        });
+      }
+
       // Convert to storage format and emit to parent
       const storage = editableTextToMentions(newDisplayValue, entitiesForConversion);
       onChange(storage);
 
       // Move cursor to just after the inserted mention (after the space)
+      // The space is added after `inserted`, so cursor should be at mentionEnd + 1
       const newCursorPos = mentionEnd + 1;
-      setTimeout(() => {
+
+      // Update cursor position state immediately
+      setCursorPosition(newCursorPos);
+
+      // Use requestAnimationFrame to ensure DOM has updated before setting selection
+      requestAnimationFrame(() => {
         textarea.focus();
         try {
           textarea.setSelectionRange(newCursorPos, newCursorPos);
-        } catch (err) {}
+        } catch (err) {
+          // RichTextarea may handle selection differently
+          logger.debug('[InteractiveTextArea] Could not set selection range', { err });
+        }
         // Don't reset justSelectedMentionRef here - let the timestamp-based check handle it
         // This ensures we have protection for at least 500ms after selection
-      }, 0);
+      });
     } catch (err) {
       logger.error('[InteractiveTextArea] Error inserting mention:', err);
       justSelectedMentionRef.current = false;
@@ -721,15 +762,30 @@ const InteractiveTextArea = ({
   }, []);
 
   /**
-   * Build regex pattern for highlighting known entity mentions
-   * Creates pattern like (@Name1|@Name2|#Item1|#Item2)
+   * Combined list of all entities for highlighting
+   * Includes both availableEntities (from props) and dynamicEntities (selected from search)
    */
-  const mentionHighlightRegex = useMemo(() => {
-    if (!availableEntities || availableEntities.length === 0) return null;
+  const allEntitiesForHighlighting = useMemo(() => {
+    const baseEntities = availableEntities || [];
+    if (dynamicEntities.length === 0) return baseEntities;
+
+    // Merge, avoiding duplicates by id+type
+    const seen = new Set(baseEntities.map(e => `${e.type}:${e.id}`));
+    const uniqueDynamic = dynamicEntities.filter(e => !seen.has(`${e.type}:${e.id}`));
+    return [...baseEntities, ...uniqueDynamic];
+  }, [availableEntities, dynamicEntities]);
+
+  /**
+   * Build regex pattern STRING for highlighting known entity mentions
+   * Creates pattern like (@Name1|@Name2|#Item1|#Item2)
+   * Returns the pattern string, not the regex, to avoid lastIndex issues
+   */
+  const mentionHighlightPattern = useMemo(() => {
+    if (!allEntitiesForHighlighting || allEntitiesForHighlighting.length === 0) return null;
 
     // Build patterns for all known entities
     const patterns = [];
-    (availableEntities || []).forEach(e => {
+    allEntitiesForHighlighting.forEach(e => {
       if (e.displayName) {
         // Escape special regex characters in entity names
         const escapedName = e.displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -740,10 +796,10 @@ const InteractiveTextArea = ({
 
     if (patterns.length === 0) return null;
 
-    // Create regex that matches any known mention
-    // Use word boundary or lookahead for space/newline/@ /#/end
-    return new RegExp(`(${patterns.join('|')})(?=\\s|@|#|$|\\n)`, 'gi');
-  }, [availableEntities]);
+    // Return the pattern string - regex will be created fresh when needed
+    // Use lookahead for space/newline/@/#/end to avoid consuming the delimiter
+    return `(${patterns.join('|')})(?=\\s|@|#|$|\\n)`;
+  }, [allEntitiesForHighlighting]);
 
   /**
    * Create combined renderer for all highlight patterns
@@ -758,8 +814,9 @@ const InteractiveTextArea = ({
     const renderers = [];
 
     // 1. Mention highlighting (highest priority - entities)
-    if (mentionHighlightRegex) {
-      renderers.push([mentionHighlightRegex, MENTION_STYLE]);
+    // Create fresh regex from pattern string to avoid lastIndex issues
+    if (mentionHighlightPattern) {
+      renderers.push([new RegExp(mentionHighlightPattern, 'gi'), MENTION_STYLE]);
     }
 
     // 2. URL highlighting - makes URLs visually distinct
@@ -804,7 +861,7 @@ const InteractiveTextArea = ({
     // Use createRegexRenderer with all patterns
     // This returns a function: (value: string) => React.ReactNode
     return createRegexRenderer(renderers);
-  }, [mentionHighlightRegex, highlightUrls, highlightHashtags, highlightEmoji, customHighlights]);
+  }, [mentionHighlightPattern, highlightUrls, highlightHashtags, highlightEmoji, customHighlights]);
 
   return (
     <div ref={containerRef} className={`${styles.interactiveTextarea} ${className}`}>

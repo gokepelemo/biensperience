@@ -14,6 +14,7 @@ import { useUser } from '../../contexts/UserContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { Button } from '../design-system';
+import Checkbox from '../Checkbox/Checkbox';
 import styles from './UserInviteModal.module.scss';
 
 export default function UserInviteModal({ show, onHide, onInviteCreated }) {
@@ -206,8 +207,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
+              <Checkbox
                 id="sendEmailCheckbox"
                 label="Send invite email"
                 checked={formData.sendEmail}
@@ -217,8 +217,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             </Form.Group>
 
             <Form.Group className="mb-4">
-              <Form.Check
-                type="checkbox"
+              <Checkbox
                 id="mutualFollowCheckbox"
                 label="Automatically follow each other"
                 checked={formData.mutualFollow}

@@ -197,9 +197,17 @@ export default function UpdateDestination() {
       // If there are no current photos, treat default as null
       if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
 
+      // Don't consider it a change if PhotoUpload automatically set the first photo as default
+      // when no default was originally set and photos haven't changed
+      const isAutoDefaultSet = !originalDefaultId && // No original default
+                               currentDefaultId && // Current has default set
+                               !photosChanged && // Photos haven't changed
+                               normalizedCurrentDefault === currentPhotoIds[0]; // Default is first photo
+
       if (
         normalizedOriginalDefault !== normalizedCurrentDefault &&
-        currentPhotoIds.length > 0
+        currentPhotoIds.length > 0 &&
+        !isAutoDefaultSet
       ) {
         const originalIndex = normalizedOriginalDefault
           ? originalPhotoIds.indexOf(normalizedOriginalDefault)

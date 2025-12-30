@@ -600,21 +600,30 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
               </button>
             </div>
 
+            {/* Upload button - always visible when URL entered or queue has items */}
+            {(uploadForm.photo_url || urlQueue.length > 0) && (
+              <div className="mb-3">
+                <button
+                  className={`btn btn-primary w-100 ${styles.uploadBtn}`}
+                  onClick={urlQueue.length > 0 ? handleUploadAllUrls : handlePhotoAdd}
+                  disabled={uploading}
+                  type="button"
+                >
+                  {uploading
+                    ? lang.current.button.uploading
+                    : urlQueue.length > 0
+                      ? lang.current.photo.uploadAllUrls.replace('{count}', urlQueue.length)
+                      : lang.current.button.upload || 'Upload'}
+                </button>
+              </div>
+            )}
+
             {urlQueue.length > 0 && (
               <div className="url-queue mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <small className="text-muted">
                     {lang.current.photo.urlsInQueue.replace('{count}', urlQueue.length)}
                   </small>
-                  {urlQueue.length > 0 && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={handleUploadAllUrls}
-                      disabled={uploading}
-                    >
-                      {uploading ? lang.current.button.uploading : lang.current.photo.uploadAllUrls.replace('{count}', urlQueue.length)}
-                    </button>
-                  )}
                 </div>
                 <div className={styles.urlQueueList}>
                   {urlQueue.map((item, index) => (

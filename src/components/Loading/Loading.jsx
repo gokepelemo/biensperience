@@ -5,7 +5,7 @@ import styles from "./Loading.module.scss";
  * Loading - A reusable loading component with multiple animation variations
  *
  * @param {Object} props
- * @param {string} props.size - Size variant: 'sm' (32px), 'md' (64px), 'lg' (96px), 'xl' (128px)
+ * @param {string} props.size - Size variant: 'xs' (16px), 'sm' (32px), 'md' (64px), 'lg' (96px), 'xl' (128px)
  * @param {string} props.variant - Display variant: 'inline' (default), 'fullscreen', 'centered'
  * @param {string} props.animation - Animation type: 'pulse', 'spin', 'fan', 'orbit', 'breathe', 'bounce', 'engine'
  * @param {string} props.className - Additional CSS classes

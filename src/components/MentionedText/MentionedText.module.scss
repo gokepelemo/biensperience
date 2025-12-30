@@ -10,3 +10,25 @@
 }
 
 /* Mention links styling is handled in InteractiveTextArea.module.scss */
+
+/* Shimmer animation for loading mentions */
+:global {
+  @keyframes mentionShimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .mention-loading {
+    display: inline-block;
+    background: linear-gradient(90deg, rgba(124,143,240,0.15) 25%, rgba(124,143,240,0.3) 50%, rgba(124,143,240,0.15) 75%);
+    background-size: 200% 100%;
+    animation: mentionShimmer 1.5s ease-in-out infinite;
+    border-radius: 3px;
+    padding: 0 4px;
+    min-width: 60px;
+  }
+}

@@ -139,13 +139,21 @@
   padding: 0 $space-4;
 }
 
-// Destinations Grid - fixed 12rem width cards, left-aligned to match experiences
+// Destinations Grid - fixed 12rem width cards, left-aligned within container
 .destinationsList {
   display: grid;
   grid-template-columns: repeat(auto-fill, 12rem);
   gap: $space-4;
   width: 100%;
-  justify-content: center;
+  justify-content: start;
+
+  // Single column on mobile - center the card
+  @include breakpoint-max(sm) {
+    grid-template-columns: 1fr;
+    max-width: 12rem;
+    margin: 0 auto;
+    justify-content: center;
+  }
 }
 
 // Destination Skeleton - matches DestinationCard layout exactly
@@ -192,20 +200,20 @@
   border-radius: $radius-sm;
 }
 
-// Experiences Grid - fixed 20rem (320px) width cards, centered
+// Experiences Grid - fixed 20rem (320px) width cards, left-aligned within container
 .experiencesList {
   display: grid;
   grid-template-columns: repeat(auto-fill, 20rem);
   gap: $space-4;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  justify-content: center;
+  justify-content: start;
 
-  // Single column on mobile
+  // Single column on mobile - center the card
   @include breakpoint-max(sm) {
     grid-template-columns: 1fr;
     max-width: 320px;
+    margin: 0 auto;
+    justify-content: center;
   }
 }
 

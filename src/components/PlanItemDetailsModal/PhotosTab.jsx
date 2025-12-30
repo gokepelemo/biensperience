@@ -438,10 +438,7 @@ export default function PhotosTab({
                 {lang.current.planItemDetailsModal?.managePhotos || 'Manage Photos'}
               </h4>
               {saving && (
-                <span className={styles.savingIndicator}>
-                  <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                  {lang.current.button?.saving || 'Saving...'}
-                </span>
+                <Loading size="xs" showMessage={false} />
               )}
             </div>
             <div className={styles.photoUploadWrapper}>

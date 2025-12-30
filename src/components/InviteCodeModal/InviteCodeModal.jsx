@@ -24,6 +24,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
+import Checkbox from '../Checkbox/Checkbox';
 import styles from './InviteCodeModal.module.scss';
 
 export default function InviteCodeModal({ show, onHide, experiences = [], destinations = [] }) {
@@ -503,8 +504,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
               </Form.Group>
 
               <Form.Group className="mb-3">
-                <Form.Check
-                  type="checkbox"
+                <Checkbox
                   id="sendEmailCheckbox"
                   label="Send invite email"
                   checked={singleForm.sendEmail}
@@ -595,8 +595,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 </Form.Group>
 
                 <Form.Group className="mb-3">
-                  <Form.Check
-                    type="checkbox"
+                  <Checkbox
                     id="send-bulk-emails"
                     label="Send email invitations to all recipients"
                     checked={sendBulkEmails}

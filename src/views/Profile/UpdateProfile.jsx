@@ -440,7 +440,14 @@ export default function UpdateProfile() {
       normalizedCurrentDefault = normalizeId(currentPhotos[0]);
     }
 
-    if (normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotos.length > 0) {
+    // Don't consider it a change if PhotoUpload automatically set the first photo as default
+    // when no default was originally set and photos haven't changed
+    const isAutoDefaultSet = !originalDefaultId && // No original default
+                             currentDefaultId && // Current has default set
+                             JSON.stringify(originalPhotos) === JSON.stringify(currentPhotos) && // Photos haven't changed
+                             normalizedCurrentDefault === normalizeId(currentPhotos[0]); // Default is first photo
+
+    if (normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotos.length > 0 && !isAutoDefaultSet) {
       // Find the index of the default photo for description
       const getPhotoIndex = (photoId, photoArray) => {
         if (!photoId) return -1;

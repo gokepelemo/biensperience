@@ -9,7 +9,6 @@ import { StreamChat } from 'stream-chat';
 import {
   Chat,
   Channel,
-  ChannelHeader,
   MessageInput,
   MessageList,
   Thread,
@@ -139,6 +138,9 @@ export default function PlanItemDetailsModal({
     async function initChat() {
       if (!canInitChat) return;
 
+      // Skip if already connected (connection persists across tab switches)
+      if (chatClient && chatChannel) return;
+
       setChatLoading(true);
       setChatError('');
 
@@ -185,31 +187,38 @@ export default function PlanItemDetailsModal({
     return () => {
       cancelled = true;
     };
-    // normalizeId is stable (defined in component), but we intentionally
-    // depend on canInitChat + ids to prevent unnecessary reconnects.
+    // We check chatClient/chatChannel to skip if already connected.
+    // This prevents reconnection when switching tabs since we keep connection alive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canInitChat, streamApiKey]);
+  }, [canInitChat, streamApiKey, chatClient, chatChannel]);
 
-  // Cleanup chat connection when modal closes or when leaving the chat tab
+  // Cleanup chat connection when modal closes
+  // NOTE: We only disconnect when the modal closes, NOT when switching tabs.
+  // This prevents the "can't use channel after disconnect" error when using Thread.
+  // The chat connection stays alive while the modal is open (even on other tabs).
   useEffect(() => {
-    const shouldDisconnect = !show || activeTab !== 'chat';
-    if (!shouldDisconnect) return;
+    // Only cleanup when modal is closing
+    if (show) return;
 
+    // Clear state immediately to unmount Stream components first
+    const clientToDisconnect = chatClient;
+    setChatClient(null);
     setChatChannel(null);
     setChatError('');
     setChatLoading(false);
 
-    if (chatClient) {
-      chatClient
-        .disconnectUser()
-        .catch(() => {
-          // ignore
-        })
-        .finally(() => {
-          setChatClient(null);
-        });
+    // Disconnect after state is cleared (components unmounted)
+    if (clientToDisconnect) {
+      // Use setTimeout to ensure React has unmounted Stream components
+      setTimeout(() => {
+        clientToDisconnect
+          .disconnectUser()
+          .catch(() => {
+            // ignore disconnect errors
+          });
+      }, 0);
     }
-  }, [show, activeTab, chatClient]);
+  }, [show, chatClient]);
 
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
@@ -1750,11 +1759,19 @@ export default function PlanItemDetailsModal({
               {chatLoading && <div className={styles.chatLoading}>Loading chat…</div>}
 
               {!chatLoading && chatClient && chatChannel && (
-                <div className={styles.chatContainer}>
-                  <Chat client={chatClient} theme="str-chat__theme-light">
+                <div className={styles.chatPane}>
+                  <Chat
+                    client={chatClient}
+                    theme={
+                      typeof window !== 'undefined' &&
+                      window.matchMedia?.('(prefers-color-scheme: dark)').matches
+                        ? 'str-chat__theme-dark'
+                        : 'str-chat__theme-light'
+                    }
+                  >
                     <Channel channel={chatChannel}>
                       <Window>
-                        <ChannelHeader />
+                        {/* No ChannelHeader - chat is already in plan item context (modal title) */}
                         <MessageList />
                         <MessageInput focus />
                       </Window>
@@ -1767,7 +1784,11 @@ export default function PlanItemDetailsModal({
           )}
 
           {/* PhotosTab - keep mounted but hidden to preserve state during tab switches */}
-          <div style={{ display: activeTab === 'photos' ? 'block' : 'none' }}>
+          {/* Use CSS class instead of inline display to maintain flex height chain */}
+          <div
+            className={styles.photosTabWrapper}
+            style={{ display: activeTab === 'photos' ? 'flex' : 'none' }}
+          >
             <PhotosTab
               planItem={planItem}
               plan={plan}
@@ -1777,7 +1798,11 @@ export default function PlanItemDetailsModal({
           </div>
 
           {/* DocumentsTab - keep mounted but hidden to preserve state during tab switches */}
-          <div style={{ display: activeTab === 'documents' ? 'block' : 'none' }}>
+          {/* Use CSS class instead of inline display to maintain flex height chain */}
+          <div
+            className={styles.documentsTabWrapper}
+            style={{ display: activeTab === 'documents' ? 'flex' : 'none' }}
+          >
             <DocumentsTab
               planItem={planItem}
               plan={plan}
