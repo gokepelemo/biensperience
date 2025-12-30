@@ -56,8 +56,15 @@ async function fetchEntityFromAPI(entityType, entityId) {
     }
 
     // Use sendRequest which handles authentication headers
-    const data = await sendRequest(endpoint, 'GET');
-    return data;
+    const response = await sendRequest(endpoint, 'GET');
+
+    // Handle standardized API response format: { success: true, data: entity }
+    if (response && response.success && response.data) {
+      return response.data;
+    }
+
+    // Fallback for legacy response format (raw entity)
+    return response;
   } catch (error) {
     logger.error('Error fetching entity for mention', { entityType, entityId }, error);
     return null;
