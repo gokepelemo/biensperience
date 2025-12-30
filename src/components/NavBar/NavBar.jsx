@@ -87,35 +87,18 @@ export default function NavBar() {
     }
   }, []);
 
-  // Helper to handle nav link clicks: collapse menus first, then navigate or run callback
-  const handleNavAction = useCallback((e, { to, callback }) => {
-    if (e && e.preventDefault) e.preventDefault();
+  // Helper to handle nav link clicks: close menus in background (navigation handled by NavLink)
+  const handleNavAction = useCallback((e, { callback }) => {
+    // Run callback if provided
+    try {
+      if (typeof callback === 'function') callback();
+    } catch (err) {
+      // swallow
+    }
 
-    const collapseEl = collapseRef.current;
-    const toggleBtn = toggleRef.current;
-
-    const isCollapseOpen = toggleBtn && toggleBtn.getAttribute('aria-expanded') === 'true';
-    const wait = isCollapseOpen ? COLLAPSE_DURATION : 0;
-    const dropdownOpen = dropdownButtonRef.current && dropdownButtonRef.current.getAttribute('aria-expanded') === 'true';
-    const dropdownWait = dropdownOpen ? DROPDOWN_DURATION : 0;
-
-    // Close menus
+    // Close menus in background (don't block navigation)
     closeNavigationMenus();
-
-    // After animations finish, perform action
-    const totalWait = Math.max(wait, dropdownWait);
-    setTimeout(() => {
-      try {
-        if (typeof callback === 'function') callback();
-      } catch (err) {
-        // swallow
-      }
-
-      if (to) {
-        navigate(to);
-      }
-    }, totalWait);
-  }, [closeNavigationMenus, navigate]);
+  }, [closeNavigationMenus]);
 
   // Check if brand text is showing the h1 element (not "Biensperience")
   const isShowingH1 = !h1Visible && h1Text && showH1InNavbar;
@@ -354,7 +337,7 @@ export default function NavBar() {
             <li className="nav-item" role="none">
               <NavLink
                 to="/destinations"
-                onClick={(e) => handleNavAction(e, { to: '/destinations' })}
+                onClick={(e) => handleNavAction(e, {})}
                 className={({ isActive }) => {
                   // Active if on /destinations or any /destinations/* route
                   const isDestinationsRoute = location.pathname.startsWith('/destinations');
@@ -369,7 +352,7 @@ export default function NavBar() {
             <li className="nav-item" role="none">
               <NavLink
                 to="/experiences"
-                onClick={(e) => handleNavAction(e, { to: '/experiences' })}
+                onClick={(e) => handleNavAction(e, {})}
                 className={({ isActive }) => {
                   // Active if on /experiences or any /experiences/* route
                   const isExperiencesRoute = location.pathname.startsWith('/experiences');
@@ -384,7 +367,7 @@ export default function NavBar() {
             <li className="nav-item" role="none">
               <NavLink
                 to="/dashboard"
-                onClick={(e) => handleNavAction(e, { to: '/dashboard' })}
+                onClick={(e) => handleNavAction(e, {})}
                 className="nav-link"
                 role="menuitem"
                 aria-label={lang.current.aria.viewDashboard}
@@ -412,7 +395,7 @@ export default function NavBar() {
                 <li role="none">
                     <NavLink
                       to="/profile"
-                      onClick={(e) => handleNavAction(e, { to: '/profile' })}
+                      onClick={(e) => handleNavAction(e, {})}
                       className={`dropdown-item ${styles.dropdownItem}`}
                       role="menuitem"
                       aria-label={lang.current.aria.viewYourProfile}
@@ -424,7 +407,7 @@ export default function NavBar() {
                 <li role="none">
                   <NavLink
                     to="/invites"
-                    onClick={(e) => handleNavAction(e, { to: '/invites' })}
+                    onClick={(e) => handleNavAction(e, {})}
                     className={`dropdown-item ${styles.dropdownItem}`}
                     role="menuitem"
                     aria-label={lang.current.aria.trackYourInviteCodes}
@@ -437,7 +420,7 @@ export default function NavBar() {
                   <li role="none">
                     <NavLink
                       to="/admin/users"
-                      onClick={(e) => handleNavAction(e, { to: '/admin/users' })}
+                      onClick={(e) => handleNavAction(e, {})}
                       className={`dropdown-item ${styles.dropdownItem}`}
                       role="menuitem"
                       aria-label={lang.current.aria.adminPanelManageUsers}
@@ -450,7 +433,7 @@ export default function NavBar() {
                 <li role="none">
                     <NavLink
                       to="/destinations/new"
-                      onClick={(e) => handleNavAction(e, { to: '/destinations/new' })}
+                      onClick={(e) => handleNavAction(e, {})}
                       className={`dropdown-item ${styles.dropdownItem}`}
                       role="menuitem"
                       aria-label={lang.current.aria.createNewDestination}
@@ -477,7 +460,7 @@ export default function NavBar() {
                 <li role="none">
                   <NavLink
                     to="/logout"
-                    onClick={(e) => handleNavAction(e, { callback: handleLogOut, to: '/logout' })}
+                    onClick={(e) => handleNavAction(e, { callback: handleLogOut })}
                     className={`dropdown-item ${styles.dropdownItem} ${styles.dropdownItemLogout}`}
                     role="menuitem"
                     aria-label={lang.current.aria.logOutOfAccount}

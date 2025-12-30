@@ -399,6 +399,4 @@ describe('UpdateExperience Integration Tests', () => {
 
       // Photo tracking is done in useEffect, verified by presence of PhotoUpload
     });
-  });
-}
 
