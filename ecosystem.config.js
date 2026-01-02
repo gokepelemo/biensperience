@@ -54,7 +54,8 @@ module.exports = {
         'dist',
         '.git',
         'src/**/*.test.js',
-        'src/**/*.test.jsx'
+        'src/**/*.test.jsx',
+        'src/data/fallback-exchange-rates.json'
       ],
       max_memory_restart: '512M',
       version: '1.0.0',

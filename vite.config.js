@@ -147,6 +147,10 @@ export default defineConfig(({ mode }) => {
         changeOrigin: true,
         secure: false,
       }
+    },
+    // Watch configuration - exclude files that are updated by backend
+    watch: {
+      ignored: ['**/fallback-exchange-rates.json']
     }
   },
 
