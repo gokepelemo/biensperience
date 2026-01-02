@@ -397,12 +397,6 @@
     justify-self: center;
     margin-top: var(--space-4);
   }
-
-  /* Empty state should span full width */
-  > div:has(.empty-state),
-  > [class*="emptyState"] {
-    grid-column: 1 / -1;
-  }
 }
 
 /* Destinations Grid - smaller cards (12rem x 8rem) */
@@ -411,12 +405,16 @@
   grid-template-columns: repeat(auto-fill, minmax(12rem, max-content));
   gap: var(--space-4);
   justify-content: center;
+}
 
-  /* Empty state should span full width */
-  > div:has(.empty-state),
-  > [class*="emptyState"] {
-    grid-column: 1 / -1;
-  }
+/* Empty state wrapper - centers empty state in viewport */
+.emptyStateWrapper {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40vh;
+  width: 100%;
 }
 
 /* Responsive adjustments */
