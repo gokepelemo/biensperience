@@ -192,6 +192,10 @@ export default function PlanItemDetailsModal({
     async function initChat() {
       if (!canInitChat) return;
 
+      // The Stream client initializes asynchronously. Wait until it's available
+      // before trying to create/watch a channel.
+      if (!chatClient || typeof chatClient.channel !== 'function') return;
+
       // Skip if already connected (connection persists across tab switches)
       if (chatClient && chatChannel) return;
 

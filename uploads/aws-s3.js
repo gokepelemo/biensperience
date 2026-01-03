@@ -50,8 +50,9 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   // Normalize the path to handle .. sequences
   const normalizedPath = path.normalize(file);
 
-  // Reject paths that start with .. or are absolute after normalization
-  if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+  // Reject obvious traversal sequences. Absolute paths are allowed as long as they
+  // resolve within the allowed upload directories (validated below).
+  if (normalizedPath.startsWith('..')) {
     backendLogger.error('S3 upload blocked: suspicious path pattern', { original: file, normalized: normalizedPath });
     throw new Error('Invalid file path: path traversal detected');
   }
