@@ -301,6 +301,7 @@ export default function PlanItemModal({
             <small className="text-muted ms-2">(optional)</small>
           </FormLabel>
           <ActivityTypeSelect
+            id={`${formId}-activityType`}
             value={formState.activity_type}
             onChange={(value) => updateField('activity_type', value)}
             placeholder={l.current?.placeholder?.activityTypePlaceholder || "Select activity type..."}

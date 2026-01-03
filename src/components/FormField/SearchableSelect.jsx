@@ -33,6 +33,7 @@ export default function SearchableSelect({
   placeholder = lang.current.searchableSelect.defaultPlaceholder,
   searchPlaceholder = lang.current.searchableSelect.searchPlaceholder,
   searchable = true,
+  portal = false,
   disabled = false,
   className = '',
   size = 'md',
@@ -54,7 +55,8 @@ export default function SearchableSelect({
   const searchInputRef = useRef(null);
   const listRef = useRef(null);
 
-  const isMobileOrTablet = typeof window !== 'undefined' && window.innerWidth <= 767; // breakpoint-md - 1
+  const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth <= 767; // breakpoint-md - 1
+  const shouldPortal = portal || isMobileOrTabletViewport;
 
   const selectedValues = useMemo(() => {
     if (!multiple) return value;
@@ -97,15 +99,14 @@ export default function SearchableSelect({
     if (!isOpen) return;
 
     const handleClickOutside = (e) => {
-      // On mobile/tablet, the dropdown is positioned as fixed and may be portaled
-      // so we need to check if the click is outside both the container AND the dropdown
-      const isMobileOrTabletViewport = window.innerWidth <= 767; // breakpoint-md - 1
+      // When portaled, the dropdown is fixed and outside the container DOM subtree.
+      // Check outside both the container AND the dropdown.
       const dropdownRef = document.querySelector(`[data-searchable-select="${selectId}"]`);
 
       const clickedOutsideContainer = containerRef.current && !containerRef.current.contains(e.target);
-      const clickedOutsideDropdown = isMobileOrTabletViewport && dropdownRef && !dropdownRef.contains(e.target);
+      const clickedOutsideDropdown = shouldPortal && dropdownRef && !dropdownRef.contains(e.target);
 
-      if (clickedOutsideContainer && (!isMobileOrTabletViewport || clickedOutsideDropdown)) {
+      if (clickedOutsideContainer && (!shouldPortal || clickedOutsideDropdown)) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -113,14 +114,12 @@ export default function SearchableSelect({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, selectId]);
+  }, [isOpen, selectId, shouldPortal]);
 
-  // Position dropdown on mobile and tablet
+  // Position dropdown when portaled (fixed positioning)
   const positionDropdown = useCallback(() => {
     if (!isOpen) return;
-
-    const isMobileOrTabletViewport = window.innerWidth <= 767; // breakpoint-md - 1
-    if (!isMobileOrTabletViewport) return;
+    if (!shouldPortal) return;
 
     // Query dropdown and trigger
     const dropdown = document.querySelector(`[data-searchable-select="${selectId}"]`);
@@ -171,7 +170,16 @@ export default function SearchableSelect({
       applyPosition();
       setTimeout(applyPosition, 20);
     });
-  }, [isOpen, selectId]);
+  }, [isOpen, selectId, shouldPortal]);
+
+  // Keep position in sync while open (modal body scroll uses capture)
+  useEffect(() => {
+    if (!isOpen || !shouldPortal) return;
+
+    const handleScroll = () => positionDropdown();
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [isOpen, shouldPortal, positionDropdown]);
 
   // Reposition when dropdown opens, when filtered options change, or on searchQuery updates
   useEffect(() => {
@@ -359,7 +367,7 @@ export default function SearchableSelect({
             className={styles.dropdown}
             role="presentation"
             data-searchable-select={selectId}
-            style={isMobileOrTablet ? { visibility: 'hidden' } : undefined}
+            style={shouldPortal ? { visibility: 'hidden' } : undefined}
           >
             {/* Search input */}
             {searchable && (
@@ -417,9 +425,9 @@ export default function SearchableSelect({
           </div>
         );
 
-        // On mobile, we portal the dropdown to <body> so `position: fixed`
-        // stays viewport-relative even when ancestors (like FadeIn) apply transforms.
-        if (isMobileOrTablet) {
+        // When portaled, `position: fixed` stays viewport-relative even when
+        // ancestors (like modals/FadeIn) apply transforms or overflow clipping.
+        if (shouldPortal) {
           return createPortal(dropdown, document.body);
         }
 
@@ -452,6 +460,8 @@ SearchableSelect.propTypes = {
   searchPlaceholder: PropTypes.string,
   /** Enable search functionality */
   searchable: PropTypes.bool,
+  /** Portal dropdown to document.body with fixed positioning (recommended in modals) */
+  portal: PropTypes.bool,
   /** Disable the select */
   disabled: PropTypes.bool,
   /** Additional CSS class */
