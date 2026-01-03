@@ -1,27 +1,28 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import {
   FaCheck,
-  FaArrowLeft,
   FaArrowRight,
   FaPlus,
   FaMinus,
   FaTrash,
-  FaCheckCircle,
   FaUserPlus,
   FaEnvelope
 } from 'react-icons/fa';
+import BiensperienceLogo from '../BiensperienceLogo/BiensperienceLogo';
 import { Form } from 'react-bootstrap';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
-import { createExperience, addPlanItem as addExperiencePlanItem } from '../../utilities/experiences-api';
+import { createExperience, updateExperience, addPlanItem as addExperiencePlanItem } from '../../utilities/experiences-api';
 import { createPlan, addCollaborator, addPlanItem as addPlanPlanItem } from '../../utilities/plans-api';
 import { searchUsers } from '../../utilities/users-api';
 import { isDuplicateName } from '../../utilities/deduplication';
 import { createFilter } from '../../utilities/trie';
+import { useFormPersistence } from '../../hooks/useFormPersistence';
+import { formatRestorationMessage } from '../../utilities/time-utils';
 import { lang } from '../../lang.constants';
 import { Button, Pill } from '../design-system';
 import FormField from '../FormField/FormField';
@@ -54,7 +55,7 @@ const STEPS = {
  */
 export default function ExperienceWizardModal({ show, onClose, initialValues = {} }) {
   const navigate = useNavigate();
-  const { destinations: destData, experiences: expData, addExperience } = useData();
+  const { destinations: destData, experiences: expData, addExperience, updateExperience: updateExpInContext } = useData();
   const { user } = useUser();
   const { success, error: showError } = useToast();
 
@@ -77,6 +78,9 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   const [createdExperience, setCreatedExperience] = useState(null);
   const [createdPlan, setCreatedPlan] = useState(null);
 
+  // Track if we're in the process of creating to prevent double submission
+  const isCreatingRef = useRef(false);
+
   // Plan items state (Step 3)
   const [planItems, setPlanItems] = useState([
     { id: Date.now(), content: '', planning_days: 1, cost_estimate: 0 }
@@ -97,6 +101,52 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
   // Local destinations state
   const [destinations, setDestinations] = useState([]);
+
+  // Form persistence - combines experienceData and tags
+  const formData = { ...experienceData, experience_type: tags };
+  const setFormData = useCallback((data) => {
+    const { experience_type, ...expFields } = data;
+    setExperienceData(expFields);
+    if (experience_type) {
+      setTags(experience_type);
+    }
+  }, []);
+
+  const persistence = useFormPersistence(
+    'experience-wizard-form',
+    formData,
+    setFormData,
+    {
+      enabled: show && !createdExperience, // Only persist before experience is created
+      userId: user?._id,
+      ttl: 24 * 60 * 60 * 1000,
+      debounceMs: 1000,
+      excludeFields: ['photos', 'photos_full'],
+      onRestore: (savedData, age) => {
+        const message = formatRestorationMessage(age, 'create');
+        success(message, {
+          duration: 20000,
+          actions: [{
+            label: lang.current.button.clearForm,
+            onClick: () => {
+              setExperienceData({
+                name: '',
+                description: '',
+                destination: '',
+                map_location: '',
+                experience_type: [],
+              });
+              setTags([]);
+              setDestinationSearchTerm('');
+              setDestinationInput('');
+              persistence.clear();
+            },
+            variant: 'link'
+          }]
+        });
+      }
+    }
+  );
 
   // Sync destinations from context
   useEffect(() => {
@@ -120,6 +170,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
       setError('');
       setCreatedExperience(null);
       setCreatedPlan(null);
+      isCreatingRef.current = false;
       setPlanItems([{ id: Date.now(), content: '', planning_days: 1, cost_estimate: 0 }]);
       setSelectedCollaborators([]);
       setCollaboratorSearchTerm('');
@@ -316,21 +367,26 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   const canProceedStep2 = true; // Optional fields
   const canProceedStep3 = true; // Optional - can skip adding items
 
-  // Step 1 & 2: Create Experience
+  // Create experience after Step 1 (optimistic creation with basic info)
   const handleCreateExperience = async () => {
+    if (isCreatingRef.current || createdExperience) return;
+
     setError('');
     setLoading(true);
+    isCreatingRef.current = true;
 
     // Validation
     if (!experienceData.name?.trim()) {
       setError(lang.current.validation.experienceNameRequired);
       setLoading(false);
+      isCreatingRef.current = false;
       return;
     }
 
     if (!experienceData.destination) {
       setError(lang.current.validation.selectDestinationRequired);
       setLoading(false);
+      isCreatingRef.current = false;
       return;
     }
 
@@ -338,23 +394,19 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     if (isDuplicateName(expData || [], experienceData.name)) {
       setError(`An experience named "${experienceData.name}" already exists.`);
       setLoading(false);
+      isCreatingRef.current = false;
       return;
     }
 
     try {
+      // Create experience with basic info only (name, description, destination)
       const data = {
-        ...experienceData,
-        experience_type: tags,
+        name: experienceData.name.trim(),
+        description: experienceData.description?.trim() || '',
+        destination: experienceData.destination,
       };
 
-      // Defensive: remove client-only preview field `photos_full` before
-      // sending to the API. The backend expects `photos` as an array of IDs
-      // and `default_photo_id` for the default photo. `photos_full` is used
-      // only client-side to preserve previews when navigating modal steps.
-      const payload = { ...data };
-      if (payload.photos_full) delete payload.photos_full;
-
-      const experience = await createExperience(payload);
+      const experience = await createExperience(data);
       addExperience(experience);
       setCreatedExperience(experience);
 
@@ -362,15 +414,105 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
       const plan = await createPlan(experience._id);
       setCreatedPlan(plan);
 
+      // Clear form persistence since experience is now created
+      persistence.clear();
+
       success(lang.current.success.experienceCreatedExcited);
-      setCurrentStep(STEPS.PLAN_ITEMS);
+      setCurrentStep(STEPS.MORE_DETAILS);
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'Failed to create experience';
       setError(errorMsg);
+      isCreatingRef.current = false;
     } finally {
       setLoading(false);
     }
   };
+
+  // Update experience field on blur (for Step 2 optional fields)
+  const handleFieldBlur = useCallback(async (fieldName, value) => {
+    if (!createdExperience) return;
+
+    // Don't update if value hasn't changed
+    if (createdExperience[fieldName] === value) return;
+
+    try {
+      const updated = await updateExperience(createdExperience._id, { [fieldName]: value });
+      setCreatedExperience(updated);
+      updateExpInContext(updated);
+    } catch (err) {
+      // Silently handle update errors - the data is saved locally and will sync
+      console.warn('Failed to update experience field', fieldName, err);
+    }
+  }, [createdExperience, updateExpInContext]);
+
+  // Handle address blur
+  const handleAddressBlur = useCallback(() => {
+    handleFieldBlur('map_location', experienceData.map_location?.trim() || '');
+  }, [experienceData.map_location, handleFieldBlur]);
+
+  // Handle tags change with auto-save
+  const handleTagsChangeWithSave = useCallback(async (newTags) => {
+    setTags(newTags);
+    setExperienceData(prev => ({ ...prev, experience_type: newTags }));
+
+    // Auto-save to server if experience exists
+    if (createdExperience) {
+      try {
+        const updated = await updateExperience(createdExperience._id, { experience_type: newTags });
+        setCreatedExperience(updated);
+        updateExpInContext(updated);
+      } catch (err) {
+        console.warn('Failed to update experience types', err);
+      }
+    }
+  }, [createdExperience, updateExpInContext]);
+
+  // Handle photo changes with auto-save
+  const handlePhotoChange = useCallback(async (newData) => {
+    setExperienceData(prev => ({ ...prev, ...newData }));
+
+    if (!createdExperience) return;
+
+    // Update photos on the server
+    try {
+      const updatePayload = {};
+      if (newData.photos) updatePayload.photos = newData.photos;
+      if (newData.default_photo_id) updatePayload.default_photo_id = newData.default_photo_id;
+
+      if (Object.keys(updatePayload).length > 0) {
+        const updated = await updateExperience(createdExperience._id, updatePayload);
+        setCreatedExperience(updated);
+        updateExpInContext(updated);
+      }
+    } catch (err) {
+      console.warn('Failed to update photos', err);
+    }
+  }, [createdExperience, updateExpInContext]);
+
+  // Proceed from Step 2 to Step 3
+  const handleProceedToStep3 = useCallback(async () => {
+    // Save any pending updates before proceeding
+    if (createdExperience) {
+      try {
+        const updateData = {};
+        if (experienceData.map_location?.trim()) {
+          updateData.map_location = experienceData.map_location.trim();
+        }
+        if (tags.length > 0) {
+          updateData.experience_type = tags;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const updated = await updateExperience(createdExperience._id, updateData);
+          setCreatedExperience(updated);
+          updateExpInContext(updated);
+        }
+      } catch (err) {
+        console.warn('Failed to save Step 2 updates', err);
+      }
+    }
+    setCurrentStep(STEPS.PLAN_ITEMS);
+  }, [createdExperience, experienceData.map_location, tags, updateExpInContext]);
 
   // Step 3: Add Plan Items
   const handleSavePlanItems = async () => {
@@ -457,7 +599,9 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
   // Handle skipping optional steps
   const handleSkipStep = useCallback(() => {
-    if (currentStep === STEPS.PLAN_ITEMS) {
+    if (currentStep === STEPS.MORE_DETAILS) {
+      setCurrentStep(STEPS.PLAN_ITEMS);
+    } else if (currentStep === STEPS.PLAN_ITEMS) {
       setCurrentStep(STEPS.COLLABORATORS);
     } else if (currentStep === STEPS.COLLABORATORS) {
       setCurrentStep(STEPS.SUCCESS);
@@ -513,7 +657,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   );
 
   const renderStep1 = () => (
-    <Form onSubmit={(e) => { e.preventDefault(); setCurrentStep(STEPS.MORE_DETAILS); }}>
+    <Form onSubmit={(e) => { e.preventDefault(); handleCreateExperience(); }}>
       <FormField
         name="name"
         label={lang.current.experienceWizardModal.experienceTitle}
@@ -597,13 +741,14 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   );
 
   const renderStep2 = () => (
-    <Form onSubmit={(e) => { e.preventDefault(); handleCreateExperience(); }}>
+    <Form onSubmit={(e) => { e.preventDefault(); handleProceedToStep3(); }}>
       <FormField
         name="map_location"
         label={lang.current.label.address}
         type="text"
         value={experienceData.map_location || ''}
         onChange={handleChange}
+        onBlur={handleAddressBlur}
         placeholder={lang.current.placeholder.address}
         tooltip={lang.current.helper.addressOptional}
       />
@@ -615,7 +760,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         </Form.Label>
         <TagInput
           tags={tags}
-          onChange={handleTagsChange}
+          onChange={handleTagsChangeWithSave}
           placeholder={lang.current.experienceWizardModal.experienceTypesPlaceholder}
           maxTags={4}
         />
@@ -626,7 +771,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           {lang.current.experienceWizardModal.photos}
           <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
         </Form.Label>
-        <PhotoUpload data={experienceData} setData={setExperienceData} />
+        <PhotoUpload data={experienceData} setData={handlePhotoChange} />
       </div>
     </Form>
   );
@@ -809,7 +954,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   const renderSuccessStep = () => (
     <div className={styles.successContainer}>
       <div className={styles.successIcon}>
-        <FaCheckCircle size={64} />
+        <BiensperienceLogo type="clean" size="xl" />
       </div>
       <h3 className={styles.successTitle}>{lang.current.experienceWizardModal.doneTitle}</h3>
       <p className={styles.successMessage}>
@@ -843,13 +988,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               {lang.current.button.cancel}
             </button>
           )}
-          {currentStep === STEPS.MORE_DETAILS && (
-            <button type="button" className={styles.backButton} onClick={() => setCurrentStep(STEPS.BASIC_INFO)}>
-              <FaArrowLeft size={12} className="me-2" />
-              {lang.current.experienceWizardModal.back}
-            </button>
-          )}
-          {(currentStep === STEPS.PLAN_ITEMS || currentStep === STEPS.COLLABORATORS) && (
+          {(currentStep === STEPS.MORE_DETAILS || currentStep === STEPS.PLAN_ITEMS || currentStep === STEPS.COLLABORATORS) && (
             <button type="button" className={styles.skipLink} onClick={handleSkipStep}>
               {lang.current.experienceWizardModal.skip}
             </button>
@@ -861,21 +1000,21 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
             <Button
               variant="gradient"
               size="lg"
-              onClick={() => setCurrentStep(STEPS.MORE_DETAILS)}
-              disabled={!canProceedStep1}
+              onClick={handleCreateExperience}
+              disabled={loading || !canProceedStep1}
             >
-              {lang.current.experienceWizardModal.next}
-              <FaArrowRight size={12} className="ms-2" />
+              {loading ? lang.current.button.creating : lang.current.experienceWizardModal.create}
             </Button>
           )}
           {currentStep === STEPS.MORE_DETAILS && (
             <Button
               variant="gradient"
               size="lg"
-              onClick={handleCreateExperience}
+              onClick={handleProceedToStep3}
               disabled={loading}
             >
-              {loading ? lang.current.button.creating : lang.current.experienceWizardModal.create}
+              {lang.current.experienceWizardModal.next}
+              <FaArrowRight size={12} className="ms-2" />
             </Button>
           )}
           {currentStep === STEPS.PLAN_ITEMS && (

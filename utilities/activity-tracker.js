@@ -118,7 +118,7 @@ async function trackCreate(options) {
     }
     action = 'plan_created'; // Use specific plan action
   } else {
-    resourceName = resource.name || resource.email || 'Unnamed';
+    resourceName = resource.name || resource.title || resource.email || 'Unnamed';
   }
 
   // Non-blocking: Fire and forget
@@ -189,7 +189,7 @@ async function trackUpdate(options) {
     }
     action = 'plan_updated'; // Use specific plan action
   } else {
-    resourceName = resource.name || resource.email || 'Unnamed';
+    resourceName = resource.name || resource.title || previousState?.name || previousState?.title || resource.email || 'Unnamed';
   }
 
   // Non-blocking: Fire and forget
@@ -252,7 +252,7 @@ async function trackDelete(options) {
     }
     action = 'plan_deleted'; // Use specific plan action
   } else {
-    resourceName = resource.name || resource.email || 'Unnamed';
+    resourceName = resource.name || resource.title || resource.email || 'Unnamed';
   }
 
   // Non-blocking: Fire and forget

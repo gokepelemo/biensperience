@@ -287,12 +287,15 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }
 
-    if (experience.photos && experience.photos.length > 0) {
+    const photos = Array.isArray(experience.photos) ? experience.photos.filter(Boolean) : [];
+
+    if (photos.length > 0) {
       let defaultPhoto;
       if (experience.default_photo_id) {
-        defaultPhoto = experience.photos.find(photo => photo._id === experience.default_photo_id);
+        const defaultPhotoId = experience.default_photo_id?._id || experience.default_photo_id;
+        defaultPhoto = photos.find(photo => photo?._id === defaultPhotoId);
       }
-      if (!defaultPhoto) defaultPhoto = experience.photos[0];
+      if (!defaultPhoto) defaultPhoto = photos[0];
       const src = defaultPhoto?.url || `https://picsum.photos/400?rand=${rand}`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }

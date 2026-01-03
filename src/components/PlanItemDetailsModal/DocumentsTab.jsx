@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import EmptyState from '../EmptyState/EmptyState';
+import Loading from '../Loading/Loading';
 import Modal from '../Modal/Modal';
 import Tooltip from '../Tooltip/Tooltip';
 import DocumentViewerModal from '../DocumentViewerModal';
@@ -337,7 +338,24 @@ export default function DocumentsTab({
 
   // Trigger file input
   const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click();
+    const input = fileInputRef.current;
+    if (!input) {
+      logger.error('[DocumentsTab] Upload click: file input ref missing');
+      return;
+    }
+
+    // Prefer showPicker() when supported; some browsers restrict click() on hidden inputs.
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch (err) {
+      // Fall back to click()
+      logger.debug('[DocumentsTab] showPicker failed, falling back to click', { error: err?.message });
+    }
+
+    input.click();
   }, []);
 
   // Handle document preview - get signed URL and open viewer
@@ -398,10 +416,7 @@ export default function DocumentsTab({
   if (loading && documents.length === 0) {
     return (
       <div className={styles.documentsTab}>
-        <div className={styles.loading}>
-          <span className={styles.loadingSpinner}></span>
-          <span>Loading documents...</span>
-        </div>
+        <Loading size="sm" variant="centered" message="Loading documents..." />
       </div>
     );
   }
@@ -441,7 +456,7 @@ export default function DocumentsTab({
           variant="documents"
           primaryAction={canEdit ? (lang.current.planItemDetailsModal?.uploadDocument || 'Upload Document') : null}
           onPrimaryAction={canEdit ? handleUploadClick : null}
-          compact
+          size="md"
           fillContainer
         />
       </div>

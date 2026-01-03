@@ -117,81 +117,91 @@ export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) 
     return Array.from({ length: count }).map((_, i) => (
       <div
         key={`skeleton-dest-${i}`}
-        style={{
-          width: '12rem',
-          height: '8rem',
-          borderRadius: 'var(--radius-2xl)',
-          overflow: 'hidden'
-        }}
+        className="d-block m-2"
+        style={{ width: '12rem', verticalAlign: 'top' }}
       >
-        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+        <div
+          style={{
+            width: '12rem',
+            height: '8rem',
+            borderRadius: 'var(--radius-2xl)',
+            overflow: 'hidden'
+          }}
+        >
+          <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+        </div>
       </div>
     ));
   }
 
-  // Experience cards - full card skeleton with image, title, and details
+  // Experience cards - match ExperienceCard structure (background image, title overlay, actions row)
   return Array.from({ length: count }).map((_, i) => (
     <div
       key={`skeleton-exp-${i}`}
-      style={{
-        width: '100%',
-        minWidth: '280px',
-        maxWidth: '400px'
-      }}
+      className="d-block m-2"
+      style={{ width: '20rem', verticalAlign: 'top' }}
     >
       <div
         style={{
-          borderRadius: 'var(--radius-xl)',
+          width: '20rem',
+          minHeight: '12rem',
+          borderRadius: 'var(--radius-md)',
           overflow: 'hidden',
-          background: 'var(--color-bg-primary)',
-          border: '1px solid var(--color-border-light)',
-          boxShadow: 'var(--shadow-sm)'
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 'var(--space-3)'
         }}
       >
-        {/* Image placeholder */}
-        <div style={{ position: 'relative', paddingTop: '56.25%' }}>
-          <div style={{ position: 'absolute', inset: 0 }}>
-            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+        {/* Background image placeholder */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+        </div>
+
+        {/* Title overlay placeholder */}
+        <div style={{
+          zIndex: 1,
+          width: '100%',
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--color-bg-overlay)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--space-3) var(--space-4)',
+            width: '100%',
+            maxWidth: '85%',
+            display: 'flex',
+            justifyContent: 'center'
+          }}>
+            <SkeletonLoader
+              variant="text"
+              width="70%"
+              height="calc(var(--font-size-lg) * 1.25)"
+              animate={false}
+              style={{ background: 'rgba(255, 255, 255, 0.25)' }}
+            />
           </div>
         </div>
 
-        {/* Content area */}
-        <div style={{ padding: 'var(--space-4)' }}>
-          {/* Title */}
-          <SkeletonLoader
-            variant="text"
-            width="85%"
-            height="24px"
-            style={{ marginBottom: 'var(--space-2)' }}
-          />
-
-          {/* Location */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <SkeletonLoader variant="circle" width="14px" height="14px" />
-            <SkeletonLoader variant="text" width="100px" height="16px" />
-          </div>
-
-          {/* Tags */}
-          <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <SkeletonLoader
-              variant="rectangle"
-              width="60px"
-              height="24px"
-              style={{ borderRadius: 'var(--radius-full)' }}
-            />
-            <SkeletonLoader
-              variant="rectangle"
-              width="70px"
-              height="24px"
-              style={{ borderRadius: 'var(--radius-full)' }}
-            />
-          </div>
-
-          {/* Meta row - cost and time */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <SkeletonLoader variant="text" width="50px" height="18px" />
-            <SkeletonLoader variant="text" width="60px" height="18px" />
-          </div>
+        {/* Actions row placeholder */}
+        <div style={{
+          zIndex: 1,
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-3)'
+        }}>
+          <SkeletonLoader variant="circle" width="var(--btn-height-md)" height="var(--btn-height-md)" />
+          <SkeletonLoader variant="circle" width="var(--btn-height-md)" height="var(--btn-height-md)" />
+          <SkeletonLoader variant="circle" width="var(--btn-height-md)" height="var(--btn-height-md)" />
         </div>
       </div>
     </div>
@@ -204,23 +214,18 @@ export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) 
  */
 function TabSkeletonItem({ width }) {
   return (
-    <div style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 'var(--space-2)',
-      padding: 'var(--space-3) var(--space-4)',
-    }}>
+    <div className={styles.profileTabSkeletonItem}>
       {/* Icon skeleton */}
       <SkeletonLoader
         variant="circle"
-        width="16px"
-        height="16px"
+        width="var(--profile-tab-skeleton-icon-size)"
+        height="var(--profile-tab-skeleton-icon-size)"
       />
       {/* Label skeleton */}
       <SkeletonLoader
         variant="rectangle"
         width={width}
-        height="14px"
+        height="var(--profile-tab-skeleton-label-height)"
         style={{ borderRadius: 'var(--radius-xs)' }}
       />
     </div>
@@ -234,22 +239,25 @@ function TabSkeletonItem({ width }) {
  */
 export function ProfileTabsSkeleton() {
   return (
-    <div className={styles.profileTabs} style={{
-      display: 'flex',
-      justifyContent: 'center',
-      gap: 'var(--space-1)',
-      borderBottom: '1px solid var(--color-border-light)',
-    }}>
-      {/* Activity tab - "Activity" ~50px */}
-      <TabSkeletonItem width="50px" />
-      {/* Follows tab - "Follows" ~45px */}
-      <TabSkeletonItem width="45px" />
-      {/* Planned tab - "Planned" ~48px */}
-      <TabSkeletonItem width="48px" />
-      {/* Created tab - "Created" ~48px */}
-      <TabSkeletonItem width="48px" />
-      {/* Destinations tab - "Destinations" ~72px */}
-      <TabSkeletonItem width="72px" />
+    <div className={styles.profileTabs}>
+      {/* Desktop tabs skeleton (mirrors TabNav horizontal tabs) */}
+      <div className={styles.profileTabsSkeletonDesktop} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
+        <TabSkeletonItem width="50px" />
+        <TabSkeletonItem width="45px" />
+        <TabSkeletonItem width="48px" />
+        <TabSkeletonItem width="48px" />
+        <TabSkeletonItem width="72px" />
+      </div>
+
+      {/* Mobile dropdown skeleton (mirrors TabNav dropdown trigger) */}
+      <div className={styles.profileTabsSkeletonMobile}>
+        <SkeletonLoader
+          variant="rectangle"
+          width="100%"
+          height="48px"
+          style={{ borderRadius: 'var(--radius-lg)' }}
+        />
+      </div>
     </div>
   );
 }

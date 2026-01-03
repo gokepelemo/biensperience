@@ -1,5 +1,5 @@
 import "./NewExperience.module.scss";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useId } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
@@ -30,6 +30,7 @@ export default function NewExperience() {
   const { destinations: destData, experiences: expData, addExperience } = useData();
   const { user } = useUser();
   const { success } = useToast();
+  const destinationAutocompleteId = useId();
   const [newExperience, setNewExperience] = useState({});
   const [destinations, setDestinations] = useState([]);
   const [experiences, setExperiences] = useState([]);
@@ -246,7 +247,7 @@ export default function NewExperience() {
 
             <div className="mb-4">
               <Form.Group>
-                <Form.Label>
+                <Form.Label htmlFor={destinationAutocompleteId}>
                   {lang.current.label.destinationLabel}
                   {' '}
                   <span className="text-danger">*</span>
@@ -257,6 +258,7 @@ export default function NewExperience() {
                   />
                 </Form.Label>
                 <Autocomplete
+                  inputId={destinationAutocompleteId}
                   placeholder={lang.current.placeholder.destination}
                   entityType="destination"
                   items={(() => {

@@ -46,7 +46,8 @@ async function getCsrfToken(forceRefresh = false) {
   // Fetch new token
   csrfTokenPromise = fetch('/api/auth/csrf-token', {
     method: 'GET',
-    credentials: 'include' // Include cookies for session
+        credentials: 'include', // Include cookies for session
+        cache: 'no-store'
   })
   .then(res => {
     if (!res.ok) {
@@ -301,11 +302,15 @@ export async function sendRequest(url, method = "GET", payload = null, requestOp
  * @returns {Promise<Object>} Response data as JSON
  * @throws {Error} Throws 'Bad Request' if response is not ok
  */
-export async function uploadFile(url, method = "POST", payload = null) {
-    // Add a short timeout for uploads as well
-    const DEFAULT_TIMEOUT = 60000; // 60s
+export async function uploadFile(url, method = "POST", payload = null, requestOptions = {}) {
+    // Default timeout for uploads (ms). Can be overridden via requestOptions.timeoutMs.
+    // Document uploads with AI processing can take several minutes, so use a generous default.
+    const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const timeoutMs = Number.isFinite(requestOptions.timeoutMs)
+        ? requestOptions.timeoutMs
+        : DEFAULT_TIMEOUT;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     const options = { method, signal: controller.signal, credentials: 'include' };
     if (payload) {
@@ -379,8 +384,13 @@ export async function uploadFile(url, method = "POST", payload = null) {
         throw new Error(errorMessage);
     } catch (error) {
         if (error.name === 'AbortError') {
-            logger.error('File upload timed out', { url, method, timeoutMs: DEFAULT_TIMEOUT });
+            logger.error('File upload timed out', { url, method, timeoutMs });
             throw new Error('Upload timed out. Please try again.');
+        }
+        // Safari often reports network failures as `TypeError: Load failed`
+        if (error && error.name === 'TypeError') {
+            logger.error('File upload failed', { url, method, error: error.message }, error);
+            throw new Error('Network error during upload. Please check your connection and try again.');
         }
         // Handle network errors, CORS issues, etc.
         logger.error('File upload failed', {

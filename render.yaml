@@ -1,0 +1,15 @@
+# Render deployment configuration for Biensperience
+# This file configures the full-stack application for Render using Bun runtime
+
+services:
+  # Biensperience Full-Stack Application
+  - type: web
+    name: biensperience
+    runtime: bun
+    buildCommand: bun run build
+    startCommand: bun run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000

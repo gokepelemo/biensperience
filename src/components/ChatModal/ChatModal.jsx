@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { StreamChat } from 'stream-chat';
 import {
   Chat,
   Channel,
@@ -16,91 +15,70 @@ import Modal from '../Modal/Modal';
 import Alert from '../Alert/Alert';
 import styles from './ChatModal.module.scss';
 
-import { getChatToken } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
+import useStreamChat from '../../hooks/useStreamChat';
 
 export default function ChatModal({ show, onClose, title, channelType = 'messaging', channelId }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
 
-  const [client, setClient] = useState(null);
   const [channel, setChannel] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [channelLoading, setChannelLoading] = useState(false);
+  const [channelError, setChannelError] = useState('');
 
   const canInit = useMemo(() => {
     return Boolean(show && apiKey && channelId);
   }, [show, apiKey, channelId]);
 
+  const {
+    client,
+    loading: clientLoading,
+    error: clientError
+  } = useStreamChat({
+    connectWhen: canInit,
+    disconnectWhen: !show,
+    apiKey,
+    context: 'ChatModal'
+  });
+
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
+    async function initChannel() {
       if (!canInit) return;
+      if (!client) return;
 
-      setLoading(true);
-      setError('');
+      setChannelLoading(true);
+      setChannelError('');
 
       try {
-        const { token, user } = await getChatToken();
-
-        const streamClient = StreamChat.getInstance(apiKey);
-        await streamClient.connectUser(
-          {
-            id: user.id,
-            name: user.name
-          },
-          token
-        );
-
-        const streamChannel = streamClient.channel(channelType, channelId);
+        const streamChannel = client.channel(channelType, channelId);
         await streamChannel.watch();
-
-        if (cancelled) {
-          try {
-            await streamClient.disconnectUser();
-          } catch (disconnectErr) {
-            // Ignore
-          }
-          return;
-        }
-
-        setClient(streamClient);
-        setChannel(streamChannel);
+        if (!cancelled) setChannel(streamChannel);
       } catch (err) {
-        logger.error('[ChatModal] Failed to initialize chat', err);
-        if (!cancelled) {
-          setError(err?.message || 'Failed to initialize chat');
-        }
+        logger.error('[ChatModal] Failed to initialize channel', err);
+        if (!cancelled) setChannelError(err?.message || 'Failed to initialize chat');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setChannelLoading(false);
       }
     }
 
-    init();
+    initChannel();
 
     return () => {
       cancelled = true;
     };
-  }, [canInit, apiKey, channelId, channelType]);
+  }, [canInit, client, channelId, channelType]);
 
   useEffect(() => {
     if (!show) {
       setChannel(null);
-      setError('');
-      setLoading(false);
-
-      if (client) {
-        client
-          .disconnectUser()
-          .catch(() => {
-            // Ignore
-          })
-          .finally(() => {
-            setClient(null);
-          });
-      }
+      setChannelError('');
+      setChannelLoading(false);
     }
-  }, [show, client]);
+  }, [show]);
+
+  const error = clientError || channelError;
+  const loading = clientLoading || channelLoading;
 
   return (
     <Modal

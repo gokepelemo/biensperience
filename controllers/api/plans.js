@@ -9,11 +9,14 @@ const { asyncHandler, successResponse, errorResponse, validateObjectId } = requi
 const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
-const { sendCollaboratorInviteEmail } = require('../../utilities/email-service');
+const { sendCollaboratorInviteEmail, sendPlanAccessRequestEmail } = require('../../utilities/email-service');
+const PlanAccessRequest = require('../../models/plan-access-request');
+const { sendIfAllowed } = require('../../utilities/notifications');
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAG_CONTEXT } = require('../../utilities/feature-flags');
 const { broadcastEvent, sendEventToUser } = require('../../utilities/websocket-server');
 const { upsertMessagingChannel, getStreamServerClient, syncChannelMembers } = require('../../utilities/stream-chat');
+const { insufficientPermissionsError } = require('../../utilities/error-responses');
 
 /**
  * Sanitize location data to prevent GeoJSON validation errors
@@ -457,9 +460,20 @@ const getUserPlans = asyncHandler(async (req, res) => {
     .sort({ updatedAt: -1 });
 
   if (paginate) {
-    // Get total count and paginated results in parallel
-    const [totalCount, plans] = await Promise.all([
+    // Get total counts and paginated results in parallel
+    // We need separate counts for owned vs shared plans for filter badges
+    const ownedFilter = { user: req.user._id };
+    const sharedFilter = {
+      user: { $ne: req.user._id },
+      'permissions._id': req.user._id,
+      'permissions.entity': 'user',
+      'permissions.type': { $in: ['collaborator', 'contributor'] }
+    };
+
+    const [totalCount, totalOwnedCount, totalSharedCount, plans] = await Promise.all([
       Plan.countDocuments(filter),
+      Plan.countDocuments(ownedFilter),
+      Plan.countDocuments(sharedFilter),
       query.skip(skip).limit(limit)
     ]);
 
@@ -479,6 +493,8 @@ const getUserPlans = asyncHandler(async (req, res) => {
         page,
         limit,
         totalCount,
+        totalOwnedCount,
+        totalSharedCount,
         totalPages: Math.max(1, Math.ceil(totalCount / limit)),
         hasMore: skip + plansWithVirtuals.length < totalCount
       }
@@ -544,16 +560,121 @@ const getPlanById = asyncHandler(async (req, res) => {
   });
 
   if (!permCheck.allowed) {
-    return res.status(403).json({
-      error: "Insufficient permissions to view this plan",
-      message: permCheck.reason
-    });
+    return res
+      .status(403)
+      .json(
+        insufficientPermissionsError('contributor', 'none', {
+          resourceType: 'plan',
+          resourceId: id,
+          reason: permCheck.reason
+        })
+      );
   }
 
   // Filter notes based on visibility permissions
   filterNotesByVisibility(plan, req.user._id);
 
   res.json(plan);
+});
+
+/**
+ * Request access to a plan the current user cannot view
+ * POST /api/plans/:id/access-requests
+ */
+const requestPlanAccess = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { message = '' } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  const plan = await Plan.findById(id)
+    .select('user experience')
+    .populate({
+      path: 'user',
+      select: 'name email preferences'
+    })
+    .populate({
+      path: 'experience',
+      select: 'name'
+    });
+
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  // If user already has view access, no need to request
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canView({
+    userId: req.user._id,
+    resource: plan
+  });
+
+  if (permCheck.allowed) {
+    return errorResponse(res, null, 'You already have access to this plan', 400);
+  }
+
+  if (plan.user?._id?.toString() === req.user._id.toString()) {
+    return errorResponse(res, null, 'You already own this plan', 400);
+  }
+
+  let accessRequest = await PlanAccessRequest.findOne({ plan: id, requester: req.user._id });
+  if (accessRequest) {
+    // If the request was previously handled, don't spam the owner
+    if (accessRequest.status !== 'pending') {
+      return errorResponse(res, null, 'An access request already exists and has been processed', 409);
+    }
+
+    // Pending: update message (optional)
+    accessRequest.message = typeof message === 'string' ? message.trim() : '';
+    await accessRequest.save();
+
+    return successResponse(res, accessRequest, 'Access request updated');
+  }
+
+  accessRequest = await PlanAccessRequest.create({
+    plan: id,
+    requester: req.user._id,
+    message: typeof message === 'string' ? message.trim() : ''
+  });
+
+  // Notify plan owner (preference gated)
+  try {
+    const owner = plan.user;
+    const requesterName = req.user?.name || 'A user';
+
+    if (owner?.email) {
+      await sendIfAllowed({
+        user: owner,
+        channel: 'email',
+        type: 'activity',
+        logContext: {
+          planId: id,
+          ownerId: owner._id,
+          requesterId: req.user._id
+        },
+        send: async () => {
+          await sendPlanAccessRequestEmail({
+            toEmail: owner.email,
+            ownerName: owner.name,
+            requesterName,
+            experienceName: plan.experience?.name || 'an experience',
+            experienceId: plan.experience?._id?.toString(),
+            planId: id,
+            requestMessage: accessRequest.message
+          });
+        }
+      });
+    }
+  } catch (e) {
+    backendLogger.warn('Failed to notify plan owner of access request', {
+      planId: id,
+      error: e?.message || String(e)
+    });
+  }
+
+  return successResponse(res, accessRequest, 'Access request submitted');
 });
 
 /**
@@ -4131,6 +4252,7 @@ module.exports = {
   createPlan,
   getUserPlans,
   getPlanById,
+  requestPlanAccess,
   getExperiencePlans,
   pinPlanItem,
   unpinPlanItem,

@@ -388,41 +388,49 @@ async function isPlanMember(userId, planId) {
 function createWebSocketServer(server, options = {}) {
   const wss = new WebSocket.Server({
     server,
-    path: options.path || '/ws',
-    verifyClient: (info, callback) => {
-      // Parse query string for token
-      const query = url.parse(info.req.url, true).query;
-      const token = query.token;
-
-      if (!token) {
-        backendLogger.warn('[WebSocket] Connection rejected: No token provided');
-        callback(false, 401, 'Unauthorized: No token provided');
-        return;
-      }
-
-      try {
-        // Verify JWT token
-        const secret = process.env.SECRET || process.env.JWT_SECRET;
-        const decoded = jwt.verify(token, secret);
-
-        // Attach user info to request for use in connection handler
-        info.req.user = decoded.user || decoded;
-        callback(true);
-      } catch (error) {
-        backendLogger.warn('[WebSocket] Connection rejected: Invalid token', {
-          error: error.message
-        });
-        callback(false, 401, 'Unauthorized: Invalid token');
-      }
-    }
+    path: options.path || '/ws'
   });
 
   // Handle new connections
   wss.on('connection', (ws, req) => {
-    const user = req.user;
+    // IMPORTANT: Do not use ws.Server.verifyClient here.
+    // In Bun, rejecting during the handshake can trigger a crash inside ws (abortHandshake).
+    // Instead, accept the connection and immediately close if auth fails.
     const query = url.parse(req.url, true).query;
+    const token = query.token;
     const sessionId = query.sessionId;
-    const userId = user._id || user.id;
+
+    if (!token) {
+      backendLogger.warn('[WebSocket] Connection rejected: No token provided');
+      ws.close(4001, 'Unauthorized');
+      return;
+    }
+
+    let user;
+    try {
+      const secret = process.env.SECRET || process.env.JWT_SECRET;
+      if (!secret) {
+        backendLogger.error('[WebSocket] Missing JWT secret (SECRET/JWT_SECRET)');
+        ws.close(1011, 'Server error');
+        return;
+      }
+
+      const decoded = jwt.verify(token, secret);
+      user = decoded?.user || decoded;
+    } catch (error) {
+      backendLogger.warn('[WebSocket] Connection rejected: Invalid token', {
+        error: error.message
+      });
+      ws.close(4001, 'Unauthorized');
+      return;
+    }
+
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      backendLogger.warn('[WebSocket] Connection rejected: Token missing user id');
+      ws.close(4001, 'Unauthorized');
+      return;
+    }
 
     // Check connection limit per user
     if (!trackUserConnection(userId, ws)) {

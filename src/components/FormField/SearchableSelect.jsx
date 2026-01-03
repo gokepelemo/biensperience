@@ -18,6 +18,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useId, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { FaSearch, FaChevronDown, FaCheck } from 'react-icons/fa';
 import { createFilter } from '../../utilities/trie';
@@ -28,6 +29,7 @@ export default function SearchableSelect({
   options = [],
   value,
   onChange,
+  multiple = false,
   placeholder = lang.current.searchableSelect.defaultPlaceholder,
   searchPlaceholder = lang.current.searchableSelect.searchPlaceholder,
   searchable = true,
@@ -52,8 +54,25 @@ export default function SearchableSelect({
   const searchInputRef = useRef(null);
   const listRef = useRef(null);
 
+  const isMobileOrTablet = typeof window !== 'undefined' && window.innerWidth <= 767; // breakpoint-md - 1
+
+  const selectedValues = useMemo(() => {
+    if (!multiple) return value;
+    if (Array.isArray(value)) return value;
+    return [];
+  }, [multiple, value]);
+
+  const selectedOptions = useMemo(() => {
+    if (!multiple) return [];
+    const valueSet = new Set(selectedValues);
+    return options.filter(opt => valueSet.has(opt.value));
+  }, [multiple, options, selectedValues]);
+
   // Find selected option
-  const selectedOption = options.find(opt => opt.value === value);
+  const selectedOption = useMemo(() => {
+    if (multiple) return null;
+    return options.find(opt => opt.value === value);
+  }, [multiple, options, value]);
 
   // Build trie filter index when options change
   const trieFilter = useMemo(() => {
@@ -78,15 +97,15 @@ export default function SearchableSelect({
     if (!isOpen) return;
 
     const handleClickOutside = (e) => {
-      // On mobile/tablet, the dropdown is positioned as fixed
+      // On mobile/tablet, the dropdown is positioned as fixed and may be portaled
       // so we need to check if the click is outside both the container AND the dropdown
-      const isMobileOrTablet = window.innerWidth <= 767; // breakpoint-md - 1
+      const isMobileOrTabletViewport = window.innerWidth <= 767; // breakpoint-md - 1
       const dropdownRef = document.querySelector(`[data-searchable-select="${selectId}"]`);
 
       const clickedOutsideContainer = containerRef.current && !containerRef.current.contains(e.target);
-      const clickedOutsideDropdown = isMobileOrTablet && dropdownRef && !dropdownRef.contains(e.target);
+      const clickedOutsideDropdown = isMobileOrTabletViewport && dropdownRef && !dropdownRef.contains(e.target);
 
-      if (clickedOutsideContainer && (!isMobileOrTablet || clickedOutsideDropdown)) {
+      if (clickedOutsideContainer && (!isMobileOrTabletViewport || clickedOutsideDropdown)) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -100,8 +119,8 @@ export default function SearchableSelect({
   const positionDropdown = useCallback(() => {
     if (!isOpen) return;
 
-    const isMobileOrTablet = window.innerWidth <= 767; // breakpoint-md - 1
-    if (!isMobileOrTablet) return;
+    const isMobileOrTabletViewport = window.innerWidth <= 767; // breakpoint-md - 1
+    if (!isMobileOrTabletViewport) return;
 
     // Query dropdown and trigger
     const dropdown = document.querySelector(`[data-searchable-select="${selectId}"]`);
@@ -111,6 +130,7 @@ export default function SearchableSelect({
 
     // Ensure fixed positioning for predictable placement
     dropdown.style.position = 'fixed';
+    dropdown.style.visibility = 'hidden';
 
     // Run in RAF and a short timeout to ensure layout has settled and dropdown height is measured
     const applyPosition = () => {
@@ -143,6 +163,7 @@ export default function SearchableSelect({
       dropdown.style.width = `${targetWidth}px`;
       dropdown.style.boxSizing = 'border-box';
       dropdown.style.transform = 'none';
+      dropdown.style.visibility = 'visible';
     };
 
     // Use RAF then a micro timeout for cross-browser stability
@@ -229,9 +250,20 @@ export default function SearchableSelect({
   }, [highlightedIndex, isOpen]);
 
   const handleSelect = (option) => {
-    onChange(option.value);
-    setIsOpen(false);
-    setSearchQuery('');
+    if (!multiple) {
+      onChange(option.value);
+      setIsOpen(false);
+      setSearchQuery('');
+      return;
+    }
+
+    const next = new Set(selectedValues);
+    if (next.has(option.value)) {
+      next.delete(option.value);
+    } else {
+      next.add(option.value);
+    }
+    onChange(Array.from(next));
   };
 
   const handleToggle = () => {
@@ -262,7 +294,18 @@ export default function SearchableSelect({
     >
       {/* Hidden native select for form submission */}
       {name && (
-        <input type="hidden" name={name} value={value || ''} />
+        multiple ? (
+          (Array.isArray(selectedValues) ? selectedValues : []).map((v) => (
+            <input
+              key={v}
+              type="hidden"
+              name={name.endsWith('[]') ? name : `${name}[]`}
+              value={v}
+            />
+          ))
+        ) : (
+          <input type="hidden" name={name} value={value || ''} />
+        )
       )}
 
       {/* Trigger button */}
@@ -278,7 +321,19 @@ export default function SearchableSelect({
         aria-describedby={ariaDescribedBy}
       >
         <span className={styles.triggerContent}>
-          {selectedOption ? (
+          {multiple ? (
+            selectedOptions.length > 0 ? (
+              <>
+                <span className={styles.triggerLabel}>
+                  {selectedOptions.length === 1
+                    ? selectedOptions[0].label
+                    : `${selectedOptions[0].label} +${selectedOptions.length - 1}`}
+                </span>
+              </>
+            ) : (
+              <span className={styles.placeholder}>{placeholder}</span>
+            )
+          ) : selectedOption ? (
             <>
               {selectedOption.icon && (
                 <span className={styles.optionIcon}>
@@ -298,66 +353,78 @@ export default function SearchableSelect({
       </button>
 
       {/* Dropdown panel */}
-      {isOpen && (
-        <div
-          className={styles.dropdown}
-          role="presentation"
-          data-searchable-select={selectId}
-        >
-          {/* Search input */}
-          {searchable && (
-            <div className={styles.searchWrapper}>
-              <FaSearch className={styles.searchIcon} aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                className={styles.searchInput}
-                placeholder={searchPlaceholder}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label={lang.current.searchableSelect.searchOptionsAria}
-              />
-            </div>
-          )}
-
-          {/* Options list */}
-          <ul
-            ref={listRef}
-            className={styles.optionsList}
-            role="listbox"
-            aria-activedescendant={filteredOptions[highlightedIndex]?.value}
+      {isOpen && (() => {
+        const dropdown = (
+          <div
+            className={styles.dropdown}
+            role="presentation"
+            data-searchable-select={selectId}
+            style={isMobileOrTablet ? { visibility: 'hidden' } : undefined}
           >
-            {filteredOptions.length === 0 ? (
-              <li className={styles.noResults}>{lang.current.searchableSelect.noResultsFound}</li>
-            ) : (
-              filteredOptions.map((option, index) => (
-                <li
-                  key={option.value}
-                  data-index={index}
-                  className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${option.value === value ? styles.selected : ''}`}
-                  role="option"
-                  aria-selected={option.value === value}
-                  onClick={() => handleSelect(option)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                >
-                  {option.icon && (
-                    <span className={styles.optionIcon}>
-                      {React.createElement(option.icon)}
-                    </span>
-                  )}
-                  <span className={styles.optionLabel}>{option.label}</span>
-                  {option.suffix && (
-                    <span className={styles.optionSuffix}>{option.suffix}</span>
-                  )}
-                  {option.value === value && (
-                    <FaCheck className={styles.checkIcon} aria-hidden="true" />
-                  )}
-                </li>
-              ))
+            {/* Search input */}
+            {searchable && (
+              <div className={styles.searchWrapper}>
+                <FaSearch className={styles.searchIcon} aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  className={styles.searchInput}
+                  placeholder={searchPlaceholder}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label={lang.current.searchableSelect.searchOptionsAria}
+                />
+              </div>
             )}
-          </ul>
-        </div>
-      )}
+
+            {/* Options list */}
+            <ul
+              ref={listRef}
+              className={styles.optionsList}
+              role="listbox"
+              aria-multiselectable={multiple || undefined}
+              aria-activedescendant={filteredOptions[highlightedIndex]?.value}
+            >
+              {filteredOptions.length === 0 ? (
+                <li className={styles.noResults}>{lang.current.searchableSelect.noResultsFound}</li>
+              ) : (
+                filteredOptions.map((option, index) => (
+                  <li
+                    key={option.value}
+                    data-index={index}
+                    className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${(multiple ? selectedValues.includes(option.value) : option.value === value) ? styles.selected : ''}`}
+                    role="option"
+                    aria-selected={(multiple ? selectedValues.includes(option.value) : option.value === value)}
+                    onClick={() => handleSelect(option)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                  >
+                    {option.icon && (
+                      <span className={styles.optionIcon}>
+                        {React.createElement(option.icon)}
+                      </span>
+                    )}
+                    <span className={styles.optionLabel}>{option.label}</span>
+                    {option.suffix && (
+                      <span className={styles.optionSuffix}>{option.suffix}</span>
+                    )}
+                    {(multiple ? selectedValues.includes(option.value) : option.value === value) && (
+                      <FaCheck className={styles.checkIcon} aria-hidden="true" />
+                    )}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        );
+
+        // On mobile, we portal the dropdown to <body> so `position: fixed`
+        // stays viewport-relative even when ancestors (like FadeIn) apply transforms.
+        if (isMobileOrTablet) {
+          return createPortal(dropdown, document.body);
+        }
+
+        return dropdown;
+      })()}
     </div>
   );
 }
@@ -370,9 +437,14 @@ SearchableSelect.propTypes = {
     icon: PropTypes.elementType,
     suffix: PropTypes.string,
   })).isRequired,
-  /** Currently selected value */
-  value: PropTypes.string,
-  /** Change handler - receives the selected value */
+  /** Currently selected value (string) or selected values (array) when multiple */
+  value: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
+  /** Enable multi-select behavior */
+  multiple: PropTypes.bool,
+  /** Change handler - receives the selected value (string) or values (array) */
   onChange: PropTypes.func.isRequired,
   /** Placeholder text when no option selected */
   placeholder: PropTypes.string,

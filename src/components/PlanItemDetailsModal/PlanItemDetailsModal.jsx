@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck } from 'react-icons/fa';
-import { StreamChat } from 'stream-chat';
+import { Dropdown } from 'react-bootstrap';
+import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown } from 'react-icons/fa';
 import {
   Chat,
   Channel,
@@ -16,6 +16,8 @@ import {
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import Modal from '../Modal/Modal';
+import Button from '../Button/Button';
+import Loading from '../Loading/Loading';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
 import AddLocationModal from '../AddLocationModal';
@@ -36,7 +38,8 @@ import { broadcastEvent } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
 import Tooltip from '../Tooltip/Tooltip';
-import { getChatToken, getOrCreatePlanItemChannel } from '../../utilities/chat-api';
+import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
+import useStreamChat from '../../hooks/useStreamChat';
 
 export default function PlanItemDetailsModal({
   show,
@@ -76,6 +79,47 @@ export default function PlanItemDetailsModal({
 }) {
   const streamApiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
 
+  const [uiTheme, setUiTheme] = useState(() => {
+    try {
+      const root = document?.documentElement;
+      const theme = root?.getAttribute('data-theme') || root?.getAttribute('data-bs-theme');
+      return theme === 'dark' ? 'dark' : 'light';
+    } catch (e) {
+      return 'light';
+    }
+  });
+
+  // Keep Stream Chat theme aligned with app theme while modal is open.
+  useEffect(() => {
+    if (!show) return undefined;
+
+    try {
+      const root = document?.documentElement;
+      if (!root || !window?.MutationObserver) return undefined;
+
+      const updateTheme = () => {
+        try {
+          const theme = root.getAttribute('data-theme') || root.getAttribute('data-bs-theme');
+          setUiTheme(theme === 'dark' ? 'dark' : 'light');
+        } catch (e) {
+          // ignore
+        }
+      };
+
+      updateTheme();
+
+      const observer = new MutationObserver(updateTheme);
+      observer.observe(root, {
+        attributes: true,
+        attributeFilter: ['data-theme', 'data-bs-theme']
+      });
+
+      return () => observer.disconnect();
+    } catch (e) {
+      return undefined;
+    }
+  }, [show]);
+
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditingAssignment, setIsEditingAssignment] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState('');
@@ -98,7 +142,6 @@ export default function PlanItemDetailsModal({
   const [localScheduledTime, setLocalScheduledTime] = useState(null);
 
   // Plan item chat state (rendered ONLY in this modal's Chat tab)
-  const [chatClient, setChatClient] = useState(null);
   const [chatChannel, setChatChannel] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
@@ -132,11 +175,26 @@ export default function PlanItemDetailsModal({
     return Boolean(show && activeTab === 'chat' && streamApiKey && plan?._id && planItemIdStr);
   }, [show, activeTab, streamApiKey, plan?._id, planItemIdStr]);
 
+  const {
+    client: chatClient,
+    loading: chatClientLoading,
+    error: chatClientError
+  } = useStreamChat({
+    connectWhen: canInitChat,
+    disconnectWhen: !show,
+    apiKey: streamApiKey,
+    context: 'PlanItemDetailsModal'
+  });
+
   useEffect(() => {
     let cancelled = false;
 
     async function initChat() {
       if (!canInitChat) return;
+
+      // The Stream client initializes asynchronously. Wait until it's available
+      // before trying to create/watch a channel.
+      if (!chatClient || typeof chatClient.channel !== 'function') return;
 
       // Skip if already connected (connection persists across tab switches)
       if (chatClient && chatChannel) return;
@@ -150,28 +208,11 @@ export default function PlanItemDetailsModal({
         const planItemId = planItemIdStr;
 
         const { id: channelId } = await getOrCreatePlanItemChannel(planId, planItemId);
-        const { token, user } = await getChatToken();
 
-        const streamClient = StreamChat.getInstance(streamApiKey);
-        await streamClient.connectUser(
-          { id: user.id, name: user.name },
-          token
-        );
-
-        const streamChannel = streamClient.channel('messaging', channelId);
+        const streamChannel = chatClient.channel('messaging', channelId);
         await streamChannel.watch();
 
-        if (cancelled) {
-          try {
-            await streamClient.disconnectUser();
-          } catch (e) {
-            // ignore
-          }
-          return;
-        }
-
-        setChatClient(streamClient);
-        setChatChannel(streamChannel);
+        if (!cancelled) setChatChannel(streamChannel);
       } catch (err) {
         logger.error('[PlanItemDetailsModal] Failed to initialize plan item chat', err);
         if (!cancelled) {
@@ -190,7 +231,7 @@ export default function PlanItemDetailsModal({
     // We check chatClient/chatChannel to skip if already connected.
     // This prevents reconnection when switching tabs since we keep connection alive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canInitChat, streamApiKey, chatClient, chatChannel]);
+  }, [canInitChat, chatClient, chatChannel, plan?._id, planItemIdStr]);
 
   // Cleanup chat connection when modal closes
   // NOTE: We only disconnect when the modal closes, NOT when switching tabs.
@@ -201,24 +242,13 @@ export default function PlanItemDetailsModal({
     if (show) return;
 
     // Clear state immediately to unmount Stream components first
-    const clientToDisconnect = chatClient;
-    setChatClient(null);
     setChatChannel(null);
     setChatError('');
     setChatLoading(false);
+  }, [show]);
 
-    // Disconnect after state is cleared (components unmounted)
-    if (clientToDisconnect) {
-      // Use setTimeout to ensure React has unmounted Stream components
-      setTimeout(() => {
-        clientToDisconnect
-          .disconnectUser()
-          .catch(() => {
-            // ignore disconnect errors
-          });
-      }, 0);
-    }
-  }, [show, chatClient]);
+  const mergedChatError = chatClientError || chatError;
+  const mergedChatLoading = chatClientLoading || chatLoading;
 
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
@@ -427,6 +457,7 @@ export default function PlanItemDetailsModal({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isEditingAssignment]);
+
 
   /**
    * Handle entity click from mentions in notes
@@ -1178,19 +1209,18 @@ export default function PlanItemDetailsModal({
           {/* Completion toggle - next to assignment */}
           {onToggleComplete && (
             <div className={styles.completionToggle}>
-              <button
-                className={`${styles.completeButton} ${planItem.complete ? styles.completed : ''}`}
+              <Button
+                variant={planItem.complete ? 'success' : 'outline'}
+                size="sm"
                 onClick={() => onToggleComplete(planItem)}
                 disabled={!canEdit}
-                type="button"
                 aria-pressed={!!planItem.complete}
                 title={planItem.complete ? 'Mark as incomplete' : 'Mark as complete'}
+                leftIcon={<span>{planItem.complete ? '✓' : '○'}</span>}
+                className={styles.completeButton}
               >
-                <span className={styles.completeIcon}>{planItem.complete ? '✓' : '○'}</span>
-                <span className={styles.completeText}>
-                  {planItem.complete ? lang.current.planItemDetailsModal.completed : lang.current.planItemDetailsModal.markComplete}
-                </span>
-              </button>
+                {planItem.complete ? lang.current.planItemDetailsModal.completed : lang.current.planItemDetailsModal.markComplete}
+              </Button>
             </div>
           )}
 
@@ -1199,16 +1229,18 @@ export default function PlanItemDetailsModal({
             const safeUrl = sanitizeUrl(planItem.url);
             return safeUrl ? (
               <div className={styles.completionToggle}>
-                <a
+                <Button
+                  as="a"
                   href={safeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={styles.completeButton}
+                  variant="outline"
+                  size="sm"
                   title="Open external link"
+                  leftIcon={<span>🔗</span>}
                 >
-                  <span className={styles.completeIcon}>🔗</span>
-                  <span className={styles.completeText}>View Link</span>
-                </a>
+                  View Link
+                </Button>
               </div>
             ) : null;
           })()}
@@ -1292,17 +1324,17 @@ export default function PlanItemDetailsModal({
                 {canEdit && (onAddCostForItem || onAddDetail) && (
                   <div className={styles.addDropdownWrapper} ref={addDropdownRef}>
                     <Tooltip content="Add costs, reservations, or other details" placement="top">
-                      <button
-                        type="button"
-                        className={styles.addButton}
+                      <Button
+                        variant="gradient"
+                        size="sm"
                         onClick={handleToggleAddDropdown}
                         aria-expanded={showAddDropdown}
                         aria-haspopup="menu"
+                        leftIcon={<FaPlus />}
+                        rightIcon={<span className={styles.addButtonCaret}>▾</span>}
                       >
-                        <FaPlus className={styles.addButtonIcon} />
-                        <span className={styles.addButtonText}>{lang.current.button.add}</span>
-                        <span className={styles.addButtonCaret}>▾</span>
-                      </button>
+                        {lang.current.button.add}
+                      </Button>
                     </Tooltip>
 
                     {showAddDropdown && (
@@ -1349,14 +1381,15 @@ export default function PlanItemDetailsModal({
                 {/* Share Button */}
                 {onShare && (
                   <Tooltip content="Share this plan item" placement="top">
-                    <button
-                      type="button"
-                      className={styles.shareButton}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => onShare(planItem)}
+                      leftIcon={<FaShareAlt />}
+                      fullWidth
                     >
-                      <FaShareAlt className={styles.shareButtonIcon} />
-                      <span className={styles.shareButtonText}>{lang.current.planItemDetailsModal.share}</span>
-                    </button>
+                      {lang.current.planItemDetailsModal.share}
+                    </Button>
                   </Tooltip>
                 )}
               </div>
@@ -1364,53 +1397,76 @@ export default function PlanItemDetailsModal({
           </div>
         )}
 
-        {/* Tabs for different detail types */}
-        <div className={styles.detailsTabs}>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'details' ? styles.active : ''}`}
-            onClick={() => setActiveTab('details')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabDetails} {totalDetailsCount > 0 && `(${totalDetailsCount})`}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'notes' ? styles.active : ''}`}
-            onClick={() => setActiveTab('notes')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabNotes} {notes.length > 0 && `(${notes.length})`}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'location' ? styles.active : ''}`}
-            onClick={() => setActiveTab('location')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabLocation} {planItem?.location?.address && '✓'}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'chat' ? styles.active : ''}`}
-            onClick={() => setActiveTab('chat')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabChat}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'photos' ? styles.active : ''}`}
-            onClick={() => setActiveTab('photos')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabPhotos}
-          </button>
-          <button
-            className={`${styles.detailsTab} ${activeTab === 'documents' ? styles.active : ''}`}
-            onClick={() => setActiveTab('documents')}
-            type="button"
-          >
-            {lang.current.planItemDetailsModal.tabDocuments}
-          </button>
-        </div>
+        {/* Tab options configuration */}
+        {(() => {
+          const tabOptions = [
+            { key: 'details', label: lang.current.planItemDetailsModal.tabDetails, badge: totalDetailsCount > 0 ? `(${totalDetailsCount})` : null },
+            { key: 'notes', label: lang.current.planItemDetailsModal.tabNotes, badge: notes.length > 0 ? `(${notes.length})` : null },
+            { key: 'location', label: lang.current.planItemDetailsModal.tabLocation, badge: planItem?.location?.address ? '✓' : null },
+            { key: 'chat', label: lang.current.planItemDetailsModal.tabChat, badge: null },
+            { key: 'photos', label: lang.current.planItemDetailsModal.tabPhotos, badge: null },
+            { key: 'documents', label: lang.current.planItemDetailsModal.tabDocuments, badge: null }
+          ];
+          const activeOption = tabOptions.find(opt => opt.key === activeTab) || tabOptions[0];
 
-        {/* Tab content */}
+          return (
+            <>
+              {/* Desktop: Traditional tab buttons */}
+              <div className={styles.detailsTabs}>
+                {tabOptions.map(opt => (
+                  <button
+                    key={opt.key}
+                    className={`${styles.detailsTab} ${activeTab === opt.key ? styles.active : ''}`}
+                    onClick={() => setActiveTab(opt.key)}
+                    type="button"
+                  >
+                    {opt.label} {opt.badge}
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile/Tablet: Dropdown selector */}
+              <div className={styles.tabsDropdownWrapper}>
+                <Dropdown onSelect={(key) => setActiveTab(key)} className={styles.tabsDropdown}>
+                  <Dropdown.Toggle variant="outline-secondary" className={styles.tabsDropdownToggle}>
+                    <span className={styles.tabsDropdownLabel}>
+                      {activeOption.label} {activeOption.badge}
+                    </span>
+                    <FaChevronDown className={styles.tabsDropdownIcon} />
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu
+                    className={styles.tabsDropdownMenu}
+                    renderOnMount
+                    popperConfig={{
+                      strategy: 'fixed',
+                      modifiers: [
+                        {
+                          name: 'preventOverflow',
+                          options: {
+                            boundary: 'viewport'
+                          }
+                        }
+                      ]
+                    }}
+                  >
+                    {tabOptions.map(opt => (
+                      <Dropdown.Item
+                        key={opt.key}
+                        eventKey={opt.key}
+                        active={activeTab === opt.key}
+                        className={styles.tabsDropdownItem}
+                      >
+                        {opt.label} {opt.badge}
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Tab content - height calculated dynamically via JavaScript */}
         <div className={styles.detailsContent}>
           {activeTab === 'details' && (
             <div className={styles.detailsTabContent}>
@@ -1418,14 +1474,14 @@ export default function PlanItemDetailsModal({
               {totalDetailsCount > 0 && (
                 <div className={styles.detailsExportBar}>
                   <Tooltip content="Export all details to PDF" placement="left">
-                    <button
-                      type="button"
-                      className={styles.exportPdfButton}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleExportPDF}
+                      leftIcon={<FaFilePdf />}
                     >
-                      <FaFilePdf className={styles.exportPdfIcon} />
-                      <span>{lang.current.planItemDetailsModal.exportPdf}</span>
-                    </button>
+                      {lang.current.planItemDetailsModal.exportPdf}
+                    </Button>
                   </Tooltip>
                 </div>
               )}
@@ -1695,13 +1751,13 @@ export default function PlanItemDetailsModal({
                       )}
                     </div>
                     {canEdit && (
-                      <button
-                        type="button"
-                        className={styles.changeLocationButton}
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setShowLocationModal(true)}
                       >
                         {lang.current.planItemDetailsModal.change}
-                      </button>
+                      </Button>
                     )}
                   </div>
 
@@ -1756,20 +1812,15 @@ export default function PlanItemDetailsModal({
                 />
               )}
 
-              {chatError && <Alert type="danger" message={chatError} />}
+              {mergedChatError && <Alert type="danger" message={mergedChatError} />}
 
-              {chatLoading && <div className={styles.chatLoading}>Loading chat…</div>}
+              {mergedChatLoading && <Loading size="sm" variant="centered" message="Loading chat..." />}
 
-              {!chatLoading && chatClient && chatChannel && (
+              {!mergedChatLoading && chatClient && chatChannel && (
                 <div className={styles.chatPane}>
                   <Chat
                     client={chatClient}
-                    theme={
-                      typeof window !== 'undefined' &&
-                      window.matchMedia?.('(prefers-color-scheme: dark)').matches
-                        ? 'str-chat__theme-dark'
-                        : 'str-chat__theme-light'
-                    }
+                    theme={uiTheme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}
                   >
                     <Channel channel={chatChannel}>
                       <Window>

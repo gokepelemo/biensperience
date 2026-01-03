@@ -30,9 +30,11 @@
   font-weight: $font-weight-medium;
   color: var(--color-text-primary);
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Error message */

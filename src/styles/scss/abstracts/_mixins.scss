@@ -1,6 +1,7 @@
 // Design System Mixins
 // Reusable mixins for common patterns
 
+@use 'sass:math';
 @use './variables' as *;
 
 // ============================================================================
@@ -57,8 +58,8 @@
 // Fluid font size using clamp()
 // Usage: @include fluid-font-size(18px, 26px, 320px, 991px);
 @mixin fluid-font-size($min-size, $max-size, $min-vw: $breakpoint-xs, $max-vw: $breakpoint-lg) {
-  $min-size-rem: if(unit($min-size) == 'px', $min-size / 16px * 1rem, $min-size);
-  $max-size-rem: if(unit($max-size) == 'px', $max-size / 16px * 1rem, $max-size);
+  $min-size-rem: if(sass(math.unit($min-size) == "px"): math.div($min-size, 16px) * 1rem; else: $min-size);
+  $max-size-rem: if(sass(math.unit($max-size) == "px"): math.div($max-size, 16px) * 1rem; else: $max-size);
 
   // Calculate viewport percentage
   $vw-size: calc(#{$min-size-rem} + (#{strip-unit($max-size-rem)} - #{strip-unit($min-size-rem)}) * ((100vw - #{$min-vw}) / (#{strip-unit($max-vw)} - #{strip-unit($min-vw)})));
@@ -358,12 +359,12 @@
 
 // Strip unit from value
 @function strip-unit($value) {
-  @return $value / ($value * 0 + 1);
+  @return math.div($value, ($value * 0 + 1));
 }
 
 // Convert px to rem
 @function px-to-rem($px) {
-  @return $px / 16px * 1rem;
+  @return math.div($px, 16px) * 1rem;
 }
 
 // Lighten color

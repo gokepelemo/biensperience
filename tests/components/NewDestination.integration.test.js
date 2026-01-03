@@ -7,9 +7,6 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import NewDestination from '../../src/components/NewDestination/NewDestination';
-import { UserProvider } from '../../src/contexts/UserContext';
-import { DataProvider } from '../../src/contexts/DataContext';
-import { ToastProvider } from '../../src/contexts/ToastContext';
 import { createDestination } from '../../src/utilities/destinations-api';
 
 // Increase timeout for async tests
@@ -20,6 +17,22 @@ jest.mock('../../src/utilities/destinations-api');
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn()
+}));
+
+let mockUserContext;
+let mockDataContext;
+let mockToastContext;
+
+jest.mock('../../src/contexts/UserContext', () => ({
+  useUser: () => mockUserContext
+}));
+
+jest.mock('../../src/contexts/DataContext', () => ({
+  useData: () => mockDataContext
+}));
+
+jest.mock('../../src/contexts/ToastContext', () => ({
+  useToast: () => mockToastContext
 }));
 
 // Mock user and data contexts
@@ -35,23 +48,9 @@ const mockDestinations = [
 ];
 
 const renderWithProviders = (component) => {
-  const mockDataContext = {
-    destinations: mockDestinations,
-    experiences: [],
-    addDestination: jest.fn(),
-    updateDestination: jest.fn(),
-    deleteDestination: jest.fn()
-  };
-
   return render(
     <BrowserRouter>
-      <ToastProvider>
-        <UserProvider value={{ user: mockUser }}>
-          <DataProvider value={mockDataContext}>
-            {component}
-          </DataProvider>
-        </UserProvider>
-      </ToastProvider>
+      {component}
     </BrowserRouter>
   );
 };
@@ -59,6 +58,17 @@ const renderWithProviders = (component) => {
 describe('NewDestination Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    mockUserContext = { user: mockUser };
+    mockDataContext = {
+      destinations: mockDestinations,
+      experiences: [],
+      addDestination: jest.fn(),
+      updateDestination: jest.fn(),
+      deleteDestination: jest.fn()
+    };
+    mockToastContext = { success: jest.fn(), error: jest.fn() };
+
     createDestination.mockResolvedValue({
       _id: '3',
       name: 'London',
@@ -74,7 +84,7 @@ describe('NewDestination Integration Tests', () => {
       expect(screen.getByLabelText(/City \/ Town/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/State \/ Province/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Country/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Description/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Overview/i)).toBeInTheDocument();
     });
 
     it('should render travel tips manager', () => {
@@ -103,13 +113,13 @@ describe('NewDestination Integration Tests', () => {
     it('should handle textarea changes', () => {
       renderWithProviders(<NewDestination />);
 
-      const descriptionInput = screen.getByLabelText(/Description/i);
+      const overviewInput = screen.getByLabelText(/Overview/i);
 
-      fireEvent.change(descriptionInput, {
+      fireEvent.change(overviewInput, {
         target: { value: 'A beautiful city with rich history' }
       });
 
-      expect(descriptionInput.value).toBe('A beautiful city with rich history');
+      expect(overviewInput.value).toBe('A beautiful city with rich history');
     });
   });
 
@@ -126,7 +136,7 @@ describe('NewDestination Integration Tests', () => {
       fireEvent.click(addButton);
 
       expect(screen.getByText('Best time to visit is spring')).toBeInTheDocument();
-      expect(screen.getByText('Remove')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Remove/i })).toBeInTheDocument();
     });
 
     it('should not add empty tip', () => {
@@ -135,7 +145,7 @@ describe('NewDestination Integration Tests', () => {
       const addButton = screen.getByText('Add Tip');
       fireEvent.click(addButton);
 
-      expect(screen.queryByText('Remove')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Remove/i })).not.toBeInTheDocument();
     });
 
     it('should delete a travel tip', async () => {
@@ -151,9 +161,9 @@ describe('NewDestination Integration Tests', () => {
         expect(screen.getByText('Test tip')).toBeInTheDocument();
       });
 
-      // Click remove - no confirmation, direct delete
-      const removeButton = screen.getByText('Remove');
-      fireEvent.click(removeButton);
+      // Click remove -> confirm modal -> delete
+      fireEvent.click(screen.getByRole('button', { name: /Remove/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Delete Permanently/i }));
 
       // Wait for tip to be removed
       await waitFor(() => {
@@ -169,7 +179,7 @@ describe('NewDestination Integration Tests', () => {
       fireEvent.change(tipInput, {
         target: { value: 'Press enter to add' }
       });
-      fireEvent.keyPress(tipInput, { key: 'Enter', code: 13, charCode: 13 });
+      fireEvent.keyDown(tipInput, { key: 'Enter', code: 'Enter' });
 
       expect(screen.getByText('Press enter to add')).toBeInTheDocument();
     });
@@ -221,11 +231,12 @@ describe('NewDestination Integration Tests', () => {
 
       renderWithProviders(<NewDestination />);
 
+      // Use a non-duplicate input so we exercise backend duplicate handling
       fireEvent.change(screen.getByLabelText(/City \/ Town/i), {
-        target: { name: 'name', value: 'Paris' }
+        target: { name: 'name', value: 'Lisbon' }
       });
       fireEvent.change(screen.getByLabelText(/Country/i), {
-        target: { name: 'country', value: 'France' }
+        target: { name: 'country', value: 'Portugal' }
       });
 
       fireEvent.click(screen.getByText(/Create Destination/i));
@@ -257,7 +268,7 @@ describe('NewDestination Integration Tests', () => {
 
   describe('Frontend Duplicate Check', () => {
     it('should prevent duplicate destination submission', async () => {
-      const { container } = renderWithProviders(<NewDestination />);
+      renderWithProviders(<NewDestination />);
 
       // Wait for component to load and set destinations from context
       await waitFor(() => {
@@ -321,22 +332,9 @@ describe('NewDestination Integration Tests', () => {
 
   describe('Complete Form Submission Workflow', () => {
     it('should successfully create destination with all fields', async () => {
-      const mockAddDestination = jest.fn();
+      mockDataContext.addDestination = jest.fn();
 
-      render(
-        <BrowserRouter>
-          <ToastProvider>
-            <UserProvider value={{ user: mockUser }}>
-              <DataProvider value={{
-                destinations: mockDestinations,
-                addDestination: mockAddDestination
-              }}>
-                <NewDestination />
-              </DataProvider>
-            </UserProvider>
-          </ToastProvider>
-        </BrowserRouter>
-      );
+      renderWithProviders(<NewDestination />);
 
       // Fill all fields with proper name attributes
       fireEvent.change(screen.getByLabelText(/City \/ Town/i), {
@@ -348,8 +346,8 @@ describe('NewDestination Integration Tests', () => {
       fireEvent.change(screen.getByLabelText(/Country/i), {
         target: { name: 'country', value: 'Netherlands' }
       });
-      fireEvent.change(screen.getByLabelText(/Description/i), {
-        target: { name: 'description', value: 'Beautiful canal city' }
+      fireEvent.change(screen.getByLabelText(/Overview/i), {
+        target: { name: 'overview', value: 'Beautiful canal city' }
       });
 
       // Add travel tips
@@ -365,7 +363,7 @@ describe('NewDestination Integration Tests', () => {
           expect.objectContaining({
             name: 'Amsterdam',
             country: 'Netherlands',
-            description: 'Beautiful canal city'
+            overview: 'Beautiful canal city'
           })
         );
       }, { timeout: 3000 });
@@ -375,10 +373,10 @@ describe('NewDestination Integration Tests', () => {
       renderWithProviders(<NewDestination />);
 
       fireEvent.change(screen.getByLabelText(/City \/ Town/i), {
-        target: { value: 'Berlin' }
+        target: { name: 'name', value: 'Berlin' }
       });
       fireEvent.change(screen.getByLabelText(/Country/i), {
-        target: { value: 'Germany' }
+        target: { name: 'country', value: 'Germany' }
       });
 
       fireEvent.click(screen.getByText('Create Destination'));
@@ -421,7 +419,7 @@ describe('NewDestination Integration Tests', () => {
       expect(screen.getByText('Tip 1')).toBeInTheDocument();
       expect(screen.getByText('Tip 2')).toBeInTheDocument();
       expect(screen.getByText('Tip 3')).toBeInTheDocument();
-      expect(screen.getAllByText('Remove')).toHaveLength(3);
+      expect(screen.getAllByRole('button', { name: /Remove/i })).toHaveLength(3);
     });
   });
 

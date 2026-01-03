@@ -122,6 +122,54 @@ const OCR_CONFIG = {
 };
 
 /**
+ * Check if AI document processing should be skipped
+ * AI processing (OCR with LLM fallback, AI parsing) is skipped when:
+ * 1. No AI provider API keys are configured (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
+ * 2. Running in DEMO mode (DEMO_MODE=true or REACT_APP_DEMO_MODE=true)
+ * 3. Running in non-production environment (NODE_ENV !== 'production')
+ *
+ * @returns {{ skip: boolean, reason: string }} Whether to skip AI processing and why
+ */
+function shouldSkipAIProcessing() {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.REACT_APP_DEMO_MODE === 'true';
+  const isProduction = nodeEnv === 'production';
+
+  // Check if any AI provider is configured
+  const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
+  const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+  const hasMistralKey = !!process.env.MISTRAL_API_KEY;
+  const hasGeminiKey = !!process.env.GEMINI_API_KEY;
+  const hasAnyAIProvider = hasAnthropicKey || hasOpenAIKey || hasMistralKey || hasGeminiKey;
+
+  // Skip if no AI providers configured
+  if (!hasAnyAIProvider) {
+    return {
+      skip: true,
+      reason: 'No AI provider API keys configured (ANTHROPIC_API_KEY, OPENAI_API_KEY, MISTRAL_API_KEY, or GEMINI_API_KEY)'
+    };
+  }
+
+  // Skip if in DEMO mode
+  if (isDemoMode) {
+    return {
+      skip: true,
+      reason: 'DEMO mode is enabled (DEMO_MODE or REACT_APP_DEMO_MODE is true)'
+    };
+  }
+
+  // Skip if not in production
+  if (!isProduction) {
+    return {
+      skip: true,
+      reason: `Non-production environment (NODE_ENV=${nodeEnv})`
+    };
+  }
+
+  return { skip: false, reason: '' };
+}
+
+/**
  * Validate document type and size
  * @param {Object} file - File object with mimetype and size
  * @returns {Object} { valid: boolean, error?: string, type?: string }
@@ -270,6 +318,8 @@ async function extractPdfText(filePath, options = {}) {
  * 2. Check confidence score and text length
  * 3. If below threshold, fall back to Claude Vision API
  *
+ * Note: LLM fallback is skipped in non-production, DEMO mode, or when no AI providers are configured.
+ *
  * @param {string} filePath - Path to the image file
  * @param {Object} options - OCR options
  * @param {string} options.language - OCR language (default: 'eng')
@@ -280,24 +330,46 @@ async function extractPdfText(filePath, options = {}) {
 async function extractImageText(filePath, options = {}) {
   const { forceLLM = false, skipLLMFallback = false } = options;
 
-  // Option to force LLM vision (skip OCR entirely)
+  // Check if AI processing should be skipped
+  const aiSkipCheck = shouldSkipAIProcessing();
+  const shouldSkipLLM = skipLLMFallback || aiSkipCheck.skip;
+
+  if (aiSkipCheck.skip) {
+    backendLogger.info('[extractImageText] AI processing skipped', { reason: aiSkipCheck.reason });
+  }
+
+  // Option to force LLM vision (skip OCR entirely) - but respect environment restrictions
   if (forceLLM) {
-    backendLogger.info('[extractImageText] Forced LLM mode, skipping OCR');
-    return extractImageTextWithLLM(filePath, options);
+    if (aiSkipCheck.skip) {
+      backendLogger.warn('[extractImageText] Forced LLM mode requested but AI processing is disabled', {
+        reason: aiSkipCheck.reason
+      });
+      // Fall through to OCR instead
+    } else {
+      backendLogger.info('[extractImageText] Forced LLM mode, skipping OCR');
+      return extractImageTextWithLLM(filePath, options);
+    }
   }
 
   // Try Tesseract OCR first
   const ocrResult = await tryTesseractOCR(filePath, options);
 
-  // If OCR failed completely, try LLM fallback
+  // If OCR failed completely, try LLM fallback (if allowed)
   if (!ocrResult.success) {
-    if (skipLLMFallback) {
+    if (shouldSkipLLM) {
+      if (aiSkipCheck.skip) {
+        backendLogger.info('[extractImageText] OCR failed, LLM fallback skipped', {
+          error: ocrResult.error,
+          reason: aiSkipCheck.reason
+        });
+      }
       return {
         text: ocrResult.text || '',
         metadata: {
           method: 'tesseract-ocr-failed',
           error: ocrResult.error,
-          confidence: 0
+          confidence: 0,
+          aiSkipped: aiSkipCheck.skip ? aiSkipCheck.reason : undefined
         }
       };
     }
@@ -315,7 +387,7 @@ async function extractImageText(filePath, options = {}) {
   const isConfidenceLow = confidence < OCR_CONFIG.confidenceThreshold;
   const isTextTooShort = textLength < OCR_CONFIG.minimumTextLength;
 
-  if ((isConfidenceLow || isTextTooShort) && !skipLLMFallback) {
+  if ((isConfidenceLow || isTextTooShort) && !shouldSkipLLM) {
     backendLogger.info('[extractImageText] Low OCR confidence, falling back to LLM vision', {
       confidence,
       textLength,
@@ -342,6 +414,15 @@ async function extractImageText(filePath, options = {}) {
         warning: 'Low confidence OCR result, LLM fallback did not improve'
       }
     };
+  }
+
+  // Log if LLM would have been used but was skipped
+  if ((isConfidenceLow || isTextTooShort) && shouldSkipLLM && aiSkipCheck.skip) {
+    backendLogger.info('[extractImageText] Low OCR confidence, LLM fallback skipped', {
+      confidence,
+      textLength,
+      reason: aiSkipCheck.reason
+    });
   }
 
   // Good OCR result
@@ -562,6 +643,9 @@ async function extractWordText(filePath, options = {}) {
 /**
  * Parse extracted text using AI to identify structured data
  * Uses Claude API for intelligent extraction of travel-related information
+ *
+ * Note: AI parsing is skipped in non-production, DEMO mode, or when no AI providers are configured.
+ *
  * @param {string} text - Extracted text content
  * @param {string} documentType - Type of document (flight, hotel, activity, etc.)
  * @param {Object} options - Parsing options
@@ -569,6 +653,19 @@ async function extractWordText(filePath, options = {}) {
  * @returns {Promise<Object>} Structured data extracted from text
  */
 async function parseWithAI(text, documentType = 'travel', options = {}) {
+  // Check if AI processing should be skipped
+  const aiSkipCheck = shouldSkipAIProcessing();
+  if (aiSkipCheck.skip) {
+    backendLogger.info('[parseWithAI] AI parsing skipped', { reason: aiSkipCheck.reason });
+    return {
+      parsed: false,
+      error: `AI parsing skipped: ${aiSkipCheck.reason}`,
+      rawText: text,
+      skipped: true,
+      skipReason: aiSkipCheck.reason
+    };
+  }
+
   const Anthropic = require('@anthropic-ai/sdk');
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -971,6 +1068,7 @@ module.exports = {
   downloadFile,
   deleteDocument,
   getSupportedTypes,
+  shouldSkipAIProcessing,
   SUPPORTED_DOCUMENT_TYPES,
   MAX_FILE_SIZES,
   OCR_CONFIG

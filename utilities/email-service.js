@@ -644,11 +644,90 @@ async function sendCollaboratorInviteEmail(options) {
   }
 }
 
+/**
+ * Send plan access request email
+ * @param {Object} options
+ * @param {string} options.toEmail - Recipient (plan owner) email
+ * @param {string} options.ownerName - Plan owner display name
+ * @param {string} options.requesterName - Requesting user's display name
+ * @param {string} options.experienceName - Experience name associated with the plan
+ * @param {string} options.experienceId - Experience ID (for deep link)
+ * @param {string} options.planId - Plan ID (for deep link)
+ * @param {string} [options.requestMessage] - Optional message from requester
+ */
+async function sendPlanAccessRequestEmail(options) {
+  try {
+    const {
+      toEmail,
+      ownerName,
+      requesterName,
+      experienceName,
+      experienceId,
+      planId,
+      requestMessage = ''
+    } = options;
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const planUrl = `${baseUrl}/experiences/${experienceId}#plan-${planId}`;
+
+    const additionalSections = [];
+    if (requestMessage && requestMessage.trim()) {
+      additionalSections.push(`
+        <div class="info">
+          <strong>Message from ${requesterName}:</strong>
+          <p style="margin-top: 10px; font-style: italic;">"${requestMessage.trim()}"</p>
+        </div>
+      `);
+    }
+
+    const { html, text } = createEmailTemplate({
+      heading: `${APP_NAME} — Plan Access Request`,
+      greeting: `Hi ${ownerName || 'there'},`,
+      body: `${requesterName} requested access to your plan for <strong>${experienceName}</strong>.`,
+      buttonText: 'Open Plan',
+      buttonUrl: planUrl,
+      additionalSections,
+      signature: `— The ${APP_NAME} team`,
+      footer: `Sent by ${APP_NAME} v${version}`
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: `${requesterName} requested access to your plan`,
+      html,
+      text
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to send email');
+    }
+
+    backendLogger.info('Plan access request email sent successfully', {
+      to: toEmail,
+      requesterName,
+      experienceId,
+      planId,
+      messageId: data?.id
+    });
+
+    return data;
+  } catch (error) {
+    backendLogger.error('Failed to send plan access request email', {
+      error: error.message,
+      to: options?.toEmail,
+      planId: options?.planId
+    });
+    throw error;
+  }
+}
+
 module.exports = {
   sendPasswordResetEmail,
   sendPasswordResetConfirmation,
   sendEmailConfirmation,
   sendInviteEmail,
   // Export collaborator invite email sender
-  sendCollaboratorInviteEmail
+  sendCollaboratorInviteEmail,
+  sendPlanAccessRequestEmail
 };

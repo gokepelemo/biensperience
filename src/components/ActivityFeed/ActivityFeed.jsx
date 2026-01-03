@@ -137,7 +137,7 @@ function mergeActivities(existing, incoming) {
  * @param {string} props.userId - User ID to fetch activity for
  * @param {string} [props.feedType='own'] - 'own' for user's activity, 'following' for followed users
  */
-export default function ActivityFeed({ userId, feedType = 'own' }) {
+export default function ActivityFeed({ userId, feedType = 'own', rightControls = null }) {
   // All activities (unfiltered) - used as source for client-side filtering
   const [allActivities, setAllActivities] = useState([]);
   // Displayed activities (may be client-side filtered)
@@ -301,12 +301,16 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
   if (loading) {
     return (
       <div className={styles.activityFeed}>
-        <div className={styles.filterPills}>
-          {ACTIVITY_FILTERS.map((filter) => (
-            <div key={filter.key} className={styles.filterPillSkeleton}>
-              <SkeletonLoader variant="rectangle" width="80px" height="32px" />
-            </div>
-          ))}
+        <div className={styles.filterHeader}>
+          <div className={styles.filterLeftSpacer} />
+          <div className={styles.filterPills}>
+            {ACTIVITY_FILTERS.map((filter) => (
+              <div key={filter.key} className={styles.filterPillSkeleton}>
+                <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+              </div>
+            ))}
+          </div>
+          <div className={styles.filterRight}>{rightControls}</div>
         </div>
         <div className={styles.activityList}>
           {Array.from({ length: 5 }).map((_, i) => (
@@ -336,20 +340,24 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
   return (
     <div className={styles.activityFeed}>
       {/* Filter Pills */}
-      <div className={styles.filterPills}>
-        {ACTIVITY_FILTERS.map((filter) => {
-          const Icon = filter.icon;
-          return (
-            <button
-              key={filter.key}
-              className={`${styles.filterPill} ${activeFilter === filter.key ? styles.filterPillActive : ''}`}
-              onClick={() => handleFilterChange(filter.key)}
-            >
-              {Icon && <Icon className={styles.filterIcon} />}
-              <span>{filter.label}</span>
-            </button>
-          );
-        })}
+      <div className={styles.filterHeader}>
+        <div className={styles.filterLeftSpacer} />
+        <div className={styles.filterPills}>
+          {ACTIVITY_FILTERS.map((filter) => {
+            const Icon = filter.icon;
+            return (
+              <button
+                key={filter.key}
+                className={`${styles.filterPill} ${activeFilter === filter.key ? styles.filterPillActive : ''}`}
+                onClick={() => handleFilterChange(filter.key)}
+              >
+                {Icon && <Icon className={styles.filterIcon} />}
+                <span>{filter.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className={styles.filterRight}>{rightControls}</div>
       </div>
 
       {/* Activity List */}
@@ -432,4 +440,5 @@ export default function ActivityFeed({ userId, feedType = 'own' }) {
 ActivityFeed.propTypes = {
   userId: PropTypes.string.isRequired,
   feedType: PropTypes.oneOf(['own', 'following']),
+  rightControls: PropTypes.node,
 };

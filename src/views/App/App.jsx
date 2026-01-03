@@ -9,6 +9,7 @@ import { TooltipProvider } from "../../contexts/TooltipContext";
 import { PlanExperienceProvider } from "../../contexts/PlanExperienceContext";
 import { NavigationIntentProvider } from "../../contexts/NavigationIntentContext";
 import { ExperienceWizardProvider } from "../../contexts/ExperienceWizardContext";
+import { DestinationWizardProvider } from "../../contexts/DestinationWizardContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
 import Loading from "../../components/Loading/Loading";
@@ -25,6 +26,8 @@ import LegalModalsHandler from "../../components/LegalModalsHandler/LegalModalsH
 import { Helmet } from 'react-helmet-async';
 import { Container } from "../../components/design-system";
 import styles from './App.module.scss';
+import { waitForCSS } from '../../utilities/css-loading';
+import { initializeCSSEnvironment } from '../../utilities/css-environment-consistency';
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -116,7 +119,9 @@ export default function App() {
                 <PlanExperienceProvider>
                   <NavigationIntentProvider>
                     <ExperienceWizardProvider>
-                      <AppContent />
+                      <DestinationWizardProvider>
+                        <AppContent />
+                      </DestinationWizardProvider>
                     </ExperienceWizardProvider>
                   </NavigationIntentProvider>
                 </PlanExperienceProvider>
@@ -247,6 +252,24 @@ function AppContent() {
 
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
+  }, []);
+
+  // Effect: wait for CSS to load and initialize environment consistency
+  // This addresses production vs development timing differences
+  useEffect(() => {
+    const initializeCSS = async () => {
+      try {
+        logger.debug('Waiting for CSS to load...');
+        await waitForCSS();
+        logger.debug('CSS loading complete, initializing environment consistency...');
+        initializeCSSEnvironment();
+        logger.debug('CSS environment consistency initialized');
+      } catch (error) {
+        logger.warn('CSS initialization failed, continuing anyway', { error: error.message });
+      }
+    };
+
+    initializeCSS();
   }, []);
 
   // Effect: fetch collaborator notifications on login/hard refresh

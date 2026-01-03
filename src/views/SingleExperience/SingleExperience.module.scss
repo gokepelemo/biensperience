@@ -2031,7 +2031,7 @@
   gap: var(--space-1);
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
-  padding: var(--space-3);
+  padding: var(--space-2);
   border: 1px solid var(--color-border-primary);
 }
 
@@ -2039,8 +2039,9 @@
 :global(.compact-plan-item) {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  min-height: 40px;
   background: var(--color-bg-primary);
   border-radius: var(--radius-md);
   border: 1px solid transparent;
@@ -2089,7 +2090,7 @@
 
 /* Checkbox spacing in compact view */
 :global(.compact-item-checkbox) {
-  margin-right: var(--space-2);
+  margin-right: var(--space-1);
   flex-shrink: 0;
   /* Ensure vertical centering */
   display: flex;
@@ -2166,7 +2167,7 @@
 :global(.compact-item-meta) {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   font-size: 0.75rem;
   color: var(--color-text-muted);
 

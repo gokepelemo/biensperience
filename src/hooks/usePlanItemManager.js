@@ -8,7 +8,7 @@ import {
   addExperiencePlanItem,
   updateExperiencePlanItem
 } from '../utilities/plans-api';
-import { idEquals } from '../utilities/user-roles';
+import { idEquals } from '../utilities/id-utils';
 
 /**
  * Custom hook for managing plan item CRUD operations with optimistic UI

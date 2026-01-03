@@ -117,13 +117,15 @@ describe('Dashboard API - ActivePlansCard Integration', () => {
     };
     const mockRes = {
       status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
+      send: jest.fn(),
       json: jest.fn()
     };
 
     await getDashboard(mockReq, mockRes);
 
-    expect(mockRes.json).toHaveBeenCalled();
-    const responseData = mockRes.json.mock.calls[0][0];
+    expect(mockRes.send).toHaveBeenCalled();
+    const responseData = JSON.parse(mockRes.send.mock.calls[0][0]);
 
     // Verify the response structure (wrapped in { data, success } by successResponse helper)
     expect(responseData).toHaveProperty('data');
@@ -158,13 +160,15 @@ describe('Dashboard API - ActivePlansCard Integration', () => {
     };
     const mockRes = {
       status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
+      send: jest.fn(),
       json: jest.fn()
     };
 
     await getDashboard(mockReq, mockRes);
 
-    expect(mockRes.json).toHaveBeenCalled();
-    const responseData = mockRes.json.mock.calls[0][0];
+    expect(mockRes.send).toHaveBeenCalled();
+    const responseData = JSON.parse(mockRes.send.mock.calls[0][0]);
 
     const details = responseData.data.stats.activePlansDetails;
 

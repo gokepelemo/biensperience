@@ -38,32 +38,45 @@ jest.mock('../../src/utilities/logger', () => ({
 }));
 
 // Mock event-bus utilities
-jest.mock('../../src/utilities/event-bus', () => ({
-  reconcileState: jest.fn((currentState, event) => {
-    // Simple implementation: return event data if newer version
-    if (!currentState) return event.data;
-    if (event.version && currentState._version && event.version <= currentState._version) {
-      return currentState;
+jest.mock('../../src/utilities/event-bus', () => {
+  // Capture subscription handlers so tests can invoke them directly.
+  const handlers = {};
+
+  return {
+    reconcileState: jest.fn((currentState, event) => {
+      // Simple implementation: return event data if newer version
+      if (!currentState) return event.data;
+      if (event.version && currentState._version && event.version <= currentState._version) {
+        return currentState;
+      }
+      return event.data || currentState;
+    }),
+    generateOptimisticId: jest.fn(() => `optimistic_${Date.now()}`),
+    getProtectedFields: jest.fn(() => []),
+    LOCAL_CHANGE_PROTECTION_MS: 5000,
+    VectorClock: {
+      createVectorClock: jest.fn(() => ({})),
+      increment: jest.fn(() => ({})),
+      format: jest.fn(() => ''),
+      compare: jest.fn(() => 'after'),
+      isConcurrent: jest.fn(() => false),
+      isEmpty: jest.fn((clock) => !clock || Object.keys(clock).length === 0),
+      clone: jest.fn(() => ({})),
+      merge: jest.fn(() => ({}))
+    },
+    eventBus: {
+      _handlers: handlers,
+      getSessionId: jest.fn(() => 'test-session'),
+      subscribe: jest.fn((eventType, handler) => {
+        handlers[eventType] = handler;
+        return jest.fn(() => {
+          delete handlers[eventType];
+        });
+      }),
+      emit: jest.fn()
     }
-    return event.data || currentState;
-  }),
-  generateOptimisticId: jest.fn(() => `optimistic_${Date.now()}`),
-  getProtectedFields: jest.fn(() => []),
-  LOCAL_CHANGE_PROTECTION_MS: 5000,
-  VectorClock: {
-    createVectorClock: jest.fn(() => ({})),
-    increment: jest.fn(() => ({})),
-    format: jest.fn(() => ''),
-    compare: jest.fn(() => 'after'),
-    isConcurrent: jest.fn(() => false),
-    clone: jest.fn(() => ({})),
-    merge: jest.fn(() => ({}))
-  },
-  eventBus: {
-    subscribe: jest.fn(() => jest.fn()), // Return a mock unsubscribe function
-    emit: jest.fn()
-  }
-}));
+  };
+});
 
 const {
   checkUserPlanForExperience,
@@ -74,7 +87,7 @@ const {
   getExperiencePlans
 } = require('../../src/utilities/plans-api');
 
-const { reconcileState, generateOptimisticId } = require('../../src/utilities/event-bus');
+const { reconcileState, generateOptimisticId, eventBus } = require('../../src/utilities/event-bus');
 
 describe('usePlanManagement', () => {
   const experienceId = 'exp123';
@@ -115,10 +128,10 @@ describe('usePlanManagement', () => {
   });
 
   afterEach(() => {
-    // Clean up event listeners
-    window.removeEventListener('plan:created', jest.fn());
-    window.removeEventListener('plan:updated', jest.fn());
-    window.removeEventListener('plan:deleted', jest.fn());
+    // Ensure handlers are cleared between tests
+    Object.keys(eventBus._handlers || {}).forEach((key) => {
+      delete eventBus._handlers[key];
+    });
   });
 
   describe('Initial State', () => {
@@ -356,14 +369,13 @@ describe('usePlanManagement', () => {
       };
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:created', {
-          detail: {
-            planId: newPlan._id,
-            experienceId,
-            version: Date.now(),
-            data: newPlan
-          }
-        }));
+        // usePlanManagement subscribes via eventBus.subscribe('plan:created', handler)
+        eventBus._handlers['plan:created']({
+          planId: newPlan._id,
+          experienceId,
+          version: Date.now(),
+          data: newPlan
+        });
       });
 
       await waitFor(() => {
@@ -386,14 +398,12 @@ describe('usePlanManagement', () => {
       };
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:updated', {
-          detail: {
-            planId: mockUserPlan._id,
-            experienceId,
-            version: Date.now(),
-            data: updatedPlan
-          }
-        }));
+        eventBus._handlers['plan:updated']({
+          planId: mockUserPlan._id,
+          experienceId,
+          version: Date.now(),
+          data: updatedPlan
+        });
       });
 
       await waitFor(() => {
@@ -411,13 +421,11 @@ describe('usePlanManagement', () => {
       });
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:deleted', {
-          detail: {
-            planId: mockUserPlan._id,
-            experienceId,
-            version: Date.now()
-          }
-        }));
+        eventBus._handlers['plan:deleted']({
+          planId: mockUserPlan._id,
+          experienceId,
+          version: Date.now()
+        });
       });
 
       await waitFor(() => {
@@ -436,13 +444,11 @@ describe('usePlanManagement', () => {
       });
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:deleted', {
-          detail: {
-            planId: mockUserPlan._id,
-            experienceId: 'differentExperience',
-            version: Date.now()
-          }
-        }));
+        eventBus._handlers['plan:deleted']({
+          planId: mockUserPlan._id,
+          experienceId: 'differentExperience',
+          version: Date.now()
+        });
       });
 
       // Plan should not be deleted since event is for different experience
@@ -462,13 +468,11 @@ describe('usePlanManagement', () => {
 
       // First event
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:deleted', {
-          detail: {
-            planId: mockUserPlan._id,
-            experienceId,
-            version
-          }
-        }));
+        eventBus._handlers['plan:deleted']({
+          planId: mockUserPlan._id,
+          experienceId,
+          version
+        });
       });
 
       await waitFor(() => {
@@ -480,13 +484,11 @@ describe('usePlanManagement', () => {
 
       // Second event with same version should be ignored
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:deleted', {
-          detail: {
-            planId: mockUserPlan._id,
-            experienceId,
-            version // Same version
-          }
-        }));
+        eventBus._handlers['plan:deleted']({
+          planId: mockUserPlan._id,
+          experienceId,
+          version // Same version
+        });
       });
 
       // Should still be null (duplicate ignored)
@@ -515,12 +517,14 @@ describe('usePlanManagement', () => {
       };
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('bien:plan_created', {
-          detail: {
-            plan: newPlan,
-            experienceId
-          }
-        }));
+        // Legacy events are normalized upstream (event bus / broadcasters).
+        // For this hook, assert behavior via the normalized plan:created event.
+        eventBus._handlers['plan:created']({
+          planId: newPlan._id,
+          experienceId,
+          version: Date.now(),
+          data: newPlan
+        });
       });
 
       await waitFor(() => {
@@ -584,14 +588,12 @@ describe('usePlanManagement', () => {
       };
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:created', {
-          detail: {
-            planId: newPlan._id,
-            experienceId,
-            version: Date.now(),
-            data: newPlan
-          }
-        }));
+        eventBus._handlers['plan:created']({
+          planId: newPlan._id,
+          experienceId,
+          version: Date.now(),
+          data: newPlan
+        });
       });
 
       await waitFor(() => {
@@ -621,14 +623,12 @@ describe('usePlanManagement', () => {
       };
 
       act(() => {
-        window.dispatchEvent(new CustomEvent('plan:created', {
-          detail: {
-            planId: otherUserPlan._id,
-            experienceId,
-            version: Date.now(),
-            data: otherUserPlan
-          }
-        }));
+        eventBus._handlers['plan:created']({
+          planId: otherUserPlan._id,
+          experienceId,
+          version: Date.now(),
+          data: otherUserPlan
+        });
       });
 
       // userHasExperience should remain false since it's not our plan

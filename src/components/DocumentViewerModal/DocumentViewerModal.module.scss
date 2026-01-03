@@ -23,8 +23,9 @@
 
 .documentViewerFooter {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: $space-3;
   padding: $space-4;
   border-top: var(--border-width-thin) solid var(--color-border-light);
   background: var(--color-bg-secondary);
@@ -56,6 +57,7 @@
 
 .documentActions {
   display: flex;
+  justify-content: flex-end;
   gap: $space-2;
 }
 

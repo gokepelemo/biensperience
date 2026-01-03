@@ -349,7 +349,8 @@ export default function Autocomplete({
       const highlightedElement = dropdownRef.current.querySelector(
         `[data-index="${highlightedIndex}"]`
       );
-      highlightedElement?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // jsdom doesn't implement scrollIntoView; guard for non-browser environments
+      highlightedElement?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     }
   }, [highlightedIndex]);
 

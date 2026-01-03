@@ -28,6 +28,7 @@ import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildExperienceSchema } from '../../utilities/schema-utils';
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
+import RequestPlanAccessModal from "../../components/RequestPlanAccessModal/RequestPlanAccessModal";
 import CostEntry from "../../components/CostEntry";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
@@ -82,6 +83,7 @@ import {
 import {
   getUserPlans,
   getExperiencePlans,
+  requestPlanAccess,
   updatePlanItem,
   addPlanItem as addPlanItemToInstance,
   deletePlanItem as deletePlanItemFromInstance,
@@ -200,6 +202,9 @@ export default function SingleExperience() {
   const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
   const [pendingUnplan, setPendingUnplan] = useState(false); // Hide planned date immediately when user clicks Remove (before confirm)
 
+  // Tab loading states for smooth transitions
+  const [experienceTabLoading, setExperienceTabLoading] = useState(true);
+
   // Plan item UI state - with encrypted persistence
   const [expandedParents, setExpandedParents] = useState(new Set());
   const [animatingCollapse, setAnimatingCollapse] = useState(null);
@@ -218,6 +223,7 @@ export default function SingleExperience() {
   const [inlineCostPlanItem, setInlineCostPlanItem] = useState(null);
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [requestAccessPlanId, setRequestAccessPlanId] = useState(null);
 
   // Curator tooltip state (two-click pattern: first shows tooltip, second navigates)
   const [curatorTooltipVisible, setCuratorTooltipVisible] = useState(false);
@@ -1054,6 +1060,29 @@ export default function SingleExperience() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // Handle structured error action intent: request access to a plan.
+  // Triggered by toast action click (see src/utilities/error-handler.js).
+  useEffect(() => {
+    const unsubscribe = subscribeToEvent('bien:request_access', (event) => {
+      const resourceType = event?.resourceType || null;
+      const resourceId = event?.resourceId || null;
+
+      // Only handle plan access requests here.
+      if (resourceType && resourceType !== 'plan') return;
+      if (!resourceId) {
+        logger.warn('[SingleExperience] Request access intent missing resourceId', { event });
+        return;
+      }
+
+      setRequestAccessPlanId(resourceId);
+      openModal(MODAL_NAMES.REQUEST_PLAN_ACCESS);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [openModal]);
+
   // Reset component state when navigating to a different experience
   useEffect(() => {
     // Reset all experience-specific state
@@ -1080,6 +1109,8 @@ export default function SingleExperience() {
     setPlanItemToDelete(null);
     setPlanInstanceItemToDelete(null);
     setExperienceNotFound(false); // Reset 404 state
+    // Reset tab loading states
+    setExperienceTabLoading(true);
     // Reset hash refs so URL hash can be processed for new experience
     processedHashRef.current = null;
     initialHashHandledRef.current = false;
@@ -1089,6 +1120,17 @@ export default function SingleExperience() {
     setPlanItemFormState(1);
     setEditingPlanItem({});
   }, [experienceId, resetSyncState]);
+
+  // Smooth loading transition for experience tab
+  useEffect(() => {
+    if (experience && experience.plan_items) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      const timer = requestAnimationFrame(() => {
+        setExperienceTabLoading(false);
+      });
+      return () => cancelAnimationFrame(timer);
+    }
+  }, [experience?.plan_items]);
 
   // Navigation Intent Consumer - handles deep-link navigation from HashLink and direct URL
   // Single source of truth for scroll/highlight behavior
@@ -2778,7 +2820,36 @@ export default function SingleExperience() {
 
                     {/* Experience Plan Items Tab Content */}
                     {activeTab === "experience" && (
-                      (experience.plan_items && experience.plan_items.length > 0) ? (
+                      experienceTabLoading ? (
+                        <div className="experience-plan-view mt-4">
+                          {/* Skeleton for collaborators */}
+                          <div className="plan-header-row mb-4">
+                            <UsersListDisplay
+                              loading={true}
+                              owner={null}
+                              users={[]}
+                              messageKey="CreatingPlan"
+                              reserveSpace={true}
+                            />
+                            {/* Action button skeleton */}
+                            <div className="d-flex justify-content-end">
+                              <SkeletonLoader variant="rectangle" width="120px" height="40px" />
+                            </div>
+                          </div>
+                          {/* Skeleton for plan items */}
+                          <div className="plan-items-skeleton mt-4">
+                            {[1, 2, 3].map((i) => (
+                              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
+                                <div className="d-flex gap-3 mb-3">
+                                  <SkeletonLoader variant="circle" width={24} height={24} />
+                                  <SkeletonLoader variant="text" width="70%" height={20} />
+                                </div>
+                                <SkeletonLoader variant="text" lines={2} height={16} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (experience.plan_items && experience.plan_items.length > 0) ? (
                         <ExperienceTabContent
                           user={user}
                           experience={experience}
@@ -3054,6 +3125,27 @@ export default function SingleExperience() {
         itemName={planInstanceItemToDelete?.text}
         confirmText="Delete Permanently"
         confirmVariant="danger"
+      />
+
+      <RequestPlanAccessModal
+        show={isModalOpen(MODAL_NAMES.REQUEST_PLAN_ACCESS)}
+        planId={requestAccessPlanId}
+        onClose={() => {
+          closeModal();
+          setRequestAccessPlanId(null);
+        }}
+        onSubmitRequest={async ({ planId, message }) => {
+          try {
+            await requestPlanAccess(planId, message);
+            success('Request sent.', { duration: 3000 });
+          } catch (err) {
+            logger.error('[SingleExperience] Failed to request plan access', {
+              planId,
+              error: err?.message
+            }, err);
+            throw err;
+          }
+        }}
       />
 
       {/* Add Collaborator Modal */}

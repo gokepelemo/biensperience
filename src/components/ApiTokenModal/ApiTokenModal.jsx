@@ -252,16 +252,20 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       <Modal.Body>
         {/* API Access Toggle */}
         <div className={styles.apiAccessToggle}>
-          <Toggle
-            label={lang.current.api.accessTitle}
-            description={lang.current.api.accessDescription}
-            labelPosition="left"
-            variant="success"
-            size="lg"
-            checked={apiEnabled}
-            onChange={handleToggleApiAccess}
-            disabled={isTogglingAccess}
-          />
+          <div className={styles.apiAccessToggleRow}>
+            <Toggle
+              name="apiAccess"
+              variant="success"
+              size="lg"
+              checked={apiEnabled}
+              onChange={handleToggleApiAccess}
+              disabled={isTogglingAccess}
+            />
+            <label className={styles.apiAccessToggleLabel} htmlFor="apiAccess">
+              <span className={styles.apiAccessToggleTitle}>{lang.current.api.accessTitle}</span>
+              <span className={styles.apiAccessToggleDescription}>{lang.current.api.accessDescription}</span>
+            </label>
+          </div>
         </div>
 
         {!apiEnabled && (

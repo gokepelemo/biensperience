@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'biensperience-api',
-      script: 'server.js',
+      script: 'bun',
+      args: 'run server.js',
       instances: 1,
       autorestart: true,
       watch: [
@@ -35,7 +36,7 @@ module.exports = {
     },
     {
       name: 'biensperience-frontend',
-      script: 'npm',
+      script: 'bun',
       args: 'start',
       instances: 1,
       autorestart: true,
@@ -53,7 +54,8 @@ module.exports = {
         'dist',
         '.git',
         'src/**/*.test.js',
-        'src/**/*.test.jsx'
+        'src/**/*.test.jsx',
+        'src/data/fallback-exchange-rates.json'
       ],
       max_memory_restart: '512M',
       version: '1.0.0',

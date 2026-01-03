@@ -23,6 +23,17 @@ jest.mock('../../src/utilities/debug', () => ({
 }));
 jest.mock('../../src/lang.constants', () => ({
   lang: {
+    current: {
+      label: {
+        emailAndNameRequired: 'Email and name are required'
+      },
+      notification: {
+        collaborator: {
+          invited: 'Invite sent to {email}. They\'ll receive an email with instructions to join.'
+        }
+      }
+    },
+    // Keep `en` for backward compatibility with other call sites
     en: {
       label: {
         emailAndNameRequired: 'Email and name are required'
@@ -443,6 +454,10 @@ describe('useCollaboratorManager', () => {
       // Open modal and remove existing collaborator
       act(() => {
         result.current.openCollaboratorModal('plan');
+      });
+
+      // Remove after existing collaborators have been set
+      act(() => {
         result.current.handleRemoveSelectedCollaborator(mockCollaborator._id);
       });
 
@@ -465,6 +480,10 @@ describe('useCollaboratorManager', () => {
       // Open modal and remove existing collaborator
       act(() => {
         result.current.openCollaboratorModal('experience');
+      });
+
+      // Remove after existing collaborators have been set
+      act(() => {
         result.current.handleRemoveSelectedCollaborator(mockCollaborator._id);
       });
 

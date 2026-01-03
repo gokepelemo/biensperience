@@ -1,4 +1,5 @@
 @use '../../styles/scss/abstracts' as *;
+@use '../../styles/scss/components' as *;
 
 /* Plan Item Details Modal - Theme-aware, mobile-friendly design */
 
@@ -268,57 +269,15 @@
   }
 }
 
+/* Complete button - uses Button component, only layout overrides needed */
 .completeButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  @include transition-all($transition-fast);
-
-  &:hover:not(:disabled) {
-    background: rgba(var(--color-success-rgb, 34, 197, 94), 0.1);
-    border-color: var(--color-success, #22c55e);
-    color: var(--color-success, #22c55e);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &.completed {
-    background: rgba(var(--color-success-rgb, 34, 197, 94), 0.15);
-    border-color: var(--color-success, #22c55e);
-    color: var(--color-success, #22c55e);
-
-    &:hover:not(:disabled) {
-      background: rgba(var(--color-success-rgb, 34, 197, 94), 0.25);
-    }
-  }
-
   @media (max-width: 768px) {
     width: 100%;
     justify-content: center;
   }
 }
 
-.completeIcon {
-  font-size: $font-size-base;
-  line-height: 1;
-}
-
-.completeText {
-  white-space: nowrap;
-}
-
-/* Details tabs */
+/* Details tabs - Desktop only (hidden on mobile/tablet) */
 .detailsTabs {
   display: flex;
   gap: 0;
@@ -329,8 +288,9 @@
   padding: 0 $space-6;
   background: var(--color-bg-secondary);
 
-  @media (max-width: 768px) {
-    padding: 0 $space-4;
+  /* Hide on mobile/tablet - show dropdown instead */
+  @media (max-width: 991px) {
+    display: none;
   }
 }
 
@@ -364,10 +324,103 @@
     cursor: not-allowed;
     color: var(--color-text-muted);
   }
+}
 
-  @media (max-width: 768px) {
-    padding: $space-3 $space-4;
-    font-size: $font-size-xs;
+/* =============================================================================
+ * TABS DROPDOWN - Mobile/Tablet only
+ * =============================================================================
+ * Replaces horizontal tabs with a dropdown on smaller screens for better UX.
+ */
+
+.tabsDropdownWrapper {
+  /* Hidden on desktop - show tabs instead */
+  display: none;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+
+  /* Show on mobile/tablet */
+  @media (max-width: 991px) {
+    display: block;
+  }
+}
+
+.tabsDropdown {
+  width: 100%;
+}
+
+.tabsDropdownToggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: $space-3 $space-4 !important;
+  font-size: $font-size-base !important;
+  font-weight: $font-weight-medium !important;
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-primary) !important;
+  border: 1px solid var(--color-border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  text-align: left;
+  @include transition-all($transition-fast);
+
+  &:hover,
+  &:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15) !important;
+  }
+
+  &::after {
+    /* Hide Bootstrap's default caret - we use our own icon */
+    display: none !important;
+  }
+}
+
+.tabsDropdownLabel {
+  flex: 1;
+  @include text-ellipsis;
+}
+
+.tabsDropdownIcon {
+  flex-shrink: 0;
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  margin-left: $space-2;
+  @include transition-all($transition-fast);
+
+  .tabsDropdownToggle[aria-expanded="true"] & {
+    transform: rotate(180deg);
+  }
+}
+
+.tabsDropdownMenu {
+  width: 100%;
+  padding: $space-2 0 !important;
+  background: var(--color-bg-primary) !important;
+  border: 1px solid var(--color-border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  margin-top: $space-1 !important;
+  /* Ensure dropdown appears above modal when using fixed positioning */
+  z-index: $z-index-modal-dropdown !important;
+}
+
+.tabsDropdownItem {
+  padding: $space-3 $space-4 !important;
+  font-size: $font-size-base !important;
+  color: var(--color-text-primary) !important;
+  @include transition-all($transition-fast);
+
+  &:hover {
+    background: rgba(var(--color-primary-rgb), 0.1) !important;
+    color: var(--color-primary) !important;
+  }
+
+  &:active,
+  &.active {
+    background: rgba(var(--color-primary-rgb), 0.15) !important;
+    color: var(--color-primary) !important;
+    font-weight: $font-weight-semibold;
   }
 }
 
@@ -381,8 +434,6 @@
   flex: 1 1 0;
   /* Critical: Allow flex item to shrink below intrinsic content size */
   min-height: 0;
-  /* Explicit height for Safari which sometimes ignores flex-grow */
-  height: 100%;
   /* Prevent overflow - children handle their own scrolling */
   overflow: hidden;
   /* Remove padding - children handle their own padding */
@@ -391,16 +442,6 @@
   /* This is also a flex container for its children */
   display: flex;
   flex-direction: column;
-
-  /* Mobile: Enable scrolling for content that overflows */
-  @media (max-width: 768px) {
-    /* Allow vertical scrolling on mobile */
-    overflow-y: auto;
-    /* Smooth scrolling on iOS */
-    -webkit-overflow-scrolling: touch;
-    /* Prevent scroll chaining to parent */
-    overscroll-behavior: contain;
-  }
 }
 
 /* =============================================================================
@@ -421,18 +462,21 @@
   /* Flex container for tab content */
   display: flex;
   flex-direction: column;
-  /* Fill all available space */
+  /* Fill all available space from parent (detailsContent) */
   flex: 1 1 0;
   /* Allow shrinking below content size - critical for Safari */
   min-height: 0;
-  /* Explicit height for Safari fallback */
+  /* Fill 100% of parent height - parent has JS-calculated height */
   height: 100%;
-  /* Max height prevents overflow */
-  max-height: 100%;
   /* Prevent overflow - children handle their own scrolling */
   overflow: hidden;
   /* Ensure width fills container */
   width: 100%;
+
+  /* Mobile adjustments - minimum height for usability */
+  @media (max-width: 768px) {
+    min-height: 300px;
+  }
 }
 
 @mixin tabWrapperMobile {
@@ -555,35 +599,8 @@
 }
 
 /* Stream Chat (scoped) token alignment - matches MessagesModal .pane */
-.chatPane :global(.str-chat),
-.chatPane :global(.str-chat__channel),
-.chatPane :global(.str-chat__main-panel),
-.chatPane :global(.str-chat__window) {
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-}
-
-/* Channel header - secondary background with border */
-.chatPane :global(.str-chat__channel-header) {
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-/* Message list - primary background */
-.chatPane :global(.str-chat__message-list) {
-  background: var(--color-bg-primary);
-}
-
-/* Message input - secondary background with top border (matches MessagesModal) */
-.chatPane :global(.str-chat__message-input) {
-  background: var(--color-bg-secondary);
-  border-top: 1px solid var(--color-border-light);
-}
-
-/* Textarea styling */
-.chatPane :global(.str-chat__textarea textarea) {
-  color: var(--color-text-primary);
-}
+@include streamChatTokenAlignment('.chatPane');
+@include streamChatOverlayZIndex('.chatPane');
 
 /* =============================================================================
  * THREAD LAYOUT - Display thread panel on the right side
@@ -659,94 +676,7 @@
   border-top: 1px solid var(--color-border-light) !important;
 }
 
-.chatPane :global(.str-chat__message-list) {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
-/* =============================================================================
- * CHECKBOX STYLING - Matches MessagesModal checkbox component
- * =============================================================================
- */
-
-/* Send to channel checkbox styling - matches Checkbox component */
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field label) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  /* Remove upstream Stream Chat padding so our gap controls spacing */
-  padding-inline: 0;
-}
-
-/* Square box as pseudo-element so the label text remains visible */
-.chatPane :global(.str-chat__send-to-channel-checkbox__field label::before) {
-  content: '';
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--color-border-medium);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-  display: inline-block;
-}
-
-/* Checkmark icon positioned over the box */
-.chatPane :global(.str-chat__send-to-channel-checkbox__field label::after) {
-  content: '';
-  position: absolute;
-  /* position the checkmark centered inside the 24px box (2px border) */
-  /* expand to occupy most of the inner box for a bold appearance */
-  left: 3px;
-  top: 50%;
-  transform: translateY(-50%) scale(1);
-  width: 18px;
-  height: 18px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 18px 18px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
-  border-color: transparent;
-  background: var(--gradient-primary);
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
-  opacity: 1;
-  /* larger/thicker checkmark so it visually fills the checkbox */
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
-.chatPane :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
-}
+@include streamChatSendToChannelCheckbox('.chatPane');
 
 /* =============================================================================
  * LEGACY .chatContainer STYLES - Keep for backwards compatibility
@@ -765,6 +695,8 @@
   display: flex;
   flex-direction: column;
 }
+
+@include streamChatOverlayZIndex('.chatContainer');
 
 /* Stream Chat dark mode compatibility using design tokens */
 /* Base containers */
@@ -1412,58 +1344,15 @@
   white-space: nowrap;
 }
 
-/* + Add Button with Dropdown */
+/* + Add Button with Dropdown - uses Button component */
 .addDropdownWrapper {
   position: relative;
   display: inline-flex;
 }
 
-.addButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  background: var(--gradient-primary);
-  border: none;
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: $font-size-sm;
-  font-weight: $font-weight-semibold;
-  cursor: pointer;
-  @include transition-all($transition-fast);
-  min-width: 100px;
-  justify-content: center;
-
-  &:hover {
-    @include hover-lift;
-    opacity: 0.95;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  @media (max-width: 768px) {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-}
-
-.addButtonIcon {
-  font-size: $font-size-lg;
-  line-height: 1;
-  font-weight: $font-weight-bold;
-}
-
-.addButtonText {
-  white-space: nowrap;
-}
-
 .addButtonCaret {
   font-size: $font-size-xs;
   opacity: 0.8;
-  margin-left: $space-1;
 }
 
 .addDropdownMenu {
@@ -1585,44 +1474,7 @@
   }
 }
 
-/* Share Button - matches Add button styling */
-.shareButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-semibold;
-  cursor: pointer;
-  @include transition-all($transition-fast);
-  justify-content: center;
-  width: 100%;
-
-  &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-    @include hover-lift;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
-
-.shareButtonIcon {
-  font-size: $font-size-base;
-  line-height: 1;
-}
-
-.shareButtonText {
-  white-space: nowrap;
-}
+/* Share Button - uses Button component, no custom styles needed */
 
 /* =============================================
    Details Tab Content - Grouped Detail Types
@@ -1632,6 +1484,7 @@
 .detailsTabContent {
   @include tabWrapperBase;
   @include tabWrapperMobile;
+  /* Tab content fills parent which has JS-calculated height */
 }
 
 /* Export bar at top of details tab */
@@ -1648,36 +1501,7 @@
   }
 }
 
-.exportPdfButton {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  padding: $space-2 $space-4;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  cursor: pointer;
-  @include transition-all($transition-fast);
-
-  &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
-
-.exportPdfIcon {
-  font-size: $font-size-base;
-  line-height: 1;
-}
+/* Export PDF button - uses Button component, no custom styles needed */
 
 /* Scrollable grouped list container - THE SCROLLABLE CONTENT AREA
  * This must fill remaining vertical space after the export bar.
@@ -1930,29 +1754,7 @@
   color: var(--color-text-muted);
 }
 
-.changeLocationButton {
-  padding: $space-2 $space-4;
-  background: transparent;
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: $font-size-sm;
-  font-weight: $font-weight-medium;
-  cursor: pointer;
-  flex-shrink: 0;
-  @include transition-all($transition-fast);
-
-  &:hover {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: white;
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-}
+/* Change location button - uses Button component, no custom styles needed */
 
 /* Map wrapper - fills remaining vertical space after address bar */
 .locationMapWrapper {

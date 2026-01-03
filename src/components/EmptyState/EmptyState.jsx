@@ -190,8 +190,8 @@ export default function EmptyState({
         <div className={styles.actions}>
           {displayPrimaryAction && onPrimaryAction && (
             <Button
-              variant="primary"
-              size={size === 'sm' ? 'sm' : 'lg'}
+              variant="gradient"
+              size={size === 'lg' ? 'lg' : 'md'}
               rounded
               onClick={onPrimaryAction}
               className={styles.primaryButton}
@@ -202,7 +202,7 @@ export default function EmptyState({
           {displaySecondaryAction && onSecondaryAction && (
             <Button
               variant="outline"
-              size={size === 'sm' ? 'sm' : 'lg'}
+              size={size === 'lg' ? 'lg' : 'md'}
               rounded
               onClick={onSecondaryAction}
               className={styles.secondaryButton}

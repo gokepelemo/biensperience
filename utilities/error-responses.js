@@ -116,7 +116,11 @@ function emailNotVerifiedError(email) {
  * @param {string} required - Required permission level (owner, collaborator, etc.)
  * @param {string} current - Current user's permission level
  */
-function insufficientPermissionsError(required, current = 'none') {
+function insufficientPermissionsError(required, current = 'none', context = {}) {
+  const actionMetadata = {};
+  if (context.resourceType) actionMetadata.resourceType = context.resourceType;
+  if (context.resourceId) actionMetadata.resourceId = context.resourceId;
+
   return createErrorResponse({
     code: ERROR_CODES.INSUFFICIENT_PERMISSIONS,
     message: `Insufficient permissions: required ${required}, have ${current}`,
@@ -124,9 +128,10 @@ function insufficientPermissionsError(required, current = 'none') {
     status: 403,
     action: {
       type: ACTION_TYPES.REQUEST_ACCESS,
-      label: 'Request Access'
+      label: 'Request Access',
+      ...(Object.keys(actionMetadata).length > 0 ? { metadata: actionMetadata } : {})
     },
-    metadata: { required, current }
+    metadata: { required, current, ...context }
   });
 }
 

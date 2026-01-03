@@ -5,6 +5,7 @@ import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
+import { useDestinationWizard } from "../../contexts/DestinationWizardContext";
 import SearchBar from "../SearchBar/SearchBar";
 import ActionButtons from "../ActionButtons/ActionButtons";
 import BiensperienceLogo from "../BiensperienceLogo/BiensperienceLogo";
@@ -21,6 +22,7 @@ export default function NavBar() {
   const { logoutUser, getDisplayName, isSuperAdmin: isSuper, user } = useUser();
   const { getExperience, getDestination } = useData();
   const { openExperienceWizard } = useExperienceWizard();
+  const { openDestinationWizard } = useDestinationWizard();
   const [logoHovered, setLogoHovered] = useState(false);
 
   const {
@@ -431,16 +433,16 @@ export default function NavBar() {
                   </li>
                 )}
                 <li role="none">
-                    <NavLink
-                      to="/destinations/new"
-                      onClick={(e) => handleNavAction(e, {})}
+                    <button
+                      type="button"
                       className={`dropdown-item ${styles.dropdownItem}`}
                       role="menuitem"
                       aria-label={lang.current.aria.createNewDestination}
+                      onClick={(e) => handleNavAction(e, { callback: () => openDestinationWizard() })}
                     >
                       <FaMapMarkerAlt className={styles.dropdownIcon} />
                       <span>New Destination</span>
-                    </NavLink>
+                    </button>
                 </li>
                 <li role="none">
                     <button
