@@ -240,7 +240,7 @@ export default function PlanItemModal({
           <label htmlFor={`${formId}-cost`} className="form-label">
             {l.current?.label?.cost || "Cost"}
           </label>
-          <div className="input-group">
+          <div className="input-group input-group-unified">
             <span className="input-group-text">$</span>
             <input
               type="number"
@@ -270,7 +270,7 @@ export default function PlanItemModal({
           <label htmlFor={`${formId}-days`} className="form-label">
             {l.current?.label?.planningTimeLabel || "Planning Time"}
           </label>
-          <div className="input-group">
+          <div className="input-group input-group-unified">
             <input
               type="number"
               className="form-control"
@@ -317,7 +317,7 @@ export default function PlanItemModal({
             </small>
           </FormLabel>
           <div className="position-relative">
-            <div className="input-group">
+            <div className="input-group input-group-unified">
               <FormControl
                 type="text"
                 id={`${formId}-address`}
