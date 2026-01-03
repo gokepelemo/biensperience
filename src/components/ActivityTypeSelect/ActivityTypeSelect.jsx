@@ -45,6 +45,7 @@ export default function ActivityTypeSelect({
         onChange={(next) => onChange(next ? next : null)}
         placeholder={placeholder}
         searchable
+        portal
         disabled={disabled}
         size={size}
         aria-label={ariaLabel}
