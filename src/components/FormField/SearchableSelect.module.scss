@@ -116,7 +116,8 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 1000;
+  /* Must appear above modals when portaled to <body> (mobile/tablet) */
+  z-index: var(--z-index-modal-dropdown, 1055);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
