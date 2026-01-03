@@ -10,6 +10,15 @@
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
+
+  // Prevent content from being squashed on resize
+  // Use min-width to ensure readable text width
+  min-width: 0;
+
+  // Ensure child elements don't shrink below their natural size
+  > * {
+    flex-shrink: 0;
+  }
 }
 
 // Fill container variant - fills available space and centers content
@@ -125,6 +134,11 @@
   background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary, var(--color-bg-secondary)) 100%);
   box-shadow: var(--shadow-sm);
   animation: gentleFloat 3s ease-in-out infinite;
+
+  // Prevent shrinking on viewport resize - maintain aspect ratio
+  flex-shrink: 0;
+  min-width: 0;
+  aspect-ratio: 1;
 }
 
 @keyframes gentleFloat {
@@ -183,6 +197,37 @@
 
   .sizeLg {
     padding: var(--space-10) var(--space-4);
+
+    .iconContainer {
+      width: 96px;
+      height: 96px;
+    }
+
+    .icon {
+      font-size: var(--font-size-4xl);
+    }
+  }
+
+  .sizeMd {
+    .iconContainer {
+      width: 80px;
+      height: 80px;
+    }
+
+    .icon {
+      font-size: var(--font-size-3xl);
+    }
+  }
+
+  .sizeSm {
+    .iconContainer {
+      width: 64px;
+      height: 64px;
+    }
+
+    .icon {
+      font-size: var(--font-size-2xl);
+    }
   }
 
   .actions {
@@ -194,5 +239,32 @@
   .primaryButton,
   .secondaryButton {
     width: 100%;
+  }
+}
+
+// Very small viewports - stack and reduce further
+@media (max-width: 360px) {
+  .emptyState {
+    padding: var(--space-6) var(--space-3);
+  }
+
+  .sizeLg,
+  .sizeMd {
+    .iconContainer {
+      width: 64px;
+      height: 64px;
+    }
+
+    .icon {
+      font-size: var(--font-size-2xl);
+    }
+
+    .title {
+      font-size: var(--font-size-lg);
+    }
+
+    .description {
+      font-size: var(--font-size-sm);
+    }
   }
 }

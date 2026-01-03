@@ -28,6 +28,7 @@ import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildExperienceSchema } from '../../utilities/schema-utils';
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
+import RequestPlanAccessModal from "../../components/RequestPlanAccessModal/RequestPlanAccessModal";
 import CostEntry from "../../components/CostEntry";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
@@ -82,6 +83,7 @@ import {
 import {
   getUserPlans,
   getExperiencePlans,
+  requestPlanAccess,
   updatePlanItem,
   addPlanItem as addPlanItemToInstance,
   deletePlanItem as deletePlanItemFromInstance,
@@ -221,6 +223,7 @@ export default function SingleExperience() {
   const [inlineCostPlanItem, setInlineCostPlanItem] = useState(null);
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
+  const [requestAccessPlanId, setRequestAccessPlanId] = useState(null);
 
   // Curator tooltip state (two-click pattern: first shows tooltip, second navigates)
   const [curatorTooltipVisible, setCuratorTooltipVisible] = useState(false);
@@ -1056,6 +1059,29 @@ export default function SingleExperience() {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // Handle structured error action intent: request access to a plan.
+  // Triggered by toast action click (see src/utilities/error-handler.js).
+  useEffect(() => {
+    const unsubscribe = subscribeToEvent('bien:request_access', (event) => {
+      const resourceType = event?.resourceType || null;
+      const resourceId = event?.resourceId || null;
+
+      // Only handle plan access requests here.
+      if (resourceType && resourceType !== 'plan') return;
+      if (!resourceId) {
+        logger.warn('[SingleExperience] Request access intent missing resourceId', { event });
+        return;
+      }
+
+      setRequestAccessPlanId(resourceId);
+      openModal(MODAL_NAMES.REQUEST_PLAN_ACCESS);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [openModal]);
 
   // Reset component state when navigating to a different experience
   useEffect(() => {
@@ -3099,6 +3125,27 @@ export default function SingleExperience() {
         itemName={planInstanceItemToDelete?.text}
         confirmText="Delete Permanently"
         confirmVariant="danger"
+      />
+
+      <RequestPlanAccessModal
+        show={isModalOpen(MODAL_NAMES.REQUEST_PLAN_ACCESS)}
+        planId={requestAccessPlanId}
+        onClose={() => {
+          closeModal();
+          setRequestAccessPlanId(null);
+        }}
+        onSubmitRequest={async ({ planId, message }) => {
+          try {
+            await requestPlanAccess(planId, message);
+            success('Request sent.', { duration: 3000 });
+          } catch (err) {
+            logger.error('[SingleExperience] Failed to request plan access', {
+              planId,
+              error: err?.message
+            }, err);
+            throw err;
+          }
+        }}
       />
 
       {/* Add Collaborator Modal */}

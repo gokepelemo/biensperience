@@ -55,7 +55,13 @@ export default function MyPlans() {
   const [expandedPlanId, setExpandedPlanId] = useState(null);
   const [expandedCostAccordions, setExpandedCostAccordions] = useState(new Set());
   const [collaborators, setCollaborators] = useState(new Map()); // planId -> collaborators array
-  const [pagination, setPagination] = useState({ page: 1, hasMore: false, totalCount: 0 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    hasMore: false,
+    totalCount: 0,
+    totalOwnedCount: 0,
+    totalSharedCount: 0
+  });
   const navigate = useNavigate();
   const { openPlanExperienceModal } = usePlanExperience();
 
@@ -72,11 +78,12 @@ export default function MyPlans() {
       : sharedPlans;
 
   // Filter options for searchable select with icons
+  // Use pagination totals (from API) for accurate counts across all pages
   const filterOptions = useMemo(() => [
-    { value: PLAN_FILTERS.ALL, label: lang.current.myPlans.filterAll, icon: FaList, suffix: `${plans.length}` },
-    { value: PLAN_FILTERS.OWNED, label: lang.current.myPlans.filterMyPlans, icon: FaUser, suffix: `${ownedPlans.length}` },
-    { value: PLAN_FILTERS.SHARED, label: lang.current.myPlans.filterSharedPlans, icon: FaUserFriends, suffix: `${sharedPlans.length}` }
-  ], [plans.length, ownedPlans.length, sharedPlans.length]);
+    { value: PLAN_FILTERS.ALL, label: lang.current.myPlans.filterAll, icon: FaList, suffix: `${pagination.totalCount}` },
+    { value: PLAN_FILTERS.OWNED, label: lang.current.myPlans.filterMyPlans, icon: FaUser, suffix: `${pagination.totalOwnedCount}` },
+    { value: PLAN_FILTERS.SHARED, label: lang.current.myPlans.filterSharedPlans, icon: FaUserFriends, suffix: `${pagination.totalSharedCount}` }
+  ], [pagination.totalCount, pagination.totalOwnedCount, pagination.totalSharedCount]);
 
   // Fetch collaborators for a list of plans in parallel
   const fetchCollaboratorsForPlans = async (planList) => {
@@ -107,7 +114,16 @@ export default function MyPlans() {
 
         // Handle paginated response
         const list = resp?.data || [];
-        const paginationData = resp?.pagination || { page: 1, hasMore: false, totalCount: list.length };
+        // Fallback for pagination data - compute counts from loaded data if API doesn't provide them
+        const ownedCount = list.filter(p => !p.isCollaborative).length;
+        const sharedCount = list.filter(p => p.isCollaborative).length;
+        const paginationData = resp?.pagination || {
+          page: 1,
+          hasMore: false,
+          totalCount: list.length,
+          totalOwnedCount: ownedCount,
+          totalSharedCount: sharedCount
+        };
 
         // CRITICAL FIX (biensperience-c063): Use merge pattern to prevent UI flash
         // Batch all state updates together to prevent intermediate renders
@@ -209,10 +225,14 @@ export default function MyPlans() {
         return [plan, ...prev];
       });
 
-      // Update pagination count
+      // Update pagination counts (total and owned/shared)
+      // New plans created by the current user are owned (not collaborative)
+      const isCollaborative = plan.isCollaborative || false;
       setPagination(prev => ({
         ...prev,
-        totalCount: prev.totalCount + 1
+        totalCount: prev.totalCount + 1,
+        totalOwnedCount: isCollaborative ? prev.totalOwnedCount : prev.totalOwnedCount + 1,
+        totalSharedCount: isCollaborative ? prev.totalSharedCount + 1 : prev.totalSharedCount
       }));
 
       // Fetch collaborators for new plan
@@ -267,14 +287,24 @@ export default function MyPlans() {
       const planId = detail.planId;
       if (!planId) return;
 
-      // Remove plan from list
-      setPlans(prev => prev.filter(p => p._id !== planId));
+      // Use batchedUpdates to ensure both state updates see the same plan data
+      batchedUpdates(() => {
+        // Find the plan to determine if it's owned or shared, then remove and update counts
+        setPlans(prev => {
+          const planToRemove = prev.find(p => p._id === planId);
+          const wasCollaborative = planToRemove?.isCollaborative || false;
 
-      // Update pagination count
-      setPagination(prev => ({
-        ...prev,
-        totalCount: Math.max(0, prev.totalCount - 1)
-      }));
+          // Update pagination counts based on the plan type
+          setPagination(prevPagination => ({
+            ...prevPagination,
+            totalCount: Math.max(0, prevPagination.totalCount - 1),
+            totalOwnedCount: wasCollaborative ? prevPagination.totalOwnedCount : Math.max(0, prevPagination.totalOwnedCount - 1),
+            totalSharedCount: wasCollaborative ? Math.max(0, prevPagination.totalSharedCount - 1) : prevPagination.totalSharedCount
+          }));
+
+          return prev.filter(p => p._id !== planId);
+        });
+      });
 
       // Remove collaborators for deleted plan
       setCollaborators(prev => {

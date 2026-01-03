@@ -600,6 +600,7 @@
 
 /* Stream Chat (scoped) token alignment - matches MessagesModal .pane */
 @include streamChatTokenAlignment('.chatPane');
+@include streamChatOverlayZIndex('.chatPane');
 
 /* =============================================================================
  * THREAD LAYOUT - Display thread panel on the right side
@@ -694,6 +695,8 @@
   display: flex;
   flex-direction: column;
 }
+
+@include streamChatOverlayZIndex('.chatContainer');
 
 /* Stream Chat dark mode compatibility using design tokens */
 /* Base containers */

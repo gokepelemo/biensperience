@@ -6,6 +6,7 @@
  */
 
 import { logger } from './logger';
+import { broadcastEvent } from './event-bus';
 
 /**
  * Custom error class for API errors
@@ -232,8 +233,12 @@ export function handleActionClick(action) {
       break;
 
     case 'request_access':
-      // Future: Open request access modal
-      console.info('Request access clicked - future implementation');
+      // Broadcast intent; view components can decide how to handle.
+      // Expected action.metadata includes { resourceType, resourceId }.
+      broadcastEvent('bien:request_access', {
+        ...action?.metadata,
+        action
+      });
       break;
 
     case 'contact_support':

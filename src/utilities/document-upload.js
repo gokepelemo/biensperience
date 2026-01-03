@@ -319,7 +319,8 @@ export async function uploadDocument(file, options = {}) {
     planItemId,
     visibility = 'collaborators',
     aiParsingEnabled = true,
-    documentTypeHint
+    documentTypeHint,
+    timeoutMs
   } = options;
 
   // Validate
@@ -349,8 +350,22 @@ export async function uploadDocument(file, options = {}) {
   });
 
   try {
+    // Documents can be large and processing can be slow (OCR + AI parsing).
+    // If not provided, compute a size-aware timeout with a reasonable upper bound.
+    // The timeout covers: upload + text extraction (OCR) + AI parsing + S3 upload + DB save.
+    // OCR alone can take 30-60s per page, and AI parsing can take 10-30s.
+    const computedTimeoutMs = Number.isFinite(timeoutMs)
+      ? timeoutMs
+      : Math.min(
+        10 * 60 * 1000, // cap at 10 minutes
+        Math.max(
+          5 * 60 * 1000, // floor at 5 minutes (OCR + AI parsing takes time)
+          3 * 60 * 1000 + Math.ceil(file.size / (1024 * 1024)) * 15000 // 3min base + 15s per MB
+        )
+      );
+
     // Use uploadFile to handle CSRF token and authentication
-    const result = await uploadFile('/api/documents', 'POST', formData);
+    const result = await uploadFile('/api/documents', 'POST', formData, { timeoutMs: computedTimeoutMs });
 
     logger.info('[document-upload] Document uploaded successfully', {
       entityType,

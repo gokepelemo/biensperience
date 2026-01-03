@@ -2038,7 +2038,7 @@ const en = {
     stepDone: "Done",
 
     // Step 1: Basic Info
-    basicInfoTitle: "Create Your Experience",
+    basicInfoTitle: "Create an Experience",
     experienceTitle: "Experience Title",
     experienceTitlePlaceholder: "e.g., Weekend in Paris",
     overview: "Overview",
@@ -2089,6 +2089,55 @@ const en = {
     // Validation
     titleRequired: "Please enter a title",
     destinationRequired: "Please select a destination",
+  },
+
+  // DestinationWizardModal strings
+  destinationWizardModal: {
+    // Step labels
+    stepBasicInfo: "Location",
+    stepDetails: "Details",
+    stepPhotos: "Photos",
+    stepTravelTips: "Tips",
+    stepDone: "Done",
+
+    // Modal title
+    title: "Create a Destination",
+
+    // Step 1: Basic Info (Location)
+    cityTown: "City / Town",
+    cityTownPlaceholder: "e.g., Paris, Tokyo, New York",
+    stateProvince: "State / Province",
+    stateProvincePlaceholder: "e.g., California, Ontario, Île-de-France",
+    country: "Country",
+    countryPlaceholder: "e.g., United States, Canada, France",
+
+    // Step 2: Details
+    overview: "Overview",
+    overviewPlaceholder: "Describe what makes this destination special...",
+
+    // Step 3: Photos
+    photosDescription: "Add photos to showcase this destination.",
+
+    // Step 4: Travel Tips
+    travelTipsDescription: "Share insider tips to help travelers.",
+
+    // Step 5: Done
+    doneTitle: "Destination Created!",
+    doneMessage: "Your destination has been created successfully.",
+    goToDestination: "Go to Destination",
+    createAnother: "Create Another",
+    close: "Close",
+
+    // Navigation buttons
+    back: "Back",
+    next: "Next",
+    skip: "Skip",
+    finish: "Finish",
+    create: "Create",
+
+    // Validation
+    cityRequired: "Please enter a city or town name",
+    countryRequired: "Please enter a country",
   },
 
   email: {

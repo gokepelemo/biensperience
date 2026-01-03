@@ -9,6 +9,7 @@ import { TooltipProvider } from "../../contexts/TooltipContext";
 import { PlanExperienceProvider } from "../../contexts/PlanExperienceContext";
 import { NavigationIntentProvider } from "../../contexts/NavigationIntentContext";
 import { ExperienceWizardProvider } from "../../contexts/ExperienceWizardContext";
+import { DestinationWizardProvider } from "../../contexts/DestinationWizardContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
 import Loading from "../../components/Loading/Loading";
@@ -118,7 +119,9 @@ export default function App() {
                 <PlanExperienceProvider>
                   <NavigationIntentProvider>
                     <ExperienceWizardProvider>
-                      <AppContent />
+                      <DestinationWizardProvider>
+                        <AppContent />
+                      </DestinationWizardProvider>
                     </ExperienceWizardProvider>
                   </NavigationIntentProvider>
                 </PlanExperienceProvider>

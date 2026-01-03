@@ -338,7 +338,24 @@ export default function DocumentsTab({
 
   // Trigger file input
   const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click();
+    const input = fileInputRef.current;
+    if (!input) {
+      logger.error('[DocumentsTab] Upload click: file input ref missing');
+      return;
+    }
+
+    // Prefer showPicker() when supported; some browsers restrict click() on hidden inputs.
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch (err) {
+      // Fall back to click()
+      logger.debug('[DocumentsTab] showPicker failed, falling back to click', { error: err?.message });
+    }
+
+    input.click();
   }, []);
 
   // Handle document preview - get signed URL and open viewer

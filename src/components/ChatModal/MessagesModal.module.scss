@@ -432,4 +432,5 @@
 
 /* Stream Chat (scoped) token alignment */
 @include streamChatTokenAlignment('.pane');
+@include streamChatOverlayZIndex('.pane');
 @include streamChatSendToChannelCheckbox('.pane');

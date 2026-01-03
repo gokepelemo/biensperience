@@ -25,6 +25,7 @@ import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
 import Checkbox from '../Checkbox/Checkbox';
+import { SearchableSelect } from '../FormField';
 import styles from './InviteCodeModal.module.scss';
 
 export default function InviteCodeModal({ show, onHide, experiences = [], destinations = [] }) {
@@ -292,6 +293,16 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
     }
   };
 
+  const experienceOptions = experiences.map((exp) => ({
+    value: exp._id,
+    label: exp.name,
+  }));
+
+  const destinationOptions = destinations.map((dest) => ({
+    value: dest._id,
+    label: `${dest.name}, ${dest.country}`,
+  }));
+
   return (
     <Modal
       show={show}
@@ -421,44 +432,24 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
 
               <Form.Group className="mb-3">
                 <Form.Label>Experiences (optional)</Form.Label>
-                <Form.Select
+                <SearchableSelect
                   multiple
+                  options={experienceOptions}
                   value={singleForm.experiences}
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.selectedOptions, option => option.value);
-                    setSingleForm({ ...singleForm, experiences: selected });
-                  }}
-                  size="sm"
-                  style={{ height: '100px' }}
-                >
-                  {experiences.map((exp) => (
-                    <option key={exp._id} value={exp._id}>
-                      {exp.name}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Form.Text>Hold Ctrl/Cmd to select multiple</Form.Text>
+                  onChange={(values) => setSingleForm({ ...singleForm, experiences: values })}
+                  placeholder="Search and select experiences..."
+                />
               </Form.Group>
 
               <Form.Group className="mb-3">
                 <Form.Label>Destinations (optional)</Form.Label>
-                <Form.Select
+                <SearchableSelect
                   multiple
+                  options={destinationOptions}
                   value={singleForm.destinations}
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.selectedOptions, option => option.value);
-                    setSingleForm({ ...singleForm, destinations: selected });
-                  }}
-                  size="sm"
-                  style={{ height: '100px' }}
-                >
-                  {destinations.map((dest) => (
-                    <option key={dest._id} value={dest._id}>
-                      {dest.name}, {dest.country}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Form.Text>Hold Ctrl/Cmd to select multiple</Form.Text>
+                  onChange={(values) => setSingleForm({ ...singleForm, destinations: values })}
+                  placeholder="Search and select destinations..."
+                />
               </Form.Group>
 
               <Form.Group className="mb-3">

@@ -10,8 +10,68 @@
 const Follow = require('../../models/follow');
 const User = require('../../models/user');
 const Activity = require('../../models/activity');
+const Experience = require('../../models/experience');
+const Destination = require('../../models/destination');
+const Plan = require('../../models/plan');
 const backendLogger = require('../../utilities/backend-logger');
 const { broadcastEvent } = require('../../utilities/websocket-server');
+const { canView } = require('../../utilities/permissions');
+
+function isPlaceholderResourceName(name) {
+  if (!name || typeof name !== 'string') return true;
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return true;
+  return normalized === 'plan' || normalized === 'unnamed' || normalized.startsWith('unnamed ');
+}
+
+function formatActivityAction(action) {
+  const actionMap = {
+    'resource_created': 'Created',
+    'resource_updated': 'Updated',
+    'resource_deleted': 'Deleted',
+    'plan_created': 'Created a plan on',
+    'plan_updated': 'Updated a plan on',
+    'plan_deleted': 'Deleted a plan from',
+    'permission_added': 'Added a collaborator to',
+    'permission_removed': 'Removed a collaborator from',
+    'user_registered': 'Joined Biensperience',
+    'email_verified': 'Verified email address',
+    'plan_item_completed': 'Completed a plan item on',
+    'plan_item_uncompleted': 'Uncompleted a plan item on',
+    'plan_item_note_added': 'Added a note to a plan item on',
+    'plan_item_note_updated': 'Updated a note on a plan item in',
+    'plan_item_note_deleted': 'Deleted a note from a plan item in',
+    'collaborator_added': 'Became a collaborator on',
+    'collaborator_removed': 'Removed from collaboration on',
+    'cost_added': 'Added a cost to',
+    'cost_updated': 'Updated a cost on',
+    'cost_deleted': 'Deleted a cost from',
+    'follow_created': 'Followed',
+    'follow_removed': 'Unfollowed'
+  };
+
+  return actionMap[action] || action.replace(/_/g, ' ');
+}
+
+function formatTimeAgo(timestamp) {
+  const now = new Date();
+  const diffMs = now - new Date(timestamp);
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
 
 /**
  * Follow a user
@@ -127,6 +187,11 @@ async function unfollowUser(req, res) {
           role: req.user.role
         },
         resource: {
+          id: followingId,
+          type: 'User',
+          name: userToUnfollow?.name || 'Unknown'
+        },
+        target: {
           id: followingId,
           type: 'User',
           name: userToUnfollow?.name || 'Unknown'
@@ -335,9 +400,12 @@ async function getFeed(req, res) {
     }
 
     // Build query for Activity model
+    // SOCIAL FEED RULE: show activity performed by users you follow.
+    // PRIVACY RULE: do NOT leak actions involving resources the requester cannot view.
+    // We enforce privacy by filtering activities after fetch based on the referenced resource.
     const query = {
-      'actor._id': { $in: followingIds },
-      status: 'success' // Only successful actions
+      status: 'success',
+      'actor._id': { $in: followingIds }
     };
 
     // Optional: filter by specific action types
@@ -356,20 +424,314 @@ async function getFeed(req, res) {
       };
     }
 
-    // Get total count
-    const total = await Activity.countDocuments(query);
+    // Total candidate count (pre-privacy-filter). This is used for pagination.
+    // Note: privacy filtering can remove some items from each page, so clients may need to
+    // paginate further to collect a full page of visible items.
+    const totalCandidate = await Activity.countDocuments(query);
 
-    // Get paginated feed
-    const feed = await Activity.find(query)
+    // Fetch a page of candidate feed items; we'll filter for privacy below.
+    const candidateFeed = await Activity.find(query)
       .sort({ timestamp: -1 })
       .skip(parseInt(skip, 10))
       .limit(Math.min(parseInt(limit, 10), 100))
       .lean();
 
+    const isRequesterSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const baseFeed = isRequesterSuperAdmin ? candidateFeed : null;
+
+    const permissionModels = { Destination, Experience };
+
+    const experienceIds = new Set();
+    const destinationIds = new Set();
+    const planIds = new Set();
+    const userIds = new Set();
+
+    for (const activity of candidateFeed) {
+      if (activity?.resource?.id && activity.resource.type) {
+        const idStr = activity.resource.id.toString();
+        if (activity.resource.type === 'Experience') experienceIds.add(idStr);
+        if (activity.resource.type === 'Destination') destinationIds.add(idStr);
+        if (activity.resource.type === 'Plan') planIds.add(idStr);
+        if (activity.resource.type === 'User') userIds.add(idStr);
+      }
+
+      if (activity?.target?.id && activity.target.type === 'User') {
+        userIds.add(activity.target.id.toString());
+      }
+    }
+
+    const [experiences, destinations, plans, users] = await Promise.all([
+      experienceIds.size
+        ? Experience.find({ _id: { $in: Array.from(experienceIds) } })
+        : Promise.resolve([]),
+      destinationIds.size
+        ? Destination.find({ _id: { $in: Array.from(destinationIds) } })
+        : Promise.resolve([]),
+      planIds.size
+        ? Plan.find({ _id: { $in: Array.from(planIds) } })
+        : Promise.resolve([]),
+      userIds.size
+        ? User.find({ _id: { $in: Array.from(userIds) } }).select('visibility')
+        : Promise.resolve([])
+    ]);
+
+    const experienceById = new Map(experiences.map(doc => [doc._id.toString(), doc]));
+    const destinationById = new Map(destinations.map(doc => [doc._id.toString(), doc]));
+    const planById = new Map(plans.map(doc => [doc._id.toString(), doc]));
+    const userById = new Map(users.map(doc => [doc._id.toString(), doc]));
+
+    const visibilityCache = new Map();
+
+    const canViewUserRef = (viewerId, userDocOrId) => {
+      const userDoc = typeof userDocOrId === 'string' ? userById.get(userDocOrId) : userDocOrId;
+      if (!userDoc) return false;
+      const visibility = userDoc.visibility || 'public';
+      if (visibility !== 'private') return true;
+      return viewerId.toString() === userDoc._id.toString();
+    };
+
+    const canViewPlanRef = (viewerId, planDocOrId) => {
+      const planDoc = typeof planDocOrId === 'string' ? planById.get(planDocOrId) : planDocOrId;
+      if (!planDoc) return false;
+      const viewerIdStr = viewerId.toString();
+
+      // Legacy owner field
+      if (planDoc.user && planDoc.user.toString() === viewerIdStr) return true;
+
+      // Permissions array
+      if (planDoc.permissions && Array.isArray(planDoc.permissions)) {
+        return planDoc.permissions.some(
+          p => p.entity === 'user' && p._id?.toString && p._id.toString() === viewerIdStr
+        );
+      }
+
+      return false;
+    };
+
+    const isActivityVisible = async (activity) => {
+      // If the referenced resource is missing or unknown, fail closed.
+      const checks = [];
+
+      if (activity?.resource?.id && activity.resource.type) {
+        checks.push({
+          id: activity.resource.id.toString(),
+          type: activity.resource.type
+        });
+      }
+
+      if (activity?.target?.id && activity.target.type) {
+        checks.push({
+          id: activity.target.id.toString(),
+          type: activity.target.type
+        });
+      }
+
+      for (const ref of checks) {
+        const cacheKey = `${ref.type}:${ref.id}`;
+        if (visibilityCache.has(cacheKey)) {
+          if (!visibilityCache.get(cacheKey)) return false;
+          continue;
+        }
+
+        let allowed = false;
+
+        if (ref.type === 'Experience') {
+          const doc = experienceById.get(ref.id);
+          allowed = doc ? await canView(userId, doc, permissionModels) : false;
+        } else if (ref.type === 'Destination') {
+          const doc = destinationById.get(ref.id);
+          allowed = doc ? await canView(userId, doc, permissionModels) : false;
+        } else if (ref.type === 'Plan') {
+          allowed = canViewPlanRef(userId, ref.id);
+        } else if (ref.type === 'User') {
+          allowed = canViewUserRef(userId, ref.id);
+        } else if (ref.type === 'Follow') {
+          // Follow relationships are not permission-gated.
+          allowed = true;
+        } else {
+          // Unknown resource types: fail closed for safety.
+          allowed = false;
+        }
+
+        visibilityCache.set(cacheKey, allowed);
+        if (!allowed) return false;
+      }
+
+      return true;
+    };
+
+    let visibleFeed = baseFeed;
+    if (!visibleFeed) {
+      visibleFeed = [];
+      for (const activity of candidateFeed) {
+        // eslint-disable-next-line no-await-in-loop
+        if (await isActivityVisible(activity)) {
+          visibleFeed.push(activity);
+        }
+      }
+    }
+
+    // Enrich activities into the same shape returned by the dashboard activity feed
+    const planIdsForEnrichment = visibleFeed
+      .filter(a => a.resource?.type === 'Plan' && a.resource?.id)
+      .map(a => a.resource.id);
+
+    const plansMap = new Map();
+    if (planIdsForEnrichment.length > 0) {
+      const plansForEnrichment = await Plan.find({ _id: { $in: planIdsForEnrichment } })
+        .populate('experience', 'name')
+        .lean();
+      plansForEnrichment.forEach(plan => plansMap.set(plan._id.toString(), plan));
+    }
+
+    const experienceIdsForEnrichment = visibleFeed
+      .filter(a => a.resource?.type === 'Experience' && a.resource?.id)
+      .map(a => a.resource.id);
+
+    const destinationIdsForEnrichment = visibleFeed
+      .filter(a => a.resource?.type === 'Destination' && a.resource?.id)
+      .map(a => a.resource.id);
+
+    const experiencesMap = new Map();
+    if (experienceIdsForEnrichment.length > 0) {
+      const experiencesForEnrichment = await Experience.find({ _id: { $in: experienceIdsForEnrichment } })
+        .select('name')
+        .lean();
+      experiencesForEnrichment.forEach(exp => experiencesMap.set(exp._id.toString(), exp));
+    }
+
+    const destinationsMap = new Map();
+    if (destinationIdsForEnrichment.length > 0) {
+      const destinationsForEnrichment = await Destination.find({ _id: { $in: destinationIdsForEnrichment } })
+        .select('name')
+        .lean();
+      destinationsForEnrichment.forEach(dest => destinationsMap.set(dest._id.toString(), dest));
+    }
+
+    const enrichedFeed = visibleFeed.map((activity) => {
+      let resourceName = activity.resource?.name || 'Unnamed';
+      let resourceLink = null;
+      let targetName = activity.target?.name || null;
+
+      // For plan-related activities, derive the experience name + deep links
+      if (activity.resource?.type === 'Plan') {
+        const plan = plansMap.get(activity.resource.id?.toString());
+
+        if (plan && plan.experience) {
+          const recordedName = activity.resource?.name;
+          if (recordedName && typeof recordedName === 'string' && !isPlaceholderResourceName(recordedName)) {
+            resourceName = recordedName;
+          } else {
+            resourceName = plan.experience.name;
+          }
+
+          resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}`;
+
+          if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted' ||
+               activity.action === 'plan_item_note_added' || activity.action === 'plan_item_note_updated' ||
+               activity.action === 'plan_item_note_deleted') && activity.target && activity.target.id) {
+            try {
+              const itemId = activity.target.id.toString();
+              resourceLink = `/experiences/${plan.experience._id}#plan-${plan._id}-item-${itemId}`;
+            } catch (err) {
+              // ignore and fall back to plan-level link
+            }
+          }
+        } else if (activity.previousState && activity.previousState.experience) {
+          // Plan may have been deleted; recover from previousState
+          try {
+            const exp = activity.previousState.experience;
+            const expId = (typeof exp === 'object' && exp._id) ? exp._id.toString() : exp.toString();
+            const expName = (typeof exp === 'object' && exp.name) ? exp.name : activity.resource?.name || 'Experience';
+            resourceName = expName;
+            resourceLink = `/experiences/${expId}`;
+          } catch (err) {
+            // ignore
+          }
+        }
+      }
+
+      if (activity.resource?.type === 'Experience') {
+        if (isPlaceholderResourceName(resourceName)) {
+          const exp = experiencesMap.get(activity.resource.id?.toString());
+          if (exp?.name) resourceName = exp.name;
+        }
+        resourceLink = `/experiences/${activity.resource.id}`;
+      }
+
+      if (activity.resource?.type === 'Destination') {
+        if (isPlaceholderResourceName(resourceName)) {
+          const dest = destinationsMap.get(activity.resource.id?.toString());
+          if (dest?.name) resourceName = dest.name;
+        }
+        resourceLink = `/destinations/${activity.resource.id}`;
+      }
+
+      if (activity.resource?.type === 'User') {
+        resourceLink = `/profile/${activity.resource.id}`;
+      }
+
+      if ((activity.action === 'plan_item_completed' || activity.action === 'plan_item_uncompleted' ||
+           activity.action === 'plan_item_note_added' || activity.action === 'plan_item_note_updated' ||
+           activity.action === 'plan_item_note_deleted') && activity.target) {
+        targetName = activity.target.name;
+      }
+
+      if ((activity.action === 'permission_added' || activity.action === 'permission_removed' ||
+           activity.action === 'collaborator_added' || activity.action === 'collaborator_removed') &&
+          activity.target && activity.resource?.type === 'Plan') {
+        targetName = activity.target.name;
+      }
+
+      if (activity.action === 'follow_created' || activity.action === 'follow_removed') {
+        if (activity.target) {
+          resourceName = activity.target.name || 'User';
+          if (activity.target.id) {
+            resourceLink = `/profile/${activity.target.id}`;
+          }
+        }
+      }
+
+      if ((activity.action === 'cost_added' || activity.action === 'cost_updated' || activity.action === 'cost_deleted') &&
+          activity.metadata?.costTitle) {
+        if (activity.target?.type !== 'User' && activity.target?.name) {
+          targetName = activity.target.name;
+        } else {
+          targetName = activity.metadata.costTitle;
+        }
+      }
+
+      if (activity.metadata?.resourceLink) {
+        resourceLink = activity.metadata.resourceLink;
+      }
+
+      let actionText = formatActivityAction(activity.action);
+      if (activity.resource?.type === 'Destination') {
+        if (activity.action === 'permission_added') actionText = 'Favorited';
+        if (activity.action === 'permission_removed') actionText = 'Unfavorited';
+      }
+
+      return {
+        id: activity._id?.toString?.() || activity._id,
+        action: actionText,
+        actionType: activity.action,
+        item: resourceName,
+        targetItem: targetName,
+        link: resourceLink,
+        time: formatTimeAgo(activity.timestamp),
+        timestamp: activity.timestamp,
+        resourceType: activity.resource?.type,
+        actorId: activity.actor?._id?.toString?.(),
+        targetId: activity.target?.id?.toString?.(),
+        actorName: activity.actor?.name || null,
+        targetName: targetName || activity.target?.name || null
+      };
+    });
+
     res.json({
       success: true,
-      feed,
-      total,
+      feed: enrichedFeed,
+      total: totalCandidate,
       limit: parseInt(limit, 10),
       skip: parseInt(skip, 10),
       followingCount: followingIds.length

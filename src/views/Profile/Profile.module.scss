@@ -1629,3 +1629,20 @@
   justify-content: center;
   padding: var(--space-4) 0;
 }
+
+/* Activity Filter Dropdown - Matches Dashboard Plans filter style */
+.activityFilterDropdown {
+  display: flex;
+  justify-content: flex-end;
+
+  // Limit the width of the dropdown for cleaner appearance
+  > * {
+    width: 200px;
+  }
+
+  @media (max-width: 480px) {
+    > * {
+      width: 180px;
+    }
+  }
+}

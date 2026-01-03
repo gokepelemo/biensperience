@@ -15,6 +15,12 @@
   @include stack($space-4);
 }
 
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
 // ============================================================================
 // FORM GROUP - Consistent field wrapper
 // ============================================================================
@@ -39,6 +45,12 @@
 .formHelp {
   font-size: $font-size-xs;
   color: var(--color-text-muted);
+  margin-top: $space-1;
+}
+
+.fieldError {
+  font-size: $font-size-xs;
+  color: var(--color-danger);
   margin-top: $space-1;
 }
 
@@ -97,26 +109,29 @@
   @include breakpoint-max(sm) {
     width: 100%;
   }
-  
-  .input-group-text {
-    background: var(--color-bg-secondary);
-    border-right: none;
-    font-weight: $font-weight-semibold;
-    color: var(--color-primary);
-  }
-  
+
   input {
     border-left: none;
-    
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+
     &:focus {
       border-color: var(--color-primary);
       box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
-      
-      + .input-group-text {
-        border-color: var(--color-primary);
-      }
     }
   }
+}
+
+.amountPrefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 $space-3;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
 }
 
 // ============================================================================

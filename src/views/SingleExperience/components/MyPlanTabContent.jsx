@@ -2544,6 +2544,7 @@ export default function MyPlanTabContent({
       type: 'date',
       value: displayDate,
       icon: <FaCalendarAlt />,
+      className: 'plannedDateItem',
       // Tooltip shows full date when truncated, with note if using fallback
       tooltip: displayDate
         ? `${formatDateMetricCard(displayDate)}${isUsingFallbackDate ? ' (earliest)' : ''}`

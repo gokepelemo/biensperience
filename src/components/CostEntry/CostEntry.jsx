@@ -9,18 +9,16 @@
  */
 
 import { useState, useEffect, useMemo, useId } from 'react';
-import { Form } from 'react-bootstrap';
 import Modal from '../Modal/Modal';
 import { lang } from '../../lang.constants';
 import { getCurrencySymbol, getCurrencyDropdownOptions } from '../../utilities/currency-utils';
+import { Button, Form, FormGroup, FormLabel, FormControl, FormText } from '../../components/design-system';
 import {
   ACTIVITY_TYPES,
   ACTIVITY_CATEGORIES,
   getCostCategoryIcon
 } from '../../constants/activity-types';
 import styles from './CostEntry.module.scss';
-
-const { Label: FormLabel, Control: FormControl, Select: FormSelect } = Form;
 
 // Get currency options from centralized utility (sorted by popularity)
 const CURRENCIES = getCurrencyDropdownOptions({ format: 'codeAndName' });
@@ -228,22 +226,32 @@ export default function CostEntry({
     ? lang.current.button.saveChanges
     : lang.current.button.add;
 
+  const modalFooter = (
+    <div className={styles.modalFooter}>
+      <Button
+        variant="primary"
+        onClick={handleSubmit}
+        disabled={loading || !costData.title.trim()}
+      >
+        {submitText}
+      </Button>
+    </div>
+  );
+
   return (
     <Modal
       show={show}
       onClose={onHide}
       title={modalTitle}
       dialogClassName="responsive-modal-dialog"
-      onSubmit={handleSubmit}
-      submitText={submitText}
-      cancelText={lang.current.button.cancel}
+      footer={modalFooter}
+      showSubmitButton={false}
       loading={loading}
-      disableSubmit={!costData.title.trim()}
       scrollable
     >
-      <form className={styles.costEntryForm} id={formId}>
+      <Form className={styles.costEntryForm} id={formId} onSubmit={handleSubmit}>
         {/* Cost Title */}
-        <div className={styles.formGroup}>
+        <FormGroup className={styles.formGroup}>
           <FormLabel htmlFor={`${formId}-title`} className={styles.formLabel}>
             {costStrings.costTitle}
             <span className={styles.formRequired}>*</span>
@@ -254,24 +262,24 @@ export default function CostEntry({
             value={costData.title}
             onChange={handleChange('title')}
             placeholder={costStrings.costTitlePlaceholder}
-            isInvalid={!!errors.title}
             required
           />
           {errors.title && (
-            <Form.Control.Feedback type="invalid">
+            <FormText className={styles.fieldError}>
               {errors.title}
-            </Form.Control.Feedback>
+            </FormText>
           )}
-        </div>
+        </FormGroup>
 
         {/* Cost Amount with Currency */}
-        <div className={styles.formGroup}>
+        <FormGroup className={styles.formGroup}>
           <FormLabel htmlFor={`${formId}-cost`} className={styles.formLabel}>
             {costStrings.costAmount}
           </FormLabel>
           <div className={styles.costInputRow}>
             <div className={styles.currencySelect}>
-              <FormSelect
+              <FormControl
+                as="select"
                 id={`${formId}-currency`}
                 value={costData.currency}
                 onChange={handleChange('currency')}
@@ -282,10 +290,10 @@ export default function CostEntry({
                     {curr.label}
                   </option>
                 ))}
-              </FormSelect>
+              </FormControl>
             </div>
-            <div className={`input-group ${styles.amountInputWrapper}`}>
-              <span className="input-group-text">{currencySymbol}</span>
+            <div className={styles.amountInputWrapper}>
+              <span className={styles.amountPrefix} aria-hidden="true">{currencySymbol}</span>
               <FormControl
                 type="text"
                 inputMode="decimal"
@@ -295,19 +303,18 @@ export default function CostEntry({
                 onFocus={handleCostFocus}
                 onBlur={handleCostBlur}
                 placeholder={costStrings.costAmountPlaceholder}
-                isInvalid={!!errors.cost}
               />
             </div>
           </div>
           {errors.cost && (
-            <div className="invalid-feedback d-block">
+            <FormText className={styles.fieldError}>
               {errors.cost}
-            </div>
+            </FormText>
           )}
-        </div>
+        </FormGroup>
 
         {/* Description (optional) */}
-        <div className={styles.formGroup}>
+        <FormGroup className={styles.formGroup}>
           <FormLabel htmlFor={`${formId}-description`} className={styles.formLabel}>
             {costStrings.costDescription}
           </FormLabel>
@@ -320,16 +327,17 @@ export default function CostEntry({
             placeholder={costStrings.costDescriptionPlaceholder}
             style={{ resize: 'vertical', minHeight: '60px' }}
           />
-        </div>
+        </FormGroup>
 
         {/* Category and Date Row */}
         <div className={styles.categoryDateRow}>
           {/* Category */}
-          <div className={styles.formGroup}>
+          <FormGroup className={styles.formGroup}>
             <FormLabel htmlFor={`${formId}-category`} className={styles.formLabel}>
               {costStrings.category}
             </FormLabel>
-            <FormSelect
+            <FormControl
+              as="select"
               id={`${formId}-category`}
               value={costData.category}
               onChange={handleChange('category')}
@@ -350,11 +358,11 @@ export default function CostEntry({
                   </optgroup>
                 );
               })}
-            </FormSelect>
-          </div>
+            </FormControl>
+          </FormGroup>
 
           {/* Date */}
-          <div className={styles.formGroup}>
+          <FormGroup className={styles.formGroup}>
             <FormLabel htmlFor={`${formId}-date`} className={styles.formLabel}>
               {costStrings.costDate}
             </FormLabel>
@@ -365,19 +373,20 @@ export default function CostEntry({
               onChange={handleChange('date')}
               aria-label={costStrings.costDate}
             />
-            <span className={styles.formHelp}>
+            <FormText className={styles.formHelp} muted>
               {costStrings.costDateHelp}
-            </span>
-          </div>
+            </FormText>
+          </FormGroup>
         </div>
 
         {/* Paid for (Collaborator) */}
         {collaborators.length > 0 && (
-          <div className={styles.formGroup}>
+          <FormGroup className={styles.formGroup}>
             <FormLabel htmlFor={`${formId}-collaborator`} className={styles.formLabel}>
               {costStrings.paidFor || 'Paid for'}
             </FormLabel>
-            <FormSelect
+            <FormControl
+              as="select"
               id={`${formId}-collaborator`}
               value={costData.collaborator}
               onChange={handleChange('collaborator')}
@@ -388,23 +397,24 @@ export default function CostEntry({
                   {collab.name || collab.email}
                 </option>
               ))}
-            </FormSelect>
+            </FormControl>
             {/* Only show "Shared cost" helper when no collaborator is selected */}
             {!costData.collaborator && (
-              <span className={styles.formHelp}>
+              <FormText className={styles.formHelp} muted>
                 {costStrings.sharedCost}
-              </span>
+              </FormText>
             )}
-          </div>
+          </FormGroup>
         )}
 
         {/* For Plan Item */}
         {planItems.length > 0 && (
-          <div className={styles.formGroup}>
+          <FormGroup className={styles.formGroup}>
             <FormLabel htmlFor={`${formId}-planItem`} className={styles.formLabel}>
               {costStrings.assignedToPlanItem}
             </FormLabel>
-            <FormSelect
+            <FormControl
+              as="select"
               id={`${formId}-planItem`}
               value={costData.plan_item}
               onChange={handleChange('plan_item')}
@@ -415,15 +425,15 @@ export default function CostEntry({
                   {item.text}
                 </option>
               ))}
-            </FormSelect>
+            </FormControl>
             {!costData.plan_item && (
-              <span className={styles.formHelp}>
+              <FormText className={styles.formHelp} muted>
                 {costStrings.generalCost}
-              </span>
+              </FormText>
             )}
-          </div>
+          </FormGroup>
         )}
-      </form>
+      </Form>
     </Modal>
   );
 }

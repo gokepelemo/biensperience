@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { logger } from '../utilities/logger';
 
 /**
  * Consolidated modal state manager for complex views with multiple modals.
@@ -21,7 +22,7 @@ export function useModalManager() {
    */
   const openModal = useCallback((modalName) => {
     if (!modalName) {
-      console.warn('[useModalManager] openModal called with invalid modal name:', modalName);
+      logger.warn('[useModalManager] openModal called with invalid modal name', { modalName });
       return;
     }
     setActiveModal(modalName);
@@ -62,6 +63,7 @@ export const MODAL_NAMES = {
   DELETE_PLAN_INSTANCE_ITEM: 'deletePlanInstanceItem',
   ADD_EDIT_PLAN_ITEM: 'addEditPlanItem',
   PLAN_ITEM_DETAILS: 'planItemDetails',
+  REQUEST_PLAN_ACCESS: 'requestPlanAccess',
   INLINE_COST_ENTRY: 'inlineCostEntry',
   PHOTO_VIEWER: 'photoViewer',
   PHOTO_UPLOAD: 'photoUpload',

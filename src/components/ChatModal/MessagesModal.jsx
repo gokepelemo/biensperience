@@ -20,6 +20,7 @@ import ChannelTitle from './ChannelTitle';
 
 import { getOrCreateDmChannel } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
+import { broadcastEvent } from '../../utilities/event-bus';
 
 /**
  * Get display name for channel list/sidebar (shows just other user's name for DMs)
@@ -500,6 +501,17 @@ export default function MessagesModal({
                 await nextActive.watch();
                 // Add the newly created DM channel to the channels list so it appears immediately
                 setChannels(prevChannels => [nextActive, ...prevChannels]);
+
+                // Emit event for new channel created
+                try {
+                  broadcastEvent('channel:created', {
+                    channel: { id: channelId, type: 'dm', targetUserId },
+                    channelId
+                  });
+                  logger.debug('[MessagesModal] Channel created event dispatched', { channelId });
+                } catch (eventErr) {
+                  // Silently ignore event emission errors
+                }
               }
             } catch (e) {
               // fall through to fallback below
@@ -557,14 +569,26 @@ export default function MessagesModal({
 
   const handleRemoveChannel = useCallback((e, channel) => {
     e.stopPropagation();
+    const channelId = channel?.id || channel?.cid;
     try {
       // Remove from local channels list so it disappears from the sidebar
-      setChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== (channel?.id || channel?.cid)));
+      setChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== channelId));
       // If the removed channel was active, switch to the first available channel
       if (activeChannel?.id === channel?.id) {
-        const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== (channel?.id || channel?.cid));
+        const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== channelId);
         const next = remaining.length > 0 ? remaining[0] : null;
         setActiveChannel(next);
+      }
+
+      // Emit event for channel removed
+      try {
+        broadcastEvent('channel:removed', {
+          channelId,
+          channelType: channelId?.startsWith('dm_') ? 'dm' : 'group'
+        });
+        logger.debug('[MessagesModal] Channel removed event dispatched', { channelId });
+      } catch (eventErr) {
+        // Silently ignore event emission errors
       }
     } catch (err) {
       logger.error('[MessagesModal] Failed to remove channel', err);

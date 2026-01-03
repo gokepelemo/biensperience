@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle, FaUserMinus } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle, FaUserMinus, FaList, FaUserFriends } from "react-icons/fa";
 import { getSocialNetwork, getLinkIcon, getLinkDisplayText, buildLinkUrl } from "../../utilities/social-links";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
@@ -44,6 +44,7 @@ import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowRel
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
+import { SearchableSelect } from "../../components/FormField";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -85,6 +86,9 @@ export default function Profile() {
   const [followRelationship, setFollowRelationship] = useState(null); // { isFollowing, isFollowedBy, isMutual }
   const [followButtonHovered, setFollowButtonHovered] = useState(false);
 
+  // Activity tab state
+  const [activityFeedType, setActivityFeedType] = useState('own'); // 'own' | 'following'
+
   // Follows tab state
   const [followsFilter, setFollowsFilter] = useState('followers'); // 'followers' | 'following'
   const [followsList, setFollowsList] = useState([]);
@@ -119,6 +123,7 @@ export default function Profile() {
       setCreatedExperiencesMeta(null);
       setFollowCounts({ followers: 0, following: 0 });
       setIsFollowing(false);
+      setActivityFeedType('own');
       setFollowsList([]);
       setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
       setFollowRelationship(null);
@@ -1839,7 +1844,28 @@ export default function Profile() {
           <Col lg={12}>
             {/* Render active tab content using switch pattern for mutual exclusivity */}
             {activeTab === 'activity' && isOwnProfile && (
-              <ActivityFeed userId={userId} />
+              <>
+                <ActivityFeed
+                  userId={userId}
+                  feedType={activityFeedType}
+                  rightControls={(
+                    <div className={styles.activityFilterDropdown}>
+                      <SearchableSelect
+                        options={[
+                          { value: 'own', label: lang.current.profile?.activityFilterOwn || 'My Activity', icon: FaList },
+                          { value: 'following', label: lang.current.profile?.activityFilterFollowing || 'Following', icon: FaUserFriends }
+                        ]}
+                        value={activityFeedType}
+                        onChange={setActivityFeedType}
+                        placeholder={lang.current.profile?.filterActivity || 'Filter activity'}
+                        searchable={false}
+                        size="md"
+                        aria-label={lang.current.profile?.filterActivity || 'Filter activity'}
+                      />
+                    </div>
+                  )}
+                />
+              </>
             )}
 
             {activeTab === 'follows' && (

@@ -23,6 +23,13 @@ const { createSessionForUser } = require('../../utilities/session-middleware');
  */
 router.get('/csrf-token', (req, res) => {
   try {
+    // Never cache CSRF tokens. Some browsers may otherwise revalidate and receive 304,
+    // which breaks clients expecting a JSON body.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+
     const generateToken = req.app.get('csrfTokenGenerator');
 
     if (!generateToken || typeof generateToken !== 'function') {

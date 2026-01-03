@@ -83,6 +83,16 @@ export function getPlanById(planId) {
 }
 
 /**
+ * Request access to a plan the user cannot view
+ * POST /api/plans/:id/access-requests
+ */
+export function requestPlanAccess(planId, message = '') {
+  return sendRequest(`${BASE_URL}/${planId}/access-requests`, 'POST', {
+    message
+  });
+}
+
+/**
  * Create a new plan for an experience
  * @param {string} experienceId - Experience ID
  * @param {Date|string|null} plannedDate - Planned date for the experience

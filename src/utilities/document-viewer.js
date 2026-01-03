@@ -191,10 +191,13 @@ export async function convertDocumentForViewing(document) {
 
   switch (docType) {
     case 'PDF':
-      // PDFs can be viewed directly with PDF.js or iframe
+      // PDFs are viewed via PDF.js/react-pdf.
+      // Important: use a blob URL derived from the already-fetched response.
+      // This prevents a second network fetch (which can fail due to CORS, signed URL quirks,
+      // or misconfigured relative URLs) and keeps viewing reliable.
       return {
         type: 'pdf',
-        url: url || URL.createObjectURL(blob),
+        url: URL.createObjectURL(blob),
         fileName
       };
 

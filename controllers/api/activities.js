@@ -54,16 +54,38 @@ async function getResourceHistory(req, res) {
       }
     }
 
-    const options = {
-      action,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      limit: limit ? parseInt(limit, 10) : 100
+    // IMPORTANT PRIVACY RULE:
+    // Non-super-admin users should only see activities where they are the actor or target.
+    // Even if they own/collaborate on a resource, they should not see other users' activity
+    // unless it directly involves them.
+    const query = {
+      'resource.id': new mongoose.Types.ObjectId(resourceId)
     };
 
-    const history = await getHistory(resourceId, options);
+    if (action) {
+      query.action = action;
+    }
 
-    res.json({
+    if (startDate || endDate) {
+      query.timestamp = {};
+      if (startDate) query.timestamp.$gte = new Date(startDate);
+      if (endDate) query.timestamp.$lte = new Date(endDate);
+    }
+
+    if (!isSuperAdmin(req.user)) {
+      query.$or = [
+        { 'actor._id': req.user._id },
+        { 'target.id': req.user._id }
+      ];
+    }
+
+    const limitNum = limit ? parseInt(limit, 10) : 100;
+    const history = await Activity.find(query)
+      .sort({ timestamp: -1 })
+      .limit(limitNum)
+      .lean();
+
+    return res.json({
       success: true,
       count: history.length,
       history

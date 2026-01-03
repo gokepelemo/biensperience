@@ -67,8 +67,15 @@
   }
 
   .metricValue {
-    font-size: $font-size-xl;
+    font-size: $font-size-lg;
     font-weight: $font-weight-bold;
+  }
+
+  // Planned Date tends to be the longest value; shrink more to avoid ellipsis
+  :global(.plannedDateItem) {
+    .metricValue {
+      font-size: $font-size-base;
+    }
   }
 
   // Smaller progress bar in compact mode - full width
@@ -105,7 +112,13 @@
     }
 
     .metricValue {
-      font-size: $font-size-lg;
+      font-size: $font-size-base;
+    }
+
+    :global(.plannedDateItem) {
+      .metricValue {
+        font-size: $font-size-sm;
+      }
     }
   }
 }

@@ -5,6 +5,25 @@
  * token-based styling without duplicating large blocks of CSS.
  */
 
+@mixin streamChatOverlayZIndex($scope) {
+  /*
+   * Ensure Stream Chat popouts/menus (message actions, reaction selector, etc.)
+   * render above surrounding UI (notably within modals and tabbed panes).
+   *
+   * We prefer design-token z-index values to avoid hardcoding.
+   */
+  #{$scope} :global(.str-chat__message-actions-box),
+  #{$scope} :global(.str-chat__message-actions-list),
+  #{$scope} :global(.str-chat__reaction-selector),
+  #{$scope} :global(.str-chat__reaction-selector-content),
+  #{$scope} :global(.str-chat__emoji-picker-container),
+  #{$scope} :global(.str-chat__tooltip),
+  #{$scope} :global(.str-chat__dropdown),
+  #{$scope} :global(.str-chat__modal) {
+    z-index: var(--z-index-tooltip) !important;
+  }
+}
+
 @mixin streamChatTokenAlignment($scope) {
   /* Stream Chat (scoped) token alignment */
   #{$scope} :global(.str-chat),

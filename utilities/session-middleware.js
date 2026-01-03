@@ -147,6 +147,13 @@ async function manageSessionId(req, res, next) {
     // Attach session ID to request
     req.sessionId = validSessionId;
 
+    // Ensure session ID is present on ALL responses for authenticated requests.
+    // Some controllers use `res.send` (e.g., successResponse) instead of `res.json`,
+    // so we set it eagerly and also wrap common response methods for safety.
+    if (typeof res.setHeader === 'function' && req.sessionId) {
+      res.setHeader(SESSION_ID_HEADER, req.sessionId);
+    }
+
     // Check if session is nearing expiry and add warning header
     if (req.user && user && user.sessionExpiresAt) {
       const now = Date.now();
@@ -164,14 +171,26 @@ async function manageSessionId(req, res, next) {
       }
     }
 
-    // Intercept res.json to add session ID header before sending
-    const originalJson = res.json.bind(res);
-    res.json = function(data) {
-      if (req.sessionId) {
-        res.setHeader(SESSION_ID_HEADER, req.sessionId);
-      }
-      return originalJson(data);
-    };
+    // Intercept res.json/res.send to ensure headers are set before sending
+    if (typeof res.json === 'function') {
+      const originalJson = res.json.bind(res);
+      res.json = function(data) {
+        if (req.sessionId && typeof res.setHeader === 'function') {
+          res.setHeader(SESSION_ID_HEADER, req.sessionId);
+        }
+        return originalJson(data);
+      };
+    }
+
+    if (typeof res.send === 'function') {
+      const originalSend = res.send.bind(res);
+      res.send = function(body) {
+        if (req.sessionId && typeof res.setHeader === 'function') {
+          res.setHeader(SESSION_ID_HEADER, req.sessionId);
+        }
+        return originalSend(body);
+      };
+    }
     
     next();
   } catch (error) {

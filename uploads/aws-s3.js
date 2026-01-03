@@ -24,6 +24,19 @@ const mime = require("mime-types");
 
 const sanitizeFileName = require('./sanitize-filename');
 
+// Resolve uploads directories relative to this repo, not the process CWD.
+// PM2/Bun can run with unexpected working directories which would break
+// allowlists that rely on './uploads'.
+const REPO_ROOT = path.resolve(__dirname, '..');
+const UPLOADS_ROOT = path.resolve(REPO_ROOT, 'uploads');
+
+function getS3UploadTimeoutMs() {
+  const raw = process.env.S3_UPLOAD_TIMEOUT_MS;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  // Default: 5 minutes. Long enough for 50MB on slow links, but not infinite.
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5 * 60 * 1000;
+}
+
 /**
  * Upload a file to S3 bucket
  * @param {string} file - Path to the file to upload
@@ -33,7 +46,7 @@ const sanitizeFileName = require('./sanitize-filename');
  * @param {boolean} options.protected - If true, upload to protected bucket (default: false)
  * @returns {Promise<Object>} Upload result with Location, key, bucket, isProtected
  */
-const s3Upload = function (file, originalName, newName, options = {}) {
+const s3Upload = async function (file, originalName, newName, options = {}) {
   const { protected: isProtected = false } = options;
 
   // Validate file path to prevent path traversal attacks
@@ -47,25 +60,17 @@ const s3Upload = function (file, originalName, newName, options = {}) {
     throw new Error('Invalid file path: null bytes not allowed');
   }
 
-  // Normalize the path to handle .. sequences
-  const normalizedPath = path.normalize(file);
-
-  // Reject obvious traversal sequences. Absolute paths are allowed as long as they
-  // resolve within the allowed upload directories (validated below).
-  if (normalizedPath.startsWith('..')) {
-    backendLogger.error('S3 upload blocked: suspicious path pattern', { original: file, normalized: normalizedPath });
-    throw new Error('Invalid file path: path traversal detected');
-  }
-
-  // Resolve the path and ensure it's within the expected directories
-  const resolvedPath = path.resolve(normalizedPath);
+  // Resolve the path and ensure it's within the expected directories.
+  // Multer commonly provides absolute paths; those are allowed as long as they
+  // resolve inside our uploads directories.
+  const resolvedPath = path.resolve(file);
 
   // Allowed directories for uploads
   const allowedDirs = [
-    path.resolve('./uploads'),
-    path.resolve('./uploads/documents'),
-    path.resolve('./uploads/images'),
-    path.resolve('./uploads/temp')
+    UPLOADS_ROOT,
+    path.resolve(UPLOADS_ROOT, 'documents'),
+    path.resolve(UPLOADS_ROOT, 'images'),
+    path.resolve(UPLOADS_ROOT, 'temp')
   ];
 
   // Check if the resolved path is within any allowed directory
@@ -84,7 +89,7 @@ const s3Upload = function (file, originalName, newName, options = {}) {
 
   if (!isAllowed) {
     backendLogger.error('S3 upload path validation failed', { resolvedPath, allowedDirs, originalPath: file });
-    throw new Error('Invalid file path - path traversal detected');
+    throw new Error('Invalid file path: access denied');
   }
 
   // Additional security: ensure the file actually exists and is a regular file
@@ -134,25 +139,33 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   const extension = mime.extension(contentType);
 
   // Final security check: ensure file path hasn't changed since validation
-  const finalResolvedPath = path.resolve(normalizedPath);
+  const finalResolvedPath = path.resolve(file);
   if (finalResolvedPath !== resolvedPath) {
     backendLogger.error('File path changed during processing', { original: resolvedPath, final: finalResolvedPath });
     throw new Error('File path validation failed');
   }
 
-  // Create read stream with additional validation
-  let stream;
+  // Read file content.
+  // Under Bun, Node.js stream compatibility can be imperfect for AWS SDK v3,
+  // and we've seen uploads hang indefinitely when using fs.createReadStream().
+  // Given our document limits (<= 50MB) and safety checks (<= 100MB), using a
+  // Buffer is an acceptable tradeoff for reliability.
+  let body;
   try {
-    stream = fs.createReadStream(finalResolvedPath);
-  } catch (streamErr) {
-    backendLogger.error('Failed to create file stream', { path: finalResolvedPath, error: streamErr.message });
+    if (typeof Bun !== 'undefined') {
+      body = await fs.promises.readFile(finalResolvedPath);
+    } else {
+      body = fs.createReadStream(finalResolvedPath);
+    }
+  } catch (readErr) {
+    backendLogger.error('Failed to read upload file', { path: finalResolvedPath, error: readErr.message });
     throw new Error('Unable to read file');
   }
   const key = `${sanitizedName}.${extension}`;
   const params = {
     Bucket: bucketName,
     Key: key,
-    Body: stream,
+    Body: body,
     ContentType: contentType,
   };
 
@@ -160,7 +173,36 @@ const s3Upload = function (file, originalName, newName, options = {}) {
   return (async () => {
     try {
       const command = new PutObjectCommand(params);
-      const data = await s3Client.send(command);
+
+      // Ensure S3 uploads don't hang forever (network issues, SDK/runtime quirks, etc.).
+      const uploadTimeoutMs = getS3UploadTimeoutMs();
+      const abortController = new AbortController();
+      let timeoutId;
+
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          try {
+            abortController.abort();
+          } catch (e) {
+            // ignore
+          }
+          const err = new Error('S3 upload timed out');
+          err.code = 'S3_UPLOAD_TIMEOUT';
+          reject(err);
+        }, uploadTimeoutMs);
+      });
+
+      let data;
+      try {
+        // Some runtime/SDK combinations (notably Bun) may not reliably honor abortSignal.
+        // Promise.race ensures we still return control to the caller.
+        data = await Promise.race([
+          s3Client.send(command, { abortSignal: abortController.signal }),
+          timeoutPromise
+        ]);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
 
       // AWS SDK v3 doesn't return Location, so construct it manually
       const region = process.env.AWS_REGION || "us-east-1";

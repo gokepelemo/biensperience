@@ -51,9 +51,14 @@
     border-radius: var(--radius-sm);
   }
 
+  /* Mobile + tablet: increase legibility */
+  @media (max-width: 991px) {
+    font-size: var(--font-size-base);
+  }
+
   @media (max-width: 768px) {
     padding: var(--space-3);
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-base);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -105,6 +110,10 @@
 
 .tabLabel {
   line-height: 1;
+
+  @media (max-width: 991px) {
+    line-height: 1.15;
+  }
 }
 
 /* Dropdown container for multiple plans */

@@ -7,6 +7,13 @@ const { successResponse, errorResponse } = require('../../utilities/controller-h
 const backendLogger = require('../../utilities/backend-logger');
 const { fetchRates, calculateTotal, convertCostsToTarget } = require('../../utilities/currency-utils');
 
+function isPlaceholderResourceName(name) {
+  if (!name || typeof name !== 'string') return true;
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return true;
+  return normalized === 'plan' || normalized === 'unnamed' || normalized.startsWith('unnamed ');
+}
+
 /**
  * Get dashboard data for the authenticated user
  * Optimized with efficient MongoDB aggregation queries
@@ -257,6 +264,14 @@ async function getRecentActivity(userId, options = {}) {
       .filter(a => a.resource?.type === 'Plan' && a.resource?.id)
       .map(a => a.resource.id);
 
+    const experienceIds = activities
+      .filter(a => a.resource?.type === 'Experience' && a.resource?.id)
+      .map(a => a.resource.id);
+
+    const destinationIds = activities
+      .filter(a => a.resource?.type === 'Destination' && a.resource?.id)
+      .map(a => a.resource.id);
+
     // Single query to fetch all plans with populated experiences
     const plansMap = new Map();
     if (planIds.length > 0) {
@@ -264,6 +279,23 @@ async function getRecentActivity(userId, options = {}) {
         .populate('experience', 'name')
         .lean();
       plans.forEach(plan => plansMap.set(plan._id.toString(), plan));
+    }
+
+    // Batch fetch experiences/destinations to recover missing names
+    const experiencesMap = new Map();
+    if (experienceIds.length > 0) {
+      const experiences = await Experience.find({ _id: { $in: experienceIds } })
+        .select('name')
+        .lean();
+      experiences.forEach(exp => experiencesMap.set(exp._id.toString(), exp));
+    }
+
+    const destinationsMap = new Map();
+    if (destinationIds.length > 0) {
+      const destinations = await Destination.find({ _id: { $in: destinationIds } })
+        .select('name')
+        .lean();
+      destinations.forEach(dest => destinationsMap.set(dest._id.toString(), dest));
     }
 
     // Enrich activities synchronously using the pre-fetched plans map
@@ -279,7 +311,7 @@ async function getRecentActivity(userId, options = {}) {
         if (plan && plan.experience) {
           // Prefer a meaningful plan name when present
           const recordedName = activity.resource?.name;
-          if (recordedName && typeof recordedName === 'string' && recordedName.trim().toLowerCase() !== 'plan') {
+          if (recordedName && typeof recordedName === 'string' && !isPlaceholderResourceName(recordedName)) {
             resourceName = recordedName;
           } else {
             resourceName = plan.experience.name;
@@ -317,12 +349,25 @@ async function getRecentActivity(userId, options = {}) {
 
       // For experience activities
       if (activity.resource?.type === 'Experience') {
+        if (isPlaceholderResourceName(resourceName)) {
+          const exp = experiencesMap.get(activity.resource.id?.toString());
+          if (exp?.name) resourceName = exp.name;
+        }
         resourceLink = `/experiences/${activity.resource.id}`;
       }
 
       // For destination activities
       if (activity.resource?.type === 'Destination') {
+        if (isPlaceholderResourceName(resourceName)) {
+          const dest = destinationsMap.get(activity.resource.id?.toString());
+          if (dest?.name) resourceName = dest.name;
+        }
         resourceLink = `/destinations/${activity.resource.id}`;
+      }
+
+      // For user activities
+      if (activity.resource?.type === 'User') {
+        resourceLink = `/profile/${activity.resource.id}`;
       }
 
       // For plan item actions, show both the plan (experience) and the item

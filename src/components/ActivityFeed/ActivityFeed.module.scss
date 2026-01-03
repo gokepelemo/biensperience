@@ -10,11 +10,11 @@
   padding: $space-4 0;
 }
 
-/* Filter Pills Row */
-.filterPills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+/* Filter header row (center pills + right controls) */
+.filterHeader {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   gap: $space-2;
   padding-bottom: $space-4;
   margin-bottom: $space-4;
@@ -24,13 +24,41 @@
     border-bottom-color: var(--color-border-dark);
   }
 
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: $space-3;
+  }
+}
+
+.filterLeftSpacer {
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+.filterRight {
+  display: flex;
+  justify-content: flex-end;
+
+  @media (max-width: 768px) {
+    justify-content: center;
+  }
+}
+
+/* Filter pills container */
+.filterPills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2;
+
   /* On very small screens, allow horizontal scroll if needed */
   @media (max-width: 480px) {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 0 $space-2 $space-2;
-    margin-bottom: $space-3;
+    padding: 0 $space-2;
     gap: $space-1;
 
     /* Show scrollbar on mobile for discoverability */

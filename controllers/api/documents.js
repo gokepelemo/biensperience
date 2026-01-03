@@ -14,6 +14,9 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const slugify = require('slugify');
+const mime = require('mime-types');
+const sanitizeFileName = require('../../uploads/sanitize-filename');
 
 const Document = require('../../models/document');
 const Plan = require('../../models/plan');
@@ -194,6 +197,16 @@ async function uploadDocument(req, res) {
     let extractedText = '';
     let processingResult = null;
 
+    const ALLOWED_PROCESSING_METHODS = new Set([
+      'tesseract-ocr',
+      'llm-vision',
+      'pdf-parse',
+      'mammoth',
+      'direct-read',
+      'placeholder',
+      'failed'
+    ]);
+
     try {
       const extractionResult = await extractText(localFilePath, req.file.mimetype, {
         language: req.body.language || 'eng',
@@ -213,6 +226,15 @@ async function uploadDocument(req, res) {
         processedAt: new Date(),
         warning: extractionResult.metadata.warning
       };
+
+      if (processingResult.method && !ALLOWED_PROCESSING_METHODS.has(processingResult.method)) {
+        const originalMethod = processingResult.method;
+        processingResult.method = 'failed';
+        processingResult.error = processingResult.error || `Unsupported processing method: ${originalMethod}`;
+        processingResult.warning = processingResult.warning
+          ? `${processingResult.warning}; normalized unsupported method: ${originalMethod}`
+          : `Normalized unsupported method: ${originalMethod}`;
+      }
 
       backendLogger.debug('[Document] Text extracted', {
         method: processingResult.method,
@@ -264,12 +286,20 @@ async function uploadDocument(req, res) {
     // - documents/ for PDF, Word, Text files
     // - images/ for images uploaded as documents for processing
     const timestamp = Date.now();
-    const sanitizedName = path.basename(req.file.originalname).replace(/[^a-zA-Z0-9.-]/g, '_');
+    // NOTE: s3Upload() appends the extension derived from the MIME type.
+    // If we include the extension in `newName`, we end up with keys like
+    // `.../file.pdf.pdf` and then mistakenly store a mismatched `s3Key`.
+    // So we pass a basename WITHOUT extension and then persist the actual
+    // key returned by s3Upload().
+    const originalExt = path.extname(req.file.originalname);
+    const originalBase = path.basename(req.file.originalname, originalExt);
+    const sanitizedBase = String(originalBase).replace(/[^a-zA-Z0-9.-]/g, '_');
     const s3Prefix = validation.type === 'image' ? 'images' : 'documents';
-    const s3Key = `${s3Prefix}/${req.user._id}/${timestamp}-${sanitizedName}`;
+    const s3KeyBase = `${s3Prefix}/${req.user._id}/${timestamp}-${sanitizedBase}`;
 
     // Upload to protected bucket - documents require signed URLs to access
-    const uploadResult = await s3Upload(localFilePath, req.file.originalname, s3Key, { protected: true });
+    const uploadResult = await s3Upload(localFilePath, req.file.originalname, s3KeyBase, { protected: true });
+    const s3Key = uploadResult.key;
     const s3Url = uploadResult.Location;
 
     backendLogger.info('[Document] Uploaded to S3', { s3Url, s3Key });
@@ -917,13 +947,37 @@ async function getDocumentPreviewUrl(req, res) {
       return res.status(403).json({ error: 'This document is private' });
     }
 
-    // Generate signed URL for the protected document
-    // URL is valid for 1 hour (3600 seconds)
-    const signedUrl = await s3GetSignedUrl(document.s3Key, {
+    // Generate signed URL for the protected document.
+    // URL is valid for 1 hour (3600 seconds).
+    // Important: signing does NOT validate object existence. If older records
+    // stored a non-normalized key (e.g., uppercase or pre-slugify), S3 will
+    // return 404 when the signed URL is used. Normalize to match our uploader.
+    let keyToSign = normalizeS3KeyForSigning(document);
+    let signedUrl;
+
+    signedUrl = await s3GetSignedUrl(keyToSign, {
       protected: document.isProtected,
       bucket: document.s3Bucket,
       expiresIn: 3600
     });
+
+    // Best-effort repair: persist normalized key so future calls are consistent.
+    // This does not change the S3 object; it only aligns DB metadata.
+    if (document.s3Key !== keyToSign) {
+      try {
+        document.s3Key = keyToSign;
+        await document.save();
+        backendLogger.info('[Document] Normalized stored s3Key for preview', {
+          documentId: document._id,
+          normalizedKey: keyToSign
+        });
+      } catch (repairErr) {
+        backendLogger.warn('[Document] Failed to persist normalized s3Key', {
+          documentId: document._id,
+          error: repairErr.message
+        });
+      }
+    }
 
     backendLogger.info('[Document] Preview URL generated', {
       documentId: document._id,
@@ -943,6 +997,49 @@ async function getDocumentPreviewUrl(req, res) {
     });
     res.status(500).json({ error: 'Failed to get document preview URL' });
   }
+}
+
+/**
+ * Normalize a stored S3 key to match the uploader behavior in uploads/aws-s3.js:
+ * - preserves directory structure
+ * - slugifies the final filename segment with lower-case
+ * - ensures a single extension based on the document MIME type / filename
+ */
+function normalizeS3KeyForSigning(document) {
+  const rawKey = document?.s3Key;
+  if (!rawKey || typeof rawKey !== 'string') return rawKey;
+
+  const parts = rawKey.split('/').filter(Boolean);
+  if (parts.length === 0) return rawKey;
+
+  const last = parts[parts.length - 1];
+
+  const extFromName = document?.originalFilename
+    ? path.extname(document.originalFilename).replace('.', '').toLowerCase()
+    : '';
+  const extFromMime = document?.mimeType ? String(mime.extension(document.mimeType) || '').toLowerCase() : '';
+  const ext = extFromName || extFromMime;
+
+  // Strip one or more occurrences of the extension (handles accidental double extensions)
+  let base = last;
+  if (ext) {
+    const suffix = `.${ext}`;
+    let baseLower = base.toLowerCase();
+    while (base && baseLower.endsWith(suffix) && base.length > suffix.length) {
+      base = base.slice(0, -suffix.length);
+      baseLower = base.toLowerCase();
+    }
+  } else {
+    // No known extension: remove the last extension-like suffix, if present
+    const extGuess = path.extname(base);
+    if (extGuess) base = base.slice(0, -extGuess.length);
+  }
+
+  const normalizedFileBase = sanitizeFileName(slugify(base, { lower: true }));
+  const normalizedLast = ext ? `${normalizedFileBase}.${ext}` : normalizedFileBase;
+
+  parts[parts.length - 1] = normalizedLast;
+  return parts.join('/');
 }
 
 // ============================================

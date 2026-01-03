@@ -29,6 +29,7 @@ export default function SearchableSelect({
   options = [],
   value,
   onChange,
+  multiple = false,
   placeholder = lang.current.searchableSelect.defaultPlaceholder,
   searchPlaceholder = lang.current.searchableSelect.searchPlaceholder,
   searchable = true,
@@ -55,8 +56,23 @@ export default function SearchableSelect({
 
   const isMobileOrTablet = typeof window !== 'undefined' && window.innerWidth <= 767; // breakpoint-md - 1
 
+  const selectedValues = useMemo(() => {
+    if (!multiple) return value;
+    if (Array.isArray(value)) return value;
+    return [];
+  }, [multiple, value]);
+
+  const selectedOptions = useMemo(() => {
+    if (!multiple) return [];
+    const valueSet = new Set(selectedValues);
+    return options.filter(opt => valueSet.has(opt.value));
+  }, [multiple, options, selectedValues]);
+
   // Find selected option
-  const selectedOption = options.find(opt => opt.value === value);
+  const selectedOption = useMemo(() => {
+    if (multiple) return null;
+    return options.find(opt => opt.value === value);
+  }, [multiple, options, value]);
 
   // Build trie filter index when options change
   const trieFilter = useMemo(() => {
@@ -234,9 +250,20 @@ export default function SearchableSelect({
   }, [highlightedIndex, isOpen]);
 
   const handleSelect = (option) => {
-    onChange(option.value);
-    setIsOpen(false);
-    setSearchQuery('');
+    if (!multiple) {
+      onChange(option.value);
+      setIsOpen(false);
+      setSearchQuery('');
+      return;
+    }
+
+    const next = new Set(selectedValues);
+    if (next.has(option.value)) {
+      next.delete(option.value);
+    } else {
+      next.add(option.value);
+    }
+    onChange(Array.from(next));
   };
 
   const handleToggle = () => {
@@ -267,7 +294,18 @@ export default function SearchableSelect({
     >
       {/* Hidden native select for form submission */}
       {name && (
-        <input type="hidden" name={name} value={value || ''} />
+        multiple ? (
+          (Array.isArray(selectedValues) ? selectedValues : []).map((v) => (
+            <input
+              key={v}
+              type="hidden"
+              name={name.endsWith('[]') ? name : `${name}[]`}
+              value={v}
+            />
+          ))
+        ) : (
+          <input type="hidden" name={name} value={value || ''} />
+        )
       )}
 
       {/* Trigger button */}
@@ -283,7 +321,19 @@ export default function SearchableSelect({
         aria-describedby={ariaDescribedBy}
       >
         <span className={styles.triggerContent}>
-          {selectedOption ? (
+          {multiple ? (
+            selectedOptions.length > 0 ? (
+              <>
+                <span className={styles.triggerLabel}>
+                  {selectedOptions.length === 1
+                    ? selectedOptions[0].label
+                    : `${selectedOptions[0].label} +${selectedOptions.length - 1}`}
+                </span>
+              </>
+            ) : (
+              <span className={styles.placeholder}>{placeholder}</span>
+            )
+          ) : selectedOption ? (
             <>
               {selectedOption.icon && (
                 <span className={styles.optionIcon}>
@@ -332,6 +382,7 @@ export default function SearchableSelect({
               ref={listRef}
               className={styles.optionsList}
               role="listbox"
+              aria-multiselectable={multiple || undefined}
               aria-activedescendant={filteredOptions[highlightedIndex]?.value}
             >
               {filteredOptions.length === 0 ? (
@@ -341,9 +392,9 @@ export default function SearchableSelect({
                   <li
                     key={option.value}
                     data-index={index}
-                    className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${option.value === value ? styles.selected : ''}`}
+                    className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${(multiple ? selectedValues.includes(option.value) : option.value === value) ? styles.selected : ''}`}
                     role="option"
-                    aria-selected={option.value === value}
+                    aria-selected={(multiple ? selectedValues.includes(option.value) : option.value === value)}
                     onClick={() => handleSelect(option)}
                     onMouseEnter={() => setHighlightedIndex(index)}
                   >
@@ -356,7 +407,7 @@ export default function SearchableSelect({
                     {option.suffix && (
                       <span className={styles.optionSuffix}>{option.suffix}</span>
                     )}
-                    {option.value === value && (
+                    {(multiple ? selectedValues.includes(option.value) : option.value === value) && (
                       <FaCheck className={styles.checkIcon} aria-hidden="true" />
                     )}
                   </li>
@@ -386,9 +437,14 @@ SearchableSelect.propTypes = {
     icon: PropTypes.elementType,
     suffix: PropTypes.string,
   })).isRequired,
-  /** Currently selected value */
-  value: PropTypes.string,
-  /** Change handler - receives the selected value */
+  /** Currently selected value (string) or selected values (array) when multiple */
+  value: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
+  /** Enable multi-select behavior */
+  multiple: PropTypes.bool,
+  /** Change handler - receives the selected value (string) or values (array) */
   onChange: PropTypes.func.isRequired,
   /** Placeholder text when no option selected */
   placeholder: PropTypes.string,

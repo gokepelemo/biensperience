@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { Heading } from '../design-system';
 import { useExperienceWizard } from '../../contexts/ExperienceWizardContext';
+import { useDestinationWizard } from '../../contexts/DestinationWizardContext';
 import { lang } from '../../lang.constants';
 
 /**
@@ -16,10 +17,11 @@ export default function QuickActions({
 }) {
   const navigate = useNavigate();
   const { openExperienceWizard } = useExperienceWizard();
+  const { openDestinationWizard } = useDestinationWizard();
 
   const defaultActions = [
     { label: lang.current.button.createNewExperience, variant: 'primary', onClick: () => openExperienceWizard() },
-    { label: lang.current.button.addDestination, variant: 'outline-secondary', onClick: () => navigate('/destinations/new') },
+    { label: lang.current.button.addDestination, variant: 'outline-secondary', onClick: () => openDestinationWizard() },
     { label: lang.current.button.browseExperiences, variant: 'outline-secondary', onClick: () => navigate('/experiences') },
   ];
 
