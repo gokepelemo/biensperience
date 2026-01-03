@@ -714,7 +714,7 @@ export default function MyPlans() {
                   onClick={handleLoadMore}
                   disabled={loadingMore}
                 >
-                  {loadingMore ? lang.current.myPlans.loading : lang.current.myPlans.loadMore.replace('{remaining}', pagination.totalCount - plans.length)}
+                  {loadingMore ? lang.current.myPlans.loading : lang.current.button.loadMore}
                 </Button>
               </div>
             )}

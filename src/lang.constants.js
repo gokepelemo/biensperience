@@ -1598,7 +1598,7 @@ const en = {
 
     // Buttons
     viewFullExperience: "View Full Experience",
-    loadMore: "Load More ({remaining} remaining)",
+    loadMore: "Load More",
     loading: "Loading...",
 
     // Aria labels
