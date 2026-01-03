@@ -289,7 +289,12 @@ export default function Countries() {
             <h1>{displayCountryName}</h1>
             {loading ? (
               <div className={styles.subtitleSkeleton}>
-                <SkeletonLoader variant="rectangle" width="180px" height="20px" style={{ borderRadius: 'var(--radius-sm)' }} />
+                <SkeletonLoader
+                  variant="rectangle"
+                  width="180px"
+                  height="100%"
+                  style={{ borderRadius: 'var(--radius-sm)' }}
+                />
               </div>
             ) : subtitle && (
               <FadeIn delay={100}>
@@ -376,7 +381,7 @@ export default function Countries() {
             <section className={styles.contentContainer}>
               <h2 className={styles.sectionTitle}>
                 {loading ? (
-                  <SkeletonLoader variant="text" width="200px" height="24px" />
+                  <SkeletonLoader variant="text" width="220px" height="calc(var(--font-size-2xl) * 1.15)" />
                 ) : (
                   lang.current.heading.destinations
                 )}
@@ -394,7 +399,7 @@ export default function Countries() {
                 ) : destinations.length > 0 ? (
                   destinations.map((destination, index) => (
                     <FadeIn key={destination._id || index} delay={index * 30}>
-                      <DestinationCard destination={destination} fluid />
+                      <DestinationCard destination={destination} />
                     </FadeIn>
                   ))
                 ) : (
@@ -429,7 +434,7 @@ export default function Countries() {
             <section className={styles.contentContainer}>
               <h2 className={styles.sectionTitle}>
                 {loading ? (
-                  <SkeletonLoader variant="text" width="200px" height="24px" />
+                  <SkeletonLoader variant="text" width="220px" height="calc(var(--font-size-2xl) * 1.15)" />
                 ) : (
                   lang.current.heading.experiences
                 )}
@@ -452,7 +457,7 @@ export default function Countries() {
                 ) : experiences.length > 0 ? (
                   experiences.map((experience, index) => (
                     <FadeIn key={experience._id || index} delay={index * 30}>
-                      <ExperienceCard experience={experience} fluid />
+                      <ExperienceCard experience={experience} />
                     </FadeIn>
                   ))
                 ) : (

@@ -11,12 +11,12 @@ import ProfileHeaderSkeleton from './ProfileHeaderSkeleton';
 import { ProfileContentGridSkeleton, ProfileTabsSkeleton } from './ProfileContentGrid';
 import styles from '../Profile.module.scss';
 
-export default function ProfileSkeleton() {
+export default function ProfileSkeleton({ isOwner = false }) {
   return (
     <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
       <Container>
         {/* Profile Header Card Skeleton */}
-        <ProfileHeaderSkeleton />
+        <ProfileHeaderSkeleton isOwner={isOwner} />
 
         {/* Tab Navigation Skeleton */}
         <ProfileTabsSkeleton />

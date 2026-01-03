@@ -1,4 +1,5 @@
 @use '../../styles/scss/abstracts' as *;
+@use '../../styles/scss/components' as *;
 
 /* Plan Item Details Modal - Theme-aware, mobile-friendly design */
 
@@ -400,6 +401,8 @@
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-lg) !important;
   margin-top: $space-1 !important;
+  /* Ensure dropdown appears above modal when using fixed positioning */
+  z-index: $z-index-modal-dropdown !important;
 }
 
 .tabsDropdownItem {
@@ -431,8 +434,6 @@
   flex: 1 1 0;
   /* Critical: Allow flex item to shrink below intrinsic content size */
   min-height: 0;
-  /* Explicit height for Safari which sometimes ignores flex-grow */
-  height: 100%;
   /* Prevent overflow - children handle their own scrolling */
   overflow: hidden;
   /* Remove padding - children handle their own padding */
@@ -441,16 +442,6 @@
   /* This is also a flex container for its children */
   display: flex;
   flex-direction: column;
-
-  /* Mobile: Enable scrolling for content that overflows */
-  @media (max-width: 768px) {
-    /* Allow vertical scrolling on mobile */
-    overflow-y: auto;
-    /* Smooth scrolling on iOS */
-    -webkit-overflow-scrolling: touch;
-    /* Prevent scroll chaining to parent */
-    overscroll-behavior: contain;
-  }
 }
 
 /* =============================================================================
@@ -471,22 +462,19 @@
   /* Flex container for tab content */
   display: flex;
   flex-direction: column;
-  /* Fill all available space */
+  /* Fill all available space from parent (detailsContent) */
   flex: 1 1 0;
   /* Allow shrinking below content size - critical for Safari */
   min-height: 0;
-  /* Use viewport height as fallback when JavaScript calculation fails */
-  height: 60vh;
-  max-height: 70vh;
+  /* Fill 100% of parent height - parent has JS-calculated height */
+  height: 100%;
   /* Prevent overflow - children handle their own scrolling */
   overflow: hidden;
   /* Ensure width fills container */
   width: 100%;
 
-  /* Mobile adjustments */
+  /* Mobile adjustments - minimum height for usability */
   @media (max-width: 768px) {
-    height: 50vh;
-    max-height: 60vh;
     min-height: 300px;
   }
 }
@@ -611,35 +599,7 @@
 }
 
 /* Stream Chat (scoped) token alignment - matches MessagesModal .pane */
-.chatPane :global(.str-chat),
-.chatPane :global(.str-chat__channel),
-.chatPane :global(.str-chat__main-panel),
-.chatPane :global(.str-chat__window) {
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-}
-
-/* Channel header - secondary background with border */
-.chatPane :global(.str-chat__channel-header) {
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-/* Message list - primary background */
-.chatPane :global(.str-chat__message-list) {
-  background: var(--color-bg-primary);
-}
-
-/* Message input - secondary background with top border (matches MessagesModal) */
-.chatPane :global(.str-chat__message-input) {
-  background: var(--color-bg-secondary);
-  border-top: 1px solid var(--color-border-light);
-}
-
-/* Textarea styling */
-.chatPane :global(.str-chat__textarea textarea) {
-  color: var(--color-text-primary);
-}
+@include streamChatTokenAlignment('.chatPane');
 
 /* =============================================================================
  * THREAD LAYOUT - Display thread panel on the right side
@@ -715,94 +675,7 @@
   border-top: 1px solid var(--color-border-light) !important;
 }
 
-.chatPane :global(.str-chat__message-list) {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
-/* =============================================================================
- * CHECKBOX STYLING - Matches MessagesModal checkbox component
- * =============================================================================
- */
-
-/* Send to channel checkbox styling - matches Checkbox component */
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field label) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  /* Remove upstream Stream Chat padding so our gap controls spacing */
-  padding-inline: 0;
-}
-
-/* Square box as pseudo-element so the label text remains visible */
-.chatPane :global(.str-chat__send-to-channel-checkbox__field label::before) {
-  content: '';
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--color-border-medium);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-  display: inline-block;
-}
-
-/* Checkmark icon positioned over the box */
-.chatPane :global(.str-chat__send-to-channel-checkbox__field label::after) {
-  content: '';
-  position: absolute;
-  /* position the checkmark centered inside the 24px box (2px border) */
-  /* expand to occupy most of the inner box for a bold appearance */
-  left: 3px;
-  top: 50%;
-  transform: translateY(-50%) scale(1);
-  width: 18px;
-  height: 18px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 18px 18px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
-  border-color: transparent;
-  background: var(--gradient-primary);
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
-  opacity: 1;
-  /* larger/thicker checkmark so it visually fills the checkbox */
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
-.chatPane :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
-}
+@include streamChatSendToChannelCheckbox('.chatPane');
 
 /* =============================================================================
  * LEGACY .chatContainer STYLES - Keep for backwards compatibility
@@ -1608,16 +1481,7 @@
 .detailsTabContent {
   @include tabWrapperBase;
   @include tabWrapperMobile;
-
-  /* Use CSS custom property set by JavaScript, fallback to viewport units */
-  height: var(--tab-content-height, 60vh);
-  max-height: var(--tab-content-height, 70vh);
-
-  /* Mobile fallbacks */
-  @media (max-width: 768px) {
-    height: var(--tab-content-height, 50vh);
-    max-height: var(--tab-content-height, 60vh);
-  }
+  /* Tab content fills parent which has JS-calculated height */
 }
 
 /* Export bar at top of details tab */

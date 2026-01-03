@@ -185,6 +185,9 @@ export default defineConfig(({ mode }) => {
       scss: {
         // Ensure consistent SASS compilation
         api: 'modern-compiler', // Use modern SASS compiler API
+        // Bootstrap (and other deps) still emit Dart Sass deprecations (@import, color fns, etc).
+        // Keep build output clean while still surfacing warnings from our own SCSS.
+        quietDeps: true,
         silenceDeprecations: ['legacy-js-api'], // Silence legacy API warnings
         // Include paths for @import resolution
         includePaths: [

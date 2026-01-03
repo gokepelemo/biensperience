@@ -1,0 +1,132 @@
+/**
+ * Stream Chat theming helpers
+ *
+ * Centralizes Stream Chat SDK overrides so chat UIs can share consistent
+ * token-based styling without duplicating large blocks of CSS.
+ */
+
+@mixin streamChatTokenAlignment($scope) {
+  /* Stream Chat (scoped) token alignment */
+  #{$scope} :global(.str-chat),
+  #{$scope} :global(.str-chat__channel),
+  #{$scope} :global(.str-chat__main-panel),
+  #{$scope} :global(.str-chat__window) {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+  }
+
+  #{$scope} :global(.str-chat__channel-header) {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  #{$scope} :global(.str-chat__message-list) {
+    background: var(--color-bg-primary);
+  }
+
+  #{$scope} :global(.str-chat__message-input) {
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border-light);
+  }
+
+  #{$scope} :global(.str-chat__textarea textarea) {
+    color: var(--color-text-primary);
+  }
+
+  /* Ensure Stream Chat main panel and message list expand and become scrollable
+     so the visible messages area fills the vertical space of the container. */
+  #{$scope} :global(.str-chat__main-panel),
+  #{$scope} :global(.str-chat__window) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #{$scope} :global(.str-chat__message-list) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+}
+
+@mixin streamChatSendToChannelCheckbox($scope) {
+  /* Send to channel checkbox styling - matches Checkbox component */
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field) {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field label) {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    /* Remove upstream Stream Chat padding so our gap controls spacing */
+    padding-inline: 0;
+  }
+
+  /* Square box as pseudo-element so the label text remains visible */
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field label::before) {
+    content: '';
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--color-border-medium);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+    display: inline-block;
+  }
+
+  /* Checkmark icon positioned over the box */
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field label::after) {
+    content: '';
+    position: absolute;
+    /* position the checkmark centered inside the 24px box (2px border) */
+    /* expand to occupy most of the inner box for a bold appearance */
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%) scale(1);
+    width: 18px;
+    height: 18px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 18px 18px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
+    border-color: transparent;
+    background: var(--gradient-primary);
+  }
+
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
+    opacity: 1;
+    /* larger/thicker checkmark so it visually fills the checkbox */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
+  #{$scope} :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
+  }
+}

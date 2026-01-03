@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import EmptyState from '../EmptyState/EmptyState';
+import Loading from '../Loading/Loading';
 import Modal from '../Modal/Modal';
 import Tooltip from '../Tooltip/Tooltip';
 import DocumentViewerModal from '../DocumentViewerModal';
@@ -398,10 +399,7 @@ export default function DocumentsTab({
   if (loading && documents.length === 0) {
     return (
       <div className={styles.documentsTab}>
-        <div className={styles.loading}>
-          <span className={styles.loadingSpinner}></span>
-          <span>Loading documents...</span>
-        </div>
+        <Loading size="sm" variant="centered" message="Loading documents..." />
       </div>
     );
   }
@@ -441,7 +439,7 @@ export default function DocumentsTab({
           variant="documents"
           primaryAction={canEdit ? (lang.current.planItemDetailsModal?.uploadDocument || 'Upload Document') : null}
           onPrimaryAction={canEdit ? handleUploadClick : null}
-          compact
+          size="md"
           fillContainer
         />
       </div>

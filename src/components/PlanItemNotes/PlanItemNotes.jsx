@@ -542,36 +542,41 @@ export default function PlanItemNotes({
     return userId && onlineUserIds.has(userId);
   }, [presenceConnected, onlineUserIds]);
 
+  const hasNotes = sortedNotes.length > 0;
+  const isDefaultEmptyState = !hasNotes && !searchQuery && !showAddNoteForm;
+
   return (
     <div className={styles.planItemNotesChat}>
       {/* Search and Add Note Header */}
-      <div className={styles.notesHeader}>
-        <div className={styles.headerControls}>
-          <div className={styles.searchPill}>
-            <FaSearch className={styles.searchIcon} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setDisplayedCount(10); // Reset to initial display count on search
-              }}
-              placeholder="Search notes..."
-              disabled={disabled}
-              className={styles.searchInput}
-            />
-          </div>
+      {!isDefaultEmptyState && (
+        <div className={styles.notesHeader}>
+          <div className={styles.headerControls}>
+            <div className={styles.searchPill}>
+              <FaSearch className={styles.searchIcon} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setDisplayedCount(10); // Reset to initial display count on search
+                }}
+                placeholder="Search notes..."
+                disabled={disabled}
+                className={styles.searchInput}
+              />
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowAddNoteForm(!showAddNoteForm)}
-            className={styles.addNotePill}
-            disabled={disabled}
-          >
-            <FaPlus /> Add Note
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowAddNoteForm(!showAddNoteForm)}
+              className={styles.addNotePill}
+              disabled={disabled}
+            >
+              <FaPlus /> Add Note
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Add Note Form (unified NoteForm component) */}
       {showAddNoteForm && !disabled && (
@@ -589,21 +594,31 @@ export default function PlanItemNotes({
         />
       )}
 
-      {/* Chat messages area - scroll up to load more (newest at bottom) */}
-      <div
-        className={styles.chatMessages}
-        ref={chatMessagesRef}
-        onScroll={handleScroll}
-      >
-        {/* Load more indicator */}
-        {hasMoreNotes && (
-          <div className={styles.loadMoreIndicator}>
-            <span>Scroll up to load older notes</span>
-          </div>
-        )}
+      {isDefaultEmptyState ? (
+        <div className={styles.emptyState}>
+          <EmptyState
+            variant="notes"
+            primaryAction={!disabled ? 'Add a Note' : null}
+            onPrimaryAction={!disabled ? () => setShowAddNoteForm(true) : null}
+            size="md"
+            fillContainer
+          />
+        </div>
+      ) : (
+        /* Chat messages area - scroll up to load more (newest at bottom) */
+        <div
+          className={styles.chatMessages}
+          ref={chatMessagesRef}
+          onScroll={handleScroll}
+        >
+          {/* Load more indicator */}
+          {hasMoreNotes && (
+            <div className={styles.loadMoreIndicator}>
+              <span>Scroll up to load older notes</span>
+            </div>
+          )}
 
-        {sortedNotes.length === 0 ? (
-          searchQuery ? (
+          {!hasNotes ? (
             <EmptyState
               variant="search"
               title="No Notes Found"
@@ -611,15 +626,7 @@ export default function PlanItemNotes({
               size="sm"
             />
           ) : (
-            <EmptyState
-              variant="notes"
-              primaryAction={!disabled ? "Add a Note" : null}
-              onPrimaryAction={!disabled ? () => setShowAddNoteForm(true) : null}
-              size="sm"
-            />
-          )
-        ) : (
-          displayedNotes.map((note) => {
+            displayedNotes.map((note) => {
             const isAuthor = isNoteAuthor(note);
             const isEditing = editingNoteId === note._id;
 
@@ -688,9 +695,10 @@ export default function PlanItemNotes({
                 )}
               </div>
             );
-          })
-        )}
-      </div>
+            })
+          )}
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal

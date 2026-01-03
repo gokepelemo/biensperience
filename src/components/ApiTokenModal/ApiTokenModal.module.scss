@@ -33,12 +33,34 @@
     box-shadow: var(--shadow-sm);
     border-color: var(--color-primary);
   }
+}
 
-  /* Ensure toggle wrapper fills the container */
-  > div {
-    width: 100%;
-    justify-content: space-between;
-  }
+.apiAccessToggleRow {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+}
+
+.apiAccessToggleLabel {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  margin: 0;
+  cursor: pointer;
+}
+
+.apiAccessToggleTitle {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.apiAccessToggleDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 /* Token Creation Form */

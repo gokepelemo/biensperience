@@ -424,8 +424,7 @@ export default function PhotosTab({
           ) : (
             <EmptyState
               variant="photos"
-              size="sm"
-              compact
+              size="md"
               fillContainer
             />
           )}

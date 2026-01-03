@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
-import { StreamChat } from 'stream-chat';
 import {
   Chat,
   Channel,
@@ -16,92 +15,22 @@ import { FaChevronDown, FaTimes } from 'react-icons/fa';
 
 import Alert from '../Alert/Alert';
 import styles from './MessagesModal.module.scss';
+import useStreamChat from '../../hooks/useStreamChat';
+import ChannelTitle from './ChannelTitle';
 
-// Channel title with hover marquee when truncated
-function ChannelTitle({ label, className, innerClassName }) {
-  const containerRef = useRef(null);
-  const innerRef = useRef(null);
-  const styleTagRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (styleTagRef.current) {
-        try { styleTagRef.current.remove(); } catch (e) {}
-        styleTagRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleMouseEnter = () => {
-    const container = containerRef.current;
-    const inner = innerRef.current;
-    if (!container || !inner) return;
-    const scrollW = inner.scrollWidth;
-    const clientW = container.clientWidth;
-    if (scrollW <= clientW) return;
-
-    const distance = scrollW - clientW;
-    const speed = 40; // px per second
-    const duration = Math.max(3, distance / speed * 2); // back-and-forth
-
-    const name = `marquee_${Date.now()}_${Math.floor(Math.random()*10000)}`;
-    const keyframes = `@keyframes ${name} { 0%{transform:translateX(0);} 45%{transform:translateX(-${distance}px);} 55%{transform:translateX(-${distance}px);} 100%{transform:translateX(0);} }`;
-
-    const styleTag = document.createElement('style');
-    styleTag.type = 'text/css';
-    styleTag.id = name;
-    styleTag.appendChild(document.createTextNode(keyframes));
-    document.head.appendChild(styleTag);
-    styleTagRef.current = styleTag;
-
-    inner.style.animation = `${name} ${duration}s linear infinite`;
-    inner.style.willChange = 'transform';
-  };
-
-  const handleMouseLeave = () => {
-    if (styleTagRef.current) {
-      try { styleTagRef.current.remove(); } catch (e) {}
-      styleTagRef.current = null;
-    }
-    if (innerRef.current) {
-      innerRef.current.style.animation = '';
-      innerRef.current.style.willChange = '';
-    }
-  };
-
-  return (
-    <span
-      ref={containerRef}
-      className={className}
-      onMouseEnter={handleMouseEnter}
-      onFocus={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onBlur={handleMouseLeave}
-      tabIndex={-1}
-    >
-      {/* Static clipped label (shows ellipsis) */}
-      <span className={styles.channelTitleStatic} aria-hidden>{label}</span>
-      {/* Animated label used for marquee; initially hidden and shown on hover */}
-      <span ref={innerRef} className={`${innerClassName} ${styles.channelTitleAnimating}`} aria-hidden>
-        {label}
-      </span>
-    </span>
-  );
-}
-
-import { getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
+import { getOrCreateDmChannel } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
 
-function getDisplayNameForChannel({ channel, currentUserId }) {
+/**
+ * Get display name for channel list/sidebar (shows just other user's name for DMs)
+ */
+function getListDisplayName({ channel, currentUserId }) {
   if (!channel) return 'Message';
 
-  const name = channel?.data?.name;
-  if (name && typeof name === 'string' && name.trim()) return name;
-
-  // Heuristic for DMs using deterministic IDs: dm_<id1>_<id2>
   const channelId = channel?.id || channel?.cid;
+
+  // For DM channels, show just the other user's name (not "User A & User B")
   if (typeof channelId === 'string' && channelId.startsWith('dm_')) {
-    // Prefer member user names if available
     try {
       const members = channel?.state?.members || {};
       const other = Object.values(members)
@@ -115,6 +44,10 @@ function getDisplayNameForChannel({ channel, currentUserId }) {
     }
     return 'Direct message';
   }
+
+  // For non-DM channels, use the channel name if available
+  const name = channel?.data?.name;
+  if (name && typeof name === 'string' && name.trim()) return name;
 
   return 'Message';
 }
@@ -130,9 +63,11 @@ export default function MessagesModal({
   title = 'Messages'
 }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
-  const clientRef = useRef(null);
   // Track if we're in the process of closing to prevent re-initialization
   const isClosingRef = useRef(false);
+
+  const modalContentRef = useRef(null);
+  const previouslyFocusedElRef = useRef(null);
 
   const [uiTheme, setUiTheme] = useState(() => {
     try {
@@ -145,18 +80,100 @@ export default function MessagesModal({
     }
   });
 
-  const [client, setClient] = useState(null);
   const [channels, setChannels] = useState([]);
   const [activeChannel, setActiveChannel] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [channelSwitching, setChannelSwitching] = useState(false);
   const [error, setError] = useState('');
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const mobileSelectorRef = useRef(null);
+  const mobileDropdownToggleRef = useRef(null);
   const [mobileDropdownStyle, setMobileDropdownStyle] = useState(null);
   const mobileDropdownRef = useRef(null);
+
+  const computeMobileDropdownStyle = useCallback(() => {
+    try {
+      const r = mobileDropdownToggleRef.current?.getBoundingClientRect?.();
+      if (!r) return null;
+
+      // Clamp within viewport and flip above when needed.
+      const viewportW = window?.innerWidth || 0;
+      const viewportH = window?.innerHeight || 0;
+      const margin = 8;
+      const gap = 4;
+      const preferredMaxHeight = 240;
+
+      const width = Math.max(180, r.width || 0);
+      const maxLeft = Math.max(margin, viewportW - width - margin);
+      const left = Math.min(Math.max(r.left, margin), maxLeft);
+      const clampedWidth = Math.min(width, Math.max(0, viewportW - margin * 2));
+
+      const spaceBelow = Math.max(0, viewportH - r.bottom - margin);
+      const spaceAbove = Math.max(0, r.top - margin);
+
+      const shouldPlaceBelow = spaceBelow >= Math.min(preferredMaxHeight, 160) || spaceBelow >= spaceAbove;
+      const maxHeight = Math.min(preferredMaxHeight, shouldPlaceBelow ? spaceBelow : spaceAbove);
+
+      const top = shouldPlaceBelow
+        ? Math.min(r.bottom + gap, viewportH - margin)
+        : Math.max(margin, r.top - gap - maxHeight);
+
+      return {
+        position: 'fixed',
+        top,
+        left,
+        right: 'auto',
+        width: clampedWidth,
+        maxHeight,
+        overflowY: 'auto',
+        zIndex: 3000
+      };
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  // When using a portal, compute the dropdown position after DOM layout.
+  useLayoutEffect(() => {
+    if (!mobileDropdownOpen) return undefined;
+
+    let raf1 = 0;
+    let raf2 = 0;
+
+    const measure = () => {
+      const nextStyle = computeMobileDropdownStyle();
+      if (nextStyle) setMobileDropdownStyle(nextStyle);
+    };
+
+    // Measure now + again next frame to handle late layout changes.
+    measure();
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(measure);
+    });
+
+    return () => {
+      if (raf1) window.cancelAnimationFrame(raf1);
+      if (raf2) window.cancelAnimationFrame(raf2);
+    };
+  }, [mobileDropdownOpen, computeMobileDropdownStyle]);
+
+  const canInit = useMemo(() => {
+    return Boolean(show && apiKey);
+  }, [show, apiKey]);
+
+  const {
+    client,
+    currentUser,
+    loading: clientLoading,
+    error: clientError,
+    disconnect: disconnectClient
+  } = useStreamChat({
+    connectWhen: canInit,
+    disconnectWhen: !show,
+    apiKey,
+    context: 'MessagesModal'
+  });
 
   // Handle close - notify parent FIRST, then cleanup
   const handleClose = useCallback(() => {
@@ -173,22 +190,17 @@ export default function MessagesModal({
     }
 
     // Disconnect Stream Chat client (async, fire and forget)
-    if (clientRef.current) {
-      clientRef.current.disconnectUser().catch(() => {
-        // ignore disconnect errors
-      });
-      clientRef.current = null;
+    if (disconnectClient) {
+      disconnectClient().catch(() => {});
     }
 
     // Reset internal state after parent is notified
-    setClient(null);
     setChannels([]);
     setActiveChannel(null);
-    setCurrentUser(null);
     setError('');
     setLoading(false);
     setMobileDropdownOpen(false);
-  }, [onClose]);
+  }, [onClose, disconnectClient]);
 
   // ESC key handler - attached directly to document, outside React's event system
   useEffect(() => {
@@ -206,6 +218,139 @@ export default function MessagesModal({
     document.addEventListener('keydown', handleEsc, true);
     return () => document.removeEventListener('keydown', handleEsc, true);
   }, [show, handleClose]);
+
+  // Focus trap (Tab/Shift+Tab) + focus restore
+  useEffect(() => {
+    if (!show) return undefined;
+
+    // Save the element that opened the modal so we can restore focus on close
+    try {
+      previouslyFocusedElRef.current = document.activeElement;
+    } catch (e) {
+      previouslyFocusedElRef.current = null;
+    }
+
+    const getFocusable = (rootEl) => {
+      if (!rootEl) return [];
+
+      const selector = [
+        'a[href]',
+        'area[href]',
+        'button:not([disabled])',
+        'input:not([disabled]):not([type="hidden"])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        'iframe',
+        'object',
+        'embed',
+        '[contenteditable="true"]',
+        '[tabindex]:not([tabindex="-1"])'
+      ].join(',');
+
+      const nodes = Array.from(rootEl.querySelectorAll(selector));
+
+      // Keep only elements that are actually visible/focusable in the layout
+      return nodes.filter((el) => {
+        try {
+          return el && el.getClientRects && el.getClientRects().length > 0;
+        } catch (e) {
+          return false;
+        }
+      });
+    };
+
+    const getTrapElements = () => {
+      // Include the mobile dropdown list even when it portals to document.body.
+      // This prevents the focus trap from making the dropdown unreachable.
+      const modalEls = getFocusable(modalContentRef.current);
+      const dropdownEls = mobileDropdownOpen ? getFocusable(mobileDropdownRef.current) : [];
+      const all = [...modalEls, ...dropdownEls];
+
+      // De-dupe while preserving order
+      const seen = new Set();
+      return all.filter((el) => {
+        if (!el || seen.has(el)) return false;
+        seen.add(el);
+        return true;
+      });
+    };
+
+    const focusFirstWithinTrap = () => {
+      const focusables = getTrapElements();
+      if (focusables.length > 0) {
+        focusables[0].focus();
+      } else if (modalContentRef.current) {
+        modalContentRef.current.focus();
+      }
+    };
+
+    // After first paint, if focus isn't already inside the modal, move it in.
+    const focusTimer = window.setTimeout(() => {
+      try {
+        const active = document.activeElement;
+        const modal = modalContentRef.current;
+        const dropdown = mobileDropdownRef.current;
+        const focusIsInside =
+          (modal && active && modal.contains(active)) ||
+          (dropdown && active && dropdown.contains(active));
+
+        if (!focusIsInside) {
+          focusFirstWithinTrap();
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 0);
+
+    const handleTabTrap = (e) => {
+      if (e.key !== 'Tab') return;
+
+      const focusables = getTrapElements();
+      if (focusables.length === 0) {
+        e.preventDefault();
+        focusFirstWithinTrap();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      const activeIsInside = focusables.includes(active);
+
+      // If focus has escaped the modal somehow, bring it back.
+      if (!activeIsInside) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+
+      if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    };
+
+    // Capture phase so we trap before Stream Chat / other handlers
+    document.addEventListener('keydown', handleTabTrap, true);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleTabTrap, true);
+
+      // Restore focus to opener (if it still exists)
+      try {
+        const prev = previouslyFocusedElRef.current;
+        if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
+          prev.focus();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [show, mobileDropdownOpen]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -244,10 +389,6 @@ export default function MessagesModal({
     };
   }, [mobileDropdownOpen]);
 
-  const canInit = useMemo(() => {
-    return Boolean(show && apiKey);
-  }, [show, apiKey]);
-
   // Theme observer
   useEffect(() => {
     try {
@@ -282,51 +423,26 @@ export default function MessagesModal({
     }
   }, [show]);
 
-  // Initialize Stream Chat when modal opens
+  // Query channels once the Stream client is connected
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
+    async function loadChannels() {
       // Don't initialize if closing or not ready
-      if (!canInit || isClosingRef.current) return;
+      if (!show || !client || !currentUser || isClosingRef.current) return;
 
       setLoading(true);
       setError('');
 
       try {
-        const { token, user } = await getChatToken();
-
-        const streamClient = new StreamChat(apiKey);
-        await streamClient.connectUser(
-          {
-            id: user.id,
-            name: user.name
-          },
-          token
-        );
-
-        if (cancelled) {
-          try {
-            await streamClient.disconnectUser();
-          } catch (disconnectErr) {
-            // ignore
-          }
-          return;
-        }
-
-        // Store in ref for cleanup access
-        clientRef.current = streamClient;
-        setClient(streamClient);
-        setCurrentUser(user);
-
         // Query all channels for this user (DMs + group chats)
         const filters = {
           type: 'messaging',
-          members: { $in: [user.id] }
+          members: { $in: [currentUser.id] }
         };
         const sort = { last_message_at: -1 };
 
-        const result = await streamClient.queryChannels(filters, sort, {
+        const result = await client.queryChannels(filters, sort, {
           state: true,
           watch: false,
           presence: false,
@@ -346,7 +462,6 @@ export default function MessagesModal({
 
         setChannels(filtered);
 
-
         // Prefer a channel based on target user (continue existing 1:1),
         // otherwise prefer initial channel if provided, otherwise most recent.
         let nextActive = null;
@@ -360,9 +475,9 @@ export default function MessagesModal({
               const memberIds = Object.values(members).map(m => m?.user?.id).filter(Boolean);
               // Must be a DM channel (starts with 'dm_'), include both users, and have exactly 2 members
               return ch?.id?.startsWith('dm_') &&
-                     memberIds.includes(targetUserId) &&
-                     memberIds.includes(user.id) &&
-                     memberIds.length === 2;
+                memberIds.includes(targetUserId) &&
+                memberIds.includes(currentUser.id) &&
+                memberIds.length === 2;
             } catch (e) {
               return false;
             }
@@ -373,7 +488,7 @@ export default function MessagesModal({
             await nextActive.watch();
           } else if (initialChannelId) {
             const existing = filtered.find(ch => ch?.id === initialChannelId);
-            nextActive = existing || streamClient.channel('messaging', initialChannelId);
+            nextActive = existing || client.channel('messaging', initialChannelId);
             await nextActive.watch();
           } else {
             // No existing DM found locally; ask server to return or create the DM channel
@@ -381,7 +496,7 @@ export default function MessagesModal({
               const resp = await getOrCreateDmChannel(targetUserId);
               const channelId = resp?.id || resp?.cid || resp?._id || resp;
               if (channelId) {
-                nextActive = streamClient.channel('messaging', channelId);
+                nextActive = client.channel('messaging', channelId);
                 await nextActive.watch();
                 // Add the newly created DM channel to the channels list so it appears immediately
                 setChannels(prevChannels => [nextActive, ...prevChannels]);
@@ -392,7 +507,7 @@ export default function MessagesModal({
           }
         } else if (initialChannelId) {
           const existing = filtered.find(ch => ch?.id === initialChannelId);
-          nextActive = existing || streamClient.channel('messaging', initialChannelId);
+          nextActive = existing || client.channel('messaging', initialChannelId);
           await nextActive.watch();
         } else if (filtered.length > 0) {
           nextActive = filtered[0];
@@ -411,22 +526,15 @@ export default function MessagesModal({
       }
     }
 
-    init();
+    loadChannels();
 
     return () => {
       cancelled = true;
     };
-  }, [canInit, apiKey, initialChannelId]);
+  }, [show, client, currentUser?.id, initialChannelId, targetUserId]);
 
-  // Cleanup when modal closes
-  useEffect(() => {
-    if (!show && clientRef.current) {
-      clientRef.current.disconnectUser().catch(() => {
-        // ignore
-      });
-      clientRef.current = null;
-    }
-  }, [show]);
+  const mergedError = clientError || error;
+  const mergedLoading = clientLoading || loading;
 
   const handleSelectChannel = useCallback(async (channel) => {
     if (!client || !channel) return;
@@ -463,6 +571,55 @@ export default function MessagesModal({
     }
   }, [activeChannel, channels]);
 
+  const renderMobileDropdownItems = useCallback(() => {
+    return channels.map((ch) => {
+      const label = getListDisplayName({
+        channel: ch,
+        currentUserId: currentUser?.id
+      });
+      const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+      const unreadCount = ch?.state?.unreadCount || 0;
+
+      return (
+        <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
+          <button
+            type="button"
+            className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSelectChannel(ch);
+              setMobileDropdownOpen(false);
+            }}
+          >
+            <ChannelTitle
+              label={label}
+              className={styles.mobileDropdownItemLabel}
+            />
+            {unreadCount > 0 && (
+              <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </li>
+      );
+    });
+  }, [activeChannel?.id, channels, currentUser?.id, handleSelectChannel]);
+
+  const renderMobileDropdownList = useCallback((styleOverride) => {
+    return (
+      <ul
+        ref={mobileDropdownRef}
+        className={styles.mobileDropdownList}
+        role="listbox"
+        style={styleOverride}
+      >
+        {renderMobileDropdownItems()}
+      </ul>
+    );
+  }, [renderMobileDropdownItems]);
+
   // Don't render anything if not shown
   if (!show) return null;
 
@@ -480,7 +637,7 @@ export default function MessagesModal({
       aria-modal="true"
       aria-labelledby="messages-modal-title"
     >
-      <div className={styles.modalDialog}>
+      <div className={styles.modalDialog} ref={modalContentRef} tabIndex={-1}>
         <div className={styles.modalContent}>
           {/* Header */}
           <div className={styles.modalHeader}>
@@ -504,11 +661,11 @@ export default function MessagesModal({
               />
             )}
 
-            {error && <Alert type="danger" message={error} />}
+            {mergedError && <Alert type="danger" message={mergedError} />}
 
-            {loading && <div className={styles.loadingState}>Loading messages…</div>}
+            {mergedLoading && <div className={styles.loadingState}>Loading messages…</div>}
 
-            {!loading && client && (
+            {!mergedLoading && client && (
               <div className={styles.messagesContainer}>
                 {/* Mobile channel selector - rendered OUTSIDE Chat component to avoid Stream re-render issues */}
                 {channels.length > 0 && (
@@ -516,19 +673,23 @@ export default function MessagesModal({
                     <button
                       type="button"
                       className={styles.mobileDropdownToggle}
-                      onClick={() => {
-                        const next = !mobileDropdownOpen;
-                        setMobileDropdownOpen(next);
+                      ref={mobileDropdownToggleRef}
+                      onClick={(e) => {
                         try {
-                          const el = mobileSelectorRef.current;
-                          if (el && next) {
-                            const r = el.getBoundingClientRect();
-                            setMobileDropdownStyle({
-                              top: r.bottom + window.scrollY,
-                              left: r.left + window.scrollX,
-                              width: r.width
-                            });
+                          e.preventDefault();
+                          e.stopPropagation();
+
+                          const next = !mobileDropdownOpen;
+                          setMobileDropdownOpen(next);
+                          if (!next) {
+                            setMobileDropdownStyle(null);
+                            return;
                           }
+
+                          // Best-effort immediate measurement so the portal doesn't render invisible
+                          // while waiting for the layout-effect pass.
+                          const nextStyle = computeMobileDropdownStyle();
+                          if (nextStyle) setMobileDropdownStyle(nextStyle);
                         } catch (e) {
                           // ignore
                         }
@@ -538,85 +699,30 @@ export default function MessagesModal({
                     >
                       <span className={styles.mobileDropdownLabel}>
                         {activeChannel
-                          ? getDisplayNameForChannel({ channel: activeChannel, currentUserId: currentUser?.id })
+                          ? getListDisplayName({ channel: activeChannel, currentUserId: currentUser?.id })
                           : 'Select conversation'}
                       </span>
                       <FaChevronDown className={`${styles.mobileDropdownIcon} ${mobileDropdownOpen ? styles.open : ''}`} />
                     </button>
                     {mobileDropdownOpen && (
-                      (typeof document !== 'undefined' && mobileDropdownStyle)
+                      (typeof document !== 'undefined')
                         ? createPortal(
-                            <ul
-                              ref={mobileDropdownRef}
-                              className={styles.mobileDropdownList}
-                              role="listbox"
-                              style={{ position: 'absolute', top: mobileDropdownStyle.top, left: mobileDropdownStyle.left, width: mobileDropdownStyle.width }}
-                            >
-                              {channels.map((ch) => {
-                                const label = getDisplayNameForChannel({
-                                  channel: ch,
-                                  currentUserId: currentUser?.id
-                                });
-                                const isActive = activeChannel?.id && ch?.id === activeChannel.id;
-                                const unreadCount = ch?.state?.unreadCount || 0;
-
-                                return (
-                                  <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
-                                    <button
-                                      type="button"
-                                      className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
-                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); setMobileDropdownOpen(false); }}
-                                    >
-                                      <ChannelTitle
-                                        label={label}
-                                        className={styles.mobileDropdownItemLabel}
-                                        innerClassName={styles.mobileChannelTitleInner}
-                                      />
-                                      {unreadCount > 0 && (
-                                        <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
-                                          {unreadCount > 99 ? '99+' : unreadCount}
-                                        </span>
-                                      )}
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>,
+                            renderMobileDropdownList(
+                              mobileDropdownStyle ||
+                                computeMobileDropdownStyle() || {
+                                  position: 'fixed',
+                                  top: 8,
+                                  left: 8,
+                                  right: 'auto',
+                                  width: 'calc(100vw - 16px)',
+                                  maxHeight: 240,
+                                  overflowY: 'auto',
+                                  zIndex: 3000
+                                }
+                            ),
                             document.body
                           )
-                          : (
-                            <ul ref={mobileDropdownRef} className={styles.mobileDropdownList} role="listbox">
-                              {channels.map((ch) => {
-                                const label = getDisplayNameForChannel({
-                                  channel: ch,
-                                  currentUserId: currentUser?.id
-                                });
-                                const isActive = activeChannel?.id && ch?.id === activeChannel.id;
-                                const unreadCount = ch?.state?.unreadCount || 0;
-
-                                return (
-                                  <li key={ch.cid || ch.id} role="option" aria-selected={isActive}>
-                                    <button
-                                      type="button"
-                                      className={`${styles.mobileDropdownItem} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
-                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectChannel(ch); setMobileDropdownOpen(false); }}
-                                    >
-                                      <ChannelTitle
-                                        label={label}
-                                        className={styles.mobileDropdownItemLabel}
-                                        innerClassName={styles.mobileChannelTitleInner}
-                                      />
-                                      {unreadCount > 0 && (
-                                        <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
-                                          {unreadCount > 99 ? '99+' : unreadCount}
-                                        </span>
-                                      )}
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )
+                        : null
                     )}
                   </div>
                 )}
@@ -632,7 +738,7 @@ export default function MessagesModal({
                       ) : (
                         <ul className={styles.channelList}>
                           {channels.map((ch) => {
-                            const label = getDisplayNameForChannel({
+                            const label = getListDisplayName({
                               channel: ch,
                               currentUserId: currentUser?.id
                             });
@@ -713,5 +819,6 @@ MessagesModal.propTypes = {
   show: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   initialChannelId: PropTypes.string,
+  targetUserId: PropTypes.string,
   title: PropTypes.node
 };

@@ -1473,7 +1473,7 @@ export default function Profile() {
   
   // Show full-page skeleton during initial load (before profile data arrives)
   if (isLoadingProfile && !currentProfile) {
-    return <ProfileSkeleton />;
+    return <ProfileSkeleton isOwner={isOwner} />;
   }
 
   return (

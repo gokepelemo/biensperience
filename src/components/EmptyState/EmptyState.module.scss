@@ -165,14 +165,14 @@
   flex-wrap: wrap;
 }
 
+/* Button styles handled by design-system Button component */
+/* No custom padding - uses Button's size prop for consistent sizing */
 .primaryButton {
-  padding: var(--space-4) var(--space-8);
-  font-weight: var(--font-weight-semibold);
+  /* Uses Button component's built-in styling */
 }
 
 .secondaryButton {
-  padding: var(--space-4) var(--space-8);
-  font-weight: var(--font-weight-semibold);
+  /* Uses Button component's built-in styling */
 }
 
 // Responsive adjustments

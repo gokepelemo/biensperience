@@ -9,7 +9,13 @@ import * as plansApi from '../../src/utilities/plans-api';
 import { handleError } from '../../src/utilities/error-handler';
 
 // Mock dependencies
-jest.mock('../../src/utilities/plans-api');
+jest.mock('../../src/utilities/plans-api', () => ({
+  addPlanItemToInstance: jest.fn(),
+  updatePlanItem: jest.fn(),
+  deletePlanItemFromInstance: jest.fn(),
+  addExperiencePlanItem: jest.fn(),
+  updateExperiencePlanItem: jest.fn()
+}));
 jest.mock('../../src/utilities/error-handler');
 jest.mock('../../src/hooks/useOptimisticAction', () => {
   return jest.fn(({ apply, apiCall, rollback, onSuccess, onError }) => {
@@ -180,6 +186,7 @@ describe('usePlanItemManager', () => {
         url: 'https://example.com',
         cost: 50,
         planning_days: 2,
+        activity_type: null,
         parent: null
       });
     });
@@ -232,6 +239,7 @@ describe('usePlanItemManager', () => {
         url: 'https://example.com',
         cost: 100, // Note: cost_estimate mapped to cost
         planning_days: 3,
+        activity_type: null,
         parent: 'parent-123'
       });
     });

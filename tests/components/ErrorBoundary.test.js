@@ -151,7 +151,8 @@ describe('ErrorBoundary', () => {
     // Click try again multiple times
     fireEvent.click(screen.getByText('Try Again'));
     fireEvent.click(screen.getByText('Try Again'));
-    fireEvent.click(screen.getByText('Try Again'));
+    // Note: ErrorBoundary accumulates errorCount and does not reset it on "Try Again".
+    // Initial render produces 1 error; 2 more retries => 3 total.
 
     // After 3 errors, should show recurring error warning
     expect(screen.getByText(/Recurring Error Detected/)).toBeInTheDocument();

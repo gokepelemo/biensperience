@@ -1,4 +1,5 @@
 @use '../../styles/scss/abstracts' as *;
+@use '../../styles/scss/components' as *;
 
 /* Custom Modal Implementation for Stream Chat */
 .modalBackdrop {
@@ -354,7 +355,8 @@
   top: 100%;
   left: 0;
   right: 0;
-  z-index: 100;
+  /* When portaled to document.body, must sit above modal/backdrop z-indexes */
+  z-index: 2000;
   margin: $space-1 0 0 0;
   padding: $space-2 0;
   list-style: none;
@@ -404,34 +406,19 @@
   position: relative; /* container for animated label */
 }
 
-/* static clipped label for mobile */
-.mobileTitleStatic {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* NOTE: .mobileTitleStatic and .mobileChannelTitleInner were removed as unused.
+ * ChannelTitle component uses .channelTitleStatic and .channelTitleAnimating internally,
+ * which are styled via the .mobileDropdownItem hover rules below and the base channel title styles above.
+ */
 
-.mobileChannelTitleInner {
-  display: inline-block;
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  visibility: hidden;
-  white-space: nowrap;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.mobileDropdownItem:hover .mobileTitleStatic,
-.mobileDropdownItem:focus .mobileTitleStatic {
+/* Toggle between static and animated labels on hover/focus for mobile dropdown items */
+/* ChannelTitle component uses .channelTitleStatic and .channelTitleAnimating internally */
+.mobileDropdownItem:hover .channelTitleStatic,
+.mobileDropdownItem:focus .channelTitleStatic {
   visibility: hidden;
 }
-.mobileDropdownItem:hover .mobileChannelTitleInner,
-.mobileDropdownItem:focus .mobileChannelTitleInner {
+.mobileDropdownItem:hover .channelTitleAnimating,
+.mobileDropdownItem:focus .channelTitleAnimating {
   visibility: visible;
 }
 
@@ -444,123 +431,5 @@
 }
 
 /* Stream Chat (scoped) token alignment */
-.pane :global(.str-chat),
-.pane :global(.str-chat__channel),
-.pane :global(.str-chat__main-panel),
-.pane :global(.str-chat__window) {
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-}
-
-.pane :global(.str-chat__channel-header) {
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.pane :global(.str-chat__message-list) {
-  background: var(--color-bg-primary);
-}
-
-.pane :global(.str-chat__message-input) {
-  background: var(--color-bg-secondary);
-  border-top: 1px solid var(--color-border-light);
-}
-
-.pane :global(.str-chat__textarea textarea) {
-  color: var(--color-text-primary);
-}
-
-/* Ensure Stream Chat main panel and message list expand and become scrollable
-   so the visible messages area fills the vertical space of the modal. */
-.pane :global(.str-chat__main-panel),
-.pane :global(.str-chat__window) {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.pane :global(.str-chat__message-list) {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
-/* Send to channel checkbox styling - matches Checkbox component */
-.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.pane :global(.str-chat__send-to-channel-checkbox__field) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-}
-
-.pane :global(.str-chat__send-to-channel-checkbox__field label) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  /* Remove upstream Stream Chat padding so our gap controls spacing */
-  padding-inline: 0;
-}
-
-/* Square box as pseudo-element so the label text remains visible */
-.pane :global(.str-chat__send-to-channel-checkbox__field label::before) {
-  content: '';
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--color-border-medium);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-  display: inline-block;
-}
-
-/* Checkmark icon positioned over the box */
-.pane :global(.str-chat__send-to-channel-checkbox__field label::after) {
-  content: '';
-  position: absolute;
-  /* position the checkmark centered inside the 24px box (2px border) */
-  /* expand to occupy most of the inner box for a bold appearance */
-  left: 3px;
-  top: 50%;
-  transform: translateY(-50%) scale(1);
-  width: 18px;
-  height: 18px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 18px 18px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
-  border-color: transparent;
-  background: var(--gradient-primary);
-}
-
-.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
-  opacity: 1;
-  /* larger/thicker checkmark so it visually fills the checkbox */
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
-.pane :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
-}
+@include streamChatTokenAlignment('.pane');
+@include streamChatSendToChannelCheckbox('.pane');

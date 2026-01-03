@@ -139,28 +139,22 @@
   padding: 0 $space-4;
 }
 
-// Destinations Grid - fixed 12rem width cards, left-aligned within container
+// Destinations list - flexbox layout matching Destinations view for consistent distribution
 .destinationsList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 12rem);
-  gap: $space-4;
-  width: 100%;
-  justify-content: start;
-
-  // Single column on mobile - center the card
-  @include breakpoint-max(sm) {
-    grid-template-columns: 1fr;
-    max-width: 12rem;
-    margin: 0 auto;
-    justify-content: center;
-  }
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-8;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: $space-8;
 }
 
 // Destination Skeleton - matches DestinationCard layout exactly
-// Card: aspect-ratio 3/2 (fluid), border-radius 2xl, centered title overlay with blur
+// Card: 12rem × 8rem, border-radius 2xl, centered title overlay with blur
 .destinationSkeleton {
-  width: 100%;
-  aspect-ratio: 3 / 2;
+  width: 12rem;
+  height: 8rem;
+  margin: $space-2; // Match DestinationCard's outer wrapper (Bootstrap m-2)
   border-radius: $radius-2xl;
   position: relative;
   overflow: hidden;
@@ -184,37 +178,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: $space-2 $space-3;
+  padding: $space-3;
   background: var(--color-bg-overlay);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-radius: $radius-md;
-  width: auto;
-  max-width: 80%;
+  width: 100%;
+  max-width: 100%;
 }
 
 .destinationSkeletonTitle {
-  height: $font-size-lg;
-  width: 6rem;
+  height: calc(#{$font-size-lg} * #{$line-height-snug});
+  width: 70%;
   background: rgba(255, 255, 255, 0.25);
   border-radius: $radius-sm;
 }
 
-// Experiences Grid - fixed 20rem (320px) width cards, left-aligned within container
+// Experiences list - flexbox layout matching Experiences view for consistent distribution
 .experiencesList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 20rem);
-  gap: $space-4;
-  width: 100%;
-  justify-content: start;
-
-  // Single column on mobile - center the card
-  @include breakpoint-max(sm) {
-    grid-template-columns: 1fr;
-    max-width: 320px;
-    margin: 0 auto;
-    justify-content: center;
-  }
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-8;
+  justify-content: center;
+  align-items: flex-start;
+  margin-bottom: $space-8;
 }
 
 // Show More button container
@@ -230,10 +217,11 @@
 }
 
 // Experience Skeleton - matches ExperienceCard layout exactly
-// Card: min-height 12rem, border-radius md, centered title + bottom actions row
+// Card: 20rem width, min-height 12rem, border-radius md, centered title + bottom actions row
 .experienceSkeleton {
-  width: 100%;
+  width: 20rem;
   min-height: 12rem;
+  margin: $space-2; // Match ExperienceCard's outer wrapper (Bootstrap m-2)
   border-radius: $radius-md;
   position: relative;
   overflow: hidden;
@@ -271,15 +259,15 @@
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-radius: $radius-md;
-  width: auto;
-  max-width: 85%;
+  width: 100%;
+  max-width: 100%;
 
   // Inner shimmer bar for text
   &::after {
     content: '';
     display: block;
-    height: $font-size-lg;
-    width: 8rem;
+    height: calc(#{$font-size-lg} * #{$line-height-normal});
+    width: 70%;
     background: rgba(255, 255, 255, 0.25);
     border-radius: $radius-sm;
   }
@@ -301,9 +289,9 @@
   width: var(--btn-height-md, 44px);
   height: var(--btn-height-md, 44px);
   border-radius: 50%;
-  background: var(--color-bg-overlay);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  opacity: 0.9;
 }
 
 // Shimmer animation for skeleton loaders

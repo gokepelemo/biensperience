@@ -7,9 +7,6 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import NewExperience from '../../src/components/NewExperience/NewExperience';
-import { UserProvider } from '../../src/contexts/UserContext';
-import { DataProvider } from '../../src/contexts/DataContext';
-import { ToastProvider } from '../../src/contexts/ToastContext';
 import { createExperience } from '../../src/utilities/experiences-api';
 
 // Increase timeout for async tests
@@ -17,6 +14,15 @@ jest.setTimeout(15000);
 
 // Mock modules
 jest.mock('../../src/utilities/experiences-api');
+jest.mock('../../src/contexts/UserContext', () => ({
+  useUser: jest.fn()
+}));
+jest.mock('../../src/contexts/DataContext', () => ({
+  useData: jest.fn()
+}));
+jest.mock('../../src/contexts/ToastContext', () => ({
+  useToast: jest.fn()
+}));
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn()
@@ -29,40 +35,65 @@ const mockUser = {
   email: 'test@example.com'
 };
 
+const PARIS_ID = '507f1f77bcf86cd799439011';
+const TOKYO_ID = '507f1f77bcf86cd799439012';
+
 const mockDestinations = [
-  { _id: 'dest1', name: 'Paris', country: 'France' },
-  { _id: 'dest2', name: 'Tokyo', country: 'Japan' }
+  { _id: PARIS_ID, name: 'Paris', country: 'France' },
+  { _id: TOKYO_ID, name: 'Tokyo', country: 'Japan' }
 ];
 
 const mockExperiences = [
-  { _id: 'exp1', name: 'Eiffel Tower Visit', destination: 'dest1' }
+  { _id: 'exp1', name: 'Eiffel Tower Visit', destination: PARIS_ID }
 ];
+
+const { useUser } = require('../../src/contexts/UserContext');
+const { useData } = require('../../src/contexts/DataContext');
+const { useToast } = require('../../src/contexts/ToastContext');
+
+const selectDestination = async (destinationName) => {
+  const destinationInput = screen.getByLabelText(/Destination/i);
+  fireEvent.focus(destinationInput);
+  fireEvent.change(destinationInput, { target: { value: destinationName } });
+
+  // Click the matching dropdown option. For destinations, the accessible name
+  // usually includes both the city and country (e.g., "Paris France").
+  const option = await screen.findByRole('option', {
+    name: new RegExp(destinationName, 'i')
+  });
+  fireEvent.click(option);
+};
 
 const renderWithProviders = (component) => {
   return render(
     <BrowserRouter>
-      <ToastProvider>
-        <UserProvider value={{ user: mockUser }}>
-          <DataProvider value={{
-            destinations: mockDestinations,
-            experiences: mockExperiences,
-            addExperience: jest.fn()
-          }}>
-            {component}
-          </DataProvider>
-        </UserProvider>
-      </ToastProvider>
+      {component}
     </BrowserRouter>
   );
 };
 
 describe('NewExperience Integration Tests', () => {
+  let mockAddExperience;
+  let mockToastSuccess;
+
   beforeEach(() => {
     jest.clearAllMocks();
+
+    mockAddExperience = jest.fn();
+    mockToastSuccess = jest.fn();
+
+    useUser.mockReturnValue({ user: mockUser });
+    useData.mockReturnValue({
+      destinations: mockDestinations,
+      experiences: mockExperiences,
+      addExperience: mockAddExperience
+    });
+    useToast.mockReturnValue({ success: mockToastSuccess });
+
     createExperience.mockResolvedValue({
       _id: 'exp2',
       name: 'New Experience',
-      destination: 'dest1',
+      destination: PARIS_ID,
       experience_type: []
     });
   });
@@ -75,8 +106,6 @@ describe('NewExperience Integration Tests', () => {
       expect(screen.getByLabelText(/Destination/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Address/i)).toBeInTheDocument();
       expect(screen.getByText(/Experience Types/i)).toBeInTheDocument(); // Changed from getByLabelText
-      expect(screen.getByLabelText(/Planning Days/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Cost Estimate/i)).toBeInTheDocument();
     });
 
     it('should render photo upload component', () => {
@@ -106,33 +135,25 @@ describe('NewExperience Integration Tests', () => {
       expect(addressInput.value).toBe('75001 Paris, France');
     });
 
-    it('should handle number input changes', () => {
-      renderWithProviders(<NewExperience />);
-
-      const planningDaysInput = screen.getByLabelText(/Planning Days/i);
-      const costInput = screen.getByLabelText(/Cost Estimate/i);
-
-      fireEvent.change(planningDaysInput, { target: { value: '30' } });
-      fireEvent.change(costInput, { target: { value: '50' } });
-
-      expect(planningDaysInput.value).toBe('30');
-      expect(costInput.value).toBe('50');
-    });
+    // Planning days and cost estimate are derived from plan items (virtuals) and
+    // are not editable on the creation form.
   });
 
   describe('useDestinationManagement Integration', () => {
-    it('should display destination options in datalist', () => {
+    it('should show destination options in the Autocomplete dropdown', async () => {
       renderWithProviders(<NewExperience />);
 
       const destinationInput = screen.getByLabelText(/Destination/i);
       expect(destinationInput).toBeInTheDocument();
-      expect(destinationInput).toHaveAttribute('list', 'destination_list');
+
+      fireEvent.change(destinationInput, { target: { value: 'Par' } });
+      expect(await screen.findByText('Paris')).toBeInTheDocument();
     });
 
     it('should open destination modal when create button clicked', () => {
       renderWithProviders(<NewExperience />);
 
-      const createButton = screen.getByText(/Create New Destination/i);
+      const createButton = screen.getByRole('button', { name: /add a new destination/i });
       fireEvent.click(createButton);
 
       // Modal should be rendered (we're testing the integration, not the modal itself)
@@ -144,7 +165,7 @@ describe('NewExperience Integration Tests', () => {
 
       const destinationInput = screen.getByLabelText(/Destination/i);
       fireEvent.change(destinationInput, {
-        target: { value: '✚ Create New: London' }
+        target: { value: 'London' }
       });
 
       // Modal should be triggered (integration point verified)
@@ -179,9 +200,7 @@ describe('NewExperience Integration Tests', () => {
       fireEvent.change(screen.getByLabelText(/Title/i), {
         target: { value: 'Test Experience' }
       });
-      fireEvent.change(screen.getByLabelText(/Destination/i), {
-        target: { value: 'Paris, France' }
-      });
+      await selectDestination('Paris');
 
       // Submit
       fireEvent.click(screen.getByText(/Create Experience/i));
@@ -203,9 +222,7 @@ describe('NewExperience Integration Tests', () => {
       fireEvent.change(screen.getByLabelText(/Title/i), {
         target: { value: 'Duplicate Experience' }
       });
-      fireEvent.change(screen.getByLabelText(/Destination/i), {
-        target: { value: 'Paris, France' }
-      });
+      await selectDestination('Paris');
 
       fireEvent.click(screen.getByText(/Create Experience/i));
 
@@ -221,9 +238,7 @@ describe('NewExperience Integration Tests', () => {
       fireEvent.change(screen.getByLabelText(/Title/i), {
         target: { value: 'Eiffel Tower Visit' }
       });
-      fireEvent.change(screen.getByLabelText(/Destination/i), {
-        target: { value: 'Paris, France' }
-      });
+      await selectDestination('Paris');
 
       fireEvent.click(screen.getByText(/Create Experience/i));
 
@@ -243,9 +258,7 @@ describe('NewExperience Integration Tests', () => {
       fireEvent.change(screen.getByLabelText(/Title/i), {
         target: { value: 'New Experience' }
       });
-      fireEvent.change(screen.getByLabelText(/Destination/i), {
-        target: { value: 'Paris, France' }
-      });
+      await selectDestination('Paris');
 
       fireEvent.click(screen.getByText(/Create Experience/i));
 
@@ -257,39 +270,15 @@ describe('NewExperience Integration Tests', () => {
 
   describe('Complete Form Submission Workflow', () => {
     it('should successfully create experience with all fields', async () => {
-      const mockAddExperience = jest.fn();
-
-      render(
-        <BrowserRouter>
-          <ToastProvider>
-            <UserProvider value={{ user: mockUser }}>
-              <DataProvider value={{
-                destinations: mockDestinations,
-                experiences: mockExperiences,
-                addExperience: mockAddExperience
-              }}>
-                <NewExperience />
-              </DataProvider>
-            </UserProvider>
-          </ToastProvider>
-        </BrowserRouter>
-      );
+      renderWithProviders(<NewExperience />);
 
       // Fill all fields
       fireEvent.change(screen.getByLabelText(/Title/i), {
         target: { value: 'Louvre Museum' }
       });
-      fireEvent.change(screen.getByLabelText(/Destination/i), {
-        target: { value: 'Paris, France' }
-      });
+      await selectDestination('Paris');
       fireEvent.change(screen.getByLabelText(/Address/i), {
         target: { value: 'Rue de Rivoli, 75001 Paris' }
-      });
-      fireEvent.change(screen.getByLabelText(/Planning Days/i), {
-        target: { value: '7' }
-      });
-      fireEvent.change(screen.getByLabelText(/Cost Estimate/i), {
-        target: { value: '100' }
       });
 
       // Submit
@@ -299,10 +288,8 @@ describe('NewExperience Integration Tests', () => {
         expect(createExperience).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'Louvre Museum',
-            destination: 'dest1',
-            map_location: 'Rue de Rivoli, 75001 Paris',
-            max_planning_days: '7',
-            cost_estimate: '100'
+            destination: PARIS_ID,
+            map_location: 'Rue de Rivoli, 75001 Paris'
           })
         );
       });
@@ -314,9 +301,7 @@ describe('NewExperience Integration Tests', () => {
       fireEvent.change(screen.getByLabelText(/Title/i), {
         target: { value: 'Minimal Experience' }
       });
-      fireEvent.change(screen.getByLabelText(/Destination/i), {
-        target: { value: 'Tokyo, Japan' }
-      });
+      await selectDestination('Tokyo');
 
       fireEvent.click(screen.getByText(/Create Experience/i));
 
@@ -324,7 +309,7 @@ describe('NewExperience Integration Tests', () => {
         expect(createExperience).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'Minimal Experience',
-            destination: 'dest2'
+            destination: TOKYO_ID
           })
         );
       });

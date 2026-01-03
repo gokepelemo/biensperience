@@ -7,37 +7,36 @@
 @use '../../styles/scss/abstracts' as *;
 
 .skeletonLoader {
+  display: block;
+  box-sizing: border-box;
+  flex-shrink: 0;
   background: var(--color-bg-tertiary);
   border-radius: $radius-sm;
   position: relative;
   overflow: hidden;
   contain: layout style; // Prevent layout shifts
-  animation: gentleFloat 3s ease-in-out infinite;
+  /* Keep skeletons perfectly still; shimmer handles perceived motion */
+  transform: translateZ(0); // Avoid subpixel shimmer tearing in some browsers
 }
 
 /* Animation */
-.skeletonAnimate::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
+.skeletonAnimate {
   background: linear-gradient(
     90deg,
-    transparent,
-    var(--color-shimmer-light),
-    transparent
+    var(--color-bg-tertiary) 0%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 100%
   );
-  animation: skeleton-shimmer 1.5s infinite;
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes skeleton-shimmer {
   0% {
-    left: -100%;
+    background-position: 200% 0;
   }
   100% {
-    left: 100%;
+    background-position: -200% 0;
   }
 }
 
@@ -45,6 +44,8 @@
 .skeletonText {
   height: $font-size-base;
   border-radius: $radius-sm;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* Circle variant */
@@ -78,12 +79,12 @@
     background: var(--color-bg-tertiary-dark);
   }
 
-  .skeletonAnimate::before {
+  .skeletonAnimate {
     background: linear-gradient(
       90deg,
-      transparent,
-      var(--color-shimmer-dark),
-      transparent
+      var(--color-bg-tertiary-dark) 0%,
+      var(--color-bg-secondary) 50%,
+      var(--color-bg-tertiary-dark) 100%
     );
   }
 }
@@ -93,12 +94,18 @@
     background: var(--color-bg-tertiary-dark);
   }
 
-  .skeletonAnimate::before {
+  .skeletonAnimate {
     background: linear-gradient(
       90deg,
-      transparent,
-      var(--color-shimmer-dark),
-      transparent
+      var(--color-bg-tertiary-dark) 0%,
+      var(--color-bg-secondary) 50%,
+      var(--color-bg-tertiary-dark) 100%
     );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonAnimate {
+    animation: none;
   }
 }

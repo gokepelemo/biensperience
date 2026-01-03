@@ -10,6 +10,12 @@
   margin-bottom: var(--space-8);
   overflow: visible; /* Allow dropdown to escape - border-radius handled on children */
   box-shadow: var(--shadow-sm);
+
+  /* Skeleton sizing tokens (kept here so skeletons match responsive layout) */
+  --profile-skeleton-avatar-size: 150px;
+  --profile-skeleton-name-font-size: var(--font-size-3xl);
+  --profile-skeleton-verified-size: 24px;
+  --profile-skeleton-location-icon-size: 16px;
 }
 
 /* Cover Image / Gradient Banner */
@@ -377,6 +383,17 @@
 /* Tab Navigation - GitHub-style wrapper */
 .profileTabs {
   margin-bottom: var(--space-6);
+
+  /* Skeleton sizing for tabs (mirrors TabNav font/icon scaling) */
+  --profile-tab-skeleton-icon-size: 16px;
+  --profile-tab-skeleton-label-height: 14px;
+}
+
+@media (max-width: 768px) {
+  .profileTabs {
+    --profile-tab-skeleton-icon-size: 14px;
+    --profile-tab-skeleton-label-height: 12px;
+  }
 }
 
 /* Content Grid */
@@ -493,6 +510,57 @@
     font-size: var(--font-size-2xl);
   }
 
+  /* Keep skeleton placeholders in lockstep with the real responsive sizing */
+  .profileHeaderCard {
+    --profile-skeleton-avatar-size: 120px;
+    --profile-skeleton-name-font-size: var(--font-size-2xl);
+    --profile-skeleton-verified-size: 20px;
+    --profile-skeleton-location-icon-size: 14px;
+  }
+
+
+/* Profile tab skeletons - mirror TabNav responsive behavior */
+.profileTabsSkeletonDesktop {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    gap: 0;
+  }
+
+  @media (max-width: 576px) {
+    display: none;
+  }
+}
+
+.profileTabsSkeletonMobile {
+  display: none;
+  width: 100%;
+
+  @media (max-width: 576px) {
+    display: block;
+  }
+}
+
+.profileTabSkeletonItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: -1px;
+
+  @media (max-width: 768px) {
+    padding: var(--space-3);
+  }
+}
   .profileStats {
     gap: var(--space-4);
   }
