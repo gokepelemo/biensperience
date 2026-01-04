@@ -105,6 +105,10 @@ export default function Profile() {
   const [followsLoading, setFollowsLoading] = useState(false);
   const [followsPagination, setFollowsPagination] = useState({ total: 0, hasMore: false, skip: 0 });
 
+  // Refs to avoid follow-event subscription churn when these values change
+  const followsFilterRef = useRef(followsFilter);
+  const followsListLoadedRef = useRef(false);
+
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -148,6 +152,15 @@ export default function Profile() {
   useEffect(() => {
     activeUserIdRef.current = userId;
   }, [userId]);
+
+  // Keep follow-event handler refs fresh without resubscribing
+  useEffect(() => {
+    followsFilterRef.current = followsFilter;
+  }, [followsFilter]);
+
+  useEffect(() => {
+    followsListLoadedRef.current = Array.isArray(followsList) && followsList.length > 0;
+  }, [followsList]);
 
   // Initialize tab from hash (supports deep links like /profile#created)
   useEffect(() => {
@@ -1026,7 +1039,7 @@ export default function Profile() {
         setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
 
         // If we're on the followers tab and have loaded the list, add the new follower
-        if (followsFilter === 'followers' && followsList.length > 0 && followerId) {
+        if (followsFilterRef.current === 'followers' && followsListLoadedRef.current && followerId) {
           // Add new follower to the list (at the beginning since it's most recent)
           // Only add if we have follower details from the event
           if (followerName) {
@@ -1062,7 +1075,7 @@ export default function Profile() {
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
 
         // If we're on the followers tab, remove the unfollower from the list
-        if (followsFilter === 'followers' && followerId) {
+        if (followsFilterRef.current === 'followers' && followerId) {
           setFollowsList(prev => prev.filter(f => f._id !== followerId));
           setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
         }
@@ -1087,7 +1100,7 @@ export default function Profile() {
       if (!removedFollowerId || !removedById) return;
 
       // If this profile's owner removed a follower, update the followers list
-      if (removedById === userId && followsFilter === 'followers') {
+      if (removedById === userId && followsFilterRef.current === 'followers') {
         setFollowsList(prev => prev.filter(f => f._id !== removedFollowerId));
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
         setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
@@ -1113,7 +1126,7 @@ export default function Profile() {
       unsubWsDelete?.();
       unsubWsRemoved?.();
     };
-  }, [userId, user._id, wsSubscribe, followsFilter, followsList.length]);
+  }, [userId, user._id, wsSubscribe]);
 
   // Handle follow button click
   const handleFollow = useCallback(async () => {
