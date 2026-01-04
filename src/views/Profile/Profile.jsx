@@ -37,6 +37,7 @@ import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
+import { storePreference, retrievePreference, expirePreference } from "../../utilities/preferences-utils";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
@@ -266,7 +267,7 @@ export default function Profile() {
   const [showAllCreated, setShowAllCreated] = useState(false);
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const COOLDOWN_SECONDS = 60;
-  const COOLDOWN_KEY_PREFIX = 'resend_verification_cooldown_';
+  const RESEND_COOLDOWN_PREF_KEY = 'session.resendVerificationCooldown.expiresAt';
   const EXPERIENCE_TYPES_INITIAL_DISPLAY = 10;
   const ITEMS_PER_PAGE = 6; // Fixed items per page for API pagination
   // Pagination for profile tabs
@@ -275,6 +276,7 @@ export default function Profile() {
   const [destinationsPage, setDestinationsPage] = useState(1);
   const reservedRef = useRef(null);
   const [itemsPerPageComputed, setItemsPerPageComputed] = useState(ITEMS_PER_PAGE);
+  const cooldownTimerRef = useRef(null);
   // Track if initial page 1 has been loaded (to distinguish from user navigation back to page 1)
   const experiencesInitialLoadRef = useRef(true);
   const createdInitialLoadRef = useRef(true);
@@ -321,63 +323,87 @@ export default function Profile() {
     });
   }, []);
 
-  // Start a cooldown for the given email and persist to localStorage
-  const startCooldown = (email) => {
-    if (!email) return;
-    const key = COOLDOWN_KEY_PREFIX + email;
-    const expiresAt = Date.now() + COOLDOWN_SECONDS * 1000;
-    try {
-      localStorage.setItem(key, String(expiresAt));
-    } catch (e) {
-      // ignore localStorage errors
+  const clearCooldownTimer = useCallback(() => {
+    if (cooldownTimerRef.current) {
+      clearInterval(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
     }
-    setResendDisabled(true);
-    setCooldownRemaining(COOLDOWN_SECONDS);
-    const timer = setInterval(() => {
-      setCooldownRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          try { localStorage.removeItem(key); } catch (e) {}
-          setResendDisabled(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+  }, []);
 
-  // On profile load, restore any existing cooldown for this email
-  useEffect(() => {
-    if (!currentProfile || !currentProfile.email) return;
-    const key = COOLDOWN_KEY_PREFIX + currentProfile.email;
-    try {
-      const expires = localStorage.getItem(key);
-      if (!expires) return;
-      const expiresAt = parseInt(expires, 10);
-      const now = Date.now();
-      if (expiresAt > now) {
-        const remaining = Math.ceil((expiresAt - now) / 1000);
-        setResendDisabled(true);
-        setCooldownRemaining(remaining);
-        const timer = setInterval(() => {
-          const rem = Math.ceil((expiresAt - Date.now()) / 1000);
-          if (rem <= 0) {
-            clearInterval(timer);
-            try { localStorage.removeItem(key); } catch (e) {}
-            setResendDisabled(false);
-            setCooldownRemaining(0);
-          } else {
-            setCooldownRemaining(rem);
-          }
-        }, 1000);
-        return () => clearInterval(timer);
-      } else {
-        try { localStorage.removeItem(key); } catch (e) {}
-      }
-    } catch (e) {
-      // ignore
+  const applyCooldown = useCallback((expiresAt) => {
+    if (!expiresAt || Number.isNaN(Number(expiresAt))) return;
+
+    clearCooldownTimer();
+
+    const remainingSeconds = Math.max(0, Math.ceil((Number(expiresAt) - Date.now()) / 1000));
+    if (remainingSeconds <= 0) {
+      setResendDisabled(false);
+      setCooldownRemaining(0);
+      return;
     }
-  }, [currentProfile]);
+
+    setResendDisabled(true);
+    setCooldownRemaining(remainingSeconds);
+
+    cooldownTimerRef.current = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((Number(expiresAt) - Date.now()) / 1000));
+      if (rem <= 0) {
+        clearCooldownTimer();
+        setResendDisabled(false);
+        setCooldownRemaining(0);
+        // Clean up stored preference (best-effort)
+        expirePreference(RESEND_COOLDOWN_PREF_KEY, { userId: user?._id }).catch(() => {});
+      } else {
+        setCooldownRemaining(rem);
+      }
+    }, 1000);
+  }, [RESEND_COOLDOWN_PREF_KEY, clearCooldownTimer, user?._id]);
+
+  // Start a cooldown for resend verification and persist via encrypted preferences
+  const startCooldown = useCallback(() => {
+    const expiresAt = Date.now() + COOLDOWN_SECONDS * 1000;
+
+    // Persist (best-effort). Use a non-PII key, encrypted with userId.
+    storePreference(
+      RESEND_COOLDOWN_PREF_KEY,
+      expiresAt,
+      { userId: user?._id, ttl: COOLDOWN_SECONDS * 1000 }
+    ).catch(() => {});
+
+    applyCooldown(expiresAt);
+  }, [COOLDOWN_SECONDS, RESEND_COOLDOWN_PREF_KEY, applyCooldown, user?._id]);
+
+  // On profile load, restore any existing resend-verification cooldown
+  useEffect(() => {
+    if (!isOwnProfile || !currentProfile || !user?._id) return;
+
+    let cancelled = false;
+
+    const restore = async () => {
+      const expiresAt = await retrievePreference(
+        RESEND_COOLDOWN_PREF_KEY,
+        null,
+        { userId: user._id }
+      );
+
+      if (cancelled) return;
+      if (!expiresAt) {
+        clearCooldownTimer();
+        setResendDisabled(false);
+        setCooldownRemaining(0);
+        return;
+      }
+
+      applyCooldown(expiresAt);
+    };
+
+    restore().catch(() => {});
+
+    return () => {
+      cancelled = true;
+      clearCooldownTimer();
+    };
+  }, [currentProfile, isOwnProfile, RESEND_COOLDOWN_PREF_KEY, applyCooldown, clearCooldownTimer, user?._id]);
 
   // Build planned experiences list - one entry per plan (not per experience)
   // This allows showing both owned and collaborative plans for the same experience separately
@@ -1034,7 +1060,7 @@ export default function Profile() {
     try {
       await followUser(userId, user._id);
       setIsFollowing(true);
-      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+      // Follow count updates are handled via the `follow:created` event emitted by `followUser()`.
       success(lang.current.success.nowFollowing);
       try {
         const rel = await getFollowRelationship(userId);
@@ -1064,7 +1090,7 @@ export default function Profile() {
     try {
       await unfollowUser(userId, user._id);
       setIsFollowing(false);
-      setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+      // Follow count updates are handled via the `follow:deleted` event emitted by `unfollowUser()`.
       success(lang.current.success.unfollowed);
       try {
         const rel = await getFollowRelationship(userId);
