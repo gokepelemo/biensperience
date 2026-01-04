@@ -162,11 +162,16 @@ export default function Profile() {
     followsListLoadedRef.current = Array.isArray(followsList) && followsList.length > 0;
   }, [followsList]);
 
-  // Initialize tab from hash (supports deep links like /profile#created)
-  useEffect(() => {
+  const applyHash = useCallback((rawHash) => {
     try {
-      const hash = (window.location.hash || '').replace('#', '');
-      if (!hash) return;
+      const hash = (rawHash || '').replace('#', '');
+
+      // Empty hash - close modals if open
+      if (!hash) {
+        setShowApiTokenModal(false);
+        setShowActivityMonitor(false);
+        return;
+      }
 
       // Map known hashes to local profile tabs
       if (['activity', 'follows', 'experiences', 'created', 'destinations'].includes(hash)) {
@@ -209,74 +214,26 @@ export default function Profile() {
         setShowActivityMonitor(true);
         return;
       }
+      // Unknown hash - ignore
     } catch (e) {
       // ignore
     }
-    // run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate]);
+
+  // Initialize tab from hash (supports deep links like /profile#created)
+  useEffect(() => {
+    applyHash(window.location.hash || '');
+  }, [applyHash]);
 
   // Keep UI tab state in sync when hash changes externally
   useEffect(() => {
     const onHashChange = () => {
-      try {
-        const hash = (window.location.hash || '').replace('#', '');
-
-        // Empty hash - close modals if open
-        if (!hash) {
-          if (showApiTokenModal) setShowApiTokenModal(false);
-          if (showActivityMonitor) setShowActivityMonitor(false);
-          return;
-        }
-
-        if (['activity', 'follows', 'experiences', 'created', 'destinations'].includes(hash)) {
-          setUiState({
-            activity: hash === 'activity',
-            follows: hash === 'follows',
-            experiences: hash === 'experiences',
-            created: hash === 'created',
-            destinations: hash === 'destinations',
-          });
-          return;
-        }
-
-        // Handle follows sub-hashes (e.g., #followers, #following)
-        if (hash === 'followers' || hash === 'following') {
-          setUiState({
-            activity: false,
-            follows: true,
-            experiences: false,
-            created: false,
-            destinations: false,
-          });
-          setFollowsFilter(hash);
-          return;
-        }
-
-        if (hash === 'plans' || hash === 'preferences') {
-          // push navigation entry to dashboard
-          navigate(`/dashboard#${hash}`);
-          return;
-        }
-
-        // Modal hashes
-        if (hash === 'api-token') {
-          setShowApiTokenModal(true);
-          return;
-        }
-        if (hash === 'activity-monitor') {
-          setShowActivityMonitor(true);
-          return;
-        }
-        // Unknown hash - ignore
-      } catch (e) {
-        // ignore
-      }
+      applyHash(window.location.hash || '');
     };
 
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [navigate, showApiTokenModal, showActivityMonitor]);
+  }, [applyHash]);
   // Experiences state with pagination metadata
   const [userExperiences, setUserExperiences] = useState(null);
   const [userExperiencesMeta, setUserExperiencesMeta] = useState(null);
