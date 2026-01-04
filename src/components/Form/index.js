@@ -1,1 +1,1 @@
-export { default as Form, FormGroup, FormLabel, FormControl, FormCheck, FormText } from './Form';
+export { default as Form, FormGroup, FormLabel, FormControl, FormCheck, FormText, FormInputGroup } from './Form';

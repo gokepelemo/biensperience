@@ -1,8 +1,15 @@
+jest.mock('../../utilities/sinch', () => ({
+  startSmsVerification: jest.fn(),
+  reportSmsVerificationById: jest.fn()
+}));
+
 const request = require('supertest');
 const app = require('../../app');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
 const User = require('../../models/user');
+
+const { startSmsVerification, reportSmsVerificationById } = require('../../utilities/sinch');
 
 describe('Users API', () => {
   let mongoServer;
@@ -256,6 +263,37 @@ describe('Users API', () => {
       expect(response.body.error).toContain('emailConfirmed must be a boolean');
     });
 
+    it('should allow super admin to update user notification webhooks', async () => {
+      const updateData = {
+        preferences: {
+          notifications: {
+            enabled: true,
+            channels: ['email', 'webhook'],
+            types: ['activity'],
+            webhooks: [
+              'https://example.com/hook',
+              'http://not-https.example.com/hook',
+              'https://localhost/hook'
+            ]
+          }
+        }
+      };
+
+      const response = await request(app)
+        .put(`/api/users/${regularUser._id}/admin`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send(updateData)
+        .expect(200);
+
+      const notifications = response.body.data.user.preferences.notifications;
+      expect(notifications.enabled).toBe(true);
+      expect(Array.isArray(notifications.channels)).toBe(true);
+      expect(notifications.channels).toContain('webhook');
+
+      // Only valid HTTPS, non-localhost endpoints should be persisted
+      expect(notifications.webhooks).toEqual(['https://example.com/hook']);
+    });
+
     it('should return 404 for non-existent user', async () => {
       const fakeId = new mongoose.Types.ObjectId();
 
@@ -291,6 +329,51 @@ describe('Users API', () => {
       const body = response.body?.data || response.body;
 
       expect(body._id).toBe(regularUser._id.toString());
+    });
+  });
+
+  describe('Phone verification', () => {
+    it('should start phone verification and store pending verificationId', async () => {
+      startSmsVerification.mockResolvedValueOnce({ id: 'verif_123' });
+
+      const response = await request(app)
+        .post(`/api/users/${regularUser._id}/phone-verification/start`)
+        .set('Authorization', `Bearer ${regularUserToken}`)
+        .send({ phoneNumber: '+15551234567' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.verificationId).toBe('verif_123');
+
+      const updated = await User.findById(regularUser._id).lean();
+      expect(updated.phone.number).toBe('+15551234567');
+      expect(updated.phone.verified).toBe(false);
+      expect(updated.phone.verificationId).toBe('verif_123');
+    });
+
+    it('should confirm phone verification and mark number as verified on SUCCESSFUL', async () => {
+      startSmsVerification.mockResolvedValueOnce({ id: 'verif_456' });
+      reportSmsVerificationById.mockResolvedValueOnce({ id: 'verif_456', status: 'SUCCESSFUL' });
+
+      await request(app)
+        .post(`/api/users/${regularUser._id}/phone-verification/start`)
+        .set('Authorization', `Bearer ${regularUserToken}`)
+        .send({ phoneNumber: '+15551234567' })
+        .expect(200);
+
+      const response = await request(app)
+        .post(`/api/users/${regularUser._id}/phone-verification/confirm`)
+        .set('Authorization', `Bearer ${regularUserToken}`)
+        .send({ code: '123456' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe('SUCCESSFUL');
+
+      const updated = await User.findById(regularUser._id).lean();
+      expect(updated.phone.verified).toBe(true);
+      expect(updated.phone.verifiedAt).toBeTruthy();
+      expect(updated.phone.verificationId).toBe(null);
     });
   });
 });

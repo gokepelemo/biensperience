@@ -12,6 +12,7 @@ import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
 import { createDestination, updateDestination } from '../../utilities/destinations-api';
+import { logger } from '../../utilities/logger';
 import { useTravelTipsManager } from '../../hooks/useTravelTipsManager';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
@@ -60,6 +61,7 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
   // Track if we've created the destination (for optimistic creation)
   const [createdDestination, setCreatedDestination] = useState(null);
   const isCreatingRef = useRef(false);
+  const parentActivityIdRef = useRef(null);
 
   // Travel tips state
   const {
@@ -134,6 +136,7 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
       setError('');
       setCreatedDestination(null);
       isCreatingRef.current = false;
+      parentActivityIdRef.current = null;
     } else if (initialValues) {
       // When opening, apply any provided initialValues to prefill fields
       setDestinationData({
@@ -205,6 +208,9 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
       addDestination(destination);
       setCreatedDestination(destination);
 
+      // Store the create activity id for grouping subsequent wizard updates.
+      parentActivityIdRef.current = destination?._activityId || null;
+
       // Clear form persistence since destination is now created
       persistence.clear();
 
@@ -232,12 +238,19 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
     if (createdDestination[fieldName] === value) return;
 
     try {
-      const updated = await updateDestination(createdDestination._id, { [fieldName]: value });
+      const payload = { [fieldName]: value };
+      if (parentActivityIdRef.current) payload.activityParentId = parentActivityIdRef.current;
+
+      const updated = await updateDestination(createdDestination._id, payload);
       setCreatedDestination(updated);
       updateDestInContext(updated);
     } catch (err) {
       // Silently handle update errors - the data is saved locally and will sync
-      console.warn('Failed to update destination field', fieldName, err);
+      logger.warn('[DestinationWizardModal] Failed to update destination field', {
+        fieldName,
+        destinationId: createdDestination?._id,
+        error: err?.message
+      });
     }
   }, [createdDestination, updateDestInContext]);
 
@@ -251,11 +264,17 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
     if (!createdDestination) return;
 
     try {
-      const updated = await updateDestination(createdDestination._id, { travel_tips: travelTips });
+      const payload = { travel_tips: travelTips };
+      if (parentActivityIdRef.current) payload.activityParentId = parentActivityIdRef.current;
+
+      const updated = await updateDestination(createdDestination._id, payload);
       setCreatedDestination(updated);
       updateDestInContext(updated);
     } catch (err) {
-      console.warn('Failed to update travel tips', err);
+      logger.warn('[DestinationWizardModal] Failed to update travel tips', {
+        destinationId: createdDestination?._id,
+        error: err?.message
+      });
     }
   }, [createdDestination, travelTips, updateDestInContext]);
 
@@ -272,12 +291,17 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
       if (newData.default_photo_id) updatePayload.default_photo_id = newData.default_photo_id;
 
       if (Object.keys(updatePayload).length > 0) {
+        if (parentActivityIdRef.current) updatePayload.activityParentId = parentActivityIdRef.current;
+
         const updated = await updateDestination(createdDestination._id, updatePayload);
         setCreatedDestination(updated);
         updateDestInContext(updated);
       }
     } catch (err) {
-      console.warn('Failed to update photos', err);
+      logger.warn('[DestinationWizardModal] Failed to update photos', {
+        destinationId: createdDestination?._id,
+        error: err?.message
+      });
     }
   }, [createdDestination, updateDestInContext]);
 

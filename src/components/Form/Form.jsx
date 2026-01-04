@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { lang } from '../../lang.constants';
 import styles from './Form.module.scss';
 
 /**
@@ -180,4 +181,43 @@ FormText.propTypes = {
   muted: PropTypes.bool,
   className: PropTypes.string,
   style: PropTypes.object
+};
+
+/**
+ * FormInputGroup component for prefix/suffix fields (e.g., "$" or "days")
+ * Renders a single continuous border around the whole group.
+ */
+export function FormInputGroup({
+  children,
+  prefix,
+  suffix,
+  className = '',
+  style = {},
+  ...props
+}) {
+  const classes = [styles.inputGroup, className].filter(Boolean).join(' ');
+
+  return (
+    <div className={classes} style={style} {...props}>
+      {prefix !== undefined && prefix !== null && (
+        <span className={styles.inputGroupAddon} aria-hidden>
+          {prefix}
+        </span>
+      )}
+      {children}
+      {suffix !== undefined && suffix !== null && (
+        <span className={styles.inputGroupAddon} aria-hidden>
+          {suffix}
+        </span>
+      )}
+    </div>
+  );
+}
+
+FormInputGroup.propTypes = {
+  children: PropTypes.node.isRequired,
+  prefix: PropTypes.node,
+  suffix: PropTypes.node,
+  className: PropTypes.string,
+  style: PropTypes.object,
 };

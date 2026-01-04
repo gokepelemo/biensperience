@@ -21,6 +21,7 @@ const backendLogger = require('../../utilities/backend-logger');
 const { isSuperAdmin } = require('../../utilities/permissions');
 const { sendInviteEmail } = require('../../utilities/email-service');
 const { broadcastEvent } = require('../../utilities/websocket-server');
+const { notifyUser } = require('../../utilities/notifications');
 
 /**
  * Middleware to ensure user is authenticated
@@ -380,6 +381,68 @@ router.post('/redeem', requireAuth, async (req, res) => {
     }
 
     const invite = result.invite;
+
+    // Best-effort: notify the invite creator when their code is used.
+    // Requirement: actor (invite creator) gets a notification when their invite code is used
+    // to create a new user profile.
+    try {
+      const inviterId = invite?.createdBy?.toString?.();
+      const inviteeId = req.user?._id?.toString?.();
+
+      if (inviterId && inviteeId && inviterId !== inviteeId) {
+        const inviterUser = await User.findById(inviterId).select('name preferences').lean();
+
+        const message = `${req.user?.name || 'A new user'} joined using your invite code.`;
+        const data = {
+          kind: 'invite',
+          action: 'invite_code_redeemed',
+          inviteId: invite?._id?.toString?.(),
+          inviteCode: invite?.code,
+          inviteeId,
+          inviteeName: req.user?.name || null,
+          resourceLink: `/users/${inviteeId}`
+        };
+
+        await Promise.all([
+          notifyUser({
+            user: inviterUser,
+            channel: 'bienbot',
+            type: 'activity',
+            message,
+            data,
+            logContext: {
+              feature: 'invite_code_redeemed',
+              inviterId,
+              inviteeId,
+              inviteId: invite?._id?.toString?.(),
+              inviteCode: invite?.code,
+              channel: 'bienbot'
+            }
+          }),
+          notifyUser({
+            user: inviterUser,
+            channel: 'webhook',
+            type: 'activity',
+            message,
+            data,
+            logContext: {
+              feature: 'invite_code_redeemed',
+              inviterId,
+              inviteeId,
+              inviteId: invite?._id?.toString?.(),
+              inviteCode: invite?.code,
+              channel: 'webhook'
+            }
+          })
+        ]);
+      }
+    } catch (notifyErr) {
+      backendLogger.warn('Failed to send invite redemption notification (continuing)', {
+        error: notifyErr.message,
+        inviteId: invite?._id?.toString?.(),
+        code: invite?.code
+      });
+    }
 
     // Add experiences to user's plans with proper snapshot creation
     const experiencesAdded = [];

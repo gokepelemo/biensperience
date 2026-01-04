@@ -81,6 +81,17 @@ export async function createDestination (destinationData) {
     const resp = await sendRequest(`${BASE_URL}`, "POST", destinationData);
     const result = extractData(resp);
 
+    // If the server returned an activity id for the create action, attach it
+    // as a non-persisted field for wizard-style multi-step flows.
+    try {
+        const activityId = resp?.meta?.activityId;
+        if (activityId && result && typeof result === 'object') {
+            result._activityId = activityId;
+        }
+    } catch (e) {
+        // ignore
+    }
+
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for created events
     try {

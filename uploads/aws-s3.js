@@ -30,6 +30,74 @@ const sanitizeFileName = require('./sanitize-filename');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const UPLOADS_ROOT = path.resolve(REPO_ROOT, 'uploads');
 
+function resolveAndValidateLocalUploadPath(inputPath) {
+  if (!inputPath || typeof inputPath !== 'string') {
+    throw new Error('Invalid file path');
+  }
+
+  // Reject null bytes early.
+  if (inputPath.includes('\0')) {
+    backendLogger.error('S3 upload blocked: null byte in path', { path: inputPath });
+    throw new Error('Invalid file path: null bytes not allowed');
+  }
+
+  // Require absolute paths (multer typically provides absolute paths).
+  // This prevents callers from smuggling relative traversal like "../../etc/passwd".
+  if (!path.isAbsolute(inputPath)) {
+    backendLogger.error('S3 upload blocked: non-absolute path', { path: inputPath });
+    throw new Error('Invalid file path: must be absolute');
+  }
+
+  // Resolve symlinks and normalize the path.
+  // realpath also ensures the target exists.
+  let realPath;
+  try {
+    realPath = fs.realpathSync(inputPath);
+  } catch (e) {
+    backendLogger.error('File realpath resolution failed', { path: inputPath, error: e.message });
+    throw new Error('Invalid file path - file does not exist or is not accessible');
+  }
+
+  // Allowed directories for uploads
+  const allowedDirs = [
+    UPLOADS_ROOT,
+    path.resolve(UPLOADS_ROOT, 'documents'),
+    path.resolve(UPLOADS_ROOT, 'images'),
+    path.resolve(UPLOADS_ROOT, 'temp')
+  ];
+
+  const isAllowed = allowedDirs.some((dir) => {
+    try {
+      const relative = path.relative(dir, realPath);
+      if (relative === '') return true;
+      return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    } catch (e) {
+      return false;
+    }
+  });
+
+  if (!isAllowed) {
+    backendLogger.error('S3 upload path validation failed', { realPath, allowedDirs, originalPath: inputPath });
+    throw new Error('Invalid file path: access denied');
+  }
+
+  // Ensure it's a regular file and within size limit.
+  try {
+    const stats = fs.statSync(realPath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a regular file');
+    }
+    if (stats.size > 100 * 1024 * 1024) {
+      throw new Error('File too large');
+    }
+  } catch (statErr) {
+    backendLogger.error('File validation failed', { realPath, error: statErr.message });
+    throw new Error('Invalid file path - file does not exist or is not accessible');
+  }
+
+  return realPath;
+}
+
 function getS3UploadTimeoutMs() {
   const raw = process.env.S3_UPLOAD_TIMEOUT_MS;
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
@@ -49,63 +117,7 @@ function getS3UploadTimeoutMs() {
 const s3Upload = async function (file, originalName, newName, options = {}) {
   const { protected: isProtected = false } = options;
 
-  // Validate file path to prevent path traversal attacks
-  if (!file || typeof file !== 'string') {
-    throw new Error('Invalid file path');
-  }
-
-  // Check for null bytes - immediate rejection
-  if (file.includes('\0')) {
-    backendLogger.error('S3 upload blocked: null byte in path', { path: file });
-    throw new Error('Invalid file path: null bytes not allowed');
-  }
-
-  // Resolve the path and ensure it's within the expected directories.
-  // Multer commonly provides absolute paths; those are allowed as long as they
-  // resolve inside our uploads directories.
-  const resolvedPath = path.resolve(file);
-
-  // Allowed directories for uploads
-  const allowedDirs = [
-    UPLOADS_ROOT,
-    path.resolve(UPLOADS_ROOT, 'documents'),
-    path.resolve(UPLOADS_ROOT, 'images'),
-    path.resolve(UPLOADS_ROOT, 'temp')
-  ];
-
-  // Check if the resolved path is within any allowed directory
-  const isAllowed = allowedDirs.some(dir => {
-    try {
-      const relative = path.relative(dir, resolvedPath);
-      // `relative` will start with '..' if resolvedPath is outside `dir`.
-      // Also guard against edgecases by ensuring the relative path is not absolute.
-      if (relative === '') return true; // exact match
-      if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) return true;
-      return false;
-    } catch (e) {
-      return false;
-    }
-  });
-
-  if (!isAllowed) {
-    backendLogger.error('S3 upload path validation failed', { resolvedPath, allowedDirs, originalPath: file });
-    throw new Error('Invalid file path: access denied');
-  }
-
-  // Additional security: ensure the file actually exists and is a regular file
-  try {
-    const stats = fs.statSync(resolvedPath);
-    if (!stats.isFile()) {
-      throw new Error('Path is not a regular file');
-    }
-    // Check file size is reasonable (prevent huge files)
-    if (stats.size > 100 * 1024 * 1024) { // 100MB limit
-      throw new Error('File too large');
-    }
-  } catch (statErr) {
-    backendLogger.error('File validation failed', { resolvedPath, error: statErr.message });
-    throw new Error('Invalid file path - file does not exist or is not accessible');
-  }
+  const validatedLocalPath = resolveAndValidateLocalUploadPath(file);
 
   // Determine which bucket to use
   const bucketName = isProtected ? PROTECTED_BUCKET : PUBLIC_BUCKET;
@@ -138,13 +150,6 @@ const s3Upload = async function (file, originalName, newName, options = {}) {
   const contentType = mime.lookup(originalName);
   const extension = mime.extension(contentType);
 
-  // Final security check: ensure file path hasn't changed since validation
-  const finalResolvedPath = path.resolve(file);
-  if (finalResolvedPath !== resolvedPath) {
-    backendLogger.error('File path changed during processing', { original: resolvedPath, final: finalResolvedPath });
-    throw new Error('File path validation failed');
-  }
-
   // Read file content.
   // Under Bun, Node.js stream compatibility can be imperfect for AWS SDK v3,
   // and we've seen uploads hang indefinitely when using fs.createReadStream().
@@ -153,12 +158,12 @@ const s3Upload = async function (file, originalName, newName, options = {}) {
   let body;
   try {
     if (typeof Bun !== 'undefined') {
-      body = await fs.promises.readFile(finalResolvedPath);
+      body = await fs.promises.readFile(validatedLocalPath);
     } else {
-      body = fs.createReadStream(finalResolvedPath);
+      body = fs.createReadStream(validatedLocalPath);
     }
   } catch (readErr) {
-    backendLogger.error('Failed to read upload file', { path: finalResolvedPath, error: readErr.message });
+    backendLogger.error('Failed to read upload file', { path: validatedLocalPath, error: readErr.message });
     throw new Error('Unable to read file');
   }
   const key = `${sanitizedName}.${extension}`;

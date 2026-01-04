@@ -35,7 +35,7 @@ const DEFAULT_PREFERENCES = {
   profileVisibility: 'public',
   notifications: {
     enabled: true,
-    channels: ['email'],
+    channels: ['email', 'bienbot'],
     types: ['activity', 'reminder']
   }
 };

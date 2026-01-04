@@ -187,12 +187,13 @@ async function createDestination(req, res) {
     const destination = await Destination.create(destinationData);
 
     // Track creation (non-blocking)
-    trackCreate({
+    const createdActivity = await trackCreate({
       resource: destination,
       resourceType: 'Destination',
       actor: req.user,
       req,
-      reason: `Destination "${destination.name}" created`
+      reason: `Destination "${destination.name}" created`,
+      returnActivity: true
     });
 
     // Broadcast destination creation via WebSocket (async, non-blocking)
@@ -205,7 +206,13 @@ async function createDestination(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast destination creation', { error: wsErr.message });
     }
 
-    return successResponse(res, destination, 'Destination created successfully', 201);
+    return successResponse(
+      res,
+      destination,
+      'Destination created successfully',
+      201,
+      createdActivity?._id ? { activityId: createdActivity._id } : null
+    );
   } catch (err) {
     backendLogger.error('Error creating destination', { error: err.message, userId: req.user._id, name: req.body.name, country: req.body.country });
     return errorResponse(res, err, 'Failed to create destination', 400);
@@ -251,11 +258,16 @@ async function updateDestination(req, res) {
       return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to edit this destination.', 403);
     }
 
+    // Extract activity parent reference (used by multi-step wizards) and prevent persistence
+    const updateData = { ...req.body };
+    const activityParentId = updateData.activityParentId;
+    delete updateData.activityParentId;
+
     // Check for duplicate destination if name or country is being updated
-    if ((req.body.name && req.body.name !== destination.name) ||
-        (req.body.country && req.body.country !== destination.country)) {
-      const checkName = req.body.name || destination.name;
-      const checkCountry = req.body.country || destination.country;
+    if ((updateData.name && updateData.name !== destination.name) ||
+        (updateData.country && updateData.country !== destination.country)) {
+      const checkName = updateData.name || destination.name;
+      const checkCountry = updateData.country || destination.country;
 
       // Check for exact duplicate
       const exactDuplicate = await Destination.findOne({
@@ -287,33 +299,33 @@ async function updateDestination(req, res) {
     }
 
     // Handle location geocoding on update
-    if (req.body.location !== undefined) {
+    if (updateData.location !== undefined) {
       try {
-        const geocodedLocation = await createPlanItemLocation(req.body.location);
+        const geocodedLocation = await createPlanItemLocation(updateData.location);
         if (geocodedLocation) {
-          req.body.location = geocodedLocation;
+          updateData.location = geocodedLocation;
           // Also update map_location for backward compatibility
-          if (!req.body.map_location && geocodedLocation.address) {
-            req.body.map_location = geocodedLocation.address;
+          if (!updateData.map_location && geocodedLocation.address) {
+            updateData.map_location = geocodedLocation.address;
           }
         }
       } catch (geoErr) {
         backendLogger.warn('[updateDestination] Geocoding failed, using raw location', { error: geoErr.message });
         // If geocoding fails but location has address, use it anyway
-        if (typeof req.body.location === 'object' && req.body.location.address) {
+        if (typeof updateData.location === 'object' && updateData.location.address) {
           // Keep the provided location object
-        } else if (typeof req.body.location === 'string') {
+        } else if (typeof updateData.location === 'string') {
           // Convert string to location object without geocoding
-          req.body.location = { address: req.body.location };
+          updateData.location = { address: updateData.location };
         }
       }
     }
     // If only map_location is being updated, try to geocode it to update location too
-    else if (req.body.map_location && !destination.location?.address) {
+    else if (updateData.map_location && !destination.location?.address) {
       try {
-        const geocodedLocation = await createPlanItemLocation(req.body.map_location);
+        const geocodedLocation = await createPlanItemLocation(updateData.map_location);
         if (geocodedLocation) {
-          req.body.location = geocodedLocation;
+          updateData.location = geocodedLocation;
         }
       } catch (geoErr) {
         backendLogger.warn('[updateDestination] map_location geocoding failed', { error: geoErr.message });
@@ -323,7 +335,7 @@ async function updateDestination(req, res) {
     // Capture previous state for activity tracking
     const previousState = destination.toObject();
 
-    destination = Object.assign(destination, req.body);
+    destination = Object.assign(destination, updateData);
     await destination.save();
     
     // Track update (non-blocking)
@@ -333,8 +345,9 @@ async function updateDestination(req, res) {
       resourceType: 'Destination',
       actor: req.user,
       req,
-      fieldsToTrack: Object.keys(req.body),
-      reason: `Destination "${destination.name}" updated`
+      fieldsToTrack: Object.keys(updateData),
+      reason: `Destination "${destination.name}" updated`,
+      parentActivityId: activityParentId
     });
 
     // Populate photos field for response (consistent with showDestination)
@@ -347,7 +360,7 @@ async function updateDestination(req, res) {
         payload: {
           destination,
           destinationId: req.params.id.toString(),
-          updatedFields: Object.keys(req.body),
+          updatedFields: Object.keys(updateData),
           userId: req.user._id.toString()
         }
       }, req.user._id.toString());

@@ -7,7 +7,9 @@
 
 const Activity = require('../models/activity');
 const backendLogger = require('./backend-logger');
+const { notifyUser } = require('./notifications');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 
 /**
  * Extract metadata from Express request
@@ -100,7 +102,8 @@ async function trackCreate(options) {
     resourceType,
     actor,
     req,
-    reason = 'Resource created'
+    reason = 'Resource created',
+    returnActivity = false
   } = options;
 
   // Determine resource name based on type
@@ -121,8 +124,7 @@ async function trackCreate(options) {
     resourceName = resource.name || resource.title || resource.email || 'Unnamed';
   }
 
-  // Non-blocking: Fire and forget
-  Activity.create({
+  const activityData = {
     timestamp: new Date(),
     action,
     actor: extractActor(actor),
@@ -138,7 +140,23 @@ async function trackCreate(options) {
     rollbackToken: generateRollbackToken(),
     status: 'success',
     tags: [resourceType.toLowerCase(), 'create']
-  }).catch(err => {
+  };
+
+  if (returnActivity) {
+    try {
+      return await Activity.create(activityData);
+    } catch (err) {
+      backendLogger.error('Failed to track create activity (returnActivity)', {
+        error: err.message,
+        resourceType,
+        resourceId: resource?._id
+      });
+      return null;
+    }
+  }
+
+  // Non-blocking: Fire and forget
+  Activity.create(activityData).catch(err => {
     backendLogger.error('Failed to track create activity', {
       error: err.message,
       resourceType,
@@ -166,7 +184,8 @@ async function trackUpdate(options) {
     actor,
     req,
     fieldsToTrack = [],
-    reason = 'Resource updated'
+    reason = 'Resource updated',
+    parentActivityId = null
   } = options;
 
   const newState = resource.toObject ? resource.toObject() : resource;
@@ -192,8 +211,7 @@ async function trackUpdate(options) {
     resourceName = resource.name || resource.title || previousState?.name || previousState?.title || resource.email || 'Unnamed';
   }
 
-  // Non-blocking: Fire and forget
-  Activity.create({
+  const activityData = {
     timestamp: new Date(),
     action,
     actor: extractActor(actor),
@@ -210,7 +228,15 @@ async function trackUpdate(options) {
     rollbackToken: generateRollbackToken(),
     status: 'success',
     tags: [resourceType.toLowerCase(), 'update']
-  }).catch(err => {
+  };
+
+  // Attach parent activity when provided (multi-step flows)
+  if (parentActivityId && mongoose.Types.ObjectId.isValid(parentActivityId)) {
+    activityData.parentActivityId = parentActivityId;
+  }
+
+  // Non-blocking: Fire and forget
+  Activity.create(activityData).catch(err => {
     backendLogger.error('Failed to track update activity', {
       error: err.message,
       resourceType,
@@ -591,6 +617,35 @@ async function trackCostAdded(options) {
           },
           status: 'success',
           tags: ['plan', 'cost', 'added', 'shared', 'notification']
+        }).then(() => {
+          // Best-effort: also publish as a BienBot notification.
+          return (async () => {
+            try {
+              await notifyUser({
+                user: collab,
+                channel: 'bienbot',
+                type: 'activity',
+                message: collabReason,
+                data: { resourceLink, action: 'cost_added' },
+                logContext: { feature: 'activity-tracker', action: 'cost_added', planId: plan._id }
+              });
+
+              await notifyUser({
+                user: collab,
+                channel: 'webhook',
+                type: 'activity',
+                message: collabReason,
+                data: { resourceLink, action: 'cost_added' },
+                logContext: { feature: 'activity-tracker', action: 'cost_added', channel: 'webhook', planId: plan._id }
+              });
+            } catch (e) {
+              backendLogger.warn('Failed to publish cost notification (continuing)', {
+                planId: plan._id,
+                collaboratorId: collab._id,
+                error: e?.message || String(e)
+              });
+            }
+          })();
         }).catch(err => {
           backendLogger.error('Failed to track shared cost activity for collaborator', {
             error: err.message,
@@ -641,6 +696,35 @@ async function trackCostAdded(options) {
             },
             status: 'success',
             tags: ['plan', 'cost', 'added', 'individual', 'notification']
+          }).then(() => {
+            // Best-effort: also publish as a BienBot notification.
+            return (async () => {
+              try {
+                await notifyUser({
+                  user: assignedCollab,
+                  channel: 'bienbot',
+                  type: 'activity',
+                  message: collabReason,
+                  data: { resourceLink, action: 'cost_added' },
+                  logContext: { feature: 'activity-tracker', action: 'cost_added', planId: plan._id }
+                });
+
+                await notifyUser({
+                  user: assignedCollab,
+                  channel: 'webhook',
+                  type: 'activity',
+                  message: collabReason,
+                  data: { resourceLink, action: 'cost_added' },
+                  logContext: { feature: 'activity-tracker', action: 'cost_added', channel: 'webhook', planId: plan._id }
+                });
+              } catch (e) {
+                backendLogger.warn('Failed to publish cost notification (continuing)', {
+                  planId: plan._id,
+                  collaboratorId: assignedCollab._id,
+                  error: e?.message || String(e)
+                });
+              }
+            })();
           }).catch(err => {
             backendLogger.error('Failed to track individual cost activity for collaborator', {
               error: err.message,

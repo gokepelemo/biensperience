@@ -218,7 +218,25 @@ const buildPath = path.join(__dirname, "build");
 try {
   if (process.env.NODE_ENV !== 'test') {
     app.use(favicon(path.join(buildPath, "icon.svg")));
-    app.use(express.static(buildPath));
+    // Serve the built frontend.
+    // IMPORTANT: Do not cache index.html aggressively (it references hashed assets).
+    // Hash-busted assets under /assets/ can be cached immutably.
+    app.use(
+      express.static(buildPath, {
+        setHeaders: (res, filePath) => {
+          // Ensure the HTML shell is always revalidated.
+          if (filePath.endsWith(`${path.sep}index.html`)) {
+            res.setHeader('Cache-Control', 'no-store');
+            return;
+          }
+
+          // Vite build assets are content-hashed; they can be cached forever.
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        }
+      })
+    );
   }
 } catch (err) {
   // Build directory doesn't exist, skip static file serving
@@ -364,8 +382,28 @@ app.use('/api', (err, req, res, next) => {
 
 // Catch-all route for React app (only in production)
 if (process.env.NODE_ENV !== 'test') {
-  app.get("/*", (req, res) => {
-    res.sendFile(path.join(buildPath, "index.html"));
+  app.get('/*', (req, res, next) => {
+    // Never hijack API routes.
+    if (req.path.startsWith('/api/')) return next();
+
+    // If the request is for a static asset (has an extension) or an /assets/* file,
+    // do NOT fall back to index.html.
+    // Returning HTML for missing JS causes the browser's strict module MIME checks
+    // to fail and can break the app after deploys/restarts.
+    const hasFileExtension = path.extname(req.path);
+    const isAssetPath = req.path.startsWith('/assets/');
+    if (hasFileExtension || isAssetPath) {
+      return res.status(404).end();
+    }
+
+    // Only serve the SPA shell for browser navigation (HTML).
+    const acceptsHtml = req.accepts('html');
+    if (!acceptsHtml) {
+      return res.status(404).end();
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(path.join(buildPath, 'index.html'));
   });
 }
 

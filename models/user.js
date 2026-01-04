@@ -260,10 +260,34 @@ const userSchema = new Schema(
         notifications: {
           enabled: { type: Boolean, default: true },
           // channels: email, push, sms
-          channels: { type: [String], enum: ['email','push','sms'], default: ['email'] },
+          channels: { type: [String], enum: ['email','push','sms','bienbot','webhook'], default: ['email', 'bienbot'] },
+          // BienBot is enabled by default unless explicitly disabled.
+          // This flag is used to distinguish an explicit opt-out from older records
+          // whose channels array may not include bienbot.
+          bienbotDisabled: { type: Boolean, default: false },
+          // webhooks: per-user endpoints for webhook notification channel
+          // Kept as strings to avoid schema coupling; URLs are validated at write-time.
+          webhooks: { type: [String], default: [] },
           // types: activity, reminders, marketing, updates
           types: { type: [String], enum: ['activity','reminder','marketing','updates'], default: ['activity','reminder'] }
         }
+      }, { _id: false }),
+      default: {}
+    },
+
+    /**
+     * Mobile phone verification state for SMS notifications.
+     * - number: E.164 formatted phone number (e.g. +15551234567)
+     * - verified: whether the number has been verified via Sinch Verification
+     * - verificationId: last/pending Sinch verification ID (used to complete verification after re-login)
+     */
+    phone: {
+      type: new Schema({
+        number: { type: String, default: null },
+        verified: { type: Boolean, default: false },
+        verifiedAt: { type: Date, default: null },
+        verificationId: { type: String, default: null },
+        verificationStartedAt: { type: Date, default: null }
       }, { _id: false }),
       default: {}
     },

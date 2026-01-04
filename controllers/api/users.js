@@ -12,6 +12,22 @@ const { geocodeAddress } = require("../../utilities/geocoding-utils");
 const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/websocket-server");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 
+function isE164PhoneNumber(value) {
+  if (typeof value !== 'string') return false;
+  const v = value.trim();
+  // E.164: + followed by country code + subscriber number (max 15 digits total)
+  return /^\+[1-9]\d{7,14}$/.test(v);
+}
+
+function sanitizeOtpCode(value) {
+  if (typeof value !== 'string') return null;
+  const code = value.trim();
+  if (!code) return null;
+  // Keep liberal: providers can send 4-8 digits depending on region.
+  if (!/^\d{4,8}$/.test(code)) return null;
+  return code;
+}
+
 function createJWT(user) {
   return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
 }
@@ -411,9 +427,27 @@ async function updateUser(req, res, next) {
       if (p.notifications && typeof p.notifications === 'object') {
         const n = {};
         if (typeof p.notifications.enabled === 'boolean') n.enabled = !!p.notifications.enabled;
+        if (typeof p.notifications.bienbotDisabled === 'boolean') n.bienbotDisabled = !!p.notifications.bienbotDisabled;
         if (Array.isArray(p.notifications.channels)) {
-          n.channels = p.notifications.channels.filter(c => ['email', 'push', 'sms'].includes(c));
+          n.channels = p.notifications.channels.filter(c => ['email', 'push', 'sms', 'bienbot', 'webhook'].includes(c));
         }
+
+        // Optional: webhook endpoints (used when channel === 'webhook')
+        if (Array.isArray(p.notifications.webhooks)) {
+          try {
+            const { isValidWebhookUrl } = require('../../utilities/webhook-notifications');
+            n.webhooks = p.notifications.webhooks
+              .map((u) => (typeof u === 'string' ? u.trim() : ''))
+              .filter(Boolean)
+              .slice(0, 10)
+              .map((u) => isValidWebhookUrl(u))
+              .filter((v) => v.valid)
+              .map((v) => v.url);
+          } catch (e) {
+            backendLogger.warn('Failed to validate webhook URLs in preferences (skipping)', { error: e?.message || String(e) });
+          }
+        }
+
         if (Array.isArray(p.notifications.types)) {
           n.types = p.notifications.types.filter(t => ['activity', 'reminder', 'marketing', 'updates'].includes(t));
         }
@@ -628,7 +662,8 @@ async function updateUserAsAdmin(req, res) {
     const userId = new mongoose.Types.ObjectId(req.params.id);
 
     // Whitelist allowed fields for admin updates (includes emailConfirmed and feature_flags)
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'emailConfirmed', 'feature_flags', 'bio', 'links'];
+    // Note: preferences is included so super admins can manage notification settings (e.g. webhooks)
+    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'emailConfirmed', 'feature_flags', 'bio', 'links', 'preferences'];
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -772,6 +807,106 @@ async function updateUserAsAdmin(req, res) {
       }
     }
 
+    // Validate preferences object if provided
+    if (updateData.preferences !== undefined && typeof updateData.preferences === 'object') {
+      const p = updateData.preferences;
+      const prefs = {};
+
+      // theme: allow light, dark, or system-default
+      if (p.theme && typeof p.theme === 'string' && ['light', 'dark', 'system-default'].includes(p.theme)) {
+        prefs.theme = p.theme;
+      }
+
+      // currency: basic sanitization (3-10 chars)
+      if (p.currency && typeof p.currency === 'string' && p.currency.length <= 10) {
+        prefs.currency = p.currency.trim();
+      }
+
+      // language: validate against lang.constants.js available codes
+      if (p.language && typeof p.language === 'string' && p.language.length <= 20) {
+        const langCode = p.language.trim();
+        try {
+          const path = require('path');
+          const { pathToFileURL } = require('url');
+          const langPath = path.resolve(__dirname, '..', '..', 'src', 'lang.constants.js');
+          // Dynamic import of ESM module
+          const langModule = await import(pathToFileURL(langPath).href);
+          const available = typeof langModule.getAvailableLanguageCodes === 'function'
+            ? langModule.getAvailableLanguageCodes()
+            : (langModule.lang && langModule.lang.current ? ['en'] : []);
+          if (Array.isArray(available) && available.includes(langCode)) {
+            prefs.language = langCode;
+          } else {
+            // If code not available, skip or fallback to default from module if provided
+            if (typeof langModule.getCurrentLanguage === 'function') {
+              prefs.language = langModule.getCurrentLanguage() || 'en';
+            }
+          }
+        } catch (e) {
+          // On any error, ignore and fall back to provided value
+          prefs.language = langCode;
+        }
+      }
+
+      // timezone: validate against available timezone options
+      if (p.timezone && typeof p.timezone === 'string' && p.timezone.length <= 50) {
+        const tzValue = p.timezone.trim();
+        try {
+          const { isValidTimezone } = require('../../utilities/timezone-utils');
+          if (isValidTimezone(tzValue)) {
+            prefs.timezone = tzValue;
+          } else {
+            // If timezone not available, skip (don't save invalid timezone)
+            backendLogger.warn('Invalid timezone provided in preferences', { timezone: tzValue });
+          }
+        } catch (e) {
+          // On any error, ignore and don't save timezone
+          backendLogger.warn('Error validating timezone in preferences', { timezone: tzValue, error: e.message });
+        }
+      }
+
+      // profileVisibility
+      if (p.profileVisibility && ['private', 'public'].includes(p.profileVisibility)) {
+        prefs.profileVisibility = p.profileVisibility;
+      }
+
+      // notifications
+      if (p.notifications && typeof p.notifications === 'object') {
+        const n = {};
+        if (typeof p.notifications.enabled === 'boolean') n.enabled = !!p.notifications.enabled;
+        if (typeof p.notifications.bienbotDisabled === 'boolean') n.bienbotDisabled = !!p.notifications.bienbotDisabled;
+        if (Array.isArray(p.notifications.channels)) {
+          n.channels = p.notifications.channels.filter(c => ['email', 'push', 'sms', 'bienbot', 'webhook'].includes(c));
+        }
+
+        // Optional: webhook endpoints (used when channel === 'webhook')
+        if (Array.isArray(p.notifications.webhooks)) {
+          try {
+            const { isValidWebhookUrl } = require('../../utilities/webhook-notifications');
+            n.webhooks = p.notifications.webhooks
+              .map((u) => (typeof u === 'string' ? u.trim() : ''))
+              .filter(Boolean)
+              .slice(0, 10)
+              .map((u) => isValidWebhookUrl(u))
+              .filter((v) => v.valid)
+              .map((v) => v.url);
+          } catch (e) {
+            backendLogger.warn('Failed to validate webhook URLs in preferences (skipping)', { error: e?.message || String(e) });
+          }
+        }
+
+        if (Array.isArray(p.notifications.types)) {
+          n.types = p.notifications.types.filter(t => ['activity', 'reminder', 'marketing', 'updates'].includes(t));
+        }
+        prefs.notifications = n;
+      }
+
+      // Only set preferences if at least one valid value present
+      if (Object.keys(prefs).length > 0) {
+        validatedUpdateData.preferences = prefs;
+      }
+    }
+
     const user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
       .populate("photos", "url caption photo_credit photo_credit_url width height");
 
@@ -831,6 +966,124 @@ async function addPhoto(req, res) {
   } catch (err) {
     backendLogger.error('Error adding photo to user', { error: err.message, userId: req.params.id, url: req.body.url });
     return errorResponse(res, err, 'Failed to add photo', 400);
+  }
+}
+
+/**
+ * Start SMS-based phone verification for the current user.
+ * Stores a pending verificationId on the user so they can complete verification after re-login.
+ */
+async function startPhoneVerification(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return errorResponse(res, null, 'Invalid user ID format', 400);
+    }
+    const userId = new mongoose.Types.ObjectId(req.params.id);
+
+    if (req.user._id.toString() !== userId.toString() && !isSuperAdmin(req.user)) {
+      return errorResponse(res, null, 'You can only verify your own phone number', 403);
+    }
+
+    const phoneNumberRaw = req.body?.phoneNumber;
+    const phoneNumber = typeof phoneNumberRaw === 'string' ? phoneNumberRaw.trim() : '';
+    if (!isE164PhoneNumber(phoneNumber)) {
+      return errorResponse(res, null, 'Phone number must be in E.164 format (e.g. +15551234567)', 400);
+    }
+
+    // Ensure user exists
+    const existingUser = await User.findOne({ _id: userId }).select('_id');
+    if (!existingUser) {
+      return errorResponse(res, null, 'User not found', 404);
+    }
+
+    // Start verification via Sinch
+    // eslint-disable-next-line global-require
+    const { startSmsVerification } = require('../../utilities/sinch');
+    const result = await startSmsVerification(phoneNumber);
+    const verificationId = result?.id;
+
+    if (!verificationId) {
+      backendLogger.warn('Sinch verification start returned no id', { userId: userId.toString() });
+      return errorResponse(res, null, 'Failed to start SMS verification', 502);
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId },
+      {
+        $set: {
+          'phone.number': phoneNumber,
+          'phone.verified': false,
+          'phone.verifiedAt': null,
+          'phone.verificationId': verificationId,
+          'phone.verificationStartedAt': new Date()
+        }
+      },
+      { new: true }
+    );
+
+    return successResponse(res, { verificationId, phone: updatedUser.phone }, 'Verification started');
+  } catch (err) {
+    backendLogger.error('Error starting phone verification', { error: err.message, userId: req.params.id });
+    return errorResponse(res, err, 'Failed to start phone verification', 500);
+  }
+}
+
+/**
+ * Confirm SMS verification code for the current user.
+ * Marks phone as verified when Sinch reports SUCCESSFUL.
+ */
+async function confirmPhoneVerification(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return errorResponse(res, null, 'Invalid user ID format', 400);
+    }
+    const userId = new mongoose.Types.ObjectId(req.params.id);
+
+    if (req.user._id.toString() !== userId.toString() && !isSuperAdmin(req.user)) {
+      return errorResponse(res, null, 'You can only verify your own phone number', 403);
+    }
+
+    const code = sanitizeOtpCode(req.body?.code);
+    if (!code) {
+      return errorResponse(res, null, 'Verification code must be 4-8 digits', 400);
+    }
+
+    const user = await User.findOne({ _id: userId });
+    if (!user) {
+      return errorResponse(res, null, 'User not found', 404);
+    }
+
+    const verificationId = user?.phone?.verificationId;
+    if (!verificationId) {
+      return errorResponse(res, null, 'No pending verification found. Please start verification again.', 400);
+    }
+
+    // eslint-disable-next-line global-require
+    const { reportSmsVerificationById } = require('../../utilities/sinch');
+    const result = await reportSmsVerificationById(verificationId, code);
+    const status = result?.status;
+    const reason = result?.reason;
+
+    let updatedPhone = user.phone;
+    if (status === 'SUCCESSFUL') {
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: userId },
+        {
+          $set: {
+            'phone.verified': true,
+            'phone.verifiedAt': new Date(),
+            'phone.verificationId': null
+          }
+        },
+        { new: true }
+      );
+      updatedPhone = updatedUser?.phone;
+    }
+
+    return successResponse(res, { status, reason, phone: updatedPhone }, status === 'SUCCESSFUL' ? 'Phone number verified' : 'Verification not successful');
+  } catch (err) {
+    backendLogger.error('Error confirming phone verification', { error: err.message, userId: req.params.id });
+    return errorResponse(res, err, 'Failed to confirm phone verification', 500);
   }
 }
 
@@ -1618,6 +1871,8 @@ module.exports = {
   getProfile,
   updateUser,
   updateUserAsAdmin,
+  startPhoneVerification,
+  confirmPhoneVerification,
   addPhoto,
   removePhoto,
   setDefaultPhoto,

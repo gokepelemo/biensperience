@@ -2565,6 +2565,7 @@ export default function MyPlanTabContent({
       type: 'cost',
       value: currentPlan.total_cost || 0,
       icon: <FaDollarSign />,
+      className: 'smallMetricValueItem',
       // Tooltip shows per-person context with the actual cost estimate value
       tooltip: `${lang.current.label.costEstimatePerPersonTooltip || 'Estimated cost per person'}: ${formatCurrency(currentPlan.total_cost || 0)}`
     },
@@ -2583,6 +2584,7 @@ export default function MyPlanTabContent({
       type: 'days',
       value: currentPlan.max_planning_days > 0 ? currentPlan.max_planning_days : null,
       icon: <FaClock />,
+      className: 'smallMetricValueItem',
       // Tooltip shows full planning time when truncated
       tooltip: currentPlan.max_planning_days > 0 ? formatPlanningTime(currentPlan.max_planning_days) : null
     }

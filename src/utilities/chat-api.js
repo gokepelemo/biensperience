@@ -59,3 +59,13 @@ export async function getOrCreatePlanItemChannel(planId, planItemId) {
     throw err;
   }
 }
+
+export async function cancelBienBotChannel() {
+  try {
+    const resp = await sendRequest(`${BASE_URL}/channels/bienbot`, 'DELETE');
+    return extractData(resp);
+  } catch (err) {
+    logger.error('[chat-api] Failed to cancel BienBot channel', err);
+    throw err;
+  }
+}

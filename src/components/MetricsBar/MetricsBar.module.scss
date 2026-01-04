@@ -72,7 +72,8 @@
   }
 
   // Planned Date tends to be the longest value; shrink more to avoid ellipsis
-  :global(.plannedDateItem) {
+  :global(.plannedDateItem),
+  :global(.smallMetricValueItem) {
     .metricValue {
       font-size: $font-size-base;
     }
@@ -115,7 +116,8 @@
       font-size: $font-size-base;
     }
 
-    :global(.plannedDateItem) {
+    :global(.plannedDateItem),
+    :global(.smallMetricValueItem) {
       .metricValue {
         font-size: $font-size-sm;
       }

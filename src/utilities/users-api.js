@@ -94,6 +94,16 @@ export async function updateUserAsAdmin(id, userData) {
   return result;
 }
 
+export async function startPhoneVerification(userId, phoneNumber) {
+  const response = await sendRequest(`${BASE_URL}${userId}/phone-verification/start`, 'POST', { phoneNumber });
+  return (response && response.success && response.data) ? response.data : response;
+}
+
+export async function confirmPhoneVerification(userId, code) {
+  const response = await sendRequest(`${BASE_URL}${userId}/phone-verification/confirm`, 'POST', { code });
+  return (response && response.success && response.data) ? response.data : response;
+}
+
 export async function searchUsers(query) {
   return await sendRequest(`${BASE_URL}search?q=${encodeURIComponent(query)}`, "GET");
 }

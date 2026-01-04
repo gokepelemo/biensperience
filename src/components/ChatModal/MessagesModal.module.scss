@@ -191,17 +191,30 @@
   padding: 0;
   margin-left: 8px;
   border-radius: 6px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-primary);
   opacity: 0;
   transition: opacity 0.12s ease, transform 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+    color: var(--color-text-on-danger, #fff);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
 }
 
 .channelListItem:hover .deleteChannelButton,
 .channelButton:focus .deleteChannelButton {
   opacity: 1;
-  color: var(--color-text-on-danger, #fff);
+  color: var(--color-danger);
+  background: var(--color-danger-bg, rgba(220, 53, 69, 0.1));
+  border-color: var(--color-danger-border, rgba(220, 53, 69, 0.3));
 }
 
 .channelName {

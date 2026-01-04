@@ -173,6 +173,15 @@ const activitySchema = new mongoose.Schema({
     default: null
   },
 
+  // Parent activity reference for multi-step flows (e.g., wizards)
+  // Child activities are typically hidden from feed views and considered part of the parent.
+  parentActivityId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Activity',
+    default: null,
+    index: true
+  },
+
   // Tags for categorization and filtering
   tags: [{
     type: String,
@@ -204,6 +213,7 @@ activitySchema.index({ 'resource.id': 1, timestamp: -1 });
 activitySchema.index({ 'resource.type': 1, timestamp: -1 });
 activitySchema.index({ action: 1, timestamp: -1 });
 activitySchema.index({ tags: 1 });
+activitySchema.index({ parentActivityId: 1, timestamp: -1 });
 
 // Static method to log activity
 activitySchema.statics.log = async function(activityData) {
