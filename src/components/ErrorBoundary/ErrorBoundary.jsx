@@ -25,6 +25,30 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
+    // If we fail to load a code-split chunk (common after a deploy/server restart
+    // while the tab was backgrounded), the fastest recovery is a one-time reload.
+    // Guard against reload loops with sessionStorage.
+    try {
+      const message = error?.message || String(error);
+      const isChunkLoadFailure =
+        message.includes('Failed to fetch dynamically imported module') ||
+        message.includes('Expected a JavaScript-or-Wasm module script') ||
+        message.includes('ChunkLoadError') ||
+        message.includes('Loading chunk');
+
+      if (isChunkLoadFailure && typeof window !== 'undefined') {
+        const key = 'bien:chunk_reload_attempted';
+        const alreadyAttempted = window.sessionStorage?.getItem(key) === 'true';
+        if (!alreadyAttempted) {
+          window.sessionStorage?.setItem(key, 'true');
+          window.location.reload();
+          return;
+        }
+      }
+    } catch (e) {
+      // Ignore reload guard failures and proceed with normal error UI.
+    }
+
     // Log error details
     logger.error('ErrorBoundary caught an error', {
       error: error.message,

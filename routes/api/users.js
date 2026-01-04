@@ -12,6 +12,11 @@ router.get('/profile', ensureLoggedIn, usersCtrl.getProfile); // Get current use
 router.get('/:id', ensureLoggedIn, usersCtrl.getUser);
 router.put('/:id', ensureLoggedIn, modificationLimiter, usersCtrl.updateUser);
 router.put('/:id/admin', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserAsAdmin);
+
+// Phone number verification (SMS)
+router.post('/:id/phone-verification/start', ensureLoggedIn, modificationLimiter, usersCtrl.startPhoneVerification);
+router.post('/:id/phone-verification/confirm', ensureLoggedIn, modificationLimiter, usersCtrl.confirmPhoneVerification);
+
 router.post('/login', authLimiter, usersCtrl.login); // Rate limit login attempts
 router.get('/check-token', ensureLoggedIn, usersCtrl.checkToken);
 

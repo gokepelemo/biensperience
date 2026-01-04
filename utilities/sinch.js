@@ -283,15 +283,38 @@ async function voiceCustomCallout(requestData) {
 }
 
 // SDK helpers: Verification
-async function startSmsVerification(requestData) {
+async function startSmsVerification(phoneNumberOrRequestData) {
   const { verification } = getSinchServices();
   const fn = ensureSdkMethod(verification?.verifications, 'verification.verifications', 'startSms');
+
+  let requestData = phoneNumberOrRequestData;
+
+  // Preferred: accept an E.164 phone number and build the correct SDK request shape.
+  if (typeof phoneNumberOrRequestData === 'string') {
+    // eslint-disable-next-line global-require
+    const { Verification } = require('@sinch/sdk-core');
+    requestData = Verification.startVerificationHelper.buildSmsRequest(phoneNumberOrRequestData);
+  }
+
   return fn(requestData);
 }
 
-async function reportSmsVerificationById(requestData) {
+async function reportSmsVerificationById(idOrRequestData, code) {
   const { verification } = getSinchServices();
   const fn = ensureSdkMethod(verification?.verifications, 'verification.verifications', 'reportSmsById');
+
+  let requestData = idOrRequestData;
+
+  // Preferred: accept (verificationId, code) and build the correct SDK request shape.
+  if (typeof idOrRequestData === 'string') {
+    if (typeof code !== 'string' || !code.trim()) {
+      throw new Error('[sinch] reportSmsVerificationById requires code when called with an id');
+    }
+    // eslint-disable-next-line global-require
+    const { Verification } = require('@sinch/sdk-core');
+    requestData = Verification.reportVerificationByIdHelper.buildSmsRequest(idOrRequestData, code.trim());
+  }
+
   return fn(requestData);
 }
 

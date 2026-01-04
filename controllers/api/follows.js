@@ -16,6 +16,7 @@ const Plan = require('../../models/plan');
 const backendLogger = require('../../utilities/backend-logger');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { canView } = require('../../utilities/permissions');
+const { notifyUser } = require('../../utilities/notifications');
 
 function isPlaceholderResourceName(name) {
   if (!name || typeof name !== 'string') return true;
@@ -88,7 +89,7 @@ async function followUser(req, res) {
     }
 
     // Verify the user to follow exists
-    const userToFollow = await User.findById(followingId).select('name email');
+    const userToFollow = await User.findById(followingId).select('name email preferences').lean();
     if (!userToFollow) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -131,6 +132,119 @@ async function followUser(req, res) {
       followingId: followingId,
       reactivated: result.reactivated || false
     });
+
+    // Best-effort: send BienBot notifications to both users.
+    // Mutual follow dedupe: if target was already following actor, do NOT send an additional
+    // second notification beyond the normal one-per-user.
+    try {
+      const actorUser = await User.findById(followerId).select('name preferences').lean();
+      const isMutual = await Follow.isFollowing(followingId, followerId);
+
+      const targetText = isMutual
+        ? `${req.user.name} followed you back — you’re now following each other.`
+        : `${req.user.name} followed you.`;
+
+      const actorText = isMutual
+        ? `You followed ${userToFollow?.name || 'a user'} — you’re now following each other.`
+        : `You followed ${userToFollow?.name || 'a user'}.`;
+
+      await Promise.all([
+        notifyUser({
+          user: userToFollow,
+          channel: 'bienbot',
+          type: 'activity',
+          message: targetText,
+          data: {
+            kind: 'follow',
+            action: 'follow_created',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            resourceLink: `/users/${followerId.toString()}`
+          },
+          logContext: {
+            feature: 'follow',
+            kind: 'target',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            channel: 'bienbot'
+          }
+        }),
+        notifyUser({
+          user: userToFollow,
+          channel: 'webhook',
+          type: 'activity',
+          message: targetText,
+          data: {
+            kind: 'follow',
+            action: 'follow_created',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            resourceLink: `/users/${followerId.toString()}`
+          },
+          logContext: {
+            feature: 'follow',
+            kind: 'target',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            channel: 'webhook'
+          }
+        }),
+        notifyUser({
+          user: actorUser,
+          channel: 'bienbot',
+          type: 'activity',
+          message: actorText,
+          data: {
+            kind: 'follow',
+            action: 'follow_created',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            resourceLink: `/users/${followingId.toString()}`
+          },
+          logContext: {
+            feature: 'follow',
+            kind: 'actor',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            channel: 'bienbot'
+          }
+        }),
+        notifyUser({
+          user: actorUser,
+          channel: 'webhook',
+          type: 'activity',
+          message: actorText,
+          data: {
+            kind: 'follow',
+            action: 'follow_created',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            resourceLink: `/users/${followingId.toString()}`
+          },
+          logContext: {
+            feature: 'follow',
+            kind: 'actor',
+            followerId: followerId.toString(),
+            followingId: followingId.toString(),
+            mutual: isMutual,
+            channel: 'webhook'
+          }
+        })
+      ]);
+    } catch (notifyErr) {
+      backendLogger.warn('Failed to send follow notifications (continuing)', {
+        error: notifyErr.message,
+        followerId: followerId.toString(),
+        followingId: followingId.toString()
+      });
+    }
 
     // Broadcast WebSocket event to the followed user's profile room
     // This enables real-time UI updates when someone follows them
@@ -404,6 +518,7 @@ async function getFeed(req, res) {
     // PRIVACY RULE: do NOT leak actions involving resources the requester cannot view.
     // We enforce privacy by filtering activities after fetch based on the referenced resource.
     const query = {
+      parentActivityId: null,
       status: 'success',
       'actor._id': { $in: followingIds }
     };

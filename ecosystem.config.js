@@ -37,7 +37,9 @@ module.exports = {
     {
       name: 'biensperience-frontend',
       script: 'bun',
-      args: 'start',
+      // Run Vite dev server so frontend changes apply immediately.
+      // NOTE: In production, the API server serves the built frontend from /build.
+      args: 'run dev',
       instances: 1,
       autorestart: true,
       watch: [

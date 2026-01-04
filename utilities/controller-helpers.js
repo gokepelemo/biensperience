@@ -161,9 +161,10 @@ function createErrorResponse(message, statusCode = 400) {
  * @param {string} [message] - Optional human message
  * @param {number} [statusCode=200]
  */
-function successResponse(res, data = {}, message = null, statusCode = 200) {
+function successResponse(res, data = {}, message = null, statusCode = 200, meta = null) {
   const payload = { success: true, data };
   if (message) payload.message = message;
+  if (meta && typeof meta === 'object') payload.meta = meta;
 
   // Safely serialize payload to prevent runtime JSON errors (e.g., circular refs)
   try {

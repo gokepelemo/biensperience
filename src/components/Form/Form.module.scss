@@ -123,6 +123,59 @@ input[type="checkbox"],
   color: var(--color-text-muted);
 }
 
+/* Input group (prefix/suffix fields) */
+.inputGroup {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--color-bg-input, var(--color-bg-primary));
+  border: 1px solid var(--color-border-medium);
+  border-radius: $radius-md;
+  overflow: hidden;
+  transition: all $transition-normal $easing-ease;
+
+  &:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
+  }
+
+  /* Remove inner borders so the group looks like one field */
+  > input,
+  > select,
+  > textarea {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none !important;
+    outline: none;
+    background: transparent;
+  }
+
+  /* Match the design-system form control padding/typography */
+  > input,
+  > select,
+  > textarea {
+    padding: $space-3 $space-4;
+    font-size: $font-size-base;
+    line-height: $line-height-normal;
+  }
+
+  > button {
+    border: none;
+    border-radius: 0;
+  }
+}
+
+.inputGroupAddon {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-3 $space-4;
+  color: var(--color-text-secondary);
+  background: transparent;
+  white-space: nowrap;
+}
+
 /* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
   .formControl {

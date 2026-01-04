@@ -26,6 +26,24 @@ function PlanMetricsDisplay({
 
   return (
     <div className="plan-metrics row g-3 my-4">
+      {/* Completion Percentage */}
+      <div className="col-md-4">
+        <div className="metric-card h-100" title={`${completionPercentage}% of plan items completed`}>
+          <div className="metric-label">Completion</div>
+          <div className="metric-value">{completionPercentage}%</div>
+          <div className="progress mt-2" style={{ height: 'var(--progress-bar-height-sm)' }}>
+            <div
+              className="progress-bar gradient-animated"
+              role="progressbar"
+              style={{ width: `${completionPercentage}%` }}
+              aria-valuenow={completionPercentage}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Planned Date */}
       <div className="col-md-4">
         <div className="metric-card h-100" title={fullDateText}>
@@ -60,24 +78,6 @@ function PlanMetricsDisplay({
               {plannedDate ? 'Edit Date' : 'Set Date'}
             </button>
           )}
-        </div>
-      </div>
-
-      {/* Completion Percentage */}
-      <div className="col-md-4">
-        <div className="metric-card h-100" title={`${completionPercentage}% of plan items completed`}>
-          <div className="metric-label">Completion</div>
-          <div className="metric-value">{completionPercentage}%</div>
-          <div className="progress mt-2" style={{ height: 'var(--progress-bar-height-sm)' }}>
-            <div
-              className="progress-bar gradient-animated"
-              role="progressbar"
-              style={{ width: `${completionPercentage}%` }}
-              aria-valuenow={completionPercentage}
-              aria-valuemin="0"
-              aria-valuemax="100"
-            />
-          </div>
         </div>
       </div>
 

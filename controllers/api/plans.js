@@ -10,12 +10,16 @@ const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail, sendPlanAccessRequestEmail } = require('../../utilities/email-service');
+const { sendIfAllowed, notifyUser } = require('../../utilities/notifications');
 const PlanAccessRequest = require('../../models/plan-access-request');
-const { sendIfAllowed } = require('../../utilities/notifications');
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAG_CONTEXT } = require('../../utilities/feature-flags');
 const { broadcastEvent, sendEventToUser } = require('../../utilities/websocket-server');
-const { upsertMessagingChannel, getStreamServerClient, syncChannelMembers } = require('../../utilities/stream-chat');
+const {
+  upsertMessagingChannel,
+  getStreamServerClient,
+  syncChannelMembers
+} = require('../../utilities/stream-chat');
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
 
 /**
@@ -316,11 +320,35 @@ const createPlan = asyncHandler(async (req, res) => {
   // Do permission enforcement and tracking asynchronously (don't block response)
   setImmediate(async () => {
     try {
+      // Race guard: this block runs async after we responded.
+      // If the user immediately "unplans" (deletes the plan), we must not add
+      // contributor permissions back onto the experience.
+      const planStillExists = await Plan.exists({ _id: plan._id });
+      if (!planStillExists) {
+        backendLogger.debug('Skipping async plan side-effects: plan already deleted', {
+          planId: plan._id?.toString(),
+          experienceId: experience?._id?.toString(),
+          userId: req.user?._id?.toString()
+        });
+        return;
+      }
+
       const enforcer = getEnforcer({ Plan, Experience, Destination, User });
       const userRole = await enforcer.getUserRole(req.user._id, experience);
 
       // Only add as contributor if user has no existing role (SECURE)
       if (!userRole) {
+        // Re-check: plan may have been deleted while async work was in-flight.
+        const planStillExistsBeforePermission = await Plan.exists({ _id: plan._id });
+        if (!planStillExistsBeforePermission) {
+          backendLogger.debug('Skipping contributor permission add: plan deleted during async processing', {
+            planId: plan._id?.toString(),
+            experienceId: experience?._id?.toString(),
+            userId: req.user?._id?.toString()
+          });
+          return;
+        }
+
         await enforcer.addPermission({
           resource: experience,
           permission: {
@@ -645,11 +673,19 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
     const requesterName = req.user?.name || 'A user';
 
     if (owner?.email) {
-      await sendIfAllowed({
+      await notifyUser({
         user: owner,
         channel: 'email',
         type: 'activity',
+        message: `${requesterName} requested access to your plan for ${plan.experience?.name || 'an experience'}.`,
+        data: {
+          kind: 'plan_access_request',
+          planId: id,
+          experienceId: plan.experience?._id?.toString()
+        },
         logContext: {
+          feature: 'plan_access_request',
+          channel: 'email',
           planId: id,
           ownerId: owner._id,
           requesterId: req.user._id
@@ -667,6 +703,43 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
         }
       });
     }
+
+    const messageText = `${requesterName} requested access to your plan for ${plan.experience?.name || 'an experience'}.`;
+    const messageData = {
+      kind: 'plan_access_request',
+      planId: id,
+      experienceId: plan.experience?._id?.toString()
+    };
+
+    await notifyUser({
+      user: owner,
+      channel: 'bienbot',
+      type: 'activity',
+      message: messageText,
+      data: messageData,
+      logContext: {
+        feature: 'plan_access_request',
+        planId: id,
+        ownerId: owner._id,
+        requesterId: req.user._id
+      }
+    });
+
+    // Optional webhook channel (only delivers if user enabled + configured endpoints)
+    await notifyUser({
+      user: owner,
+      channel: 'webhook',
+      type: 'activity',
+      message: messageText,
+      data: messageData,
+      logContext: {
+        feature: 'plan_access_request',
+        channel: 'webhook',
+        planId: id,
+        ownerId: owner._id,
+        requesterId: req.user._id
+      }
+    });
   } catch (e) {
     backendLogger.warn('Failed to notify plan owner of access request', {
       planId: id,
@@ -1359,9 +1432,11 @@ const addCollaborator = asyncHandler(async (req, res) => {
   // Also send an email asynchronously (do not block the API response on email success).
   try {
     // Fetch target user and experience details for the activity and email
-    const [targetUser, experienceDoc] = await Promise.all([
-      User.findById(userId).select('name email').lean(),
+    const [targetUser, experienceDoc, actorUser] = await Promise.all([
+      User.findById(userId).select('name email preferences').lean(),
       Experience.findById(plan.experience).populate('destination', 'name').select('name destination').lean()
+      ,
+      User.findById(req.user._id).select('name preferences').lean()
     ]);
 
     const ownerInfo = {
@@ -1379,6 +1454,101 @@ const addCollaborator = asyncHandler(async (req, res) => {
     };
 
     const resourceLink = `/experiences/${experienceDoc?._id || plan.experience}#plan-${plan._id}`;
+
+    // Best-effort: notifications for both users.
+    // Requirement: actor and target should get a notification when a user is added to a plan.
+    try {
+      const experienceId = (experienceDoc?._id || plan.experience)?.toString?.() || plan.experience;
+
+      const targetMessage = `You were added as a collaborator on ${experienceDoc?.name || 'a plan'} by ${req.user.name || 'a user'}.`;
+      const actorMessage = `You added ${targetUser?.name || 'a user'} as a collaborator on ${experienceDoc?.name || 'a plan'}.`;
+
+      const targetData = {
+        kind: 'plan',
+        action: 'collaborator_added',
+        planId: plan._id.toString(),
+        experienceId,
+        actorId: req.user._id.toString(),
+        resourceLink
+      };
+
+      const actorData = {
+        kind: 'plan',
+        action: 'permission_added',
+        planId: plan._id.toString(),
+        experienceId,
+        targetId: userId.toString(),
+        resourceLink
+      };
+
+      await Promise.all([
+        notifyUser({
+          user: targetUser,
+          channel: 'bienbot',
+          type: 'activity',
+          message: targetMessage,
+          data: targetData,
+          logContext: {
+            feature: 'plan_collaborator_added',
+            kind: 'target',
+            planId: plan._id.toString(),
+            actorId: req.user._id.toString(),
+            targetId: userId.toString()
+          }
+        }),
+        notifyUser({
+          user: targetUser,
+          channel: 'webhook',
+          type: 'activity',
+          message: targetMessage,
+          data: targetData,
+          logContext: {
+            feature: 'plan_collaborator_added',
+            kind: 'target',
+            channel: 'webhook',
+            planId: plan._id.toString(),
+            actorId: req.user._id.toString(),
+            targetId: userId.toString()
+          }
+        }),
+        notifyUser({
+          user: actorUser,
+          channel: 'bienbot',
+          type: 'activity',
+          message: actorMessage,
+          data: actorData,
+          logContext: {
+            feature: 'plan_collaborator_added',
+            kind: 'actor',
+            planId: plan._id.toString(),
+            actorId: req.user._id.toString(),
+            targetId: userId.toString()
+          }
+        }),
+        notifyUser({
+          user: actorUser,
+          channel: 'webhook',
+          type: 'activity',
+          message: actorMessage,
+          data: actorData,
+          logContext: {
+            feature: 'plan_collaborator_added',
+            kind: 'actor',
+            channel: 'webhook',
+            planId: plan._id.toString(),
+            actorId: req.user._id.toString(),
+            targetId: userId.toString()
+          }
+        })
+      ]);
+    } catch (notifyErr) {
+      backendLogger.warn('Failed to send plan collaborator notifications (continuing)', {
+        error: notifyErr.message,
+        planId: plan._id.toString(),
+        actorId: req.user._id.toString(),
+        targetId: userId.toString()
+      });
+    }
 
     // Activity 1: For the owner (shows "Added [user] as collaborator to [experience]")
     // Use allowed action enum values from Activity model ('permission_added' or 'collaborator_added')

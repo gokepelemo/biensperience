@@ -15,4 +15,8 @@ router.post('/channels/dm', modificationLimiter, chatCtrl.dmChannel);
 router.post('/channels/plan', modificationLimiter, chatCtrl.planChannel);
 router.post('/channels/plan-item', modificationLimiter, chatCtrl.planItemChannel);
 
+// BienBot is a per-user standard channel for notifications.
+// "Cancel" means deleting the channel on Stream Chat; it will be recreated when a new notification is published.
+router.delete('/channels/bienbot', modificationLimiter, chatCtrl.cancelBienBot);
+
 module.exports = router;

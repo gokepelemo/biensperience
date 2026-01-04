@@ -14,14 +14,12 @@
  */
 
 import { useState, useEffect, useId, useRef, useCallback } from 'react';
-import { Form } from 'react-bootstrap';
 import Modal from '../../../components/Modal/Modal';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
 import { lang } from '../../../lang.constants';
+import { FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
 import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
 import { logger } from '../../../utilities/logger';
-
-const { Label: FormLabel, Control: FormControl } = Form;
 
 // Default empty form state
 const DEFAULT_FORM_STATE = {
@@ -237,14 +235,12 @@ export default function PlanItemModal({
 
         {/* Cost */}
         <div className="mb-3">
-          <label htmlFor={`${formId}-cost`} className="form-label">
+          <FormLabel htmlFor={`${formId}-cost`}>
             {l.current?.label?.cost || "Cost"}
-          </label>
-          <div className="input-group">
-            <span className="input-group-text">$</span>
-            <input
+          </FormLabel>
+          <FormInputGroup prefix="$">
+            <FormControl
               type="number"
-              className="form-control"
               id={`${formId}-cost`}
               value={formState.cost || ''}
               onChange={(e) => updateField('cost', parseFloat(e.target.value) || 0)}
@@ -262,18 +258,17 @@ export default function PlanItemModal({
               step="0.01"
               placeholder="0.00"
             />
-          </div>
+          </FormInputGroup>
         </div>
 
         {/* Planning Days */}
         <div className="mb-3">
-          <label htmlFor={`${formId}-days`} className="form-label">
+          <FormLabel htmlFor={`${formId}-days`}>
             {l.current?.label?.planningTimeLabel || "Planning Time"}
-          </label>
-          <div className="input-group">
-            <input
+          </FormLabel>
+          <FormInputGroup suffix="days">
+            <FormControl
               type="number"
-              className="form-control"
               id={`${formId}-days`}
               value={formState.planning_days || ''}
               onChange={(e) => updateField('planning_days', parseInt(e.target.value) || 0)}
@@ -290,8 +285,7 @@ export default function PlanItemModal({
               min="0"
               placeholder="0"
             />
-            <span className="input-group-text">days</span>
-          </div>
+          </FormInputGroup>
         </div>
 
         {/* Activity Type */}
@@ -317,7 +311,7 @@ export default function PlanItemModal({
             </small>
           </FormLabel>
           <div className="position-relative">
-            <div className="input-group">
+            <FormInputGroup>
               <FormControl
                 type="text"
                 id={`${formId}-address`}
@@ -336,7 +330,7 @@ export default function PlanItemModal({
                 autoComplete="off"
               />
               {addressLoading && (
-                <span className="input-group-text">
+                <span>
                   <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
                 </span>
               )}
@@ -350,7 +344,7 @@ export default function PlanItemModal({
                   ×
                 </button>
               )}
-            </div>
+            </FormInputGroup>
 
             {/* Address Suggestions Dropdown */}
             {showSuggestions && addressSuggestions.length > 0 && (

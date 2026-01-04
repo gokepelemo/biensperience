@@ -225,7 +225,9 @@ async function getRecentActivity(userId, options = {}) {
     });
 
     // Build query: user is either actor or target
+    // Hide child activities (multi-step flows) from feed.
     const query = {
+      parentActivityId: null,
       $or: [
         { 'actor._id': userId },    // Activities performed by the user
         { 'target.id': userId }      // Activities performed on the user
@@ -249,10 +251,10 @@ async function getRecentActivity(userId, options = {}) {
     // - Actions they performed (plan item completions, adding collaborators)
     // - Actions performed on them (being added as collaborator)
     const activities = await Activity.find(query)
-    .sort({ timestamp: -1 })
-    .limit(limit)
-    .skip(skip)
-    .lean();
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .skip(skip)
+      .lean();
 
     backendLogger.debug('Activities found', {
       userId: userId.toString(),
@@ -634,7 +636,9 @@ async function getActivityFeed(req, res) {
     });
 
     // Build count query: user is actor OR target
+    // Hide child activities (multi-step flows) from feed.
     const countQuery = {
+      parentActivityId: null,
       $or: [
         { 'actor._id': userId },
         { 'target.id': userId }

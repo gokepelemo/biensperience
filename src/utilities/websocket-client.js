@@ -73,6 +73,41 @@ export class WebSocketClient {
     this.handleClose = this.handleClose.bind(this);
     this.handleError = this.handleError.bind(this);
     this.handleMessage = this.handleMessage.bind(this);
+
+    // Resume handling: browsers may suspend timers/sockets in background.
+    // If reconnect attempts were exhausted while hidden, retry when visible/online.
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+    this.handleOnline = this.handleOnline.bind(this);
+    if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+      window.addEventListener('online', this.handleOnline);
+    }
+  }
+
+  handleVisibilityChange() {
+    try {
+      if (document.visibilityState !== 'visible') return;
+      if (!this.authToken) return;
+      if (this.state === ConnectionState.CONNECTED || this.state === ConnectionState.CONNECTING) return;
+
+      logger.info('[WebSocketClient] Tab became visible - retrying connection');
+      // Fire-and-forget; connect() will update state and manage retries.
+      this.connect().catch(() => {});
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  handleOnline() {
+    try {
+      if (!this.authToken) return;
+      if (this.state === ConnectionState.CONNECTED || this.state === ConnectionState.CONNECTING) return;
+
+      logger.info('[WebSocketClient] Network online - retrying connection');
+      this.connect().catch(() => {});
+    } catch (e) {
+      // Ignore
+    }
   }
 
   /**
@@ -152,6 +187,12 @@ export class WebSocketClient {
   disconnect(code = 1000, reason = 'Client disconnect') {
     this.clearTimers();
     this.reconnectAttempts = this.maxReconnectAttempts; // Prevent reconnect
+
+    // Remove global listeners tied to this instance
+    if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      window.removeEventListener('online', this.handleOnline);
+    }
 
     if (this.socket) {
       try {

@@ -434,11 +434,17 @@ describe('API Token Authentication', () => {
       const foundUser = await ApiToken.findUserByToken(token);
       expect(foundUser).toBeTruthy();
 
-      // Check that lastUsed was updated (give it a moment to save)
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // lastUsed is updated asynchronously by design; poll briefly to avoid flakiness
+      // under load (e.g., when running the full API suite in-band).
+      const deadline = Date.now() + 2000;
+      let updatedToken = null;
+      while (Date.now() < deadline) {
+        updatedToken = await ApiToken.findById(tokenDoc._id);
+        if (updatedToken?.lastUsed) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
 
-      const updatedToken = await ApiToken.findById(tokenDoc._id);
-      expect(updatedToken.lastUsed).toBeTruthy();
+      expect(updatedToken?.lastUsed).toBeTruthy();
       expect(updatedToken.lastUsed.getTime()).toBeGreaterThan(tokenDoc.createdAt.getTime());
     });
 

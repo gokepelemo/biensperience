@@ -18,7 +18,7 @@ import styles from './MessagesModal.module.scss';
 import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';
 
-import { getOrCreateDmChannel } from '../../utilities/chat-api';
+import { cancelBienBotChannel, getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
 import { broadcastEvent } from '../../utilities/event-bus';
 
@@ -567,12 +567,28 @@ export default function MessagesModal({
     }
   }, [client, activeChannel?.id]);
 
-  const handleRemoveChannel = useCallback((e, channel) => {
+  const handleRemoveChannel = useCallback(async (e, channel) => {
+    e.preventDefault();
     e.stopPropagation();
+
     const channelId = channel?.id || channel?.cid;
+    const isBienBot = typeof channelId === 'string' && channelId.startsWith('bienbot_');
+
     try {
+      // BienBot cancellation must also delete the channel on Stream Chat.
+      // Other channel removals remain local-only (existing UX).
+      if (isBienBot) {
+        try {
+          await cancelBienBotChannel();
+        } catch (err) {
+          logger.error('[MessagesModal] Failed to cancel BienBot channel', err);
+          // Continue with local removal to honor the user's intent.
+        }
+      }
+
       // Remove from local channels list so it disappears from the sidebar
       setChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== channelId));
+
       // If the removed channel was active, switch to the first available channel
       if (activeChannel?.id === channel?.id) {
         const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== channelId);
@@ -584,7 +600,7 @@ export default function MessagesModal({
       try {
         broadcastEvent('channel:removed', {
           channelId,
-          channelType: channelId?.startsWith('dm_') ? 'dm' : 'group'
+          channelType: channelId?.startsWith('dm_') ? 'dm' : (isBienBot ? 'bienbot' : 'group')
         });
         logger.debug('[MessagesModal] Channel removed event dispatched', { channelId });
       } catch (eventErr) {
