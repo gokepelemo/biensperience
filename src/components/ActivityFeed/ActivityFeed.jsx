@@ -146,6 +146,8 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  // Filter application loading state (used to prevent flashes during filter transitions)
+  const [filterApplying, setFilterApplying] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -156,8 +158,17 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
   // Track if we're refreshing in background (don't show loading indicator)
   const isBackgroundRefresh = useRef(false);
 
+  // Prevent stale requests from overwriting UI when filters change quickly
+  const latestRequestIdRef = useRef(0);
+  const activeFilterRef = useRef(activeFilter);
+  useEffect(() => {
+    activeFilterRef.current = activeFilter;
+  }, [activeFilter]);
+
   // Fetch activities from API
-  const fetchActivities = useCallback(async (page = 1, filter = activeFilter, append = false, isBackground = false) => {
+  const fetchActivities = useCallback(async (page = 1, filter = activeFilterRef.current, append = false, isBackground = false) => {
+    const requestId = ++latestRequestIdRef.current;
+
     if (!isBackground) {
       if (page === 1) {
         setLoading(true);
@@ -188,6 +199,9 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
         response = await getFollowFeed(options);
         // Transform follow feed response to match activity feed format
         const feedItems = response.feed || [];
+
+        // Ignore stale responses (e.g., an older "all" request completing after switching to "social")
+        if (requestId !== latestRequestIdRef.current) return;
 
         if (append) {
           // Appending more items (load more)
@@ -226,6 +240,9 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
         response = await getActivityFeed(page, limit, options);
         const activityItems = response.activities || [];
 
+        // Ignore stale responses (e.g., an older "all" request completing after switching to "social")
+        if (requestId !== latestRequestIdRef.current) return;
+
         if (append) {
           // Appending more items (load more)
           setAllActivities(prev => [...prev, ...activityItems]);
@@ -258,21 +275,30 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
         setError('Failed to load activity');
       }
     } finally {
-      if (!isBackground) {
-        setLoading(false);
-        setLoadingMore(false);
+      // Only the latest request should mutate loading flags
+      if (requestId === latestRequestIdRef.current) {
+        if (!isBackground) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+        // If this request was triggered by a filter change, end the filter-loading state
+        if (activeFilterRef.current === filter) {
+          setFilterApplying(false);
+        }
       }
       isBackgroundRefresh.current = false;
     }
-  }, [activeFilter, feedType]);
+  }, [feedType]);
 
   // Initial fetch
   useEffect(() => {
-    fetchActivities(1, 'all', false);
-  }, [userId, feedType]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Always fetch based on the currently-selected filter to prevent initial unfiltered flashes
+    fetchActivities(1, activeFilterRef.current, false);
+  }, [userId, feedType, fetchActivities]);
 
   // Handle filter change with instant client-side preview + background API refresh
   const handleFilterChange = useCallback((filterKey) => {
+    setFilterApplying(true);
     setActiveFilter(filterKey);
 
     // Immediately filter displayed activities using client-side data
@@ -362,7 +388,13 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
 
       {/* Activity List */}
       <div className={styles.activityList}>
-        {displayedActivities.length === 0 ? (
+        {filterApplying ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={`filter-skeleton-${i}`} className={styles.activityItemSkeleton}>
+              <SkeletonLoader variant="rectangle" width="100%" height="72px" />
+            </div>
+          ))
+        ) : displayedActivities.length === 0 ? (
           <div className={styles.emptyState}>
             <FaFilter className={styles.emptyIcon} />
             <p>No activity to show</p>
