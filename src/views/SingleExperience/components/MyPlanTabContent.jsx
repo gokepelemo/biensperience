@@ -1876,20 +1876,20 @@ export default function MyPlanTabContent({
   setTyping
 }) {
   // Check if chat is enabled:
-  // 1. Stream Chat API key must be configured
-  // 2. Plan owner must have stream_chat feature flag (or user is super admin)
-  const streamChatConfigured = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
+  // 1. Chat API key must be configured (currently Stream Chat)
+  // 2. Plan owner must have chat feature flag (or user is super admin)
+  const chatConfigured = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
   const chatEnabled = useMemo(() => {
-    if (!streamChatConfigured) return false;
+    if (!chatConfigured) return false;
     // Check if plan owner has chat enabled, or if current user is super admin
     return hasFeatureFlagInContext({
       loggedInUser: user,
       entityCreatorUser: planOwner,
-      flagKey: 'stream_chat',
+      flagKey: 'chat',
       context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR,
       options: { allowSuperAdmin: true }
     });
-  }, [streamChatConfigured, user, planOwner]);
+  }, [chatConfigured, user, planOwner]);
 
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');
@@ -2537,7 +2537,27 @@ export default function MyPlanTabContent({
   const isUsingFallbackDate = !currentPlan.planned_date && earliestScheduledDate;
 
   // Build metrics array for MetricsBar
+  // Order: Completion → Cost Estimate → Planned Date → Planning Time
   const planMetrics = metricsLoading ? [] : [
+    {
+      id: 'completion',
+      title: lang.current.label.completion,
+      type: 'completion',
+      value: currentPlan.completion_percentage || 0,
+      icon: <FaCheckCircle />,
+      color: (currentPlan.completion_percentage || 0) >= 100 ? 'success' :
+             (currentPlan.completion_percentage || 0) >= 50 ? 'primary' : 'default'
+    },
+    {
+      id: 'total-cost',
+      title: lang?.current?.label?.costEstimate || 'Cost Estimate',
+      type: 'cost',
+      value: currentPlan.total_cost || 0,
+      icon: <FaDollarSign />,
+      className: 'smallMetricValueItem',
+      // Tooltip shows per-person context with the actual cost estimate value
+      tooltip: `${lang.current.label.costEstimatePerPersonTooltip || 'Estimated cost per person'}: ${formatCurrency(currentPlan.total_cost || 0)}`
+    },
     {
       id: 'planned-date',
       title: lang.current.label.plannedDate,
@@ -2558,25 +2578,6 @@ export default function MyPlanTabContent({
         );
         setShowDatePicker(true);
       } : undefined
-    },
-    {
-      id: 'total-cost',
-      title: lang?.current?.label?.costEstimate || 'Cost Estimate',
-      type: 'cost',
-      value: currentPlan.total_cost || 0,
-      icon: <FaDollarSign />,
-      className: 'smallMetricValueItem',
-      // Tooltip shows per-person context with the actual cost estimate value
-      tooltip: `${lang.current.label.costEstimatePerPersonTooltip || 'Estimated cost per person'}: ${formatCurrency(currentPlan.total_cost || 0)}`
-    },
-    {
-      id: 'completion',
-      title: lang.current.label.completion,
-      type: 'completion',
-      value: currentPlan.completion_percentage || 0,
-      icon: <FaCheckCircle />,
-      color: (currentPlan.completion_percentage || 0) >= 100 ? 'success' :
-             (currentPlan.completion_percentage || 0) >= 50 ? 'primary' : 'default'
     },
     {
       id: 'planning-time',

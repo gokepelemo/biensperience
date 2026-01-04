@@ -601,7 +601,7 @@ export default function InviteTracking() {
                       <TableCell header>{lang.current.tableHeaders.used}</TableCell>
                       <TableCell header>{lang.current.tableHeaders.created}</TableCell>
                       <TableCell header>{lang.current.tableHeaders.expires}</TableCell>
-                      <TableCell header>{lang.current.tableHeaders.actions}</TableCell>
+                      <TableCell header className="text-end">{lang.current.tableHeaders.actions}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -647,23 +647,25 @@ export default function InviteTracking() {
                             <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.never}</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-end">
                           <div className={styles.actionButtons}>
-                            <button
-                              className="btn btn-sm btn-outline-primary"
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
                               onClick={() => loadInviteDetails(invite.code)}
                             >
                               {lang.current.button.viewDetails}
-                            </button>
+                            </Button>
                             {invite.isActive && (
-                              <button
-                                className="btn btn-sm btn-outline-danger"
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
                                 onClick={() => handleDeactivateClick(invite)}
                                 title={lang.current.inviteTracking?.deactivate || 'Deactivate'}
                                 aria-label={`Deactivate invite ${invite.code}`}
                               >
                                 <FaBan />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </TableCell>

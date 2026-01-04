@@ -12,9 +12,12 @@
   overflow: hidden;
   font-family: var(--font-family-base);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  // Remove Google Maps InfoWindow default padding but ensure bottom content is visible
-  margin: -13px -13px -8px -13px;
-  padding-bottom: 4px; // Extra space for button visibility
+  /* Google Maps InfoWindow padding is removed globally in InteractiveMap.module.scss.
+   * Avoid negative margins here because InfoWindow content wrappers often
+   * have overflow clipping; negative margins can cut off our close button
+   * and bottom CTA when the title wraps.
+   */
+  margin: 0;
 
   @media (prefers-color-scheme: dark) {
     background: var(--color-bg-secondary);

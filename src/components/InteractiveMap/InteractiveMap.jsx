@@ -56,6 +56,7 @@ export default function InteractiveMap({
   onMarkerClick,
   onMarkerHover,
   hoveredMarkerId,
+  onInfoWindowClose,
   height = '500px',
   fitBounds = true,
   showLegend = true
@@ -191,7 +192,10 @@ export default function InteractiveMap({
     if (onMarkerHover) {
       onMarkerHover(null);
     }
-  }, [onMarkerHover]);
+    if (onInfoWindowClose) {
+      onInfoWindowClose();
+    }
+  }, [onMarkerHover, onInfoWindowClose]);
 
   // Get marker icon based on type - uses extracted SVG constants
   const getMarkerIcon = useCallback((type) => {
@@ -359,6 +363,7 @@ InteractiveMap.propTypes = {
   onMarkerClick: PropTypes.func,
   onMarkerHover: PropTypes.func,
   hoveredMarkerId: PropTypes.string,
+  onInfoWindowClose: PropTypes.func,
   height: PropTypes.string,
   fitBounds: PropTypes.bool,
   showLegend: PropTypes.bool

@@ -129,9 +129,9 @@ export const FEATURE_FLAGS = {
     description: 'Curator designation for creating curated experiences',
     tier: 'curator'
   },
-  STREAM_CHAT: {
-    key: 'stream_chat',
-    description: 'In-app messaging powered by Stream Chat',
+  CHAT: {
+    key: 'chat',
+    description: 'In-app messaging (provider-agnostic)',
     tier: 'beta'
   }
 };

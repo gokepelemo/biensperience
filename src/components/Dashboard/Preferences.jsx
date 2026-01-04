@@ -486,7 +486,7 @@ export default function Preferences() {
 
             {smsStep === 'number' ? (
               <Form.Group className="mb-0">
-                <Form.Label htmlFor="sms-phone-number">Mobile number (E.164)</Form.Label>
+                <Form.Label htmlFor="sms-phone-number">Mobile number</Form.Label>
                 <Form.Control
                   id="sms-phone-number"
                   type="text"

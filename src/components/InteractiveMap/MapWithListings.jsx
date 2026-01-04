@@ -35,6 +35,7 @@ function MapWithListings({
   const containerRef = useRef(null);
   const [hoveredItemId, setHoveredItemId] = useState(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState(null);
+  const [pinnedItemId, setPinnedItemId] = useState(null);
   const [calculatedHeight, setCalculatedHeight] = useState(null);
 
   // Calculate available height based on container's position in viewport
@@ -77,6 +78,7 @@ function MapWithListings({
   // Handle hover from listing panel
   const handleItemHover = useCallback((id) => {
     setHoveredItemId(id);
+    setPinnedItemId(id);
   }, []);
 
   const handleItemLeave = useCallback(() => {
@@ -97,6 +99,7 @@ function MapWithListings({
   // Handle marker click from map
   const handleMarkerClick = useCallback((marker) => {
     setSelectedMarkerId(marker.id);
+    setPinnedItemId(marker.id);
 
     if (onMarkerClick) {
       onMarkerClick(marker);
@@ -108,10 +111,18 @@ function MapWithListings({
   // Handle marker hover from map (sync with list)
   const handleMarkerHover = useCallback((marker) => {
     setHoveredItemId(marker?.id || null);
+    if (marker?.id) setPinnedItemId(marker.id);
   }, []);
 
-  // Active item is either hovered or selected
-  const activeItemId = hoveredItemId || selectedMarkerId;
+  // Handle explicit info window close (X) - clear pinned state
+  const handleInfoWindowClose = useCallback(() => {
+    setHoveredItemId(null);
+    setSelectedMarkerId(null);
+    setPinnedItemId(null);
+  }, []);
+
+  // Active item is hovered first, else pinned (last hovered/clicked)
+  const activeItemId = hoveredItemId || pinnedItemId || selectedMarkerId;
 
   // Get split ratio CSS classes
   const splitClass = {
@@ -142,8 +153,9 @@ function MapWithListings({
           markers={markers}
           height="100%"
           onMarkerClick={handleMarkerClick}
-          hoveredMarkerId={hoveredItemId}
+          hoveredMarkerId={hoveredItemId || pinnedItemId}
           onMarkerHover={handleMarkerHover}
+          onInfoWindowClose={handleInfoWindowClose}
         />
       </div>
     </div>

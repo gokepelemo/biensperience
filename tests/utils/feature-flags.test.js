@@ -144,14 +144,14 @@ describe('Feature Flags Utility', () => {
       const loggedInUser = { _id: 'actor', feature_flags: [] };
       const entityCreatorUser = {
         _id: 'creator',
-        feature_flags: [{ flag: 'stream_chat', enabled: true }]
+        feature_flags: [{ flag: 'chat', enabled: true }]
       };
 
       expect(
         hasFeatureFlagInContext({
           loggedInUser,
           entityCreatorUser,
-          flagKey: 'stream_chat'
+          flagKey: 'chat'
         })
       ).toBe(true);
     });

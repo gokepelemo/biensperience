@@ -249,6 +249,8 @@ export default function PlanItemDetailsModal({
 
   const mergedChatError = chatClientError || chatError;
   const mergedChatLoading = chatClientLoading || chatLoading;
+  const chatNotReady = canInitChat && (!chatClient || !chatChannel);
+  const chatShouldShowLoading = (canInitChat && (mergedChatLoading || chatNotReady)) || (canInitChat && !mergedChatError && !chatClient && !chatClientLoading);
 
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
@@ -1134,6 +1136,7 @@ export default function PlanItemDetailsModal({
       onClose={onClose}
       title={editableTitle}
       size="fullscreen"
+      centered={false}
       bodyClassName={styles.modalBodyFullscreen}
     >
       <div className={styles.planItemDetailsModal}>
@@ -1814,7 +1817,9 @@ export default function PlanItemDetailsModal({
 
               {mergedChatError && <Alert type="danger" message={mergedChatError} />}
 
-              {mergedChatLoading && <Loading size="sm" variant="centered" message="Loading chat..." />}
+              {streamApiKey && !mergedChatError && chatShouldShowLoading && (
+                <Loading size="sm" variant="centered" message="Loading chat..." />
+              )}
 
               {!mergedChatLoading && chatClient && chatChannel && (
                 <div className={styles.chatPane}>

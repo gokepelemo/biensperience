@@ -107,10 +107,15 @@
 :global(.gm-style-iw) {
   padding: 0 !important;
   max-width: 280px !important;
+  overflow: visible !important;
 }
 
 :global(.gm-style-iw-d) {
-  overflow: hidden !important;
+  /* Allow the InfoWindow contents to render fully.
+   * Google Maps sometimes wraps the content with an overflow-hidden div,
+   * which can clip our custom close button and bottom CTA when content grows.
+   */
+  overflow: visible !important;
   max-height: none !important;
 }
 
@@ -122,4 +127,17 @@
 /* Hide the InfoWindow header/close button container */
 :global(.gm-style-iw-chr) {
   display: none !important;
+}
+
+/* Hide the default Google Maps InfoWindow tail (arrow) without hiding the
+ * InfoWindow itself. Newer Maps builds render the tail in a dedicated
+ * container (.gm-style-iw-tc).
+ */
+:global(.gm-style-iw-tc) {
+  display: none !important;
+}
+
+:global(.gm-style-iw-tc)::after {
+  display: none !important;
+  content: none !important;
 }

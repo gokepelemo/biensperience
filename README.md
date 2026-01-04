@@ -100,11 +100,11 @@ Storybook provides interactive documentation for all UI components, design token
 All components follow the design system with full dark mode support and responsive design.
 ## Contributing
 
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes
-4. Push and open a Pull Request
+Contributions are welcome.
+
+- Start here: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Community standards: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security issues: [SECURITY.md](SECURITY.md) (please report privately)
 
 Report bugs via [Issues](https://github.com/gokepelemo/biensperience/issues).
 

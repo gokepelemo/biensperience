@@ -204,6 +204,7 @@ Authentication and profile data for platform users.
 | `inviteCode` | String | Invite code used during signup |
 | `apiEnabled` | Boolean | API access enabled |
 | `location` | Object | GeoJSON location with city, state, country, coordinates |
+| `phone` | Object | Mobile phone verification state for SMS notifications |
 | `feature_flags` | [FeatureFlag] | Array of feature flags controlling access to features |
 | `bio` | String | Curator bio/about text (max 500 chars, requires curator flag) |
 | `links` | [Link] | Curator external links (requires curator flag) |
@@ -218,6 +219,15 @@ Authentication and profile data for platform users.
 | `title` | String | Display title (required, max 100 chars) |
 | `url` | String | Full URL (required, validated) |
 | `meta` | Mixed | Optional metadata object |
+
+**Phone Sub-schema:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `number` | String | E.164 formatted phone number (e.g. +15551234567) |
+| `verified` | Boolean | Whether the number has been verified via Sinch Verification |
+| `verifiedAt` | Date | When the number was verified |
+| `verificationId` | String | Last/pending Sinch verification ID |
+| `verificationStartedAt` | Date | When verification was started |
 
 **FeatureFlag Sub-schema:**
 | Field | Type | Description |
@@ -240,6 +250,16 @@ Authentication and profile data for platform users.
 | `document_ai_parsing` | AI-powered document parsing and extraction |
 | `bulk_export` | Bulk export of plans and experiences |
 | `curator` | Curator designation for creating curated experiences with bio and links |
+| `chat` | In-app messaging (provider-agnostic) |
+
+**Preferences.notifications Sub-schema:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | Boolean | Master notification toggle (default: true) |
+| `channels` | [String] | Notification channels: `email`, `push`, `sms`, `bienbot`, `webhook` |
+| `bienbotDisabled` | Boolean | Explicit opt-out from BienBot notifications |
+| `webhooks` | [String] | Per-user webhook endpoints for webhook channel |
+| `types` | [String] | Notification types: `activity`, `reminder`, `marketing`, `updates` |
 
 **Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `default_photo_id`, `location.coordinates` (2dsphere), `location.city`, `location.country`, `feature_flags.flag`, `feature_flags.enabled+flag`, `links.type`
 
@@ -307,7 +327,9 @@ Travel experiences/itineraries containing plan items.
 | `name` | String | Experience name |
 | `overview` | String | Description |
 | `destination` | ObjectId | Reference to Destination |
-| `map_location` | String | Map embed or coordinates |
+| `archived_owner` | ObjectId | Original owner's ID when experience is archived/transferred |
+| `map_location` | String | **[Deprecated]** Legacy location string. Use `location` field instead |
+| `location` | Location | Structured location with geocoded coordinates (see Location sub-schema) |
 | `experience_type` | [String] | Tags/categories |
 | `experience_type_slugs` | [String] | Slugified tags for search |
 | `plan_items` | [PlanItem] | Template plan items |
@@ -335,10 +357,19 @@ Travel experiences/itineraries containing plan items.
 | `cost_estimate` | Number | Estimated cost |
 | `planning_days` | Number | Days needed |
 | `parent` | ObjectId | Parent item for hierarchy |
-| `activity_type` | String | `food`, `transport`, `accommodation`, `activity`, `shopping`, `entertainment`, `sightseeing`, `custom` |
+| `activity_type` | String | Activity type (see expanded enum below) |
 | `location` | Object | Address and GeoJSON coordinates |
+| `scheduled_date` | Date | Scheduled date for timeline organization |
+| `scheduled_time` | String | HH:MM format time |
 
-**Indexes:** `destination`, `name`, `permissions._id+type`, `experience_type`, `experience_type_slugs`, `destination+createdAt`, `createdAt`, `photos`, `default_photo_id`
+**Activity Type Enum:**
+- **Essentials**: `accommodation`, `transport`, `food`, `drinks`, `coffee`
+- **Experiences**: `sightseeing`, `museum`, `nature`, `adventure`, `sports`, `entertainment`, `wellness`, `tour`, `class`, `nightlife`, `religious`, `local`
+- **Services**: `shopping`, `market`, `health`, `banking`, `communication`, `admin`, `laundry`, `rental`
+- **Other**: `photography`, `meeting`, `work`, `rest`, `packing`, `checkpoint`, `custom`
+- **Legacy**: `activity` (for backwards compatibility)
+
+**Indexes:** `destination`, `name`, `permissions._id+type`, `experience_type`, `experience_type_slugs`, `destination+createdAt`, `createdAt`, `photos`, `default_photo_id`, `location.geo` (2dsphere)
 
 ---
 
@@ -352,10 +383,13 @@ User-specific plan derived from an experience.
 | `experience` | ObjectId | Reference to Experience |
 | `user` | ObjectId | Plan owner |
 | `planned_date` | Date | Scheduled date |
+| `currency` | String | Default currency for the plan (default: USD) |
 | `plan` | [PlanItemSnapshot] | Point-in-time item snapshots |
 | `costs` | [Cost] | Actual costs |
 | `permissions` | [Permission] | Access control list |
 | `notes` | String | Plan notes |
+| `pinnedItemId` | ObjectId | Pinned plan item (appears at top with star prefix) |
+| `accessRequests` | [AccessRequest] | Pending access requests for this plan |
 | `createdAt` | Date | Document creation timestamp |
 | `updatedAt` | Date | Last update timestamp |
 
@@ -376,7 +410,7 @@ User-specific plan derived from an experience.
 | `url` | String | URL snapshot |
 | `photo` | ObjectId | Photo reference |
 | `parent` | ObjectId | Parent item reference |
-| `activity_type` | String | Activity type |
+| `activity_type` | String | Activity type (same expanded enum as Experience.plan_items) |
 | `scheduled_date` | Date | User-specific date |
 | `scheduled_time` | String | HH:MM format |
 | `location` | Object | Address and GeoJSON coordinates |
@@ -403,6 +437,16 @@ User-specific plan derived from an experience.
 **Parking Extension:** Stores parking details with type, location, times, costs.
 
 **Discount Extension:** Stores promo codes with discount type, value, expiration.
+
+**AccessRequest Sub-schema:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `requester` | ObjectId | User requesting access |
+| `message` | String | Optional message from requester (max 1000 chars) |
+| `status` | String | `pending`, `approved`, `declined` |
+| `createdAt` | Date | Request timestamp |
+| `respondedAt` | Date | When owner responded |
+| `respondedBy` | ObjectId | User who responded |
 
 **Indexes:** `experience+user` (unique), `user`, `experience`, `user+updatedAt`, `experience+permissions._id+type`, `permissions._id+entity`, `plan.location.geo` (2dsphere)
 
@@ -451,6 +495,7 @@ Uploaded documents with S3 storage and AI processing.
 | `s3Bucket` | String | S3 bucket name |
 | `isProtected` | Boolean | Whether document is in protected (private) bucket |
 | `bucketType` | String | `public` or `protected` |
+| `visibility` | String | `collaborators` (visible to all collaborators) or `private` (owner only) |
 | `status` | String | `pending`, `processing`, `completed`, `failed`, `reprocessing` |
 | `extractedText` | String | OCR/extracted text |
 | `processingResult` | Object | Extraction method, confidence, page count |
@@ -462,6 +507,10 @@ Uploaded documents with S3 storage and AI processing.
 | `lastProcessedAt` | Date | Last processing timestamp |
 | `processAttempts` | Number | Processing attempt count |
 | `maxProcessAttempts` | Number | Max retry attempts |
+| `isDisabled` | Boolean | Soft delete flag |
+| `disabledAt` | Date | When document was disabled |
+| `disabledBy` | ObjectId | User who disabled the document |
+| `disabledReason` | String | Reason for disabling |
 | `createdAt` | Date | Document creation timestamp |
 | `updatedAt` | Date | Last update timestamp |
 
@@ -473,7 +522,7 @@ Uploaded documents with S3 storage and AI processing.
 - `canReprocess` - Whether document can be reprocessed
 - `isProcessed` - Whether processing completed successfully
 
-**Indexes:** `user`, `entityId`, `user+entityType+entityId`, `planId+planItemId`, `status+createdAt`, `permissions._id+entity`
+**Indexes:** `user`, `entityId`, `user+entityType+entityId`, `planId+planItemId`, `status+createdAt`, `permissions._id+entity`, `isProtected`, `visibility`, `isDisabled`
 
 ---
 
@@ -556,6 +605,7 @@ Invite codes for user onboarding with pre-configured resources.
 | `customMessage` | String | Custom invite message |
 | `permissionType` | String | `owner`, `collaborator`, `contributor` |
 | `inviteMetadata` | Object | sentAt, sentFrom, emailSent |
+| `mutualFollow` | Boolean | Create mutual follow relationship when invite is redeemed |
 | `createdAt` | Date | Document creation timestamp |
 | `updatedAt` | Date | Last update timestamp |
 

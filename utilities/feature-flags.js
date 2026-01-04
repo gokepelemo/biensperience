@@ -155,10 +155,10 @@ const FEATURE_FLAGS = {
     tier: 'curator'
   },
 
-  // Stream Chat (messaging)
-  STREAM_CHAT: {
-    key: 'stream_chat',
-    description: 'In-app messaging powered by Stream Chat',
+  // Chat (provider-agnostic messaging)
+  CHAT: {
+    key: 'chat',
+    description: 'In-app messaging (provider-agnostic)',
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'beta'

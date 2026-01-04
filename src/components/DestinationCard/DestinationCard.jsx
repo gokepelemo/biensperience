@@ -5,6 +5,10 @@ import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
+// In-memory cache of URLs we've already successfully loaded during this session.
+// This prevents skeleton re-appearing and redundant preload work on remounts.
+const loadedImageUrls = new Set();
+
 /**
  * Destination card component that displays a destination with background image and title.
  * Automatically adjusts font size to fit the card dimensions.
@@ -18,7 +22,12 @@ import imagePreloader from '../../utilities/image-preloader';
  * @returns {JSX.Element} Destination card component
  */
 function DestinationCard({ destination, includeSchema = false, forcePreload = false, fluid = false }) {
-  const rand = useMemo(() => Math.floor(Math.random() * 50), []);
+  // Stable seed for placeholder images so they don't change on remount.
+  const placeholderSeed = useMemo(() => {
+    const id = destination?._id ? String(destination._id) : '';
+    const name = destination?.name ? String(destination.name) : '';
+    return encodeURIComponent(id || name || 'destination');
+  }, [destination?._id, destination?.name]);
   const titleRef = useRef(null);
   const containerRef = useRef(null);
   const prevImageSrcRef = useRef(null);
@@ -26,7 +35,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
   // Get background image URL from destination photos or fallback to placeholder
   const { imageSrc, backgroundImage } = useMemo(() => {
     if (!destination) {
-      const src = `https://picsum.photos/400?rand=${rand}`;
+      const src = `https://picsum.photos/seed/${placeholderSeed}/800/480`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }
 
@@ -40,7 +49,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
       if (!defaultPhoto) {
         defaultPhoto = destination.photos[0];
       }
-      const src = defaultPhoto?.url || `https://picsum.photos/400?rand=${rand}`;
+      const src = defaultPhoto?.url || `https://picsum.photos/seed/${placeholderSeed}/800/480`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }
 
@@ -51,38 +60,27 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     }
 
     // Fallback to placeholder
-    const src = `https://picsum.photos/400?rand=${rand}`;
+    const src = `https://picsum.photos/seed/${placeholderSeed}/800/480`;
     return { imageSrc: src, backgroundImage: `url(${src})` };
-  }, [destination, rand]);
-
-  // Track if component has mounted to prevent flash on initial render
-  const hasMountedRef = useRef(false);
+  }, [destination, placeholderSeed]);
 
   // Check if image is already cached in browser to avoid skeleton flash on re-renders
   // This runs synchronously during render to set correct initial state
   const isImageCached = useMemo(() => {
     if (!imageSrc) return true;
+    if (loadedImageUrls.has(imageSrc)) return true;
     // Check if image is already in browser cache
     const img = new Image();
     img.src = imageSrc;
     return img.complete && img.naturalHeight > 0;
   }, [imageSrc]);
 
-  // Initialize imageLoaded to true to prevent flash - the effect will handle actual loading
-  // This prevents the brief skeleton flash on initial render in production
-  const [imageLoaded, setImageLoaded] = useState(true);
-
-  // Track whether we've started loading (to avoid skeleton flash before we know if cached)
-  const [hasStartedLoading, setHasStartedLoading] = useState(false);
+  // Initialize from cache state so we don't render "no skeleton" and then flip it on.
+  const [imageLoaded, setImageLoaded] = useState(() => isImageCached);
 
   // Use shared image preloader utility to ensure skeleton overlay exists and load image
   // Only reset imageLoaded when the actual URL changes, not on every render
   useEffect(() => {
-    // Mark as mounted after first render
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-    }
-
     // Only reset if image source actually changed to a different URL
     const urlChanged = prevImageSrcRef.current !== imageSrc;
     if (urlChanged) {
@@ -91,7 +89,12 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
 
     if (!imageSrc) {
       setImageLoaded(true);
-      setHasStartedLoading(true);
+      return;
+    }
+
+    // If we've already loaded this URL in this session, don't re-run preload.
+    if (loadedImageUrls.has(imageSrc)) {
+      setImageLoaded(true);
       return;
     }
 
@@ -103,34 +106,23 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     if (isCached) {
       // Image is already cached, no loading needed
       setImageLoaded(true);
-      setHasStartedLoading(true);
       return;
     }
 
-    // Image needs to load - only show skeleton after a small delay to prevent flash
-    // for images that load very quickly (common with CDN/edge caching)
-    let showSkeletonTimeout = null;
+    // Not cached: show skeleton immediately and fade out on load.
+    setImageLoaded(false);
     let cancelled = false;
 
-    // Delay showing skeleton by 50ms - if image loads faster, no flash
-    showSkeletonTimeout = setTimeout(() => {
-      if (!cancelled) {
-        setImageLoaded(false);
-        setHasStartedLoading(true);
-      }
-    }, 50);
-
     // lazy preload with fallback to immediate load if requested
-    const cleanup = imagePreloader(containerRef, imageSrc, () => {
+    const cleanup = imagePreloader(containerRef, imageSrc, (err) => {
       cancelled = true;
-      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
+      if (!err) loadedImageUrls.add(imageSrc);
       // Small delay to ensure smooth transition
       setTimeout(() => setImageLoaded(true), 30);
     }, { forcePreload: forcePreload, rootMargin: '400px' });
 
     return () => {
       cancelled = true;
-      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
       try { cleanup && cleanup(); } catch (e) {}
     };
   }, [imageSrc, forcePreload]);

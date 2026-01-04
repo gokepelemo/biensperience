@@ -116,14 +116,14 @@ function ensurePlanOwnerChatEnabledOrDeny(req, res, ownerUser) {
   const enabled = hasFeatureFlagInContext({
     loggedInUser: req.user,
     entityCreatorUser: ownerUser,
-    flagKey: 'stream_chat',
+    flagKey: 'chat',
     context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR,
     options: { allowSuperAdmin: true }
   });
   if (enabled) return true;
 
   res.status(403).json(
-    createFlagDenialResponse('stream_chat', {
+    createFlagDenialResponse('chat', {
       message: 'Chat is not enabled for this plan. Ask the plan owner to enable messaging.'
     })
   );

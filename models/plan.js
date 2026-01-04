@@ -554,6 +554,36 @@ const planSchema = new Schema(
     pinnedItemId: {
       type: Schema.Types.ObjectId,
       default: null
+    },
+    // Access requests from users who want to join this plan
+    // Embedded for lightweight queries - no separate collection needed
+    accessRequests: {
+      type: [new Schema({
+        requester: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+          required: true
+        },
+        message: {
+          type: String,
+          trim: true,
+          maxlength: 1000,
+          default: ''
+        },
+        status: {
+          type: String,
+          enum: ['pending', 'approved', 'declined'],
+          default: 'pending'
+        },
+        respondedAt: {
+          type: Date
+        },
+        respondedBy: {
+          type: Schema.Types.ObjectId,
+          ref: 'User'
+        }
+      }, { timestamps: true })],
+      default: []
     }
   },
   {

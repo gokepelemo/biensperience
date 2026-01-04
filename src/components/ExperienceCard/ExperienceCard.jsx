@@ -17,15 +17,21 @@ import { useUser } from "../../contexts/UserContext";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
+// In-memory cache of URLs we've already successfully loaded during this session.
+// This prevents skeleton re-appearing and redundant preload work on remounts.
+const loadedImageUrls = new Set();
+
 function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false, showSharedIcon = false }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
-  const rand = useMemo(() => Math.floor(Math.random() * 50), []);
+  // Stable seed for placeholder images so they don't change on remount.
+  const placeholderSeed = useMemo(() => {
+    const id = experience?._id ? String(experience._id) : '';
+    const name = experience?.name ? String(experience.name) : '';
+    return encodeURIComponent(id || name || 'experience');
+  }, [experience?._id, experience?.name]);
   const [isLoading, setIsLoading] = useState(false);
-  // Initialize imageLoaded to true to prevent flash - the effect will handle actual loading
-  // This prevents the brief skeleton flash on initial render in production
-  const [imageLoaded, setImageLoaded] = useState(true);
   const containerRef = useRef(null);
   const prevImageSrcRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -283,7 +289,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   // Get the default photo URL (raw) and backgroundImage string
   const { imageSrc, backgroundImage } = useMemo(() => {
     if (!experience) {
-      const src = `https://picsum.photos/400?rand=${rand}`;
+      const src = `https://picsum.photos/seed/${placeholderSeed}/800/480`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }
 
@@ -296,13 +302,26 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         defaultPhoto = photos.find(photo => photo?._id === defaultPhotoId);
       }
       if (!defaultPhoto) defaultPhoto = photos[0];
-      const src = defaultPhoto?.url || `https://picsum.photos/400?rand=${rand}`;
+      const src = defaultPhoto?.url || `https://picsum.photos/seed/${placeholderSeed}/800/480`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }
 
-    const src = `https://picsum.photos/400?rand=${rand}`;
+    const src = `https://picsum.photos/seed/${placeholderSeed}/800/480`;
     return { imageSrc: src, backgroundImage: `url(${src})` };
-  }, [experience, rand]);
+  }, [experience, placeholderSeed]);
+
+  // Check if image is already cached in browser to avoid skeleton flash on re-renders.
+  // This runs synchronously during render to set correct initial state.
+  const isImageCached = useMemo(() => {
+    if (!imageSrc) return true;
+    if (loadedImageUrls.has(imageSrc)) return true;
+    const img = new Image();
+    img.src = imageSrc;
+    return img.complete && img.naturalHeight > 0;
+  }, [imageSrc]);
+
+  // Initialize from cache state so we don't render "no skeleton" and then flip it on.
+  const [imageLoaded, setImageLoaded] = useState(() => isImageCached);
 
   // Use shared image preloader utility to ensure skeleton overlay exists and load image
   // Only reset imageLoaded when the actual URL changes, not on every render
@@ -318,6 +337,12 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       return;
     }
 
+    // If we've already loaded this URL in this session, don't re-run preload.
+    if (loadedImageUrls.has(imageSrc)) {
+      setImageLoaded(true);
+      return;
+    }
+
     // Check cache status
     const img = new Image();
     img.src = imageSrc;
@@ -329,28 +354,19 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
       return;
     }
 
-    // Image needs to load - only show skeleton after a small delay to prevent flash
-    // for images that load very quickly (common with CDN/edge caching)
-    let showSkeletonTimeout = null;
+    // Not cached: show skeleton immediately and fade out on load.
+    setImageLoaded(false);
     let cancelled = false;
-
-    // Delay showing skeleton by 50ms - if image loads faster, no flash
-    showSkeletonTimeout = setTimeout(() => {
-      if (!cancelled) {
-        setImageLoaded(false);
-      }
-    }, 50);
 
     const cleanup = imagePreloader(containerRef, imageSrc, (err) => {
       cancelled = true;
-      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
+      if (!err) loadedImageUrls.add(imageSrc);
       // Small delay to ensure smooth transition
       setTimeout(() => setImageLoaded(true), 30);
     }, { forcePreload: forcePreload, rootMargin: '400px' });
 
     return () => {
       cancelled = true;
-      if (showSkeletonTimeout) clearTimeout(showSkeletonTimeout);
       try { cleanup && cleanup(); } catch (e) {}
     };
   }, [imageSrc, forcePreload]);

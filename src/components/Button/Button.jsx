@@ -30,7 +30,7 @@ import { calculateButtonWidth } from '../../utilities/button-utils';
  * @param {React.ReactNode} props.rightIcon - Icon to display after text
  * @param {Object} props... - Other props passed to button element
  */
-export default function Button({
+const Button = React.forwardRef(function Button({
   children,
   variant = 'gradient',
   bootstrapVariant = 'primary',
@@ -50,7 +50,7 @@ export default function Button({
   leftIcon = null,
   rightIcon = null,
   ...props
-}) {
+}, ref) {
   // Normalize legacy variant names: 'primary' -> 'gradient'
   let normalizedVariant = variant;
   if (variant === 'primary') normalizedVariant = 'gradient';
@@ -117,6 +117,7 @@ export default function Button({
   if (as) {
     const As = as;
     const forwarded = {
+      ref,
       className: classes,
       onClick,
       style: calculatedStyle,
@@ -135,6 +136,7 @@ export default function Button({
   // Default: native button element
   return (
     <button
+      ref={ref}
       type={type}
       className={classes}
       disabled={disabled}
@@ -145,7 +147,9 @@ export default function Button({
       {buttonContent}
     </button>
   );
-}
+});
+
+export default Button;
 
 Button.propTypes = {
   children: PropTypes.node.isRequired,
