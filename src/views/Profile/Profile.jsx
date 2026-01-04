@@ -80,6 +80,15 @@ export default function Profile() {
   // Track previous profileId to detect navigation between profiles
   const prevProfileIdRef = useRef(profileId);
 
+  // Guard against stale async responses overwriting UI after navigation.
+  // We intentionally use refs (not state) to avoid introducing extra re-renders.
+  const activeUserIdRef = useRef(userId);
+  const latestProfileRequestIdRef = useRef(0);
+  const latestFollowDataRequestIdRef = useRef(0);
+  const latestUserExperiencesRequestIdRef = useRef(0);
+  const latestCreatedExperiencesRequestIdRef = useRef(0);
+  const latestFollowsListRequestIdRef = useRef(0);
+
   // Follow feature state
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -134,6 +143,11 @@ export default function Profile() {
       prevProfileIdRef.current = profileId;
     }
   }, [profileId]);
+
+  // Keep an always-fresh userId reference for stale-request guards
+  useEffect(() => {
+    activeUserIdRef.current = userId;
+  }, [userId]);
 
   // Initialize tab from hash (supports deep links like /profile#created)
   useEffect(() => {
@@ -485,9 +499,17 @@ export default function Profile() {
   // Fetch user experiences with pagination
   const fetchUserExperiences = useCallback(async (page = 1) => {
     if (!userId) return;
+
+    const requestId = ++latestUserExperiencesRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestUserExperiencesRequestIdRef.current !== requestId;
+
     setExperiencesLoading(true);
     try {
       const response = await showUserExperiences(userId, { page, limit: ITEMS_PER_PAGE });
+
+      if (isStale()) return;
+
       // Handle paginated response
       if (response && response.data) {
         setUserExperiences(response.data);
@@ -498,18 +520,27 @@ export default function Profile() {
         setUserExperiencesMeta(null);
       }
     } catch (err) {
+      if (isStale()) return;
       handleError(err, { context: 'Load experiences' });
     } finally {
-      setExperiencesLoading(false);
+      if (!isStale()) setExperiencesLoading(false);
     }
   }, [userId]);
 
   // Fetch created experiences with pagination
   const fetchCreatedExperiences = useCallback(async (page = 1) => {
     if (!userId) return;
+
+    const requestId = ++latestCreatedExperiencesRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestCreatedExperiencesRequestIdRef.current !== requestId;
+
     setCreatedLoading(true);
     try {
       const response = await showUserCreatedExperiences(userId, { page, limit: ITEMS_PER_PAGE });
+
+      if (isStale()) return;
+
       // Handle paginated response
       if (response && response.data) {
         setCreatedExperiences(response.data);
@@ -520,13 +551,18 @@ export default function Profile() {
         setCreatedExperiencesMeta(null);
       }
     } catch (err) {
+      if (isStale()) return;
       handleError(err, { context: 'Load created experiences' });
     } finally {
-      setCreatedLoading(false);
+      if (!isStale()) setCreatedLoading(false);
     }
   }, [userId]);
 
   const getProfile = useCallback(async () => {
+    const requestId = ++latestProfileRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestProfileRequestIdRef.current !== requestId;
+
     if (!isOwner) {
       setIsLoadingProfile(true);
     }
@@ -534,16 +570,20 @@ export default function Profile() {
 
     // Validate userId before API calls
     if (!userId || typeof userId !== 'string' || userId.length !== 24) {
-      setProfileError(lang.current.alert.invalidUserId);
-      setIsLoadingProfile(false);
+      if (!isStale()) {
+        setProfileError(lang.current.alert.invalidUserId);
+        setIsLoadingProfile(false);
+      }
       return;
     }
 
     // Block access to system user profiles (e.g., Archive User)
     // These are internal system accounts that should never be publicly viewable
     if (isSystemUser(userId)) {
-      setProfileError(lang.current.alert.userNotFound);
-      setIsLoadingProfile(false);
+      if (!isStale()) {
+        setProfileError(lang.current.alert.userNotFound);
+        setIsLoadingProfile(false);
+      }
       return;
     }
 
@@ -554,6 +594,9 @@ export default function Profile() {
         showUserExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE }),
         showUserCreatedExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE })
       ]);
+
+      if (isStale()) return;
+
       setCurrentProfile(userData);
       // Handle paginated response
       if (experienceResponse && experienceResponse.data) {
@@ -571,6 +614,8 @@ export default function Profile() {
         setCreatedExperiencesMeta(null);
       }
     } catch (err) {
+      if (isStale()) return;
+
       // Check if it's a 404 error
       if (err.message && err.message.includes('404')) {
         setProfileError(lang.current.alert.userNotFound);
@@ -579,7 +624,7 @@ export default function Profile() {
         setProfileError(lang.current.alert.failedToLoadProfile);
       }
     } finally {
-      setIsLoadingProfile(false);
+      if (!isStale()) setIsLoadingProfile(false);
     }
   }, [userId, isOwner]);
 
@@ -897,16 +942,24 @@ export default function Profile() {
     if (!userId || !user || isOwnProfile) return;
 
     const fetchFollowData = async () => {
+      const requestId = ++latestFollowDataRequestIdRef.current;
+      const requestedUserId = userId;
+      const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
+
       try {
         // Get full relationship (isFollowing, isFollowedBy, isMutual)
         const [relationship, counts] = await Promise.all([
           getFollowRelationship(userId),
           getFollowCounts(userId)
         ]);
+
+        if (isStale()) return;
+
         setIsFollowing(Boolean(relationship?.isFollowing));
         setFollowRelationship(relationship || null);
         setFollowCounts(counts);
       } catch (err) {
+        if (isStale()) return;
         logger.error('[Profile] Failed to fetch follow data', { error: err.message });
       }
     };
@@ -919,10 +972,16 @@ export default function Profile() {
     if (!userId || !isOwnProfile) return;
 
     const fetchOwnFollowCounts = async () => {
+      const requestId = ++latestFollowDataRequestIdRef.current;
+      const requestedUserId = userId;
+      const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
+
       try {
         const counts = await getFollowCounts(userId);
+        if (isStale()) return;
         setFollowCounts(counts);
       } catch (err) {
+        if (isStale()) return;
         logger.error('[Profile] Failed to fetch follow counts', { error: err.message });
       }
     };
@@ -1169,6 +1228,10 @@ export default function Profile() {
   const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
     if (!userId) return;
 
+    const requestId = ++latestFollowsListRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowsListRequestIdRef.current !== requestId;
+
     setFollowsLoading(true);
     try {
       const skip = reset ? 0 : followsList.length;
@@ -1178,6 +1241,9 @@ export default function Profile() {
       let response;
       if (filter === 'followers') {
         response = await getFollowers(userId, options);
+
+        if (isStale()) return;
+
         const users = response.followers || [];
         setFollowsList(prev => reset ? users : [...prev, ...users]);
         setFollowsPagination({
@@ -1187,6 +1253,9 @@ export default function Profile() {
         });
       } else {
         response = await getFollowing(userId, options);
+
+        if (isStale()) return;
+
         const users = response.following || [];
         setFollowsList(prev => reset ? users : [...prev, ...users]);
         setFollowsPagination({
@@ -1196,9 +1265,10 @@ export default function Profile() {
         });
       }
     } catch (err) {
+      if (isStale()) return;
       logger.error('[Profile] Failed to fetch follows list', { error: err.message });
     } finally {
-      setFollowsLoading(false);
+      if (!isStale()) setFollowsLoading(false);
     }
   }, [userId, followsFilter, followsList.length]);
 
