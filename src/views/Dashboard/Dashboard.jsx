@@ -44,12 +44,6 @@ export default function Dashboard() {
       // Messages is modal-only (no dedicated tab content)
       if (hash === 'messages') {
         setShowMessagesModal(true);
-        // Restore the previous tab to avoid navigating to an empty view
-        try {
-          window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#overview`);
-        } catch (e) {
-          // ignore
-        }
         return;
       }
 
@@ -118,16 +112,12 @@ export default function Dashboard() {
         // Messages is modal-only (no dedicated tab content)
         if (hash === 'messages') {
           setShowMessagesModal(true);
-          try {
-            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${activeTab}`);
-          } catch (e) {
-            // ignore
-          }
           return;
         }
 
         if (['overview', 'plans', 'preferences'].includes(hash)) {
           setActiveTab(hash);
+          setShowMessagesModal(false);
           return;
         }
         if (hash === 'quick-actions' && quickActionsRef.current) {

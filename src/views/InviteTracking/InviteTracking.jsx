@@ -488,10 +488,6 @@ export default function InviteTracking() {
 
       {/* Invites Table */}
       <Card>
-        <Card.Header>
-          <h2><FaQrcode /> {lang.current.inviteTracking.myInviteCodes}</h2>
-        </Card.Header>
-
         {/* Search and Filter Bar */}
         {invites.length > 0 && (
           <div className={styles.searchFilterBar}>
@@ -599,13 +595,13 @@ export default function InviteTracking() {
                 <Table hover striped responsive>
                   <TableHead>
                     <TableRow>
-                      <th>{lang.current.tableHeaders.code}</th>
-                      <th>{lang.current.tableHeaders.status}</th>
-                      <th>{lang.current.tableHeaders.email}</th>
-                      <th>{lang.current.tableHeaders.used}</th>
-                      <th>{lang.current.tableHeaders.created}</th>
-                      <th>{lang.current.tableHeaders.expires}</th>
-                      <th>{lang.current.tableHeaders.actions}</th>
+                      <TableCell header>{lang.current.tableHeaders.code}</TableCell>
+                      <TableCell header>{lang.current.tableHeaders.status}</TableCell>
+                      <TableCell header>{lang.current.tableHeaders.email}</TableCell>
+                      <TableCell header>{lang.current.tableHeaders.used}</TableCell>
+                      <TableCell header>{lang.current.tableHeaders.created}</TableCell>
+                      <TableCell header>{lang.current.tableHeaders.expires}</TableCell>
+                      <TableCell header>{lang.current.tableHeaders.actions}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

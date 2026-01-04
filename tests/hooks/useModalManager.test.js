@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useModalManager, MODAL_NAMES } from '../../src/hooks/useModalManager';
+import { logger } from '../../src/utilities/logger';
 
 describe('useModalManager', () => {
   it('should initialize with no active modal', () => {
@@ -70,19 +71,19 @@ describe('useModalManager', () => {
 
   it('should warn when opening modal with invalid name', () => {
     const { result } = renderHook(() => useModalManager());
-    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
     
     act(() => {
       result.current.openModal(null);
     });
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '[useModalManager] openModal called with invalid modal name:',
-      null
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[useModalManager] openModal called with invalid modal name',
+      { modalName: null }
     );
     expect(result.current.activeModal).toBeNull();
 
-    consoleWarnSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 
   it('should export all modal name constants', () => {

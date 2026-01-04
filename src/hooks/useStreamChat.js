@@ -40,7 +40,8 @@ export default function useStreamChat({
   const [error, setError] = useState('');
 
   const clientRef = useRef(null);
-  const connectingRef = useRef(false);
+  // Track an in-flight connect so StrictMode effect re-runs don't get stuck.
+  const connectPromiseRef = useRef(null);
 
   const disconnect = useCallback(async () => {
     const existing = clientRef.current;
@@ -90,54 +91,80 @@ export default function useStreamChat({
   useEffect(() => {
     let cancelled = false;
 
+    const waitForInFlightConnect = async () => {
+      const inflight = connectPromiseRef.current;
+      if (!inflight) return;
+
+      // Ensure consumers show a loading state while we await the existing connect.
+      setLoading(true);
+
+      try {
+        await inflight;
+      } catch (e) {
+        // The in-flight connect already handled state/error.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     async function connect() {
       if (!connectWhen) return;
       if (!apiKey) return;
       if (clientRef.current) return;
-      if (connectingRef.current) return;
 
-      connectingRef.current = true;
+      // If another effect run already started connecting, await it instead of bailing.
+      if (connectPromiseRef.current) {
+        await waitForInFlightConnect();
+        return;
+      }
+
       setLoading(true);
       setError('');
 
       try {
-        const { token, user } = await getChatToken();
+        const doConnect = async () => {
+          const { token, user } = await getChatToken();
 
-        const factory =
-          clientFactory ||
-          ((key) => {
-            return StreamChat.getInstance(key);
-          });
+          const factory =
+            clientFactory ||
+            ((key) => {
+              return StreamChat.getInstance(key);
+            });
 
-        const streamClient = factory(apiKey);
+          const streamClient = factory(apiKey);
 
-        await streamClient.connectUser(
-          {
-            id: user.id,
-            name: user.name
-          },
-          token
-        );
+          await streamClient.connectUser(
+            {
+              id: user.id,
+              name: user.name
+            },
+            token
+          );
 
-        if (cancelled) {
-          try {
-            await streamClient.disconnectUser();
-          } catch (e) {
-            // ignore
+          if (cancelled) {
+            try {
+              await streamClient.disconnectUser();
+            } catch (e) {
+              // ignore
+            }
+            return;
           }
-          return;
-        }
 
-        clientRef.current = streamClient;
-        setClient(streamClient);
-        setCurrentUser(user);
+          clientRef.current = streamClient;
+          setClient(streamClient);
+          setCurrentUser(user);
+        };
+
+        // Store the promise so StrictMode (and other rapid re-renders) can await it.
+        connectPromiseRef.current = doConnect();
+        await connectPromiseRef.current;
       } catch (err) {
         logger.error(`[${context}] Failed to initialize Stream Chat client`, err);
         if (!cancelled) {
           setError(err?.message || 'Failed to initialize chat');
         }
       } finally {
-        connectingRef.current = false;
+        connectPromiseRef.current = null;
         if (!cancelled) setLoading(false);
       }
     }

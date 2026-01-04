@@ -89,7 +89,7 @@ const en = {
     addFinish: "Add & Finish",
     sendInvite: "Send Invite",
     createNewExperience: "Create New Experience",
-    addDestination: "Add Destination",
+    addDestination: "Add a Destination",
     browseExperiences: "Browse Experiences",
     addPhotoCredits: "+ Add Photo Credits",
   },

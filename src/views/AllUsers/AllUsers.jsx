@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Card } from "react-bootstrap";
-import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
+import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaFilter, FaTimes, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -11,7 +11,7 @@ import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
 import Pagination from "../../components/Pagination/Pagination";
-import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, FormControl, EmptyState, Pill } from "../../components/design-system";
+import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, EmptyState } from "../../components/design-system";
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
@@ -37,6 +37,8 @@ export default function AllUsers() {
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  const hasActiveFilters = searchTerm.trim() !== '' || roleFilter !== 'all';
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -349,36 +351,6 @@ export default function AllUsers() {
           {/* Alerts */}
           {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
 
-          {/* Filters and Search */}
-          <Card className="mb-4">
-            <Card.Body>
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <div className={styles.searchBox}>
-                    <FaSearch className="search-icon" />
-                        <FormControl
-                          type="text"
-                          placeholder={lang.current.admin.searchPlaceholder}
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <select
-                    className="form-select"
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                  >
-                    <option value="all">All Roles</option>
-                    <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
-                    <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
-                  </select>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-
           {/* Users Table */}
           {loading ? (
             <Loading
@@ -388,17 +360,62 @@ export default function AllUsers() {
             />
           ) : (
             <Card>
-              <Card.Header>
-                <FlexBetween>
-                  <h2 className="mb-0">
-                    <FaUser className="me-2" />
-                    Users
-                  </h2>
-                  <Pill variant="primary" size="md">
-                    {filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''}
-                  </Pill>
-                </FlexBetween>
-              </Card.Header>
+              {/* Search and Filter Bar (inside the same table card) */}
+              {users.length > 0 && (
+                <div className={styles.searchFilterBar}>
+                  <div className={styles.searchInputWrapper}>
+                    <FaSearch className={styles.searchIcon} />
+                    <input
+                      type="text"
+                      className={styles.searchInput}
+                      placeholder={lang.current.admin.searchPlaceholder}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      aria-label={lang.current.admin.searchPlaceholder}
+                    />
+                    {searchTerm && (
+                      <button
+                        className={styles.clearSearchButton}
+                        onClick={() => setSearchTerm('')}
+                        aria-label="Clear search"
+                        type="button"
+                      >
+                        <FaTimes />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={styles.filterWrapper}>
+                    <FaFilter className={styles.filterIcon} />
+                    <select
+                      className={styles.filterSelect}
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      aria-label="Filter by role"
+                    >
+                      <option value="all">All Roles</option>
+                      <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
+                      <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
+                    </select>
+                  </div>
+
+                  {hasActiveFilters && (
+                    <button
+                      className={styles.clearFiltersButton}
+                      onClick={() => {
+                        setSearchTerm('');
+                        setRoleFilter('all');
+                      }}
+                      aria-label="Clear all filters"
+                      type="button"
+                    >
+                      <FaTimes className="me-1" />
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+
               <Card.Body className="p-0">
                 {filteredUsers.length === 0 ? (
                   <EmptyState
@@ -416,19 +433,19 @@ export default function AllUsers() {
                   <Table hover striped responsive>
                     <TableHead>
                       <TableRow>
-                        <TableCell onClick={() => handleSort('name')} className="sortable">
+                        <TableCell header onClick={() => handleSort('name')} className="sortable">
                           Name {getSortIcon('name')}
                         </TableCell>
-                        <TableCell onClick={() => handleSort('email')} className="sortable">
+                        <TableCell header onClick={() => handleSort('email')} className="sortable">
                           Email {getSortIcon('email')}
                         </TableCell>
-                        <TableCell onClick={() => handleSort('role')} className="sortable">
+                        <TableCell header onClick={() => handleSort('role')} className="sortable">
                           Role {getSortIcon('role')}
                         </TableCell>
-                        <TableCell onClick={() => handleSort('createdAt')} className="sortable">
+                        <TableCell header onClick={() => handleSort('createdAt')} className="sortable">
                           Joined {getSortIcon('createdAt')}
                         </TableCell>
-                        <TableCell className="text-end">Actions</TableCell>
+                        <TableCell header className="text-end">Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>

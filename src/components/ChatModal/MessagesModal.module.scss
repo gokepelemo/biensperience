@@ -297,6 +297,21 @@
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   transition: opacity 0.15s ease;
+
+  /* Keep Stream Chat header aligned with message list item gutters.
+   * Stream Chat uses different horizontal padding on larger screens, and message
+   * list items "bleed" into that gutter with negative margins.
+   */
+  /* Left/right gutter for chat content (bubbles, list, input).
+   * Header stays full-bleed; its *content* aligns to this gutter.
+   */
+  --messagesModalChatGutter: var(--str-chat__spacing-4);
+
+  /* Match Stream Chat's own responsive breakpoint (min-device-width: 768px). */
+  @media only screen and (min-device-width: 768px) {
+    /* Keep Stream Chat's desktop behavior, but ensure a comfortable minimum gutter. */
+    --messagesModalChatGutter: max(min(var(--str-chat__spacing-10), 4%), var(--str-chat__spacing-4));
+  }
 }
 
 .pane.switching {
@@ -318,6 +333,8 @@
 
   @include breakpoint-max(md) {
     display: block;
+    /* Add left/right padding so the chat list (dropdown) doesn't touch modal edges */
+    padding-inline: $space-3;
   }
 }
 
@@ -382,20 +399,26 @@
 }
 
 .mobileDropdownItem {
+  /* Button reset + full-width row */
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: $space-2;
-  width: 100%;
-  /* keep generous left padding but slightly reduce right padding to limit trailing whitespace */
-  padding: $space-3 $space-3 $space-3 $space-4;
-  background: transparent;
+  padding: $space-3 $space-4;
   border: none;
-  color: var(--color-text-primary);
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
   font-size: 0.95rem;
   text-align: left;
   cursor: pointer;
   transition: background-color 0.15s ease;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
 
   &:hover {
     background: var(--color-bg-hover);
@@ -447,3 +470,61 @@
 @include streamChatTokenAlignment('.pane');
 @include streamChatOverlayZIndex('.pane');
 @include streamChatSendToChannelCheckbox('.pane');
+
+/* Align ChannelHeader title bar edges with message list items */
+.pane :global(.str-chat__channel-header) {
+  /* Stream Chat's main panel uses align-items:center; ensure header stretches full width
+   * so its content gutter can align with the message list gutter.
+   */
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
+  padding-inline: var(--messagesModalChatGutter);
+  /* Explicit physical padding to avoid edge cases where Stream CSS overrides logical padding */
+  padding-left: var(--messagesModalChatGutter);
+}
+
+/* Force message list gutters to match the header gutter (normal + virtual list). */
+.pane :global(.str-chat__list .str-chat__message-list-scroll) {
+  padding-inline: var(--messagesModalChatGutter);
+  /* Spacing between header/avatar row and first messages (no top/bottom padding). */
+  margin-block-start: var(--str-chat__spacing-2);
+}
+
+.pane :global(.str-chat__list .str-chat__message-list-scroll .str-chat__li) {
+  margin-inline: calc(-1 * var(--messagesModalChatGutter));
+  padding-inline: var(--messagesModalChatGutter);
+}
+
+.pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div) {
+  padding-inline: var(--messagesModalChatGutter);
+  /* Spacing between header/avatar row and first messages (no top/bottom padding). */
+  margin-block-start: var(--str-chat__spacing-2);
+}
+
+/* Keep message input aligned with the same left/right gutter */
+.pane :global(.str-chat__message-input) {
+  padding-inline: var(--messagesModalChatGutter);
+  box-sizing: border-box;
+}
+
+.pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div .str-chat__li) {
+  margin-inline: calc(-1 * var(--messagesModalChatGutter));
+  padding-inline: var(--messagesModalChatGutter);
+}
+
+/* Give the message list itself a right gutter so outgoing bubbles don't hug the modal edge.
+ * (Stream Chat resets ul padding to 0 by default.)
+ */
+.pane :global(.str-chat__list .str-chat__message-list-scroll .str-chat__ul) {
+  padding-right: var(--messagesModalChatGutter);
+  padding-left: 0;
+  box-sizing: border-box;
+}
+
+.pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div .str-chat__ul) {
+  padding-right: var(--messagesModalChatGutter);
+  padding-left: 0;
+  box-sizing: border-box;
+}
