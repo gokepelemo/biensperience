@@ -1073,8 +1073,18 @@ export default function Profile() {
 
     // Handle follower removed event (when profile owner removes a follower)
     const handleFollowerRemoved = (event) => {
-      const removedFollowerId = event.removedFollowerId || event.payload?.removedFollowerId;
-      const removedById = event.removedById || event.payload?.removedById;
+      const removedFollowerId =
+        event.removedFollowerId ||
+        event.followerId ||
+        event.payload?.removedFollowerId ||
+        event.payload?.followerId;
+      const removedById =
+        event.removedById ||
+        event.userId ||
+        event.payload?.removedById ||
+        event.payload?.userId;
+
+      if (!removedFollowerId || !removedById) return;
 
       // If this profile's owner removed a follower, update the followers list
       if (removedById === userId && followsFilter === 'followers') {
@@ -1180,21 +1190,19 @@ export default function Profile() {
     // Optimistic update - remove from list immediately
     const prevFollowsList = [...followsList];
     setFollowsList(prev => prev.filter(u => u._id !== followerId));
-    setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
 
     try {
-      await removeFollower(followerId);
+      await removeFollower(followerId, user._id);
       success(lang.current.success?.followerRemoved || 'Follower removed');
     } catch (err) {
       // Rollback on error
       setFollowsList(prevFollowsList);
-      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
       const message = handleError(err, { context: 'Remove follower' });
       showError(message || 'Failed to remove follower');
     } finally {
       setFollowActionInProgress(prev => ({ ...prev, [followerId]: false }));
     }
-  }, [followsList, followActionInProgress, success, showError]);
+  }, [followsList, followActionInProgress, success, showError, user._id]);
 
   // Handle unfollowing a user from the following list (when viewing own profile)
   const handleUnfollowFromList = useCallback(async (followingId, e) => {

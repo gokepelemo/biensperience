@@ -72,7 +72,7 @@ export async function unfollowUser(userId, currentUserId = null) {
  * @param {string} followerId - ID of the follower to remove
  * @returns {Promise<Object>} Success result
  */
-export async function removeFollower(followerId) {
+export async function removeFollower(followerId, removedById = null) {
   try {
     const result = await sendRequest(`${BASE_URL}/${followerId}/remove-follower`, 'DELETE');
 
@@ -80,7 +80,13 @@ export async function removeFollower(followerId) {
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
-      broadcastEvent('follower:removed', { followerId });
+      broadcastEvent('follower:removed', {
+        removedFollowerId: followerId,
+        removedById,
+        // Backwards-compatible aliases
+        followerId,
+        userId: removedById
+      });
     } catch (e) {
       // ignore
     }
