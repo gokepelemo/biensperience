@@ -488,10 +488,6 @@ export default function InviteTracking() {
 
       {/* Invites Table */}
       <Card>
-        <Card.Header>
-          <h2><FaQrcode /> {lang.current.inviteTracking.myInviteCodes}</h2>
-        </Card.Header>
-
         {/* Search and Filter Bar */}
         {invites.length > 0 && (
           <div className={styles.searchFilterBar}>
@@ -599,13 +595,13 @@ export default function InviteTracking() {
                 <Table hover striped responsive>
                   <TableHead>
                     <TableRow>
-                      <th>{lang.current.tableHeaders.code}</th>
-                      <th>{lang.current.tableHeaders.status}</th>
-                      <th>{lang.current.tableHeaders.email}</th>
-                      <th>{lang.current.tableHeaders.used}</th>
-                      <th>{lang.current.tableHeaders.created}</th>
-                      <th>{lang.current.tableHeaders.expires}</th>
-                      <th>{lang.current.tableHeaders.actions}</th>
+                      <TableCell>{lang.current.tableHeaders.code}</TableCell>
+                      <TableCell>{lang.current.tableHeaders.status}</TableCell>
+                      <TableCell>{lang.current.tableHeaders.email}</TableCell>
+                      <TableCell>{lang.current.tableHeaders.used}</TableCell>
+                      <TableCell>{lang.current.tableHeaders.created}</TableCell>
+                      <TableCell>{lang.current.tableHeaders.expires}</TableCell>
+                      <TableCell className="text-end">{lang.current.tableHeaders.actions}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -651,23 +647,25 @@ export default function InviteTracking() {
                             <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.never}</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-end">
                           <div className={styles.actionButtons}>
-                            <button
-                              className="btn btn-sm btn-outline-primary"
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
                               onClick={() => loadInviteDetails(invite.code)}
                             >
                               {lang.current.button.viewDetails}
-                            </button>
+                            </Button>
                             {invite.isActive && (
-                              <button
-                                className="btn btn-sm btn-outline-danger"
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
                                 onClick={() => handleDeactivateClick(invite)}
                                 title={lang.current.inviteTracking?.deactivate || 'Deactivate'}
                                 aria-label={`Deactivate invite ${invite.code}`}
                               >
                                 <FaBan />
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </TableCell>

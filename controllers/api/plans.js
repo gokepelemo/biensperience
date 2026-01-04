@@ -11,7 +11,7 @@ const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail, sendPlanAccessRequestEmail } = require('../../utilities/email-service');
 const { sendIfAllowed, notifyUser } = require('../../utilities/notifications');
-const PlanAccessRequest = require('../../models/plan-access-request');
+// PlanAccessRequest is now embedded in Plan.accessRequests sub-document
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAG_CONTEXT } = require('../../utilities/feature-flags');
 const { broadcastEvent, sendEventToUser } = require('../../utilities/websocket-server');
@@ -608,6 +608,9 @@ const getPlanById = asyncHandler(async (req, res) => {
 /**
  * Request access to a plan the current user cannot view
  * POST /api/plans/:id/access-requests
+ *
+ * Access requests are now embedded in the Plan document (plan.accessRequests)
+ * for lightweight queries without a separate collection.
  */
 const requestPlanAccess = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -618,7 +621,7 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
   }
 
   const plan = await Plan.findById(id)
-    .select('user experience')
+    .select('user experience accessRequests')
     .populate({
       path: 'user',
       select: 'name email preferences'
@@ -647,25 +650,36 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
     return errorResponse(res, null, 'You already own this plan', 400);
   }
 
-  let accessRequest = await PlanAccessRequest.findOne({ plan: id, requester: req.user._id });
-  if (accessRequest) {
+  // Check for existing access request in embedded array
+  const existingRequest = plan.accessRequests?.find(
+    r => r.requester?.toString() === req.user._id.toString()
+  );
+
+  if (existingRequest) {
     // If the request was previously handled, don't spam the owner
-    if (accessRequest.status !== 'pending') {
+    if (existingRequest.status !== 'pending') {
       return errorResponse(res, null, 'An access request already exists and has been processed', 409);
     }
 
     // Pending: update message (optional)
-    accessRequest.message = typeof message === 'string' ? message.trim() : '';
-    await accessRequest.save();
+    existingRequest.message = typeof message === 'string' ? message.trim() : '';
+    await plan.save();
 
-    return successResponse(res, accessRequest, 'Access request updated');
+    return successResponse(res, existingRequest, 'Access request updated');
   }
 
-  accessRequest = await PlanAccessRequest.create({
-    plan: id,
+  // Create new embedded access request
+  const accessRequest = {
     requester: req.user._id,
-    message: typeof message === 'string' ? message.trim() : ''
-  });
+    message: typeof message === 'string' ? message.trim() : '',
+    status: 'pending'
+  };
+
+  plan.accessRequests.push(accessRequest);
+  await plan.save();
+
+  // Get the newly created request with its _id
+  const newRequest = plan.accessRequests[plan.accessRequests.length - 1];
 
   // Notify plan owner (preference gated)
   try {
@@ -698,7 +712,7 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
             experienceName: plan.experience?.name || 'an experience',
             experienceId: plan.experience?._id?.toString(),
             planId: id,
-            requestMessage: accessRequest.message
+            requestMessage: newRequest.message
           });
         }
       });
@@ -747,7 +761,197 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
     });
   }
 
-  return successResponse(res, accessRequest, 'Access request submitted');
+  return successResponse(res, newRequest, 'Access request submitted');
+});
+
+/**
+ * Respond to an access request (approve or decline)
+ * PATCH /api/plans/:id/access-requests/:requestId
+ *
+ * Only the plan owner (or super admin) can respond to access requests.
+ * Approving adds the requester as a collaborator.
+ */
+const respondToAccessRequest = asyncHandler(async (req, res) => {
+  const { id, requestId } = req.params;
+  const { action } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(requestId)) {
+    return errorResponse(res, null, 'Invalid request ID', 400);
+  }
+
+  if (!['approve', 'decline'].includes(action)) {
+    return errorResponse(res, null, 'Action must be "approve" or "decline"', 400);
+  }
+
+  const plan = await Plan.findById(id)
+    .select('user experience accessRequests permissions')
+    .populate({
+      path: 'user',
+      select: 'name email'
+    })
+    .populate({
+      path: 'experience',
+      select: 'name'
+    });
+
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  // Only plan owner or super admin can respond to access requests
+  const isOwner = plan.user?._id?.toString() === req.user._id.toString();
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  if (!isOwner && !isSuperAdmin) {
+    return errorResponse(res, null, 'Only the plan owner can respond to access requests', 403);
+  }
+
+  // Find the access request
+  const accessRequest = plan.accessRequests?.id(requestId);
+
+  if (!accessRequest) {
+    return errorResponse(res, null, 'Access request not found', 404);
+  }
+
+  if (accessRequest.status !== 'pending') {
+    return errorResponse(res, null, `This request has already been ${accessRequest.status}`, 400);
+  }
+
+  // Update the request status
+  accessRequest.status = action === 'approve' ? 'approved' : 'declined';
+  accessRequest.respondedAt = new Date();
+  accessRequest.respondedBy = req.user._id;
+
+  // If approved, add the requester as a collaborator
+  if (action === 'approve') {
+    const requesterId = accessRequest.requester;
+
+    // Check if requester already has permissions
+    const existingPerm = plan.permissions?.find(
+      p => p.entity === 'user' && p._id?.toString() === requesterId.toString()
+    );
+
+    if (!existingPerm) {
+      plan.permissions.push({
+        _id: requesterId,
+        entity: 'user',
+        type: 'collaborator',
+        granted_at: new Date(),
+        granted_by: req.user._id
+      });
+    }
+  }
+
+  await plan.save();
+
+  // Notify the requester of the decision
+  try {
+    const requester = await User.findById(accessRequest.requester).select('name email preferences');
+    if (requester?.email) {
+      const ownerName = req.user?.name || 'The plan owner';
+      const experienceName = plan.experience?.name || 'an experience';
+      const statusText = action === 'approve' ? 'approved' : 'declined';
+
+      await notifyUser({
+        user: requester,
+        channel: 'email',
+        type: 'activity',
+        message: `${ownerName} has ${statusText} your request to access their plan for ${experienceName}.`,
+        data: {
+          kind: 'plan_access_response',
+          planId: id,
+          experienceId: plan.experience?._id?.toString(),
+          status: statusText
+        },
+        logContext: {
+          feature: 'plan_access_response',
+          channel: 'email',
+          planId: id,
+          requesterId: accessRequest.requester,
+          responderId: req.user._id
+        }
+      });
+
+      await notifyUser({
+        user: requester,
+        channel: 'bienbot',
+        type: 'activity',
+        message: `${ownerName} has ${statusText} your request to access their plan for ${experienceName}.`,
+        data: {
+          kind: 'plan_access_response',
+          planId: id,
+          experienceId: plan.experience?._id?.toString(),
+          status: statusText
+        },
+        logContext: {
+          feature: 'plan_access_response',
+          planId: id,
+          requesterId: accessRequest.requester,
+          responderId: req.user._id
+        }
+      });
+    }
+  } catch (e) {
+    backendLogger.warn('Failed to notify requester of access request response', {
+      planId: id,
+      requestId,
+      error: e?.message || String(e)
+    });
+  }
+
+  backendLogger.info('Access request responded', {
+    planId: id,
+    requestId,
+    action,
+    responderId: req.user._id.toString()
+  });
+
+  return successResponse(res, accessRequest, `Access request ${action === 'approve' ? 'approved' : 'declined'}`);
+});
+
+/**
+ * Get pending access requests for a plan
+ * GET /api/plans/:id/access-requests
+ *
+ * Only the plan owner (or super admin) can view access requests.
+ */
+const getAccessRequests = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  const plan = await Plan.findById(id)
+    .select('user accessRequests')
+    .populate({
+      path: 'accessRequests.requester',
+      select: 'name email photos default_photo_id'
+    });
+
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  // Only plan owner or super admin can view access requests
+  const isOwner = plan.user?.toString() === req.user._id.toString();
+  const isSuperAdmin = req.user.role === 'super_admin';
+
+  if (!isOwner && !isSuperAdmin) {
+    return errorResponse(res, null, 'Only the plan owner can view access requests', 403);
+  }
+
+  // Filter to only pending requests by default, or return all if ?all=true
+  const showAll = req.query.all === 'true';
+  const requests = showAll
+    ? plan.accessRequests
+    : plan.accessRequests.filter(r => r.status === 'pending');
+
+  return successResponse(res, requests);
 });
 
 /**
@@ -1336,7 +1540,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
     const chatEnabled = hasFeatureFlagInContext({
       loggedInUser: req.user,
       entityCreatorUser: ownerUser,
-      flagKey: 'stream_chat',
+      flagKey: 'chat',
       context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
     });
 
@@ -1768,7 +1972,7 @@ const removeCollaborator = asyncHandler(async (req, res) => {
     const chatEnabled = hasFeatureFlagInContext({
       loggedInUser: req.user,
       entityCreatorUser: ownerUser,
-      flagKey: 'stream_chat',
+      flagKey: 'chat',
       context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
     });
 
@@ -4423,6 +4627,8 @@ module.exports = {
   getUserPlans,
   getPlanById,
   requestPlanAccess,
+  respondToAccessRequest,
+  getAccessRequests,
   getExperiencePlans,
   pinPlanItem,
   unpinPlanItem,

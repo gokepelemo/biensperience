@@ -11,6 +11,8 @@ router.use(ensureLoggedIn);
 router.get("/", plansCtrl.getUserPlans); // Get all plans for current user
 router.get("/:id", plansCtrl.getPlanById); // Get specific plan
 router.post("/:id/access-requests", modificationLimiter, plansCtrl.requestPlanAccess); // Request access to a plan
+router.get("/:id/access-requests", plansCtrl.getAccessRequests); // Get access requests (owner only)
+router.patch("/:id/access-requests/:requestId", modificationLimiter, plansCtrl.respondToAccessRequest); // Approve/decline access request (owner only)
 router.post("/experience/:experienceId", modificationLimiter, plansCtrl.createPlan); // Create plan for experience
 router.get("/experience/:experienceId/all", plansCtrl.getExperiencePlans); // Get all plans for experience
 router.get("/experience/:experienceId/check", plansCtrl.checkUserPlanForExperience); // Lightweight: Check if user has plan for experience

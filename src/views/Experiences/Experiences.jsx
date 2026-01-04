@@ -8,7 +8,7 @@ import SortFilter from "../../components/SortFilter/SortFilter";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
-import { Container, Mobile, Desktop, FadeIn, EmptyState } from "../../components/design-system";
+import { Button, Container, Mobile, Desktop, FadeIn, EmptyState } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { getDestinations, showDestination } from '../../utilities/destinations-api';
@@ -21,18 +21,25 @@ import { useGridNavigation } from "../../hooks/useKeyboardNavigation";
 
 export default function Experiences() {
   const { user } = useUser();
-  const { experiences, plans, loading, fetchMoreExperiences, experiencesMeta, destinations, applyExperiencesFilter, experiencesFilters, immediateExperiences } = useData();
+  const { experiences, plans, loading, fetchMoreExperiences, experiencesMeta, destinations, applyExperiencesFilter, experiencesFilters, immediateExperiences, lastUpdated } = useData();
   const location = useLocation();
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState("alphabetical");
   const [filterBy, setFilterBy] = useState("all");
   const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef(null);
+  const loadingMoreRef = useRef(false);
   const experiencesGridRef = useRef(null);
   
   // Enable arrow key navigation for experience cards
   // Selector matches the Link class in ExperienceCard component
-  useGridNavigation(experiencesGridRef, `[class*="experienceCardLink"]`, !loading);
+  useGridNavigation(experiencesGridRef, `[class*="experienceCardLink"]`, !(loading));
+
+  // Prevent flash of stale/empty grid before the first canonical fetch completes.
+  const initialLoadComplete = lastUpdated?.experiences !== null;
+
+  // Ensure this view always requests a fresh, complete experiences list when mounted.
+  // Declared early because other hooks (infinite scroll) reference it.
+  const [initialLoading, setInitialLoading] = useState(true);
   const [selectedDestinationId, setSelectedDestinationId] = useState(experiencesFilters?.destination || 'all');
   const [selectedDestinationItems, setSelectedDestinationItems] = useState([]);
   const [destAutocompleteItems, setDestAutocompleteItems] = useState(destinations || []);
@@ -74,49 +81,24 @@ export default function Experiences() {
     }
   }
 
-  // IntersectionObserver to auto-load more when sentinel comes into view
-  useEffect(() => {
-    if (!fetchMoreExperiences || !experiencesMeta?.hasMore || loadingMore) return;
-    const el = sentinelRef.current;
-    if (!el) return;
+  // Load more (manual): deterministic pagination without auto infinite scroll.
+  async function handleLoadMoreExperiences() {
+    if (!fetchMoreExperiences) return;
+    if (loadingMoreRef.current) return;
+    if (initialLoading || loading || directFilterLoading) return;
+    if (!experiencesMeta?.hasMore) return;
 
-    let isLoadingRef = false; // Prevent race conditions from async callbacks
-
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && !isLoadingRef) {
-          isLoadingRef = true;
-          setLoadingMore(true);
-
-          // Use async IIFE to properly handle promise
-          (async () => {
-            try {
-              logger.debug('Infinite scroll: Fetching more experiences');
-              const newExperiences = await fetchMoreExperiences();
-
-              if (newExperiences && newExperiences.length > 0) {
-                // Wait longer for React to fully render and for images to start loading
-                // This ensures smooth transition without glitches
-                logger.debug('Infinite scroll: Waiting for DOM to settle', { count: newExperiences.length });
-                await new Promise(resolve => setTimeout(resolve, 300));
-              }
-            } catch (err) {
-              logger.error('Failed to fetch more experiences in infinite scroll', { error: err.message });
-            } finally {
-              isLoadingRef = false;
-              setLoadingMore(false);
-            }
-          })();
-        }
-      });
-    }, { rootMargin: '100px', threshold: 0 });
-
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      isLoadingRef = false;
-    };
-  }, [fetchMoreExperiences, experiencesMeta?.hasMore, loadingMore]);
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await fetchMoreExperiences();
+    } catch (err) {
+      logger.warn('Failed to fetch more experiences (load more)', { error: err?.message || err });
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }
 
   // Keep autocomplete items in sync with DataContext's destinations (initial load)
   useEffect(() => {
@@ -346,7 +328,6 @@ export default function Experiences() {
   // Ensure this view always requests a fresh, complete experiences list
   // when mounted so it doesn't accidentally show a subset loaded by other views.
   // Also respect URL-driven params: page, limit, destination, experience_type, sort_by, sort_order
-  const [initialLoading, setInitialLoading] = useState(false);
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -538,7 +519,10 @@ export default function Experiences() {
   // Prefer to display directFilterExperiences when present (non-null) so the
   // Experiences view shows only destination-scoped experiences immediately when
   // a destination filter was applied or when navigating from SingleDestination.
-  const displayedExperiences = directFilterExperiences !== null ? directFilterExperiences : processedExperiences;
+  // Prefer direct-filtered list ONLY while it's actively loading.
+  // After it resolves, fall back to canonical DataContext list so infinite scroll can append reliably.
+  const shouldUseDirect = directFilterExperiences !== null && directFilterLoading;
+  const displayedExperiences = shouldUseDirect ? directFilterExperiences : processedExperiences;
 
   // Debug logging for render data source
   useEffect(() => {
@@ -741,7 +725,7 @@ export default function Experiences() {
         filterType="experiences"
       />
 
-      {initialLoading || loading || directFilterLoading ? (
+      {initialLoading || loading || directFilterLoading || !initialLoadComplete ? (
         <Loading
           variant="centered"
           size="lg"
@@ -750,12 +734,13 @@ export default function Experiences() {
         />
       ) : (
         <FadeIn>
-          <div ref={experiencesGridRef} className={styles.experiencesList}>
-            {displayedExperiences.length > 0 ? (
-              displayedExperiences.map((experience, index) => (
-                <FadeIn key={experience?._id || `exp-${index}`} delay={index * 0.1}>
-                  {experience ? (
+          <>
+            <div ref={experiencesGridRef} className={styles.experiencesList}>
+              {displayedExperiences.length > 0 ? (
+                displayedExperiences.map((experience, index) => (
+                  experience ? (
                     <ExperienceCard
+                      key={experience?._id || `exp-${index}`}
                       experience={experience}
                       userPlans={plans}
                       forcePreload={true}
@@ -766,37 +751,31 @@ export default function Experiences() {
                         <SkeletonLoader variant="rectangle" width="100%" height="100%" />
                       </div>
                     </div>
-                  )}
-                </FadeIn>
-              ))
-            ) : (
-              <EmptyState
-                variant="search"
-                title={lang.current.emptyState.noExperiencesFound}
-                description={lang.current.emptyState.noExperiencesFoundDescription}
-                size="md"
-              />
-            )}
-            {experiencesMeta?.hasMore && !loadingMore && (
-              <div style={{ textAlign: 'center', width: '100%', marginTop: 24 }}>
-                <div ref={sentinelRef} style={{ height: 1 }} />
+                  )
+                ))
+              ) : (
+                <EmptyState
+                  variant="search"
+                  title={lang.current.emptyState.noExperiencesFound}
+                  description={lang.current.emptyState.noExperiencesFoundDescription}
+                  size="md"
+                />
+              )}
+            </div>
+
+            {!initialLoading && !loading && !directFilterLoading && displayedExperiences.length > 0 && experiencesMeta?.hasMore && (
+              <div className="col-12 text-center mt-4 mb-5">
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleLoadMoreExperiences}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? lang.current.loading.default : lang.current.button.showMore}
+                </Button>
               </div>
             )}
-            {loadingMore && (
-              <div style={{
-                textAlign: 'center',
-                width: '100%',
-                marginTop: 40,
-                marginBottom: 40,
-                minHeight: '200px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Loading size="md" variant="overlay" animation="engine" message={lang.current.alert.loadingMoreExperiences} />
-              </div>
-            )}
-          </div>
+          </>
         </FadeIn>
       )}
     </PageWrapper>

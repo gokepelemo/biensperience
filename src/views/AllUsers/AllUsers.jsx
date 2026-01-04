@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Badge, Card } from "react-bootstrap";
-import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
+import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaSort, FaSortUp, FaSortDown, FaUserPlus, FaTimes } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -37,6 +37,13 @@ export default function AllUsers() {
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  const hasActiveFilters = searchTerm.trim() || roleFilter !== 'all';
+
+  const handleClearFilters = useCallback(() => {
+    setSearchTerm('');
+    setRoleFilter('all');
+  }, []);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -349,36 +356,6 @@ export default function AllUsers() {
           {/* Alerts */}
           {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
 
-          {/* Filters and Search */}
-          <Card className="mb-4">
-            <Card.Body>
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <div className={styles.searchBox}>
-                    <FaSearch className="search-icon" />
-                        <FormControl
-                          type="text"
-                          placeholder={lang.current.admin.searchPlaceholder}
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <select
-                    className="form-select"
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                  >
-                    <option value="all">All Roles</option>
-                    <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
-                    <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
-                  </select>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-
           {/* Users Table */}
           {loading ? (
             <Loading
@@ -388,17 +365,54 @@ export default function AllUsers() {
             />
           ) : (
             <Card>
-              <Card.Header>
-                <FlexBetween>
-                  <h2 className="mb-0">
-                    <FaUser className="me-2" />
-                    Users
-                  </h2>
-                  <Pill variant="primary" size="md">
-                    {filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''}
-                  </Pill>
-                </FlexBetween>
-              </Card.Header>
+              <div className={styles.searchFilterBar}>
+                <div className={styles.searchInputWrapper}>
+                  <FaSearch className={styles.searchIcon} />
+                  <FormControl
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder={lang.current.admin.searchPlaceholder}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    aria-label={lang.current.admin.searchPlaceholder}
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      className={styles.clearSearchButton}
+                      onClick={() => setSearchTerm('')}
+                      aria-label="Clear search"
+                    >
+                      <FaTimes />
+                    </button>
+                  )}
+                </div>
+
+                <div className={styles.filterWrapper}>
+                  <select
+                    className={styles.filterSelect}
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    aria-label="Filter by role"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
+                    <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
+                  </select>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    className={styles.clearFiltersButton}
+                    onClick={handleClearFilters}
+                    aria-label="Clear all filters"
+                  >
+                    <FaTimes className="me-1" />
+                    Clear
+                  </button>
+                )}
+              </div>
               <Card.Body className="p-0">
                 {filteredUsers.length === 0 ? (
                   <EmptyState
@@ -408,7 +422,7 @@ export default function AllUsers() {
                       ? "Try adjusting your search terms or filters to find more users."
                       : "No users have been registered yet."}
                     primaryAction={searchTerm || roleFilter !== 'all' ? "Clear Filters" : null}
-                    onPrimaryAction={searchTerm || roleFilter !== 'all' ? () => { setSearchTerm(''); setRoleFilter('all'); } : null}
+                    onPrimaryAction={searchTerm || roleFilter !== 'all' ? handleClearFilters : null}
                     size="md"
                     compact
                   />

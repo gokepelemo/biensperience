@@ -219,6 +219,8 @@
   /* Use 100% with fallback to dvh for iOS Safari address bar handling */
   height: 100%;
   height: 100dvh;
+  min-height: 100%;
+  min-height: 100dvh;
   max-height: 100%;
   max-height: 100dvh;
   margin: 0;
@@ -228,6 +230,12 @@
   /* Flex container for content */
   display: flex;
   flex-direction: column;
+  /* Ensure fullscreen stretches inside the backdrop flex container */
+  align-self: stretch;
+  /* Participate in flex sizing (prevents intermittent auto-height behavior) */
+  flex: 1 1 0;
+  /* Ensure the dialog (and its children) can receive pointer events */
+  pointer-events: auto;
 
   .modalContent {
     width: 100%;

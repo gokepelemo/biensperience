@@ -40,9 +40,11 @@ info:
     | `ai_features` | Access to AI-powered features (autocomplete, improve, translate, summarize, generate tips) |
     | `beta_ui` | Access to beta UI features |
     | `advanced_analytics` | Access to advanced analytics features |
-    | `premium_features` | Access to premium tier features |
-    | `document_processing` | Access to AI document processing |
-    | `collaboration_plus` | Enhanced collaboration features |
+    | `real_time_collaboration` | Real-time collaboration via WebSocket |
+    | `document_ai_parsing` | AI-powered document parsing and extraction |
+    | `bulk_export` | Bulk export of plans and experiences |
+    | `curator` | Curator designation for creating curated experiences with bio and links |
+    | `chat` | In-app messaging (provider-agnostic) |
 
     Requests to feature-gated endpoints without the required flag return 403 Forbidden.
     Super admins bypass all feature flag requirements.
@@ -1181,7 +1183,7 @@ components:
         flag:
           type: string
           description: Unique feature flag identifier
-          enum: [ai_features, beta_ui, advanced_analytics, real_time_collaboration, document_ai_parsing, bulk_export, curator]
+          enum: [ai_features, beta_ui, advanced_analytics, real_time_collaboration, document_ai_parsing, bulk_export, curator, chat]
         enabled:
           type: boolean
           default: true

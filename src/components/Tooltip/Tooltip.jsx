@@ -32,9 +32,18 @@ export default function Tooltip({
   show,
   onToggle,
   rootClose = false,
+  container,
 }) {
   // Generate stable ID using React's useId hook to prevent re-render issues
   const tooltipId = useId();
+
+  // Default to rendering overlays at the document.body level.
+  // This avoids tooltips being clipped by parents (e.g., modals with overflow hidden).
+  const resolvedContainer = useMemo(() => {
+    if (container !== undefined) return container;
+    if (typeof document !== 'undefined') return document.body;
+    return undefined;
+  }, [container]);
 
   // If no content, just return children without tooltip
   if (!content) {
@@ -85,6 +94,7 @@ export default function Tooltip({
       onToggle={onToggle}
       popperConfig={popperConfig}
       rootClose={rootClose}
+      container={resolvedContainer}
     >
       {children}
     </OverlayTrigger>
@@ -103,6 +113,7 @@ Tooltip.propTypes = {
   show: PropTypes.bool,
   onToggle: PropTypes.func,
   rootClose: PropTypes.bool,
+  container: PropTypes.any,
 };
 
 /**
