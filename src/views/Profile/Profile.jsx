@@ -528,7 +528,8 @@ export default function Profile() {
     }
   }, [userId]);
 
-  const getProfile = useCallback(async () => {
+  const getProfile = useCallback(async (options = {}) => {
+    const { forceUserData = false } = options;
     const requestId = ++latestProfileRequestIdRef.current;
     const requestedUserId = userId;
     const isStale = () => activeUserIdRef.current !== requestedUserId || latestProfileRequestIdRef.current !== requestId;
@@ -558,9 +559,11 @@ export default function Profile() {
     }
 
     try {
+      const canUseContextProfile = isOwner && !forceUserData && profile && profile._id === userId;
+
       // Fetch profile and first page of experiences in parallel
       const [userData, experienceResponse, createdResponse] = await Promise.all([
-        getUserData(userId),
+        canUseContextProfile ? Promise.resolve(profile) : getUserData(userId),
         showUserExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE }),
         showUserCreatedExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE })
       ]);
@@ -596,7 +599,7 @@ export default function Profile() {
     } finally {
       if (!isStale()) setIsLoadingProfile(false);
     }
-  }, [userId, isOwner]);
+  }, [userId, isOwner, profile]);
 
   // Load profile from context for owner, or fetch for other users
   useEffect(() => {
@@ -732,7 +735,7 @@ export default function Profile() {
       const photo = event.photo;
       if (!photo) return;
       // Refresh profile to get updated photos
-      getProfile();
+      getProfile({ forceUserData: true });
     };
 
     const handlePhotoUpdated = (event) => {
