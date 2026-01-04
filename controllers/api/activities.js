@@ -16,6 +16,28 @@ const { insufficientPermissionsError, sendErrorResponse } = require('../../utili
 const backendLogger = require('../../utilities/backend-logger');
 const mongoose = require('mongoose');
 
+function getAllowedActivityActionsSet() {
+  try {
+    const actionPath = Activity?.schema?.path?.('action');
+    const values = actionPath?.enumValues;
+    if (!Array.isArray(values) || values.length === 0) return null;
+    return new Set(values);
+  } catch (e) {
+    return null;
+  }
+}
+
+function parseISODateOrThrow(raw, fieldName) {
+  const str = String(raw).trim();
+  const d = new Date(str);
+  if (!Number.isFinite(d.getTime())) {
+    const err = new Error(`Invalid ${fieldName}`);
+    err.code = 'INVALID_DATE';
+    throw err;
+  }
+  return d;
+}
+
 /**
  * Get activity history for a resource
  * Super admin, resource owner, or collaborator can view
@@ -24,6 +46,11 @@ async function getResourceHistory(req, res) {
   try {
     const { resourceId } = req.params;
     const { action, startDate, endDate, limit } = req.query;
+
+    // Reject array-style query parameters to avoid ambiguous parsing.
+    if (Array.isArray(action) || Array.isArray(startDate) || Array.isArray(endDate) || Array.isArray(limit)) {
+      return res.status(400).json({ error: 'Invalid query parameters' });
+    }
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(resourceId)) {
@@ -63,13 +90,18 @@ async function getResourceHistory(req, res) {
     };
 
     if (action) {
-      query.action = action;
+      const allowedActions = getAllowedActivityActionsSet();
+      const actionValue = String(action).trim();
+      if (allowedActions && !allowedActions.has(actionValue)) {
+        return res.status(400).json({ error: 'Invalid action filter' });
+      }
+      query.action = actionValue;
     }
 
     if (startDate || endDate) {
       query.timestamp = {};
-      if (startDate) query.timestamp.$gte = new Date(startDate);
-      if (endDate) query.timestamp.$lte = new Date(endDate);
+      if (startDate) query.timestamp.$gte = parseISODateOrThrow(startDate, 'startDate');
+      if (endDate) query.timestamp.$lte = parseISODateOrThrow(endDate, 'endDate');
     }
 
     if (!isSuperAdmin(req.user)) {
@@ -79,7 +111,9 @@ async function getResourceHistory(req, res) {
       ];
     }
 
-    const limitNum = limit ? parseInt(limit, 10) : 100;
+    let limitNum = limit ? parseInt(limit, 10) : 100;
+    if (!Number.isFinite(limitNum) || Number.isNaN(limitNum)) limitNum = 100;
+    limitNum = Math.max(1, Math.min(limitNum, 500));
     const history = await Activity.find(query)
       .sort({ timestamp: -1 })
       .limit(limitNum)
