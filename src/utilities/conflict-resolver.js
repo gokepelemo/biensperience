@@ -47,6 +47,7 @@ const FIELD_STRATEGIES = {
   notes: ResolutionStrategy.LAST_WRITER_WINS,
 
   // Plan item fields
+  complete: ResolutionStrategy.TRUE_WINS, // Completion is permanent (current schema)
   completed: ResolutionStrategy.TRUE_WINS, // Completion is permanent
   completedAt: ResolutionStrategy.MAX_VALUE, // Keep earliest completion time
   text: ResolutionStrategy.LAST_WRITER_WINS,

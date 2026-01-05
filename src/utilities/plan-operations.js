@@ -139,12 +139,11 @@ export function applyOperation(state, operation) {
         plan: (state.plan || []).map(item => {
           const id = item._id || item.plan_item_id;
           if (id === itemId || item.plan_item_id === itemId) {
-            // Idempotent: if already completed, don't change completedAt
-            if (item.completed) return item;
+            // Idempotent: if already complete, no-op
+            if (item.complete) return item;
             return {
               ...item,
-              completed: true,
-              completedAt: timestamp
+              complete: true
             };
           }
           return item;
@@ -161,7 +160,10 @@ export function applyOperation(state, operation) {
           const id = item._id || item.plan_item_id;
           if (id === itemId || item.plan_item_id === itemId) {
             const { completed, completedAt, ...rest } = item;
-            return rest;
+            return {
+              ...rest,
+              complete: false
+            };
           }
           return item;
         }),
