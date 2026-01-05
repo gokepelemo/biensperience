@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, lazy, Suspense } from "react";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { ToastProvider, useToast } from "../../contexts/ToastContext";
@@ -156,6 +156,54 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const PENDING_HASH_STORAGE_KEY = 'bien:pendingHash';
+
+  const applyHashToUrl = useCallback((hash, { mode } = {}) => {
+    const normalized = (hash || '').startsWith('#') ? hash : `#${hash || ''}`;
+    if (!normalized || normalized === '#') return;
+
+    const nextUrl = `${window.location.pathname}${window.location.search || ''}${normalized}`;
+
+    if (mode === 'replace') {
+      window.history.replaceState(window.history.state, '', nextUrl);
+    } else {
+      // Default to push so the hash is represented in browser history.
+      window.history.pushState(window.history.state, '', nextUrl);
+    }
+
+    // React Router listens to popstate for location updates; pushState/replaceState
+    // don't emit it. Dispatching keeps router location in sync with the address bar.
+    try {
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const parsePendingHash = (rawValue) => {
+    if (!rawValue) return null;
+
+    // Back-compat: older values were stored as a raw string hash
+    if (rawValue.startsWith('#')) {
+      return { hash: rawValue, originPath: null, targetPath: null };
+    }
+
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          hash: parsed.hash || null,
+          originPath: parsed.originPath || null,
+          targetPath: parsed.targetPath || null
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return { hash: rawValue, originPath: null, targetPath: null };
+  };
+
   // Store intended route for post-login redirect when user is not authenticated
   // This enables deep linking - users can access protected routes after login
   useEffect(() => {
@@ -181,53 +229,13 @@ function AppContent() {
     const initialHash = window.location.hash;
     if (initialHash) {
       logger.info('[Hash Preservation] Initial hash detected:', initialHash);
-      // Store in sessionStorage to survive React Router processing
+      // Store in localStorage to survive React Router navigation that may strip hashes
       // Save origin pathname so we only restore on the same view when possible
       try {
         const payload = JSON.stringify({ hash: initialHash, originPath: window.location.pathname });
-        sessionStorage.setItem('pendingHash', payload);
+        localStorage.setItem(PENDING_HASH_STORAGE_KEY, payload);
       } catch (e) {
-        sessionStorage.setItem('pendingHash', initialHash);
-      }
-    }
-
-    // Restore hash after a brief delay to ensure component has mounted
-    const raw = sessionStorage.getItem('pendingHash');
-    if (raw) {
-      let stored = null;
-      try {
-        stored = JSON.parse(raw);
-      } catch (e) {
-        stored = { hash: raw, originPath: null };
-      }
-
-      const storedHash = stored?.hash || '';
-      const originPath = stored?.originPath || null;
-
-      if (storedHash && window.location.hash !== storedHash) {
-        logger.info('[Hash Preservation] Considering restoring hash:', storedHash, 'originPath:', originPath);
-        setTimeout(() => {
-          // Only restore if the stored origin path matches the current pathname
-          // OR if an element with the target id exists on the page (deep link target present)
-          const id = (storedHash || '').replace('#', '');
-          const hasElement = !!(id && (document.getElementById(id) || document.querySelector(`[name="${id}"]`)));
-          if (originPath && originPath === window.location.pathname) {
-            window.location.hash = storedHash;
-            sessionStorage.removeItem('pendingHash');
-            logger.info('[Hash Preservation] Restored hash because originPath matched');
-          } else if (hasElement) {
-            window.location.hash = storedHash;
-            sessionStorage.removeItem('pendingHash');
-            logger.info('[Hash Preservation] Restored hash because target element exists on page');
-          } else {
-            // Not applicable to this view — clear pending hash to avoid polluting other routes
-            sessionStorage.removeItem('pendingHash');
-            logger.info('[Hash Preservation] Cleared pending hash; not applicable to this view');
-          }
-        }, 50);
-      } else {
-        // No stored hash or already set — ensure we don't leave stale data
-        if (!storedHash) sessionStorage.removeItem('pendingHash');
+        localStorage.setItem(PENDING_HASH_STORAGE_KEY, initialHash);
       }
     }
 
@@ -240,12 +248,13 @@ function AppContent() {
       if (href && href.includes('#')) {
         const hashIndex = href.indexOf('#');
         const hash = href.substring(hashIndex);
+        const targetPath = href.substring(0, hashIndex) || null;
         logger.info('[Hash Preservation] Captured hash from link:', hash);
         try {
-          const payload = JSON.stringify({ hash, originPath: window.location.pathname });
-          sessionStorage.setItem('pendingHash', payload);
+          const payload = JSON.stringify({ hash, originPath: window.location.pathname, targetPath });
+          localStorage.setItem(PENDING_HASH_STORAGE_KEY, payload);
         } catch (e) {
-          sessionStorage.setItem('pendingHash', hash);
+          localStorage.setItem(PENDING_HASH_STORAGE_KEY, hash);
         }
       }
     };
@@ -253,6 +262,73 @@ function AppContent() {
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
   }, []);
+
+  // Restore pending hashes after route changes.
+  // React Router navigation often drops the hash from the address bar; deep-link consumers
+  // (like SingleExperience) may still act on the intent, but we want the URL to reflect it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const raw = localStorage.getItem(PENDING_HASH_STORAGE_KEY);
+    const stored = parsePendingHash(raw);
+    const storedHash = stored?.hash || '';
+    if (!storedHash) {
+      if (raw) localStorage.removeItem(PENDING_HASH_STORAGE_KEY);
+      return;
+    }
+
+    // If something already set a hash (e.g., destination view), don't override it.
+    if (window.location.hash && window.location.hash !== storedHash) {
+      localStorage.removeItem(PENDING_HASH_STORAGE_KEY);
+      return;
+    }
+
+    // Avoid restoring on the auth page shell
+    if (!isAuthenticated) return;
+
+    const currentPath = `${location.pathname}${location.search || ''}`;
+    const normalizedStoredHash = storedHash.startsWith('#') ? storedHash : `#${storedHash}`;
+
+    const targetPathMatches = !!(stored?.targetPath && (stored.targetPath === currentPath || stored.targetPath === location.pathname));
+    const originPathMatches = !!(stored?.originPath && stored.originPath === window.location.pathname);
+    const isPlanHash = normalizedStoredHash.startsWith('#plan-');
+    const isExperienceRoute = /\/experiences\//.test(location.pathname || '');
+
+    logger.info('[Hash Preservation] Checking pending hash for restore:', {
+      normalizedStoredHash,
+      currentPath,
+      targetPath: stored?.targetPath || null,
+      originPath: stored?.originPath || null,
+      targetPathMatches,
+      originPathMatches,
+      isPlanHash,
+      isExperienceRoute
+    });
+
+    // Restore rules:
+    // - If we know the intended targetPath and it matches, restore.
+    // - Legacy behavior: if originPath matches, restore.
+    // - Plan deep links: restore on any experience route.
+    const shouldRestore = targetPathMatches || originPathMatches || (isPlanHash && isExperienceRoute);
+    if (!shouldRestore) return;
+
+    // Restore after a brief delay to ensure the destination view has mounted.
+    const t = setTimeout(() => {
+      try {
+        if (!window.location.hash) {
+          // If this was a direct-load paste (no known target), avoid polluting history.
+          // Otherwise, push so back/forward reflects hash changes.
+          const restoreMode = originPathMatches && !stored?.targetPath ? 'replace' : 'push';
+          applyHashToUrl(normalizedStoredHash, { mode: restoreMode });
+          logger.info('[Hash Preservation] Restored pending hash after navigation');
+        }
+      } finally {
+        localStorage.removeItem(PENDING_HASH_STORAGE_KEY);
+      }
+    }, 50);
+
+    return () => clearTimeout(t);
+  }, [location.pathname, location.search, isAuthenticated, applyHashToUrl]);
 
   // Effect: wait for CSS to load and initialize environment consistency
   // This addresses production vs development timing differences

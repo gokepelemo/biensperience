@@ -1814,6 +1814,10 @@ export default function MyPlanTabContent({
   user,
   idEquals,
 
+  // User plan (canonical) + setter
+  userPlan,
+  setUserPlan,
+
   // Plan data
   sharedPlans,
   setSharedPlans,
@@ -1905,8 +1909,40 @@ export default function MyPlanTabContent({
   // Keep last valid plan when sharedPlans.find() temporarily returns undefined during updates
   // NOTE: Defined early because handleDragEnd and other functions need it
   const lastValidPlanRef = useRef(null);
+
+  // sharedPlans intentionally excludes the user's own plan; userPlan is canonical.
+  // For rendering/selection we need the full set of accessible plans.
+  const allPlans = useMemo(() => {
+    if (userPlan) return [userPlan, ...(sharedPlans || [])];
+    return sharedPlans || [];
+  }, [userPlan, sharedPlans]);
+
+  const selectedIsUserPlan = useMemo(() => {
+    if (!selectedPlanId || !userPlan?._id) return false;
+    return idEquals(userPlan._id, selectedPlanId);
+  }, [selectedPlanId, userPlan?._id, idEquals]);
+
+  const updateSelectedPlanInState = useCallback((updater) => {
+    if (!selectedPlanId) return;
+
+    if (selectedIsUserPlan) {
+      if (!setUserPlan) return;
+      setUserPlan((prev) => {
+        if (!prev || !idEquals(prev._id, selectedPlanId)) return prev;
+        return updater(prev);
+      });
+      return;
+    }
+
+    if (!setSharedPlans) return;
+    setSharedPlans((prevPlans) =>
+      (prevPlans || []).map((p) =>
+        idEquals(p._id, selectedPlanId) ? updater(p) : p
+      )
+    );
+  }, [selectedPlanId, selectedIsUserPlan, setUserPlan, setSharedPlans, idEquals]);
   const currentPlan = useMemo(() => {
-    const foundPlan = sharedPlans.find(
+    const foundPlan = allPlans.find(
       (p) => idEquals(p._id, selectedPlanId)
     );
     // If we found a valid plan, update the ref and return it
@@ -1921,7 +1957,7 @@ export default function MyPlanTabContent({
     }
     // Return the last valid plan to prevent flash during optimistic updates
     return lastValidPlanRef.current;
-  }, [sharedPlans, selectedPlanId, idEquals]);
+  }, [allPlans, selectedPlanId, idEquals]);
 
   // Smooth loading transition for plan tab
   useEffect(() => {
@@ -1976,23 +2012,17 @@ export default function MyPlanTabContent({
 
   // Handle pin/unpin plan item (toggle)
   const handlePinItem = useCallback(async (planItem) => {
-    if (!selectedPlanId || !setSharedPlans) return;
+    if (!selectedPlanId) return;
 
     try {
       const itemId = (planItem._id || planItem.plan_item_id)?.toString();
 
       // Optimistic update - toggle the pinnedItemId
-      const currentPlan = sharedPlans.find(p => idEquals(p._id, selectedPlanId));
-      const currentPinnedId = currentPlan?.pinnedItemId?.toString();
+      const planForPin = allPlans.find(p => idEquals(p._id, selectedPlanId));
+      const currentPinnedId = planForPin?.pinnedItemId?.toString();
       const newPinnedItemId = currentPinnedId === itemId ? null : itemId;
 
-      setSharedPlans(prevPlans =>
-        prevPlans.map(p =>
-          idEquals(p._id, selectedPlanId)
-            ? { ...p, pinnedItemId: newPinnedItemId }
-            : p
-        )
-      );
+      updateSelectedPlanInState((p) => ({ ...p, pinnedItemId: newPinnedItemId }));
 
       // Make API call
       const result = await pinPlanItem(selectedPlanId, itemId);
@@ -2005,19 +2035,13 @@ export default function MyPlanTabContent({
       });
 
       // Update with server response (in case it differs)
-      setSharedPlans(prevPlans =>
-        prevPlans.map(p =>
-          idEquals(p._id, selectedPlanId)
-            ? { ...p, pinnedItemId: result.pinnedItemId }
-            : p
-        )
-      );
+      updateSelectedPlanInState((p) => ({ ...p, pinnedItemId: result.pinnedItemId }));
     } catch (error) {
       debug.error('[MyPlanTabContent] Failed to pin/unpin item', error);
       // Rollback on error - refetch the plan data
       // For now, just log the error - the optimistic update remains
     }
-  }, [selectedPlanId, sharedPlans, setSharedPlans, idEquals]);
+  }, [selectedPlanId, allPlans, updateSelectedPlanInState, idEquals]);
 
   // Compute online user IDs from presence data
   // Always include the current user when presence is connected (they're always online to themselves)
@@ -2479,7 +2503,7 @@ export default function MyPlanTabContent({
   // Only show "Plan not found" after loading is complete and plan genuinely doesn't exist
   if (!currentPlan) {
     // If we have a selectedPlanId but no plan, it's likely being created/loaded
-    const isPlanLoading = plansLoading || (selectedPlanId && !sharedPlans.some(p => idEquals(p._id, selectedPlanId)));
+    const isPlanLoading = plansLoading || (selectedPlanId && !allPlans.some(p => idEquals(p._id, selectedPlanId)));
 
     if (isPlanLoading) {
       return (
@@ -2537,7 +2561,7 @@ export default function MyPlanTabContent({
   const isUsingFallbackDate = !currentPlan.planned_date && earliestScheduledDate;
 
   // Build metrics array for MetricsBar
-  // Order: Completion → Cost Estimate → Planned Date → Planning Time
+  // Order: Completion → Cost Estimate → Planning Time → Planned Date
   const planMetrics = metricsLoading ? [] : [
     {
       id: 'completion',
@@ -2559,6 +2583,16 @@ export default function MyPlanTabContent({
       tooltip: `${lang.current.label.costEstimatePerPersonTooltip || 'Estimated cost per person'}: ${formatCurrency(currentPlan.total_cost || 0)}`
     },
     {
+      id: 'planning-time',
+      title: lang.current.label.planningTime,
+      type: 'days',
+      value: currentPlan.max_planning_days > 0 ? currentPlan.max_planning_days : null,
+      icon: <FaClock />,
+      className: 'smallMetricValueItem',
+      // Tooltip shows full planning time when truncated
+      tooltip: currentPlan.max_planning_days > 0 ? formatPlanningTime(currentPlan.max_planning_days) : null
+    },
+    {
       id: 'planned-date',
       title: lang.current.label.plannedDate,
       type: 'date',
@@ -2578,16 +2612,6 @@ export default function MyPlanTabContent({
         );
         setShowDatePicker(true);
       } : undefined
-    },
-    {
-      id: 'planning-time',
-      title: lang.current.label.planningTime,
-      type: 'days',
-      value: currentPlan.max_planning_days > 0 ? currentPlan.max_planning_days : null,
-      icon: <FaClock />,
-      className: 'smallMetricValueItem',
-      // Tooltip shows full planning time when truncated
-      tooltip: currentPlan.max_planning_days > 0 ? formatPlanningTime(currentPlan.max_planning_days) : null
     }
   ];
 

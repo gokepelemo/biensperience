@@ -38,6 +38,18 @@ export default function LegalModalsHandler() {
   const [showCookies, setShowCookies] = useState(false);
   const [cookieConsentMode, setCookieConsentMode] = useState(false);
 
+  const isLegalHash = useCallback((hash) => {
+    const h = (hash || '').toLowerCase();
+    return (
+      h === '#terms' ||
+      h === '#terms-of-service' ||
+      h === '#privacy' ||
+      h === '#privacy-policy' ||
+      h.startsWith('#cookies') ||
+      h === '#cookie-policy'
+    );
+  }, []);
+
   // Handle hash changes to show/hide modals
   useEffect(() => {
     const hash = location.hash.toLowerCase();
@@ -75,10 +87,19 @@ export default function LegalModalsHandler() {
 
   // Clear hash when modal is closed
   const clearHash = useCallback(() => {
+    // Only clear hashes we own (terms/privacy/cookies). This prevents accidental
+    // clobbering of other deep links (e.g. #plan-... for SingleExperience).
+    if (!isLegalHash(location.hash)) {
+      logger.debug('[LegalModalsHandler] Skipping hash clear (non-legal hash)', {
+        hash: location.hash
+      });
+      return;
+    }
+
     // Remove hash from URL while preserving the current path and search params
     const newUrl = location.pathname + location.search;
     navigate(newUrl, { replace: true });
-  }, [location.pathname, location.search, navigate]);
+  }, [isLegalHash, location.hash, location.pathname, location.search, navigate]);
 
   const handleTermsClose = useCallback(() => {
     logger.debug('[LegalModalsHandler] Closing Terms of Service modal');

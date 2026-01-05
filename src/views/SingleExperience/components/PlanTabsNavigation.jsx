@@ -24,6 +24,7 @@ function PlanTabsNavigation({
   user,
 
   // Plan data
+  userPlan,
   sharedPlans,
   plansLoading,
   selectedPlanId,
@@ -34,6 +35,23 @@ function PlanTabsNavigation({
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  // sharedPlans intentionally excludes the user's own plan (userPlan is canonical)
+  // For UI navigation, we need the full list of accessible plans.
+  const allPlans = userPlan ? [userPlan, ...sharedPlans] : sharedPlans;
+
+  const ensurePlanSelected = () => {
+    const existing = normalizeId(selectedPlanId);
+    if (existing) return existing;
+
+    const fallbackPlan = userPlan || allPlans?.[0];
+    const fallbackPlanId = normalizeId(fallbackPlan?._id);
+    if (!fallbackPlanId) return null;
+
+    setSelectedPlanId(fallbackPlanId);
+    handlePlanChange(fallbackPlanId, { reason: 'tab-click/ensurePlanSelected' });
+    return fallbackPlanId;
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -75,22 +93,22 @@ function PlanTabsNavigation({
         (() => {
           // Debug log
           debug.log(
-            "Rendering tabs. sharedPlans:",
-            sharedPlans,
+            "Rendering tabs. allPlans:",
+            allPlans,
             "length:",
-            sharedPlans.length
+            allPlans.length
           );
 
           // Determine how many plans belong to others (collaborator plans)
-          const otherPlansCount = sharedPlans.filter((plan) => {
+          const otherPlansCount = allPlans.filter((plan) => {
             const planUserId = plan.user?._id || plan.user;
             return !idEquals(planUserId, user._id);
           }).length;
 
           // If there are multiple plans (user + collaborators OR multiple collaborators), show a custom dropdown
-          if (sharedPlans.length > 1 || otherPlansCount > 0) {
+          if (allPlans.length > 1 || otherPlansCount > 0) {
             // Get the selected plan's display name
-            const selectedPlan = sharedPlans.find(p => idEquals(p._id, selectedPlanId));
+            const selectedPlan = allPlans.find(p => idEquals(p._id, selectedPlanId));
 
             let selectedDisplayName = "Plans";
             if (selectedPlan) {
@@ -115,6 +133,12 @@ function PlanTabsNavigation({
                   type="button"
                   className={`${styles.tabItem} ${styles.tabItemWithDropdown} ${activeTab === "myplan" ? styles.tabItemActive : ""}`}
                   onClick={() => {
+                    // Clicking the tab should update the address bar to the selected plan
+                    // even if a plan was already pre-selected.
+                    const planIdToUse = ensurePlanSelected() || normalizeId(selectedPlanId);
+                    if (planIdToUse) {
+                      handlePlanChange(planIdToUse, { reason: 'tab-click/myplan' });
+                    }
                     setActiveTab("myplan");
                     setDropdownOpen(false); // Close dropdown when switching tabs
                   }}
@@ -143,7 +167,7 @@ function PlanTabsNavigation({
                 {/* Dropdown menu */}
                 {dropdownOpen && (
                   <div className={styles.tabDropdownMenu}>
-                    {sharedPlans.map((plan, ci) => {
+                    {allPlans.map((plan, ci) => {
                       const planUserId = plan.user?._id || plan.user;
                       const isOwnPlan = idEquals(planUserId, user._id);
                       let displayName = "Plan";
@@ -165,7 +189,7 @@ function PlanTabsNavigation({
                           type="button"
                           className={`${styles.tabDropdownItem} ${isSelected ? styles.tabDropdownItemSelected : ''}`}
                           onClick={() => {
-                            handlePlanChange(planId);
+                            handlePlanChange(planId, { reason: 'dropdown/select-plan' });
                             setActiveTab("myplan");
                             setDropdownOpen(false);
                           }}
@@ -182,8 +206,8 @@ function PlanTabsNavigation({
           }
 
           // Otherwise, render a simple button for the (single) user's plan
-          if (sharedPlans.length === 1) {
-            const onlyPlan = sharedPlans[0];
+          if (allPlans.length === 1) {
+            const onlyPlan = allPlans[0];
             const planUserId = onlyPlan.user?._id || onlyPlan.user;
             const isOwnPlan = idEquals(planUserId, user._id);
             // Only show the button if it's the user's own plan
@@ -195,7 +219,7 @@ function PlanTabsNavigation({
                   onClick={() => {
                     const planId = normalizeId(onlyPlan._id);
                     setSelectedPlanId(planId);
-                    handlePlanChange(planId); // Ensure plan is set before switching tabs
+                    handlePlanChange(planId, { reason: 'single-plan/click-myplan' }); // Ensure plan is set before switching tabs
                     setActiveTab("myplan");
                   }}
                   aria-selected={activeTab === "myplan"}

@@ -307,6 +307,13 @@ export default function usePlanManagement(experienceId, userId) {
       logger.debug('[usePlanManagement] Fetching shared plans', { experienceId });
       const plans = await getExperiencePlans(experienceId);
 
+      // IMPORTANT: sharedPlans should exclude the current user's own plan.
+      // The user's plan is managed separately via userPlan to prevent drift
+      // and duplicated updates across two sources of truth.
+      const sharedOnly = Array.isArray(plans)
+        ? plans.filter((p) => extractUserId(p.user) !== userId)
+        : plans;
+
       // RACE CONDITION CHECK: If experienceId changed during fetch, discard results
       if (currentExperienceIdRef.current !== fetchExperienceId) {
         logger.debug('[usePlanManagement] Discarding stale shared plans - experienceId changed', {
@@ -319,7 +326,7 @@ export default function usePlanManagement(experienceId, userId) {
       // CRITICAL FIX (biensperience-ed99): Use merge pattern instead of full replacement
       // This prevents UI flash when API returns fewer plans than currently displayed
       setSharedPlans(prev => {
-        if (!plans || plans.length === 0) {
+        if (!sharedOnly || sharedOnly.length === 0) {
           // API returned empty - check if we should preserve existing
           if (!prev || prev.length === 0) {
             logger.debug('[usePlanManagement] No shared plans found');
@@ -332,15 +339,18 @@ export default function usePlanManagement(experienceId, userId) {
           return prev;
         }
         // Merge strategy: Use new data but ensure consistency
-        logger.debug('[usePlanManagement] Shared plans loaded', { count: plans.length });
-        return plans;
+        logger.debug('[usePlanManagement] Shared plans loaded', {
+          count: sharedOnly.length,
+          excludedUserPlans: Array.isArray(plans) ? Math.max(0, plans.length - sharedOnly.length) : 0
+        });
+        return sharedOnly;
       });
     } catch (error) {
       logger.error('[usePlanManagement] Failed to fetch shared plans', { error: error.message }, error);
       // CRITICAL FIX (biensperience-ed99): Don't clear on error - preserve existing state
       // This prevents UI flash when API temporarily fails
     }
-  }, [experienceId]);
+  }, [experienceId, userId]);
 
   /**
    * Fetch all plans (user + shared)
@@ -540,16 +550,33 @@ export default function usePlanManagement(experienceId, userId) {
 
         // Update shared plans - merge, don't replace
         setSharedPlans(prev => {
-          const exists = prev.some(p => p._id === planId);
+          const planIdStr = planId?.toString ? planId.toString() : String(planId);
+
+          // If this is the user's plan, it must NOT live in sharedPlans.
+          // Remove any accidental duplicates and return.
+          if (isUserPlan) {
+            return prev.filter((p) => {
+              const pid = p?._id?.toString ? p._id.toString() : String(p?._id);
+              return pid !== planIdStr;
+            });
+          }
+
+          const exists = prev.some((p) => {
+            const pid = p?._id?.toString ? p._id.toString() : String(p?._id);
+            return pid === planIdStr;
+          });
+
           if (exists) {
-            return prev.map(p => {
-              if (p._id === planId) {
+            return prev.map((p) => {
+              const pid = p?._id?.toString ? p._id.toString() : String(p?._id);
+              if (pid === planIdStr) {
                 const reconciled = reconcileState(p, eventStructure);
                 return reconciled || p; // NEVER return null - keep previous if reconciliation fails
               }
               return p;
             });
           }
+
           return [...prev, data];
         });
 
@@ -693,6 +720,18 @@ export default function usePlanManagement(experienceId, userId) {
         // Update shared plans - but only if something actually changes
         // to prevent unnecessary re-renders that cause scroll issues
         setSharedPlans(prev => {
+          const planIdStr = planId?.toString ? planId.toString() : String(planId);
+
+          // If this is the user's plan, it must NOT live in sharedPlans.
+          // Remove any accidental duplicates and return.
+          if (isUserPlan) {
+            const filtered = prev.filter((p) => {
+              const pid = p?._id?.toString ? p._id.toString() : String(p?._id);
+              return pid !== planIdStr;
+            });
+            return filtered.length === prev.length ? prev : filtered;
+          }
+
           let changed = false;
           const updated = prev.map(p => {
             if (p._id !== planId) return p;
