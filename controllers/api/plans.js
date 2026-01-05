@@ -3112,7 +3112,128 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
  * Valid detail types that can be added/updated/deleted
  * These map to the details subdocument fields in planItemSnapshotSchema
  */
-const VALID_DETAIL_TYPES = ['transport', 'parking', 'discount', 'documents', 'photos'];
+const VALID_DETAIL_TYPES = ['transport', 'parking', 'discount', 'documents', 'photos', 'accommodation'];
+
+const DETAIL_TYPE_ALIASES = {
+  // UI types -> canonical backend detail types
+  flight: { type: 'transport', mode: 'flight' },
+  train: { type: 'transport', mode: 'train' },
+  cruise: { type: 'transport', mode: 'cruise' },
+  ferry: { type: 'transport', mode: 'ferry' },
+  bus: { type: 'transport', mode: 'bus' },
+  hotel: { type: 'accommodation' },
+  accommodation: { type: 'accommodation' }
+};
+
+const pickDefined = (obj, keys) => {
+  const out = {};
+  if (!obj) return out;
+  keys.forEach((key) => {
+    if (obj[key] !== undefined) out[key] = obj[key];
+  });
+  return out;
+};
+
+const normalizeTransportDataForMode = (modeRaw, data) => {
+  const mode = String(modeRaw || '').trim();
+  const baseKeys = [
+    'vendor',
+    'trackingNumber',
+    'country',
+    'departureTime',
+    'arrivalTime',
+    'departureLocation',
+    'arrivalLocation',
+    'status',
+    'transportNotes'
+  ];
+
+  const normalized = {
+    mode,
+    ...pickDefined(data, baseKeys)
+  };
+
+  const dataObj = data || {};
+
+  if (mode === 'flight') {
+    const flightKeys = ['terminal', 'gate', 'arrivalTerminal', 'arrivalGate'];
+    const fromNested = pickDefined(dataObj.flight, flightKeys);
+    const fromTop = pickDefined(dataObj, flightKeys);
+    normalized.flight = {
+      ...fromNested,
+      ...fromTop
+    };
+  }
+
+  if (mode === 'train') {
+    const trainKeys = ['platform', 'carriageNumber'];
+    const fromNested = pickDefined(dataObj.train, trainKeys);
+    const fromTop = pickDefined(dataObj, trainKeys);
+    normalized.train = {
+      ...fromNested,
+      ...fromTop
+    };
+  }
+
+  if (mode === 'cruise') {
+    const cruiseKeys = ['deck', 'shipName', 'embarkationPort', 'disembarkationPort'];
+    const fromNested = pickDefined(dataObj.cruise, cruiseKeys);
+    const fromTop = pickDefined(dataObj, cruiseKeys);
+    normalized.cruise = {
+      ...fromNested,
+      ...fromTop
+    };
+  }
+
+  if (mode === 'ferry') {
+    const ferryKeys = ['deck', 'shipName', 'embarkationPort', 'disembarkationPort'];
+    const fromNested = pickDefined(dataObj.ferry, ferryKeys);
+    const fromTop = pickDefined(dataObj, ferryKeys);
+    normalized.ferry = {
+      ...fromNested,
+      ...fromTop
+    };
+  }
+
+  if (mode === 'bus') {
+    const busKeys = ['stopName'];
+    const fromNested = pickDefined(dataObj.bus, busKeys);
+    const fromTop = pickDefined(dataObj, busKeys);
+    normalized.bus = {
+      ...fromNested,
+      ...fromTop
+    };
+  }
+
+  return normalized;
+};
+
+const normalizeDetailTypeAndData = ({ type, data }) => {
+  const rawType = String(type || '').trim();
+  const alias = DETAIL_TYPE_ALIASES[rawType];
+
+  if (rawType === 'transport') {
+    const mode = data?.mode;
+    return {
+      type: 'transport',
+      data: mode ? normalizeTransportDataForMode(mode, data) : data
+    };
+  }
+
+  if (!alias) {
+    return { type: rawType, data };
+  }
+
+  if (alias.type === 'transport') {
+    const mode = alias.mode;
+    return {
+      type: 'transport',
+      data: normalizeTransportDataForMode(mode, { ...(data || {}), mode })
+    };
+  }
+
+  return { type: alias.type, data };
+};
 
 /**
  * Add a detail to a plan item
@@ -3122,7 +3243,8 @@ const VALID_DETAIL_TYPES = ['transport', 'parking', 'discount', 'documents', 'ph
  */
 const addPlanItemDetail = asyncHandler(async (req, res) => {
   const { id, itemId } = req.params;
-  const { type, data } = req.body;
+  const { type: rawType, data: rawData } = req.body;
+  const { type, data } = normalizeDetailTypeAndData({ type: rawType, data: rawData });
 
   if (!type || !VALID_DETAIL_TYPES.includes(type)) {
     return res.status(400).json({
@@ -3169,7 +3291,8 @@ const addPlanItemDetail = asyncHandler(async (req, res) => {
       documents: [],
       transport: null,
       parking: null,
-      discount: null
+      discount: null,
+      accommodation: null
     };
   }
 
@@ -3181,6 +3304,11 @@ const addPlanItemDetail = asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Transport mode is required' });
       }
       planItem.details.transport = data;
+      break;
+
+    case 'accommodation':
+      // Accommodation is a single object, not an array
+      planItem.details.accommodation = data;
       break;
 
     case 'parking':
@@ -3328,7 +3456,8 @@ const addPlanItemDetail = asyncHandler(async (req, res) => {
  */
 const updatePlanItemDetail = asyncHandler(async (req, res) => {
   const { id, itemId, detailId } = req.params;
-  const { type, data } = req.body;
+  const { type: rawType, data: rawData } = req.body;
+  const { type, data } = normalizeDetailTypeAndData({ type: rawType, data: rawData });
 
   if (!type || !VALID_DETAIL_TYPES.includes(type)) {
     return res.status(400).json({
@@ -3375,8 +3504,15 @@ const updatePlanItemDetail = asyncHandler(async (req, res) => {
       if (!planItem.details.transport) {
         return res.status(404).json({ error: 'Transport detail not found' });
       }
-      // Merge updates into existing transport
-      Object.assign(planItem.details.transport, data);
+      // Merge updates into existing transport, then normalize into mode-specific schema
+      {
+        const existing = planItem.details.transport?.toObject ? planItem.details.transport.toObject() : planItem.details.transport;
+        const merged = { ...(existing || {}), ...(data || {}) };
+        if (!merged.mode) {
+          return res.status(400).json({ error: 'Transport mode is required' });
+        }
+        planItem.details.transport = normalizeTransportDataForMode(merged.mode, merged);
+      }
       break;
 
     case 'parking':
@@ -3391,6 +3527,13 @@ const updatePlanItemDetail = asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Discount detail not found' });
       }
       Object.assign(planItem.details.discount, data);
+      break;
+
+    case 'accommodation':
+      if (!planItem.details.accommodation) {
+        return res.status(404).json({ error: 'Accommodation detail not found' });
+      }
+      Object.assign(planItem.details.accommodation, data);
       break;
 
     case 'documents':
@@ -3511,7 +3654,8 @@ const updatePlanItemDetail = asyncHandler(async (req, res) => {
  */
 const deletePlanItemDetail = asyncHandler(async (req, res) => {
   const { id, itemId, detailId } = req.params;
-  const { type } = req.body;
+  const { type: rawType } = req.body;
+  const { type } = normalizeDetailTypeAndData({ type: rawType, data: {} });
 
   if (!type || !VALID_DETAIL_TYPES.includes(type)) {
     return res.status(400).json({
@@ -3552,6 +3696,10 @@ const deletePlanItemDetail = asyncHandler(async (req, res) => {
   switch (type) {
     case 'transport':
       planItem.details.transport = null;
+      break;
+
+    case 'accommodation':
+      planItem.details.accommodation = null;
       break;
 
     case 'parking':

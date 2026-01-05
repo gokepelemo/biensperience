@@ -247,6 +247,55 @@ describe('Plan Integration Tests', () => {
     });
   });
 
+  describe('Plan Item Details (Transport/Accommodation)', () => {
+    test('should accept flight detail type and persist as transport.mode=flight with nested flight fields', async () => {
+      // Create plan
+      const createResponse = await request(app)
+        .post(`/api/plans/experience/${experience._id}`)
+        .set('Authorization', authToken)
+        .send({ planned_date: new Date() });
+
+      const createdPlan = createResponse.body?.data || createResponse.body;
+      const planId = createdPlan._id;
+      const planItemId = createdPlan.plan?.[0]?._id;
+
+      expect(planId).toBeTruthy();
+      expect(planItemId).toBeTruthy();
+
+      const detailPayload = {
+        type: 'flight',
+        data: {
+          vendor: 'United Airlines',
+          trackingNumber: 'UA1234',
+          departureLocation: 'LAX',
+          arrivalLocation: 'JFK',
+          departureTime: new Date().toISOString(),
+          terminal: 'Terminal 7',
+          gate: '42',
+          transportNotes: 'Window seat'
+        }
+      };
+
+      const addDetailResponse = await request(app)
+        .post(`/api/plans/${planId}/items/${planItemId}/details`)
+        .set('Authorization', authToken)
+        .send(detailPayload);
+
+      const updatedPlan = addDetailResponse.body?.data || addDetailResponse.body;
+      expect(addDetailResponse.status).toBe(201);
+
+      const updatedItem = updatedPlan.plan.find(i => i._id.toString() === planItemId.toString());
+      expect(updatedItem).toBeTruthy();
+      expect(updatedItem.details.transport).toBeTruthy();
+      expect(updatedItem.details.transport.mode).toBe('flight');
+      expect(updatedItem.details.transport.vendor).toBe('United Airlines');
+      expect(updatedItem.details.transport.trackingNumber).toBe('UA1234');
+      expect(updatedItem.details.transport.flight).toBeTruthy();
+      expect(updatedItem.details.transport.flight.terminal).toBe('Terminal 7');
+      expect(updatedItem.details.transport.flight.gate).toBe('42');
+    });
+  });
+
   describe('Experience Deletion Cascade', () => {
     let user2, user3;
 
