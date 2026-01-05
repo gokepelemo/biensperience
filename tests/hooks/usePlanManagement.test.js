@@ -192,7 +192,9 @@ describe('usePlanManagement', () => {
 
       await waitFor(() => {
         expect(getExperiencePlans).toHaveBeenCalledWith(experienceId);
-        expect(result.current.sharedPlans).toHaveLength(2);
+        // sharedPlans excludes the current user's plan (managed via userPlan)
+        expect(result.current.sharedPlans).toHaveLength(1);
+        expect(result.current.sharedPlans[0]._id).toBe(mockCollaborativePlan._id);
       });
     });
 
@@ -540,7 +542,8 @@ describe('usePlanManagement', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.sharedPlans).toHaveLength(2);
+        // sharedPlans excludes the current user's plan
+        expect(result.current.sharedPlans).toHaveLength(1);
       });
 
       act(() => {

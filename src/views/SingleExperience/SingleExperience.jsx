@@ -12,7 +12,7 @@ import styles from "./SingleExperience.module.scss";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { FaMapMarkerAlt, FaShare, FaRegImage, FaStar, FaHome } from "react-icons/fa";
 import { Row, Col, Badge, Breadcrumb } from "react-bootstrap";
 import { useUser } from "../../contexts/UserContext";
@@ -114,6 +114,7 @@ export default function SingleExperience() {
   const { success, error: showError } = useToast();
   const { experienceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ============================================================================
   // TOP-LEVEL STATE (defined before hooks to avoid circular dependencies)
@@ -196,6 +197,12 @@ export default function SingleExperience() {
   const [loading, setLoading] = useState(false);
   const [experienceNotFound, setExperienceNotFound] = useState(false);
 
+  // Ref for latest experience to avoid stale closures in effects
+  const experienceRef = useRef(null);
+  useEffect(() => {
+    experienceRef.current = experience;
+  }, [experience]);
+
   // UI state
   const [favHover, setFavHover] = useState(false);
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
@@ -241,8 +248,19 @@ export default function SingleExperience() {
   const processedHashRef = useRef(null);
   // Ref to track if initial hash navigation has been handled (prevents re-navigation on state changes)
   const initialHashHandledRef = useRef(false);
-  // Ref to track if user interaction is in progress (prevents hash effects from running during interactions)
-  const userInteractionRef = useRef(false);
+  // Ref to track user interactions in progress (prevents hash effects from running during interactions)
+  // Counter-based to support concurrent operations.
+  const userInteractionRef = useRef(0);
+
+  const beginUserInteraction = useCallback((reason = 'unknown') => {
+    userInteractionRef.current += 1;
+    debug.log('[UserInteraction] begin', { reason, count: userInteractionRef.current });
+  }, []);
+
+  const endUserInteraction = useCallback((reason = 'unknown') => {
+    userInteractionRef.current = Math.max(0, userInteractionRef.current - 1);
+    debug.log('[UserInteraction] end', { reason, count: userInteractionRef.current });
+  }, []);
 
   // Version-based reconciliation (via event-bus.js) replaces timeout-based suppression
   // Events now carry version numbers and reconcileState() automatically handles
@@ -315,15 +333,34 @@ export default function SingleExperience() {
     [experience?.permissions]
   );
 
+  // Canonical plan selection list:
+  // - userPlan is the single source of truth for "My Plan"
+  // - sharedPlans contains only collaborator-owned plans (excludes userPlan)
+  const allAccessiblePlans = useMemo(() => {
+    const plans = [];
+    if (userPlan) plans.push(userPlan);
+    if (Array.isArray(sharedPlans) && sharedPlans.length) plans.push(...sharedPlans);
+
+    // Defensive dedupe (should be unnecessary after hook hardening)
+    const seen = new Set();
+    return plans.filter((p) => {
+      const pid = normalizeId(p?._id);
+      if (!pid) return false;
+      if (seen.has(pid)) return false;
+      seen.add(pid);
+      return true;
+    });
+  }, [userPlan, sharedPlans]);
+
   // Get current plan for collaborator IDs - MUST be memoized to prevent infinite re-renders
   const currentPlan = useMemo(
     () =>
       activeTab === "experience"
         ? null
         : selectedPlanId
-        ? sharedPlans.find((p) => idEquals(p._id, selectedPlanId))
+        ? allAccessiblePlans.find((p) => idEquals(p._id, selectedPlanId))
         : userPlan,
-    [activeTab, selectedPlanId, sharedPlans, userPlan]
+    [activeTab, selectedPlanId, allAccessiblePlans, userPlan]
   );
 
   // Get plan owner and collaborator user IDs
@@ -346,14 +383,35 @@ export default function SingleExperience() {
       const updated = ctxExperiences.find((e) => idEquals(e._id, experienceId));
       if (!updated) return;
 
+      const prev = experienceRef.current;
+
+      // Fast change detection to avoid JSON.stringify on large objects.
+      // Prefer updatedAt when present; otherwise fall back to a small stable signature.
+      const getExperienceSignature = (exp) => {
+        if (!exp) return '';
+
+        const id = normalizeId(exp?._id);
+        const updatedAt = exp?.updatedAt || exp?.updated_at;
+        const updatedAtKey = updatedAt ? new Date(updatedAt).toISOString() : '';
+
+        const planItemsCount = Array.isArray(exp?.plan_items) ? exp.plan_items.length : 0;
+        const travelTipsCount = Array.isArray(exp?.travel_tips) ? exp.travel_tips.length : 0;
+        const photosCount = Array.isArray(exp?.photos) ? exp.photos.length : 0;
+        const destinationId = normalizeId(exp?.destination?._id || exp?.destination);
+
+        return `${id}|${updatedAtKey}|${planItemsCount}|${travelTipsCount}|${photosCount}|${destinationId}`;
+      };
+
+      const prevSig = getExperienceSignature(prev);
+      const nextSig = getExperienceSignature(updated);
+      if (prevSig && prevSig === nextSig) return;
+
       // Only apply if different to avoid unnecessary renders
       try {
-        const a = JSON.stringify(updated || {});
-        const b = JSON.stringify(experience || {});
-        if (a !== b) {
+        if (!prev || prevSig !== nextSig) {
           // Instrumentation: log diff-ish preview to help diagnose overwrites
           try {
-            const previewPrev = { _id: experience?._id, plan_items_count: (experience?.plan_items || []).length, travel_tips_count: (experience?.travel_tips || []).length };
+            const previewPrev = { _id: prev?._id, plan_items_count: (prev?.plan_items || []).length, travel_tips_count: (prev?.travel_tips || []).length };
             const previewNew = { _id: updated?._id, plan_items_count: (updated?.plan_items || []).length, travel_tips_count: (updated?.travel_tips || []).length };
             debug.log('Applying context-driven experience update', { experienceId: experienceId, previewPrev, previewNew });
           } catch (inner) {
@@ -372,19 +430,19 @@ export default function SingleExperience() {
               dest && typeof dest === 'object' && dest.name;
 
             // Avoid storing volatile metadata (like timestamps) on the merged object
-            const merged = { ...(experience || {}), ...(updated || {}) };
+            const merged = { ...(prev || {}), ...(updated || {}) };
 
             // Preserve populated photos array if local has full objects with URLs
             // and incoming from context only has IDs (strings or unpopulated)
-            if (isPopulatedPhotoArray(experience?.photos) && !isPopulatedPhotoArray(updated?.photos)) {
-              merged.photos = experience.photos;
-              merged.photos_full = experience.photos_full || experience.photos;
+            if (isPopulatedPhotoArray(prev?.photos) && !isPopulatedPhotoArray(updated?.photos)) {
+              merged.photos = prev.photos;
+              merged.photos_full = prev.photos_full || prev.photos;
             }
 
             // Preserve populated destination object if local has full object with name/country
             // and incoming from context only has ID string or unpopulated object
-            if (isPopulatedDestination(experience?.destination) && !isPopulatedDestination(updated?.destination)) {
-              merged.destination = experience.destination;
+            if (isPopulatedDestination(prev?.destination) && !isPopulatedDestination(updated?.destination)) {
+              merged.destination = prev.destination;
             }
 
             setExperience(merged);
@@ -405,153 +463,159 @@ export default function SingleExperience() {
     }
   }, [ctxExperiences, experienceId]);
 
-  // Update the browser address bar to point directly to the selected plan
-  // when the user switches to the "My Plan" tab or selects a collaborative plan.
-  // We use the History API (replaceState) so this does not trigger a navigation
-  // or reload — the server already exposes a route for `/plans/:planId`.
-  // CRITICAL: No PopStateEvent dispatches - they cause unwanted scroll behavior
-  useEffect(() => {
-    // CRITICAL: Skip URL updates entirely during user interactions (e.g., toggling completion)
-    // This prevents any scroll/navigation side effects during item completion
-    if (userInteractionRef.current) {
-      debug.log('🔧 URL management: Skipping due to user interaction in progress');
-      return;
-    }
+  const writeExperienceHash = useCallback(
+    ({ planId, itemId, stripItem = false, clearHash = false, reason = 'unknown' }) => {
+      if (typeof window === 'undefined') return;
+      if (!window.history?.replaceState) return;
 
-    const currentHash = window.location.hash || '';
-    debug.log('🔧 URL management useEffect triggered', {
-      activeTab,
-      selectedPlanId,
-      experienceId,
-      currentHash,
-      hasItemHash: currentHash.includes('-item-'),
-      pathname: window.location.pathname,
-      fullURL: window.location.href
-    });
-
-    try {
-      if (typeof window === 'undefined' || !window.history || !window.history.replaceState) return;
+      // CRITICAL: Skip URL updates entirely during user interactions (e.g., toggling completion)
+      // This prevents any scroll/navigation side effects during item completion
+      if (userInteractionRef.current) {
+        debug.log('[URL Management] Skipping due to user interaction in progress', { reason });
+        return;
+      }
 
       // Prevent navigation if component is unmounting
       if (isUnmountingRef.current) return;
 
-      // Only update URL if we're still on the SingleExperience route
-      // Prevent interference with navigation away from this component
-      if (!experienceId || window.location.pathname !== `/experiences/${experienceId}`) {
-        debug.log('URL management: early return', {
-          hasExperienceId: !!experienceId,
-          currentPath: window.location.pathname,
-          expectedPath: experienceId ? `/experiences/${experienceId}` : 'N/A'
-        });
-        return;
-      }
+      // Only update URL if we're still on the SingleExperience route.
+      // Support deployments with a basename (e.g. /app/experiences/:id) by matching
+      // the experience route as a suffix.
+      if (!experienceId) return;
+      const expectedPath = `/experiences/${experienceId}`;
+      const pathnameNow = window.location.pathname || '';
+      const pathnameNoSlash = pathnameNow.endsWith('/') && pathnameNow.length > 1
+        ? pathnameNow.slice(0, -1)
+        : pathnameNow;
+      if (!pathnameNoSlash.endsWith(expectedPath)) return;
 
-      // CRITICAL FIX: If there's a hash in the URL and we're on the myplan tab with a selected plan,
-      // check if the hash matches the selected plan. If it does, this is a direct URL navigation
-      // and we should NOT modify the URL (let it stay as-is).
       const currentHash = window.location.hash || '';
-      if (currentHash.startsWith('#plan-') && activeTab === 'myplan' && selectedPlanId) {
-        // Extract planId from hash
-        const hashContent = currentHash.substring(6); // Remove '#plan-' prefix
-        const hashPlanId = hashContent.split('-item-')[0]; // Get planId (before -item- if present)
+      let targetHash = currentHash;
 
-        // If hash matches selected plan, this is a direct URL load - don't modify
-        if (idEquals(hashPlanId, selectedPlanId)) {
-          debug.log('URL management: Hash matches selected plan, preserving original URL', {
-            currentHash,
-            selectedPlanId,
-            hashPlanId
-          });
-          return; // CRITICAL: Early return to preserve URL from direct navigation
+      if (clearHash) {
+        targetHash = '';
+      } else if (planId) {
+        const normalizedPlanId = normalizeId(planId);
+        const expectedPlanPrefix = `#plan-${normalizedPlanId}`;
+
+        if (itemId) {
+          const normalizedItemId = normalizeId(itemId);
+          targetHash = `${expectedPlanPrefix}-item-${normalizedItemId}`;
+        } else {
+          const hasItemHashForPlan =
+            currentHash.startsWith(`${expectedPlanPrefix}-item-`) && currentHash.includes('-item-');
+          if (hasItemHashForPlan && !stripItem) {
+            targetHash = currentHash;
+          } else {
+            targetHash = expectedPlanPrefix;
+          }
         }
       }
 
-      // When viewing My Plan (or a collaborative plan) update the address
-      // bar to a hash-based deep link that points to the experience with
-      // a plan fragment. Example: `/experiences/<id>#plan/<planId>`
-      if (activeTab === 'myplan' && selectedPlanId && experienceId) {
-        // Preserve item-level hash if present (e.g., #plan-{planId}-item-{itemId})
-        // Otherwise use plan-level hash (e.g., #plan-{planId})
-        const currentHash = window.location.hash || '';
-        const hasItemHash = currentHash.includes('-item-');
+      const currentUrl = `${window.location.pathname}${window.location.hash || ''}`;
+      const targetUrl = targetHash
+        ? `${window.location.pathname}${targetHash}`
+        : window.location.pathname;
 
-        // CRITICAL: Always preserve existing plan-level or item-level hashes
-        // Only create new hash if no hash exists
-        let hashed;
-        if (currentHash.startsWith('#plan-')) {
-          // CRITICAL: Preserve ANY existing plan hash (plan-level or item-level)
-          // This prevents stripping the item portion after hash navigation restores it
-          hashed = `${window.location.pathname}${currentHash}`;
-          debug.log('URL management: Preserving existing hash', {
-            currentHash,
-            hasItemHash
-          });
-        } else {
-          // No existing hash - create new plan-level hash
-          hashed = `/experiences/${experienceId}#plan-${selectedPlanId}`;
-          debug.log('URL management: Creating new plan-level hash', {
-            selectedPlanId
-          });
-        }
+      if (currentUrl === targetUrl) return;
 
-        debug.log('URL management: myplan tab active', {
-          activeTab,
-          selectedPlanId,
-          currentHash,
-          hasItemHash,
-          hashed
-        });
+      // Demo branch behavior: replaceState only (no PopStateEvent / hashchange dispatch)
+      // to avoid unwanted scroll behavior.
+      window.history.replaceState(null, '', targetUrl);
+      debug.log('[URL Management] Updated URL via replaceState', { reason, targetUrl });
+    },
+    [experienceId]
+  );
 
-        // Dedupe: avoid updating if the URL is already the same
-        const current = `${window.location.pathname}${window.location.hash || ''}`;
-        if (current !== hashed) {
-          // REFACTORED: Use replaceState only - no PopStateEvent dispatch
-          // PopStateEvent causes unwanted scroll behavior
-          // React Router doesn't need PopStateEvent for hash-only changes
-          window.history.replaceState(null, '', hashed);
-          debug.log('URL management: Updated hash via replaceState', { hashed });
-        } else {
-          debug.log('Skipping history update: URL already matches hashed plan link');
-        }
+  // Demo-branch URL management: keep the address bar in sync with tab + selected plan,
+  // while preserving incoming plan/item hashes for deep links.
+  // CRITICAL: replaceState only (no popstate dispatch) to avoid scroll issues.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.history?.replaceState) return;
+
+    // CRITICAL: Skip URL updates entirely during user interactions (e.g., toggling completion)
+    if (userInteractionRef.current) return;
+
+    // Prevent navigation if component is unmounting
+    if (isUnmountingRef.current) return;
+
+    if (!experienceId) return;
+    const expectedPath = `/experiences/${experienceId}`;
+    const pathnameNow = window.location.pathname || '';
+    const pathnameNoSlash = pathnameNow.endsWith('/') && pathnameNow.length > 1
+      ? pathnameNow.slice(0, -1)
+      : pathnameNow;
+    if (!pathnameNoSlash.endsWith(expectedPath)) return;
+
+    // Preserve any basename/deployment prefix by using the actual current pathname
+    // rather than hardcoding `/experiences/:id`.
+    const basePath = pathnameNoSlash;
+
+    const currentHash = window.location.hash || '';
+
+    // If we're on the myplan tab and the hash already matches the selected plan,
+    // treat this as a direct URL navigation and preserve it.
+    if (currentHash.startsWith('#plan-') && activeTab === 'myplan' && selectedPlanId) {
+      const hashContent = currentHash.substring(6); // Remove '#plan-' prefix
+      const hashPlanId = hashContent.split('-item-')[0];
+
+      if (idEquals(hashPlanId, selectedPlanId)) {
         return;
       }
+    }
 
-      // Otherwise restore the canonical experience URL without fragment
-      if (experienceId) {
-        const expUrl = `/experiences/${experienceId}`;
+    if (activeTab === 'myplan' && selectedPlanId) {
+      // Preserve item-level hash if present (e.g., #plan-{planId}-item-{itemId}).
+      // If there's no existing plan hash, create a plan-level hash.
+      const hashed = currentHash.startsWith('#plan-')
+        ? `${basePath}${currentHash}`
+        : `${basePath}#plan-${selectedPlanId}`;
 
-        debug.log('URL management: canonical URL section', {
-          activeTab,
-          selectedPlanId,
-          experienceId,
-          currentHash: window.location.hash
-        });
-
-        const current = `${window.location.pathname}${window.location.hash || ''}`;
-        // CRITICAL: If an incoming plan hash exists (e.g., user opened /experiences/:id#plan-<id>),
-        // preserve it so the hash-handling logic can select the plan after load.
-        // This must happen BEFORE any URL normalization to prevent race conditions.
-        const incomingHash = window.location.hash || '';
-        if (incomingHash.startsWith('#plan-')) {
-          debug.log('Preserving incoming plan hash; skipping expUrl navigate to avoid removing hash', {
-            incomingHash
-          });
-          return; // CRITICAL: Early return to prevent hash removal
-        }
-
-        if (current !== expUrl) {
-          // REFACTORED: Use replaceState only - no PopStateEvent dispatch
-          // PopStateEvent causes unwanted scroll behavior
-          window.history.replaceState(null, '', expUrl);
-          debug.log('URL management: Restored canonical URL via replaceState', { expUrl });
-        } else {
-          debug.log('Skipping history update: URL already matches experience URL');
-        }
+      const current = `${window.location.pathname}${window.location.hash || ''}`;
+      if (current !== hashed) {
+        window.history.replaceState(null, '', hashed);
       }
-    } catch (err) {
-      debug.warn('Failed to update history for plan selection', err);
+      return;
+    }
+
+    // Otherwise restore canonical experience URL without fragment.
+    // Preserve incoming plan hashes so hash handlers can select the plan after load.
+    const incomingHash = window.location.hash || '';
+    if (incomingHash.startsWith('#plan-')) return;
+
+    const expUrl = basePath;
+    const current = `${window.location.pathname}${window.location.hash || ''}`;
+    if (current !== expUrl) {
+      window.history.replaceState(null, '', expUrl);
     }
   }, [activeTab, selectedPlanId, experienceId]);
+
+  /**
+   * Demo-branch behavior: ensure the hash reflects the selected plan when on My Plan,
+   * while preserving item-level hashes when they already match the selected plan.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.history?.replaceState) return;
+    if (userInteractionRef.current) return;
+    if (isUnmountingRef.current) return;
+
+    if (activeTab === 'myplan' && selectedPlanId) {
+      const currentHash = window.location.hash || '';
+      const expectedPlanPrefix = `#plan-${selectedPlanId}`;
+
+      // Preserve item-level hash when already correct
+      if (currentHash.startsWith(expectedPlanPrefix)) return;
+
+      const newHash = `#plan-${selectedPlanId}`;
+      window.history.replaceState(null, '', `${window.location.pathname}${newHash}`);
+    } else if (activeTab === 'experience') {
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, [activeTab, selectedPlanId]);
 
   const planOwnerId = useMemo(
     () => planOwnerPermission?._id,
@@ -865,62 +929,39 @@ export default function SingleExperience() {
       // Expanded parents will be loaded from persisted state by the hierarchy effect
       // Don't override here to preserve user's expansion preferences
 
-      // Set user plan data
-      setUserPlan(fetchedUserPlan || null);
-      setUserHasExperience(!!fetchedUserPlan);
-      setUserPlannedDate(fetchedUserPlan?.planned_date || null);
+      // Set user plan data (single source of truth for "My Plan")
+      const isOwnPlan = (plan) => {
+        const planUserId = plan?.user?._id || plan?.user;
+        return !!planUserId && idEquals(planUserId, user._id);
+      };
+
+      const derivedUserPlan = fetchedUserPlan || fetchedSharedPlans?.find(isOwnPlan) || null;
+
+      setUserPlan(derivedUserPlan || null);
+      setUserHasExperience(!!derivedUserPlan);
+      setUserPlannedDate(derivedUserPlan?.planned_date || null);
 
       // selectedPlanId will be set by either:
       // 1. Hash navigation (if URL contains #plan-{id})
       // 2. Auto-select useEffect (first plan in dropdown after load)
 
       // Set collaborative plans data
-      // Filter to only show plans where user is owner or collaborator
-      const accessiblePlans = fetchedSharedPlans.filter((plan) => {
-        // Check if user owns this plan
-        const isUserPlan = plan.user && idEquals(plan.user._id || plan.user, user._id);
+      // Filter to only show plans where user is owner/collaborator (excluding their own plan)
+      const accessibleSharedPlans = (fetchedSharedPlans || []).filter((plan) => {
+        if (isOwnPlan(plan)) return false;
 
-        // Check if user is a collaborator or owner via permissions
-        const hasPermission = plan.permissions?.some(
+        return plan.permissions?.some(
           (p) =>
             p.entity === "user" &&
             idEquals(p._id, user._id) &&
             (p.type === "owner" || p.type === "collaborator")
         );
-
-        return isUserPlan || hasPermission;
       });
 
-      // CRITICAL: getExperiencePlans returns BOTH user's own plan AND shared plans
-      // If we have a fetchedUserPlan from checkUserPlanForExperience, we need to filter
-      // it out from accessiblePlans to prevent duplicates when merging
-      const sharedPlansOnly = fetchedUserPlan
-        ? accessiblePlans.filter((plan) => {
-            // Exclude user's own plan - it will be prepended separately
-            return !idEquals(plan.user?._id || plan.user, user._id);
-          })
-        : accessiblePlans;
-
-      // Combine user's own plan with shared plans for unified display
-      // Backend returns userPlan separately from sharedPlans array
-      const allPlans = fetchedUserPlan
-        ? [fetchedUserPlan, ...sharedPlansOnly]
-        : accessiblePlans;
-
-      // Sort plans: user's own plan first, then others
-      const sortedPlans = allPlans.sort((a, b) => {
-        const aIsUserPlan = a.user && idEquals(a.user._id || a.user, user._id);
-        const bIsUserPlan = b.user && idEquals(b.user._id || b.user, user._id);
-
-        if (aIsUserPlan && !bIsUserPlan) return -1;
-        if (!aIsUserPlan && bIsUserPlan) return 1;
-        return 0;
-      });
-
-      debug.log("Accessible plans after filtering and sorting:", sortedPlans);
+      debug.log("Accessible shared plans after filtering:", accessibleSharedPlans);
 
       // Normalize plan IDs to strings to avoid select/value mismatch
-      const normalizedSorted = sortedPlans.map(p => normalizePlan(p));
+      const normalizedSorted = accessibleSharedPlans.map((p) => normalizePlan(p));
 
       // Leave selectedPlanId as null initially
       // Auto-select useEffect will select first plan after plans load (if no hash)
@@ -1114,7 +1155,7 @@ export default function SingleExperience() {
     // Reset hash refs so URL hash can be processed for new experience
     processedHashRef.current = null;
     initialHashHandledRef.current = false;
-    userInteractionRef.current = false;
+    userInteractionRef.current = 0;
     // Collaborator state is now managed by useCollaboratorManager hook
     // Modal state managed by useModalManager hook
     setPlanItemFormState(1);
@@ -1159,10 +1200,11 @@ export default function SingleExperience() {
     }
 
     // Skip if plans haven't loaded yet
-    if (plansLoading || sharedPlans.length === 0) {
+    if (plansLoading || allAccessiblePlans.length === 0) {
       debug.log('[NavigationIntent] Plans still loading, waiting...', {
         plansLoading,
         sharedPlansCount: sharedPlans.length,
+        userPlanExists: !!userPlan,
         intentId: intent.id
       });
       return;
@@ -1179,12 +1221,12 @@ export default function SingleExperience() {
     });
 
     // Find the target plan
-    const targetPlan = sharedPlans.find((p) => idEquals(p._id, targetPlanId));
+    const targetPlan = allAccessiblePlans.find((p) => idEquals(p._id, targetPlanId));
 
     if (!targetPlan) {
-      debug.warn('[NavigationIntent] Plan not found in sharedPlans:', {
+      debug.warn('[NavigationIntent] Plan not found in accessible plans:', {
         targetPlanId,
-        availablePlans: sharedPlans.map(p => p._id?.toString())
+        availablePlans: allAccessiblePlans.map(p => p._id?.toString())
       });
       // Clear the intent since it can't be fulfilled
       clearIntent();
@@ -1198,17 +1240,12 @@ export default function SingleExperience() {
 
     debug.log('[NavigationIntent] ✅ Found target plan, switching...', { tid, targetItemId });
 
-    // Update the URL hash to reflect the deep link
-    const hash = targetItemId
-      ? `#plan-${tid}-item-${targetItemId}`
-      : `#plan-${tid}`;
-
-    try {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-      debug.log('[NavigationIntent] URL hash updated:', hash);
-    } catch (err) {
-      debug.warn('[NavigationIntent] Failed to update URL hash:', err);
-    }
+    // Write hash via centralized URL manager
+    writeExperienceHash({
+      planId: tid,
+      itemId: targetItemId ? normalizeId(targetItemId) : null,
+      reason: 'navigation-intent'
+    });
 
     // Set state to switch to the plan tab
     setSelectedPlanId(tid);
@@ -1243,7 +1280,19 @@ export default function SingleExperience() {
       debug.log('[NavigationIntent] No targetItemId, skipping scroll');
     }
 
-  }, [intent, plansLoading, sharedPlans, consumeIntent, clearIntent, scrollToItem]);
+  }, [
+    intent,
+    plansLoading,
+    sharedPlans,
+    userPlan,
+    allAccessiblePlans,
+    consumeIntent,
+    clearIntent,
+    scrollToItem,
+    openModal,
+    setSelectedPlanId,
+    writeExperienceHash
+  ]);
 
   // Fallback handler for direct URL navigation (when no intent exists)
   // This handles cases where user pastes URL directly or navigates via browser history
@@ -1265,7 +1314,7 @@ export default function SingleExperience() {
     }
 
     // Skip if plans haven't loaded
-    if (plansLoading || sharedPlans.length === 0) {
+    if (plansLoading || allAccessiblePlans.length === 0) {
       return;
     }
 
@@ -1291,7 +1340,7 @@ export default function SingleExperience() {
 
     debug.log('[SingleExperience] Fallback URL hash handler:', { planId, itemId, selectedPlanId, hash });
 
-    const targetPlan = findById(sharedPlans, planId);
+    const targetPlan = findById(allAccessiblePlans, planId);
     if (!targetPlan) {
       debug.warn('[Fallback Hash] Plan not found:', planId);
       return;
@@ -1337,7 +1386,7 @@ export default function SingleExperience() {
         openModalForItem();
       }
     }
-  }, [plansLoading, sharedPlans, selectedPlanId, intent, scrollToItem]);
+  }, [plansLoading, allAccessiblePlans, selectedPlanId, intent, scrollToItem]);
 
   // Register h1 for navbar (action buttons removed - available in sticky sidebar)
   useEffect(() => {
@@ -1368,7 +1417,7 @@ export default function SingleExperience() {
 
     // Find the current plan containing this item
     const currentPlanData = selectedPlanId
-      ? sharedPlans.find(p => idEquals(p._id, selectedPlanId))
+      ? allAccessiblePlans.find((p) => idEquals(p._id, selectedPlanId))
       : userPlan;
 
     if (!currentPlanData?.plan) return;
@@ -1472,37 +1521,9 @@ export default function SingleExperience() {
         }
       });
     }
-  }, [isModalOpen, selectedDetailsItem?._id, selectedPlanId, sharedPlans, userPlan]);
+  }, [isModalOpen, selectedDetailsItem?._id, selectedPlanId, allAccessiblePlans, userPlan]);
 
-  /**
-   * Update URL hash when a plan is selected to enable direct linking
-   * Creates hash-based URLs like /experiences/:id#plan-:planId
-   * IMPORTANT: Preserves item-level hashes (e.g., #plan-{planId}-item-{itemId})
-   */
-  useEffect(() => {
-    if (activeTab === 'myplan' && selectedPlanId) {
-      // Check if current hash already contains the correct plan ID
-      const currentHash = window.location.hash || '';
-      const expectedPlanPrefix = `#plan-${selectedPlanId}`;
 
-      // If hash already has this plan ID (with or without item ID), don't modify it
-      // This preserves item-level deep links from hash navigation
-      if (currentHash.startsWith(expectedPlanPrefix)) {
-        debug.log('[URL Management] Hash already correct, preserving:', currentHash);
-        return;
-      }
-
-      // Only update if we need to change the plan ID
-      const newHash = `#plan-${selectedPlanId}`;
-      debug.log('[URL Management] Updating hash:', { old: currentHash, new: newHash });
-      window.history.replaceState(null, '', newHash);
-    } else if (activeTab === 'experience') {
-      // Clear hash when viewing experience tab
-      if (window.location.hash) {
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    }
-  }, [activeTab, selectedPlanId]);
 
   // Subscribe to WebSocket events for real-time shared plan updates
   // Replaces polling - events trigger immediate refresh when collaborators are added/removed
@@ -1579,63 +1600,45 @@ export default function SingleExperience() {
     };
   }, [subscribeToEvents, experienceId, fetchSharedPlans, fetchAllData]);
 
-  // Subscribe to local event bus for plan item updates (photos, etc.)
-  // This ensures that when PhotosTab saves photos, the local state is updated
+  // Subscribe to local event bus for plan item updates (photos, completion, etc.)
+  // Plan state reconciliation is owned by usePlanManagement via `plan:updated`.
+  // We only listen here to keep the Plan Item Details modal in sync while it's open.
   useEffect(() => {
-    // Handler for plan item updates from local event bus
-    const handlePlanItemUpdated = (event) => {
-      const { planId, planItemId, planItem, updatedFields } = event;
+    const handlePlanItemEvent = (event) => {
+      const planId = event?.planId;
+      const planItemId = event?.planItemId || event?.itemId;
+      const planItem = event?.planItem || event?.item;
 
-      // Only handle events relevant to this experience's plans
-      if (!planId) return;
+      if (!planId || !planItemId || !planItem) return;
+      if (!isModalOpen(MODAL_NAMES.PLAN_ITEM_DETAILS)) return;
+      if (!selectedDetailsItem || !idEquals(selectedDetailsItem._id, planItemId)) return;
 
-      logger.debug('[SingleExperience] Plan item updated event received', {
+      logger.debug('[SingleExperience] Plan item event received (modal sync)', {
         planId,
         planItemId,
-        updatedFields,
+        action: event?.action,
         hasPhotos: planItem?.photos?.length > 0
       });
 
-      // Update userPlan if it matches
-      if (userPlan?._id === planId) {
-        setUserPlan(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            plan: prev.plan.map(item =>
-              idEquals(item._id, planItemId)
-                ? { ...item, ...planItem }
-                : item
-            )
-          };
-        });
-      }
-
-      // Update sharedPlans if the plan is in there
-      setSharedPlans(prev => prev.map(plan => {
-        if (!idEquals(plan._id, planId)) return plan;
+      setSelectedDetailsItem((prev) => {
+        if (!prev || !idEquals(prev._id, planItemId)) return prev;
         return {
-          ...plan,
-          plan: plan.plan.map(item =>
-            idEquals(item._id, planItemId)
-              ? { ...item, ...planItem }
-              : item
-          )
-        };
-      }));
-
-      // Update selectedDetailsItem if modal is open and showing this item
-      if (isModalOpen(MODAL_NAMES.PLAN_ITEM_DETAILS) && selectedDetailsItem && idEquals(selectedDetailsItem._id, planItemId)) {
-        setSelectedDetailsItem(prev => ({
           ...prev,
           ...planItem
-        }));
-      }
+        };
+      });
     };
 
-    const unsubscribe = subscribeToEvent('plan:item:updated', handlePlanItemUpdated);
-    return () => unsubscribe();
-  }, [userPlan?._id, setUserPlan, setSharedPlans, isModalOpen, selectedDetailsItem, setSelectedDetailsItem]);
+    const unsubscribes = [
+      subscribeToEvent('plan:item:updated', handlePlanItemEvent),
+      subscribeToEvent('plan:item:completed', handlePlanItemEvent),
+      subscribeToEvent('plan:item:uncompleted', handlePlanItemEvent)
+    ];
+
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [isModalOpen, selectedDetailsItem, setSelectedDetailsItem]);
 
   // Sync tab changes to presence system
   useEffect(() => {
@@ -1739,15 +1742,85 @@ export default function SingleExperience() {
     openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
 
     // Update URL hash for direct linking to this plan item
-    if (selectedPlanId && planItem?._id) {
-      const itemId = normalizeId(planItem._id);
-      const hash = `#plan-${selectedPlanId}-item-${itemId}`;
-      const newUrl = `${window.location.pathname}${window.location.search || ''}${hash}`;
-      if (window.location.href !== newUrl) {
-        window.history.pushState(null, '', newUrl);
-      }
+    if (selectedPlanId && (planItem?._id || planItem?.plan_item_id)) {
+      const itemId = normalizeId(planItem._id || planItem.plan_item_id);
+      writeExperienceHash({
+        planId: selectedPlanId,
+        itemId,
+        reason: 'open-plan-item-details'
+      });
     }
-  }, [selectedPlanId]);
+  }, [selectedPlanId, openModal, writeExperienceHash]);
+
+  // Hash repair: if React Router (or other navigation) clears the hash after the
+  // plan/tab/modal has successfully loaded, re-add the expected hash.
+  // This effect is intentionally keyed on `location.hash` so it runs when the
+  // router mutates the hash.
+  const detailsModalOpen = isModalOpen(MODAL_NAMES.PLAN_ITEM_DETAILS);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.history?.replaceState) return;
+    if (userInteractionRef.current) return;
+    if (isUnmountingRef.current) return;
+    if (!experienceId) return;
+
+    const expectedPath = `/experiences/${experienceId}`;
+    const pathnameNow = window.location.pathname || '';
+    const pathnameNoSlash = pathnameNow.endsWith('/') && pathnameNow.length > 1
+      ? pathnameNow.slice(0, -1)
+      : pathnameNow;
+    if (!pathnameNoSlash.endsWith(expectedPath)) return;
+
+    if (plansLoading) return;
+    if (activeTab !== 'myplan') return;
+    if (!selectedPlanId) return;
+
+    const currentHash = window.location.hash || '';
+
+    // If the details modal is open, prefer item-level repair.
+    if (detailsModalOpen && selectedDetailsItem && (selectedDetailsItem._id || selectedDetailsItem.plan_item_id)) {
+      const itemId = normalizeId(selectedDetailsItem._id || selectedDetailsItem.plan_item_id);
+      if (!itemId) return;
+
+      const planObj = allAccessiblePlans.find((p) => idEquals(p._id, selectedPlanId));
+      if (!planObj?.plan) return;
+      const itemInPlan = findById(planObj.plan, itemId);
+      if (!itemInPlan) return;
+
+      const expectedItemHash = `#plan-${selectedPlanId}-item-${itemId}`;
+      if (currentHash !== expectedItemHash) {
+        writeExperienceHash({
+          planId: selectedPlanId,
+          itemId,
+          reason: 'hash-repair/plan-item-loaded'
+        });
+      }
+      return;
+    }
+
+    // Otherwise ensure plan-level hash is present once the plan is available.
+    const selectedPlanLoaded = allAccessiblePlans.some((p) => idEquals(p._id, selectedPlanId));
+    if (!selectedPlanLoaded) return;
+
+    const expectedPlanPrefix = `#plan-${selectedPlanId}`;
+    if (!currentHash.startsWith(expectedPlanPrefix)) {
+      writeExperienceHash({
+        planId: selectedPlanId,
+        stripItem: true,
+        reason: 'hash-repair/plan-loaded'
+      });
+    }
+  }, [
+    location.hash,
+    activeTab,
+    plansLoading,
+    selectedPlanId,
+    allAccessiblePlans,
+    detailsModalOpen,
+    selectedDetailsItem,
+    experienceId,
+    writeExperienceHash
+  ]);
 
   // Handler to open inline cost entry from plan item details modal
   const handleAddCostForItem = useCallback((planItem) => {
@@ -2114,17 +2187,29 @@ export default function SingleExperience() {
   );
 
   const handlePlanChange = useCallback(
-    (planId) => {
+    (planId, options = {}) => {
+      const {
+        writeHash = true,
+        reason = 'select-plan'
+      } = options;
+
       const pid = planId && planId.toString ? planId.toString() : planId;
       setSelectedPlanId(pid);
 
       // Update displayed planned date to the selected plan's date
-      const selectedPlan = sharedPlans.find((p) => idEquals(p._id, pid));
-      if (selectedPlan) {
-        setDisplayedPlannedDate(selectedPlan.planned_date || null);
+      const nextSelectedPlan = allAccessiblePlans.find((p) => idEquals(p._id, pid));
+      if (nextSelectedPlan) {
+        setDisplayedPlannedDate(nextSelectedPlan.planned_date || null);
+      }
+
+      // When a plan is navigated to (e.g., dropdown selection), append #plan-{planId}
+      // immediately. Do not rely on the tab effect because tab updates happen after
+      // this handler and can be suppressed during interactions/unmounting.
+      if (writeHash && pid) {
+        writeExperienceHash({ planId: pid, stripItem: true, reason });
       }
     },
-    [sharedPlans]
+    [allAccessiblePlans, writeExperienceHash]
   );
 
   // Auto-select first plan when plans load (if no hash navigation)
@@ -2137,7 +2222,7 @@ export default function SingleExperience() {
     // 3. No plan is currently selected
     // 4. Not waiting for intent-based navigation (pending intent or hash in URL)
     const hasPendingIntent = intent && !intent.consumed;
-    if (!plansLoading && sharedPlans.length > 0 && !selectedPlanId && !hasPendingIntent) {
+    if (!plansLoading && (userPlan || sharedPlans.length > 0) && !selectedPlanId && !hasPendingIntent) {
       // Check if there's a hash in the URL - if so, let hash navigation handle it
       const hash = window.location.hash || '';
       if (hash.startsWith('#plan-')) {
@@ -2145,9 +2230,10 @@ export default function SingleExperience() {
         return;
       }
 
-      // Auto-select the first plan (user's own plan is always first due to sorting)
+      // Auto-select the first available plan (prefer user's own plan)
       // This pre-selects a plan for the dropdown but does NOT switch to the My Plan tab
-      const firstPlan = sharedPlans[0];
+      const firstPlan = userPlan || sharedPlans[0];
+      if (!firstPlan) return;
       const firstPlanId = firstPlan._id && firstPlan._id.toString ? firstPlan._id.toString() : firstPlan._id;
 
       debug.log('[Auto-select] Auto-selecting first plan (staying on Experience tab):', {
@@ -2158,9 +2244,10 @@ export default function SingleExperience() {
       setSelectedPlanId(firstPlanId);
       // Do NOT switch to myplan tab - stay on experience tab
       // Only hash navigation (#plan-xxx) should trigger tab switch
-      handlePlanChange(firstPlanId);
+      // Also: auto-select is not a user navigation event, so do not write URL hash here.
+      handlePlanChange(firstPlanId, { writeHash: false, reason: 'auto-select-first-plan' });
     }
-  }, [plansLoading, sharedPlans, selectedPlanId, intent, user._id, handlePlanChange]);
+  }, [plansLoading, sharedPlans, userPlan, selectedPlanId, intent, user._id, handlePlanChange]);
 
   // Collaborator handlers now provided by useCollaboratorManager hook
 
@@ -2333,51 +2420,87 @@ export default function SingleExperience() {
     async (planItem) => {
       if (!selectedPlanId || !planItem) return;
 
-      // Mark user interaction in progress to prevent hash effects from running
-      userInteractionRef.current = true;
+      beginUserInteraction('toggle-complete');
 
-      const itemId = planItem._id || planItem.plan_item_id;
-      const newComplete = !planItem.complete;
+      const itemId = normalizeId(planItem._id || planItem.plan_item_id);
+      const prevComplete = !!planItem.complete;
+      const newComplete = !prevComplete;
 
-      // Helper to update a single item's complete property in a plan
-      const updateItemComplete = (plan, itemId, complete) => {
+      const updateItemComplete = (plan, targetItemId, complete) => {
         if (!plan?.plan) return plan;
         return {
           ...plan,
-          plan: plan.plan.map(item =>
-            (item._id === itemId || item.plan_item_id === itemId)
+          plan: plan.plan.map((item) =>
+            idEquals(item._id, targetItemId) || idEquals(item.plan_item_id, targetItemId)
               ? { ...item, complete }
               : item
           )
         };
       };
 
-      // Save previous state for rollback
-      const prevPlans = sharedPlans;
+      const apply = () => {
+        setSharedPlans((plans) =>
+          plans.map((p) =>
+            idEquals(p._id, selectedPlanId)
+              ? updateItemComplete(p, itemId, newComplete)
+              : p
+          )
+        );
 
-      // 1. Optimistic update - only change the complete property of this specific item
-      setSharedPlans(plans =>
-        plans.map(p =>
-          idEquals(p._id, selectedPlanId)
-            ? updateItemComplete(p, itemId, newComplete)
-            : p
-        )
-      );
+        // Keep userPlan consistent when it is the selected plan
+        if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
+          setUserPlan((prev) => updateItemComplete(prev, itemId, newComplete));
+        }
+      };
+
+      const apiCall = async () => {
+        await updatePlanItem(selectedPlanId, itemId, { complete: newComplete });
+      };
+
+      const rollback = () => {
+        setSharedPlans((plans) =>
+          plans.map((p) =>
+            idEquals(p._id, selectedPlanId)
+              ? updateItemComplete(p, itemId, prevComplete)
+              : p
+          )
+        );
+
+        if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
+          setUserPlan((prev) => updateItemComplete(prev, itemId, prevComplete));
+        }
+      };
+
+      const onError = (err, defaultMsg) => {
+        const errorMsg =
+          handleError(err, { context: 'Toggle plan item completion' }) ||
+          defaultMsg;
+        showError(errorMsg);
+      };
+
+      const run = useOptimisticAction({
+        apply,
+        apiCall,
+        rollback,
+        onError,
+        context: 'Toggle plan item completion'
+      });
 
       try {
-        // 2. API call - don't await event reconciliation, just update the server
-        await updatePlanItem(selectedPlanId, itemId, { complete: newComplete });
-        // Success - optimistic state is already correct, no further action needed
-      } catch (err) {
-        // 3. Rollback on error
-        setSharedPlans(prevPlans);
-        const errorMsg = handleError(err, { context: "Toggle plan item completion" }) || "Failed to update item. Please try again.";
-        showError(errorMsg);
+        await run();
       } finally {
-        userInteractionRef.current = false;
+        endUserInteraction('toggle-complete');
       }
     },
-    [selectedPlanId, sharedPlans, setSharedPlans, showError]
+    [
+      selectedPlanId,
+      setSharedPlans,
+      userPlan,
+      setUserPlan,
+      showError,
+      beginUserInteraction,
+      endUserInteraction
+    ]
   );
 
   /**
@@ -2811,6 +2934,7 @@ export default function SingleExperience() {
                       activeTab={activeTab}
                       setActiveTab={setActiveTab}
                       user={user}
+                      userPlan={userPlan}
                       sharedPlans={sharedPlans}
                       plansLoading={plansLoading}
                       selectedPlanId={selectedPlanId}
@@ -2891,6 +3015,8 @@ export default function SingleExperience() {
                         selectedPlanId={selectedPlanId}
                         user={user}
                         idEquals={idEquals}
+                        userPlan={userPlan}
+                        setUserPlan={setUserPlan}
                         sharedPlans={sharedPlans}
                         setSharedPlans={setSharedPlans}
                         planOwner={planOwner}
@@ -3211,9 +3337,12 @@ export default function SingleExperience() {
           // Remove item portion from URL hash, keeping only the plan hash
           const currentHash = window.location.hash || '';
           if (currentHash.includes('-item-')) {
-            const planHash = currentHash.split('-item-')[0]; // Keep #plan-{planId}
-            const newUrl = `${window.location.pathname}${window.location.search || ''}${planHash}`;
-            window.history.pushState(null, '', newUrl);
+            const planIdFromHash = currentHash.substring(6).split('-item-')[0]; // Remove '#plan-' prefix
+            writeExperienceHash({
+              planId: planIdFromHash || selectedPlanId,
+              stripItem: true,
+              reason: 'close-plan-item-details'
+            });
           }
         }}
         planItem={selectedDetailsItem}

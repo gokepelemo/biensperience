@@ -574,9 +574,14 @@ export function generateOptimisticId(prefix = 'temp') {
 
 /**
  * Check if an ID is optimistic (temporary)
+ * Optimistic IDs follow the pattern: prefix_timestamp_random
+ * Common prefixes: temp_, plan_, item_, etc.
  */
 export function isOptimisticId(id) {
-  return typeof id === 'string' && id.startsWith('temp_');
+  if (typeof id !== 'string') return false;
+  // Match pattern: word_timestamp_hexstring (e.g., plan_1767574804381_0cad0b87066456e6)
+  const optimisticPattern = /^[a-z]+_\d{13,}_[0-9a-f]{16}$/;
+  return optimisticPattern.test(id);
 }
 
 /**

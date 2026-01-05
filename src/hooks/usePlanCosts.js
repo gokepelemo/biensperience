@@ -18,7 +18,7 @@ import {
   deletePlanCost,
 } from '../utilities/plans-api';
 import { logger } from '../utilities/logger';
-import { eventBus } from '../utilities/event-bus';
+import { eventBus, isOptimisticId } from '../utilities/event-bus';
 
 export default function usePlanCosts(planId, options = {}) {
   const { autoFetch = true } = options;
@@ -31,9 +31,16 @@ export default function usePlanCosts(planId, options = {}) {
 
   /**
    * Fetch costs for the plan
+   * Skips fetching for optimistic (temporary) plan IDs
    */
   const fetchCosts = useCallback(async (filters = {}) => {
     if (!planId) return;
+
+    // Skip API call for optimistic IDs - they don't exist in the database yet
+    if (isOptimisticId(planId)) {
+      logger.debug('Skipping cost fetch for optimistic plan ID', { planId });
+      return;
+    }
 
     setLoading(true);
     setError(null);
