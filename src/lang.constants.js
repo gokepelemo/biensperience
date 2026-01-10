@@ -595,7 +595,7 @@ const en = {
     moreInformation: "More information",
     
     // Plan and item actions
-    editPlanItemTitle: "Edit plan item title",
+    editPlanItemTitle: "Update plan item title",
     deletePlanItem: "Delete plan item",
     addDetailsToPlanItem: "Add details to plan item",
     

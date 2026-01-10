@@ -182,7 +182,7 @@ export default function PlanItemModal({
 
   const modalTitle = mode === 'add'
     ? (formState.parent ? "Add Child Plan Item" : "Add Plan Item")
-    : "Edit Plan Item";
+    : "Update Plan Item";
 
   const submitText = loading
     ? "Saving..."
