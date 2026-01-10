@@ -795,31 +795,27 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
           '↳'
         ) : hasChildren && onToggleExpand ? (
           isPinned ? (
-            <span
+            <button
+              type="button"
               className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleExpand(planItem); } }}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
               title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
               <FaThumbtack className="text-warning pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
-            </span>
+            </button>
           ) : (
-            <span
+            <button
+              type="button"
               className="expand-toggle compact-expand-toggle"
               onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleExpand(planItem); } }}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
             >
               {isExpanded ? "▼" : "▶"}
-            </span>
+            </button>
           )
         ) : isPinned ? (
           <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
@@ -1392,31 +1388,27 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
           '↳'
         ) : hasChildren && onToggleExpand ? (
           isPinned ? (
-            <span
+            <button
+              type="button"
               className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleExpand(planItem); } }}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
               title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
               <FaThumbtack className="text-warning pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
-            </span>
+            </button>
           ) : (
-            <span
+            <button
+              type="button"
               className="expand-toggle compact-expand-toggle"
               onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onToggleExpand(planItem); } }}
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
             >
               {isExpanded ? "▼" : "▶"}
-            </span>
+            </button>
           )
         ) : isPinned ? (
           <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />

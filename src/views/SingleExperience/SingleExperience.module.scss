@@ -1246,6 +1246,9 @@
   cursor: pointer;
   color: var(--color-text-secondary);
   font-size: $font-size-sm;
+  font: inherit;
+  line-height: 1;
+  appearance: none;
   @include transition-all($transition-normal);
   flex-shrink: 0;
   background: transparent;
