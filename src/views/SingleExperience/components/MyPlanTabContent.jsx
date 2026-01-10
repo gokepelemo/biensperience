@@ -455,7 +455,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
 
         <div className="plan-item-actions">
           <div className="d-flex gap-1">
-            {canEdit && !planItem.parent && (
+            {canEdit && !planItem.parent && !planItem.isChild && (
               <button
                 className="btn btn-outline-primary btn-sm"
                 onClick={() =>
@@ -719,18 +719,22 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         onClick: () => handleEditPlanInstanceItem(planItem),
       },
       {
-        id: 'add-child',
-        label: lang.current.button?.addChildItem || 'Add Child Item',
-        icon: <FaPlus />,
-        onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
-      },
-      {
         id: 'schedule',
         label: useTimeOnly ? 'Schedule Time' : 'Schedule Date',
         icon: useTimeOnly ? <FaClock /> : <FaCalendarAlt />,
         onClick: () => onScheduleDate(planItem, parentItem),
       },
     ];
+
+    // Only allow 1 nesting level (no children of child items)
+    if (!isChild) {
+      items.splice(1, 0, {
+        id: 'add-child',
+        label: lang.current.button?.addChildItem || 'Add Child Item',
+        icon: <FaPlus />,
+        onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
+      });
+    }
 
     // View Details action - only show when URL exists (since clicking text opens URL)
     if (planItem.url) {
@@ -1545,15 +1549,17 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
               >
                 <FaEdit /> {lang.current.button?.update || 'Update'}
               </button>
-              <button
-                className="timeline-actions-item"
-                onClick={() => {
-                  handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
-              </button>
+              {!planItem.isChild && !planItem.parent && (
+                <button
+                  className="timeline-actions-item"
+                  onClick={() => {
+                    handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id);
+                    setShowActionsMenu(false);
+                  }}
+                >
+                  <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
+                </button>
+              )}
               <button
                 className="timeline-actions-item"
                 onClick={() => {

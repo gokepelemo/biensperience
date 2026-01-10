@@ -367,7 +367,7 @@ export default function SearchableSelect({
             className={styles.dropdown}
             role="presentation"
             data-searchable-select={selectId}
-            style={shouldPortal ? { visibility: 'hidden' } : undefined}
+            style={shouldPortal ? { visibility: 'hidden', zIndex: 'var(--z-index-popover, 1060)' } : undefined}
           >
             {/* Search input */}
             {searchable && (
