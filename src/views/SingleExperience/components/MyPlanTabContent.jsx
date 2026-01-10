@@ -2023,6 +2023,34 @@ export default function MyPlanTabContent({
   const handleSaveDate = useCallback(async (dateData) => {
     if (!dateModalPlanItem || !selectedPlanId) return;
 
+    const planItemId = (dateModalPlanItem._id || dateModalPlanItem.plan_item_id)?.toString();
+    const existing = currentPlan?.plan?.find((it) => {
+      const itId = (it._id || it.plan_item_id)?.toString();
+      return Boolean(planItemId && itId && itId === planItemId);
+    });
+
+    const prevSchedule = {
+      scheduled_date: existing?.scheduled_date ?? null,
+      scheduled_time: existing?.scheduled_time ?? null
+    };
+
+    // Optimistic update so Timeline view updates instantly (regroup/reorder) when scheduling changes.
+    updateSelectedPlanInState((p) => {
+      if (!p?.plan || !planItemId) return p;
+      return {
+        ...p,
+        plan: p.plan.map((it) => {
+          const itId = (it._id || it.plan_item_id)?.toString();
+          if (!itId || itId !== planItemId) return it;
+          return {
+            ...it,
+            scheduled_date: dateData.scheduled_date,
+            scheduled_time: dateData.scheduled_time
+          };
+        })
+      };
+    });
+
     try {
       await updatePlanItem(selectedPlanId, dateModalPlanItem._id || dateModalPlanItem.plan_item_id, {
         scheduled_date: dateData.scheduled_date,
@@ -2032,9 +2060,26 @@ export default function MyPlanTabContent({
       setDateModalPlanItem(null);
     } catch (error) {
       debug.error('[MyPlanTabContent] Failed to save date', error);
+
+      // Roll back optimistic update if the API call fails.
+      updateSelectedPlanInState((p) => {
+        if (!p?.plan || !planItemId) return p;
+        return {
+          ...p,
+          plan: p.plan.map((it) => {
+            const itId = (it._id || it.plan_item_id)?.toString();
+            if (!itId || itId !== planItemId) return it;
+            return {
+              ...it,
+              scheduled_date: prevSchedule.scheduled_date,
+              scheduled_time: prevSchedule.scheduled_time
+            };
+          })
+        };
+      });
       throw error;
     }
-  }, [dateModalPlanItem, selectedPlanId]);
+  }, [dateModalPlanItem, selectedPlanId, currentPlan?.plan, updateSelectedPlanInState]);
 
   // Handle pin/unpin plan item (toggle)
   const handlePinItem = useCallback(async (planItem) => {
