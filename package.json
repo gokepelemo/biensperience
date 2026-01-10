@@ -1,6 +1,6 @@
 {
   "name": "biensperience",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "dependencies": {
     "@adobe/css-tools": "^4.3.2",
