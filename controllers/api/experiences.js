@@ -1051,6 +1051,23 @@ async function createPlanItem(req, res) {
     if (!permCheck.allowed) {
       return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to add plan items.', 403);
     }
+
+    // Enforce max 1 nesting level: you can only add a child to a top-level item.
+    // Prevents creating child-of-child items via API.
+    if (req.body.parent) {
+      if (!mongoose.Types.ObjectId.isValid(req.body.parent)) {
+        return errorResponse(res, null, 'Invalid parent plan item ID format', 400);
+      }
+
+      const parentItem = experience.plan_items.id(req.body.parent);
+      if (!parentItem) {
+        return errorResponse(res, null, 'Parent plan item not found in this experience', 400);
+      }
+
+      if (parentItem.parent) {
+        return errorResponse(res, null, 'Cannot add a child item to a child item (max 1 nesting level)', 400);
+      }
+    }
     
     // Sanitize plan item data before saving
     const planItemData = {
@@ -1164,6 +1181,27 @@ async function updatePlanItem(req, res) {
 
     if (!plan_item) {
       return errorResponse(res, null, 'Plan item not found', 404);
+    }
+
+    // Enforce max 1 nesting level for parent updates.
+    // Allow clearing parent (set to null), but block setting parent to a child item.
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'parent') && req.body.parent) {
+      if (!mongoose.Types.ObjectId.isValid(req.body.parent)) {
+        return errorResponse(res, null, 'Invalid parent plan item ID format', 400);
+      }
+
+      if (req.body.parent.toString() === req.params.planItemId.toString()) {
+        return errorResponse(res, null, 'Plan item cannot be its own parent', 400);
+      }
+
+      const parentItem = experience.plan_items.id(req.body.parent);
+      if (!parentItem) {
+        return errorResponse(res, null, 'Parent plan item not found in this experience', 400);
+      }
+
+      if (parentItem.parent) {
+        return errorResponse(res, null, 'Cannot add a child item to a child item (max 1 nesting level)', 400);
+      }
     }
 
     // Update only provided fields (exclude _id as it's immutable)

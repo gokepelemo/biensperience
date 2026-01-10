@@ -2467,6 +2467,32 @@ const addPlanItem = asyncHandler(async (req, res) => {
     });
   }
 
+  // Enforce max 1 nesting level: you can only add a child to a top-level item.
+  // Prevents creating child-of-child items via API.
+  if (parent) {
+    const parentIdStr = parent.toString();
+
+    if (!mongoose.Types.ObjectId.isValid(parentIdStr)) {
+      return res.status(400).json({ error: 'Invalid parent plan item ID' });
+    }
+
+    const parentItem = (plan.plan || []).find(item => {
+      const primaryId = item?.plan_item_id || item?._id;
+      if (primaryId && primaryId.toString() === parentIdStr) return true;
+      return item?._id && item._id.toString() === parentIdStr;
+    });
+
+    if (!parentItem) {
+      return res.status(400).json({ error: 'Parent plan item not found in this plan' });
+    }
+
+    if (parentItem.parent) {
+      return res.status(400).json({
+        error: 'Cannot add a child item to a child item (max 1 nesting level)'
+      });
+    }
+  }
+
   // Process location data - accept various formats and convert to standard structure with validation
   let locationData = null;
   if (location) {
