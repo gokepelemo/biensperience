@@ -268,7 +268,8 @@
 @include breakpoint-max(md) {
   .dropdown {
     position: fixed;
-    z-index: 1050; /* Higher z-index for mobile/tablet overlay */
+    /* Must remain above modal content when rendered inside a modal */
+    z-index: var(--z-index-modal-dropdown, 1055);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-xl);
     /* Position and size will be set dynamically by JavaScript */

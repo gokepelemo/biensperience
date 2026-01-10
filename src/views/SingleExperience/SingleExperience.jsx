@@ -1991,35 +1991,26 @@ export default function SingleExperience() {
       const currentEditingPlanItem = formData;
 
       // Optimistic update for plan instance items
+      // Note: The selected plan can be either the user's own plan (userPlan)
+      // or a collaborative plan (sharedPlans). We snapshot both and update
+      // whichever contains the selectedPlanId.
       const prevPlans = [...sharedPlans];
-      const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-      const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
+      const prevUserPlan = userPlan && idEquals(userPlan._id, selectedPlanId)
+        ? { ...userPlan, plan: Array.isArray(userPlan.plan) ? [...userPlan.plan] : [] }
+        : null;
 
       const isAdd = planItemFormState === 1;
       const tempId = `temp-${Date.now()}`;
 
       const apply = () => {
-        if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...sharedPlans];
-        const updatedPlan = { ...prevPlan, plan: [...prevPlan.plan] };
-        if (isAdd) {
-          updatedPlan.plan.push({
-            _id: tempId,
-            plan_item_id: currentEditingPlanItem.plan_item_id || tempId,
-            text: currentEditingPlanItem.text || "",
-            url: currentEditingPlanItem.url || "",
-            cost: currentEditingPlanItem.cost || 0,
-            planning_days: currentEditingPlanItem.planning_days || 0,
-            parent: currentEditingPlanItem.parent || null,
-            activity_type: currentEditingPlanItem.activity_type || null,
-            location: currentEditingPlanItem.location || null,
-            complete: false,
-          });
-        } else {
-          const idx = findIndexById(updatedPlan.plan, currentEditingPlanItem._id);
-          if (idx >= 0) {
-            updatedPlan.plan[idx] = {
-              ...updatedPlan.plan[idx],
+        const applyToPlan = (plan) => {
+          if (!plan) return plan;
+          const nextItems = Array.isArray(plan.plan) ? [...plan.plan] : [];
+
+          if (isAdd) {
+            nextItems.push({
+              _id: tempId,
+              plan_item_id: currentEditingPlanItem.plan_item_id || tempId,
               text: currentEditingPlanItem.text || "",
               url: currentEditingPlanItem.url || "",
               cost: currentEditingPlanItem.cost || 0,
@@ -2027,11 +2018,34 @@ export default function SingleExperience() {
               parent: currentEditingPlanItem.parent || null,
               activity_type: currentEditingPlanItem.activity_type || null,
               location: currentEditingPlanItem.location || null,
-            };
+              complete: false,
+            });
+          } else {
+            const idx = findIndexById(nextItems, currentEditingPlanItem._id);
+            if (idx >= 0) {
+              nextItems[idx] = {
+                ...nextItems[idx],
+                text: currentEditingPlanItem.text || "",
+                url: currentEditingPlanItem.url || "",
+                cost: currentEditingPlanItem.cost || 0,
+                planning_days: currentEditingPlanItem.planning_days || 0,
+                parent: currentEditingPlanItem.parent || null,
+                activity_type: currentEditingPlanItem.activity_type || null,
+                location: currentEditingPlanItem.location || null,
+              };
+            }
           }
-        }
-        updatedPlans[planIndex] = updatedPlan;
-        setSharedPlans(updatedPlans);
+
+          return { ...plan, plan: nextItems };
+        };
+
+        // Update selected plan in sharedPlans (if present)
+        setSharedPlans((prev) => prev.map(p => idEquals(p._id, selectedPlanId) ? applyToPlan(p) : p));
+
+        // Update selected plan in userPlan (if it's the selected plan)
+        setUserPlan((prev) => (prev && idEquals(prev._id, selectedPlanId)) ? applyToPlan(prev) : prev);
+
+        // Always close modal after applying optimistic change.
         closeModal();
         setEditingPlanItem({});
       };
@@ -2047,6 +2061,9 @@ export default function SingleExperience() {
 
       const rollback = () => {
         setSharedPlans(prevPlans);
+        if (prevUserPlan) {
+          setUserPlan(prevUserPlan);
+        }
         openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
         setEditingPlanItem(isAdd ? (currentEditingPlanItem || {}) : currentEditingPlanItem);
       };
@@ -2071,6 +2088,7 @@ export default function SingleExperience() {
       fetchSharedPlans,
       fetchUserPlan,
       sharedPlans,
+      userPlan,
       fetchPlans,
       showError,
     ]

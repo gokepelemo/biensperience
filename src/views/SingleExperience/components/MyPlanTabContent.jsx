@@ -714,7 +714,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     const items = [
       {
         id: 'edit',
-        label: lang.current.tooltip.edit,
+        label: lang.current.button?.update || 'Update',
         icon: <FaEdit />,
         onClick: () => handleEditPlanInstanceItem(planItem),
       },
@@ -1536,7 +1536,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
                   setShowActionsMenu(false);
                 }}
               >
-                <FaEdit /> {lang.current.tooltip.edit}
+                <FaEdit /> {lang.current.button?.update || 'Update'}
               </button>
               <button
                 className="timeline-actions-item"
