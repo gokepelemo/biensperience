@@ -2067,7 +2067,19 @@
 
   &:global(.completed) {
     background: var(--color-bg-tertiary);
-    opacity: 0.85; /* WCAG: maintain sufficient contrast for completed items */
+
+    /*
+      Important: avoid opacity on the container.
+      Opacity creates a new stacking context, which can trap the actions menu
+      behind sibling items when the dropdown extends beyond the row.
+    */
+    :global(.compact-item-text),
+    :global(.compact-item-meta),
+    :global(.compact-drag-handle),
+    :global(.compact-actions-toggle),
+    :global(.compact-item-checkbox) {
+      opacity: 0.85;
+    }
   }
 
   &:global(.is-child) {
@@ -2471,7 +2483,16 @@
 
   &:global(.completed) {
     background: var(--color-bg-tertiary);
-    opacity: 0.85; /* WCAG: maintain sufficient contrast for completed items */
+
+    /* See compact view note: keep the container fully opaque so dropdown menus
+       can layer above sibling rows; dim only the content. */
+    :global(.timeline-item-text),
+    :global(.timeline-item-meta),
+    :global(.timeline-drag-handle),
+    :global(.timeline-actions-toggle),
+    :global(.timeline-item-checkbox) {
+      opacity: 0.85;
+    }
   }
 
   &:global(.is-child) {
