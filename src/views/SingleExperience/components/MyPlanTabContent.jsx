@@ -838,34 +838,49 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         className="compact-item-checkbox"
       />
 
-      {/* Item text - clickable to view details */}
+      {/* Item text */}
       <span
         className={`compact-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''} ${isPinned ? 'is-pinned' : ''}`}
-        onClick={() => handleViewPlanItemDetails(planItem)}
-        title="Click to view details"
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleViewPlanItemDetails(planItem);
-          }
-        }}
       >
         {planItem.url ? (() => {
           const safeUrl = sanitizeUrl(planItem.url);
-          return safeUrl ? (
-            <a
-              href={safeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+
+          // If the URL is valid, render a single interactive element (<a>)
+          // to avoid nesting an <a> inside another interactive container.
+          if (safeUrl) {
+            return (
+              <a
+                className="compact-item-title-link"
+                href={safeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open link in new tab"
+              >
+                {sanitizeText(planItem.text)}
+              </a>
+            );
+          }
+
+          // Fallback: invalid URL should still allow viewing details.
+          return (
+            <button
+              type="button"
+              className="compact-item-title-button"
+              onClick={() => handleViewPlanItemDetails(planItem)}
+              title="View details"
             >
               {sanitizeText(planItem.text)}
-            </a>
-          ) : sanitizeText(planItem.text);
+            </button>
+          );
         })() : (
-          sanitizeText(planItem.text)
+          <button
+            type="button"
+            className="compact-item-title-button"
+            onClick={() => handleViewPlanItemDetails(planItem)}
+            title="View details"
+          >
+            {sanitizeText(planItem.text)}
+          </button>
         )}
         {/* Activity type badge for child items with different type than parent */}
         {(() => {
