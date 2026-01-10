@@ -324,6 +324,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
   user,
   idEquals,
   canEdit,
+  canAddChild = false,
   toggleExpanded,
   isItemExpanded,
   getExpansionKey,
@@ -455,7 +456,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
 
         <div className="plan-item-actions">
           <div className="d-flex gap-1">
-            {canEdit && !planItem.parent && !planItem.isChild && (
+            {canEdit && canAddChild && (
               <button
                 className="btn btn-outline-primary btn-sm"
                 onClick={() =>
@@ -647,12 +648,14 @@ const SortablePlanItem = memo(function SortablePlanItem({
     prevProps.planItem.text === nextProps.planItem.text &&
     prevProps.planItem.isVisible === nextProps.planItem.isVisible &&
     prevProps.planItem.isChild === nextProps.planItem.isChild &&
+    (prevProps.planItem.parent?.toString() || null) === (nextProps.planItem.parent?.toString() || null) &&
     prevProps.planItem.cost === nextProps.planItem.cost &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
     prevProps.canEdit === nextProps.canEdit &&
     prevProps.hoveredPlanItem === nextProps.hoveredPlanItem &&
+    prevProps.canAddChild === nextProps.canAddChild &&
     // Expand/collapse state - compare function reference to detect changes
     prevProps.isItemExpanded === nextProps.isItemExpanded
   );
@@ -665,6 +668,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
 const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
   planItem,
   canEdit,
+  canAddChild = false,
   handlePlanItemToggleComplete,
   handleViewPlanItemDetails,
   handleAddPlanInstanceItem,
@@ -726,8 +730,8 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       },
     ];
 
-    // Only allow 1 nesting level (no children of child items)
-    if (!isChild) {
+    // Allow adding a child item if this item is shallow enough per configured max nesting.
+    if (canAddChild) {
       items.splice(1, 0, {
         id: 'add-child',
         label: lang.current.button?.addChildItem || 'Add Child Item',
@@ -771,7 +775,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
 
     return items;
   }, [
-    lang, planItem, parentItem, isPinned, onPinItem,
+    lang, planItem, parentItem, isPinned, onPinItem, canAddChild,
     handleEditPlanInstanceItem, handleAddPlanInstanceItem,
     onScheduleDate, setPlanInstanceItemToDelete, setShowPlanInstanceDeleteModal
   ]);
@@ -1345,6 +1349,7 @@ function groupPlanItemsByDate(items) {
 const TimelinePlanItem = memo(function TimelinePlanItem({
   planItem,
   canEdit,
+  canAddChild = false,
   handlePlanItemToggleComplete,
   handleViewPlanItemDetails,
   handleAddPlanInstanceItem,
@@ -1549,7 +1554,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
               >
                 <FaEdit /> {lang.current.button?.update || 'Update'}
               </button>
-              {!planItem.isChild && !planItem.parent && (
+              {canAddChild && (
                 <button
                   className="timeline-actions-item"
                   onClick={() => {
@@ -1651,6 +1656,7 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
   onScheduleDate,
   lang,
   parentItemMap,
+  canAddChildFn,
   planOwner = null,
   planCollaborators = [],
   handlePinItem,
@@ -1708,6 +1714,7 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
                       key={item.plan_item_id || item._id}
                       planItem={item}
                       canEdit={canEdit}
+                      canAddChild={typeof canAddChildFn === 'function' ? canAddChildFn(item) : false}
                       handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                       handleViewPlanItemDetails={handleViewPlanItemDetails}
                       handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -1757,6 +1764,7 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
                       key={item.plan_item_id || item._id}
                       planItem={item}
                       canEdit={canEdit}
+                      canAddChild={typeof canAddChildFn === 'function' ? canAddChildFn(item) : false}
                       handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                       handleViewPlanItemDetails={handleViewPlanItemDetails}
                       handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -1892,6 +1900,11 @@ export default function MyPlanTabContent({
   planMembers = [],
   setTyping
 }) {
+  const maxPlanItemNestingLevel = useMemo(() => {
+    const raw = import.meta.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL || import.meta.env.PLAN_ITEM_MAX_NESTING_LEVEL;
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+  }, []);
   // Check if chat is enabled:
   // 1. Chat API key must be configured (currently Stream Chat)
   // 2. Plan owner must have chat feature flag (or user is super admin)
@@ -2172,6 +2185,14 @@ export default function MyPlanTabContent({
       (item) => (item.plan_item_id || item._id).toString() === draggedId
     );
 
+    const canNestUnder = (potentialParentId) => {
+      if (maxPlanItemNestingLevel <= 0) return false;
+      const potentialParent = parentItemMap.get(potentialParentId?.toString());
+      if (!potentialParent) return false;
+      const parentDepth = getPlanItemDepth(potentialParent);
+      return Number.isFinite(parentDepth) && parentDepth < maxPlanItemNestingLevel;
+    };
+
     let promotedToParentPosition = false; // Track if we need special positioning
     if (promotionIntent && draggedIsChild) {
       // Explicit promotion: dragged left outside container alignment → become root item
@@ -2179,9 +2200,9 @@ export default function MyPlanTabContent({
       delete draggedItemCopy.parent;
       promotedToParentPosition = true;
       debug.log('[Drag] Promoting child to root (drag left intent), will position above parent');
-    } else if (nestingIntent && !draggedHasChildren && !draggedIsChild) {
+    } else if (nestingIntent && !draggedHasChildren) {
       // Nesting intent detected (drag right) - can nest under item above OR target
-      // Only works for root items (not already a child) with no children of their own
+      // Only works for items with no children of their own
       const itemAbove = draggedFlatIndex > 0 ? flattenedItems[draggedFlatIndex - 1] : null;
       const itemAboveId = itemAbove ? (itemAbove.plan_item_id || itemAbove._id).toString() : null;
 
@@ -2190,23 +2211,41 @@ export default function MyPlanTabContent({
       // - Otherwise, nest under the item above
       if (!targetIsChild && draggedId !== targetId) {
         // Dropping on a root item - nest under target
-        draggedItemCopy.parent = targetId;
-        debug.log('[Drag] Making item a child of drop target', { newParent: targetId });
+        if (canNestUnder(targetId)) {
+          draggedItemCopy.parent = targetId;
+          debug.log('[Drag] Making item a child of drop target', { newParent: targetId });
+        } else {
+          debug.log('[Drag] Nest blocked by max nesting level', { candidateParentId: targetId });
+        }
       } else if (itemAbove && !itemAbove.isChild) {
         // Item above is a root item - can nest under it
-        draggedItemCopy.parent = itemAboveId;
-        debug.log('[Drag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+        if (canNestUnder(itemAboveId)) {
+          draggedItemCopy.parent = itemAboveId;
+          debug.log('[Drag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+        } else {
+          debug.log('[Drag] Nest blocked by max nesting level', { candidateParentId: itemAboveId });
+        }
       } else if (itemAbove && itemAbove.isChild) {
         // Item above is a child - become sibling (same parent)
-        draggedItemCopy.parent = itemAbove.parent;
-        debug.log('[Drag] Becoming sibling of item above', { newParent: itemAbove.parent });
+        const siblingParentId = itemAbove.parent?.toString();
+        if (siblingParentId && canNestUnder(siblingParentId)) {
+          draggedItemCopy.parent = itemAbove.parent;
+          debug.log('[Drag] Becoming sibling of item above', { newParent: itemAbove.parent });
+        } else {
+          debug.log('[Drag] Sibling reparent blocked by max nesting level', { candidateParentId: siblingParentId });
+        }
       } else {
         debug.log('[Drag] No valid item to nest under');
       }
     } else if (targetIsChild && draggedParentId !== targetParentId && !promotionIntent) {
       // Dragged item should adopt the same parent as target (become sibling)
-      draggedItemCopy.parent = targetItem.parent;
-      debug.log('[Drag] Reparenting to same parent as target', { newParent: targetItem.parent });
+      const siblingParentId = targetItem.parent?.toString();
+      if (siblingParentId && canNestUnder(siblingParentId)) {
+        draggedItemCopy.parent = targetItem.parent;
+        debug.log('[Drag] Reparenting to same parent as target', { newParent: targetItem.parent });
+      } else {
+        debug.log('[Drag] Sibling reparent blocked by max nesting level', { candidateParentId: siblingParentId });
+      }
     } else if (!targetIsChild && draggedParentId && !nestingIntent) {
       // Target is a root item and dragged item was a child → promote to root
       delete draggedItemCopy.parent;
@@ -2508,6 +2547,36 @@ export default function MyPlanTabContent({
     }
     return map;
   }, [currentPlan?.plan]);
+
+  const getPlanItemDepth = useCallback((item) => {
+    if (!item) return Infinity;
+
+    const visited = new Set();
+    let depth = 0;
+    let cursor = item;
+
+    while (cursor?.parent) {
+      const parentId = cursor.parent?.toString();
+      if (!parentId) return Infinity;
+      if (visited.has(parentId)) return Infinity;
+      visited.add(parentId);
+
+      const parent = parentItemMap.get(parentId);
+      if (!parent) return Infinity;
+
+      depth += 1;
+      if (depth > 50) return Infinity;
+      cursor = parent;
+    }
+
+    return depth;
+  }, [parentItemMap]);
+
+  const canAddChildToItem = useCallback((item) => {
+    if (maxPlanItemNestingLevel <= 0) return false;
+    const depth = getPlanItemDepth(item);
+    return Number.isFinite(depth) && depth < maxPlanItemNestingLevel;
+  }, [maxPlanItemNestingLevel, getPlanItemDepth]);
 
   // Plan not found or still loading
   // Show skeleton loader when:
@@ -2853,6 +2922,7 @@ export default function MyPlanTabContent({
           >
             {itemsToRender.map((planItem) => {
               const itemId = (planItem._id || planItem.plan_item_id)?.toString();
+              const itemCanAddChild = canAddChildToItem(planItem);
               return (
                 <SortablePlanItem
                   key={planItem.plan_item_id || planItem._id}
@@ -2861,6 +2931,7 @@ export default function MyPlanTabContent({
                   user={user}
                   idEquals={idEquals}
                   canEdit={canEdit}
+                  canAddChild={itemCanAddChild}
                   toggleExpanded={toggleExpanded}
                   isItemExpanded={isItemExpanded}
                   getExpansionKey={getExpansionKey}
@@ -2903,11 +2974,13 @@ export default function MyPlanTabContent({
                 const itemId = (planItem._id || planItem.plan_item_id)?.toString();
                 const itemHasChildren = hasChildren(planItem);
                 const itemExpanded = isItemExpanded(planItem);
+                const itemCanAddChild = canAddChildToItem(planItem);
                 return (
                   <SortableCompactPlanItem
                     key={planItem.plan_item_id || planItem._id}
                     planItem={planItem}
                     canEdit={canEdit}
+                    canAddChild={itemCanAddChild}
                     handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                     handleViewPlanItemDetails={handleViewPlanItemDetails}
                     handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -2958,11 +3031,13 @@ export default function MyPlanTabContent({
                       const itemId = (planItem._id || planItem.plan_item_id)?.toString();
                       const itemHasChildren = hasChildren(planItem);
                       const itemExpanded = isItemExpanded(planItem);
+                      const itemCanAddChild = canAddChildToItem(planItem);
                       return (
                         <SortableCompactPlanItem
                           key={planItem.plan_item_id || planItem._id}
                           planItem={planItem}
                           canEdit={canEdit}
+                          canAddChild={itemCanAddChild}
                           handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                           handleViewPlanItemDetails={handleViewPlanItemDetails}
                           handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3011,11 +3086,13 @@ export default function MyPlanTabContent({
                         const itemId = (planItem._id || planItem.plan_item_id)?.toString();
                         const itemHasChildren = hasChildren(planItem);
                         const itemExpanded = isItemExpanded(planItem);
+                        const itemCanAddChild = canAddChildToItem(planItem);
                         return (
                           <SortableCompactPlanItem
                             key={planItem.plan_item_id || planItem._id}
                             planItem={planItem}
                             canEdit={canEdit}
+                            canAddChild={itemCanAddChild}
                             handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                             handleViewPlanItemDetails={handleViewPlanItemDetails}
                             handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3065,11 +3142,13 @@ export default function MyPlanTabContent({
                         const itemId = (planItem._id || planItem.plan_item_id)?.toString();
                         const itemHasChildren = hasChildren(planItem);
                         const itemExpanded = isItemExpanded(planItem);
+                        const itemCanAddChild = canAddChildToItem(planItem);
                         return (
                           <SortableCompactPlanItem
                             key={planItem.plan_item_id || planItem._id}
                             planItem={planItem}
                             canEdit={canEdit}
+                            canAddChild={itemCanAddChild}
                             handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                             handleViewPlanItemDetails={handleViewPlanItemDetails}
                             handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3123,11 +3202,13 @@ export default function MyPlanTabContent({
                       const itemId = (planItem._id || planItem.plan_item_id)?.toString();
                       const itemHasChildren = hasChildren(planItem);
                       const itemExpanded = isItemExpanded(planItem);
+                      const itemCanAddChild = canAddChildToItem(planItem);
                       return (
                         <TimelinePlanItem
                           key={planItem.plan_item_id || planItem._id}
                           planItem={planItem}
                           canEdit={canEdit}
+                          canAddChild={itemCanAddChild}
                           handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                           handleViewPlanItemDetails={handleViewPlanItemDetails}
                           handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3167,6 +3248,7 @@ export default function MyPlanTabContent({
                 onScheduleDate={handleScheduleDate}
                 lang={lang}
                 parentItemMap={parentItemMap}
+                canAddChildFn={canAddChildToItem}
                 planOwner={planOwner}
                 planCollaborators={planCollaborators}
                 handlePinItem={handlePinItem}
@@ -3203,11 +3285,13 @@ export default function MyPlanTabContent({
                                 ? parentItemMap.get(item.parent.toString())
                                 : null;
                               const itemId = (item.plan_item_id || item._id)?.toString();
+                              const itemCanAddChild = canAddChildToItem(item);
                               return (
                                 <TimelinePlanItem
                                   key={item.plan_item_id || item._id}
                                   planItem={item}
                                   canEdit={canEdit}
+                                  canAddChild={itemCanAddChild}
                                   handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                                   handleViewPlanItemDetails={handleViewPlanItemDetails}
                                   handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3250,11 +3334,13 @@ export default function MyPlanTabContent({
                                 ? parentItemMap.get(item.parent.toString())
                                 : null;
                               const itemId = (item.plan_item_id || item._id)?.toString();
+                              const itemCanAddChild = canAddChildToItem(item);
                               return (
                                 <TimelinePlanItem
                                   key={item.plan_item_id || item._id}
                                   planItem={item}
                                   canEdit={canEdit}
+                                  canAddChild={itemCanAddChild}
                                   handlePlanItemToggleComplete={handlePlanItemToggleComplete}
                                   handleViewPlanItemDetails={handleViewPlanItemDetails}
                                   handleAddPlanInstanceItem={handleAddPlanInstanceItem}

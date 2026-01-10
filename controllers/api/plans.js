@@ -2467,28 +2467,68 @@ const addPlanItem = asyncHandler(async (req, res) => {
     });
   }
 
-  // Enforce max 1 nesting level: you can only add a child to a top-level item.
-  // Prevents creating child-of-child items via API.
+  // Enforce configurable max nesting level.
+  // Definition: root items have depth 0; a direct child has depth 1; etc.
+  // Adding a child under `parent` creates a new item at depth (depth(parent) + 1).
+  const maxNestingLevelRaw = process.env.PLAN_ITEM_MAX_NESTING_LEVEL || process.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL;
+  const maxNestingLevelParsed = parseInt(maxNestingLevelRaw, 10);
+  const maxNestingLevel = Number.isFinite(maxNestingLevelParsed) && maxNestingLevelParsed >= 0 ? maxNestingLevelParsed : 1;
+
   if (parent) {
+    if (maxNestingLevel === 0) {
+      return res.status(400).json({ error: 'Plan item nesting is disabled (max nesting level is 0)' });
+    }
+
     const parentIdStr = parent.toString();
 
     if (!mongoose.Types.ObjectId.isValid(parentIdStr)) {
       return res.status(400).json({ error: 'Invalid parent plan item ID' });
     }
 
-    const parentItem = (plan.plan || []).find(item => {
-      const primaryId = item?.plan_item_id || item?._id;
-      if (primaryId && primaryId.toString() === parentIdStr) return true;
-      return item?._id && item._id.toString() === parentIdStr;
-    });
+    const findPlanItemByAnyId = (idStr) => {
+      return (plan.plan || []).find(item => {
+        const primaryId = item?.plan_item_id || item?._id;
+        if (primaryId && primaryId.toString() === idStr) return true;
+        return item?._id && item._id.toString() === idStr;
+      }) || null;
+    };
+
+    const parentItem = findPlanItemByAnyId(parentIdStr);
 
     if (!parentItem) {
       return res.status(400).json({ error: 'Parent plan item not found in this plan' });
     }
 
-    if (parentItem.parent) {
+    // Compute depth of the parent by walking up its parent chain.
+    const visited = new Set();
+    let parentDepth = 0;
+    let cursor = parentItem;
+
+    while (cursor?.parent) {
+      const cursorId = (cursor.plan_item_id || cursor._id)?.toString() || null;
+      if (cursorId) {
+        if (visited.has(cursorId)) {
+          return res.status(400).json({ error: 'Invalid plan item hierarchy (cycle detected)' });
+        }
+        visited.add(cursorId);
+      }
+
+      parentDepth += 1;
+      if (parentDepth > 50) {
+        return res.status(400).json({ error: 'Invalid plan item hierarchy (excessive nesting)' });
+      }
+
+      const nextParentId = cursor.parent.toString();
+      const nextParent = findPlanItemByAnyId(nextParentId);
+      if (!nextParent) {
+        return res.status(400).json({ error: 'Invalid plan item hierarchy (missing parent)' });
+      }
+      cursor = nextParent;
+    }
+
+    if (parentDepth >= maxNestingLevel) {
       return res.status(400).json({
-        error: 'Cannot add a child item to a child item (max 1 nesting level)'
+        error: `Cannot add a child item deeper than max nesting level ${maxNestingLevel}`
       });
     }
   }

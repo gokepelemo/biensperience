@@ -52,6 +52,7 @@ function SortableExperiencePlanItem({
   user,
   expandedParents,
   canEdit,
+  canAddChild = false,
   toggleExpanded,
   handleAddExperiencePlanItem,
   handleEditExperiencePlanItem,
@@ -144,7 +145,7 @@ function SortableExperiencePlanItem({
         <div className="plan-item-actions">
           {isOwner(user, experience) && (
             <div className="d-flex gap-1">
-              {!planItem.parent && (
+              {canAddChild && (
                 <button
                   className="btn btn-outline-primary btn-sm"
                   onClick={() =>
@@ -428,6 +429,55 @@ export default function ExperienceTabContent({
   presenceConnected = false,
   experienceMembers = []
 }) {
+  const maxPlanItemNestingLevel = useMemo(() => {
+    const raw = import.meta.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL || import.meta.env.PLAN_ITEM_MAX_NESTING_LEVEL;
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+  }, []);
+
+  const experienceItemMap = useMemo(() => {
+    const map = new Map();
+    for (const item of experience?.plan_items || []) {
+      if (item?._id) {
+        map.set(item._id.toString(), item);
+      }
+    }
+    return map;
+  }, [experience?.plan_items]);
+
+  const getPlanItemDepth = useMemo(() => {
+    return (item) => {
+      if (!item) return Infinity;
+
+      const visited = new Set();
+      let depth = 0;
+      let cursor = item;
+
+      while (cursor?.parent) {
+        const parentId = cursor.parent?.toString();
+        if (!parentId) return Infinity;
+        if (visited.has(parentId)) return Infinity;
+        visited.add(parentId);
+
+        const parent = experienceItemMap.get(parentId);
+        if (!parent) return Infinity;
+
+        depth += 1;
+        if (depth > 50) return Infinity;
+        cursor = parent;
+      }
+
+      return depth;
+    };
+  }, [experienceItemMap]);
+
+  const canAddChildToItem = useMemo(() => {
+    return (item) => {
+      if (maxPlanItemNestingLevel <= 0) return false;
+      const depth = getPlanItemDepth(item);
+      return Number.isFinite(depth) && depth < maxPlanItemNestingLevel;
+    };
+  }, [maxPlanItemNestingLevel, getPlanItemDepth]);
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [rawPlanItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
@@ -559,6 +609,14 @@ export default function ExperienceTabContent({
       (item) => item._id.toString() === draggedId
     );
 
+    const canNestUnder = (potentialParentId) => {
+      if (maxPlanItemNestingLevel <= 0) return false;
+      const potentialParent = experienceItemMap.get(potentialParentId?.toString());
+      if (!potentialParent) return false;
+      const parentDepth = getPlanItemDepth(potentialParent);
+      return Number.isFinite(parentDepth) && parentDepth < maxPlanItemNestingLevel;
+    };
+
     let promotedToParentPosition = false; // Track if we need special positioning
     if (promotionIntent && draggedIsChild) {
       // Explicit promotion: dragged left outside container alignment → become root item
@@ -566,9 +624,9 @@ export default function ExperienceTabContent({
       delete draggedItemCopy.parent;
       promotedToParentPosition = true;
       debug.log('[ExperienceDrag] Promoting child to root (drag left intent), will position above parent');
-    } else if (nestingIntent && !draggedHasChildren && !draggedIsChild) {
+    } else if (nestingIntent && !draggedHasChildren) {
       // Nesting intent detected (drag right) - can nest under item above OR target
-      // Only works for root items (not already a child) with no children of their own
+      // Only works for items with no children of their own
       const itemAbove = draggedFlatIndex > 0 ? flattenedItemsForDrag[draggedFlatIndex - 1] : null;
       const itemAboveId = itemAbove ? itemAbove._id.toString() : null;
 
@@ -577,23 +635,41 @@ export default function ExperienceTabContent({
       // - Otherwise, nest under the item above
       if (!targetIsChild && draggedId !== targetId) {
         // Dropping on a root item - nest under target
-        draggedItemCopy.parent = targetId;
-        debug.log('[ExperienceDrag] Making item a child of drop target', { newParent: targetId });
+        if (canNestUnder(targetId)) {
+          draggedItemCopy.parent = targetId;
+          debug.log('[ExperienceDrag] Making item a child of drop target', { newParent: targetId });
+        } else {
+          debug.log('[ExperienceDrag] Nest blocked by max nesting level', { candidateParentId: targetId });
+        }
       } else if (itemAbove && !itemAbove.isChild) {
         // Item above is a root item - can nest under it
-        draggedItemCopy.parent = itemAboveId;
-        debug.log('[ExperienceDrag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+        if (canNestUnder(itemAboveId)) {
+          draggedItemCopy.parent = itemAboveId;
+          debug.log('[ExperienceDrag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+        } else {
+          debug.log('[ExperienceDrag] Nest blocked by max nesting level', { candidateParentId: itemAboveId });
+        }
       } else if (itemAbove && itemAbove.isChild) {
         // Item above is a child - become sibling (same parent)
-        draggedItemCopy.parent = itemAbove.parent;
-        debug.log('[ExperienceDrag] Becoming sibling of item above', { newParent: itemAbove.parent });
+        const siblingParentId = itemAbove.parent?.toString();
+        if (siblingParentId && canNestUnder(siblingParentId)) {
+          draggedItemCopy.parent = itemAbove.parent;
+          debug.log('[ExperienceDrag] Becoming sibling of item above', { newParent: itemAbove.parent });
+        } else {
+          debug.log('[ExperienceDrag] Sibling reparent blocked by max nesting level', { candidateParentId: siblingParentId });
+        }
       } else {
         debug.log('[ExperienceDrag] No valid item to nest under');
       }
     } else if (targetIsChild && draggedParentId !== targetParentId && !promotionIntent) {
       // Dragged item should adopt the same parent as target (become sibling)
-      draggedItemCopy.parent = targetItem.parent;
-      debug.log('[ExperienceDrag] Reparenting to same parent as target', { newParent: targetItem.parent });
+      const siblingParentId = targetItem.parent?.toString();
+      if (siblingParentId && canNestUnder(siblingParentId)) {
+        draggedItemCopy.parent = targetItem.parent;
+        debug.log('[ExperienceDrag] Reparenting to same parent as target', { newParent: targetItem.parent });
+      } else {
+        debug.log('[ExperienceDrag] Sibling reparent blocked by max nesting level', { candidateParentId: siblingParentId });
+      }
     } else if (!targetIsChild && draggedParentId && !nestingIntent) {
       // Target is a root item and dragged item was a child → promote to root
       delete draggedItemCopy.parent;
@@ -792,6 +868,7 @@ export default function ExperienceTabContent({
                 user={user}
                 expandedParents={expandedParents}
                 canEdit={canEdit}
+                canAddChild={canAddChildToItem(planItem)}
                 toggleExpanded={toggleExpanded}
                 handleAddExperiencePlanItem={handleAddExperiencePlanItem}
                 handleEditExperiencePlanItem={handleEditExperiencePlanItem}
