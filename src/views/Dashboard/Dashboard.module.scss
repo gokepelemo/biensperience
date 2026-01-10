@@ -196,7 +196,11 @@
 /* Tab content containers */
 .tabContentFlex {
   flex: 1;
-  overflow: auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ===== SKELETON LOADERS - Pixel Perfect ===== */

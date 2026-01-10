@@ -394,6 +394,8 @@ async function getRecentActivity(userId, options = {}) {
           if (activity.target.id) {
             resourceLink = `/profile/${activity.target.id}`;
           }
+          // Clear targetName to avoid duplicate display (name is already shown as resourceName/item)
+          targetName = null;
         }
       }
 
@@ -412,18 +414,33 @@ async function getRecentActivity(userId, options = {}) {
         resourceLink = activity.metadata.resourceLink;
       }
 
-      // Format action text, with special-casing for destination permission events
-      let actionText = formatActivityAction(activity.action);
+      // Determine if this is the user's own activity
+      const isOwnActivity = activity.actor?._id?.toString() === userId.toString();
+
+      // Format action text with context-aware formatting
+      let actionText = formatActivityAction(activity.action, {
+        resourceType: activity.resource?.type,
+        isOwnActivity
+      });
+
+      // Special-case destination permission events (legacy support for permission_added/removed)
       if (activity.resource?.type === 'Destination') {
         if (activity.action === 'permission_added') actionText = 'Favorited';
         if (activity.action === 'permission_removed') actionText = 'Unfavorited';
+      }
+
+      // For User resource updates, don't repeat the user's name as the item
+      // Instead, the action text already includes the context (e.g., "Updated their profile")
+      let itemDisplay = resourceName;
+      if (activity.resource?.type === 'User' && activity.action === 'resource_updated') {
+        itemDisplay = null; // Action text is self-sufficient
       }
 
       return {
         id: activity._id.toString(),
         action: actionText,
         actionType: activity.action, // Raw action type for client-side filtering
-        item: resourceName,
+        item: itemDisplay,
         targetItem: targetName,
         link: resourceLink,
         time: formatTimeAgo(activity.timestamp),
@@ -529,31 +546,69 @@ async function getUpcomingPlansEndpoint(req, res) {
 
 /**
  * Format activity action into user-friendly text
+ * @param {string} action - Raw action type from Activity model
+ * @param {Object} options - Additional context for formatting
+ * @param {string} options.resourceType - Type of resource (User, Experience, etc.)
+ * @param {boolean} options.isOwnActivity - Whether the actor is the current user
+ * @returns {string} Human-readable action text
  */
-function formatActivityAction(action) {
+function formatActivityAction(action, options = {}) {
+  const { resourceType, isOwnActivity } = options;
+
+  // Special handling for User profile updates
+  if (action === 'resource_updated' && resourceType === 'User') {
+    return isOwnActivity ? 'Updated your profile' : 'Updated their profile';
+  }
+
   const actionMap = {
+    // Resource CRUD
     'resource_created': 'Created',
     'resource_updated': 'Updated',
     'resource_deleted': 'Deleted',
+
+    // Permission actions
+    'permission_added': 'Added a collaborator to',
+    'permission_removed': 'Removed a collaborator from',
+    'permission_updated': 'Updated permissions on',
+    'ownership_transferred': 'Transferred ownership of',
+
+    // User actions
+    'user_registered': 'Joined Biensperience',
+    'user_updated': 'Updated their profile',
+    'user_deleted': 'Deleted their account',
+    'email_verified': 'Verified their email',
+    'password_changed': 'Changed their password',
+    'profile_updated': 'Updated their profile',
+
+    // Plan actions
     'plan_created': 'Created a plan on',
     'plan_updated': 'Updated a plan on',
     'plan_deleted': 'Deleted a plan from',
-    'permission_added': 'Added a collaborator to',
-    'permission_removed': 'Removed a collaborator from',
-    'user_registered': 'Joined Biensperience',
-    'email_verified': 'Verified email address',
     'plan_item_completed': 'Completed a plan item on',
     'plan_item_uncompleted': 'Uncompleted a plan item on',
     'plan_item_note_added': 'Added a note to a plan item on',
     'plan_item_note_updated': 'Updated a note on a plan item in',
     'plan_item_note_deleted': 'Deleted a note from a plan item in',
-    'collaborator_added': 'Became a collaborator on',
-    'collaborator_removed': 'Removed from collaboration on',
+
+    // Cost actions
     'cost_added': 'Added a cost to',
     'cost_updated': 'Updated a cost on',
     'cost_deleted': 'Deleted a cost from',
+
+    // Social actions
+    'favorite_added': 'Favorited',
+    'favorite_removed': 'Unfavorited',
+    'collaborator_added': 'Became a collaborator on',
+    'collaborator_removed': 'Removed from collaboration on',
     'follow_created': 'Followed',
-    'follow_removed': 'Unfollowed'
+    'follow_removed': 'Unfollowed',
+    'follow_blocked': 'Blocked',
+
+    // System actions
+    'data_imported': 'Imported data',
+    'data_exported': 'Exported data',
+    'backup_created': 'Created a backup',
+    'rollback_performed': 'Performed a rollback'
   };
 
   return actionMap[action] || action.replace(/_/g, ' ');

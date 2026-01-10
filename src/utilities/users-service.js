@@ -3,6 +3,7 @@ import { debug } from "./debug.js"
 import { logger } from "./logger"
 import { clearSession } from "./session-utils.js"
 import { eventBus } from "./event-bus"
+import { clearStoredToken, getStoredToken, setStoredToken } from "./token-storage.js"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -18,7 +19,7 @@ import { eventBus } from "./event-bus"
 export async function signUp(userData) {
     const token = await usersAPI.signUp(userData);
     try {
-        localStorage.setItem('token', token);
+        setStoredToken(token);
         
         // Update EventBus with auth token to enable WebSocket connection
         eventBus.setAuthToken(token).catch(err => {
@@ -38,14 +39,14 @@ export async function signUp(userData) {
  */
 export function getToken() {
     try {
-        const token = localStorage.getItem('token');
+        const token = getStoredToken();
         if (!token) return null;
         
         // Validate token format (should be 3 parts separated by dots)
         const parts = token.split('.');
         if (parts.length !== 3) {
             logger.warn('Invalid token format - removing corrupted token', { tokenParts: parts.length });
-            localStorage.removeItem('token');
+            clearStoredToken();
             return null;
         }
         
@@ -53,14 +54,14 @@ export function getToken() {
         try {
             const payload = JSON.parse(atob(parts[1]));
             if (payload.exp < Date.now() / 1000) {
-                localStorage.removeItem('token');
+                clearStoredToken();
                 return null;
             }
             return token;
         } catch (decodeError) {
             // Token is corrupted or invalid
             logger.warn('Failed to decode token - removing corrupted token', { error: decodeError.message });
-            localStorage.removeItem('token');
+            clearStoredToken();
             return null;
         }
     } catch (error) {
@@ -115,12 +116,12 @@ export async function logout() {
         clearSession();
         
         // Clear authentication token
-        localStorage.removeItem('token');
+        clearStoredToken();
     } catch (error) {
         logger.warn('Logout error', { error: error.message });
         // Still try to clear token even if other operations fail
         try {
-            localStorage.removeItem('token');
+            clearStoredToken();
         } catch (storageError) {
             logger.warn('Failed to remove token from localStorage', { error: storageError.message });
         }
@@ -132,7 +133,7 @@ export async function login(credentials) {
     const token = await usersAPI.login(credentials);
     debug.log('users-service login got token:', token ? 'token received' : 'no token');
     try {
-        localStorage.setItem('token', token);
+        setStoredToken(token);
         debug.log('Token stored in localStorage');
         
         // Update EventBus with auth token to enable WebSocket connection
@@ -160,7 +161,7 @@ export async function checkToken() {
  */
 export function updateToken(token) {
     try {
-        localStorage.setItem('token', token);
+        setStoredToken(token);
     } catch (error) {
         logger.warn('Failed to update token in localStorage', { error: error.message });
     }

@@ -4,6 +4,7 @@
  */
 
 import { getUser } from './users-service';
+import { clearStoredToken, setStoredToken, getStoredToken } from './token-storage';
 
 /**
  * Process OAuth callback from URL parameters
@@ -38,8 +39,8 @@ export async function handleOAuthCallback() {
   // If token exists, store it and fetch user
   if (token && provider) {
     try {
-      // Store token in localStorage
-      localStorage.setItem('token', token);
+      // Store token in localStorage (encrypted at rest)
+      setStoredToken(token);
 
       // Fetch user data
       const user = await getUser();
@@ -50,7 +51,7 @@ export async function handleOAuthCallback() {
       return { user, provider };
     } catch (err) {
       // Remove invalid token
-      localStorage.removeItem('token');
+      clearStoredToken();
       throw new Error(`Failed to complete ${provider} login. Please try again.`);
     }
   }
@@ -64,7 +65,7 @@ export async function handleOAuthCallback() {
  * @returns {Promise<Object>} Object with linked account status
  */
 export async function getLinkedAccounts() {
-  const token = localStorage.getItem('token');
+  const token = getStoredToken();
   
   if (!token) {
     throw new Error('Not authenticated');
@@ -90,7 +91,7 @@ export async function getLinkedAccounts() {
  * @returns {Promise<Object>} Response data
  */
 export async function unlinkAccount(provider) {
-  const token = localStorage.getItem('token');
+  const token = getStoredToken();
   
   if (!token) {
     throw new Error('Not authenticated');

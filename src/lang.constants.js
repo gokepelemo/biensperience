@@ -13,7 +13,7 @@ const en = {
     create: "Create",
     delete: "Delete",
     confirmUpdate: "Confirm Update",
-    editDate: "Update Planned Date",
+    editDate: "Planned Date",
     login: "Login",
     logout: "Logout",
     remove: "Remove",
@@ -440,7 +440,7 @@ const en = {
     trackedCosts: "Tracked Costs",
     planningTime: "Planning Time",
     planYourExperience: "Plan It",
-    editPlannedDate: "Update Planned Date",
+    editPlannedDate: "Planned Date",
     travelTips: "Travel Tips",
     favoriteDestinations: "Favorite Destinations",
     preferredExperienceTypes: "Preferred Experience Types",
@@ -1938,6 +1938,7 @@ const en = {
 
     // Actions
     addDetails: "Add Details",
+    selectDetailTypeHint: "Select the type of detail you want to add",
     addLocation: "Add Location",
     addNote: "Add Note",
     addPhoto: "Add Photo",

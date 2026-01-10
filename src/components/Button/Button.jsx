@@ -3,6 +3,12 @@ import PropTypes from 'prop-types';
 import styles from './Button.module.scss';
 import { calculateButtonWidth } from '../../utilities/button-utils';
 
+const BOOTSTRAP_VARIANTS = [
+  'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark',
+  'outline-primary', 'outline-secondary', 'outline-success', 'outline-danger',
+  'outline-warning', 'outline-info', 'outline-light', 'outline-dark'
+];
+
 /**
  * Button component with unified design system styling
  *
@@ -53,7 +59,16 @@ const Button = React.forwardRef(function Button({
 }, ref) {
   // Normalize legacy variant names: 'primary' -> 'gradient'
   let normalizedVariant = variant;
+  let effectiveBootstrapVariant = bootstrapVariant;
+
   if (variant === 'primary') normalizedVariant = 'gradient';
+
+  // Backward-compat: allow callers to pass bootstrap variants directly via `variant`
+  // e.g. <Button variant="outline-secondary" />
+  if (typeof variant === 'string' && BOOTSTRAP_VARIANTS.includes(variant)) {
+    normalizedVariant = 'bootstrap';
+    effectiveBootstrapVariant = variant;
+  }
 
   // Build className string with CSS Modules
   const variantClass = {
@@ -79,7 +94,7 @@ const Button = React.forwardRef(function Button({
     rounded && styles.btnRounded,
     shadow && styles.btnShadow,
     sizeClass,
-    normalizedVariant === 'bootstrap' && `btn btn-${bootstrapVariant}`,
+    normalizedVariant === 'bootstrap' && `btn btn-${effectiveBootstrapVariant}`,
     className
   ].filter(Boolean).join(' ');
 
@@ -164,12 +179,9 @@ Button.propTypes = {
     'success',    // Positive action (green)
     'bootstrap',  // Use Bootstrap styling
     'primary',    // Legacy alias for 'gradient'
+    ...BOOTSTRAP_VARIANTS, // Legacy: callers may pass bootstrapVariant through `variant`
   ]),
-  bootstrapVariant: PropTypes.oneOf([
-    'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark',
-    'outline-primary', 'outline-secondary', 'outline-success', 'outline-danger',
-    'outline-warning', 'outline-info', 'outline-light', 'outline-dark'
-  ]),
+  bootstrapVariant: PropTypes.oneOf(BOOTSTRAP_VARIANTS),
   rounded: PropTypes.bool,
   shadow: PropTypes.bool,
   disabled: PropTypes.bool,

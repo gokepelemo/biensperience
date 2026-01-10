@@ -2500,10 +2500,14 @@ export default function MyPlanTabContent({
   // Show skeleton loader when:
   // 1. plansLoading is true (explicit loading state)
   // 2. selectedPlanId exists but plan not in sharedPlans yet (race condition during plan creation)
+  // 3. currentPlan is optimistic (placeholder created before canonical plan arrives)
   // Only show "Plan not found" after loading is complete and plan genuinely doesn't exist
-  if (!currentPlan) {
+  if (!currentPlan || currentPlan?._optimistic) {
     // If we have a selectedPlanId but no plan, it's likely being created/loaded
-    const isPlanLoading = plansLoading || (selectedPlanId && !allPlans.some(p => idEquals(p._id, selectedPlanId)));
+    const isPlanLoading =
+      plansLoading ||
+      !!currentPlan?._optimistic ||
+      (selectedPlanId && !allPlans.some(p => idEquals(p._id, selectedPlanId)));
 
     if (isPlanLoading) {
       return (

@@ -28,6 +28,14 @@ import { Container } from "../../components/design-system";
 import styles from './App.module.scss';
 import { waitForCSS } from '../../utilities/css-loading';
 import { initializeCSSEnvironment } from '../../utilities/css-environment-consistency';
+import ProfileSkeleton from "../Profile/components/ProfileSkeleton";
+import { isSuperAdmin } from "../../utilities/permissions";
+import {
+  getObfuscatedJson,
+  removeStorageKey,
+  setObfuscatedJson
+} from '../../utilities/secure-storage-lite';
+import { STORAGE_KEYS } from '../../utilities/storage-keys';
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -70,10 +78,6 @@ export default function App() {
         <meta property="og:site_name" content="Biensperience" />
         <meta property="og:type" content="website" />
 
-        {/* Twitter Card defaults */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:site" content="@biensperience" />
-
         {/* Schema.org defaults */}
         <script type="application/ld+json">
           {JSON.stringify({
@@ -110,7 +114,6 @@ export default function App() {
           })}
         </script>
       </Helmet>
-
       <ToastProvider>
         <UserProvider>
           <AppProvider>
@@ -156,7 +159,7 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const PENDING_HASH_STORAGE_KEY = 'bien:pendingHash';
+  const PENDING_HASH_STORAGE_KEY = STORAGE_KEYS.pendingHash;
 
   const applyHashToUrl = useCallback((hash, { mode } = {}) => {
     const normalized = (hash || '').startsWith('#') ? hash : `#${hash || ''}`;
@@ -216,7 +219,7 @@ function AppContent() {
       );
 
       if (shouldStore && currentPath !== '/') {
-        sessionStorage.setItem('bien:intendedRoute', currentPath);
+        setObfuscatedJson(sessionStorage, 'bien:intendedRoute', currentPath);
         logger.info('[Login Redirect] Stored intended route:', currentPath);
       }
     }
@@ -360,9 +363,27 @@ function AppContent() {
         const raw = await getCollaboratorNotifications(userId, { limit: 10 });
         const activities = Array.isArray(raw) ? raw : (raw?.data || []);
 
-        const seenKey = `seen_activities_${userId}`;
-        let seen = [];
-        try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch (e) { seen = []; }
+        const seenKey = `bien:seenActivities:${userId}`;
+        const legacySeenKey = `seen_activities_${userId}`;
+
+        let seen = getObfuscatedJson(localStorage, seenKey, null);
+        if (!Array.isArray(seen)) {
+          // Migrate legacy plaintext list if present
+          try {
+            const legacyRaw = localStorage.getItem(legacySeenKey);
+            if (legacyRaw) {
+              const parsed = JSON.parse(legacyRaw);
+              if (Array.isArray(parsed)) {
+                seen = parsed;
+                setObfuscatedJson(localStorage, seenKey, parsed);
+              }
+              try { localStorage.removeItem(legacySeenKey); } catch (e) {}
+            }
+          } catch (e) {
+            seen = [];
+          }
+        }
+        if (!Array.isArray(seen)) seen = [];
 
         const newIds = [];
 
@@ -385,9 +406,9 @@ function AppContent() {
                     const id = act.resource.id || act.resource._id;
                     navigate(`/experiences/${id}`);
                   }
-                  const cur = JSON.parse(localStorage.getItem(seenKey) || '[]');
-                  cur.push(act._id);
-                  localStorage.setItem(seenKey, JSON.stringify(cur));
+                  const cur = getObfuscatedJson(localStorage, seenKey, []);
+                  const next = Array.from(new Set([...(Array.isArray(cur) ? cur : []), act._id]));
+                  setObfuscatedJson(localStorage, seenKey, next);
                 },
                 variant: 'primary'
               }
@@ -398,9 +419,9 @@ function AppContent() {
         });
 
         if (mounted && newIds.length > 0) {
-          const cur = JSON.parse(localStorage.getItem(seenKey) || '[]');
-          const merged = Array.from(new Set([...cur, ...newIds]));
-          localStorage.setItem(seenKey, JSON.stringify(merged));
+          const cur = getObfuscatedJson(localStorage, seenKey, []);
+          const merged = Array.from(new Set([...(Array.isArray(cur) ? cur : []), ...newIds]));
+          setObfuscatedJson(localStorage, seenKey, merged);
         }
       } catch (err) {
         logger.error('Failed to fetch collaborator notifications', { error: err?.message || err });
@@ -465,9 +486,9 @@ function AppContent() {
           success(message);
 
           // Redirect to intended route after OAuth login (deep linking support)
-          const intendedRoute = sessionStorage.getItem('bien:intendedRoute');
+          const intendedRoute = getObfuscatedJson(sessionStorage, 'bien:intendedRoute', null);
           if (intendedRoute) {
-            sessionStorage.removeItem('bien:intendedRoute');
+            removeStorageKey(sessionStorage, 'bien:intendedRoute');
             logger.info('[Login Redirect] Redirecting to intended route after OAuth:', intendedRoute);
             navigate(intendedRoute);
           }
@@ -481,6 +502,41 @@ function AppContent() {
     // Intentionally leave deps empty to run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+    const RouteSuspenseFallback = useCallback(() => {
+      try {
+        const pathname = (location?.pathname || '').toLowerCase();
+        const segments = pathname.split('/').filter(Boolean);
+
+        const isProfileViewRoute =
+          segments[0] === 'profile' &&
+          (segments.length === 1 || (segments.length === 2 && segments[1] && segments[1] !== 'update'));
+
+        if (!isProfileViewRoute) {
+          return <Loading variant="centered" size="lg" message={lang.current.loading.page} />;
+        }
+
+        const profileIdFromPath = segments.length === 2 && segments[1]?.length === 24 ? segments[1] : null;
+        const isOwner = !profileIdFromPath || profileIdFromPath === user?._id || isSuperAdmin(user);
+
+        const rawHash = (window.location.hash || '').replace('#', '');
+        const activeTab = ['activity', 'follows', 'experiences', 'created', 'destinations'].includes(rawHash)
+          ? rawHash
+          : (rawHash === 'followers' || rawHash === 'following')
+          ? 'follows'
+          : 'activity';
+
+        return (
+          <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
+            <Container>
+              <ProfileSkeleton isOwner={isOwner} activeTab={activeTab} />
+            </Container>
+          </div>
+        );
+      } catch (e) {
+        return <Loading variant="centered" size="lg" message={lang.current.loading.page} />;
+      }
+    }, [location?.pathname, user]);
 
     return (
       <>
@@ -504,7 +560,7 @@ function AppContent() {
                   showHomeButton={true}
                 >
                   <ScrollToTop />
-                  <Suspense fallback={<Loading variant="centered" size="lg" message={lang.current.loading.page} />}>
+                  <Suspense fallback={<RouteSuspenseFallback />}>
                     <Routes>
                       <Route path="/" element={<AppHome />} />
                       <Route path="/experiences/new" element={

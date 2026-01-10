@@ -20,6 +20,7 @@ import Button from '../Button/Button';
 import Loading from '../Loading/Loading';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
+import AddDetailTypeModal from '../AddDetailTypeModal';
 import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
 import GoogleMap from '../GoogleMap/GoogleMap';
@@ -135,6 +136,7 @@ export default function PlanItemDetailsModal({
   const [selectedDetailType, setSelectedDetailType] = useState(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [showDetailTypeSelectorModal, setShowDetailTypeSelectorModal] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
   // Local state for immediate UI feedback on scheduled date/time changes
@@ -1706,6 +1708,8 @@ export default function PlanItemDetailsModal({
                   icon="📋"
                   title={lang.current.planItemDetailsModal.noDetailsAdded}
                   description={lang.current.planItemDetailsModal.noDetailsDescription}
+                  primaryAction={canEdit && (onAddCostForItem || onAddDetail) ? (lang.current.planItemDetailsModal.addDetails || 'Add Details') : null}
+                  onPrimaryAction={canEdit && (onAddCostForItem || onAddDetail) ? () => setShowDetailTypeSelectorModal(true) : null}
                   size="md"
                   fillContainer
                 />
@@ -1898,6 +1902,13 @@ export default function PlanItemDetailsModal({
         initialDate={planItem?.scheduled_date || null}
         initialTime={planItem?.scheduled_time || null}
         planItemText={planItem?.text || 'Plan Item'}
+      />
+
+      {/* Add Detail Type Selector Modal - for empty state "Add Details" button */}
+      <AddDetailTypeModal
+        show={showDetailTypeSelectorModal}
+        onClose={() => setShowDetailTypeSelectorModal(false)}
+        onSelectType={handleSelectDetailType}
       />
     </Modal>
   );

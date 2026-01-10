@@ -41,6 +41,7 @@ import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
 import debug from "../../utilities/debug";
 import { logger } from "../../utilities/logger";
+import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from '../../utilities/storage-keys';
 import { createUrlSlug } from "../../utilities/url-utils";
 import { useNavigationIntent, INTENT_TYPES } from "../../contexts/NavigationIntentContext";
 import { useScrollHighlight } from "../../hooks/useScrollHighlight";
@@ -94,7 +95,7 @@ import {
   unassignPlanItem,
   addPlanItemDetail,
 } from "../../utilities/plans-api";
-import { reconcileState, generateOptimisticId, subscribeToEvent } from "../../utilities/event-bus";
+import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
@@ -611,6 +612,9 @@ export default function SingleExperience() {
       const newHash = `#plan-${selectedPlanId}`;
       window.history.replaceState(null, '', `${window.location.pathname}${newHash}`);
     } else if (activeTab === 'experience') {
+      // Preserve incoming plan hashes until plan data loads and handlers can process them.
+      if ((window.location.hash || '').startsWith('#plan-')) return;
+
       if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
       }
@@ -1085,6 +1089,16 @@ export default function SingleExperience() {
   // Wrapper functions to maintain backward compatibility with components that expect setters
   const handleOpenDatePicker = useCallback(() => openModal(MODAL_NAMES.DATE_PICKER), [openModal]);
   const handleCloseDatePicker = useCallback(() => closeModal(), [closeModal]);
+  const setShowDatePickerState = useCallback(
+    (nextShow) => {
+      if (nextShow) {
+        openModal(MODAL_NAMES.DATE_PICKER);
+      } else {
+        closeModal();
+      }
+    },
+    [openModal, closeModal]
+  );
   const handleOpenPlanDeleteModal = useCallback(() => openModal(MODAL_NAMES.DELETE_PLAN_ITEM), [openModal]);
   const handleClosePlanDeleteModal = useCallback(() => closeModal(), [closeModal]);
   const handleOpenPlanInstanceDeleteModal = useCallback(() => openModal(MODAL_NAMES.DELETE_PLAN_INSTANCE_ITEM), [openModal]);
@@ -1318,7 +1332,51 @@ export default function SingleExperience() {
       return;
     }
 
-    const hash = window.location.hash || '';
+    // If the hash was lost during early Router mount, restore it now that the
+    // view is fully loaded (plans loaded and accessible plans resolved).
+    const pendingHashKey = STORAGE_KEYS.pendingHash;
+    const legacyPendingHashKeys = LEGACY_STORAGE_KEYS.pendingHash;
+    let hash = window.location.hash || '';
+    if (!hash.startsWith('#plan-')) {
+      try {
+        let pendingRaw = window.localStorage?.getItem(pendingHashKey) || '';
+        if (!pendingRaw) {
+          for (const k of legacyPendingHashKeys) {
+            const v = window.localStorage?.getItem(k) || '';
+            if (v) { pendingRaw = v; break; }
+          }
+        }
+
+        let pending = pendingRaw;
+        if (pendingRaw && !pendingRaw.startsWith('#')) {
+          try {
+            const parsed = JSON.parse(pendingRaw);
+            pending = parsed?.hash || '';
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (pending.startsWith('#plan-')) {
+          const targetUrl = `${window.location.pathname}${window.location.search || ''}${pending}`;
+          window.history.replaceState(null, '', targetUrl);
+          hash = pending;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    // Clear after attempting restore (requirement: clear localStorage after append).
+    try {
+      window.localStorage?.removeItem(pendingHashKey);
+      legacyPendingHashKeys.forEach((k) => {
+        try { window.localStorage?.removeItem(k); } catch (e) {}
+      });
+    } catch (err) {
+      // ignore
+    }
+
     if (!hash.startsWith('#plan-')) {
       // No hash to process, mark as handled to prevent future runs
       initialHashHandledRef.current = true;
@@ -1530,7 +1588,7 @@ export default function SingleExperience() {
   useEffect(() => {
     if (!subscribeToEvents || !experienceId) return;
 
-    const sessionId = window.sessionStorage.getItem('bien:session_id');
+    const sessionId = eventBus.getSessionId();
 
     // Handler for plan collaborator events
     const handleCollaboratorEvent = (event) => {
@@ -3010,9 +3068,9 @@ export default function SingleExperience() {
                     )}
 
                     {/* My Plan Tab Content */}
-                    {activeTab === "myplan" && selectedPlanId && (
+                    {activeTab === "myplan" && (selectedPlanId || userPlan?._id) && (
                       <MyPlanTabContent
-                        selectedPlanId={selectedPlanId}
+                        selectedPlanId={selectedPlanId || userPlan?._id}
                         user={user}
                         idEquals={idEquals}
                         userPlan={userPlan}
@@ -3036,7 +3094,7 @@ export default function SingleExperience() {
                         displayedPlannedDate={displayedPlannedDate}
                         setIsEditingDate={setIsEditingDate}
                         setPlannedDate={setPlannedDate}
-                        setShowDatePicker={handleCloseDatePicker}
+                        setShowDatePicker={setShowDatePickerState}
                         plannedDateRef={plannedDateRef}
                         handleSyncPlan={handleSyncPlan}
                         handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3066,7 +3124,7 @@ export default function SingleExperience() {
                     )}
 
                     {/* If My Plan tab selected but no plan is selected, show empty state */}
-                    {activeTab === "myplan" && !selectedPlanId && (
+                    {activeTab === "myplan" && !(selectedPlanId || userPlan?._id) && (
                       <EmptyState
                         variant="plans"
                         title={lang.current.modal.noPlansFallback}
@@ -3096,7 +3154,7 @@ export default function SingleExperience() {
                         loading={loading}
                         handleDateUpdate={handleDateUpdate}
                         handleAddExperience={handleAddExperience}
-                        setShowDatePicker={handleCloseDatePicker}
+                        setShowDatePicker={setShowDatePickerState}
                         setIsEditingDate={setIsEditingDate}
                         lang={lang}
                       />
@@ -3175,7 +3233,7 @@ export default function SingleExperience() {
                           handleExperience={handleExperience}
                           setShowDeleteModal={handleOpenDeleteExperienceModal}
                           showDatePicker={isModalOpen(MODAL_NAMES.DATE_PICKER)}
-                          setShowDatePicker={handleCloseDatePicker}
+                          setShowDatePicker={setShowDatePickerState}
                           setIsEditingDate={setIsEditingDate}
                           setPlannedDate={setPlannedDate}
                           lang={lang}

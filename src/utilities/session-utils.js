@@ -11,7 +11,8 @@ import { encryptData, decryptData } from './crypto-utils';
 import { logger } from './logger';
 
 // Constants
-const SESSION_STORAGE_KEY = 'bien_session_data';
+const SESSION_STORAGE_KEY = 'bien:sessionData';
+const LEGACY_SESSION_STORAGE_KEYS = ['bien_session_data', 'biensperience:sessionData'];
 const DEFAULT_EXPIRY_HOURS = 24;
 
 /**
@@ -59,6 +60,23 @@ function calculateExpiryEpoch(createdAt = getCurrentEpoch()) {
  */
 async function getSessionData(userId = null) {
   try {
+    // Migrate legacy key(s) if present
+    try {
+      const hasNew = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!hasNew) {
+        for (const legacyKey of LEGACY_SESSION_STORAGE_KEYS) {
+          const legacyVal = localStorage.getItem(legacyKey);
+          if (legacyVal) {
+            localStorage.setItem(SESSION_STORAGE_KEY, legacyVal);
+            try { localStorage.removeItem(legacyKey); } catch (e) {}
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      // ignore migration failures
+    }
+
     const encryptedData = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!encryptedData) {
       return null;
@@ -217,7 +235,12 @@ export async function refreshSessionIfNeeded(userId) {
  * Should be called on logout
  */
 export function clearSession() {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
+  try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch (e) {}
+  try {
+    for (const legacyKey of LEGACY_SESSION_STORAGE_KEYS) {
+      try { localStorage.removeItem(legacyKey); } catch (e) {}
+    }
+  } catch (e) {}
 }
 
 /**

@@ -719,6 +719,7 @@
   border-radius: var(--radius-lg);
   padding: clamp(1rem, 3vw, 1.5rem);
   margin-bottom: $space-6;
+  overflow: visible; /* Allow dropdown menus to extend beyond container boundaries */
 }
 
 /* Plan Metrics */
@@ -845,13 +846,16 @@
   padding: clamp(var(--space-2), 2vw, var(--space-4));
   margin-bottom: $space-2;
   position: relative;
+  overflow: visible; /* Allow ActionsMenu dropdown to extend beyond card boundaries */
 
-  &:hover {
+  &:hover,
+  &:focus-within {
     box-shadow: var(--shadow-md);
     border-color: var(--color-border-medium);
     border-left-color: var(--color-primary);
     background: var(--color-bg-hover, rgba(var(--color-primary-rgb, 99, 102, 241), 0.02));
     transform: translateY(-1px) scale(1.005);
+    z-index: 10; /* Elevate card above siblings so dropdown appears on top */
   }
 
   &:last-child {
@@ -2033,6 +2037,7 @@
   border-radius: var(--radius-lg);
   padding: var(--space-2);
   border: 1px solid var(--color-border-primary);
+  overflow: visible; /* Allow dropdown menus to extend beyond container boundaries */
 }
 
 /* Individual compact plan item - single line layout */
@@ -2046,10 +2051,14 @@
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   transition: background-color 0.15s ease, border-color 0.15s ease;
+  overflow: visible; /* Allow ActionsMenu dropdown to extend beyond item boundaries */
+  position: relative; /* Enable z-index stacking for dropdown menus */
 
-  &:hover {
+  &:hover,
+  &:focus-within {
     background: var(--color-bg-hover);
     border-color: var(--color-border-secondary);
+    z-index: 10; /* Elevate item above siblings so dropdown appears on top */
 
     .compact-item-actions {
       opacity: 1;
@@ -2431,6 +2440,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  overflow: visible; /* Allow dropdown menus to extend beyond container boundaries */
 }
 
 /* Individual timeline plan item - similar to compact but with time display */
@@ -2444,10 +2454,13 @@
   border: 1px solid var(--color-border-primary);
   transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
   position: relative; /* Enable z-index context for dropdown */
+  overflow: visible; /* Allow ActionsMenu dropdown to extend beyond item boundaries */
 
-  &:hover {
+  &:hover,
+  &:focus-within {
     background: var(--color-bg-hover);
     border-color: var(--color-border-dark);
+    z-index: 10; /* Elevate item above siblings so dropdown appears on top */
   }
 
   &:focus-within {

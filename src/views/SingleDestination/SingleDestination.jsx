@@ -8,7 +8,6 @@ import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import DestinationExperienceGrid from "./components/DestinationExperienceGrid";
 import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import { logger } from "../../utilities/logger";
@@ -19,9 +18,8 @@ import { lang } from "../../lang.constants";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildDestinationSchema } from '../../utilities/schema-utils';
-import { isOwner } from "../../utilities/permissions";
+import { isOwner, canEdit as canEditPermission } from "../../utilities/permissions";
 import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState } from "../../components/design-system";
-import Loading from "../../components/Loading/Loading";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from "react-icons/fa";
@@ -44,8 +42,16 @@ export default function SingleDestination() {
   const [destinationExperiences, setDestinationExperiences] = useState([]);
   const [directDestinationExperiences, setDirectDestinationExperiences] = useState(null);
   const [visibleExperiencesCount, setVisibleExperiencesCount] = useState(6);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const h1Ref = useRef(null);
+
+  // Guard against overlapping requests (e.g., React 18 StrictMode double-invokes,
+  // fast navigation, and slow mobile networks). We track the latest request and
+  // the latest *non-background* request separately so background refreshes don't
+  // keep the initial skeleton stuck.
+  const latestRequestIdRef = useRef(0);
+  const latestInitialRequestIdRef = useRef(0);
 
   // Favorite functionality state
   const [favHover, setFavHover] = useState(false);
@@ -91,11 +97,22 @@ export default function SingleDestination() {
     });
   }, []);
 
-  const getData = useCallback(async () => {
+  const getData = useCallback(async ({ background = false } = {}) => {
+    const requestId = ++latestRequestIdRef.current;
+    const initialRequestId = background ? null : ++latestInitialRequestIdRef.current;
+
     try {
-      setIsLoading(true);
+      if (background) {
+        setIsRefreshing(true);
+      } else {
+        setIsInitialLoading(true);
+      }
       // Fetch destination data
       const destinationData = await showDestination(destinationId);
+
+      // Ignore stale responses (newer request already started)
+      if (latestRequestIdRef.current !== requestId) return;
+
       // ✅ Use merge to preserve unchanged data (prevents photo/name flash)
       // If the server returns no data (deleted/missing), ensure we clear local state
       if (!destinationData) {
@@ -106,13 +123,33 @@ export default function SingleDestination() {
       // Refresh destinations list in background
       fetchDestinations();
     } catch (error) {
+      // Ignore stale errors (newer request already started)
+      if (latestRequestIdRef.current !== requestId) return;
+
       logger.error('Error fetching destination', { destinationId, error: error.message });
       // If fetch fails (404 or network), clear local destination to avoid showing stale data
       mergeDestination(null);
     } finally {
-      setIsLoading(false);
+      if (background) {
+        if (latestRequestIdRef.current === requestId) {
+          setIsRefreshing(false);
+        }
+      } else {
+        if (latestInitialRequestIdRef.current === initialRequestId) {
+          setIsInitialLoading(false);
+        }
+      }
     }
   }, [destinationId, fetchDestinations, mergeDestination]);
+
+  // Reset view state immediately when destinationId changes so the skeleton
+  // is shown instead of stale content (especially noticeable on mobile/tablet).
+  useEffect(() => {
+    mergeDestination(null);
+    setDestinationExperiences([]);
+    setDirectDestinationExperiences(null);
+    setIsInitialLoading(true);
+  }, [destinationId, mergeDestination]);
 
   // Handle favorite/unfavorite destination with optimistic UI
   const handleFavorite = useCallback(async () => {
@@ -227,101 +264,63 @@ export default function SingleDestination() {
       return destId && String(destId) === String(destinationId);
     };
 
-    // Handle experience created - add to list if it's for this destination
+    const upsertIntoList = (prev, experience) => {
+      if (!Array.isArray(prev)) return prev;
+      const index = prev.findIndex(e => String(e?._id) === String(experience?._id));
+      if (index === -1) return [experience, ...prev];
+      const updated = [...prev];
+      updated[index] = { ...updated[index], ...experience };
+      return updated;
+    };
+
+    const removeFromList = (prev, experienceId) => {
+      if (!Array.isArray(prev)) return prev;
+      const filtered = prev.filter(e => String(e?._id) !== String(experienceId));
+      return filtered.length === prev.length ? prev : filtered;
+    };
+
     const handleExperienceCreated = (event) => {
       const experience = event.experience;
       if (!isForThisDestination(experience)) return;
 
       logger.debug('[SingleDestination] Experience created for this destination', { experienceId: experience._id });
 
-      // Update direct experiences list
       setDirectDestinationExperiences(prev => {
         if (prev === null) return [experience];
-        // Avoid duplicates
-        if (prev.some(e => e._id === experience._id)) return prev;
-        return [experience, ...prev];
+        return upsertIntoList(prev, experience);
       });
-
-      // Update derived experiences list
-      setDestinationExperiences(prev => {
-        if (prev.some(e => e._id === experience._id)) return prev;
-        return [experience, ...prev];
-      });
+      setDestinationExperiences(prev => upsertIntoList(prev, experience));
     };
 
-    // Handle experience updated - update in list if present
     const handleExperienceUpdated = (event) => {
       const experience = event.experience;
-      if (!experience) return;
+      if (!experience?._id) return;
 
-      // Check if experience was previously for this destination or is now
-      const wasForThisDestination = destinationExperiences.some(e => e._id === experience._id) ||
-                                    (directDestinationExperiences && directDestinationExperiences.some(e => e._id === experience._id));
       const nowForThisDestination = isForThisDestination(experience);
 
-      // Experience moved away from this destination - remove it
-      if (wasForThisDestination && !nowForThisDestination) {
+      if (!nowForThisDestination) {
         logger.debug('[SingleDestination] Experience moved to different destination', { experienceId: experience._id });
-        setDirectDestinationExperiences(prev => prev ? prev.filter(e => e._id !== experience._id) : prev);
-        setDestinationExperiences(prev => prev.filter(e => e._id !== experience._id));
+        setDirectDestinationExperiences(prev => removeFromList(prev, experience._id));
+        setDestinationExperiences(prev => removeFromList(prev, experience._id));
         return;
       }
 
-      // Experience moved to this destination - add it
-      if (!wasForThisDestination && nowForThisDestination) {
-        logger.debug('[SingleDestination] Experience moved to this destination', { experienceId: experience._id });
-        setDirectDestinationExperiences(prev => {
-          if (prev === null) return [experience];
-          if (prev.some(e => e._id === experience._id)) return prev;
-          return [experience, ...prev];
-        });
-        setDestinationExperiences(prev => {
-          if (prev.some(e => e._id === experience._id)) return prev;
-          return [experience, ...prev];
-        });
-        return;
-      }
-
-      // Experience updated but still for this destination - update in place
-      if (nowForThisDestination) {
-        logger.debug('[SingleDestination] Experience updated', { experienceId: experience._id });
-        setDirectDestinationExperiences(prev => {
-          if (!prev) return prev;
-          const index = prev.findIndex(e => e._id === experience._id);
-          if (index === -1) return prev;
-          const updated = [...prev];
-          updated[index] = { ...updated[index], ...experience };
-          return updated;
-        });
-        setDestinationExperiences(prev => {
-          const index = prev.findIndex(e => e._id === experience._id);
-          if (index === -1) return prev;
-          const updated = [...prev];
-          updated[index] = { ...updated[index], ...experience };
-          return updated;
-        });
-      }
+      logger.debug('[SingleDestination] Experience updated (or moved here)', { experienceId: experience._id });
+      setDirectDestinationExperiences(prev => {
+        if (prev === null) return [experience];
+        return upsertIntoList(prev, experience);
+      });
+      setDestinationExperiences(prev => upsertIntoList(prev, experience));
     };
 
-    // Handle experience deleted - remove from list
     const handleExperienceDeleted = (event) => {
       const experienceId = event.experienceId;
       if (!experienceId) return;
 
       logger.debug('[SingleDestination] Experience deleted event', { experienceId });
 
-      setDirectDestinationExperiences(prev => {
-        if (!prev) return prev;
-        const filtered = prev.filter(e => e._id !== experienceId);
-        if (filtered.length === prev.length) return prev; // No change
-        return filtered;
-      });
-
-      setDestinationExperiences(prev => {
-        const filtered = prev.filter(e => e._id !== experienceId);
-        if (filtered.length === prev.length) return prev; // No change
-        return filtered;
-      });
+      setDirectDestinationExperiences(prev => removeFromList(prev, experienceId));
+      setDestinationExperiences(prev => removeFromList(prev, experienceId));
     };
 
     const unsubCreate = eventBus.subscribe('experience:created', handleExperienceCreated);
@@ -333,7 +332,7 @@ export default function SingleDestination() {
       unsubUpdate();
       unsubDelete();
     };
-  }, [destinationId, destinationExperiences, directDestinationExperiences]);
+  }, [destinationId]);
 
   // Listen for photo events (destination photos)
   useEffect(() => {
@@ -343,7 +342,7 @@ export default function SingleDestination() {
       const photo = event.photo;
       if (!photo) return;
       // Refresh destination to get updated photos
-      getData();
+      getData({ background: true });
     };
 
     const handlePhotoUpdated = (event) => {
@@ -460,6 +459,9 @@ export default function SingleDestination() {
   const displayedExperiences = allExperiences.slice(0, visibleExperiencesCount);
   const hasMoreExperiences = allExperiences.length > visibleExperiencesCount;
 
+  // Consider experiences loading while the direct fetch is pending (null)
+  const experiencesLoading = directDestinationExperiences === null;
+
   // Reset visible count when destination changes
   useEffect(() => {
     setVisibleExperiencesCount(6);
@@ -481,7 +483,7 @@ export default function SingleDestination() {
   })();
 
   // Show loading state
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className={styles.destinationContainer}>
         <Container>
@@ -667,11 +669,7 @@ export default function SingleDestination() {
                 // Check if there are no photos on the destination
                 const hasDestinationPhotos = destination.photos && destination.photos.length > 0;
                 // Check if user can edit (owner or collaborator)
-                const canEdit = destination.permissions?.some(p =>
-                  p.entity === 'user' &&
-                  (p.type === 'owner' || p.type === 'collaborator') &&
-                  p._id?.toString() === user?._id?.toString()
-                );
+                const canEdit = canEditPermission(user, destination);
 
                 if (!hasDestinationPhotos && canEdit) {
                   // No photos and user can edit - open upload modal
@@ -794,7 +792,7 @@ export default function SingleDestination() {
                     visibleCount={visibleExperiencesCount}
                     hasMore={hasMoreExperiences}
                     onLoadMore={() => setVisibleExperiencesCount((prev) => prev + 6)}
-                    isLoading={isLoading}
+                    isLoading={experiencesLoading}
                     userPlans={plans}
                     onOptimisticDelete={(id) => {
                       // Remove the experience from directDestinationExperiences immediately

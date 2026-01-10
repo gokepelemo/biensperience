@@ -26,6 +26,7 @@
 
 import { logger } from './logger';
 import { encryptData, decryptData } from './crypto-utils';
+import { STORAGE_KEYS } from './storage-keys';
 import { WebSocketClient, ConnectionState } from './websocket-client';
 
 /**
@@ -120,7 +121,7 @@ export class LocalStorageTransport extends EventTransport {
   constructor(options = {}) {
     super(options);
     // Consolidated storage key - all events under one key
-    this.storageKey = options.storageKey || 'bien:events';
+    this.storageKey = options.storageKey || STORAGE_KEYS.events;
     this.sessionId = options.sessionId;
     this.userId = options.userId; // For encryption key derivation
     this.eventTTL = options.eventTTL || 5 * 60 * 1000; // 5 minutes default
@@ -132,6 +133,17 @@ export class LocalStorageTransport extends EventTransport {
     // Write batching to reduce repeated read/encrypt/write cycles during bursts
     this._pendingSends = [];
     this._flushPromise = null;
+  }
+
+  _getStorage() {
+    if (typeof window === 'undefined') return null;
+    // If no userId (anonymous), avoid writing plaintext events to localStorage.
+    // Use sessionStorage (tab-scoped) instead.
+    return this.userId ? window.localStorage : window.sessionStorage;
+  }
+
+  _isCrossTabEnabled() {
+    return !!this.userId;
   }
 
   /**
@@ -157,7 +169,10 @@ export class LocalStorageTransport extends EventTransport {
       return;
     }
 
-    window.addEventListener('storage', this.handleStorageEvent);
+    // Only localStorage emits cross-tab storage events.
+    if (this._isCrossTabEnabled()) {
+      window.addEventListener('storage', this.handleStorageEvent);
+    }
     this.connected = true;
 
     // Perform initial cleanup of old events
@@ -165,7 +180,8 @@ export class LocalStorageTransport extends EventTransport {
 
     logger.info('[LocalStorageTransport] Connected', {
       encrypted: !!this.userId,
-      storageKey: this.storageKey
+      storageKey: this.storageKey,
+      crossTab: this._isCrossTabEnabled()
     });
   }
 
@@ -183,25 +199,25 @@ export class LocalStorageTransport extends EventTransport {
    * @returns {Promise<Array>} Array of stored events
    */
   async readEventsList() {
-    if (typeof window === 'undefined' || !window.localStorage) {
+    const storage = this._getStorage();
+    if (!storage) {
       return [];
     }
 
     try {
-      const stored = localStorage.getItem(this.storageKey);
+      const stored = storage.getItem(this.storageKey);
       if (!stored) return [];
 
-      // Try to decrypt if userId is available
-      if (this.userId) {
-        try {
-          const decrypted = await decryptData(stored, this.userId);
-          return Array.isArray(decrypted) ? decrypted : [];
-        } catch (decryptError) {
-          // May be unencrypted legacy data, try parsing directly
-          logger.debug('[LocalStorageTransport] Decryption failed, trying plain JSON', {
-            error: decryptError.message
-          });
-        }
+      // Always attempt decryption first. When no userId is available, crypto-utils
+      // uses deterministic anon key material so we never persist plaintext at rest.
+      try {
+        const decrypted = await decryptData(stored, this.userId);
+        return Array.isArray(decrypted) ? decrypted : [];
+      } catch (decryptError) {
+        // May be unencrypted legacy data, try parsing directly
+        logger.debug('[LocalStorageTransport] Decryption failed, trying plain JSON', {
+          error: decryptError.message
+        });
       }
 
       // Fallback to plain JSON parsing
@@ -213,7 +229,7 @@ export class LocalStorageTransport extends EventTransport {
       });
       // Clear corrupted data to prevent persistent errors
       try {
-        localStorage.removeItem(this.storageKey);
+        storage.removeItem(this.storageKey);
       } catch (clearError) {
         // Ignore clear errors
       }
@@ -226,22 +242,16 @@ export class LocalStorageTransport extends EventTransport {
    * @param {Array} events - Array of events to store
    */
   async writeEventsList(events) {
-    if (typeof window === 'undefined' || !window.localStorage) {
+    const storage = this._getStorage();
+    if (!storage) {
       return;
     }
 
     try {
-      let dataToStore;
+      // Always encrypt (user-scoped when userId is present, anon-scoped otherwise).
+      const dataToStore = await encryptData(events, this.userId);
 
-      if (this.userId) {
-        // Encrypt with user's ID
-        dataToStore = await encryptData(events, this.userId);
-      } else {
-        // Store as plain JSON if no userId
-        dataToStore = JSON.stringify(events);
-      }
-
-      localStorage.setItem(this.storageKey, dataToStore);
+      storage.setItem(this.storageKey, dataToStore);
     } catch (error) {
       logger.error('[LocalStorageTransport] Error writing events list', {
         error: error.message
@@ -250,11 +260,9 @@ export class LocalStorageTransport extends EventTransport {
       // On quota exceeded, clear and retry
       if (error.name === 'QuotaExceededError') {
         try {
-          localStorage.removeItem(this.storageKey);
-          const dataToStore = this.userId
-            ? await encryptData(events.slice(-10), this.userId) // Keep only last 10
-            : JSON.stringify(events.slice(-10));
-          localStorage.setItem(this.storageKey, dataToStore);
+          storage.removeItem(this.storageKey);
+          const dataToStore = await encryptData(events.slice(-10), this.userId); // Keep only last 10
+          storage.setItem(this.storageKey, dataToStore);
         } catch (retryError) {
           logger.error('[LocalStorageTransport] Failed to write after clearing', {
             error: retryError.message
@@ -285,8 +293,9 @@ export class LocalStorageTransport extends EventTransport {
   }
 
   async send(event) {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      logger.warn('[LocalStorageTransport] localStorage not available');
+    const storage = this._getStorage();
+    if (!storage) {
+      logger.warn('[LocalStorageTransport] Storage not available');
       return;
     }
 
@@ -360,6 +369,7 @@ export class LocalStorageTransport extends EventTransport {
   }
 
   async handleStorageEvent(e) {
+    if (!this._isCrossTabEnabled()) return;
     if (e.key !== this.storageKey) return;
     if (!e.newValue) return;
 
@@ -411,7 +421,7 @@ export class LocalStorageTransport extends EventTransport {
    * @returns {boolean}
    */
   isEncrypted() {
-    return !!this.userId;
+    return true;
   }
 
   /**
@@ -419,7 +429,56 @@ export class LocalStorageTransport extends EventTransport {
    * @param {string} userId - User ID for key derivation
    */
   setUserId(userId) {
+    const wasEncrypted = !!this.userId;
     this.userId = userId;
+
+    // If we become authenticated while connected, start listening for cross-tab events.
+    if (typeof window !== 'undefined' && this.connected) {
+      try {
+        if (!wasEncrypted && this._isCrossTabEnabled()) {
+          window.addEventListener('storage', this.handleStorageEvent);
+        }
+        if (wasEncrypted && !this._isCrossTabEnabled()) {
+          window.removeEventListener('storage', this.handleStorageEvent);
+        }
+      } catch (e) {
+        // ignore listener failures
+      }
+    }
+
+    // Migrate any anonymous (sessionStorage) events into encrypted localStorage when we gain a userId.
+    if (!wasEncrypted && this._isCrossTabEnabled() && typeof window !== 'undefined') {
+      (async () => {
+        try {
+          const raw = window.sessionStorage?.getItem(this.storageKey);
+          if (!raw) return;
+
+          let events;
+          try {
+            // Anonymous events are also encrypted (anon-scoped) to avoid plaintext at rest.
+            const decrypted = await decryptData(raw, null);
+            events = Array.isArray(decrypted) ? decrypted : [];
+          } catch (decryptError) {
+            // Legacy fallback: plaintext JSON array
+            try {
+              const parsed = JSON.parse(raw);
+              events = Array.isArray(parsed) ? parsed : [];
+            } catch {
+              events = [];
+            }
+          }
+
+          if (events.length > 0) {
+            await this.writeEventsList(events);
+          }
+
+          try { window.sessionStorage?.removeItem(this.storageKey); } catch (e) {}
+        } catch (e) {
+          // ignore migration failures
+        }
+      })().catch(() => {});
+    }
+
     logger.info('[LocalStorageTransport] Encryption key updated', {
       encrypted: !!userId
     });

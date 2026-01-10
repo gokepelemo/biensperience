@@ -7,8 +7,57 @@
  * @module hash-navigation
  */
 
+import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from './storage-keys';
+
 // Common localStorage key for hash navigation (reusable across all navigation)
-const HASH_STORAGE_KEY = 'bien:pending_hash';
+// NOTE: This is the only localStorage key allowed to remain unencrypted.
+const HASH_STORAGE_KEY = STORAGE_KEYS.pendingHash;
+
+// Legacy keys (migrated automatically)
+const LEGACY_HASH_STORAGE_KEYS = LEGACY_STORAGE_KEYS.pendingHash;
+
+function readRawPendingHash() {
+  try {
+    const primary = localStorage.getItem(HASH_STORAGE_KEY);
+    if (primary) return { key: HASH_STORAGE_KEY, raw: primary };
+
+    for (const legacyKey of LEGACY_HASH_STORAGE_KEYS) {
+      const v = localStorage.getItem(legacyKey);
+      if (v) return { key: legacyKey, raw: v };
+    }
+  } catch (e) {
+    // ignore
+  }
+  return { key: null, raw: null };
+}
+
+function normalizePendingHashPayload(raw) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    // Legacy: raw hash string
+    return { hash: raw, originPath: null, storedAt: null, meta: null };
+  }
+}
+
+function migrateLegacyPendingHashIfNeeded() {
+  try {
+    const { key, raw } = readRawPendingHash();
+    if (!raw) return;
+    if (key === HASH_STORAGE_KEY) return;
+
+    // Write into canonical key and delete legacy.
+    localStorage.setItem(HASH_STORAGE_KEY, raw);
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      // ignore
+    }
+  } catch (e) {
+    // ignore
+  }
+}
 
 /**
  * Store hash fragment before navigation
@@ -22,6 +71,7 @@ export function storeHash(hash, originPath = null, meta = null) {
   if (!hash || typeof window === 'undefined') return;
 
   try {
+    migrateLegacyPendingHashIfNeeded();
     const payload = JSON.stringify({ hash, originPath, storedAt: Date.now(), meta: meta || null });
     localStorage.setItem(HASH_STORAGE_KEY, payload);
   } catch (e) {
@@ -39,14 +89,16 @@ export function getStoredHash() {
   if (typeof window === 'undefined') return null;
 
   try {
-    const raw = localStorage.getItem(HASH_STORAGE_KEY);
+    // Prefer canonical key but tolerate legacy keys.
+    const { key, raw } = readRawPendingHash();
     if (!raw) return null;
-    try {
-      return JSON.parse(raw);
-    } catch (e) {
-      // If stored value is a plain string (legacy), return as object
-      return { hash: raw, originPath: null, storedAt: null, meta: null };
+
+    // Migrate legacy key on read
+    if (key && key !== HASH_STORAGE_KEY) {
+      migrateLegacyPendingHashIfNeeded();
     }
+
+    return normalizePendingHashPayload(raw);
   } catch (e) {
     // Ignore storage errors
     return null;
@@ -62,6 +114,10 @@ export function clearStoredHash() {
 
   try {
     localStorage.removeItem(HASH_STORAGE_KEY);
+    // Also clear legacy keys
+    LEGACY_HASH_STORAGE_KEYS.forEach((k) => {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
   } catch (e) {
     // Ignore storage errors
   }

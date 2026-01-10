@@ -517,7 +517,7 @@ export default function MyPlans() {
                             <div className={styles.costBreakdown}>
                               <div className={styles.costRow}>
                                 <Text size="sm" variant="muted">{lang.current.label.estimatedLabel}</Text>
-                                <Text weight="semibold" size="md">
+                                <Text weight="semibold" size="base">
                                   <CostEstimate
                                     cost={planEstimate}
                                     showTooltip={true}
@@ -656,7 +656,7 @@ export default function MyPlans() {
                               }}
                             >
                               <div className={styles.totalCostHeader}>
-                                <Text weight="semibold" size="md" className={styles.totalCostLabel}>{lang.current.label.totalSpent}</Text>
+                                <Text weight="semibold" size="base" className={styles.totalCostLabel}>{lang.current.label.totalSpent}</Text>
                                 <div className={styles.totalCostValue}>
                                   <CostEstimate
                                     cost={actualTotalCost}

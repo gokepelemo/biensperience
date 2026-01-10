@@ -7,7 +7,72 @@
 
 import { logger } from './logger';
 
-const PREFERENCES_KEY = 'biensperience:preferences';
+const THEME_STATE_KEY = 'bien:themeState';
+
+const _OBFUSCATION_KEY_BYTES = new TextEncoder().encode('bien:base_prefs:v1');
+
+function _base64Encode(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function _base64Decode(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function _xorTransform(inputBytes) {
+  const out = new Uint8Array(inputBytes.length);
+  for (let i = 0; i < inputBytes.length; i++) {
+    out[i] = inputBytes[i] ^ _OBFUSCATION_KEY_BYTES[i % _OBFUSCATION_KEY_BYTES.length];
+  }
+  return out;
+}
+
+function _obfuscateString(plainText) {
+  const bytes = new TextEncoder().encode(String(plainText ?? ''));
+  return _base64Encode(_xorTransform(bytes));
+}
+
+function _deobfuscateString(encoded) {
+  if (!encoded || typeof encoded !== 'string') return null;
+  try {
+    const bytes = _base64Decode(encoded);
+    const original = _xorTransform(bytes);
+    return new TextDecoder().decode(original);
+  } catch {
+    return null;
+  }
+}
+
+function _persistThemeState(theme) {
+  try {
+    const payload = {
+      theme: theme || 'system-default',
+      lastApplied: Date.now()
+    };
+    localStorage.setItem(THEME_STATE_KEY, _obfuscateString(JSON.stringify(payload)));
+  } catch (e) {
+    // ignore
+  }
+}
+
+function _readThemeState() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(THEME_STATE_KEY);
+    if (!stored) return null;
+    const json = _deobfuscateString(stored);
+    if (!json) return null;
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 let _mediaQuery = null;
 let _mediaHandler = null;
@@ -115,15 +180,7 @@ function _ensureMediaListener(theme) {
 
       // Touch preferences blob to notify other tabs that effective theme changed
       try {
-        const raw = localStorage.getItem(PREFERENCES_KEY);
-        let prefs = {};
-        if (raw) {
-          try { prefs = JSON.parse(raw) || {}; } catch (ee) { prefs = {}; }
-        }
-        // Keep user's chosen preference but add a timestamp to force storage event
-        prefs.theme = 'system-default';
-        prefs._lastApplied = Date.now();
-        localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+        _persistThemeState('system-default');
       } catch (err) { /* ignore */ }
     };
 
@@ -161,19 +218,7 @@ export function applyTheme(theme) {
     // Persist to localStorage so other tabs can pick it up. Store the user's preference
     // (e.g., 'system-default') so other tabs will resolve the effective theme themselves.
     try {
-      try {
-        const raw = localStorage.getItem(PREFERENCES_KEY);
-        let prefs = {};
-        if (raw) {
-          try { prefs = JSON.parse(raw) || {}; } catch (e) { prefs = {}; }
-        }
-        prefs.theme = theme;
-        // also add a timestamp for change detection
-        prefs._lastApplied = Date.now();
-        localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
-      } catch (e) {
-        // ignore preferences sync failures
-      }
+      _persistThemeState(theme);
     } catch (e) {
       // ignore localStorage failures
     }
@@ -184,21 +229,10 @@ export function applyTheme(theme) {
 }
 
 export function getStoredTheme() {
-  if (typeof localStorage === 'undefined') return null;
   try {
-    // First prefer the preferences blob if available
-    const prefRaw = localStorage.getItem(PREFERENCES_KEY);
-    if (prefRaw) {
-      try {
-        const prefs = JSON.parse(prefRaw);
-        if (prefs && typeof prefs.theme === 'string') return prefs.theme;
-      } catch (e) {
-        // fall through to THEME_KEY
-      }
-    }
-
-    return null;
-  } catch (e) {
+    const state = _readThemeState();
+    return typeof state?.theme === 'string' ? state.theme : null;
+  } catch {
     return null;
   }
 }
@@ -212,11 +246,11 @@ export function getHydratedTheme() {
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('storage', (e) => {
     try {
-      if (e.key === PREFERENCES_KEY && e.newValue) {
-        const payload = JSON.parse(e.newValue);
-        if (payload && typeof payload.theme === 'string') {
-          applyTheme(payload.theme);
-        }
+      if (e.key === THEME_STATE_KEY && e.newValue) {
+        const json = _deobfuscateString(e.newValue);
+        if (!json) return;
+        const payload = JSON.parse(json);
+        if (payload && typeof payload.theme === 'string') applyTheme(payload.theme);
       }
     } catch (err) {
       // ignore

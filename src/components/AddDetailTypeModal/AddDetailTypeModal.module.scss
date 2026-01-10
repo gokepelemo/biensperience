@@ -1,0 +1,160 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * AddDetailTypeModal Styles
+ * Responsive modal for selecting detail types to add to a plan item
+ */
+
+.addDetailTypeModal {
+  padding: $space-4;
+
+  @media (max-width: 768px) {
+    padding: $space-3;
+  }
+}
+
+.hint {
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin-bottom: $space-5;
+  font-size: $font-size-base;
+
+  @media (max-width: 768px) {
+    font-size: $font-size-sm;
+    margin-bottom: $space-4;
+  }
+}
+
+.category {
+  margin-bottom: $space-5;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    margin-bottom: $space-4;
+  }
+}
+
+.categoryLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: $space-3;
+  padding-left: $space-1;
+
+  @media (max-width: 768px) {
+    font-size: $font-size-xs;
+    margin-bottom: $space-2;
+  }
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: $space-3;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: $space-2;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $space-4;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  @include transition-all($transition-fast);
+  text-align: center;
+  min-height: 100px;
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-3;
+    min-height: 80px;
+  }
+}
+
+.typeIcon {
+  font-size: 2rem;
+  margin-bottom: $space-2;
+  line-height: 1;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+    margin-bottom: $space-1;
+  }
+}
+
+.typeLabel {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+
+  @media (max-width: 768px) {
+    font-size: $font-size-xs;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .typeCard {
+    background: var(--color-bg-tertiary);
+
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.15);
+    }
+  }
+}
+
+/* Explicit dark mode class support */
+:global(.dark) {
+  .typeCard {
+    background: var(--color-bg-tertiary);
+
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.15);
+    }
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .typeCard {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}

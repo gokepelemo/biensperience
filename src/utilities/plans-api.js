@@ -79,7 +79,7 @@ export function getPlanById(planId) {
   return sendQueuedRequest(`${BASE_URL}/${planId}`, "GET", null, {
     priority: PRIORITY.HIGH,
     label: `plan/${planId}`
-  });
+  }).then(extractData);
 }
 
 /**
@@ -118,7 +118,8 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
       requestBody.currency = currency;
     }
 
-    const result = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", requestBody);
+    const response = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", requestBody);
+    const result = extractData(response);
 
     logger.info('[plans-api] Plan created - API response received', {
       timestamp: Date.now(),
@@ -181,7 +182,7 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
  * Get all plans for a specific experience that the user can view
  */
 export function getExperiencePlans(experienceId) {
-  return sendRequest(`${BASE_URL}/experience/${experienceId}/all`);
+  return sendRequest(`${BASE_URL}/experience/${experienceId}/all`).then(extractData);
 }
 
 /**
@@ -197,7 +198,8 @@ export function checkUserPlanForExperience(experienceId) {
  */
 export function updatePlan(planId, updates) {
   return sendRequest(`${BASE_URL}/${planId}`, "PUT", updates)
-    .then((result) => {
+    .then((response) => {
+      const result = extractData(response);
       // Emit event via event bus (handles local + cross-tab dispatch)
       try {
         const rawExp = result?.experience?._id || result?.experience || null;
@@ -229,7 +231,8 @@ export function updatePlan(planId, updates) {
  * Delete a plan
  */
 export async function deletePlan(planId) {
-  const result = await sendRequest(`${BASE_URL}/${planId}`, "DELETE");
+  const response = await sendRequest(`${BASE_URL}/${planId}`, "DELETE");
+  const result = extractData(response);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {

@@ -47,6 +47,11 @@ export default defineConfig(({ mode }) => {
 
     // Define environment variables without VITE_ prefix
     define: {
+      // Secure Storage Lite
+      // Injected as a compile-time constant to avoid importing `import.meta.env` in runtime code
+      // that is also executed by Jest (which runs in CJS and can't parse import.meta).
+      __BIEN_SECURE_STORAGE_LITE_SCRAMBLE_KEY__: JSON.stringify(env.VITE_BIEN_SECURE_STORAGE_LITE_SCRAMBLE_KEY || ''),
+
       // App Version Info (injected at build time)
       'import.meta.env.APP_VERSION': JSON.stringify(appVersion),
       'import.meta.env.COMMIT_HASH': JSON.stringify(commitHash),

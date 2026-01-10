@@ -135,9 +135,9 @@ function mergeActivities(existing, incoming) {
  * ActivityFeed component
  * @param {Object} props
  * @param {string} props.userId - User ID to fetch activity for
- * @param {string} [props.feedType='own'] - 'own' for user's activity, 'following' for followed users
+ * @param {string} [props.feedType='all'] - 'all' for combined, 'own' for user's activity, 'following' for followed users
  */
-export default function ActivityFeed({ userId, feedType = 'own', rightControls = null }) {
+export default function ActivityFeed({ userId, feedType = 'all', rightControls = null }) {
   // All activities (unfiltered) - used as source for client-side filtering
   const [allActivities, setAllActivities] = useState([]);
   // Displayed activities (may be client-side filtered)
@@ -181,13 +181,85 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
     }
 
     try {
-      let response;
       const limit = 20;
 
       // Get filter config for the selected filter
       const filterConfig = filter !== 'all' ? FILTER_TO_ACTIONS[filter] : null;
 
-      if (feedType === 'following') {
+      if (feedType === 'all') {
+        // Combined feed: fetch both own activities AND following activities
+        const ownOptions = {};
+        const followOptions = { limit, skip: (page - 1) * limit };
+
+        if (filterConfig) {
+          ownOptions.actions = filterConfig.actions;
+          if (filterConfig.resourceTypes) {
+            ownOptions.resourceTypes = filterConfig.resourceTypes;
+          }
+          followOptions.actions = filterConfig.actions.join(',');
+          if (filterConfig.resourceTypes) {
+            followOptions.resourceTypes = filterConfig.resourceTypes.join(',');
+          }
+        }
+
+        // Fetch both feeds in parallel
+        const [ownResponse, followResponse] = await Promise.all([
+          getActivityFeed(page, limit, ownOptions),
+          getFollowFeed(followOptions)
+        ]);
+
+        // Ignore stale responses
+        if (requestId !== latestRequestIdRef.current) return;
+
+        const ownItems = ownResponse.activities || [];
+        const followItems = followResponse.feed || [];
+
+        // Merge and deduplicate by ID, then sort by timestamp (most recent first)
+        const combinedMap = new Map();
+        [...ownItems, ...followItems].forEach(item => {
+          if (item.id && !combinedMap.has(item.id)) {
+            combinedMap.set(item.id, item);
+          }
+        });
+        const combinedItems = Array.from(combinedMap.values())
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, limit); // Limit to page size
+
+        if (append) {
+          setAllActivities(prev => {
+            const existingIds = new Set(prev.map(a => a.id));
+            const newItems = combinedItems.filter(item => !existingIds.has(item.id));
+            return [...prev, ...newItems];
+          });
+          setDisplayedActivities(prev => {
+            const existingIds = new Set(prev.map(a => a.id));
+            const newItems = combinedItems.filter(item => !existingIds.has(item.id));
+            return [...prev, ...newItems];
+          });
+        } else if (isBackground) {
+          setDisplayedActivities(prev => mergeActivities(prev, combinedItems));
+          setAllActivities(prev => {
+            if (filter === 'all') return combinedItems;
+            return mergeActivities(prev, combinedItems);
+          });
+        } else {
+          setAllActivities(combinedItems);
+          setDisplayedActivities(combinedItems);
+        }
+
+        // Combined pagination: use the larger total count, check if either has more
+        const ownTotal = ownResponse.pagination?.totalCount || 0;
+        const followTotal = followResponse.total || 0;
+        const ownHasMore = ownResponse.pagination?.hasMore || false;
+        const followHasMore = (followResponse.skip || 0) + followItems.length < followTotal;
+
+        setPagination({
+          page,
+          limit,
+          totalCount: Math.max(ownTotal, followTotal),
+          hasMore: ownHasMore || followHasMore,
+        });
+      } else if (feedType === 'following') {
         // For follow feed, use options object with actions filter
         const options = { limit, skip: (page - 1) * limit };
         if (filterConfig) {
@@ -196,7 +268,7 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
             options.resourceTypes = filterConfig.resourceTypes.join(',');
           }
         }
-        response = await getFollowFeed(options);
+        const response = await getFollowFeed(options);
         // Transform follow feed response to match activity feed format
         const feedItems = response.feed || [];
 
@@ -237,7 +309,7 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
             options.resourceTypes = filterConfig.resourceTypes;
           }
         }
-        response = await getActivityFeed(page, limit, options);
+        const response = await getActivityFeed(page, limit, options);
         const activityItems = response.activities || [];
 
         // Ignore stale responses (e.g., an older "all" request completing after switching to "social")
@@ -471,6 +543,6 @@ export default function ActivityFeed({ userId, feedType = 'own', rightControls =
 
 ActivityFeed.propTypes = {
   userId: PropTypes.string.isRequired,
-  feedType: PropTypes.oneOf(['own', 'following']),
+  feedType: PropTypes.oneOf(['all', 'own', 'following']),
   rightControls: PropTypes.node,
 };

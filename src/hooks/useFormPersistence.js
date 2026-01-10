@@ -41,6 +41,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
   const saveTimerRef = useRef(null);
   const hasRestoredRef = useRef(false);
   const isInitialMountRef = useRef(true);
+  const [hasSavedDataState, setHasSavedDataState] = useState(false);
 
   /**
    * Filter out excluded fields from data
@@ -118,7 +119,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
 
     const savedData = await loadFormData(formId, true, userId);
     if (savedData) {
-      const age = getFormDataAge(formId, userId);
+      const age = await getFormDataAge(formId, userId);
 
       // Check if saved data has substantial content
       // Filter out empty strings, empty arrays, null, undefined, and empty objects
@@ -153,7 +154,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       logger.info('Restoring form data', {
         formId,
         userId: userId ? 'provided' : 'none',
-        encrypted: !!userId,
+        encrypted: true,
         ageMs: age,
         fields: dataPreview,
         hasSubstantialContent
@@ -164,6 +165,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       setFormData(savedData);
 
       hasRestoredRef.current = true;
+      setHasSavedDataState(false);
 
       // Only call onRestore callback if there's substantial content
       if (onRestore && hasSubstantialContent) {
@@ -184,7 +186,7 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       clearTimeout(saveTimerRef.current);
     }
     if (formId) {
-      clearFormData(formId, userId);
+      void clearFormData(formId, userId);
       logger.debug('Form persistence cleared', { formId, userId: userId ? 'provided' : 'none' });
     }
   }, [formId, userId]);
@@ -192,12 +194,19 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
   /**
    * Check if there's saved data available
    */
-  const hasSavedData = useCallback(() => {
-    if (!formId) {
-      return false;
+  const refreshHasSavedData = useCallback(async () => {
+    if (!enabled || !formId) {
+      setHasSavedDataState(false);
+      return;
     }
-    return hasFormData(formId, userId);
-  }, [formId, userId]);
+
+    try {
+      const exists = await hasFormData(formId, userId);
+      setHasSavedDataState(exists);
+    } catch {
+      setHasSavedDataState(false);
+    }
+  }, [enabled, formId, userId]);
 
   // Restore data on mount
   useEffect(() => {
@@ -206,6 +215,11 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       restore();
     }
   }, [restore]);
+
+  // Keep a lightweight flag for UI that needs to know if a draft exists
+  useEffect(() => {
+    refreshHasSavedData();
+  }, [refreshHasSavedData]);
 
   // Save data when form data changes (with debouncing)
   useEffect(() => {
@@ -240,10 +254,11 @@ export function useFormPersistence(formId, formData, setFormData, options = {}) 
       }
       const dataToSave = filterData(formData);
       await saveFormData(formId, dataToSave, ttl, userId);
+      await refreshHasSavedData();
     },
     restore,
     clear,
-    hasSavedData: hasSavedData()
+    hasSavedData: hasSavedDataState
   };
 }
 

@@ -35,6 +35,7 @@ import { getDefaultPhoto } from "../../utilities/photo-utils";
 import { getFirstName } from "../../utilities/name-utils";
 import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
+import { getObfuscatedJson, setObfuscatedJson } from '../../utilities/secure-storage-lite';
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
@@ -87,7 +88,7 @@ export default function Profile() {
   const [followButtonHovered, setFollowButtonHovered] = useState(false);
 
   // Activity tab state
-  const [activityFeedType, setActivityFeedType] = useState('own'); // 'own' | 'following'
+  const [activityFeedType, setActivityFeedType] = useState('all'); // 'all' | 'own' | 'following'
 
   // Follows tab state
   const [followsFilter, setFollowsFilter] = useState('followers'); // 'followers' | 'following'
@@ -266,7 +267,12 @@ export default function Profile() {
   const [showAllCreated, setShowAllCreated] = useState(false);
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const COOLDOWN_SECONDS = 60;
-  const COOLDOWN_KEY_PREFIX = 'resend_verification_cooldown_';
+  const COOLDOWN_STORAGE_KEY_PREFIX = 'bien:emailVerificationResendCooldown:';
+
+  const getCooldownStorageKey = useCallback((profileId) => {
+    if (!profileId) return null;
+    return `${COOLDOWN_STORAGE_KEY_PREFIX}${profileId}`;
+  }, []);
   const EXPERIENCE_TYPES_INITIAL_DISPLAY = 10;
   const ITEMS_PER_PAGE = 6; // Fixed items per page for API pagination
   // Pagination for profile tabs
@@ -322,12 +328,17 @@ export default function Profile() {
   }, []);
 
   // Start a cooldown for the given email and persist to localStorage
-  const startCooldown = (email) => {
-    if (!email) return;
-    const key = COOLDOWN_KEY_PREFIX + email;
+  const startCooldown = (profileId, email = null) => {
+    const key = getCooldownStorageKey(profileId);
+    if (!key) return;
     const expiresAt = Date.now() + COOLDOWN_SECONDS * 1000;
     try {
-      localStorage.setItem(key, String(expiresAt));
+      setObfuscatedJson(localStorage, key, expiresAt);
+
+      // Cleanup legacy key that included the email (plaintext + PII)
+      if (email) {
+        try { localStorage.removeItem(`resend_verification_cooldown_${email}`); } catch (e) {}
+      }
     } catch (e) {
       // ignore localStorage errors
     }
@@ -348,12 +359,28 @@ export default function Profile() {
 
   // On profile load, restore any existing cooldown for this email
   useEffect(() => {
-    if (!currentProfile || !currentProfile.email) return;
-    const key = COOLDOWN_KEY_PREFIX + currentProfile.email;
+    if (!currentProfile?._id) return;
+
+    const key = getCooldownStorageKey(currentProfile._id);
+    const legacyKey = currentProfile.email ? `resend_verification_cooldown_${currentProfile.email}` : null;
+
     try {
-      const expires = localStorage.getItem(key);
-      if (!expires) return;
-      const expiresAt = parseInt(expires, 10);
+      let expiresAt = getObfuscatedJson(localStorage, key, null);
+
+      // Migrate legacy plaintext timestamp if present
+      if ((!expiresAt || typeof expiresAt !== 'number') && legacyKey) {
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (legacyRaw) {
+          const parsed = parseInt(legacyRaw, 10);
+          if (!Number.isNaN(parsed)) {
+            expiresAt = parsed;
+            setObfuscatedJson(localStorage, key, parsed);
+          }
+          try { localStorage.removeItem(legacyKey); } catch (e) {}
+        }
+      }
+
+      if (!expiresAt || typeof expiresAt !== 'number') return;
       const now = Date.now();
       if (expiresAt > now) {
         const remaining = Math.ceil((expiresAt - now) / 1000);
@@ -373,11 +400,14 @@ export default function Profile() {
         return () => clearInterval(timer);
       } else {
         try { localStorage.removeItem(key); } catch (e) {}
+        if (legacyKey) {
+          try { localStorage.removeItem(legacyKey); } catch (e) {}
+        }
       }
     } catch (e) {
       // ignore
     }
-  }, [currentProfile]);
+  }, [currentProfile?._id, currentProfile?.email, getCooldownStorageKey]);
 
   // Build planned experiences list - one entry per plan (not per experience)
   // This allows showing both owned and collaborative plans for the same experience separately
@@ -1478,7 +1508,23 @@ export default function Profile() {
   
   // Show full-page skeleton during initial load (before profile data arrives)
   if (isLoadingProfile && !currentProfile) {
-    return <ProfileSkeleton isOwner={isOwner} />;
+    const activeTab = uiState.activity
+      ? 'activity'
+      : uiState.follows
+      ? 'follows'
+      : uiState.created
+      ? 'created'
+      : uiState.destinations
+      ? 'destinations'
+      : 'experiences';
+
+    return (
+      <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
+        <Container>
+          <ProfileSkeleton isOwner={isOwner} activeTab={activeTab} />
+        </Container>
+      </div>
+    );
   }
 
   return (
@@ -1796,7 +1842,7 @@ export default function Profile() {
                                 try {
                                   setResendInProgress(true);
                                   await resendConfirmation(currentProfile.email);
-                                  startCooldown(currentProfile.email);
+                                  startCooldown(currentProfile._id, currentProfile.email);
                                   success(lang.current.success.resendConfirmation);
                                 } catch (err) {
                                   const msg = handleError(err, { context: 'Resend verification' });
@@ -1852,7 +1898,8 @@ export default function Profile() {
                     <div className={styles.activityFilterDropdown}>
                       <SearchableSelect
                         options={[
-                          { value: 'own', label: lang.current.profile?.activityFilterOwn || 'My Activity', icon: FaList },
+                          { value: 'all', label: lang.current.profile?.activityFilterAll || 'All', icon: FaList },
+                          { value: 'own', label: lang.current.profile?.activityFilterOwn || 'Mine', icon: FaList },
                           { value: 'following', label: lang.current.profile?.activityFilterFollowing || 'Following', icon: FaUserFriends }
                         ]}
                         value={activityFeedType}
@@ -2156,8 +2203,13 @@ export default function Profile() {
               )}
 
               {activeTab === 'experiences' && !showAllPlanned && (() => {
+                // Don't show pagination if there are no experiences at all
+                if (!uniqueUserExperiences || uniqueUserExperiences.length === 0) {
+                  return null;
+                }
+
                 const expTotalPages = isOwnProfile
-                  ? Math.max(1, Math.ceil((uniqueUserExperiences?.length || 0) / itemsPerPageComputed))
+                  ? Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed))
                   : (userExperiencesMeta?.totalPages || 1);
 
                 return expTotalPages > 1 ? (
@@ -2170,7 +2222,7 @@ export default function Profile() {
                 ) : null;
               })()}
 
-              {activeTab === 'created' && !showAllCreated && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
+              {activeTab === 'created' && !showAllCreated && uniqueCreatedExperiences && uniqueCreatedExperiences.length > 0 && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
                 <Pagination
                   currentPage={createdPage}
                   totalPages={createdExperiencesMeta.totalPages}

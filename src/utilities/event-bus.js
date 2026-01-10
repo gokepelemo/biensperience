@@ -16,6 +16,7 @@
  */
 
 import { logger } from './logger';
+import { getStoredToken } from './token-storage';
 import { getUser } from './users-service'; // Only import getUser (used in other methods)
 import * as VectorClock from './vector-clock';
 import { createTransport } from './event-transport';
@@ -124,7 +125,7 @@ class EventBus {
       // users-service imports event-bus, so we can't import getToken at module level
       let token = null;
       try {
-        token = localStorage.getItem('token');
+        token = getStoredToken();
         if (token) {
           // Validate token format
           const parts = token.split('.');

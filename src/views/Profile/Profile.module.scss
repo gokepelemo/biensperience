@@ -518,6 +518,19 @@
     --profile-skeleton-location-icon-size: 14px;
   }
 
+  .profileStats {
+    gap: var(--space-4);
+  }
+
+  .profileStatValue {
+    font-size: var(--font-size-xl);
+  }
+
+  .profileGrid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
 
 /* Profile tab skeletons - mirror TabNav responsive behavior */
 .profileTabsSkeletonDesktop {
@@ -559,19 +572,6 @@
 
   @media (max-width: 768px) {
     padding: var(--space-3);
-  }
-}
-  .profileStats {
-    gap: var(--space-4);
-  }
-
-  .profileStatValue {
-    font-size: var(--font-size-xl);
-  }
-
-  .profileGrid {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
   }
 }
 

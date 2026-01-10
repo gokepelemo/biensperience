@@ -85,7 +85,8 @@
 .menu {
   position: absolute;
   top: calc(100% + var(--space-1, 4px));
-  z-index: var(--z-index-dropdown, 1050);
+  /* Use popover z-index (1060) to ensure menu floats above all other content */
+  z-index: var(--z-index-popover, 1060);
   padding: var(--space-1, 4px) 0;
   background: var(--color-bg-elevated, #ffffff);
   border: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.1));

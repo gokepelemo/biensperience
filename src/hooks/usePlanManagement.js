@@ -43,7 +43,9 @@ export default function usePlanManagement(experienceId, userId) {
   const [userPlan, setUserPlan] = useState(null);
   const [sharedPlans, setSharedPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
-  const [plansLoading, setPlansLoading] = useState(false);
+  // Start as loading when an experienceId is present so views can render
+  // their skeleton/placeholder state reliably on first paint.
+  const [plansLoading, setPlansLoading] = useState(() => !!experienceId);
 
   // Date-related state
   const [plannedDate, setPlannedDate] = useState('');

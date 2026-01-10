@@ -60,7 +60,7 @@ describe('PlanMetricsDisplay', () => {
     const onEditDate = jest.fn();
     render(<PlanMetricsDisplay {...defaultProps} onEditDate={onEditDate} />);
 
-    const editButton = screen.getByText('Edit Date');
+    const editButton = screen.getByText('Update Date');
     fireEvent.click(editButton);
 
     expect(onEditDate).toHaveBeenCalled();
@@ -75,7 +75,7 @@ describe('PlanMetricsDisplay', () => {
   it('should not show edit button when showEditButton is false', () => {
     render(<PlanMetricsDisplay {...defaultProps} showEditButton={false} />);
 
-    expect(screen.queryByText('Edit Date')).not.toBeInTheDocument();
+    expect(screen.queryByText('Update Date')).not.toBeInTheDocument();
     expect(screen.queryByText('Set Date')).not.toBeInTheDocument();
   });
 
