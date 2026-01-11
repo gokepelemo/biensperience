@@ -1988,8 +1988,7 @@ export default function Profile() {
                       <div key={`skeleton-follow-${i}`} className={styles.followsItemSkeleton}>
                         <SkeletonLoader variant="circle" width="48px" height="48px" />
                         <div style={{ flex: 1 }}>
-                          <SkeletonLoader variant="text" width="120px" height="16px" />
-                          <SkeletonLoader variant="text" width="80px" height="14px" style={{ marginTop: '4px' }} />
+                          <SkeletonLoader variant="text" width="160px" height="16px" />
                         </div>
                       </div>
                     ))

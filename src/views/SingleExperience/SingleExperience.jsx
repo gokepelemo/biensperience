@@ -841,6 +841,13 @@ export default function SingleExperience() {
     return (item.plan_item_id || item._id)?.toString() || null;
   }, []);
 
+  // Keep a ref to the current animatingCollapse value so callbacks don't need to
+  // re-create (memoized list items can otherwise capture a stale, permanently-blocked handler).
+  const animatingCollapseRef = useRef(animatingCollapse);
+  useEffect(() => {
+    animatingCollapseRef.current = animatingCollapse;
+  }, [animatingCollapse]);
+
   /**
    * Check if an item is expanded. Handles both plan items and experience items.
    * Also considers animatingCollapse - if an item is animating collapse, treat it as collapsed.
@@ -866,7 +873,7 @@ export default function SingleExperience() {
     if (!key) return;
 
     // Prevent toggling while an animation is in progress for this item
-    if (animatingCollapse === key) return;
+    if (animatingCollapseRef.current === key) return;
 
     const persistState = async (newSet) => {
       try {
@@ -918,7 +925,7 @@ export default function SingleExperience() {
         return newSet;
       }
     });
-  }, [getExpansionKey, user?._id, activeTab, experience?._id, selectedPlanId, animatingCollapse]);
+  }, [getExpansionKey, user?._id, activeTab, experience?._id, selectedPlanId]);
 
   // OPTIMIZATION: Combined fetch function - fetches all data in one API call
   // Reduces 3 API calls to 1 for dramatically faster page load
