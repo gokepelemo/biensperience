@@ -37,6 +37,7 @@ import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
+import { getOrCreateDmChannel } from "../../utilities/chat-api";
 import { storePreference, retrievePreference, expirePreference } from "../../utilities/preferences-utils";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
@@ -119,6 +120,8 @@ export default function Profile() {
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [initialChannelId, setInitialChannelId] = useState(null);
   const [initialTargetUserId, setInitialTargetUserId] = useState(null);
+  const [messagesModalTitle, setMessagesModalTitle] = useState('Messages');
+  const [openingDirectMessage, setOpeningDirectMessage] = useState(false);
 
   // Track previous userId for the follows tab - defined early so reset effect can access it
   const prevFollowsUserIdRef = useRef(null);
@@ -1780,16 +1783,32 @@ export default function Profile() {
                     <Button
                       variant="outline"
                       style={{ borderRadius: 'var(--radius-full)' }}
-                      onClick={() => {
+                      disabled={openingDirectMessage}
+                      onClick={async () => {
                         // Defensive: ensure profile loaded and not messaging self
                         if (!currentProfile || currentProfile._id === user._id) return;
-                        // Open MessagesModal and let it locate or create a DM channel
-                        setInitialChannelId(null);
-                        setInitialTargetUserId(currentProfile._id);
-                        setShowMessagesModal(true);
+
+                        setOpeningDirectMessage(true);
+                        try {
+                          // Match the behavior of other DM entry points (e.g. DirectMessageChatButton):
+                          // pre-create/fetch the DM channel so the modal opens directly into it.
+                          const resp = await getOrCreateDmChannel(currentProfile._id);
+                          const channelId = resp?.id || resp?.cid || resp?._id || resp;
+                          if (!channelId) throw new Error('Failed to open DM');
+
+                          setMessagesModalTitle('Messages');
+                          setInitialTargetUserId(null);
+                          setInitialChannelId(channelId);
+                          setShowMessagesModal(true);
+                        } catch (err) {
+                          logger.error('[Profile] Failed to open DM from profile', err);
+                          showError(err?.message || 'Failed to open message');
+                        } finally {
+                          setOpeningDirectMessage(false);
+                        }
                       }}
                     >
-                      <FaEnvelope /> Message
+                      <FaEnvelope /> {openingDirectMessage ? 'Opening…' : 'Message'}
                     </Button>
                   )}
                   {/* Follow/Unfollow buttons: show for mutual follows only */}
@@ -2448,9 +2467,11 @@ export default function Profile() {
             setShowMessagesModal(false);
             setInitialChannelId(null);
             setInitialTargetUserId(null);
+            setMessagesModalTitle('Messages');
           }}
           initialChannelId={initialChannelId}
           targetUserId={initialTargetUserId}
+          title={messagesModalTitle}
         />
       )}
       </Container>

@@ -115,7 +115,14 @@ export default function useStreamChat({
       // If another effect run already started connecting, await it instead of bailing.
       if (connectPromiseRef.current) {
         await waitForInFlightConnect();
-        return;
+
+        // React 18 StrictMode mounts effects twice in dev.
+        // The first run can be "cancelled" by the intentional cleanup, which means
+        // the in-flight connect may resolve without setting clientRef.
+        // If we're still not connected after awaiting, retry a fresh connect.
+        if (clientRef.current) return;
+        if (!connectWhen) return;
+        if (!apiKey) return;
       }
 
       setLoading(true);

@@ -41,6 +41,7 @@ import { sanitizeUrl } from '../../utilities/sanitize';
 import Tooltip from '../Tooltip/Tooltip';
 import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
+import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 
 export default function PlanItemDetailsModal({
   show,
@@ -244,7 +245,9 @@ export default function PlanItemDetailsModal({
       } catch (err) {
         logger.error('[PlanItemDetailsModal] Failed to initialize plan item chat', err);
         if (!cancelled) {
-          setChatError(err?.message || 'Failed to initialize chat');
+          setChatError(
+            getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to initialize chat' })
+          );
         }
       } finally {
         if (!cancelled) setChatLoading(false);

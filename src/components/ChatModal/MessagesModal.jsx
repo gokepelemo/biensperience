@@ -12,6 +12,7 @@ import {
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import { FaChevronDown, FaTimes } from 'react-icons/fa';
+import { Link, useInRouterContext } from 'react-router-dom';
 
 import Alert from '../Alert/Alert';
 import styles from './MessagesModal.module.scss';
@@ -19,6 +20,8 @@ import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';
 
 import { cancelBienBotChannel, getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
+import { getPlanById } from '../../utilities/plans-api';
+import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import { logger } from '../../utilities/logger';
 import { broadcastEvent } from '../../utilities/event-bus';
 
@@ -64,6 +67,7 @@ export default function MessagesModal({
   title = 'Messages'
 }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
+  const inRouterContext = useInRouterContext();
   // Track if we're in the process of closing to prevent re-initialization
   const isClosingRef = useRef(false);
 
@@ -83,6 +87,7 @@ export default function MessagesModal({
 
   const [channels, setChannels] = useState([]);
   const [activeChannel, setActiveChannel] = useState(null);
+  const [planExperienceCache, setPlanExperienceCache] = useState({});
 
   const [loading, setLoading] = useState(false);
   const [channelSwitching, setChannelSwitching] = useState(false);
@@ -468,6 +473,14 @@ export default function MessagesModal({
         let nextActive = null;
 
         if (targetUserId) {
+          const targetUserIdStr = typeof targetUserId === 'string'
+            ? targetUserId
+            : targetUserId?.toString?.();
+
+          if (!targetUserIdStr) {
+            setError('Unable to start conversation (invalid target user).');
+          }
+
           // Look for an existing DM channel among queried channels that matches both members
           // DM channels have deterministic IDs: dm_<minUserId>_<maxUserId>
           const existingDm = filtered.find((ch) => {
@@ -476,7 +489,7 @@ export default function MessagesModal({
               const memberIds = Object.values(members).map(m => m?.user?.id).filter(Boolean);
               // Must be a DM channel (starts with 'dm_'), include both users, and have exactly 2 members
               return ch?.id?.startsWith('dm_') &&
-                memberIds.includes(targetUserId) &&
+                memberIds.includes(targetUserIdStr) &&
                 memberIds.includes(currentUser.id) &&
                 memberIds.length === 2;
             } catch (e) {
@@ -494,7 +507,11 @@ export default function MessagesModal({
           } else {
             // No existing DM found locally; ask server to return or create the DM channel
             try {
-              const resp = await getOrCreateDmChannel(targetUserId);
+              if (!targetUserIdStr) {
+                throw new Error('Invalid target user');
+              }
+
+              const resp = await getOrCreateDmChannel(targetUserIdStr);
               const channelId = resp?.id || resp?.cid || resp?._id || resp;
               if (channelId) {
                 nextActive = client.channel('messaging', channelId);
@@ -513,8 +530,21 @@ export default function MessagesModal({
                   // Silently ignore event emission errors
                 }
               }
-            } catch (e) {
-              // fall through to fallback below
+            } catch (err) {
+              logger.error('[MessagesModal] Failed to open DM channel', err);
+              if (!cancelled) {
+                setError(getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to start conversation' }));
+              }
+
+              // Fallback: if we have any channels, at least open the most recent.
+              if (!nextActive && filtered.length > 0) {
+                try {
+                  nextActive = filtered[0];
+                  await nextActive.watch();
+                } catch (watchErr) {
+                  logger.error('[MessagesModal] Failed to fallback to most recent channel', watchErr);
+                }
+              }
             }
           }
         } else if (initialChannelId) {
@@ -531,7 +561,7 @@ export default function MessagesModal({
       } catch (err) {
         logger.error('[MessagesModal] Failed to initialize chat', err);
         if (!cancelled) {
-          setError(err?.message || 'Failed to initialize chat');
+          setError(getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to initialize chat' }));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -544,6 +574,28 @@ export default function MessagesModal({
       cancelled = true;
     };
   }, [show, client, currentUser?.id, initialChannelId, targetUserId]);
+
+  // Defensive: avoid a visually blank modal if Stream client init ends in a weird state
+  // (e.g. StrictMode double-invocation cancellation). If we have an API key, are not
+  // loading, and still have no client/error after a short grace period, surface a
+  // clear error so users (and us) know what's wrong.
+  useEffect(() => {
+    if (!show) return undefined;
+    if (!apiKey) return undefined;
+    if (isClosingRef.current) return undefined;
+    if (client) return undefined;
+    if (clientLoading || loading) return undefined;
+    if (clientError || error) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      if (isClosingRef.current) return;
+      // Re-check at fire time via latest render closures. If we still have no client,
+      // surface an actionable message.
+      setError('Chat failed to initialize. Please close and reopen the modal.');
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [show, apiKey, client, clientLoading, loading, clientError, error]);
 
   const mergedError = clientError || error;
   const mergedLoading = clientLoading || loading;
@@ -561,7 +613,7 @@ export default function MessagesModal({
       setActiveChannel(channel);
     } catch (err) {
       logger.error('[MessagesModal] Failed to select channel', err);
-      setError(err?.message || 'Failed to open channel');
+      setError(getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to open channel' }));
     } finally {
       setChannelSwitching(false);
     }
@@ -660,6 +712,114 @@ export default function MessagesModal({
     );
   }, [renderMobileDropdownItems]);
 
+  const headerTitle = useMemo(() => {
+    if (!activeChannel) {
+      return {
+        prefix: 'Messages',
+        label: null,
+        linkTo: null,
+      };
+    }
+
+    const label = getListDisplayName({
+      channel: activeChannel,
+      currentUserId: currentUser?.id
+    });
+
+    const safeLabel = (typeof label === 'string' && label.trim()) ? label.trim() : null;
+
+    // Determine entity link target (DM -> profile, plan/plan-item -> experience deep link)
+    let linkTo = null;
+    try {
+      const channelId = activeChannel?.id || activeChannel?.cid;
+      const data = activeChannel?.data || {};
+
+      if (typeof channelId === 'string' && channelId.startsWith('dm_')) {
+        const members = activeChannel?.state?.members || {};
+        const other = Object.values(members)
+          .map(m => m?.user)
+          .filter(u => u && u.id && u.id !== currentUser?.id)
+          .find(Boolean);
+
+        if (other?.id) {
+          linkTo = `/profile/${other.id}`;
+        }
+      } else {
+        // plan channel IDs: plan_{planId}
+        // plan item channel IDs: planItem_{planId}_{planItemId}
+        const planId = (data.planId && String(data.planId)) || (
+          typeof channelId === 'string' && channelId.startsWith('plan_')
+            ? channelId.substring('plan_'.length)
+            : null
+        );
+
+        const planItemId = (data.planItemId && String(data.planItemId)) || (
+          typeof channelId === 'string' && channelId.startsWith('planItem_')
+            ? channelId.split('_')[2] || null
+            : null
+        );
+
+        const experienceId = planId ? planExperienceCache?.[planId] : null;
+        if (planId && experienceId) {
+          linkTo = planItemId
+            ? `/experiences/${experienceId}#plan-${planId}-item-${planItemId}`
+            : `/experiences/${experienceId}#plan-${planId}`;
+        }
+      }
+    } catch (e) {
+      linkTo = null;
+    }
+
+    return {
+      prefix: 'Messages',
+      label: safeLabel,
+      linkTo,
+    };
+  }, [activeChannel, currentUser?.id, planExperienceCache, title]);
+
+  // If a plan/plan-item channel becomes active, fetch its experienceId once so we can build a deep link.
+  useEffect(() => {
+    if (!activeChannel) return undefined;
+
+    const channelId = activeChannel?.id || activeChannel?.cid;
+    const data = activeChannel?.data || {};
+
+    const planId = (data.planId && String(data.planId)) || (
+      typeof channelId === 'string' && (channelId.startsWith('plan_') || channelId.startsWith('planItem_'))
+        ? channelId.split('_')[1] || null
+        : null
+    );
+
+    if (!planId) return undefined;
+    if (planExperienceCache?.[planId]) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const plan = await getPlanById(planId);
+        const expRaw = plan?.experience?._id || plan?.experience;
+        const experienceId = expRaw && expRaw.toString ? expRaw.toString() : expRaw;
+
+        if (!cancelled && experienceId) {
+          setPlanExperienceCache(prev => ({
+            ...(prev || {}),
+            [planId]: experienceId,
+          }));
+        }
+      } catch (err) {
+        // Not fatal; just means we can't link this channel.
+        logger.debug('[MessagesModal] Failed to resolve plan experience for header link', {
+          planId,
+          channelId: typeof channelId === 'string' ? channelId : null,
+        }, err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChannel, planExperienceCache, setPlanExperienceCache]);
+
   // Don't render anything if not shown
   if (!show) return null;
 
@@ -681,7 +841,35 @@ export default function MessagesModal({
         <div className={styles.modalContent}>
           {/* Header */}
           <div className={styles.modalHeader}>
-            <h5 id="messages-modal-title" className={styles.modalTitle}>{title}</h5>
+            <h5 id="messages-modal-title" className={styles.modalTitle}>
+              {headerTitle.prefix}
+              {headerTitle.label ? (
+                <>
+                  {' — '}
+                  {headerTitle.linkTo ? (
+                    inRouterContext ? (
+                      <Link to={headerTitle.linkTo} className={styles.modalTitleLink}>
+                        <ChannelTitle
+                          label={headerTitle.label}
+                          className={styles.modalTitleChannel}
+                          innerClassName={styles.channelTitleInner}
+                        />
+                      </Link>
+                    ) : (
+                      <a href={headerTitle.linkTo} className={styles.modalTitleLink}>
+                        <ChannelTitle
+                          label={headerTitle.label}
+                          className={styles.modalTitleChannel}
+                          innerClassName={styles.channelTitleInner}
+                        />
+                      </a>
+                    )
+                  ) : (
+                    <span className={styles.modalTitleChannelText}>{headerTitle.label}</span>
+                  )}
+                </>
+              ) : null}
+            </h5>
             <button
               type="button"
               className={styles.closeButton}
