@@ -1184,7 +1184,7 @@
     z-index: 1000;
     min-width: 200px;
     margin-top: $space-2;
-    padding: $space-2 0;
+    padding: var(--menu-padding, #{$space-2});
     background: var(--color-bg-primary);
     border: 1px solid var(--color-border-light);
     border-radius: $radius-lg;
@@ -1211,6 +1211,7 @@
     text-align: left;
     cursor: pointer;
     transition: background-color var(--transition-fast);
+    border-radius: $radius-md;
 
     &:hover:not(:disabled) {
       background: var(--color-bg-hover);

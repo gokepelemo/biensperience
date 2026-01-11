@@ -236,92 +236,141 @@ function PlanActionsDropdown({
   chatLoading,
   openPlanChat
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const actions = useMemo(() => {
+    return [
+      {
+        id: 'chat',
+        label: chatLoading ? 'Opening…' : 'Chat',
+        icon: <BsChatDots />,
+        onClick: () => openPlanChat(),
+        disabled: chatLoading,
+        hidden: !chatEnabled,
+      },
+      {
+        id: 'add-plan-item',
+        label: lang.current.button.addPlanItem,
+        icon: <BsPlusCircle />,
+        onClick: () => handleAddPlanInstanceItem(),
+        hidden: !canEdit,
+      },
+      {
+        id: 'collaborators',
+        label: lang.current.button.addCollaborators,
+        icon: <BsPersonPlus />,
+        onClick: () => openCollaboratorModal('plan'),
+        hidden: !isPlanOwner,
+      },
+      {
+        id: 'sync',
+        label: loading ? lang.current.button.syncing : lang.current.button.syncNow,
+        icon: <BsArrowRepeat className={loading ? 'spin' : undefined} />,
+        onClick: () => handleSyncPlan(),
+        disabled: loading,
+        hidden: !showSyncButton,
+      },
+    ];
+  }, [
+    canEdit,
+    chatEnabled,
+    chatLoading,
+    handleAddPlanInstanceItem,
+    handleSyncPlan,
+    isPlanOwner,
+    lang,
+    loading,
+    openCollaboratorModal,
+    openPlanChat,
+    showSyncButton,
+  ]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Don't render if no actions are available
-  if (!canEdit && !isPlanOwner && !showSyncButton && !chatEnabled) {
-    return null;
-  }
+  const hasAnyActions = actions.some(action => !action.hidden);
+  if (!hasAnyActions) return null;
 
   return (
-    <div className="plan-actions-dropdown" ref={dropdownRef}>
-      <button
-        className="btn btn-primary dropdown-toggle-btn"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-expanded={isOpen}
-        aria-haspopup="true"
-        title={lang.current.tooltip.planActions}
-      >
-        <BsPlusCircle />
-      </button>
-      {isOpen && (
-        <div className="plan-actions-menu">
-          {chatEnabled && (
-            <button
-              className="plan-actions-item"
-              onClick={() => {
-                openPlanChat();
-                setIsOpen(false);
-              }}
-              disabled={chatLoading}
-            >
-              <BsChatDots className="me-2" />
-              {chatLoading ? 'Opening…' : 'Chat'}
-            </button>
-          )}
-          {canEdit && (
-            <button
-              className="plan-actions-item"
-              onClick={() => {
-                handleAddPlanInstanceItem();
-                setIsOpen(false);
-              }}
-            >
-              <BsPlusCircle className="me-2" />
-              {lang.current.button.addPlanItem}
-            </button>
-          )}
-          {isPlanOwner && (
-            <button
-              className="plan-actions-item"
-              onClick={() => {
-                openCollaboratorModal("plan");
-                setIsOpen(false);
-              }}
-            >
-              <BsPersonPlus className="me-2" />
-              {lang.current.button.addCollaborators}
-            </button>
-          )}
-          {showSyncButton && (
-            <button
-              className="plan-actions-item"
-              onClick={() => {
-                handleSyncPlan();
-                setIsOpen(false);
-              }}
-              disabled={loading}
-            >
-              <BsArrowRepeat className={`me-2 ${loading ? 'spin' : ''}`} />
-              {loading ? lang.current.button.syncing : lang.current.button.syncNow}
-            </button>
-          )}
-        </div>
-      )}
+    <div className="plan-actions-dropdown">
+      <ActionsMenu
+        trigger={<BsPlusCircle />}
+        triggerVariant="primary"
+        actions={actions}
+        ariaLabel={lang.current.tooltip.planActions}
+        size="md"
+        position="bottom-right"
+      />
     </div>
   );
+}
+
+function buildStandardPlanItemActions({
+  planItem,
+  parentItem,
+  canAddChild,
+  lang,
+  isPinned,
+  onPinItem,
+  onEdit,
+  onAddChild,
+  onSchedule,
+  onViewDetails,
+  onDelete,
+}) {
+  const isChild = Boolean(planItem.isChild || planItem.parent);
+  const isRoot = !planItem.parent && !planItem.isChild;
+
+  const items = [
+    {
+      id: 'edit',
+      label: lang.current.button?.update || 'Update',
+      icon: <BsPencilSquare />,
+      onClick: () => onEdit(planItem),
+    },
+  ];
+
+  if (canAddChild) {
+    items.splice(1, 0, {
+      id: 'add-child',
+      label: lang.current.button?.addChildItem || 'Add Child Item',
+      icon: <BsPlusCircle />,
+      onClick: () => onAddChild(planItem.plan_item_id || planItem._id),
+    });
+  }
+
+  if (!isChild) {
+    items.push({
+      id: 'schedule',
+      label: 'Schedule Date',
+      icon: <BsCalendarEvent />,
+      onClick: () => onSchedule(planItem, parentItem),
+    });
+  }
+
+  if (planItem.url) {
+    items.push({
+      id: 'view-details',
+      label: 'View Details',
+      icon: <BsEye />,
+      onClick: () => onViewDetails(planItem),
+    });
+  }
+
+  if (isRoot && onPinItem) {
+    items.push({
+      id: 'pin',
+      label: isPinned ? 'Unpin' : 'Pin to Top',
+      icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
+      variant: isPinned ? 'active' : 'default',
+      onClick: () => onPinItem(planItem),
+    });
+  }
+
+  items.push({
+    id: 'delete',
+    label: lang.current.tooltip.delete,
+    icon: <BsTrash3 />,
+    variant: 'danger',
+    onClick: () => onDelete(planItem),
+  });
+
+  return items;
 }
 
 /**
@@ -723,76 +772,35 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
 
   // Build actions array for ActionsMenu
   const actions = useMemo(() => {
-    // Scheduling is only allowed on parent items.
-    const isChild = planItem.isChild || planItem.parent;
-
-    const items = [
-      {
-        id: 'edit',
-        label: lang.current.button?.update || 'Update',
-        icon: <BsPencilSquare />,
-        onClick: () => handleEditPlanInstanceItem(planItem),
-      },
-    ];
-
-    // Allow adding a child item if this item is shallow enough per configured max nesting.
-    if (canAddChild) {
-      items.splice(1, 0, {
-        id: 'add-child',
-        label: lang.current.button?.addChildItem || 'Add Child Item',
-        icon: <BsPlusCircle />,
-        onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
-      });
-    }
-
-    // Schedule action - only for parent items.
-    if (!isChild) {
-      items.push({
-        id: 'schedule',
-        label: 'Schedule Date',
-        icon: <BsCalendarEvent />,
-        onClick: () => onScheduleDate(planItem, parentItem),
-      });
-    }
-
-    // View Details action - only show when URL exists (since clicking text opens URL)
-    if (planItem.url) {
-      items.push({
-        id: 'view-details',
-        label: 'View Details',
-        icon: <BsEye />,
-        onClick: () => handleViewPlanItemDetails(planItem),
-      });
-    }
-
-    // Pin action - only for root items (not children)
-    if (!planItem.isChild && !planItem.parent && onPinItem) {
-      items.push({
-        id: 'pin',
-        label: isPinned ? 'Unpin' : 'Pin to Top',
-        icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
-        variant: isPinned ? 'active' : 'default',
-        onClick: () => onPinItem(planItem),
-      });
-    }
-
-    // Delete action (always last, danger variant)
-    items.push({
-      id: 'delete',
-      label: lang.current.tooltip.delete,
-      icon: <BsTrash3 />,
-      variant: 'danger',
-      onClick: () => {
-        setPlanInstanceItemToDelete(planItem);
+    return buildStandardPlanItemActions({
+      planItem,
+      parentItem,
+      canAddChild,
+      lang,
+      isPinned,
+      onPinItem,
+      onEdit: (item) => handleEditPlanInstanceItem(item),
+      onAddChild: (id) => handleAddPlanInstanceItem(id),
+      onSchedule: (item, parent) => onScheduleDate(item, parent),
+      onViewDetails: (item) => handleViewPlanItemDetails(item),
+      onDelete: (item) => {
+        setPlanInstanceItemToDelete(item);
         setShowPlanInstanceDeleteModal(true);
       },
     });
-
-    return items;
   }, [
-    lang, planItem, parentItem, isPinned, onPinItem, canAddChild,
-    handleEditPlanInstanceItem, handleAddPlanInstanceItem,
-    onScheduleDate, setPlanInstanceItemToDelete, setShowPlanInstanceDeleteModal
+    canAddChild,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    handleViewPlanItemDetails,
+    isPinned,
+    lang,
+    onPinItem,
+    onScheduleDate,
+    parentItem,
+    planItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
   ]);
 
   return (
@@ -1335,74 +1343,35 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
 
   // Build actions array for ActionsMenu (same pattern as SortableCompactPlanItem)
   const actions = useMemo(() => {
-    const isChild = planItem.isChild || planItem.parent;
-    const items = [
-      {
-        id: 'edit',
-        label: lang.current.button?.update || 'Update',
-        icon: <BsPencilSquare />,
-        onClick: () => handleEditPlanInstanceItem(planItem),
-      },
-    ];
-
-    // Allow adding a child item if this item is shallow enough per configured max nesting.
-    if (canAddChild) {
-      items.push({
-        id: 'add-child',
-        label: lang.current.button?.addChildItem || 'Add Child Item',
-        icon: <BsPlusCircle />,
-        onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
-      });
-    }
-
-    // Schedule action - only for parent items.
-    if (!isChild) {
-      items.push({
-        id: 'schedule',
-        label: 'Schedule Date',
-        icon: <BsCalendarEvent />,
-        onClick: () => onScheduleDate(planItem, parentItem),
-      });
-    }
-
-    // View Details action - only show when URL exists (since clicking text opens URL)
-    if (planItem.url) {
-      items.push({
-        id: 'view-details',
-        label: 'View Details',
-        icon: <BsEye />,
-        onClick: () => handleViewPlanItemDetails(planItem),
-      });
-    }
-
-    // Pin action - only for root items (not children)
-    if (!isChild && onPinItem) {
-      items.push({
-        id: 'pin',
-        label: isPinned ? 'Unpin' : 'Pin to Top',
-        icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
-        variant: isPinned ? 'active' : 'default',
-        onClick: () => onPinItem(planItem),
-      });
-    }
-
-    // Delete action (always last, danger variant)
-    items.push({
-      id: 'delete',
-      label: lang.current.tooltip.delete,
-      icon: <BsTrash3 />,
-      variant: 'danger',
-      onClick: () => {
-        setPlanInstanceItemToDelete(planItem);
+    return buildStandardPlanItemActions({
+      planItem,
+      parentItem,
+      canAddChild,
+      lang,
+      isPinned,
+      onPinItem,
+      onEdit: (item) => handleEditPlanInstanceItem(item),
+      onAddChild: (id) => handleAddPlanInstanceItem(id),
+      onSchedule: (item, parent) => onScheduleDate(item, parent),
+      onViewDetails: (item) => handleViewPlanItemDetails(item),
+      onDelete: (item) => {
+        setPlanInstanceItemToDelete(item);
         setShowPlanInstanceDeleteModal(true);
       },
     });
-
-    return items;
   }, [
-    lang, planItem, parentItem, isPinned, onPinItem, canAddChild,
-    handleEditPlanInstanceItem, handleAddPlanInstanceItem, handleViewPlanItemDetails,
-    onScheduleDate, setPlanInstanceItemToDelete, setShowPlanInstanceDeleteModal
+    canAddChild,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    handleViewPlanItemDetails,
+    isPinned,
+    lang,
+    onPinItem,
+    onScheduleDate,
+    parentItem,
+    planItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
   ]);
 
   return (

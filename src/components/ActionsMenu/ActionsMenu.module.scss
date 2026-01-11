@@ -75,6 +75,21 @@
   }
 }
 
+/* Primary trigger variant (used for + menus) */
+.triggerPrimary {
+  background: var(--color-primary, #667eea);
+  border-color: transparent;
+  border-radius: var(--radius-full, 9999px);
+  color: var(--color-on-primary, #ffffff);
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06));
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary-hover, #5a67d8);
+    color: var(--color-on-primary, #ffffff);
+    border-color: transparent;
+  }
+}
+
 /* Dropdown menu */
 .menu {
   position: fixed;
@@ -84,7 +99,7 @@
   /* Render above all other UI */
   z-index: var(--z-index-actions-menu, 2147483000);
   min-width: 200px;
-  padding: $space-2 0;
+  padding: var(--menu-padding, #{$space-2});
   background: var(--color-bg-primary, #ffffff);
   border: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.1));
   border-radius: $radius-lg;
@@ -125,6 +140,7 @@
   line-height: 1.4;
   /* Default touch target; size variants can override */
   min-height: 44px;
+  border-radius: var(--radius-md, #{$radius-md});
 
   &:hover:not(:disabled) {
     background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));

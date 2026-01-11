@@ -43,6 +43,7 @@ export default function ActionsMenu({
   actions = [],
   position = 'bottom-right',
   size = 'md',
+  triggerVariant = 'default',
   ariaLabel = 'Actions',
   className = '',
   disabled = false,
@@ -222,6 +223,11 @@ export default function ActionsMenu({
     className,
   ].filter(Boolean).join(' ');
 
+  const triggerClasses = [
+    styles.trigger,
+    triggerVariant === 'primary' && styles.triggerPrimary,
+  ].filter(Boolean).join(' ');
+
   const menuClasses = [
     styles.menu,
     styles[`position-${position}`],
@@ -231,7 +237,7 @@ export default function ActionsMenu({
     <div className={containerClasses} ref={containerRef}>
       <button
         type="button"
-        className={styles.trigger}
+        className={triggerClasses}
         onClick={handleToggle}
         aria-expanded={isOpen}
         aria-haspopup="menu"
@@ -298,6 +304,7 @@ ActionsMenu.propTypes = {
   })).isRequired,
   position: PropTypes.oneOf(['bottom-right', 'bottom-left']),
   size: PropTypes.oneOf(['sm', 'md']),
+  triggerVariant: PropTypes.oneOf(['default', 'primary']),
   ariaLabel: PropTypes.string,
   className: PropTypes.string,
   disabled: PropTypes.bool,

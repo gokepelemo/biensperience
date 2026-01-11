@@ -110,6 +110,9 @@
   --container-padding: #{$container-padding};
   --container-padding-mobile: #{$container-padding-mobile};
 
+   /* Menus (dropdowns, actions menus) */
+   --menu-padding: var(--space-2);
+
   /* ============================================
      COLORS
      ============================================ */
