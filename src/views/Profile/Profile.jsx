@@ -35,9 +35,9 @@ import { getDefaultPhoto } from "../../utilities/photo-utils";
 import { getFirstName } from "../../utilities/name-utils";
 import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
-import { getObfuscatedJson, setObfuscatedJson } from '../../utilities/secure-storage-lite';
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
+import { storePreference, retrievePreference, expirePreference } from "../../utilities/preferences-utils";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser } from "../../utilities/system-users";
@@ -80,6 +80,15 @@ export default function Profile() {
   // Track previous profileId to detect navigation between profiles
   const prevProfileIdRef = useRef(profileId);
 
+  // Guard against stale async responses overwriting UI after navigation.
+  // We intentionally use refs (not state) to avoid introducing extra re-renders.
+  const activeUserIdRef = useRef(userId);
+  const latestProfileRequestIdRef = useRef(0);
+  const latestFollowDataRequestIdRef = useRef(0);
+  const latestUserExperiencesRequestIdRef = useRef(0);
+  const latestCreatedExperiencesRequestIdRef = useRef(0);
+  const latestFollowsListRequestIdRef = useRef(0);
+
   // Follow feature state
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -95,6 +104,10 @@ export default function Profile() {
   const [followsList, setFollowsList] = useState([]);
   const [followsLoading, setFollowsLoading] = useState(false);
   const [followsPagination, setFollowsPagination] = useState({ total: 0, hasMore: false, skip: 0 });
+
+  // Refs to avoid follow-event subscription churn when these values change
+  const followsFilterRef = useRef(followsFilter);
+  const followsListLoadedRef = useRef(false);
 
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
@@ -135,11 +148,30 @@ export default function Profile() {
     }
   }, [profileId]);
 
-  // Initialize tab from hash (supports deep links like /profile#created)
+  // Keep an always-fresh userId reference for stale-request guards
   useEffect(() => {
+    activeUserIdRef.current = userId;
+  }, [userId]);
+
+  // Keep follow-event handler refs fresh without resubscribing
+  useEffect(() => {
+    followsFilterRef.current = followsFilter;
+  }, [followsFilter]);
+
+  useEffect(() => {
+    followsListLoadedRef.current = Array.isArray(followsList) && followsList.length > 0;
+  }, [followsList]);
+
+  const applyHash = useCallback((rawHash) => {
     try {
-      const hash = (window.location.hash || '').replace('#', '');
-      if (!hash) return;
+      const hash = (rawHash || '').replace('#', '');
+
+      // Empty hash - close modals if open
+      if (!hash) {
+        setShowApiTokenModal(false);
+        setShowActivityMonitor(false);
+        return;
+      }
 
       // Map known hashes to local profile tabs
       if (['activity', 'follows', 'experiences', 'created', 'destinations'].includes(hash)) {
@@ -182,74 +214,26 @@ export default function Profile() {
         setShowActivityMonitor(true);
         return;
       }
+      // Unknown hash - ignore
     } catch (e) {
       // ignore
     }
-    // run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate]);
+
+  // Initialize tab from hash (supports deep links like /profile#created)
+  useEffect(() => {
+    applyHash(window.location.hash || '');
+  }, [applyHash]);
 
   // Keep UI tab state in sync when hash changes externally
   useEffect(() => {
     const onHashChange = () => {
-      try {
-        const hash = (window.location.hash || '').replace('#', '');
-
-        // Empty hash - close modals if open
-        if (!hash) {
-          if (showApiTokenModal) setShowApiTokenModal(false);
-          if (showActivityMonitor) setShowActivityMonitor(false);
-          return;
-        }
-
-        if (['activity', 'follows', 'experiences', 'created', 'destinations'].includes(hash)) {
-          setUiState({
-            activity: hash === 'activity',
-            follows: hash === 'follows',
-            experiences: hash === 'experiences',
-            created: hash === 'created',
-            destinations: hash === 'destinations',
-          });
-          return;
-        }
-
-        // Handle follows sub-hashes (e.g., #followers, #following)
-        if (hash === 'followers' || hash === 'following') {
-          setUiState({
-            activity: false,
-            follows: true,
-            experiences: false,
-            created: false,
-            destinations: false,
-          });
-          setFollowsFilter(hash);
-          return;
-        }
-
-        if (hash === 'plans' || hash === 'preferences') {
-          // push navigation entry to dashboard
-          navigate(`/dashboard#${hash}`);
-          return;
-        }
-
-        // Modal hashes
-        if (hash === 'api-token') {
-          setShowApiTokenModal(true);
-          return;
-        }
-        if (hash === 'activity-monitor') {
-          setShowActivityMonitor(true);
-          return;
-        }
-        // Unknown hash - ignore
-      } catch (e) {
-        // ignore
-      }
+      applyHash(window.location.hash || '');
     };
 
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [navigate, showApiTokenModal, showActivityMonitor]);
+  }, [applyHash]);
   // Experiences state with pagination metadata
   const [userExperiences, setUserExperiences] = useState(null);
   const [userExperiencesMeta, setUserExperiencesMeta] = useState(null);
@@ -267,12 +251,7 @@ export default function Profile() {
   const [showAllCreated, setShowAllCreated] = useState(false);
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const COOLDOWN_SECONDS = 60;
-  const COOLDOWN_STORAGE_KEY_PREFIX = 'bien:emailVerificationResendCooldown:';
-
-  const getCooldownStorageKey = useCallback((profileId) => {
-    if (!profileId) return null;
-    return `${COOLDOWN_STORAGE_KEY_PREFIX}${profileId}`;
-  }, []);
+  const RESEND_COOLDOWN_PREF_KEY = 'session.resendVerificationCooldown.expiresAt';
   const EXPERIENCE_TYPES_INITIAL_DISPLAY = 10;
   const ITEMS_PER_PAGE = 6; // Fixed items per page for API pagination
   // Pagination for profile tabs
@@ -281,6 +260,7 @@ export default function Profile() {
   const [destinationsPage, setDestinationsPage] = useState(1);
   const reservedRef = useRef(null);
   const [itemsPerPageComputed, setItemsPerPageComputed] = useState(ITEMS_PER_PAGE);
+  const cooldownTimerRef = useRef(null);
   // Track if initial page 1 has been loaded (to distinguish from user navigation back to page 1)
   const experiencesInitialLoadRef = useRef(true);
   const createdInitialLoadRef = useRef(true);
@@ -327,87 +307,87 @@ export default function Profile() {
     });
   }, []);
 
-  // Start a cooldown for the given email and persist to localStorage
-  const startCooldown = (profileId, email = null) => {
-    const key = getCooldownStorageKey(profileId);
-    if (!key) return;
-    const expiresAt = Date.now() + COOLDOWN_SECONDS * 1000;
-    try {
-      setObfuscatedJson(localStorage, key, expiresAt);
-
-      // Cleanup legacy key that included the email (plaintext + PII)
-      if (email) {
-        try { localStorage.removeItem(`resend_verification_cooldown_${email}`); } catch (e) {}
-      }
-    } catch (e) {
-      // ignore localStorage errors
+  const clearCooldownTimer = useCallback(() => {
+    if (cooldownTimerRef.current) {
+      clearInterval(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
     }
+  }, []);
+
+  const applyCooldown = useCallback((expiresAt) => {
+    if (!expiresAt || Number.isNaN(Number(expiresAt))) return;
+
+    clearCooldownTimer();
+
+    const remainingSeconds = Math.max(0, Math.ceil((Number(expiresAt) - Date.now()) / 1000));
+    if (remainingSeconds <= 0) {
+      setResendDisabled(false);
+      setCooldownRemaining(0);
+      return;
+    }
+
     setResendDisabled(true);
-    setCooldownRemaining(COOLDOWN_SECONDS);
-    const timer = setInterval(() => {
-      setCooldownRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          try { localStorage.removeItem(key); } catch (e) {}
-          setResendDisabled(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+    setCooldownRemaining(remainingSeconds);
 
-  // On profile load, restore any existing cooldown for this email
-  useEffect(() => {
-    if (!currentProfile?._id) return;
-
-    const key = getCooldownStorageKey(currentProfile._id);
-    const legacyKey = currentProfile.email ? `resend_verification_cooldown_${currentProfile.email}` : null;
-
-    try {
-      let expiresAt = getObfuscatedJson(localStorage, key, null);
-
-      // Migrate legacy plaintext timestamp if present
-      if ((!expiresAt || typeof expiresAt !== 'number') && legacyKey) {
-        const legacyRaw = localStorage.getItem(legacyKey);
-        if (legacyRaw) {
-          const parsed = parseInt(legacyRaw, 10);
-          if (!Number.isNaN(parsed)) {
-            expiresAt = parsed;
-            setObfuscatedJson(localStorage, key, parsed);
-          }
-          try { localStorage.removeItem(legacyKey); } catch (e) {}
-        }
-      }
-
-      if (!expiresAt || typeof expiresAt !== 'number') return;
-      const now = Date.now();
-      if (expiresAt > now) {
-        const remaining = Math.ceil((expiresAt - now) / 1000);
-        setResendDisabled(true);
-        setCooldownRemaining(remaining);
-        const timer = setInterval(() => {
-          const rem = Math.ceil((expiresAt - Date.now()) / 1000);
-          if (rem <= 0) {
-            clearInterval(timer);
-            try { localStorage.removeItem(key); } catch (e) {}
-            setResendDisabled(false);
-            setCooldownRemaining(0);
-          } else {
-            setCooldownRemaining(rem);
-          }
-        }, 1000);
-        return () => clearInterval(timer);
+    cooldownTimerRef.current = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((Number(expiresAt) - Date.now()) / 1000));
+      if (rem <= 0) {
+        clearCooldownTimer();
+        setResendDisabled(false);
+        setCooldownRemaining(0);
+        // Clean up stored preference (best-effort)
+        expirePreference(RESEND_COOLDOWN_PREF_KEY, { userId: user?._id }).catch(() => {});
       } else {
-        try { localStorage.removeItem(key); } catch (e) {}
-        if (legacyKey) {
-          try { localStorage.removeItem(legacyKey); } catch (e) {}
-        }
+        setCooldownRemaining(rem);
       }
-    } catch (e) {
-      // ignore
-    }
-  }, [currentProfile?._id, currentProfile?.email, getCooldownStorageKey]);
+    }, 1000);
+  }, [RESEND_COOLDOWN_PREF_KEY, clearCooldownTimer, user?._id]);
+
+  // Start a cooldown for resend verification and persist via encrypted preferences
+  const startCooldown = useCallback(() => {
+    const expiresAt = Date.now() + COOLDOWN_SECONDS * 1000;
+
+    // Persist (best-effort). Use a non-PII key, encrypted with userId.
+    storePreference(
+      RESEND_COOLDOWN_PREF_KEY,
+      expiresAt,
+      { userId: user?._id, ttl: COOLDOWN_SECONDS * 1000 }
+    ).catch(() => {});
+
+    applyCooldown(expiresAt);
+  }, [COOLDOWN_SECONDS, RESEND_COOLDOWN_PREF_KEY, applyCooldown, user?._id]);
+
+  // On profile load, restore any existing resend-verification cooldown
+  useEffect(() => {
+    if (!isOwnProfile || !currentProfile || !user?._id) return;
+
+    let cancelled = false;
+
+    const restore = async () => {
+      const expiresAt = await retrievePreference(
+        RESEND_COOLDOWN_PREF_KEY,
+        null,
+        { userId: user._id }
+      );
+
+      if (cancelled) return;
+      if (!expiresAt) {
+        clearCooldownTimer();
+        setResendDisabled(false);
+        setCooldownRemaining(0);
+        return;
+      }
+
+      applyCooldown(expiresAt);
+    };
+
+    restore().catch(() => {});
+
+    return () => {
+      cancelled = true;
+      clearCooldownTimer();
+    };
+  }, [currentProfile, isOwnProfile, RESEND_COOLDOWN_PREF_KEY, applyCooldown, clearCooldownTimer, user?._id]);
 
   // Build planned experiences list - one entry per plan (not per experience)
   // This allows showing both owned and collaborative plans for the same experience separately
@@ -489,9 +469,17 @@ export default function Profile() {
   // Fetch user experiences with pagination
   const fetchUserExperiences = useCallback(async (page = 1) => {
     if (!userId) return;
+
+    const requestId = ++latestUserExperiencesRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestUserExperiencesRequestIdRef.current !== requestId;
+
     setExperiencesLoading(true);
     try {
       const response = await showUserExperiences(userId, { page, limit: ITEMS_PER_PAGE });
+
+      if (isStale()) return;
+
       // Handle paginated response
       if (response && response.data) {
         setUserExperiences(response.data);
@@ -502,18 +490,27 @@ export default function Profile() {
         setUserExperiencesMeta(null);
       }
     } catch (err) {
+      if (isStale()) return;
       handleError(err, { context: 'Load experiences' });
     } finally {
-      setExperiencesLoading(false);
+      if (!isStale()) setExperiencesLoading(false);
     }
   }, [userId]);
 
   // Fetch created experiences with pagination
   const fetchCreatedExperiences = useCallback(async (page = 1) => {
     if (!userId) return;
+
+    const requestId = ++latestCreatedExperiencesRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestCreatedExperiencesRequestIdRef.current !== requestId;
+
     setCreatedLoading(true);
     try {
       const response = await showUserCreatedExperiences(userId, { page, limit: ITEMS_PER_PAGE });
+
+      if (isStale()) return;
+
       // Handle paginated response
       if (response && response.data) {
         setCreatedExperiences(response.data);
@@ -524,13 +521,19 @@ export default function Profile() {
         setCreatedExperiencesMeta(null);
       }
     } catch (err) {
+      if (isStale()) return;
       handleError(err, { context: 'Load created experiences' });
     } finally {
-      setCreatedLoading(false);
+      if (!isStale()) setCreatedLoading(false);
     }
   }, [userId]);
 
-  const getProfile = useCallback(async () => {
+  const getProfile = useCallback(async (options = {}) => {
+    const { forceUserData = false } = options;
+    const requestId = ++latestProfileRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestProfileRequestIdRef.current !== requestId;
+
     if (!isOwner) {
       setIsLoadingProfile(true);
     }
@@ -538,26 +541,35 @@ export default function Profile() {
 
     // Validate userId before API calls
     if (!userId || typeof userId !== 'string' || userId.length !== 24) {
-      setProfileError(lang.current.alert.invalidUserId);
-      setIsLoadingProfile(false);
+      if (!isStale()) {
+        setProfileError(lang.current.alert.invalidUserId);
+        setIsLoadingProfile(false);
+      }
       return;
     }
 
     // Block access to system user profiles (e.g., Archive User)
     // These are internal system accounts that should never be publicly viewable
     if (isSystemUser(userId)) {
-      setProfileError(lang.current.alert.userNotFound);
-      setIsLoadingProfile(false);
+      if (!isStale()) {
+        setProfileError(lang.current.alert.userNotFound);
+        setIsLoadingProfile(false);
+      }
       return;
     }
 
     try {
+      const canUseContextProfile = isOwner && !forceUserData && profile && profile._id === userId;
+
       // Fetch profile and first page of experiences in parallel
       const [userData, experienceResponse, createdResponse] = await Promise.all([
-        getUserData(userId),
+        canUseContextProfile ? Promise.resolve(profile) : getUserData(userId),
         showUserExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE }),
         showUserCreatedExperiences(userId, { page: 1, limit: ITEMS_PER_PAGE })
       ]);
+
+      if (isStale()) return;
+
       setCurrentProfile(userData);
       // Handle paginated response
       if (experienceResponse && experienceResponse.data) {
@@ -575,6 +587,8 @@ export default function Profile() {
         setCreatedExperiencesMeta(null);
       }
     } catch (err) {
+      if (isStale()) return;
+
       // Check if it's a 404 error
       if (err.message && err.message.includes('404')) {
         setProfileError(lang.current.alert.userNotFound);
@@ -583,9 +597,9 @@ export default function Profile() {
         setProfileError(lang.current.alert.failedToLoadProfile);
       }
     } finally {
-      setIsLoadingProfile(false);
+      if (!isStale()) setIsLoadingProfile(false);
     }
-  }, [userId, isOwner]);
+  }, [userId, isOwner, profile]);
 
   // Load profile from context for owner, or fetch for other users
   useEffect(() => {
@@ -721,7 +735,7 @@ export default function Profile() {
       const photo = event.photo;
       if (!photo) return;
       // Refresh profile to get updated photos
-      getProfile();
+      getProfile({ forceUserData: true });
     };
 
     const handlePhotoUpdated = (event) => {
@@ -901,16 +915,24 @@ export default function Profile() {
     if (!userId || !user || isOwnProfile) return;
 
     const fetchFollowData = async () => {
+      const requestId = ++latestFollowDataRequestIdRef.current;
+      const requestedUserId = userId;
+      const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
+
       try {
         // Get full relationship (isFollowing, isFollowedBy, isMutual)
         const [relationship, counts] = await Promise.all([
           getFollowRelationship(userId),
           getFollowCounts(userId)
         ]);
+
+        if (isStale()) return;
+
         setIsFollowing(Boolean(relationship?.isFollowing));
         setFollowRelationship(relationship || null);
         setFollowCounts(counts);
       } catch (err) {
+        if (isStale()) return;
         logger.error('[Profile] Failed to fetch follow data', { error: err.message });
       }
     };
@@ -923,10 +945,16 @@ export default function Profile() {
     if (!userId || !isOwnProfile) return;
 
     const fetchOwnFollowCounts = async () => {
+      const requestId = ++latestFollowDataRequestIdRef.current;
+      const requestedUserId = userId;
+      const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
+
       try {
         const counts = await getFollowCounts(userId);
+        if (isStale()) return;
         setFollowCounts(counts);
       } catch (err) {
+        if (isStale()) return;
         logger.error('[Profile] Failed to fetch follow counts', { error: err.message });
       }
     };
@@ -971,7 +999,7 @@ export default function Profile() {
         setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
 
         // If we're on the followers tab and have loaded the list, add the new follower
-        if (followsFilter === 'followers' && followsList.length > 0 && followerId) {
+        if (followsFilterRef.current === 'followers' && followsListLoadedRef.current && followerId) {
           // Add new follower to the list (at the beginning since it's most recent)
           // Only add if we have follower details from the event
           if (followerName) {
@@ -1007,7 +1035,7 @@ export default function Profile() {
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
 
         // If we're on the followers tab, remove the unfollower from the list
-        if (followsFilter === 'followers' && followerId) {
+        if (followsFilterRef.current === 'followers' && followerId) {
           setFollowsList(prev => prev.filter(f => f._id !== followerId));
           setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
         }
@@ -1018,11 +1046,21 @@ export default function Profile() {
 
     // Handle follower removed event (when profile owner removes a follower)
     const handleFollowerRemoved = (event) => {
-      const removedFollowerId = event.removedFollowerId || event.payload?.removedFollowerId;
-      const removedById = event.removedById || event.payload?.removedById;
+      const removedFollowerId =
+        event.removedFollowerId ||
+        event.followerId ||
+        event.payload?.removedFollowerId ||
+        event.payload?.followerId;
+      const removedById =
+        event.removedById ||
+        event.userId ||
+        event.payload?.removedById ||
+        event.payload?.userId;
+
+      if (!removedFollowerId || !removedById) return;
 
       // If this profile's owner removed a follower, update the followers list
-      if (removedById === userId && followsFilter === 'followers') {
+      if (removedById === userId && followsFilterRef.current === 'followers') {
         setFollowsList(prev => prev.filter(f => f._id !== removedFollowerId));
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
         setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
@@ -1048,7 +1086,7 @@ export default function Profile() {
       unsubWsDelete?.();
       unsubWsRemoved?.();
     };
-  }, [userId, user._id, wsSubscribe, followsFilter, followsList.length]);
+  }, [userId, user._id, wsSubscribe]);
 
   // Handle follow button click
   const handleFollow = useCallback(async () => {
@@ -1064,7 +1102,7 @@ export default function Profile() {
     try {
       await followUser(userId, user._id);
       setIsFollowing(true);
-      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+      // Follow count updates are handled via the `follow:created` event emitted by `followUser()`.
       success(lang.current.success.nowFollowing);
       try {
         const rel = await getFollowRelationship(userId);
@@ -1094,7 +1132,7 @@ export default function Profile() {
     try {
       await unfollowUser(userId, user._id);
       setIsFollowing(false);
-      setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+      // Follow count updates are handled via the `follow:deleted` event emitted by `unfollowUser()`.
       success(lang.current.success.unfollowed);
       try {
         const rel = await getFollowRelationship(userId);
@@ -1125,21 +1163,19 @@ export default function Profile() {
     // Optimistic update - remove from list immediately
     const prevFollowsList = [...followsList];
     setFollowsList(prev => prev.filter(u => u._id !== followerId));
-    setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
 
     try {
-      await removeFollower(followerId);
+      await removeFollower(followerId, user._id);
       success(lang.current.success?.followerRemoved || 'Follower removed');
     } catch (err) {
       // Rollback on error
       setFollowsList(prevFollowsList);
-      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
       const message = handleError(err, { context: 'Remove follower' });
       showError(message || 'Failed to remove follower');
     } finally {
       setFollowActionInProgress(prev => ({ ...prev, [followerId]: false }));
     }
-  }, [followsList, followActionInProgress, success, showError]);
+  }, [followsList, followActionInProgress, success, showError, user._id]);
 
   // Handle unfollowing a user from the following list (when viewing own profile)
   const handleUnfollowFromList = useCallback(async (followingId, e) => {
@@ -1173,6 +1209,10 @@ export default function Profile() {
   const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
     if (!userId) return;
 
+    const requestId = ++latestFollowsListRequestIdRef.current;
+    const requestedUserId = userId;
+    const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowsListRequestIdRef.current !== requestId;
+
     setFollowsLoading(true);
     try {
       const skip = reset ? 0 : followsList.length;
@@ -1182,6 +1222,9 @@ export default function Profile() {
       let response;
       if (filter === 'followers') {
         response = await getFollowers(userId, options);
+
+        if (isStale()) return;
+
         const users = response.followers || [];
         setFollowsList(prev => reset ? users : [...prev, ...users]);
         setFollowsPagination({
@@ -1191,6 +1234,9 @@ export default function Profile() {
         });
       } else {
         response = await getFollowing(userId, options);
+
+        if (isStale()) return;
+
         const users = response.following || [];
         setFollowsList(prev => reset ? users : [...prev, ...users]);
         setFollowsPagination({
@@ -1200,9 +1246,10 @@ export default function Profile() {
         });
       }
     } catch (err) {
+      if (isStale()) return;
       logger.error('[Profile] Failed to fetch follows list', { error: err.message });
     } finally {
-      setFollowsLoading(false);
+      if (!isStale()) setFollowsLoading(false);
     }
   }, [userId, followsFilter, followsList.length]);
 
@@ -1842,7 +1889,7 @@ export default function Profile() {
                                 try {
                                   setResendInProgress(true);
                                   await resendConfirmation(currentProfile.email);
-                                  startCooldown(currentProfile._id, currentProfile.email);
+                                  startCooldown();
                                   success(lang.current.success.resendConfirmation);
                                 } catch (err) {
                                   const msg = handleError(err, { context: 'Resend verification' });

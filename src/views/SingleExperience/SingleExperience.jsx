@@ -1946,16 +1946,20 @@ export default function SingleExperience() {
 
       const result = await addPlanItemDetail(planIdToUse, planItemId, detailData);
 
+      // Backend returns the updated plan (sometimes wrapped). Normalize shape.
+      const updatedPlan = result?.plan || result?.data || result;
+
       // Update the shared plans state if result includes updated plan
-      if (result?.plan) {
+      if (updatedPlan?._id) {
         setSharedPlans(prevPlans =>
-          prevPlans.map(p => idEquals(p._id, planIdToUse) ? result.plan : p)
+          prevPlans.map(p => idEquals(p._id, planIdToUse) ? updatedPlan : p)
         );
       }
 
       // Update selected details item to reflect the new detail
-      if (selectedDetailsItem && idEquals(selectedDetailsItem._id, planItemId) && result?.item) {
-        setSelectedDetailsItem(result.item);
+      if (selectedDetailsItem && idEquals(selectedDetailsItem._id, planItemId) && updatedPlan?.plan?.length) {
+        const nextItem = updatedPlan.plan.find(i => idEquals(i._id, planItemId));
+        if (nextItem) setSelectedDetailsItem(nextItem);
       }
 
       // Show success message based on type

@@ -275,6 +275,16 @@ export function updatePlanItem(planId, itemId, updates) {
     url: updates.url ? normalizeUrl(updates.url) : updates.url
   };
 
+  // Canonicalize completion field name.
+  // Backend + UI use `complete`; keep `completed` as a legacy alias.
+  if (
+    Object.prototype.hasOwnProperty.call(normalizedUpdates, 'completed') &&
+    !Object.prototype.hasOwnProperty.call(normalizedUpdates, 'complete')
+  ) {
+    normalizedUpdates.complete = normalizedUpdates.completed;
+    delete normalizedUpdates.completed;
+  }
+
   return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates)
     .then((result) => {
       // Emit events via event bus (handles local + cross-tab dispatch)
@@ -294,6 +304,8 @@ export function updatePlanItem(planId, itemId, updates) {
           })
           : null;
 
+        const hasCompletionChange = Object.prototype.hasOwnProperty.call(normalizedUpdates, 'complete');
+
         // Standardized event payload
         const eventPayload = {
           planId,
@@ -304,8 +316,8 @@ export function updatePlanItem(planId, itemId, updates) {
           data: updatedPlan,
           changes: normalizedUpdates,
           planItem: updatedItem,
-          action: normalizedUpdates.completed !== undefined
-            ? (normalizedUpdates.completed ? 'item_completed' : 'item_uncompleted')
+          action: hasCompletionChange
+            ? (normalizedUpdates.complete ? 'item_completed' : 'item_uncompleted')
             : 'item_updated'
         };
 
@@ -313,8 +325,8 @@ export function updatePlanItem(planId, itemId, updates) {
         broadcastEvent('plan:updated', eventPayload);
 
         // Granular item event for real-time updates
-        const itemEvent = normalizedUpdates.completed !== undefined
-          ? (normalizedUpdates.completed ? 'plan:item:completed' : 'plan:item:uncompleted')
+        const itemEvent = hasCompletionChange
+          ? (normalizedUpdates.complete ? 'plan:item:completed' : 'plan:item:uncompleted')
           : 'plan:item:updated';
         broadcastEvent(itemEvent, eventPayload);
 
@@ -328,8 +340,8 @@ export function updatePlanItem(planId, itemId, updates) {
         }
 
         // Operation-based event for CRDT sync
-        if (normalizedUpdates.completed !== undefined) {
-          const opType = normalizedUpdates.completed ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;
+        if (hasCompletionChange) {
+          const opType = normalizedUpdates.complete ? OperationType.COMPLETE_ITEM : OperationType.UNCOMPLETE_ITEM;
           emitOperation(planId, opType, { itemId });
         } else {
           emitOperation(planId, OperationType.UPDATE_ITEM, { itemId, changes: normalizedUpdates });

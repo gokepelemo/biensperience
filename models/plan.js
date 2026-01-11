@@ -189,6 +189,22 @@ const bikeScooterExtensionSchema = new Schema({
 }, { _id: false });
 
 /**
+ * Accommodation extension schema
+ * Stores hotel/accommodation booking details for plan items
+ */
+const accommodationExtensionSchema = new Schema({
+  name: { type: String, trim: true },
+  confirmationNumber: { type: String, trim: true },
+  address: { type: String, trim: true },
+  checkIn: { type: Date },
+  checkOut: { type: Date },
+  roomType: { type: String, trim: true },
+  cost: { type: Number },
+  currency: { type: String, default: 'USD', maxlength: 3, uppercase: true },
+  notes: { type: String, trim: true }
+}, { _id: false });
+
+/**
  * Discount type enumeration
  */
 const DISCOUNT_TYPES = ['promo_code', 'coupon', 'loyalty', 'member', 'early_bird', 'group', 'seasonal', 'referral', 'other'];
@@ -449,9 +465,15 @@ const planItemSnapshotSchema = new Schema({
       discount: {
         type: discountExtensionSchema,
         default: null
+      },
+      // Accommodation extension - stores hotel booking details
+      // Can be linked to any plan item that needs accommodation info
+      accommodation: {
+        type: accommodationExtensionSchema,
+        default: null
       }
     }, { _id: false }),
-    default: () => ({ notes: [], chat: [], photos: [], documents: [], transport: null, parking: null, discount: null })
+    default: () => ({ notes: [], chat: [], photos: [], documents: [], transport: null, parking: null, discount: null, accommodation: null })
   },
   // Assignment to collaborator or owner
   assignedTo: {

@@ -612,33 +612,107 @@ export default function PlanItemDetailsModal({
   const groupedDetails = useMemo(() => {
     if (!planItem?.details) return {};
 
+    const formatDateTime = (value) => {
+      if (!value) return null;
+      try {
+        const d = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(d.getTime())) return null;
+        return d.toLocaleString();
+      } catch (e) {
+        return null;
+      }
+    };
+
     const groups = {};
 
-    // Process each detail type that exists on the plan item
-    // EXCLUDE COST type here - costs are handled separately via actualCosts (from plan.costs)
-    // to avoid duplicates and ensure we use the canonical cost data
-    Object.entries(DETAIL_TYPE_CONFIG).forEach(([type, config]) => {
-      // Skip cost type - handled below via actualCosts
-      if (type === DETAIL_TYPES.COST) return;
-
-      const detailsArray = planItem.details[type] || [];
-      if (detailsArray.length > 0) {
-        const category = config.category;
-        if (!groups[category]) {
-          groups[category] = {
-            ...DETAIL_CATEGORIES[category],
-            items: []
-          };
-        }
-        detailsArray.forEach(detail => {
-          groups[category].items.push({
-            ...detail,
-            type,
-            typeConfig: config
-          });
-        });
+    // Canonical backend details (single objects)
+    const transport = planItem.details?.transport;
+    if (transport?.mode) {
+      const type = transport.mode;
+      const typeConfig = DETAIL_TYPE_CONFIG[type] || {
+        label: 'Transport',
+        icon: '🚗',
+        description: 'Transport details',
+        category: 'transportation'
+      };
+      const category = typeConfig.category || 'transportation';
+      if (!groups[category]) {
+        groups[category] = {
+          ...DETAIL_CATEGORIES[category],
+          items: []
+        };
       }
-    });
+      groups[category].items.push({
+        ...transport,
+        _displayTitle: transport.trackingNumber || transport.vendor || 'Transport',
+        _displayDeparture: formatDateTime(transport.departureTime),
+        _displayArrival: formatDateTime(transport.arrivalTime),
+        type,
+        typeConfig
+      });
+    }
+
+    const accommodation = planItem.details?.accommodation;
+    if (accommodation && (accommodation.name || accommodation.confirmationNumber || accommodation.checkIn || accommodation.checkOut)) {
+      const type = DETAIL_TYPES.HOTEL;
+      const typeConfig = DETAIL_TYPE_CONFIG[type];
+      const category = typeConfig?.category || 'accommodation';
+      if (!groups[category]) {
+        groups[category] = {
+          ...DETAIL_CATEGORIES[category],
+          items: []
+        };
+      }
+      groups[category].items.push({
+        ...accommodation,
+        _displayTitle: accommodation.name || accommodation.confirmationNumber || 'Accommodation',
+        _displayCheckIn: formatDateTime(accommodation.checkIn),
+        _displayCheckOut: formatDateTime(accommodation.checkOut),
+        type,
+        typeConfig
+      });
+    }
+
+    const parking = planItem.details?.parking;
+    if (parking && (parking.facilityName || parking.address || parking.confirmationNumber || parking.startTime || parking.endTime)) {
+      const type = DETAIL_TYPES.PARKING;
+      const typeConfig = DETAIL_TYPE_CONFIG[type];
+      const category = typeConfig?.category || 'parking';
+      if (!groups[category]) {
+        groups[category] = {
+          ...DETAIL_CATEGORIES[category],
+          items: []
+        };
+      }
+      groups[category].items.push({
+        ...parking,
+        _displayTitle: parking.facilityName || parking.confirmationNumber || 'Parking',
+        _displayStart: formatDateTime(parking.startTime),
+        _displayEnd: formatDateTime(parking.endTime),
+        type,
+        typeConfig
+      });
+    }
+
+    const discount = planItem.details?.discount;
+    if (discount && (discount.code || discount.description || discount.discountValue !== undefined)) {
+      const type = DETAIL_TYPES.DISCOUNT;
+      const typeConfig = DETAIL_TYPE_CONFIG[type];
+      const category = typeConfig?.category || 'discount';
+      if (!groups[category]) {
+        groups[category] = {
+          ...DETAIL_CATEGORIES[category],
+          items: []
+        };
+      }
+      groups[category].items.push({
+        ...discount,
+        _displayTitle: discount.code || discount.description || 'Discount',
+        _displayExpires: formatDateTime(discount.expiresAt),
+        type,
+        typeConfig
+      });
+    }
 
     // Include tracked costs in the expense category (from plan.costs, the canonical source)
     if (actualCosts.length > 0) {
@@ -728,31 +802,55 @@ export default function PlanItemDetailsModal({
         } else {
           fields.push({ label: 'Type', value: 'Shared Cost' });
         }
-      } else if (type === DETAIL_TYPES.FLIGHT) {
-        if (item.airline) fields.push({ label: 'Airline', value: item.airline });
-        if (item.flight_number) fields.push({ label: 'Flight', value: item.flight_number });
-        if (item.departure_date) fields.push({ label: 'Departure', value: `${item.departure_date} ${item.departure_time || ''}`.trim() });
-        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+      } else if ([DETAIL_TYPES.FLIGHT, DETAIL_TYPES.TRAIN, DETAIL_TYPES.BUS, DETAIL_TYPES.FERRY, DETAIL_TYPES.CRUISE].includes(type)) {
+        if (item.vendor) fields.push({ label: 'Vendor', value: item.vendor });
+        if (item.trackingNumber) fields.push({ label: 'Reference', value: item.trackingNumber });
+        if (item.departureLocation) fields.push({ label: 'From', value: item.departureLocation });
+        if (item.arrivalLocation) fields.push({ label: 'To', value: item.arrivalLocation });
+        if (item._displayDeparture) fields.push({ label: 'Departure', value: item._displayDeparture });
+        if (item._displayArrival) fields.push({ label: 'Arrival', value: item._displayArrival });
+
+        if (type === DETAIL_TYPES.FLIGHT) {
+          if (item.flight?.terminal) fields.push({ label: 'Terminal', value: item.flight.terminal });
+          if (item.flight?.gate) fields.push({ label: 'Gate', value: item.flight.gate });
+        }
+        if (type === DETAIL_TYPES.TRAIN) {
+          if (item.train?.platform) fields.push({ label: 'Platform', value: item.train.platform });
+          if (item.train?.carriageNumber) fields.push({ label: 'Carriage', value: item.train.carriageNumber });
+        }
+        if ([DETAIL_TYPES.CRUISE, DETAIL_TYPES.FERRY].includes(type)) {
+          const ext = type === DETAIL_TYPES.CRUISE ? item.cruise : item.ferry;
+          if (ext?.shipName) fields.push({ label: 'Ship', value: ext.shipName });
+          if (ext?.embarkationPort) fields.push({ label: 'Embark', value: ext.embarkationPort });
+          if (ext?.disembarkationPort) fields.push({ label: 'Disembark', value: ext.disembarkationPort });
+          if (ext?.deck) fields.push({ label: 'Deck', value: ext.deck });
+        }
+        if (type === DETAIL_TYPES.BUS) {
+          if (item.bus?.stopName) fields.push({ label: 'Stop', value: item.bus.stopName });
+        }
       } else if (type === DETAIL_TYPES.HOTEL) {
-        if (item.hotel_name) fields.push({ label: 'Hotel', value: item.hotel_name });
-        if (item.check_in) fields.push({ label: 'Check-in', value: item.check_in });
-        if (item.check_out) fields.push({ label: 'Check-out', value: item.check_out });
-        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
-      } else if ([DETAIL_TYPES.TRAIN, DETAIL_TYPES.BUS, DETAIL_TYPES.FERRY, DETAIL_TYPES.CRUISE].includes(type)) {
-        if (item.departure_station) fields.push({ label: 'From', value: item.departure_station });
-        if (item.arrival_station) fields.push({ label: 'To', value: item.arrival_station });
-        if (item.departure_date) fields.push({ label: 'Date', value: `${item.departure_date} ${item.departure_time || ''}`.trim() });
-        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+        if (item.name) fields.push({ label: 'Hotel', value: item.name });
+        if (item.confirmationNumber) fields.push({ label: 'Confirmation', value: item.confirmationNumber });
+        if (item.address) fields.push({ label: 'Address', value: item.address });
+        if (item._displayCheckIn) fields.push({ label: 'Check-in', value: item._displayCheckIn });
+        if (item._displayCheckOut) fields.push({ label: 'Check-out', value: item._displayCheckOut });
+        if (item.roomType) fields.push({ label: 'Room Type', value: item.roomType });
       } else if (type === DETAIL_TYPES.PARKING) {
-        if (item.location) fields.push({ label: 'Location', value: item.location });
-        if (item.start_date) fields.push({ label: 'Start', value: item.start_date });
-        if (item.end_date) fields.push({ label: 'End', value: item.end_date });
-        if (item.confirmation_number) fields.push({ label: 'Confirmation', value: item.confirmation_number });
+        if (item.facilityName) fields.push({ label: 'Facility', value: item.facilityName });
+        if (item.address) fields.push({ label: 'Address', value: item.address });
+        if (item.confirmationNumber) fields.push({ label: 'Confirmation', value: item.confirmationNumber });
+        if (item._displayStart) fields.push({ label: 'Start', value: item._displayStart });
+        if (item._displayEnd) fields.push({ label: 'End', value: item._displayEnd });
       } else if (type === DETAIL_TYPES.DISCOUNT) {
         if (item.code) fields.push({ label: 'Code', value: item.code });
-        if (item.discount_amount) fields.push({ label: 'Discount', value: `${item.discount_amount}${item.discount_type === 'percentage' ? '%' : ''}` });
-        if (item.expiry_date) fields.push({ label: 'Expires', value: item.expiry_date });
-        if (item.terms) fields.push({ label: 'Terms', value: item.terms });
+        if (item.description) fields.push({ label: 'Description', value: item.description });
+        if (item.discountType) fields.push({ label: 'Type', value: item.discountType });
+        if (item.discountValue !== undefined && item.discountValue !== null) {
+          fields.push({ label: 'Discount', value: `${item.discountValue}${item.isPercentage ? '%' : ''}` });
+        }
+        if (item._displayExpires) fields.push({ label: 'Expires', value: item._displayExpires });
+        if (item.source) fields.push({ label: 'Source', value: item.source });
+        if (item.discountNotes) fields.push({ label: 'Notes', value: item.discountNotes });
       }
 
       // Notes field for any type
@@ -800,7 +898,7 @@ export default function PlanItemDetailsModal({
       category.items.forEach(item => {
         const itemDiv = createEl('div', 'print-item');
         itemDiv.appendChild(createEl('div', 'print-item-type', `${item.typeConfig.icon} ${item.typeConfig.label}`));
-        itemDiv.appendChild(createEl('div', 'print-item-title', item.title || item.name || item.confirmation_number || item.airline || item.hotel_name || 'Detail'));
+        itemDiv.appendChild(createEl('div', 'print-item-title', item.title || item._displayTitle || item.name || item.trackingNumber || item.confirmationNumber || 'Detail'));
 
         const dl = document.createElement('dl');
         dl.className = 'print-item-meta';
@@ -835,7 +933,8 @@ export default function PlanItemDetailsModal({
 
   /**
    * Handle saving location from AddLocationModal
-   * Updates the plan item via PATCH and emits event
+   * Updates the plan item via PATCH.
+   * The updatePlanItem utility already broadcasts events, so no need to emit again.
    */
   const handleSaveLocation = useCallback(async (locationData) => {
     if (!plan?._id || !planItem?._id) {
@@ -846,7 +945,7 @@ export default function PlanItemDetailsModal({
 
     try {
       // Update plan item with new location via PATCH
-      const result = await updatePlanItem(plan._id, planItem._id, {
+      await updatePlanItem(plan._id, planItem._id, {
         location: locationData
       });
 
@@ -854,14 +953,6 @@ export default function PlanItemDetailsModal({
         planId: plan._id,
         itemId: planItem._id,
         location: locationData.address
-      });
-
-      // Emit event to update UI
-      broadcastEvent('plan:item:updated', {
-        planId: plan._id,
-        planItemId: planItem._id,
-        planItem: result,
-        updatedFields: ['location']
       });
 
       setShowLocationModal(false);
@@ -1510,7 +1601,7 @@ export default function PlanItemDetailsModal({
                             </div>
                             <div className={styles.detailItemContent}>
                               <div className={styles.detailItemTitle}>
-                                {item.title || item.name || item.confirmation_number || item.airline || item.hotel_name || 'Detail'}
+                                {item.title || item._displayTitle || item.name || item.trackingNumber || item.confirmationNumber || 'Detail'}
                               </div>
                               <dl className={styles.detailItemMeta}>
                                 {/* Render relevant fields based on detail type */}
@@ -1549,112 +1640,206 @@ export default function PlanItemDetailsModal({
                                 )}
                                 {item.type === DETAIL_TYPES.FLIGHT && (
                                   <>
-                                    {item.airline && (
+                                    {item.vendor && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Airline:</dt>
-                                        <dd>{item.airline}</dd>
+                                        <dt>Vendor:</dt>
+                                        <dd>{item.vendor}</dd>
                                       </div>
                                     )}
-                                    {item.flight_number && (
+                                    {item.trackingNumber && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Flight:</dt>
-                                        <dd>{item.flight_number}</dd>
+                                        <dt>Reference:</dt>
+                                        <dd>{item.trackingNumber}</dd>
                                       </div>
                                     )}
-                                    {item.departure_date && (
+                                    {item.departureLocation && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>From:</dt>
+                                        <dd>{item.departureLocation}</dd>
+                                      </div>
+                                    )}
+                                    {item.arrivalLocation && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>To:</dt>
+                                        <dd>{item.arrivalLocation}</dd>
+                                      </div>
+                                    )}
+                                    {item._displayDeparture && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Departure:</dt>
-                                        <dd>{item.departure_date} {item.departure_time || ''}</dd>
+                                        <dd>{item._displayDeparture}</dd>
                                       </div>
                                     )}
-                                    {item.confirmation_number && (
+                                    {item._displayArrival && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Confirmation:</dt>
-                                        <dd>{item.confirmation_number}</dd>
+                                        <dt>Arrival:</dt>
+                                        <dd>{item._displayArrival}</dd>
+                                      </div>
+                                    )}
+                                    {item.flight?.terminal && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Terminal:</dt>
+                                        <dd>{item.flight.terminal}</dd>
+                                      </div>
+                                    )}
+                                    {item.flight?.gate && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Gate:</dt>
+                                        <dd>{item.flight.gate}</dd>
                                       </div>
                                     )}
                                   </>
                                 )}
                                 {item.type === DETAIL_TYPES.HOTEL && (
                                   <>
-                                    {item.hotel_name && (
+                                    {item.name && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Hotel:</dt>
-                                        <dd>{item.hotel_name}</dd>
+                                        <dd>{item.name}</dd>
                                       </div>
                                     )}
-                                    {item.check_in && (
+                                    {item._displayCheckIn && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Check-in:</dt>
-                                        <dd>{item.check_in}</dd>
+                                        <dd>{item._displayCheckIn}</dd>
                                       </div>
                                     )}
-                                    {item.check_out && (
+                                    {item._displayCheckOut && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Check-out:</dt>
-                                        <dd>{item.check_out}</dd>
+                                        <dd>{item._displayCheckOut}</dd>
                                       </div>
                                     )}
-                                    {item.confirmation_number && (
+                                    {item.confirmationNumber && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Confirmation:</dt>
-                                        <dd>{item.confirmation_number}</dd>
+                                        <dd>{item.confirmationNumber}</dd>
                                       </div>
                                     )}
                                   </>
                                 )}
                                 {(item.type === DETAIL_TYPES.TRAIN || item.type === DETAIL_TYPES.BUS || item.type === DETAIL_TYPES.FERRY || item.type === DETAIL_TYPES.CRUISE) && (
                                   <>
-                                    {item.departure_station && (
+                                    {item.vendor && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Vendor:</dt>
+                                        <dd>{item.vendor}</dd>
+                                      </div>
+                                    )}
+                                    {item.trackingNumber && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Reference:</dt>
+                                        <dd>{item.trackingNumber}</dd>
+                                      </div>
+                                    )}
+                                    {item.departureLocation && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>From:</dt>
-                                        <dd>{item.departure_station}</dd>
+                                        <dd>{item.departureLocation}</dd>
                                       </div>
                                     )}
-                                    {item.arrival_station && (
+                                    {item.arrivalLocation && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>To:</dt>
-                                        <dd>{item.arrival_station}</dd>
+                                        <dd>{item.arrivalLocation}</dd>
                                       </div>
                                     )}
-                                    {item.departure_date && (
+                                    {item._displayDeparture && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Date:</dt>
-                                        <dd>{item.departure_date} {item.departure_time || ''}</dd>
+                                        <dt>Departure:</dt>
+                                        <dd>{item._displayDeparture}</dd>
                                       </div>
                                     )}
-                                    {item.confirmation_number && (
+                                    {item._displayArrival && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Confirmation:</dt>
-                                        <dd>{item.confirmation_number}</dd>
+                                        <dt>Arrival:</dt>
+                                        <dd>{item._displayArrival}</dd>
                                       </div>
+                                    )}
+                                    {item.type === DETAIL_TYPES.TRAIN && item.train?.platform && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Platform:</dt>
+                                        <dd>{item.train.platform}</dd>
+                                      </div>
+                                    )}
+                                    {item.type === DETAIL_TYPES.TRAIN && item.train?.carriageNumber && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Carriage:</dt>
+                                        <dd>{item.train.carriageNumber}</dd>
+                                      </div>
+                                    )}
+                                    {item.type === DETAIL_TYPES.BUS && item.bus?.stopName && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Stop:</dt>
+                                        <dd>{item.bus.stopName}</dd>
+                                      </div>
+                                    )}
+                                    {([DETAIL_TYPES.CRUISE, DETAIL_TYPES.FERRY].includes(item.type)) && (
+                                      (() => {
+                                        const ext = item.type === DETAIL_TYPES.CRUISE ? item.cruise : item.ferry;
+                                        if (!ext) return null;
+                                        return (
+                                          <>
+                                            {ext.shipName && (
+                                              <div className={styles.detailMetaRow}>
+                                                <dt>Ship:</dt>
+                                                <dd>{ext.shipName}</dd>
+                                              </div>
+                                            )}
+                                            {ext.embarkationPort && (
+                                              <div className={styles.detailMetaRow}>
+                                                <dt>Embark:</dt>
+                                                <dd>{ext.embarkationPort}</dd>
+                                              </div>
+                                            )}
+                                            {ext.disembarkationPort && (
+                                              <div className={styles.detailMetaRow}>
+                                                <dt>Disembark:</dt>
+                                                <dd>{ext.disembarkationPort}</dd>
+                                              </div>
+                                            )}
+                                            {ext.deck && (
+                                              <div className={styles.detailMetaRow}>
+                                                <dt>Deck:</dt>
+                                                <dd>{ext.deck}</dd>
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()
                                     )}
                                   </>
                                 )}
                                 {item.type === DETAIL_TYPES.PARKING && (
                                   <>
-                                    {item.location && (
+                                    {item.facilityName && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Location:</dt>
-                                        <dd>{item.location}</dd>
+                                        <dt>Facility:</dt>
+                                        <dd>{item.facilityName}</dd>
                                       </div>
                                     )}
-                                    {item.start_date && (
+                                    {item.address && (
+                                      <div className={styles.detailMetaRow}>
+                                        <dt>Address:</dt>
+                                        <dd>{item.address}</dd>
+                                      </div>
+                                    )}
+                                    {item._displayStart && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Start:</dt>
-                                        <dd>{item.start_date}</dd>
+                                        <dd>{item._displayStart}</dd>
                                       </div>
                                     )}
-                                    {item.end_date && (
+                                    {item._displayEnd && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>End:</dt>
-                                        <dd>{item.end_date}</dd>
+                                        <dd>{item._displayEnd}</dd>
                                       </div>
                                     )}
-                                    {item.confirmation_number && (
+                                    {item.confirmationNumber && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Confirmation:</dt>
-                                        <dd>{item.confirmation_number}</dd>
+                                        <dd>{item.confirmationNumber}</dd>
                                       </div>
                                     )}
                                   </>
@@ -1667,22 +1852,22 @@ export default function PlanItemDetailsModal({
                                         <dd className={styles.discountCode}>{item.code}</dd>
                                       </div>
                                     )}
-                                    {item.discount_amount && (
+                                    {(item.discountValue !== undefined && item.discountValue !== null) && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Discount:</dt>
-                                        <dd>{item.discount_amount}{item.discount_type === 'percentage' ? '%' : ''}</dd>
+                                        <dd>{item.discountValue}{item.isPercentage ? '%' : ''}</dd>
                                       </div>
                                     )}
-                                    {item.expiry_date && (
+                                    {item._displayExpires && (
                                       <div className={styles.detailMetaRow}>
                                         <dt>Expires:</dt>
-                                        <dd>{item.expiry_date}</dd>
+                                        <dd>{item._displayExpires}</dd>
                                       </div>
                                     )}
-                                    {item.terms && (
+                                    {item.description && (
                                       <div className={styles.detailMetaRow}>
-                                        <dt>Terms:</dt>
-                                        <dd>{item.terms}</dd>
+                                        <dt>Description:</dt>
+                                        <dd>{item.description}</dd>
                                       </div>
                                     )}
                                   </>

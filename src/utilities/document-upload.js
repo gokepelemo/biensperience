@@ -107,9 +107,7 @@ export function formatFileSize(bytes) {
 export async function uploadPlanItemDocument(file, planId, itemId, options = {}) {
   const {
     documentType = 'travel',
-    extractText = true,
-    aiParse = true,
-    onProgress
+    aiParse = true
   } = options;
 
   // Validate
@@ -117,13 +115,6 @@ export async function uploadPlanItemDocument(file, planId, itemId, options = {})
   if (!validation.valid) {
     throw new Error(validation.error);
   }
-
-  // Create FormData
-  const formData = new FormData();
-  formData.append('document', file);
-  formData.append('documentType', documentType);
-  formData.append('extractText', String(extractText));
-  formData.append('aiParse', String(aiParse));
 
   logger.debug('[document-upload] Uploading document', {
     planId,
@@ -134,28 +125,27 @@ export async function uploadPlanItemDocument(file, planId, itemId, options = {})
   });
 
   try {
-    // Upload with progress tracking if supported
-    const response = await fetch(`/api/plans/${planId}/items/${itemId}/documents`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include'
+    // NOTE: The backend does not expose `/api/plans/:planId/items/:itemId/documents`.
+    // Plan-item documents are handled via the general Documents API (`/api/documents`).
+    // This helper is kept for backwards compatibility and now delegates to uploadDocument.
+    const uploaded = await uploadDocument(file, {
+      entityType: 'plan_item',
+      entityId: itemId,
+      planId,
+      planItemId: itemId,
+      visibility: 'collaborators',
+      aiParsingEnabled: Boolean(aiParse),
+      documentTypeHint: documentType
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Upload failed with status ${response.status}`);
-    }
-
-    const result = await response.json();
-
-    logger.info('[document-upload] Document uploaded successfully', {
+    logger.info('[document-upload] Plan item document uploaded successfully', {
       planId,
       itemId,
-      url: result.url,
-      aiParsed: !!result.aiParsed
+      documentId: uploaded?._id
     });
 
-    return result;
+    // Return the Document object (current canonical shape)
+    return uploaded;
   } catch (error) {
     logger.error('[document-upload] Upload failed', {
       error: error.message,
@@ -176,13 +166,10 @@ export async function uploadPlanItemDocument(file, planId, itemId, options = {})
 export async function deletePlanItemDocument(planId, itemId, documentId) {
   logger.debug('[document-upload] Deleting document', { planId, itemId, documentId });
 
-  const response = await sendRequest(
-    `/api/plans/${planId}/items/${itemId}/documents/${encodeURIComponent(documentId)}`,
-    'DELETE'
-  );
+  // NOTE: Plan-item documents are deleted via the Documents API.
+  await deleteDocument(documentId);
 
-  logger.info('[document-upload] Document deleted', { planId, itemId, documentId });
-  return response;
+  logger.info('[document-upload] Plan item document deleted (soft)', { planId, itemId, documentId });
 }
 
 /**
@@ -192,7 +179,9 @@ export async function deletePlanItemDocument(planId, itemId, documentId) {
  * @returns {Promise<Array>} List of documents
  */
 export async function getPlanItemDocuments(planId, itemId) {
-  return sendRequest(`/api/plans/${planId}/items/${itemId}/documents`, 'GET');
+  // NOTE: Plan-item documents are listed via the Documents API.
+  const result = await getDocumentsByEntity('plan_item', itemId, { planId });
+  return result.documents;
 }
 
 /**

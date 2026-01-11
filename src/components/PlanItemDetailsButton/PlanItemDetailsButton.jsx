@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
+import { lang } from '../../lang.constants';
 import styles from './PlanItemDetailsButton.module.scss';
 
 export default function PlanItemDetailsButton({ onSelectDetailType, disabled = false }) {
