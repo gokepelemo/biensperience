@@ -2541,10 +2541,21 @@
 /* Hierarchy indicator for timeline */
 :global(.timeline-item-indent) {
   width: 20px;
-  text-align: center;
+  /* Use flexbox for perfect vertical centering and consistent spacing */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   flex-shrink: 0;
+  line-height: 1;
+  /* Add a little extra space between expand/collapse toggle and checkbox */
+  margin-right: var(--space-1);
+}
+
+/* Pinned items can show a pin icon + expand arrow; give it more room */
+:global(.timeline-item-indent.pinned-pin) {
+  width: 32px;
 }
 
 /* Checkbox spacing in timeline view */
@@ -2817,6 +2828,7 @@
 
   :global(.timeline-item-indent) {
     width: 16px;
+    margin-right: var(--space-1);
   }
 
   :global(.timeline-item-time) {
