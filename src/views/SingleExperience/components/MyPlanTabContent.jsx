@@ -1558,27 +1558,9 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
  */
 const TimelineDateGroup = memo(function TimelineDateGroup({
   group,
-  canEdit,
-  handlePlanItemToggleComplete,
-  handleViewPlanItemDetails,
-  handleAddPlanInstanceItem,
-  handleEditPlanInstanceItem,
-  setPlanInstanceItemToDelete,
-  setShowPlanInstanceDeleteModal,
-  onScheduleDate,
-  lang,
-  parentItemMap,
-  canAddChildFn,
-  planOwner = null,
-  planCollaborators = [],
-  handlePinItem,
-  pinnedItemId,
-  // Expand/collapse props
-  hasChildrenFn,
-  expandedParents,
-  toggleExpanded,
   isItemVisibleFn,
-  isItemExpandedFn
+  sharedItemHandlers,
+  getItemProps
 }) {
   const formatDateHeader = (date) => {
     const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
@@ -1615,34 +1597,13 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
               </div>
               <div className="timeline-activity-items">
                 {visibleItems.map(item => {
-                  const parentItem = item.parent && parentItemMap
-                    ? parentItemMap.get(item.parent.toString())
-                    : null;
-                  const itemHasChildren = hasChildrenFn ? hasChildrenFn(item) : false;
-                  const itemIdStr = (item.plan_item_id || item._id)?.toString();
-                  const itemExpanded = isItemExpandedFn ? isItemExpandedFn(item) : true;
+                  const itemProps = typeof getItemProps === 'function' ? getItemProps(item) : {};
                   return (
                     <TimelinePlanItem
                       key={item.plan_item_id || item._id}
                       planItem={item}
-                      canEdit={canEdit}
-                      canAddChild={typeof canAddChildFn === 'function' ? canAddChildFn(item) : false}
-                      handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                      handleViewPlanItemDetails={handleViewPlanItemDetails}
-                      handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                      handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                      setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                      setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                      onScheduleDate={onScheduleDate}
-                      lang={lang}
-                      parentItem={parentItem}
-                      planOwner={planOwner}
-                      planCollaborators={planCollaborators}
-                      onPinItem={handlePinItem}
-                      isPinned={itemIdStr === pinnedItemId}
-                      hasChildren={itemHasChildren}
-                      isExpanded={itemExpanded}
-                      onToggleExpand={toggleExpanded}
+                      {...sharedItemHandlers}
+                      {...itemProps}
                     />
                   );
                 })}
@@ -1665,34 +1626,13 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
               )}
               <div className="timeline-activity-items">
                 {visibleUngrouped.map(item => {
-                  const parentItem = item.parent && parentItemMap
-                    ? parentItemMap.get(item.parent.toString())
-                    : null;
-                  const itemHasChildren = hasChildrenFn ? hasChildrenFn(item) : false;
-                  const itemIdStr = (item.plan_item_id || item._id)?.toString();
-                  const itemExpanded = isItemExpandedFn ? isItemExpandedFn(item) : true;
+                  const itemProps = typeof getItemProps === 'function' ? getItemProps(item) : {};
                   return (
                     <TimelinePlanItem
                       key={item.plan_item_id || item._id}
                       planItem={item}
-                      canEdit={canEdit}
-                      canAddChild={typeof canAddChildFn === 'function' ? canAddChildFn(item) : false}
-                      handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                      handleViewPlanItemDetails={handleViewPlanItemDetails}
-                      handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                      handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                      setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                      setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                      onScheduleDate={onScheduleDate}
-                      lang={lang}
-                      parentItem={parentItem}
-                      planOwner={planOwner}
-                      planCollaborators={planCollaborators}
-                      onPinItem={handlePinItem}
-                      isPinned={itemIdStr === pinnedItemId}
-                      hasChildren={itemHasChildren}
-                      isExpanded={itemExpanded}
-                      onToggleExpand={toggleExpanded}
+                      {...sharedItemHandlers}
+                      {...itemProps}
                     />
                   );
                 })}
@@ -2591,6 +2531,50 @@ export default function MyPlanTabContent({
   ]);
 
   /**
+   * Shared props for SortablePlanItem (card view).
+   * SortablePlanItem uses some different prop names than the compact/timeline items.
+   */
+  const sharedSortablePlanItemProps = useMemo(() => ({
+    currentPlan,
+    user,
+    idEquals,
+    canEdit,
+    toggleExpanded,
+    getExpansionKey,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
+    handlePlanItemToggleComplete,
+    hoveredPlanItem,
+    setHoveredPlanItem,
+    handleViewPlanItemDetails,
+    planOwner,
+    planCollaborators,
+    lang,
+    onPinItem: handlePinItem,
+  }), [
+    canEdit,
+    currentPlan,
+    getExpansionKey,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    handlePlanItemToggleComplete,
+    handlePinItem,
+    handleViewPlanItemDetails,
+    hoveredPlanItem,
+    idEquals,
+    lang,
+    planCollaborators,
+    planOwner,
+    setHoveredPlanItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
+    toggleExpanded,
+    user,
+  ]);
+
+  /**
    * Generate per-item props based on the plan item
    * Returns dynamic props that vary per item
    */
@@ -2963,27 +2947,10 @@ export default function MyPlanTabContent({
                 <SortablePlanItem
                   key={planItem.plan_item_id || planItem._id}
                   planItem={planItem}
-                  currentPlan={currentPlan}
-                  user={user}
-                  idEquals={idEquals}
-                  canEdit={canEdit}
                   canAddChild={itemCanAddChild}
-                  toggleExpanded={toggleExpanded}
                   hasChildren={itemHasChildren}
                   isExpanded={itemExpanded}
-                  getExpansionKey={getExpansionKey}
-                  handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                  handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                  setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                  setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                  handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                  hoveredPlanItem={hoveredPlanItem}
-                  setHoveredPlanItem={setHoveredPlanItem}
-                  handleViewPlanItemDetails={handleViewPlanItemDetails}
-                  planOwner={planOwner}
-                  planCollaborators={planCollaborators}
-                  lang={lang}
-                  onPinItem={handlePinItem}
+                  {...sharedSortablePlanItemProps}
                   isPinned={itemId === pinnedItemId}
                 />
               );
@@ -3107,35 +3074,13 @@ export default function MyPlanTabContent({
                   >
                     <div className="activity-type-group-items">
                       {visibleUngrouped.map((planItem) => {
-                        const parentItem = planItem.parent
-                          ? parentItemMap.get(planItem.parent.toString())
-                          : null;
-                        const itemId = (planItem._id || planItem.plan_item_id)?.toString();
-                        const itemHasChildren = hasChildren(planItem);
-                        const itemExpanded = isItemExpanded(planItem);
-                        const itemCanAddChild = canAddChildToItem(planItem);
+                        const itemProps = getItemProps(planItem);
                         return (
                           <SortableCompactPlanItem
                             key={planItem.plan_item_id || planItem._id}
                             planItem={planItem}
-                            canEdit={canEdit}
-                            canAddChild={itemCanAddChild}
-                            handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                            handleViewPlanItemDetails={handleViewPlanItemDetails}
-                            handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                            handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                            setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                            setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                            onScheduleDate={handleScheduleDate}
-                            onPinItem={handlePinItem}
-                            isPinned={itemId === pinnedItemId}
-                            lang={lang}
-                            parentItem={parentItem}
-                            planOwner={planOwner}
-                            planCollaborators={planCollaborators}
-                            hasChildren={itemHasChildren}
-                            isExpanded={itemExpanded}
-                            onToggleExpand={toggleExpanded}
+                            {...sharedItemHandlers}
+                            {...itemProps}
                           />
                         );
                       })}
@@ -3167,35 +3112,13 @@ export default function MyPlanTabContent({
                 <div className="timeline-date-content">
                   <div className="timeline-time-items">
                     {pinnedItems.map((planItem) => {
-                      const parentItem = planItem.parent
-                        ? parentItemMap.get(planItem.parent.toString())
-                        : null;
-                      const itemId = (planItem._id || planItem.plan_item_id)?.toString();
-                      const itemHasChildren = hasChildren(planItem);
-                      const itemExpanded = isItemExpanded(planItem);
-                      const itemCanAddChild = canAddChildToItem(planItem);
+                      const itemProps = getItemProps(planItem);
                       return (
                         <TimelinePlanItem
                           key={planItem.plan_item_id || planItem._id}
                           planItem={planItem}
-                          canEdit={canEdit}
-                          canAddChild={itemCanAddChild}
-                          handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                          handleViewPlanItemDetails={handleViewPlanItemDetails}
-                          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                          handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                          setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                          setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                          onScheduleDate={handleScheduleDate}
-                          lang={lang}
-                          parentItem={parentItem}
-                          planOwner={planOwner}
-                          planCollaborators={planCollaborators}
-                          onPinItem={handlePinItem}
-                          isPinned={itemId === pinnedItemId}
-                          hasChildren={itemHasChildren}
-                          isExpanded={itemExpanded}
-                          onToggleExpand={toggleExpanded}
+                          {...sharedItemHandlers}
+                          {...itemProps}
                         />
                       );
                     })}
@@ -3209,26 +3132,9 @@ export default function MyPlanTabContent({
               <TimelineDateGroup
                 key={group.dateKey}
                 group={group}
-                canEdit={canEdit}
-                handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                handleViewPlanItemDetails={handleViewPlanItemDetails}
-                handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                onScheduleDate={handleScheduleDate}
-                lang={lang}
-                parentItemMap={parentItemMap}
-                canAddChildFn={canAddChildToItem}
-                planOwner={planOwner}
-                planCollaborators={planCollaborators}
-                handlePinItem={handlePinItem}
-                pinnedItemId={pinnedItemId}
-                hasChildrenFn={hasChildren}
-                expandedParents={expandedParents}
-                toggleExpanded={toggleExpanded}
                 isItemVisibleFn={isItemVisible}
-                isItemExpandedFn={isItemExpanded}
+                sharedItemHandlers={sharedItemHandlers}
+                getItemProps={getItemProps}
               />
             ))}
 
@@ -3252,33 +3158,13 @@ export default function MyPlanTabContent({
                           </div>
                           <div className="timeline-activity-items">
                             {visibleItems.map(item => {
-                              const parentItem = item.parent
-                                ? parentItemMap.get(item.parent.toString())
-                                : null;
-                              const itemId = (item.plan_item_id || item._id)?.toString();
-                              const itemCanAddChild = canAddChildToItem(item);
+                              const itemProps = getItemProps(item);
                               return (
                                 <TimelinePlanItem
                                   key={item.plan_item_id || item._id}
                                   planItem={item}
-                                  canEdit={canEdit}
-                                  canAddChild={itemCanAddChild}
-                                  handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                                  handleViewPlanItemDetails={handleViewPlanItemDetails}
-                                  handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                                  handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                                  setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                                  setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                                  onScheduleDate={handleScheduleDate}
-                                  lang={lang}
-                                  parentItem={parentItem}
-                                  planOwner={planOwner}
-                                  planCollaborators={planCollaborators}
-                                  onPinItem={handlePinItem}
-                                  isPinned={itemId === pinnedItemId}
-                                  hasChildren={hasChildren(item)}
-                                  isExpanded={isItemExpanded(item)}
-                                  onToggleExpand={toggleExpanded}
+                                  {...sharedItemHandlers}
+                                  {...itemProps}
                                 />
                               );
                             })}
@@ -3301,33 +3187,13 @@ export default function MyPlanTabContent({
                           )}
                           <div className="timeline-activity-items">
                             {visibleUngrouped.map(item => {
-                              const parentItem = item.parent
-                                ? parentItemMap.get(item.parent.toString())
-                                : null;
-                              const itemId = (item.plan_item_id || item._id)?.toString();
-                              const itemCanAddChild = canAddChildToItem(item);
+                              const itemProps = getItemProps(item);
                               return (
                                 <TimelinePlanItem
                                   key={item.plan_item_id || item._id}
                                   planItem={item}
-                                  canEdit={canEdit}
-                                  canAddChild={itemCanAddChild}
-                                  handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                                  handleViewPlanItemDetails={handleViewPlanItemDetails}
-                                  handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                                  handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                                  setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                                  setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                                  onScheduleDate={handleScheduleDate}
-                                  lang={lang}
-                                  parentItem={parentItem}
-                                  planOwner={planOwner}
-                                  planCollaborators={planCollaborators}
-                                  onPinItem={handlePinItem}
-                                  isPinned={itemId === pinnedItemId}
-                                  hasChildren={hasChildren(item)}
-                                  isExpanded={isItemExpanded(item)}
-                                  onToggleExpand={toggleExpanded}
+                                  {...sharedItemHandlers}
+                                  {...itemProps}
                                 />
                               );
                             })}
