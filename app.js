@@ -17,10 +17,15 @@ const MongoStore = require("connect-mongo").default;
 const backendLogger = require("./utilities/backend-logger");
 const cookieParser = require("cookie-parser");
 const { doubleCsrf } = require("csrf-csrf");
+const fs = require("fs");
 
-// Load environment variables from the repo-root .env reliably.
-// This avoids issues when the server is started from a different CWD (e.g. pm2, scripts).
-require("dotenv").config({ path: path.resolve(__dirname, ".env") });
+// Load environment variables from the *caller* project directory first.
+// This matters when Biensperience is installed as an npm dependency or run via npx.
+// Fallback to the package directory for local dev.
+const cwdEnvPath = path.resolve(process.cwd(), ".env");
+const localEnvPath = path.resolve(__dirname, ".env");
+const envPathToUse = fs.existsSync(cwdEnvPath) ? cwdEnvPath : localEnvPath;
+require("dotenv").config({ path: envPathToUse });
 
 // Only require database connection if not in test environment
 if (process.env.NODE_ENV !== 'test') {

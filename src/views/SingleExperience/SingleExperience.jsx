@@ -858,14 +858,21 @@ export default function SingleExperience() {
   /**
    * Toggle expansion state for a plan item.
    * Persists state to encrypted storage.
+   * Uses proper state management to avoid race conditions during animations.
    * @param {Object} item - The plan item to toggle (pass the full item object)
    */
-  const toggleExpanded = useCallback(async (item) => {
+  const toggleExpanded = useCallback((item) => {
     const key = getExpansionKey(item);
-    if (!key || !user?._id) return;
+    if (!key) return;
+
+    // Prevent toggling while an animation is in progress for this item
+    if (animatingCollapse === key) return;
 
     const persistState = async (newSet) => {
       try {
+        // If user isn't available (logged out or still loading), skip persistence.
+        if (!user?._id) return;
+
         // Determine storage key based on current context
         let storageKey;
         if (activeTab === 'experience' && experience?._id) {
@@ -882,28 +889,36 @@ export default function SingleExperience() {
       }
     };
 
+    // Check current state to determine action
     setExpandedParents((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        // collapsing - animate then remove
+      const isCurrentlyExpanded = prev.has(key);
+
+      if (isCurrentlyExpanded) {
+        // Collapsing: Start animation, then remove from set after animation completes
         setAnimatingCollapse(key);
-        setTimeout(async () => {
-          setExpandedParents((prev) => {
-            const newSet = new Set(prev);
+
+        // Schedule the actual state removal after animation
+        setTimeout(() => {
+          setExpandedParents((currentSet) => {
+            const newSet = new Set(currentSet);
             newSet.delete(key);
             persistState(newSet);
             return newSet;
           });
           setAnimatingCollapse(null);
         }, 300);
+
+        // Return unchanged - visibility is controlled by animatingCollapse during transition
+        return prev;
       } else {
-        // expanding
+        // Expanding: Immediately add to set
+        const newSet = new Set(prev);
         newSet.add(key);
         persistState(newSet);
+        return newSet;
       }
-      return newSet;
     });
-  }, [getExpansionKey, user?._id, activeTab, experience?._id, selectedPlanId]);
+  }, [getExpansionKey, user?._id, activeTab, experience?._id, selectedPlanId, animatingCollapse]);
 
   // OPTIMIZATION: Combined fetch function - fetches all data in one API call
   // Reduces 3 API calls to 1 for dramatically faster page load
@@ -1590,6 +1605,91 @@ export default function SingleExperience() {
 
     const sessionId = eventBus.getSessionId();
 
+    const toIdString = (val) => {
+      if (!val) return null;
+      try {
+        return typeof val === 'string' ? val : val.toString();
+      } catch (_) {
+        return String(val);
+      }
+    };
+
+    const getEventExperienceId = (event) => {
+      return (
+        event.experienceId ||
+        event.experience?._id ||
+        event.detail?.experienceId ||
+        event.detail?.experience?._id ||
+        event.payload?.experienceId ||
+        event.payload?.experience?._id
+      );
+    };
+
+    const applyExperiencePlanItemEvent = (event) => {
+      // Skip events from this session (already handled locally)
+      if (event.sessionId === sessionId) return;
+
+      const eventExpId = toIdString(getEventExperienceId(event));
+      if (!eventExpId || eventExpId !== toIdString(experienceId)) return;
+
+      setExperience((prev) => {
+        if (!prev) return prev;
+        if (toIdString(prev._id) !== eventExpId) return prev;
+
+        const prevItems = Array.isArray(prev.plan_items) ? prev.plan_items : [];
+        const planItem = event.planItem || event.payload?.planItem || event.detail?.planItem;
+        const planItemId = toIdString(event.planItemId || planItem?._id || event.payload?.planItemId || event.detail?.planItemId);
+
+        // If we don't have enough info to update locally, fall back to a no-op.
+        if (!planItem && !planItemId) return prev;
+
+        if (event.type === 'experience:item:added' && planItem) {
+          const addedId = toIdString(planItem._id);
+          if (!addedId) return prev;
+          const exists = prevItems.some((it) => toIdString(it._id) === addedId);
+          if (exists) return prev;
+          return { ...prev, plan_items: [...prevItems, planItem] };
+        }
+
+        if (event.type === 'experience:item:updated' && planItem) {
+          const updatedId = toIdString(planItem._id) || planItemId;
+          if (!updatedId) return prev;
+          let found = false;
+          const nextItems = prevItems.map((it) => {
+            if (toIdString(it._id) !== updatedId) return it;
+            found = true;
+            return { ...it, ...planItem };
+          });
+          if (!found) {
+            return { ...prev, plan_items: [...prevItems, planItem] };
+          }
+          return { ...prev, plan_items: nextItems };
+        }
+
+        if (event.type === 'experience:item:deleted' && planItemId) {
+          // Remove the deleted item AND any descendants (subtree) to keep a consistent snapshot.
+          const idsToRemove = new Set([planItemId]);
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const it of prevItems) {
+              const parentId = toIdString(it.parent);
+              const itId = toIdString(it._id);
+              if (itId && parentId && idsToRemove.has(parentId) && !idsToRemove.has(itId)) {
+                idsToRemove.add(itId);
+                changed = true;
+              }
+            }
+          }
+          const nextItems = prevItems.filter((it) => !idsToRemove.has(toIdString(it._id)));
+          if (nextItems.length === prevItems.length) return prev;
+          return { ...prev, plan_items: nextItems };
+        }
+
+        return prev;
+      });
+    };
+
     // Handler for plan collaborator events
     const handleCollaboratorEvent = (event) => {
       // Skip events from this session (already handled locally)
@@ -1649,12 +1749,20 @@ export default function SingleExperience() {
     const unsubPlanDeleted = subscribeToEvents(WS_EVENTS.PLAN_DELETED, handlePlanEvent);
     const unsubExperienceUpdated = subscribeToEvents(WS_EVENTS.EXPERIENCE_UPDATED, handleExperienceUpdated);
 
+    // Experience plan item events (The Plan changes) - drive immediate sync banner updates
+    const unsubExperienceItemAdded = subscribeToEvents('experience:item:added', applyExperiencePlanItemEvent);
+    const unsubExperienceItemUpdated = subscribeToEvents('experience:item:updated', applyExperiencePlanItemEvent);
+    const unsubExperienceItemDeleted = subscribeToEvents('experience:item:deleted', applyExperiencePlanItemEvent);
+
     return () => {
       unsubCollaboratorAdded();
       unsubCollaboratorRemoved();
       unsubPlanCreated();
       unsubPlanDeleted();
       unsubExperienceUpdated();
+      unsubExperienceItemAdded();
+      unsubExperienceItemUpdated();
+      unsubExperienceItemDeleted();
     };
   }, [subscribeToEvents, experienceId, fetchSharedPlans, fetchAllData]);
 

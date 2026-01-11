@@ -67,6 +67,16 @@
   max-height: 100%; /* Prevent overflow beyond parent */
   /* Flex item properties when inside modal body */
   flex: 1 1 0;
+
+  /* Mobile document-scroll mode: let content extend naturally */
+  @media (max-width: 768px) {
+    height: auto;
+    min-height: unset;
+    max-height: none;
+    overflow: visible;
+    flex: 0 0 auto;
+    border-radius: var(--radius-lg);
+  }
 }
 
 /* Custom modal body class for fullscreen height
@@ -84,6 +94,53 @@
   flex-direction: column;
   /* Don't scroll - let children handle scrolling */
   overflow: hidden;
+}
+
+/* Mobile document-scroll mode
+ * Used with Modal's allowBodyScroll=true.
+ * We want the modal body to size to content and allow the page to scroll.
+ */
+.modalBodyDocumentScroll {
+  display: block;
+  height: auto;
+  min-height: unset;
+  overflow: visible;
+}
+
+/* When the PlanItemDetailsModal is rendered in document-scroll mode (mobile),
+ * we want content to size naturally (no fixed-height flex chain, no internal scroll panes).
+ */
+.documentScrollMode {
+  display: block;
+
+  .detailsContent {
+    display: block;
+    flex: 0 0 auto;
+    min-height: unset;
+    overflow: visible;
+  }
+
+  /* Common tab wrappers: remove forced 100% height + internal scrolling */
+  .notesTabWrapper,
+  .photosTabWrapper,
+  .documentsTabWrapper,
+  .detailsTabContent,
+  .locationTabContent {
+    display: block;
+    flex: 0 0 auto;
+    height: auto;
+    min-height: unset;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+
+  /* Details tab: remove internal scroll container so page scroll handles it */
+  .detailsGroupedList {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: unset;
+    overflow: visible;
+  }
 }
 
 /* Link bar - shown when plan item has external URL */

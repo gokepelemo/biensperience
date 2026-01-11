@@ -644,23 +644,23 @@
   margin-bottom: 0 !important;
   padding-top: 0;
   padding-bottom: 0;
-  transform: translateY(-10px);
-  transition: opacity 0.25s ease-out,
-              max-height 0.3s ease-out,
-              margin-bottom 0.3s ease-out,
-              padding 0.3s ease-out,
-              transform 0.25s ease-out;
+  transform: translateY(-8px) scale(0.98);
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-bottom 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Expanded state for child plan items - smooth entry */
 :global(.plan-item-card:not(.collapsed)) {
   max-height: 500px; /* Large enough for any content */
-  transform: translateY(0);
-  transition: opacity 0.3s ease-in,
-              max-height 0.35s ease-in,
-              margin-bottom 0.3s ease-in,
-              padding 0.3s ease-in,
-              transform 0.3s ease-in;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-bottom 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Travel Tips */
@@ -941,6 +941,19 @@
   flex-wrap: wrap;
 }
 
+/* Keep the tree control and title aligned/wrapped together */
+:global(.plan-item-title-row) {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  flex: 1 1 320px;
+  min-width: 220px;
+}
+
+:global(.plan-item-title-row) :global(.plan-item-title) {
+  margin-right: 0;
+}
+
 :global(.plan-item-title) {
   margin-right: 1rem;
   font-size: var(--font-size-2xl);
@@ -985,6 +998,11 @@
       color: white;
     }
   }
+}
+
+/* Card view: keep the small action cluster compact */
+:global(.plan-item-card-actions) {
+  flex-wrap: nowrap;
 }
 
 // Drag handle wrapper - positioned between title and actions
@@ -1235,7 +1253,7 @@
   display: flex;
   align-items: center;
   gap: $space-2;
-  margin-bottom: $space-2;
+  margin-bottom: 0;
 }
 
 :global(.expand-toggle) {
@@ -1268,6 +1286,80 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
     border-radius: $radius-sm;
+  }
+}
+
+/* Expand/collapse chevron animation (card + compact views) */
+:global(.expand-chevron) {
+  display: inline-block;
+  transform: rotate(0deg);
+  transition: transform 160ms ease-in-out;
+  transform-origin: 50% 50%;
+}
+
+:global(.expand-chevron.expanded) {
+  transform: rotate(90deg);
+}
+
+/* Child row expand/collapse transition (My Plan card view) */
+:global(.plan-item-card.is-child-item) {
+  /* Subtle enter animation when child row mounts */
+  animation: childRowExpand 220ms ease-out;
+}
+
+:global(.plan-item-card.is-child-item.collapsed) {
+  /* Collapse animation: during animatingCollapse we keep items in DOM with .collapsed */
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  transform: translateY(-2px);
+  transition:
+    max-height 280ms ease-in-out,
+    opacity 180ms ease-in-out,
+    margin-bottom 280ms ease-in-out,
+    padding-top 280ms ease-in-out,
+    padding-bottom 280ms ease-in-out,
+    transform 280ms ease-in-out,
+    border-width 280ms ease-in-out;
+}
+
+:global(.plan-item-card.is-child-item:not(.collapsed)) {
+  max-height: 1200px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 280ms ease-in-out,
+    opacity 180ms ease-in-out,
+    margin-bottom 280ms ease-in-out,
+    padding-top 280ms ease-in-out,
+    padding-bottom 280ms ease-in-out,
+    transform 280ms ease-in-out;
+}
+
+@keyframes childRowExpand {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    max-height: 1200px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(.expand-chevron) {
+    transition: none;
+  }
+
+  :global(.plan-item-card.is-child-item) {
+    animation: none;
+    transition: none;
   }
 }
 

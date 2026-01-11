@@ -19,13 +19,10 @@
     font-size: var(--font-size-sm);
   }
 
-  .menu {
-    min-width: 140px;
-  }
-
   .item {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--font-size-xs);
+    padding: $space-3 $space-4;
+    font-size: var(--font-size-sm);
+    min-height: 44px;
   }
 }
 
@@ -36,13 +33,10 @@
     font-size: var(--font-size-base);
   }
 
-  .menu {
-    min-width: 160px;
-  }
-
   .item {
-    padding: var(--space-2) var(--space-3);
+    padding: $space-3 $space-4;
     font-size: var(--font-size-sm);
+    min-height: 48px;
   }
 }
 
@@ -83,28 +77,24 @@
 
 /* Dropdown menu */
 .menu {
-  position: absolute;
-  top: calc(100% + var(--space-1, 4px));
-  /* Use popover z-index (1060) to ensure menu floats above all other content */
-  z-index: var(--z-index-popover, 1060);
-  padding: var(--space-1, 4px) 0;
-  background: var(--color-bg-elevated, #ffffff);
+  position: fixed;
+  /* Position is controlled by inline styles from ActionsMenu.jsx */
+  top: 0;
+  left: 0;
+  /* Render above all other UI */
+  z-index: var(--z-index-actions-menu, 2147483000);
+  min-width: 200px;
+  padding: $space-2 0;
+  background: var(--color-bg-primary, #ffffff);
   border: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.1));
-  border-radius: var(--radius-md, 8px);
+  border-radius: $radius-lg;
   box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05));
   white-space: nowrap;
   animation: menuFadeIn 0.15s ease;
   /* Ensure text colors are inherited from design system, not parent elements */
   color: var(--color-text-primary, #1a202c);
 
-  /* Position variants */
-  &.position-bottom-right {
-    right: 0;
-  }
-
-  &.position-bottom-left {
-    left: 0;
-  }
+  /* Position variants are handled in JS; classes kept for backwards compat */
 }
 
 @keyframes menuFadeIn {
@@ -122,7 +112,7 @@
 .item {
   display: flex;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--space-3, 12px);
   width: 100%;
   background: transparent;
   border: none;
@@ -133,6 +123,8 @@
   transition: background 0.15s ease, color 0.15s ease;
   font-family: inherit;
   line-height: 1.4;
+  /* Default touch target; size variants can override */
+  min-height: 44px;
 
   &:hover:not(:disabled) {
     background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
@@ -184,13 +176,25 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1em;
-  height: 1em;
-  font-size: 1em;
+  width: 1.1em;
+  height: 1.1em;
+  font-size: 1.1em;
 
   svg {
     width: 100%;
     height: 100%;
+  }
+}
+
+/* Mobile: make actions easier to tap */
+@media (max-width: 768px) {
+  .menu {
+    min-width: 220px;
+  }
+
+  .item {
+    padding-top: var(--space-4, 16px);
+    padding-bottom: var(--space-4, 16px);
   }
 }
 
@@ -214,7 +218,7 @@
   }
 
   .menu {
-    background: var(--color-bg-elevated, #2d2d2d);
+    background: var(--color-bg-primary, #2d2d2d);
     border-color: var(--color-border-light, rgba(255, 255, 255, 0.1));
     box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2));
     color: var(--color-text-primary, #f8f9fa);

@@ -14,7 +14,8 @@
  * />
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import styles from './ActionsMenu.module.scss';
@@ -47,15 +48,63 @@ export default function ActionsMenu({
   disabled = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const containerRef = useRef(null);
+  const triggerRef = useRef(null);
   const menuRef = useRef(null);
+
+  const computeMenuPosition = useCallback(() => {
+    if (!triggerRef.current) return;
+
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spacing = 6;
+    const viewportPadding = 8;
+
+    // Initial guess (menu width unknown yet)
+    let top = rect.bottom + spacing;
+    let left = position === 'bottom-left' ? rect.left : rect.right;
+
+    // If menu is mounted, align using its dimensions and clamp.
+    const menuEl = menuRef.current;
+    if (menuEl) {
+      const menuRect = menuEl.getBoundingClientRect();
+      const menuWidth = menuRect.width;
+      const menuHeight = menuRect.height;
+
+      // Horizontal alignment
+      if (position === 'bottom-right') {
+        left = rect.right - menuWidth;
+      } else {
+        left = rect.left;
+      }
+
+      // Vertical flip if it would go off-screen
+      const wouldOverflowBottom = rect.bottom + spacing + menuHeight > window.innerHeight - viewportPadding;
+      const canFlipAbove = rect.top - spacing - menuHeight >= viewportPadding;
+      if (wouldOverflowBottom && canFlipAbove) {
+        top = rect.top - spacing - menuHeight;
+      }
+
+      // Clamp to viewport
+      left = Math.max(viewportPadding, Math.min(left, window.innerWidth - menuWidth - viewportPadding));
+      top = Math.max(viewportPadding, Math.min(top, window.innerHeight - menuHeight - viewportPadding));
+    } else {
+      // Clamp initial guess conservatively
+      left = Math.max(viewportPadding, Math.min(left, window.innerWidth - viewportPadding));
+      top = Math.max(viewportPadding, Math.min(top, window.innerHeight - viewportPadding));
+    }
+
+    setMenuPosition({ top, left });
+  }, [position]);
 
   // Close menu when clicking outside
   useEffect(() => {
     if (!isOpen) return;
 
     function handleClickOutside(event) {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      const clickedTrigger = containerRef.current?.contains(event.target);
+      const clickedMenu = menuRef.current?.contains(event.target);
+      if (!clickedTrigger && !clickedMenu) {
         setIsOpen(false);
       }
     }
@@ -75,6 +124,26 @@ export default function ActionsMenu({
     };
   }, [isOpen]);
 
+  // Keep the menu positioned correctly while open.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    computeMenuPosition();
+
+    function handleViewportChange() {
+      computeMenuPosition();
+    }
+
+    // Capture scroll to handle nested scroll containers.
+    window.addEventListener('scroll', handleViewportChange, true);
+    window.addEventListener('resize', handleViewportChange);
+
+    return () => {
+      window.removeEventListener('scroll', handleViewportChange, true);
+      window.removeEventListener('resize', handleViewportChange);
+    };
+  }, [isOpen, computeMenuPosition]);
+
   // Focus first menu item when opened
   useEffect(() => {
     if (isOpen && menuRef.current) {
@@ -84,6 +153,19 @@ export default function ActionsMenu({
       }
     }
   }, [isOpen]);
+
+  // After the menu mounts (portal), re-measure for right-alignment and viewport clamping.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    // Double RAF ensures layout is settled.
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        computeMenuPosition();
+      });
+      return () => cancelAnimationFrame(raf2);
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [isOpen, computeMenuPosition]);
 
   const handleToggle = useCallback(() => {
     if (!disabled) {
@@ -156,16 +238,21 @@ export default function ActionsMenu({
         aria-label={ariaLabel}
         title={ariaLabel}
         disabled={disabled}
+        ref={triggerRef}
       >
         {trigger || <BsThreeDotsVertical />}
       </button>
 
-      {isOpen && (
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div
           className={menuClasses}
           role="menu"
           aria-orientation="vertical"
           ref={menuRef}
+          style={{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+          }}
         >
           {visibleActions.map((action, index) => {
             const itemClasses = [
@@ -191,7 +278,8 @@ export default function ActionsMenu({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

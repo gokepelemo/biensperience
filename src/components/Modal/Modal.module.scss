@@ -28,6 +28,55 @@
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
+/* Document-scrolling modal mode
+ * - Lets the modal content extend beyond the viewport
+ * - Uses page scrolling instead of internal modal scrolling
+ * - Used for mobile full-screen detail views (e.g., PlanItemDetailsModal)
+ */
+.modalAllowBodyScroll {
+  position: absolute !important;
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: visible !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  overscroll-behavior: auto;
+
+  :global(.modal-dialog) {
+    margin: 0 auto;
+    padding: $space-3;
+    height: auto;
+    max-height: none;
+  }
+
+  .modalContent {
+    max-height: none;
+    height: auto;
+    overflow: visible;
+  }
+
+  .modalBody {
+    overflow: visible;
+  }
+
+  /* Fullscreen variant must stop forcing 100vh/dvh so content can grow */
+  .modalFullscreen {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    flex: 0 0 auto;
+
+    .modalContent {
+      height: auto;
+      max-height: none;
+      overflow: visible;
+      min-height: 0;
+      flex: 0 0 auto;
+    }
+  }
+}
+
 /* Modal Dialog Centered */
 .modalDialogCentered {
   margin: 0 auto;

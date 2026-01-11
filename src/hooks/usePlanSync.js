@@ -9,13 +9,14 @@
  * @module hooks/usePlanSync
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getCookieValue, setCookieValue } from '../utilities/cookie-utils';
 import { updatePlan } from '../utilities/plans-api';
 import { handleError } from '../utilities/error-handler';
 import { logger } from '../utilities/logger';
 import debug from '../utilities/debug';
 import { idEquals } from '../utilities/id-utils';
+import { subscribeToEvent } from '../utilities/event-bus';
 
 // Cookie configuration for sync alert dismissal
 const SYNC_ALERT_COOKIE = 'planSyncAlertDismissed';
@@ -391,24 +392,89 @@ export default function usePlanSync({
     setSyncLoading(false);
   }, []);
 
+  // Ref to track latest data for event handlers (avoids stale closures)
+  const dataRef = useRef({ experience, sharedPlans, selectedPlanId });
+  useEffect(() => {
+    dataRef.current = { experience, sharedPlans, selectedPlanId };
+  }, [experience, sharedPlans, selectedPlanId]);
+
+  /**
+   * Recompute divergence and update sync button/alert state
+   * Can be called manually or from effects
+   */
+  const recheckDivergence = useCallback(() => {
+    const { experience: exp, sharedPlans: plans, selectedPlanId: planId } = dataRef.current;
+
+    if (!planId || plans.length === 0 || !exp) {
+      return;
+    }
+
+    const currentPlan = plans.find((p) => idEquals(p._id, planId));
+    if (!currentPlan) {
+      return;
+    }
+
+    const hasDiverged = checkPlanDivergence(currentPlan, exp);
+
+    logger.debug('[usePlanSync] Divergence check', {
+      planId,
+      experienceItemsCount: exp.plan_items?.length || 0,
+      planItemsCount: currentPlan.plan?.length || 0,
+      hasDiverged
+    });
+
+    setShowSyncButton(hasDiverged);
+
+    // Check if alert was recently dismissed via cookie
+    if (hasDiverged) {
+      const dismissedTime = getSyncAlertCookie(planId);
+      setShowSyncAlert(!dismissedTime); // Show alert only if not recently dismissed
+    } else {
+      setShowSyncAlert(false); // No divergence, no alert
+    }
+  }, [checkPlanDivergence]);
+
   // Check for divergence when plan or experience changes
   useEffect(() => {
-    if (selectedPlanId && sharedPlans.length > 0 && experience) {
-      const currentPlan = sharedPlans.find((p) => idEquals(p._id, selectedPlanId));
-      if (currentPlan) {
-        const hasDiverged = checkPlanDivergence(currentPlan, experience);
-        setShowSyncButton(hasDiverged);
+    recheckDivergence();
+  }, [selectedPlanId, sharedPlans, experience, recheckDivergence]);
 
-        // Check if alert was recently dismissed via cookie
-        if (hasDiverged) {
-          const dismissedTime = getSyncAlertCookie(selectedPlanId);
-          setShowSyncAlert(!dismissedTime); // Show alert only if not recently dismissed
-        } else {
-          setShowSyncAlert(false); // No divergence, no alert
-        }
-      }
-    }
-  }, [selectedPlanId, sharedPlans, experience, checkPlanDivergence]);
+  // Subscribe to experience plan item events via event bus for instant sync banner updates
+  // This provides immediate feedback when The Plan changes, even before React re-renders
+  useEffect(() => {
+    const experienceId = experience?._id?.toString();
+    if (!experienceId) return;
+
+    const handleExperienceItemEvent = (event) => {
+      // Check if this event is for our experience
+      const eventExpId = event.experienceId || event.payload?.experienceId;
+      if (eventExpId?.toString() !== experienceId) return;
+
+      logger.debug('[usePlanSync] Experience item event received, rechecking divergence', {
+        eventType: event.type,
+        experienceId: eventExpId
+      });
+
+      // Small delay to allow React state to settle after the event is processed
+      // The experience state will be updated by SingleExperience's applyExperiencePlanItemEvent
+      setTimeout(() => {
+        recheckDivergence();
+      }, 50);
+    };
+
+    // Subscribe to all experience plan item event types
+    const unsubAdded = subscribeToEvent('experience:item:added', handleExperienceItemEvent);
+    const unsubUpdated = subscribeToEvent('experience:item:updated', handleExperienceItemEvent);
+    const unsubDeleted = subscribeToEvent('experience:item:deleted', handleExperienceItemEvent);
+    const unsubReordered = subscribeToEvent('experience:item:reordered', handleExperienceItemEvent);
+
+    return () => {
+      unsubAdded();
+      unsubUpdated();
+      unsubDeleted();
+      unsubReordered();
+    };
+  }, [experience?._id, recheckDivergence]);
 
   return {
     // State

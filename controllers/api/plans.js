@@ -2092,6 +2092,21 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     return res.status(404).json({ error: "Plan item not found" });
   }
 
+  // Scheduling policy: only root (parent) items may be scheduled.
+  // Child items must follow their parent in Timeline grouping.
+  // Allow clearing legacy child schedules by setting values to null.
+  const isChildItem = Boolean(planItem.parent);
+  const isSettingScheduleOnChild = isChildItem && (
+    (scheduled_date !== undefined && scheduled_date !== null) ||
+    (scheduled_time !== undefined && scheduled_time !== null)
+  );
+
+  if (isSettingScheduleOnChild) {
+    return res.status(400).json({
+      error: 'Child plan items cannot be scheduled. Schedule the parent item instead.'
+    });
+  }
+
   // Track completion status change if it's being updated
   const wasComplete = planItem.complete;
   const willBeComplete = complete !== undefined ? complete : wasComplete;

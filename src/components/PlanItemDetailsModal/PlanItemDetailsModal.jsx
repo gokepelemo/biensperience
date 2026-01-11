@@ -153,6 +153,32 @@ export default function PlanItemDetailsModal({
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
 
+  // Mobile: allow the details "modal" to extend beyond the viewport and use full-page scrolling.
+  // On close, the underlying SingleExperience scroll position is restored (handled by Modal).
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    if (!show) return;
+
+    try {
+      const mql = window.matchMedia('(max-width: 768px)');
+      const update = () => setIsMobileViewport(!!mql.matches);
+      update();
+
+      if (typeof mql.addEventListener === 'function') {
+        mql.addEventListener('change', update);
+        return () => mql.removeEventListener('change', update);
+      }
+
+      // Safari fallback
+      if (typeof mql.addListener === 'function') {
+        mql.addListener(update);
+        return () => mql.removeListener(update);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [show]);
+
   // Fetch exchange rates for currency conversion
   // Use displayCurrency if provided, otherwise plan currency
   const targetCurrencyForRates = displayCurrency || plan?.currency || 'USD';
@@ -1230,9 +1256,10 @@ export default function PlanItemDetailsModal({
       title={editableTitle}
       size="fullscreen"
       centered={false}
-      bodyClassName={styles.modalBodyFullscreen}
+      allowBodyScroll={isMobileViewport}
+      bodyClassName={isMobileViewport ? styles.modalBodyDocumentScroll : styles.modalBodyFullscreen}
     >
-      <div className={styles.planItemDetailsModal}>
+      <div className={`${styles.planItemDetailsModal} ${isMobileViewport ? styles.documentScrollMode : ''}`}>
         {/* Assignment section */}
         <div className={styles.assignmentSection}>
           <label className={styles.assignmentLabel}>{lang.current.planItemDetailsModal.assignedTo}</label>

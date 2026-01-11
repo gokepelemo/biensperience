@@ -6,11 +6,23 @@
 
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsArrowRepeat, BsListUl, BsCardList, BsCalendarWeek, BsThreeDotsVertical, BsChatDots } from 'react-icons/bs';
 import {
-  FaEdit,
-  FaTrash,
-  FaPlus,
+  BsPlusCircle,
+  BsPersonPlus,
+  BsArrowRepeat,
+  BsListUl,
+  BsCardList,
+  BsCalendarWeek,
+  BsThreeDotsVertical,
+  BsChatDots,
+  BsPencilSquare,
+  BsTrash3,
+  BsCalendarEvent,
+  BsEye,
+  BsPinAngle,
+  BsPinAngleFill,
+} from 'react-icons/bs';
+import {
   FaStickyNote,
   FaClipboardList,
   FaCalendarAlt,
@@ -18,9 +30,7 @@ import {
   FaCheckCircle,
   FaClock,
   FaUser,
-  FaStar,
-  FaThumbtack,
-  FaEye
+  FaThumbtack
 } from 'react-icons/fa';
 import ActionsMenu from '../../../components/ActionsMenu';
 import {
@@ -326,7 +336,8 @@ const SortablePlanItem = memo(function SortablePlanItem({
   canEdit,
   canAddChild = false,
   toggleExpanded,
-  isItemExpanded,
+  hasChildren = false,
+  isExpanded = false,
   getExpansionKey,
   handleAddPlanInstanceItem,
   handleEditPlanInstanceItem,
@@ -360,6 +371,65 @@ const SortablePlanItem = memo(function SortablePlanItem({
     zIndex: isDragging ? 1000 : 'auto',
   };
 
+  // Card view: consolidate non-complete actions into a 3-dot menu to avoid wrapping.
+  const cardActions = useMemo(() => {
+    if (!canEdit) return [];
+
+    const itemId = planItem.plan_item_id || planItem._id;
+    const items = [];
+
+    if (canAddChild) {
+      items.push({
+        id: 'add-child',
+        label: lang.current.button?.addChildItem || lang.current.button?.addChild || 'Add Child Item',
+        icon: <BsPlusCircle />,
+        onClick: () => handleAddPlanInstanceItem(itemId),
+      });
+    }
+
+    items.push({
+      id: 'edit',
+      label: lang.current.button?.update || lang.current.button?.edit || 'Update',
+      icon: <BsPencilSquare />,
+      onClick: () => handleEditPlanInstanceItem(planItem),
+    });
+
+    // Pin action - only for root items
+    if (!planItem.parent && !planItem.isChild && onPinItem) {
+      items.push({
+        id: 'pin',
+        label: isPinned ? 'Unpin' : 'Pin to Top',
+        icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
+        variant: isPinned ? 'active' : 'default',
+        onClick: () => onPinItem(planItem),
+      });
+    }
+
+    items.push({
+      id: 'delete',
+      label: lang.current.tooltip?.delete || lang.current.button?.delete || 'Delete',
+      icon: <BsTrash3 />,
+      variant: 'danger',
+      onClick: () => {
+        setPlanInstanceItemToDelete(planItem);
+        setShowPlanInstanceDeleteModal(true);
+      },
+    });
+
+    return items;
+  }, [
+    canEdit,
+    canAddChild,
+    lang,
+    planItem,
+    onPinItem,
+    isPinned,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -370,77 +440,69 @@ const SortablePlanItem = memo(function SortablePlanItem({
       } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
     >
       <div className="plan-item-header p-3 p-md-4">
-        <div className="plan-item-tree">
-          {!planItem.isChild ? (
-            (() => {
-              const hasChildren = currentPlan.plan.some(
-                (sub) =>
-                  sub.parent &&
-                  sub.parent.toString() ===
-                    (
-                      planItem.plan_item_id ||
-                      planItem._id
-                    ).toString()
-              );
-              if (hasChildren) {
-                // Use helper functions for consistent expand/collapse behavior
-                const isExpanded = isItemExpanded(planItem);
-                // For pinned items with children: show star with expand arrow
-                if (isPinned) {
+        <div className="plan-item-title-row">
+          <div className="plan-item-tree">
+            {!planItem.isChild ? (
+              (() => {
+                if (hasChildren) {
+                  // For pinned items with children: show star with expand arrow
+                  if (isPinned) {
+                    return (
+                      <span
+                        className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
+                        onClick={() => toggleExpanded(planItem)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
+                        aria-expanded={isExpanded}
+                        aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
+                        title={lang.current.tooltip.pinnedToTopExpandCollapse}
+                      >
+                        <FaThumbtack className="text-warning pinned-pin-icon" />
+                        <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
+                      </span>
+                    );
+                  }
                   return (
                     <span
-                      className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
+                      className="expand-toggle"
                       onClick={() => toggleExpanded(planItem)}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                      title={lang.current.tooltip.pinnedToTopExpandCollapse}
                     >
-                      <FaThumbtack className="text-warning pinned-pin-icon" />
-                      <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
+                      {isExpanded ? '▼' : '▶'}
+                    </span>
+                  );
+                } else {
+                  // For items without children: show pin instead of bullet when pinned
+                  return (
+                    <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
+                      {isPinned ? <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
                     </span>
                   );
                 }
-                return (
-                  <span
-                    className="expand-toggle"
-                    onClick={() => toggleExpanded(planItem)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
-                    aria-expanded={isExpanded}
-                    aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                  >
-                    {isExpanded ? "▼" : "▶"}
-                  </span>
-                );
-              } else {
-                // For items without children: show pin instead of bullet when pinned
-                return (
-                  <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
-                    {isPinned ? <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
-                  </span>
-                );
-              }
-            })()
-          ) : (
-            <span className="child-arrow">↳</span>
-          )}
-        </div>
-        <div className="plan-item-title flex-grow-1 fw-semibold">
-          {planItem.url ? (
-            <Link
-              to={planItem.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {planItem.text}
-            </Link>
-          ) : (
-            <span>{planItem.text}</span>
-          )}
+              })()
+            ) : (
+              <span className="child-arrow">↳</span>
+            )}
+          </div>
+
+          <div className="plan-item-title flex-grow-1 fw-semibold">
+            {planItem.url ? (
+              <Link
+                to={planItem.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {planItem.text}
+              </Link>
+            ) : (
+              <span>{planItem.text}</span>
+            )}
+          </div>
         </div>
 
         {/* Drag handle - positioned between title and action buttons */}
@@ -454,108 +516,57 @@ const SortablePlanItem = memo(function SortablePlanItem({
           </div>
         )}
 
-        <div className="plan-item-actions">
-          <div className="d-flex gap-1">
-            {canEdit && canAddChild && (
-              <button
-                className="btn btn-outline-primary btn-sm"
-                onClick={() =>
-                  handleAddPlanInstanceItem(
-                    planItem.plan_item_id ||
-                      planItem._id
-                  )
-                }
-                aria-label={`${lang.current.button.addChild} to ${planItem.text}`}
-                title={lang.current.button.addChild}
-              >
-                ✚
-              </button>
-            )}
-            {canEdit && (
-              <>
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={() =>
-                    handleEditPlanInstanceItem(
-                      planItem
-                    )
-                  }
-                  aria-label={`${lang.current.button.edit} ${planItem.text}`}
-                  title={lang.current.tooltip.edit}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  className="btn btn-outline-danger btn-sm"
-                  onClick={() => {
-                    setPlanInstanceItemToDelete(
-                      planItem
-                    );
-                    setShowPlanInstanceDeleteModal(
-                      true
-                    );
-                  }}
-                  aria-label={`${lang.current.button.delete} ${planItem.text}`}
-                  title={lang.current.tooltip.delete}
-                >
-                  <FaTrash />
-                </button>
-              </>
-            )}
-            {/* Pin to Top button - only for root items */}
-            {canEdit && !planItem.parent && !planItem.isChild && onPinItem && (
-              <button
-                className={`btn btn-sm ${isPinned ? 'btn-warning' : 'btn-outline-warning'}`}
-                onClick={() => onPinItem(planItem)}
-                aria-label={isPinned ? `Unpin ${planItem.text}` : `Pin ${planItem.text} to top`}
-                title={isPinned ? 'Unpin' : 'Pin to Top'}
-                aria-pressed={isPinned}
-              >
-                <FaThumbtack />
-              </button>
-            )}
-            <button
-              className={`btn btn-sm btn-complete-toggle ${
-                planItem.complete
-                  ? "btn-success"
-                  : "btn-outline-success"
-              }`}
-              type="button"
-              onClick={(e) => {
-                // Blur the button to prevent focus-based scroll restoration
-                e.currentTarget.blur();
-                handlePlanItemToggleComplete(planItem);
-              }}
-              onMouseEnter={() =>
-                setHoveredPlanItem(
-                  planItem._id ||
-                    planItem.plan_item_id
-                )
-              }
-              onMouseLeave={() =>
-                setHoveredPlanItem(null)
-              }
-              aria-label={
-                planItem.complete
-                  ? `${lang.current.button.undoComplete} ${planItem.text}`
-                  : `${lang.current.button.markComplete} ${planItem.text}`
-              }
-              aria-pressed={!!planItem.complete}
-              title={
-                planItem.complete
-                  ? lang.current.button.undoComplete
-                  : lang.current.button.markComplete
-              }
-            >
-              {planItem.complete
-                ? hoveredPlanItem ===
-                  (planItem._id ||
-                    planItem.plan_item_id)
-                  ? lang.current.button.undoComplete
-                  : lang.current.button.done
-                : lang.current.button.markComplete}
-            </button>
-          </div>
+        <div className="plan-item-actions plan-item-card-actions">
+          <button
+            className={`btn btn-sm btn-complete-toggle ${
+              planItem.complete
+                ? "btn-success"
+                : "btn-outline-success"
+            }`}
+            type="button"
+            disabled={!canEdit}
+            onClick={(e) => {
+              if (!canEdit) return;
+              // Blur the button to prevent focus-based scroll restoration
+              e.currentTarget.blur();
+              handlePlanItemToggleComplete(planItem);
+            }}
+            onMouseEnter={() =>
+              setHoveredPlanItem(
+                planItem._id ||
+                  planItem.plan_item_id
+              )
+            }
+            onMouseLeave={() =>
+              setHoveredPlanItem(null)
+            }
+            aria-label={
+              planItem.complete
+                ? `${lang.current.button.undoComplete} ${planItem.text}`
+                : `${lang.current.button.markComplete} ${planItem.text}`
+            }
+            aria-pressed={!!planItem.complete}
+            title={
+              planItem.complete
+                ? lang.current.button.undoComplete
+                : lang.current.button.markComplete
+            }
+          >
+            {planItem.complete
+              ? hoveredPlanItem ===
+                (planItem._id ||
+                  planItem.plan_item_id)
+                ? lang.current.button.undoComplete
+                : lang.current.button.done
+              : lang.current.button.markComplete}
+          </button>
+          <ActionsMenu
+            actions={cardActions}
+            ariaLabel={`Actions: ${planItem.text}`}
+            size="md"
+            position="bottom-right"
+            disabled={!canEdit}
+          />
         </div>
       </div>
       {/* Always show details section for View Details button */}
@@ -656,8 +667,10 @@ const SortablePlanItem = memo(function SortablePlanItem({
     prevProps.canEdit === nextProps.canEdit &&
     prevProps.hoveredPlanItem === nextProps.hoveredPlanItem &&
     prevProps.canAddChild === nextProps.canAddChild &&
-    // Expand/collapse state - compare function reference to detect changes
-    prevProps.isItemExpanded === nextProps.isItemExpanded
+    prevProps.isPinned === nextProps.isPinned &&
+    // Expand/collapse state - compare derived values so memoized items re-render reliably
+    prevProps.hasChildren === nextProps.hasChildren &&
+    prevProps.isExpanded === nextProps.isExpanded
   );
 });
 
@@ -710,23 +723,15 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
 
   // Build actions array for ActionsMenu
   const actions = useMemo(() => {
-    // Determine if this is a child item that should use time-only scheduling
+    // Scheduling is only allowed on parent items.
     const isChild = planItem.isChild || planItem.parent;
-    const parentHasDate = parentItem?.scheduled_date;
-    const useTimeOnly = isChild && parentHasDate;
 
     const items = [
       {
         id: 'edit',
         label: lang.current.button?.update || 'Update',
-        icon: <FaEdit />,
+        icon: <BsPencilSquare />,
         onClick: () => handleEditPlanInstanceItem(planItem),
-      },
-      {
-        id: 'schedule',
-        label: useTimeOnly ? 'Schedule Time' : 'Schedule Date',
-        icon: useTimeOnly ? <FaClock /> : <FaCalendarAlt />,
-        onClick: () => onScheduleDate(planItem, parentItem),
       },
     ];
 
@@ -735,8 +740,18 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       items.splice(1, 0, {
         id: 'add-child',
         label: lang.current.button?.addChildItem || 'Add Child Item',
-        icon: <FaPlus />,
+        icon: <BsPlusCircle />,
         onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
+      });
+    }
+
+    // Schedule action - only for parent items.
+    if (!isChild) {
+      items.push({
+        id: 'schedule',
+        label: 'Schedule Date',
+        icon: <BsCalendarEvent />,
+        onClick: () => onScheduleDate(planItem, parentItem),
       });
     }
 
@@ -745,7 +760,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       items.push({
         id: 'view-details',
         label: 'View Details',
-        icon: <FaEye />,
+        icon: <BsEye />,
         onClick: () => handleViewPlanItemDetails(planItem),
       });
     }
@@ -755,7 +770,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       items.push({
         id: 'pin',
         label: isPinned ? 'Unpin' : 'Pin to Top',
-        icon: <FaThumbtack />,
+        icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
         variant: isPinned ? 'active' : 'default',
         onClick: () => onPinItem(planItem),
       });
@@ -765,7 +780,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     items.push({
       id: 'delete',
       label: lang.current.tooltip.delete,
-      icon: <FaTrash />,
+      icon: <BsTrash3 />,
       variant: 'danger',
       onClick: () => {
         setPlanInstanceItemToDelete(planItem);
@@ -812,7 +827,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
               title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
               <FaThumbtack className="text-warning pinned-pin-icon" />
-              <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
+              <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
             </button>
           ) : (
             <button
@@ -822,7 +837,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
               aria-expanded={isExpanded}
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
             >
-              {isExpanded ? "▼" : "▶"}
+              {isExpanded ? '▼' : '▶'}
             </button>
           )
         ) : isPinned ? (
@@ -1065,31 +1080,35 @@ function groupTimeItemsByActivityType(items) {
   // Track which items have been added (to avoid duplicating children)
   const addedItems = new Set();
 
-  // First pass: process parent items and their children
-  for (const item of items) {
-    // Skip child items - they'll be added after their parent
-    if (item.parent || item.isChild) {
-      continue;
+  const addDescendants = (parent, rootActivityType, targetArray) => {
+    const children = getChildrenForParent(parent);
+    for (const child of children) {
+      const childId = (child._id || child.plan_item_id)?.toString();
+      if (!childId || addedItems.has(childId)) continue;
+      addedItems.add(childId);
+      targetArray.push({
+        ...child,
+        isChild: true,
+        inheritedActivityType: rootActivityType
+          ? (!child.activity_type || child.activity_type === rootActivityType)
+          : true
+      });
+      addDescendants(child, rootActivityType, targetArray);
     }
+  };
+
+  // First pass: process root items and all descendants (depth-first)
+  for (const item of items) {
+    if (item.parent || item.isChild) continue;
 
     const itemId = (item._id || item.plan_item_id)?.toString();
-    if (addedItems.has(itemId)) continue;
+    if (!itemId || addedItems.has(itemId)) continue;
     addedItems.add(itemId);
 
     const activityType = item.activity_type;
-
     if (!activityType) {
-      // Parent goes to ungrouped
       ungrouped.push(item);
-      // Children follow their parent in ungrouped, maintaining hierarchy
-      const children = getChildrenForParent(item);
-      for (const child of children) {
-        const childId = (child._id || child.plan_item_id)?.toString();
-        if (!addedItems.has(childId)) {
-          addedItems.add(childId);
-          ungrouped.push({ ...child, isChild: true });
-        }
-      }
+      addDescendants(item, null, ungrouped);
       continue;
     }
 
@@ -1104,22 +1123,8 @@ function groupTimeItemsByActivityType(items) {
       };
     }
 
-    // Add parent item
     groups[activityType].items.push(item);
-
-    // Add children immediately after parent to maintain hierarchy
-    const children = getChildrenForParent(item);
-    for (const child of children) {
-      const childId = (child._id || child.plan_item_id)?.toString();
-      if (!addedItems.has(childId)) {
-        addedItems.add(childId);
-        groups[activityType].items.push({
-          ...child,
-          isChild: true,
-          inheritedActivityType: !child.activity_type || child.activity_type === activityType
-        });
-      }
-    }
+    addDescendants(item, activityType, groups[activityType].items);
   }
 
   // Second pass: add orphaned children (whose parent is not in this section)
@@ -1166,45 +1171,15 @@ function groupPlanItemsByDate(items) {
     }
   });
 
-  // Helper to get effective scheduled date/time (inherit from parent if needed)
-  const getEffectiveSchedule = (item) => {
-    // If item has its own scheduled_date, use it
-    if (item.scheduled_date) {
-      return {
-        scheduled_date: item.scheduled_date,
-        scheduled_time: item.scheduled_time,
-        inherited: false
-      };
-    }
-
-    // If item is a child, try to inherit from parent
-    if (item.parent) {
-      const parentId = item.parent.toString();
-      const parent = itemsById.get(parentId);
-      if (parent?.scheduled_date) {
-        return {
-          scheduled_date: parent.scheduled_date,
-          scheduled_time: parent.scheduled_time,
-          inherited: true
-        };
-      }
-    }
-
-    // No scheduled date
-    return { scheduled_date: null, scheduled_time: null, inherited: false };
-  };
-
-  // Process items - parents first, then children grouped with parents
+  // Parent-only scheduling: a hierarchy's date/time is determined by its root item.
+  // If the root has no scheduled_date, the entire hierarchy is considered unscheduled.
   const parentItems = items.filter(item => !item.parent);
   const childItems = items.filter(item => !!item.parent);
 
-  // Group children by parent ID
   const childrenByParent = new Map();
   childItems.forEach(child => {
     const parentId = child.parent.toString();
-    if (!childrenByParent.has(parentId)) {
-      childrenByParent.set(parentId, []);
-    }
+    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
     childrenByParent.get(parentId).push(child);
   });
 
@@ -1226,27 +1201,42 @@ function groupPlanItemsByDate(items) {
     return children;
   };
 
-  // Helper to add item and its children to appropriate group
-  const addItemToGroup = (item, effectiveSchedule) => {
-    const { scheduled_date, scheduled_time, inherited } = effectiveSchedule;
+  const addedIds = new Set();
 
-    if (!scheduled_date) {
-      unscheduled.push({ ...item, inheritedSchedule: false });
-      // Also add children to unscheduled
-      const children = getChildrenForParent(item);
-      children.forEach(child => {
-        const childSchedule = getEffectiveSchedule(child);
-        if (!childSchedule.scheduled_date) {
-          unscheduled.push({ ...child, isChild: true, inheritedSchedule: false });
-        }
-        // Note: Children with their own schedule are handled separately
+  const addDescendantsToTarget = (parent, rootSchedule, pushFn) => {
+    const children = getChildrenForParent(parent);
+    for (const child of children) {
+      const childId = (child._id || child.plan_item_id)?.toString();
+      if (!childId || addedIds.has(childId)) continue;
+      addedIds.add(childId);
+      pushFn({
+        ...child,
+        isChild: true,
+        inheritedSchedule: Boolean(rootSchedule?.scheduled_date),
+        // Reflect root schedule on descendants for Timeline display/sorting.
+        scheduled_date: rootSchedule?.scheduled_date ?? null,
+        scheduled_time: rootSchedule?.scheduled_time ?? null
       });
-      return;
+      addDescendantsToTarget(child, rootSchedule, pushFn);
     }
+  };
 
-    const date = new Date(scheduled_date);
+  const addHierarchyToUnscheduled = (root) => {
+    const rootId = (root._id || root.plan_item_id)?.toString();
+    if (rootId) addedIds.add(rootId);
+    unscheduled.push({ ...root, inheritedSchedule: false });
+    addDescendantsToTarget(root, { scheduled_date: null, scheduled_time: null }, (it) => {
+      unscheduled.push({ ...it, inheritedSchedule: false });
+    });
+  };
+
+  const addHierarchyToScheduled = (root) => {
+    const rootId = (root._id || root.plan_item_id)?.toString();
+    if (rootId) addedIds.add(rootId);
+
+    const date = new Date(root.scheduled_date);
     if (isNaN(date.getTime())) {
-      unscheduled.push({ ...item, inheritedSchedule: false });
+      addHierarchyToUnscheduled(root);
       return;
     }
 
@@ -1262,68 +1252,40 @@ function groupPlanItemsByDate(items) {
       };
     }
 
-    const timeOfDay = getTimeOfDay(scheduled_time);
-    const itemWithMeta = { ...item, inheritedSchedule: inherited };
+    const timeOfDay = getTimeOfDay(root.scheduled_time);
+    const pushFn = (it) => {
+      if (timeOfDay) groups[dateKey][timeOfDay].push(it);
+      else groups[dateKey].unspecified.push(it);
+    };
 
-    if (timeOfDay) {
-      groups[dateKey][timeOfDay].push(itemWithMeta);
-    } else {
-      groups[dateKey].unspecified.push(itemWithMeta);
-    }
-
-    // Add children that inherit from this parent
-    const children = getChildrenForParent(item);
-    children.forEach(child => {
-      const childSchedule = getEffectiveSchedule(child);
-      // Only add children that inherit (don't have their own schedule)
-      // Children with their own schedule will be added when processing all items
-      if (childSchedule.inherited) {
-        const childWithMeta = { ...child, isChild: true, inheritedSchedule: true };
-        if (timeOfDay) {
-          groups[dateKey][timeOfDay].push(childWithMeta);
-        } else {
-          groups[dateKey].unspecified.push(childWithMeta);
-        }
-      }
-    });
+    pushFn({ ...root, inheritedSchedule: false });
+    addDescendantsToTarget(
+      root,
+      { scheduled_date: root.scheduled_date, scheduled_time: root.scheduled_time },
+      pushFn
+    );
   };
 
-  // Process parent items first (they bring their children along)
-  parentItems.forEach(item => {
-    const effectiveSchedule = getEffectiveSchedule(item);
-    addItemToGroup(item, effectiveSchedule);
+  // Process each root item; it brings its entire hierarchy along
+  parentItems.forEach((root) => {
+    if (!root?.scheduled_date) {
+      addHierarchyToUnscheduled(root);
+      return;
+    }
+    addHierarchyToScheduled(root);
   });
 
-  // Process children that have their own scheduled_date (not inherited)
-  childItems.forEach(child => {
-    if (child.scheduled_date) {
-      const date = new Date(child.scheduled_date);
-      if (isNaN(date.getTime())) {
-        unscheduled.push({ ...child, isChild: true, inheritedSchedule: false });
-        return;
-      }
-
-      const dateKey = date.toISOString().split('T')[0];
-      if (!groups[dateKey]) {
-        groups[dateKey] = {
-          date,
-          dateKey,
-          morning: [],
-          afternoon: [],
-          evening: [],
-          unspecified: []
-        };
-      }
-
-      const timeOfDay = getTimeOfDay(child.scheduled_time);
-      const childWithMeta = { ...child, isChild: true, inheritedSchedule: false };
-
-      if (timeOfDay) {
-        groups[dateKey][timeOfDay].push(childWithMeta);
-      } else {
-        groups[dateKey].unspecified.push(childWithMeta);
-      }
-    }
+  // Any remaining items are orphaned (missing root). Show them under unscheduled.
+  items.forEach((item) => {
+    const itemId = (item._id || item.plan_item_id)?.toString();
+    if (!itemId || addedIds.has(itemId)) return;
+    addedIds.add(itemId);
+    unscheduled.push({
+      ...item,
+      isChild: Boolean(item.parent),
+      isOrphaned: Boolean(item.parent),
+      inheritedSchedule: false
+    });
   });
 
   // Group items by activity type within each time section
@@ -1369,22 +1331,79 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   onToggleExpand = null
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
-  const actionsMenuRef = useRef(null);
   const formattedTime = formatTimeForDisplay(planItem.scheduled_time);
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!showActionsMenu) return;
+  // Build actions array for ActionsMenu (same pattern as SortableCompactPlanItem)
+  const actions = useMemo(() => {
+    const isChild = planItem.isChild || planItem.parent;
+    const items = [
+      {
+        id: 'edit',
+        label: lang.current.button?.update || 'Update',
+        icon: <BsPencilSquare />,
+        onClick: () => handleEditPlanInstanceItem(planItem),
+      },
+    ];
 
-    function handleClickOutside(event) {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
-        setShowActionsMenu(false);
-      }
+    // Allow adding a child item if this item is shallow enough per configured max nesting.
+    if (canAddChild) {
+      items.push({
+        id: 'add-child',
+        label: lang.current.button?.addChildItem || 'Add Child Item',
+        icon: <BsPlusCircle />,
+        onClick: () => handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id),
+      });
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showActionsMenu]);
+
+    // Schedule action - only for parent items.
+    if (!isChild) {
+      items.push({
+        id: 'schedule',
+        label: 'Schedule Date',
+        icon: <BsCalendarEvent />,
+        onClick: () => onScheduleDate(planItem, parentItem),
+      });
+    }
+
+    // View Details action - only show when URL exists (since clicking text opens URL)
+    if (planItem.url) {
+      items.push({
+        id: 'view-details',
+        label: 'View Details',
+        icon: <BsEye />,
+        onClick: () => handleViewPlanItemDetails(planItem),
+      });
+    }
+
+    // Pin action - only for root items (not children)
+    if (!isChild && onPinItem) {
+      items.push({
+        id: 'pin',
+        label: isPinned ? 'Unpin' : 'Pin to Top',
+        icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
+        variant: isPinned ? 'active' : 'default',
+        onClick: () => onPinItem(planItem),
+      });
+    }
+
+    // Delete action (always last, danger variant)
+    items.push({
+      id: 'delete',
+      label: lang.current.tooltip.delete,
+      icon: <BsTrash3 />,
+      variant: 'danger',
+      onClick: () => {
+        setPlanInstanceItemToDelete(planItem);
+        setShowPlanInstanceDeleteModal(true);
+      },
+    });
+
+    return items;
+  }, [
+    lang, planItem, parentItem, isPinned, onPinItem, canAddChild,
+    handleEditPlanInstanceItem, handleAddPlanInstanceItem, handleViewPlanItemDetails,
+    onScheduleDate, setPlanInstanceItemToDelete, setShowPlanInstanceDeleteModal
+  ]);
 
   return (
     <div
@@ -1530,89 +1549,13 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
         })()}
       </span>
 
-      {/* Actions menu (overflow button with dropdown) */}
+      {/* Actions menu */}
       {canEdit && (
-        <div className="timeline-item-actions-wrapper" ref={actionsMenuRef}>
-          <button
-            className="timeline-actions-toggle"
-            onClick={() => setShowActionsMenu(!showActionsMenu)}
-            aria-expanded={showActionsMenu}
-            aria-haspopup="true"
-            aria-label={lang.current.aria.itemActions}
-            title={lang.current.tooltip.actions}
-          >
-            <BsThreeDotsVertical />
-          </button>
-          {showActionsMenu && (
-            <div className="timeline-actions-menu">
-              <button
-                className="timeline-actions-item"
-                onClick={() => {
-                  handleEditPlanInstanceItem(planItem);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaEdit /> {lang.current.button?.update || 'Update'}
-              </button>
-              {canAddChild && (
-                <button
-                  className="timeline-actions-item"
-                  onClick={() => {
-                    handleAddPlanInstanceItem(planItem.plan_item_id || planItem._id);
-                    setShowActionsMenu(false);
-                  }}
-                >
-                  <FaPlus /> {lang.current.button?.addChildItem || 'Add Child Item'}
-                </button>
-              )}
-              <button
-                className="timeline-actions-item"
-                onClick={() => {
-                  onScheduleDate(planItem, parentItem);
-                  setShowActionsMenu(false);
-                }}
-              >
-                {(planItem.isChild || planItem.parent) && parentItem?.scheduled_date ? (
-                  <><FaClock /> Schedule Time</>
-                ) : (
-                  <><FaCalendarAlt /> Schedule Date</>
-                )}
-              </button>
-              {planItem.url && (
-                <button
-                  className="timeline-actions-item"
-                  onClick={() => {
-                    handleViewPlanItemDetails(planItem);
-                    setShowActionsMenu(false);
-                  }}
-                >
-                  <FaEye /> View Details
-                </button>
-              )}
-              {!planItem.parent && !planItem.isChild && onPinItem && (
-                <button
-                  className={`timeline-actions-item ${isPinned ? 'timeline-actions-item-active' : ''}`}
-                  onClick={() => {
-                    onPinItem(planItem);
-                    setShowActionsMenu(false);
-                  }}
-                >
-                  <FaThumbtack /> {isPinned ? 'Unpin' : 'Pin to Top'}
-                </button>
-              )}
-              <button
-                className="timeline-actions-item timeline-actions-item-danger"
-                onClick={() => {
-                  setPlanInstanceItemToDelete(planItem);
-                  setShowPlanInstanceDeleteModal(true);
-                  setShowActionsMenu(false);
-                }}
-              >
-                <FaTrash /> {lang.current.tooltip.delete}
-              </button>
-            </div>
-          )}
-        </div>
+        <ActionsMenu
+          actions={actions}
+          size="sm"
+          ariaLabel={lang.current.aria.itemActions}
+        />
       )}
     </div>
   );
@@ -1999,22 +1942,18 @@ export default function MyPlanTabContent({
   const [dateModalParentDate, setDateModalParentDate] = useState(null);
 
   // Handle opening the schedule date modal
-  // For child items with a parent that has a scheduled_date, use time-only mode
   const handleScheduleDate = useCallback((planItem, parentItem = null) => {
+    // Scheduling is only allowed on parent items.
+    const isChild = planItem?.isChild || planItem?.parent;
+    if (isChild) {
+      debug.info('[MyPlanTabContent] Ignoring schedule request for child item');
+      return;
+    }
+
     setDateModalPlanItem(planItem);
 
-    // Check if this is a child item and if parent has a scheduled date
-    const isChild = planItem.isChild || planItem.parent;
-    const parentDate = parentItem?.scheduled_date;
-
-    if (isChild && parentDate) {
-      // Child item inherits parent's date - only allow time scheduling
-      setDateModalTimeOnly(true);
-      setDateModalParentDate(parentDate);
-    } else {
-      setDateModalTimeOnly(false);
-      setDateModalParentDate(null);
-    }
+    setDateModalTimeOnly(false);
+    setDateModalParentDate(null);
 
     setShowDateModal(true);
   }, []);
@@ -2373,19 +2312,44 @@ export default function MyPlanTabContent({
     }
   };
 
+    // Map both _id and plan_item_id to a canonical expansion key.
+    // This lets us normalize child->parent references regardless of whether the parent was stored
+    // as a plan instance _id or an experience plan_item_id.
+    const idToExpansionKey = useMemo(() => {
+      const map = new Map();
+      if (!currentPlan?.plan) return map;
+
+      for (const item of currentPlan.plan) {
+        const canonicalKey = getExpansionKey(item);
+        const itemId = item?._id?.toString?.() || null;
+        const refId = item?.plan_item_id?.toString?.() || null;
+
+        if (itemId && canonicalKey) map.set(itemId, canonicalKey);
+        if (refId && canonicalKey) map.set(refId, canonicalKey);
+      }
+
+      return map;
+    }, [currentPlan?.plan, getExpansionKey]);
+
+    const getCanonicalParentKey = useCallback((item) => {
+      const rawParentId = item?.parent?.toString?.() || null;
+      if (!rawParentId) return null;
+      return idToExpansionKey.get(rawParentId) || rawParentId;
+    }, [idToExpansionKey]);
+
   // Helper to flatten and mark children (same as Experience Plan Items)
   // Uses getExpansionKey for consistent canonical ID handling
   const flattenPlanItems = (items) => {
     const result = [];
     const addItem = (item, isChild = false) => {
-      // Get the canonical key for the parent (child's parent field = parent's plan_item_id)
-      // This matches how expandedParents stores keys
-      const parentKey = item.parent?.toString();
+      // Normalize child->parent references to a canonical key so expand/collapse works
+      // regardless of whether parent is stored as plan_item_id or _id.
+      const parentKey = getCanonicalParentKey(item);
       const isVisible =
         !isChild ||
         (expandedParents.has(parentKey) &&
           animatingCollapse !== parentKey);
-      result.push({ ...item, isChild, isVisible });
+      result.push({ ...item, isChild, isVisible, parentKey });
 
       // Find children - a child's parent field equals the parent's plan_item_id (canonical key)
       const itemKey = getExpansionKey(item);
@@ -2393,7 +2357,7 @@ export default function MyPlanTabContent({
         .filter(
           (sub) =>
             sub.parent &&
-            sub.parent.toString() === itemKey
+            getCanonicalParentKey(sub) === itemKey
         )
         .forEach((sub) => addItem(sub, true));
     };
@@ -2436,7 +2400,8 @@ export default function MyPlanTabContent({
     if (!currentPlan?.plan || currentPlan.plan.length === 0) return null;
 
     const scheduledDates = currentPlan.plan
-      .filter(item => item.scheduled_date)
+      // Parent-only scheduling: ignore any legacy child schedules.
+      .filter(item => !item.parent && item.scheduled_date)
       .map(item => new Date(item.scheduled_date))
       .filter(date => !isNaN(date.getTime()))
       .sort((a, b) => a - b);
@@ -2449,13 +2414,13 @@ export default function MyPlanTabContent({
   const flattenedItems = useMemo(() => {
     if (!currentPlan?.plan || currentPlan.plan.length === 0) return [];
     return flattenPlanItems(currentPlan.plan);
-  }, [currentPlan?.plan, expandedParents, animatingCollapse, getExpansionKey]);
+  }, [currentPlan?.plan, expandedParents, animatingCollapse, getExpansionKey, getCanonicalParentKey]);
 
   const filteredItems = useMemo(() => {
     return flattenedItems.filter(
       (item) =>
         item.isVisible ||
-        (item.isChild && animatingCollapse === item.parent)
+        (item.isChild && animatingCollapse === item.parentKey)
     );
   }, [flattenedItems, animatingCollapse]);
 
@@ -2549,27 +2514,26 @@ export default function MyPlanTabContent({
     return groupItemsByActivityType(allUnpinnedItems, currentPlan?.plan || []);
   }, [planItemsView, flattenedItems, allUnpinnedItems, currentPlan?.plan]);
 
-  // Create a Set of parent item IDs that have children (for expand/collapse UI)
   const parentsWithChildren = useMemo(() => {
     const parents = new Set();
     if (!currentPlan?.plan) return parents;
 
     for (const item of currentPlan.plan) {
       if (item.parent) {
-        // Add both possible parent ID formats
-        parents.add(item.parent.toString());
+        // Normalize parent key so it matches getExpansionKey(parent)
+        const canonicalParentKey = getCanonicalParentKey(item);
+        if (canonicalParentKey) parents.add(canonicalParentKey);
       }
     }
     return parents;
-  }, [currentPlan?.plan]);
+  }, [currentPlan?.plan, getCanonicalParentKey]);
 
   // Helper to check if an item has children
   const hasChildren = useCallback((item) => {
-    const itemId = (item.plan_item_id || item._id)?.toString();
-    if (!itemId) return false;
-    // Check if any item has this as parent
-    return parentsWithChildren.has(itemId);
-  }, [parentsWithChildren]);
+    const itemKey = getExpansionKey(item);
+    if (!itemKey) return false;
+    return parentsWithChildren.has(itemKey);
+  }, [parentsWithChildren, getExpansionKey]);
 
   // Helper to check if an item should be visible based on expand/collapse state
   // Parent items are always visible; child items are visible only if parent is expanded
@@ -2577,10 +2541,10 @@ export default function MyPlanTabContent({
     // If not a child, always visible
     if (!item.parent && !item.isChild) return true;
     // Child items: check if parent is expanded
-    const parentId = item.parent?.toString();
-    if (!parentId) return true;
-    return expandedParents.has(parentId);
-  }, [expandedParents]);
+    const parentKey = getCanonicalParentKey(item);
+    if (!parentKey) return true;
+    return expandedParents.has(parentKey);
+  }, [expandedParents, getCanonicalParentKey]);
 
   // Create parent item lookup for child activity badge display
   const parentItemMap = useMemo(() => {
@@ -2622,6 +2586,62 @@ export default function MyPlanTabContent({
     const depth = getPlanItemDepth(item);
     return Number.isFinite(depth) && depth < maxPlanItemNestingLevel;
   }, [maxPlanItemNestingLevel, getPlanItemDepth]);
+
+  /**
+   * Shared props for all plan item components (SortablePlanItem, SortableCompactPlanItem, TimelinePlanItem)
+   * These are passed to all items regardless of view type
+   */
+  const sharedItemHandlers = useMemo(() => ({
+    handlePlanItemToggleComplete,
+    handleViewPlanItemDetails,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
+    onScheduleDate: handleScheduleDate,
+    onPinItem: handlePinItem,
+    onToggleExpand: toggleExpanded,
+    lang,
+    planOwner,
+    planCollaborators,
+    canEdit
+  }), [
+    handlePlanItemToggleComplete,
+    handleViewPlanItemDetails,
+    handleAddPlanInstanceItem,
+    handleEditPlanInstanceItem,
+    setPlanInstanceItemToDelete,
+    setShowPlanInstanceDeleteModal,
+    handleScheduleDate,
+    handlePinItem,
+    toggleExpanded,
+    lang,
+    planOwner,
+    planCollaborators,
+    canEdit
+  ]);
+
+  /**
+   * Generate per-item props based on the plan item
+   * Returns dynamic props that vary per item
+   */
+  const getItemProps = useCallback((planItem) => {
+    const parentItem = planItem.parent
+      ? parentItemMap.get(planItem.parent.toString())
+      : null;
+    const itemId = (planItem._id || planItem.plan_item_id)?.toString();
+    const itemHasChildren = hasChildren(planItem);
+    const itemExpanded = isItemExpanded(planItem);
+    const itemCanAddChild = canAddChildToItem(planItem);
+
+    return {
+      parentItem,
+      isPinned: itemId === pinnedItemId,
+      hasChildren: itemHasChildren,
+      isExpanded: itemExpanded,
+      canAddChild: itemCanAddChild
+    };
+  }, [parentItemMap, hasChildren, isItemExpanded, canAddChildToItem, pinnedItemId]);
 
   // Plan not found or still loading
   // Show skeleton loader when:
@@ -2967,6 +2987,8 @@ export default function MyPlanTabContent({
           >
             {itemsToRender.map((planItem) => {
               const itemId = (planItem._id || planItem.plan_item_id)?.toString();
+              const itemHasChildren = hasChildren(planItem);
+              const itemExpanded = itemHasChildren ? isItemExpanded(planItem) : false;
               const itemCanAddChild = canAddChildToItem(planItem);
               return (
                 <SortablePlanItem
@@ -2978,7 +3000,8 @@ export default function MyPlanTabContent({
                   canEdit={canEdit}
                   canAddChild={itemCanAddChild}
                   toggleExpanded={toggleExpanded}
-                  isItemExpanded={isItemExpanded}
+                  hasChildren={itemHasChildren}
+                  isExpanded={itemExpanded}
                   getExpansionKey={getExpansionKey}
                   handleAddPlanInstanceItem={handleAddPlanInstanceItem}
                   handleEditPlanInstanceItem={handleEditPlanInstanceItem}
@@ -3013,35 +3036,13 @@ export default function MyPlanTabContent({
           >
             <div className="compact-plan-items-list">
               {itemsToRender.map((planItem) => {
-                const parentItem = planItem.parent
-                  ? parentItemMap.get(planItem.parent.toString())
-                  : null;
-                const itemId = (planItem._id || planItem.plan_item_id)?.toString();
-                const itemHasChildren = hasChildren(planItem);
-                const itemExpanded = isItemExpanded(planItem);
-                const itemCanAddChild = canAddChildToItem(planItem);
+                const itemProps = getItemProps(planItem);
                 return (
                   <SortableCompactPlanItem
                     key={planItem.plan_item_id || planItem._id}
                     planItem={planItem}
-                    canEdit={canEdit}
-                    canAddChild={itemCanAddChild}
-                    handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                    handleViewPlanItemDetails={handleViewPlanItemDetails}
-                    handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                    handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                    setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                    setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                    onScheduleDate={handleScheduleDate}
-                    onPinItem={handlePinItem}
-                    isPinned={itemId === pinnedItemId}
-                    lang={lang}
-                    parentItem={parentItem}
-                    planOwner={planOwner}
-                    planCollaborators={planCollaborators}
-                    hasChildren={itemHasChildren}
-                    isExpanded={itemExpanded}
-                    onToggleExpand={toggleExpanded}
+                    {...sharedItemHandlers}
+                    {...itemProps}
                   />
                 );
               })}
@@ -3070,36 +3071,14 @@ export default function MyPlanTabContent({
                 >
                   <div className="activity-type-group-items">
                     {pinnedItems.map((planItem) => {
-                      const parentItem = planItem.parent
-                        ? parentItemMap.get(planItem.parent.toString())
-                        : null;
-                      const itemId = (planItem._id || planItem.plan_item_id)?.toString();
-                      const itemHasChildren = hasChildren(planItem);
-                      const itemExpanded = isItemExpanded(planItem);
-                      const itemCanAddChild = canAddChildToItem(planItem);
+                      const itemProps = getItemProps(planItem);
                       return (
                         <SortableCompactPlanItem
                           key={planItem.plan_item_id || planItem._id}
                           planItem={planItem}
-                          canEdit={canEdit}
-                          canAddChild={itemCanAddChild}
-                          handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                          handleViewPlanItemDetails={handleViewPlanItemDetails}
-                          handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                          handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                          setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                          setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                          onScheduleDate={handleScheduleDate}
-                          onPinItem={handlePinItem}
-                          isPinned={itemId === pinnedItemId}
-                          lang={lang}
-                          parentItem={parentItem}
+                          {...sharedItemHandlers}
+                          {...itemProps}
                           showActivityBadge={true}
-                          planOwner={planOwner}
-                          planCollaborators={planCollaborators}
-                          hasChildren={itemHasChildren}
-                          isExpanded={itemExpanded}
-                          onToggleExpand={toggleExpanded}
                         />
                       );
                     })}
@@ -3125,36 +3104,14 @@ export default function MyPlanTabContent({
                   >
                     <div className="activity-type-group-items">
                       {visibleItems.map((planItem) => {
-                        const parentItem = planItem.parent
-                          ? parentItemMap.get(planItem.parent.toString())
-                          : null;
-                        const itemId = (planItem._id || planItem.plan_item_id)?.toString();
-                        const itemHasChildren = hasChildren(planItem);
-                        const itemExpanded = isItemExpanded(planItem);
-                        const itemCanAddChild = canAddChildToItem(planItem);
+                        const itemProps = getItemProps(planItem);
                         return (
                           <SortableCompactPlanItem
                             key={planItem.plan_item_id || planItem._id}
                             planItem={planItem}
-                            canEdit={canEdit}
-                            canAddChild={itemCanAddChild}
-                            handlePlanItemToggleComplete={handlePlanItemToggleComplete}
-                            handleViewPlanItemDetails={handleViewPlanItemDetails}
-                            handleAddPlanInstanceItem={handleAddPlanInstanceItem}
-                            handleEditPlanInstanceItem={handleEditPlanInstanceItem}
-                            setPlanInstanceItemToDelete={setPlanInstanceItemToDelete}
-                            setShowPlanInstanceDeleteModal={setShowPlanInstanceDeleteModal}
-                            onScheduleDate={handleScheduleDate}
-                            onPinItem={handlePinItem}
-                            isPinned={itemId === pinnedItemId}
-                            lang={lang}
-                            parentItem={parentItem}
+                            {...sharedItemHandlers}
+                            {...itemProps}
                             showActivityBadge={true}
-                            planOwner={planOwner}
-                            planCollaborators={planCollaborators}
-                            hasChildren={itemHasChildren}
-                            isExpanded={itemExpanded}
-                            onToggleExpand={toggleExpanded}
                           />
                         );
                       })}

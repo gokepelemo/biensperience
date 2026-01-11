@@ -1,7 +1,62 @@
 {
   "name": "biensperience",
   "version": "0.8.1",
-  "private": true,
+  "description": "Biensperience: a visual travel experience planning platform (self-hostable)",
+  "license": "AGPL-3.0-only",
+  "author": "Goke Pelemo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gokepelemo/biensperience.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gokepelemo/biensperience/issues"
+  },
+  "homepage": "https://github.com/gokepelemo/biensperience#readme",
+  "keywords": [
+    "travel",
+    "planning",
+    "collaboration",
+    "express",
+    "mongoose",
+    "vite",
+    "self-hosted"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": false,
+  "main": "./app.js",
+  "exports": {
+    ".": "./app.js"
+  },
+  "bin": {
+    "biensperience": "./bin/biensperience.js"
+  },
+  "files": [
+    "bin/",
+    "build/",
+    "!build/**/*.map",
+    "config/",
+    "controllers/",
+    "models/",
+    "public/",
+    "routes/",
+    "!routes/api/uploads/**",
+    "uploads/",
+    "!uploads/documents/**",
+    "!uploads/images/**",
+    "!uploads/temp/**",
+    "utilities/",
+    "app.js",
+    "server.js",
+    "openapi.yaml",
+    ".env.example",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@adobe/css-tools": "^4.3.2",
     "@anthropic-ai/sdk": "^0.71.2",
@@ -82,26 +137,28 @@
     "js-yaml": ">=4.1.1"
   },
   "scripts": {
-    "dev": "bunx vite",
-    "start": "bun run server.js",
-    "build": "bunx vite build",
-    "preview": "bunx vite preview",
-    "test:api": "NODE_ENV=test bunx jest --testPathPattern=tests/api",
-    "test:api:debug": "DEBUG=true NODE_ENV=test bunx jest --testPathPattern=tests/api --verbose",
-    "test:api:watch": "NODE_ENV=test bunx jest --testPathPattern=tests/api --watch",
-    "test:api:coverage": "NODE_ENV=test bunx jest --testPathPattern=tests/api --coverage",
-    "test:frontend": "NODE_ENV=test bunx jest --config=jest.config.frontend.js",
-    "test:frontend:watch": "NODE_ENV=test bunx jest --config=jest.config.frontend.js --watch",
-    "test:frontend:coverage": "NODE_ENV=test bunx jest --config=jest.config.frontend.js --coverage",
+    "dev": "vite",
+    "start": "node server.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "node scripts/ensure-build.js",
+    "prepack": "node scripts/ensure-build.js",
+    "test:api": "NODE_ENV=test jest --testPathPattern=tests/api",
+    "test:api:debug": "DEBUG=true NODE_ENV=test jest --testPathPattern=tests/api --verbose",
+    "test:api:watch": "NODE_ENV=test jest --testPathPattern=tests/api --watch",
+    "test:api:coverage": "NODE_ENV=test jest --testPathPattern=tests/api --coverage",
+    "test:frontend": "NODE_ENV=test jest --config=jest.config.frontend.js",
+    "test:frontend:watch": "NODE_ENV=test jest --config=jest.config.frontend.js --watch",
+    "test:frontend:coverage": "NODE_ENV=test jest --config=jest.config.frontend.js --coverage",
     "test:visual": "./tests/visual-regression/run-tests.sh",
     "test:visual:update": "./tests/visual-regression/run-tests.sh --update-baseline",
-    "test:email": "bun run utilities/test-email.js",
+    "test:email": "node utilities/test-email.js",
     "pm2:start": "pm2 start ecosystem.config.js --env production",
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "pm2:restart": "pm2 restart ecosystem.config.js",
     "pm2:delete": "pm2 delete ecosystem.config.js",
-    "storybook": "bunx storybook dev -p 6006",
-    "build-storybook": "bunx storybook build"
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "^9.0.0-alpha.12",

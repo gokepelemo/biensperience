@@ -69,6 +69,29 @@ React • MongoDB • Bun • Express • AWS S3 • Bootstrap
    # API: http://localhost:3000
    ```
 
+### Install As An npm Package (Self-Host)
+
+If you publish this repo to npm (or install directly from GitHub), you can run Biensperience via the included CLI.
+
+1. **Install**
+   ```bash
+   # From npm (after publishing)
+   npm install biensperience
+
+   # Or directly from GitHub
+   npm install github:gokepelemo/biensperience
+   ```
+
+2. **Initialize environment**
+   ```bash
+   npx biensperience init
+   ```
+
+3. **Start the server**
+   ```bash
+   npx biensperience start
+   ```
+
 ## Development
 
 **PM2 Commands**:
