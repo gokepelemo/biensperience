@@ -102,38 +102,6 @@ textarea.form-control {
   flex-wrap: wrap; /* Allow wrapping on very small screens */
 }
 
-/* Unified input group (prefix/suffix fields like "$" or "days")
-   Renders a single continuous border around the whole group. */
-.input-group.input-group-unified {
-  gap: 0;
-  flex-wrap: nowrap;
-  background: var(--color-bg-input);
-  border: 2px solid var(--color-border-medium);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  transition: all var(--transition-base);
-
-  > .form-control,
-  > .form-select {
-    border: none;
-    box-shadow: none !important;
-    min-width: 0;
-  }
-
-  > .input-group-text {
-    background: transparent;
-    border: none;
-    color: var(--color-text-secondary);
-    font-weight: var(--font-weight-medium);
-    white-space: nowrap;
-  }
-
-  > .btn {
-    border: none;
-    border-radius: 0;
-  }
-}
-
 .input-group .form-control,
 .input-group .form-select {
   flex: 1 1 auto;
@@ -326,12 +294,6 @@ small.form-text {
   /* Non-auth input groups: stack on mobile */
   .input-group:not(.login-form .input-group):not(.signup-form .input-group):not([class*="authCard"] .input-group) {
     flex-direction: column;
-  }
-
-  /* Unified prefix/suffix groups should stay inline even on mobile */
-  .input-group.input-group-unified {
-    flex-direction: row;
-    flex-wrap: nowrap;
   }
 
   .input-group:not(.login-form .input-group):not(.signup-form .input-group):not([class*="authCard"] .input-group) .form-control,
