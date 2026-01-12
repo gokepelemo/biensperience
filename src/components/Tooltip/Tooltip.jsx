@@ -61,6 +61,15 @@ export default function Tooltip({
   const popperConfig = useMemo(() => ({
     modifiers: [
       {
+        // react-bootstrap normally enables flip by default.
+        // Since we provide a custom popperConfig, include flip explicitly so tooltips
+        // still appear when there's not enough room for the preferred placement.
+        name: 'flip',
+        options: {
+          fallbackPlacements: ['top', 'bottom', 'right', 'left'],
+        },
+      },
+      {
         name: 'preventOverflow',
         options: {
           boundary: 'viewport',

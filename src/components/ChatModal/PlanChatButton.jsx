@@ -6,6 +6,7 @@ import Alert from '../Alert/Alert';
 
 import MessagesModal from './MessagesModal';
 import { getOrCreatePlanChannel } from '../../utilities/chat-api';
+import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import { logger } from '../../utilities/logger';
 
 export default function PlanChatButton({ planId, buttonText = 'Open Plan Chat' }) {
@@ -24,7 +25,7 @@ export default function PlanChatButton({ planId, buttonText = 'Open Plan Chat' }
       setShow(true);
     } catch (err) {
       logger.error('[PlanChatButton] Failed to open plan chat', err);
-      setError(err?.message || 'Failed to open plan chat');
+      setError(getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to open plan chat' }));
     } finally {
       setLoading(false);
     }

@@ -58,6 +58,30 @@
   font-weight: $font-weight-semibold;
   color: var(--color-text-primary);
 }
+.modalTitleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.modalTitleLink:hover,
+.modalTitleLink:focus-visible {
+  text-decoration: underline;
+}
+
+.modalTitleChannel {
+  display: inline-block;
+  max-width: 52vw;
+  vertical-align: bottom;
+}
+
+.modalTitleChannelText {
+  display: inline-block;
+  max-width: 52vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 
 /* Close button in header */
 .closeButton {

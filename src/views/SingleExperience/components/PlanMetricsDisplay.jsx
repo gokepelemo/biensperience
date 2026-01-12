@@ -75,7 +75,7 @@ function PlanMetricsDisplay({
               onClick={onEditDate}
               title={plannedDate ? 'Edit planned date' : 'Set a planned date'}
             >
-              {plannedDate ? 'Edit Date' : 'Set Date'}
+              {plannedDate ? 'Update Date' : 'Set Date'}
             </button>
           )}
         </div>

@@ -41,6 +41,7 @@ import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
 import debug from "../../utilities/debug";
 import { logger } from "../../utilities/logger";
+import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from '../../utilities/storage-keys';
 import { createUrlSlug } from "../../utilities/url-utils";
 import { useNavigationIntent, INTENT_TYPES } from "../../contexts/NavigationIntentContext";
 import { useScrollHighlight } from "../../hooks/useScrollHighlight";
@@ -94,7 +95,7 @@ import {
   unassignPlanItem,
   addPlanItemDetail,
 } from "../../utilities/plans-api";
-import { reconcileState, generateOptimisticId, subscribeToEvent } from "../../utilities/event-bus";
+import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
@@ -611,6 +612,9 @@ export default function SingleExperience() {
       const newHash = `#plan-${selectedPlanId}`;
       window.history.replaceState(null, '', `${window.location.pathname}${newHash}`);
     } else if (activeTab === 'experience') {
+      // Preserve incoming plan hashes until plan data loads and handlers can process them.
+      if ((window.location.hash || '').startsWith('#plan-')) return;
+
       if (window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
       }
@@ -837,6 +841,13 @@ export default function SingleExperience() {
     return (item.plan_item_id || item._id)?.toString() || null;
   }, []);
 
+  // Keep a ref to the current animatingCollapse value so callbacks don't need to
+  // re-create (memoized list items can otherwise capture a stale, permanently-blocked handler).
+  const animatingCollapseRef = useRef(animatingCollapse);
+  useEffect(() => {
+    animatingCollapseRef.current = animatingCollapse;
+  }, [animatingCollapse]);
+
   /**
    * Check if an item is expanded. Handles both plan items and experience items.
    * Also considers animatingCollapse - if an item is animating collapse, treat it as collapsed.
@@ -854,14 +865,21 @@ export default function SingleExperience() {
   /**
    * Toggle expansion state for a plan item.
    * Persists state to encrypted storage.
+   * Uses proper state management to avoid race conditions during animations.
    * @param {Object} item - The plan item to toggle (pass the full item object)
    */
-  const toggleExpanded = useCallback(async (item) => {
+  const toggleExpanded = useCallback((item) => {
     const key = getExpansionKey(item);
-    if (!key || !user?._id) return;
+    if (!key) return;
+
+    // Prevent toggling while an animation is in progress for this item
+    if (animatingCollapseRef.current === key) return;
 
     const persistState = async (newSet) => {
       try {
+        // If user isn't available (logged out or still loading), skip persistence.
+        if (!user?._id) return;
+
         // Determine storage key based on current context
         let storageKey;
         if (activeTab === 'experience' && experience?._id) {
@@ -878,26 +896,34 @@ export default function SingleExperience() {
       }
     };
 
+    // Check current state to determine action
     setExpandedParents((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        // collapsing - animate then remove
+      const isCurrentlyExpanded = prev.has(key);
+
+      if (isCurrentlyExpanded) {
+        // Collapsing: Start animation, then remove from set after animation completes
         setAnimatingCollapse(key);
-        setTimeout(async () => {
-          setExpandedParents((prev) => {
-            const newSet = new Set(prev);
+
+        // Schedule the actual state removal after animation
+        setTimeout(() => {
+          setExpandedParents((currentSet) => {
+            const newSet = new Set(currentSet);
             newSet.delete(key);
             persistState(newSet);
             return newSet;
           });
           setAnimatingCollapse(null);
         }, 300);
+
+        // Return unchanged - visibility is controlled by animatingCollapse during transition
+        return prev;
       } else {
-        // expanding
+        // Expanding: Immediately add to set
+        const newSet = new Set(prev);
         newSet.add(key);
         persistState(newSet);
+        return newSet;
       }
-      return newSet;
     });
   }, [getExpansionKey, user?._id, activeTab, experience?._id, selectedPlanId]);
 
@@ -1085,6 +1111,16 @@ export default function SingleExperience() {
   // Wrapper functions to maintain backward compatibility with components that expect setters
   const handleOpenDatePicker = useCallback(() => openModal(MODAL_NAMES.DATE_PICKER), [openModal]);
   const handleCloseDatePicker = useCallback(() => closeModal(), [closeModal]);
+  const setShowDatePickerState = useCallback(
+    (nextShow) => {
+      if (nextShow) {
+        openModal(MODAL_NAMES.DATE_PICKER);
+      } else {
+        closeModal();
+      }
+    },
+    [openModal, closeModal]
+  );
   const handleOpenPlanDeleteModal = useCallback(() => openModal(MODAL_NAMES.DELETE_PLAN_ITEM), [openModal]);
   const handleClosePlanDeleteModal = useCallback(() => closeModal(), [closeModal]);
   const handleOpenPlanInstanceDeleteModal = useCallback(() => openModal(MODAL_NAMES.DELETE_PLAN_INSTANCE_ITEM), [openModal]);
@@ -1318,7 +1354,51 @@ export default function SingleExperience() {
       return;
     }
 
-    const hash = window.location.hash || '';
+    // If the hash was lost during early Router mount, restore it now that the
+    // view is fully loaded (plans loaded and accessible plans resolved).
+    const pendingHashKey = STORAGE_KEYS.pendingHash;
+    const legacyPendingHashKeys = LEGACY_STORAGE_KEYS.pendingHash;
+    let hash = window.location.hash || '';
+    if (!hash.startsWith('#plan-')) {
+      try {
+        let pendingRaw = window.localStorage?.getItem(pendingHashKey) || '';
+        if (!pendingRaw) {
+          for (const k of legacyPendingHashKeys) {
+            const v = window.localStorage?.getItem(k) || '';
+            if (v) { pendingRaw = v; break; }
+          }
+        }
+
+        let pending = pendingRaw;
+        if (pendingRaw && !pendingRaw.startsWith('#')) {
+          try {
+            const parsed = JSON.parse(pendingRaw);
+            pending = parsed?.hash || '';
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (pending.startsWith('#plan-')) {
+          const targetUrl = `${window.location.pathname}${window.location.search || ''}${pending}`;
+          window.history.replaceState(null, '', targetUrl);
+          hash = pending;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    // Clear after attempting restore (requirement: clear localStorage after append).
+    try {
+      window.localStorage?.removeItem(pendingHashKey);
+      legacyPendingHashKeys.forEach((k) => {
+        try { window.localStorage?.removeItem(k); } catch (e) {}
+      });
+    } catch (err) {
+      // ignore
+    }
+
     if (!hash.startsWith('#plan-')) {
       // No hash to process, mark as handled to prevent future runs
       initialHashHandledRef.current = true;
@@ -1530,7 +1610,92 @@ export default function SingleExperience() {
   useEffect(() => {
     if (!subscribeToEvents || !experienceId) return;
 
-    const sessionId = window.sessionStorage.getItem('bien:session_id');
+    const sessionId = eventBus.getSessionId();
+
+    const toIdString = (val) => {
+      if (!val) return null;
+      try {
+        return typeof val === 'string' ? val : val.toString();
+      } catch (_) {
+        return String(val);
+      }
+    };
+
+    const getEventExperienceId = (event) => {
+      return (
+        event.experienceId ||
+        event.experience?._id ||
+        event.detail?.experienceId ||
+        event.detail?.experience?._id ||
+        event.payload?.experienceId ||
+        event.payload?.experience?._id
+      );
+    };
+
+    const applyExperiencePlanItemEvent = (event) => {
+      // Skip events from this session (already handled locally)
+      if (event.sessionId === sessionId) return;
+
+      const eventExpId = toIdString(getEventExperienceId(event));
+      if (!eventExpId || eventExpId !== toIdString(experienceId)) return;
+
+      setExperience((prev) => {
+        if (!prev) return prev;
+        if (toIdString(prev._id) !== eventExpId) return prev;
+
+        const prevItems = Array.isArray(prev.plan_items) ? prev.plan_items : [];
+        const planItem = event.planItem || event.payload?.planItem || event.detail?.planItem;
+        const planItemId = toIdString(event.planItemId || planItem?._id || event.payload?.planItemId || event.detail?.planItemId);
+
+        // If we don't have enough info to update locally, fall back to a no-op.
+        if (!planItem && !planItemId) return prev;
+
+        if (event.type === 'experience:item:added' && planItem) {
+          const addedId = toIdString(planItem._id);
+          if (!addedId) return prev;
+          const exists = prevItems.some((it) => toIdString(it._id) === addedId);
+          if (exists) return prev;
+          return { ...prev, plan_items: [...prevItems, planItem] };
+        }
+
+        if (event.type === 'experience:item:updated' && planItem) {
+          const updatedId = toIdString(planItem._id) || planItemId;
+          if (!updatedId) return prev;
+          let found = false;
+          const nextItems = prevItems.map((it) => {
+            if (toIdString(it._id) !== updatedId) return it;
+            found = true;
+            return { ...it, ...planItem };
+          });
+          if (!found) {
+            return { ...prev, plan_items: [...prevItems, planItem] };
+          }
+          return { ...prev, plan_items: nextItems };
+        }
+
+        if (event.type === 'experience:item:deleted' && planItemId) {
+          // Remove the deleted item AND any descendants (subtree) to keep a consistent snapshot.
+          const idsToRemove = new Set([planItemId]);
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const it of prevItems) {
+              const parentId = toIdString(it.parent);
+              const itId = toIdString(it._id);
+              if (itId && parentId && idsToRemove.has(parentId) && !idsToRemove.has(itId)) {
+                idsToRemove.add(itId);
+                changed = true;
+              }
+            }
+          }
+          const nextItems = prevItems.filter((it) => !idsToRemove.has(toIdString(it._id)));
+          if (nextItems.length === prevItems.length) return prev;
+          return { ...prev, plan_items: nextItems };
+        }
+
+        return prev;
+      });
+    };
 
     // Handler for plan collaborator events
     const handleCollaboratorEvent = (event) => {
@@ -1591,12 +1756,20 @@ export default function SingleExperience() {
     const unsubPlanDeleted = subscribeToEvents(WS_EVENTS.PLAN_DELETED, handlePlanEvent);
     const unsubExperienceUpdated = subscribeToEvents(WS_EVENTS.EXPERIENCE_UPDATED, handleExperienceUpdated);
 
+    // Experience plan item events (The Plan changes) - drive immediate sync banner updates
+    const unsubExperienceItemAdded = subscribeToEvents('experience:item:added', applyExperiencePlanItemEvent);
+    const unsubExperienceItemUpdated = subscribeToEvents('experience:item:updated', applyExperiencePlanItemEvent);
+    const unsubExperienceItemDeleted = subscribeToEvents('experience:item:deleted', applyExperiencePlanItemEvent);
+
     return () => {
       unsubCollaboratorAdded();
       unsubCollaboratorRemoved();
       unsubPlanCreated();
       unsubPlanDeleted();
       unsubExperienceUpdated();
+      unsubExperienceItemAdded();
+      unsubExperienceItemUpdated();
+      unsubExperienceItemDeleted();
     };
   }, [subscribeToEvents, experienceId, fetchSharedPlans, fetchAllData]);
 
@@ -1937,35 +2110,26 @@ export default function SingleExperience() {
       const currentEditingPlanItem = formData;
 
       // Optimistic update for plan instance items
+      // Note: The selected plan can be either the user's own plan (userPlan)
+      // or a collaborative plan (sharedPlans). We snapshot both and update
+      // whichever contains the selectedPlanId.
       const prevPlans = [...sharedPlans];
-      const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, selectedPlanId));
-      const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex], plan: [...sharedPlans[planIndex].plan] } : null;
+      const prevUserPlan = userPlan && idEquals(userPlan._id, selectedPlanId)
+        ? { ...userPlan, plan: Array.isArray(userPlan.plan) ? [...userPlan.plan] : [] }
+        : null;
 
       const isAdd = planItemFormState === 1;
       const tempId = `temp-${Date.now()}`;
 
       const apply = () => {
-        if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...sharedPlans];
-        const updatedPlan = { ...prevPlan, plan: [...prevPlan.plan] };
-        if (isAdd) {
-          updatedPlan.plan.push({
-            _id: tempId,
-            plan_item_id: currentEditingPlanItem.plan_item_id || tempId,
-            text: currentEditingPlanItem.text || "",
-            url: currentEditingPlanItem.url || "",
-            cost: currentEditingPlanItem.cost || 0,
-            planning_days: currentEditingPlanItem.planning_days || 0,
-            parent: currentEditingPlanItem.parent || null,
-            activity_type: currentEditingPlanItem.activity_type || null,
-            location: currentEditingPlanItem.location || null,
-            complete: false,
-          });
-        } else {
-          const idx = findIndexById(updatedPlan.plan, currentEditingPlanItem._id);
-          if (idx >= 0) {
-            updatedPlan.plan[idx] = {
-              ...updatedPlan.plan[idx],
+        const applyToPlan = (plan) => {
+          if (!plan) return plan;
+          const nextItems = Array.isArray(plan.plan) ? [...plan.plan] : [];
+
+          if (isAdd) {
+            nextItems.push({
+              _id: tempId,
+              plan_item_id: currentEditingPlanItem.plan_item_id || tempId,
               text: currentEditingPlanItem.text || "",
               url: currentEditingPlanItem.url || "",
               cost: currentEditingPlanItem.cost || 0,
@@ -1973,11 +2137,34 @@ export default function SingleExperience() {
               parent: currentEditingPlanItem.parent || null,
               activity_type: currentEditingPlanItem.activity_type || null,
               location: currentEditingPlanItem.location || null,
-            };
+              complete: false,
+            });
+          } else {
+            const idx = findIndexById(nextItems, currentEditingPlanItem._id);
+            if (idx >= 0) {
+              nextItems[idx] = {
+                ...nextItems[idx],
+                text: currentEditingPlanItem.text || "",
+                url: currentEditingPlanItem.url || "",
+                cost: currentEditingPlanItem.cost || 0,
+                planning_days: currentEditingPlanItem.planning_days || 0,
+                parent: currentEditingPlanItem.parent || null,
+                activity_type: currentEditingPlanItem.activity_type || null,
+                location: currentEditingPlanItem.location || null,
+              };
+            }
           }
-        }
-        updatedPlans[planIndex] = updatedPlan;
-        setSharedPlans(updatedPlans);
+
+          return { ...plan, plan: nextItems };
+        };
+
+        // Update selected plan in sharedPlans (if present)
+        setSharedPlans((prev) => prev.map(p => idEquals(p._id, selectedPlanId) ? applyToPlan(p) : p));
+
+        // Update selected plan in userPlan (if it's the selected plan)
+        setUserPlan((prev) => (prev && idEquals(prev._id, selectedPlanId)) ? applyToPlan(prev) : prev);
+
+        // Always close modal after applying optimistic change.
         closeModal();
         setEditingPlanItem({});
       };
@@ -1993,6 +2180,9 @@ export default function SingleExperience() {
 
       const rollback = () => {
         setSharedPlans(prevPlans);
+        if (prevUserPlan) {
+          setUserPlan(prevUserPlan);
+        }
         openModal(MODAL_NAMES.ADD_EDIT_PLAN_ITEM);
         setEditingPlanItem(isAdd ? (currentEditingPlanItem || {}) : currentEditingPlanItem);
       };
@@ -2017,6 +2207,7 @@ export default function SingleExperience() {
       fetchSharedPlans,
       fetchUserPlan,
       sharedPlans,
+      userPlan,
       fetchPlans,
       showError,
     ]
@@ -3014,9 +3205,9 @@ export default function SingleExperience() {
                     )}
 
                     {/* My Plan Tab Content */}
-                    {activeTab === "myplan" && selectedPlanId && (
+                    {activeTab === "myplan" && (selectedPlanId || userPlan?._id) && (
                       <MyPlanTabContent
-                        selectedPlanId={selectedPlanId}
+                        selectedPlanId={selectedPlanId || userPlan?._id}
                         user={user}
                         idEquals={idEquals}
                         userPlan={userPlan}
@@ -3040,7 +3231,7 @@ export default function SingleExperience() {
                         displayedPlannedDate={displayedPlannedDate}
                         setIsEditingDate={setIsEditingDate}
                         setPlannedDate={setPlannedDate}
-                        setShowDatePicker={handleCloseDatePicker}
+                        setShowDatePicker={setShowDatePickerState}
                         plannedDateRef={plannedDateRef}
                         handleSyncPlan={handleSyncPlan}
                         handleAddPlanInstanceItem={handleAddPlanInstanceItem}
@@ -3070,7 +3261,7 @@ export default function SingleExperience() {
                     )}
 
                     {/* If My Plan tab selected but no plan is selected, show empty state */}
-                    {activeTab === "myplan" && !selectedPlanId && (
+                    {activeTab === "myplan" && !(selectedPlanId || userPlan?._id) && (
                       <EmptyState
                         variant="plans"
                         title={lang.current.modal.noPlansFallback}
@@ -3100,7 +3291,7 @@ export default function SingleExperience() {
                         loading={loading}
                         handleDateUpdate={handleDateUpdate}
                         handleAddExperience={handleAddExperience}
-                        setShowDatePicker={handleCloseDatePicker}
+                        setShowDatePicker={setShowDatePickerState}
                         setIsEditingDate={setIsEditingDate}
                         lang={lang}
                       />
@@ -3179,7 +3370,7 @@ export default function SingleExperience() {
                           handleExperience={handleExperience}
                           setShowDeleteModal={handleOpenDeleteExperienceModal}
                           showDatePicker={isModalOpen(MODAL_NAMES.DATE_PICKER)}
-                          setShowDatePicker={handleCloseDatePicker}
+                          setShowDatePicker={setShowDatePickerState}
                           setIsEditingDate={setIsEditingDate}
                           setPlannedDate={setPlannedDate}
                           lang={lang}

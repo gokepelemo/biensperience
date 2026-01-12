@@ -37,6 +37,7 @@ import { formatLocation } from "../../utilities/address-utils";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
+import { getOrCreateDmChannel } from "../../utilities/chat-api";
 import { storePreference, retrievePreference, expirePreference } from "../../utilities/preferences-utils";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
@@ -97,7 +98,7 @@ export default function Profile() {
   const [followButtonHovered, setFollowButtonHovered] = useState(false);
 
   // Activity tab state
-  const [activityFeedType, setActivityFeedType] = useState('own'); // 'own' | 'following'
+  const [activityFeedType, setActivityFeedType] = useState('all'); // 'all' | 'own' | 'following'
 
   // Follows tab state
   const [followsFilter, setFollowsFilter] = useState('followers'); // 'followers' | 'following'
@@ -119,6 +120,8 @@ export default function Profile() {
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [initialChannelId, setInitialChannelId] = useState(null);
   const [initialTargetUserId, setInitialTargetUserId] = useState(null);
+  const [messagesModalTitle, setMessagesModalTitle] = useState('Messages');
+  const [openingDirectMessage, setOpeningDirectMessage] = useState(false);
 
   // Track previous userId for the follows tab - defined early so reset effect can access it
   const prevFollowsUserIdRef = useRef(null);
@@ -1555,7 +1558,23 @@ export default function Profile() {
   
   // Show full-page skeleton during initial load (before profile data arrives)
   if (isLoadingProfile && !currentProfile) {
-    return <ProfileSkeleton isOwner={isOwner} />;
+    const activeTab = uiState.activity
+      ? 'activity'
+      : uiState.follows
+      ? 'follows'
+      : uiState.created
+      ? 'created'
+      : uiState.destinations
+      ? 'destinations'
+      : 'experiences';
+
+    return (
+      <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
+        <Container>
+          <ProfileSkeleton isOwner={isOwner} activeTab={activeTab} />
+        </Container>
+      </div>
+    );
   }
 
   return (
@@ -1764,16 +1783,32 @@ export default function Profile() {
                     <Button
                       variant="outline"
                       style={{ borderRadius: 'var(--radius-full)' }}
-                      onClick={() => {
+                      disabled={openingDirectMessage}
+                      onClick={async () => {
                         // Defensive: ensure profile loaded and not messaging self
                         if (!currentProfile || currentProfile._id === user._id) return;
-                        // Open MessagesModal and let it locate or create a DM channel
-                        setInitialChannelId(null);
-                        setInitialTargetUserId(currentProfile._id);
-                        setShowMessagesModal(true);
+
+                        setOpeningDirectMessage(true);
+                        try {
+                          // Match the behavior of other DM entry points (e.g. DirectMessageChatButton):
+                          // pre-create/fetch the DM channel so the modal opens directly into it.
+                          const resp = await getOrCreateDmChannel(currentProfile._id);
+                          const channelId = resp?.id || resp?.cid || resp?._id || resp;
+                          if (!channelId) throw new Error('Failed to open DM');
+
+                          setMessagesModalTitle('Messages');
+                          setInitialTargetUserId(null);
+                          setInitialChannelId(channelId);
+                          setShowMessagesModal(true);
+                        } catch (err) {
+                          logger.error('[Profile] Failed to open DM from profile', err);
+                          showError(err?.message || 'Failed to open message');
+                        } finally {
+                          setOpeningDirectMessage(false);
+                        }
                       }}
                     >
-                      <FaEnvelope /> Message
+                      <FaEnvelope /> {openingDirectMessage ? 'Opening…' : 'Message'}
                     </Button>
                   )}
                   {/* Follow/Unfollow buttons: show for mutual follows only */}
@@ -1873,7 +1908,7 @@ export default function Profile() {
                                 try {
                                   setResendInProgress(true);
                                   await resendConfirmation(currentProfile.email);
-                                  startCooldown(currentProfile.email);
+                                  startCooldown();
                                   success(lang.current.success.resendConfirmation);
                                 } catch (err) {
                                   const msg = handleError(err, { context: 'Resend verification' });
@@ -1929,7 +1964,8 @@ export default function Profile() {
                     <div className={styles.activityFilterDropdown}>
                       <SearchableSelect
                         options={[
-                          { value: 'own', label: lang.current.profile?.activityFilterOwn || 'My Activity', icon: FaList },
+                          { value: 'all', label: lang.current.profile?.activityFilterAll || 'All', icon: FaList },
+                          { value: 'own', label: lang.current.profile?.activityFilterOwn || 'Mine', icon: FaList },
                           { value: 'following', label: lang.current.profile?.activityFilterFollowing || 'Following', icon: FaUserFriends }
                         ]}
                         value={activityFeedType}
@@ -1971,8 +2007,7 @@ export default function Profile() {
                       <div key={`skeleton-follow-${i}`} className={styles.followsItemSkeleton}>
                         <SkeletonLoader variant="circle" width="48px" height="48px" />
                         <div style={{ flex: 1 }}>
-                          <SkeletonLoader variant="text" width="120px" height="16px" />
-                          <SkeletonLoader variant="text" width="80px" height="14px" style={{ marginTop: '4px' }} />
+                          <SkeletonLoader variant="text" width="160px" height="16px" />
                         </div>
                       </div>
                     ))
@@ -2233,8 +2268,13 @@ export default function Profile() {
               )}
 
               {activeTab === 'experiences' && !showAllPlanned && (() => {
+                // Don't show pagination if there are no experiences at all
+                if (!uniqueUserExperiences || uniqueUserExperiences.length === 0) {
+                  return null;
+                }
+
                 const expTotalPages = isOwnProfile
-                  ? Math.max(1, Math.ceil((uniqueUserExperiences?.length || 0) / itemsPerPageComputed))
+                  ? Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed))
                   : (userExperiencesMeta?.totalPages || 1);
 
                 return expTotalPages > 1 ? (
@@ -2247,7 +2287,7 @@ export default function Profile() {
                 ) : null;
               })()}
 
-              {activeTab === 'created' && !showAllCreated && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
+              {activeTab === 'created' && !showAllCreated && uniqueCreatedExperiences && uniqueCreatedExperiences.length > 0 && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
                 <Pagination
                   currentPage={createdPage}
                   totalPages={createdExperiencesMeta.totalPages}
@@ -2427,9 +2467,11 @@ export default function Profile() {
             setShowMessagesModal(false);
             setInitialChannelId(null);
             setInitialTargetUserId(null);
+            setMessagesModalTitle('Messages');
           }}
           initialChannelId={initialChannelId}
           targetUserId={initialTargetUserId}
+          title={messagesModalTitle}
         />
       )}
       </Container>

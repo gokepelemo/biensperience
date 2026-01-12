@@ -117,7 +117,7 @@
   left: 0;
   right: 0;
   /* Must appear above modals when portaled to <body> (mobile/tablet) */
-  z-index: var(--z-index-modal-dropdown, 1055);
+  z-index: calc(var(--z-index-tooltip, 1070) + 100);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
@@ -268,7 +268,8 @@
 @include breakpoint-max(md) {
   .dropdown {
     position: fixed;
-    z-index: 1050; /* Higher z-index for mobile/tablet overlay */
+    /* Must remain above modal content when rendered inside a modal */
+    z-index: var(--z-index-modal-dropdown, 1055);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-xl);
     /* Position and size will be set dynamically by JavaScript */

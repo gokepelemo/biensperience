@@ -3,6 +3,7 @@
  */
 
 import { logger } from './logger';
+import { getPreference } from './preferences-utils';
 
 /**
  * @typedef {Object} TimeOfDay
@@ -586,14 +587,12 @@ export function formatDateTime(date, options = {}) {
   } else if (profile?.preferences?.timezone && profile.preferences.timezone !== 'system-default') {
     timezone = profile.preferences.timezone;
   } else {
-    // Check localStorage for timezone preference
+    // Local fallback: read base preference via preferences-utils (obfuscated storage)
     try {
-      const stored = localStorage.getItem('biensperience:timezone');
-      if (stored && stored !== 'system-default') {
-        timezone = stored;
-      }
+      const tz = getPreference('timezone', profile);
+      if (tz && tz !== 'system-default') timezone = tz;
     } catch {
-      // Ignore localStorage errors
+      // Ignore errors
     }
   }
 

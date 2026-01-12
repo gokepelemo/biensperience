@@ -176,7 +176,7 @@ export default function ExperiencesByTag() {
               <Button
                 as={Link}
                 to="/experiences"
-                variant="light"
+                variant="gradient"
                 leftIcon={<FaUser />}
                 rightIcon={<FaArrowRight />}
               >

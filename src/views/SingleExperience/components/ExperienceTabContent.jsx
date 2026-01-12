@@ -6,8 +6,8 @@
 
 import { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BsPlusCircle, BsPersonPlus, BsListUl, BsCardList } from 'react-icons/bs';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { BsPlusCircle, BsPersonPlus, BsListUl, BsCardList, BsPencilSquare, BsTrash3 } from 'react-icons/bs';
+import { FaClock, FaDollarSign } from 'react-icons/fa';
 import { lang } from '../../../lang.constants';
 import ActionsMenu from '../../../components/ActionsMenu';
 import {
@@ -51,7 +51,9 @@ function SortableExperiencePlanItem({
   experience,
   user,
   expandedParents,
+  animatingCollapse,
   canEdit,
+  canAddChild = false,
   toggleExpanded,
   handleAddExperiencePlanItem,
   handleEditExperiencePlanItem,
@@ -85,6 +87,52 @@ function SortableExperiencePlanItem({
 
   const isChild = !!planItem.parent;
 
+  // Card view: consolidate actions into a 3-dot menu to avoid wrapping.
+  const cardActions = useMemo(() => {
+    if (!isOwner(user, experience)) return [];
+
+    const items = [];
+
+    if (canAddChild) {
+      items.push({
+        id: 'add-child',
+        label: lang.current.button?.addChildItem || lang.current.button?.addChild || 'Add Child Item',
+        icon: <BsPlusCircle />,
+        onClick: () => handleAddExperiencePlanItem(planItem._id),
+      });
+    }
+
+    items.push({
+      id: 'edit',
+      label: lang.current.button?.update || lang.current.button?.edit || 'Update',
+      icon: <BsPencilSquare />,
+      onClick: () => handleEditExperiencePlanItem(planItem),
+    });
+
+    items.push({
+      id: 'delete',
+      label: lang.current.tooltip?.delete || lang.current.button?.delete || 'Delete',
+      icon: <BsTrash3 />,
+      variant: 'danger',
+      onClick: () => {
+        setPlanItemToDelete(planItem._id);
+        setShowPlanDeleteModal(true);
+      },
+    });
+
+    return items;
+  }, [
+    lang,
+    user,
+    experience,
+    planItem,
+    canAddChild,
+    handleAddExperiencePlanItem,
+    handleEditExperiencePlanItem,
+    setPlanItemToDelete,
+    setShowPlanDeleteModal,
+  ]);
+
   return (
     <div
       ref={setNodeRef}
@@ -93,42 +141,52 @@ function SortableExperiencePlanItem({
       className={`plan-item-card mb-3 overflow-hidden ${isDragging ? 'dragging' : ''} ${isChild ? 'is-child-item' : ''}`}
     >
       <div className="plan-item-header p-3 p-md-4">
-        <div className="plan-item-tree">
-          {!isChild ? (
-            (() => {
-              if (hasChildren) {
-                const isExpanded = expandedParents.has(planItem._id);
-                return (
-                  <button
-                    type="button"
-                    className="expand-toggle"
-                    onClick={() => toggleExpanded(planItem._id)}
-                    aria-expanded={isExpanded}
-                    aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                  >
-                    {isExpanded ? "▼" : "▶"}
-                  </button>
-                );
-              } else {
-                return <span className="no-child-arrow">•</span>;
-              }
-            })()
-          ) : (
-            <span className="child-arrow">↳</span>
-          )}
-        </div>
-        <div className="plan-item-title flex-grow-1 fw-semibold">
-          {planItem.url ? (
-            <Link
-              to={planItem.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {planItem.text}
-            </Link>
-          ) : (
-            <span>{planItem.text}</span>
-          )}
+        <div className="plan-item-title-row">
+          <div className="plan-item-tree">
+            {!isChild ? (
+              (() => {
+                if (hasChildren) {
+                  const itemKey = planItem._id?.toString();
+                  const isExpanded = !!itemKey && expandedParents.has(itemKey) && animatingCollapse !== itemKey;
+                  return (
+                    <button
+                      type="button"
+                      className="expand-toggle"
+                      onClick={() => toggleExpanded(planItem)}
+                      aria-expanded={isExpanded}
+                      aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
+                      disabled={!!itemKey && animatingCollapse === itemKey}
+                    >
+                      {isExpanded ? "▼" : "▶"}
+                    </button>
+                  );
+                } else {
+                  return <span className="no-child-arrow">•</span>;
+                }
+              })()
+            ) : (
+              <span className="child-arrow">↳</span>
+            )}
+          </div>
+
+          <div className="plan-item-title flex-grow-1 fw-semibold">
+            {planItem.url ? (() => {
+              const safeUrl = sanitizeUrl(planItem.url);
+              return safeUrl ? (
+                <a
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {sanitizeText(planItem.text)}
+                </a>
+              ) : (
+                <span>{sanitizeText(planItem.text)}</span>
+              );
+            })() : (
+              <span>{sanitizeText(planItem.text)}</span>
+            )}
+          </div>
         </div>
 
         {/* Drag handle - for all items when user can edit */}
@@ -141,43 +199,14 @@ function SortableExperiencePlanItem({
           </div>
         )}
 
-        <div className="plan-item-actions">
+        <div className="plan-item-actions plan-item-card-actions">
           {isOwner(user, experience) && (
-            <div className="d-flex gap-1">
-              {!planItem.parent && (
-                <button
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() =>
-                    handleAddExperiencePlanItem(planItem._id)
-                  }
-                  aria-label={`${lang.current.button.addChild} to ${planItem.text}`}
-                  title={lang.current.button.addChild}
-                >
-                  ✚
-                </button>
-              )}
-              <button
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() =>
-                  handleEditExperiencePlanItem(planItem)
-                }
-                aria-label={`${lang.current.button.edit} ${planItem.text}`}
-                title={lang.current.tooltip.edit}
-              >
-                ✏️
-              </button>
-              <button
-                className="btn btn-outline-danger btn-sm"
-                onClick={() => {
-                  setPlanItemToDelete(planItem._id);
-                  setShowPlanDeleteModal(true);
-                }}
-                aria-label={`${lang.current.button.delete} ${planItem.text}`}
-                title={lang.current.tooltip.delete}
-              >
-                ✖️
-              </button>
-            </div>
+            <ActionsMenu
+              actions={cardActions}
+              ariaLabel={`Actions: ${planItem.text}`}
+              size="md"
+              position="bottom-right"
+            />
           )}
         </div>
       </div>
@@ -277,6 +306,10 @@ function ExperiencePlanActionsDropdown({
 const SortableCompactExperiencePlanItem = memo(function SortableCompactExperiencePlanItem({
   planItem,
   canEdit,
+  hasChildren,
+  isExpanded,
+  isAnimatingCollapse,
+  toggleExpanded,
   handleEditExperiencePlanItem,
   setPlanItemToDelete,
   setShowPlanDeleteModal,
@@ -307,13 +340,13 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
     {
       id: 'edit',
       label: lang.current.tooltip.edit,
-      icon: <FaEdit />,
+      icon: <BsPencilSquare />,
       onClick: () => handleEditExperiencePlanItem(planItem),
     },
     {
       id: 'delete',
       label: lang.current.tooltip.delete,
-      icon: <FaTrash />,
+      icon: <BsTrash3 />,
       variant: 'danger',
       onClick: () => {
         setPlanItemToDelete(planItem._id);
@@ -341,7 +374,24 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
 
       {/* Hierarchy indicator */}
       <span className="compact-item-indent">
-        {isChild ? '↳' : '•'}
+        {!isChild ? (
+          hasChildren ? (
+            <button
+              type="button"
+              className="expand-toggle"
+              onClick={() => toggleExpanded(planItem)}
+              aria-expanded={isExpanded}
+              aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
+              disabled={isAnimatingCollapse}
+            >
+                {isExpanded ? "▼" : "▶"}
+            </button>
+          ) : (
+            '•'
+          )
+        ) : (
+          '↳'
+        )}
       </span>
 
       {/* Item text */}
@@ -366,12 +416,12 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
       <span className="compact-item-meta">
         {Number(planItem.cost_estimate) > 0 && (
           <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost_estimate}`}>
-            💰
+            <FaDollarSign />
           </span>
         )}
         {Number(planItem.planning_days) > 0 && (
           <span className="compact-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
-            ⏱️
+            <FaClock />
           </span>
         )}
       </span>
@@ -393,7 +443,11 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
     prevProps.planItem.parent === nextProps.planItem.parent &&
     prevProps.planItem.cost_estimate === nextProps.planItem.cost_estimate &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
-    prevProps.canEdit === nextProps.canEdit
+    prevProps.canEdit === nextProps.canEdit &&
+    // Expand/collapse state - compare derived values so memoized items re-render reliably
+    prevProps.hasChildren === nextProps.hasChildren &&
+    prevProps.isExpanded === nextProps.isExpanded &&
+    prevProps.isAnimatingCollapse === nextProps.isAnimatingCollapse
   );
 });
 
@@ -428,6 +482,64 @@ export default function ExperienceTabContent({
   presenceConnected = false,
   experienceMembers = []
 }) {
+  const maxPlanItemNestingLevel = useMemo(() => {
+    const raw = import.meta.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL || import.meta.env.PLAN_ITEM_MAX_NESTING_LEVEL;
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+  }, []);
+
+  const experienceItemMap = useMemo(() => {
+    const map = new Map();
+    for (const item of experience?.plan_items || []) {
+      if (item?._id) {
+        map.set(item._id.toString(), item);
+      }
+    }
+    return map;
+  }, [experience?.plan_items]);
+
+  const getPlanItemDepth = useMemo(() => {
+    return (item) => {
+      if (!item) return Infinity;
+
+      const visited = new Set();
+      let depth = 0;
+      let cursor = item;
+
+      while (cursor?.parent) {
+        const parentId = cursor.parent?.toString();
+        if (!parentId) return Infinity;
+        if (visited.has(parentId)) return Infinity;
+        visited.add(parentId);
+
+        const parent = experienceItemMap.get(parentId);
+        if (!parent) return Infinity;
+
+        depth += 1;
+        if (depth > 50) return Infinity;
+        cursor = parent;
+      }
+
+      return depth;
+    };
+  }, [experienceItemMap]);
+
+  const canAddChildToItem = useMemo(() => {
+    return (item) => {
+      if (maxPlanItemNestingLevel <= 0) return false;
+      const depth = getPlanItemDepth(item);
+      return Number.isFinite(depth) && depth < maxPlanItemNestingLevel;
+    };
+  }, [maxPlanItemNestingLevel, getPlanItemDepth]);
+
+  const parentsWithChildren = useMemo(() => {
+    const set = new Set();
+    for (const item of experience?.plan_items || []) {
+      const parentId = item?.parent?.toString();
+      if (parentId) set.add(parentId);
+    }
+    return set;
+  }, [experience?.plan_items]);
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [rawPlanItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
@@ -559,6 +671,14 @@ export default function ExperienceTabContent({
       (item) => item._id.toString() === draggedId
     );
 
+    const canNestUnder = (potentialParentId) => {
+      if (maxPlanItemNestingLevel <= 0) return false;
+      const potentialParent = experienceItemMap.get(potentialParentId?.toString());
+      if (!potentialParent) return false;
+      const parentDepth = getPlanItemDepth(potentialParent);
+      return Number.isFinite(parentDepth) && parentDepth < maxPlanItemNestingLevel;
+    };
+
     let promotedToParentPosition = false; // Track if we need special positioning
     if (promotionIntent && draggedIsChild) {
       // Explicit promotion: dragged left outside container alignment → become root item
@@ -566,9 +686,9 @@ export default function ExperienceTabContent({
       delete draggedItemCopy.parent;
       promotedToParentPosition = true;
       debug.log('[ExperienceDrag] Promoting child to root (drag left intent), will position above parent');
-    } else if (nestingIntent && !draggedHasChildren && !draggedIsChild) {
+    } else if (nestingIntent && !draggedHasChildren) {
       // Nesting intent detected (drag right) - can nest under item above OR target
-      // Only works for root items (not already a child) with no children of their own
+      // Only works for items with no children of their own
       const itemAbove = draggedFlatIndex > 0 ? flattenedItemsForDrag[draggedFlatIndex - 1] : null;
       const itemAboveId = itemAbove ? itemAbove._id.toString() : null;
 
@@ -577,23 +697,41 @@ export default function ExperienceTabContent({
       // - Otherwise, nest under the item above
       if (!targetIsChild && draggedId !== targetId) {
         // Dropping on a root item - nest under target
-        draggedItemCopy.parent = targetId;
-        debug.log('[ExperienceDrag] Making item a child of drop target', { newParent: targetId });
+        if (canNestUnder(targetId)) {
+          draggedItemCopy.parent = targetId;
+          debug.log('[ExperienceDrag] Making item a child of drop target', { newParent: targetId });
+        } else {
+          debug.log('[ExperienceDrag] Nest blocked by max nesting level', { candidateParentId: targetId });
+        }
       } else if (itemAbove && !itemAbove.isChild) {
         // Item above is a root item - can nest under it
-        draggedItemCopy.parent = itemAboveId;
-        debug.log('[ExperienceDrag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+        if (canNestUnder(itemAboveId)) {
+          draggedItemCopy.parent = itemAboveId;
+          debug.log('[ExperienceDrag] Making item a child of item above', { newParent: itemAboveId, itemAboveText: itemAbove.text });
+        } else {
+          debug.log('[ExperienceDrag] Nest blocked by max nesting level', { candidateParentId: itemAboveId });
+        }
       } else if (itemAbove && itemAbove.isChild) {
         // Item above is a child - become sibling (same parent)
-        draggedItemCopy.parent = itemAbove.parent;
-        debug.log('[ExperienceDrag] Becoming sibling of item above', { newParent: itemAbove.parent });
+        const siblingParentId = itemAbove.parent?.toString();
+        if (siblingParentId && canNestUnder(siblingParentId)) {
+          draggedItemCopy.parent = itemAbove.parent;
+          debug.log('[ExperienceDrag] Becoming sibling of item above', { newParent: itemAbove.parent });
+        } else {
+          debug.log('[ExperienceDrag] Sibling reparent blocked by max nesting level', { candidateParentId: siblingParentId });
+        }
       } else {
         debug.log('[ExperienceDrag] No valid item to nest under');
       }
     } else if (targetIsChild && draggedParentId !== targetParentId && !promotionIntent) {
       // Dragged item should adopt the same parent as target (become sibling)
-      draggedItemCopy.parent = targetItem.parent;
-      debug.log('[ExperienceDrag] Reparenting to same parent as target', { newParent: targetItem.parent });
+      const siblingParentId = targetItem.parent?.toString();
+      if (siblingParentId && canNestUnder(siblingParentId)) {
+        draggedItemCopy.parent = targetItem.parent;
+        debug.log('[ExperienceDrag] Reparenting to same parent as target', { newParent: targetItem.parent });
+      } else {
+        debug.log('[ExperienceDrag] Sibling reparent blocked by max nesting level', { candidateParentId: siblingParentId });
+      }
     } else if (!targetIsChild && draggedParentId && !nestingIntent) {
       // Target is a root item and dragged item was a child → promote to root
       delete draggedItemCopy.parent;
@@ -703,11 +841,12 @@ export default function ExperienceTabContent({
   const flattenPlanItems = (items) => {
     const result = [];
     const addItem = (item, isChild = false) => {
+      const parentKey = item?.parent?.toString() || null;
       const isVisible =
         !isChild ||
-        (expandedParents.has(item.parent) &&
-          animatingCollapse !== item.parent);
-      result.push({ ...item, isChild, isVisible });
+        (parentKey && expandedParents.has(parentKey) &&
+          animatingCollapse !== parentKey);
+      result.push({ ...item, isChild, isVisible, parentKey });
       items
         .filter(
           (sub) =>
@@ -726,7 +865,7 @@ export default function ExperienceTabContent({
   const itemsToRender = flattenedItems.filter(
     (item) =>
       item.isVisible ||
-      (item.isChild && animatingCollapse === item.parent)
+      (item.isChild && animatingCollapse === item.parentKey)
   );
 
   // Get all item IDs for sortable context (parents and children)
@@ -791,7 +930,9 @@ export default function ExperienceTabContent({
                 experience={experience}
                 user={user}
                 expandedParents={expandedParents}
+                animatingCollapse={animatingCollapse}
                 canEdit={canEdit}
+                canAddChild={canAddChildToItem(planItem)}
                 toggleExpanded={toggleExpanded}
                 handleAddExperiencePlanItem={handleAddExperiencePlanItem}
                 handleEditExperiencePlanItem={handleEditExperiencePlanItem}
@@ -821,6 +962,10 @@ export default function ExperienceTabContent({
                   key={planItem._id}
                   planItem={planItem}
                   canEdit={canEdit}
+                  hasChildren={parentsWithChildren.has(planItem._id?.toString())}
+                  isExpanded={expandedParents.has(planItem._id?.toString()) && animatingCollapse !== planItem._id?.toString()}
+                  isAnimatingCollapse={animatingCollapse === planItem._id?.toString()}
+                  toggleExpanded={toggleExpanded}
                   handleEditExperiencePlanItem={handleEditExperiencePlanItem}
                   setPlanItemToDelete={setPlanItemToDelete}
                   setShowPlanDeleteModal={setShowPlanDeleteModal}

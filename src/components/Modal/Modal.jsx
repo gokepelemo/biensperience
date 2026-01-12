@@ -32,7 +32,10 @@ export default function Modal({
   contentClassName = "",
   bodyClassName = "",
   icon,
-  showHeader = true
+  showHeader = true,
+  // When true, the modal is rendered in document-flow (absolute) and allows full page scroll.
+  // On close, the page scroll position is restored to what it was before opening.
+  allowBodyScroll = false
 }) {
   // ESC key closes modal
   useModalEscape(onClose, show);
@@ -45,13 +48,25 @@ export default function Modal({
   useEffect(() => {
     if (show) {
       scrollYRef.current = window.scrollY;
-      document.body.style.overflow = 'hidden';
+      if (allowBodyScroll) {
+        // Scroll to top so the modal header is visible, but remember where we were.
+        document.body.style.overflow = '';
+        window.scrollTo(0, 0);
+      } else {
+        document.body.style.overflow = 'hidden';
+      }
 
       return () => {
         document.body.style.overflow = '';
+
+        // If the user scrolled while the modal was open (document-scroll mode),
+        // restore the original scroll position so the underlying page doesn't jump.
+        if (allowBodyScroll) {
+          window.scrollTo(0, scrollYRef.current || 0);
+        }
       };
     }
-  }, [show]);
+  }, [show, allowBodyScroll]);
 
   if (!show) return null;
 
@@ -99,15 +114,15 @@ export default function Modal({
   // Render via createPortal to document.body for proper z-index stacking
   const modalContent = (
     <div
-      className={`${styles.modalShow} modal show d-block`}
+      className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''} modal show d-block`}
       tabIndex="-1"
       onClick={handleBackdropClick}
       style={{
-        position: 'fixed',
+        position: allowBodyScroll ? 'absolute' : 'fixed',
         top: 0,
         left: 0,
         right: 0,
-        bottom: 0,
+        ...(allowBodyScroll ? {} : { bottom: 0 }),
         zIndex: 1050,
         backgroundColor: 'rgba(0, 0, 0, 0.5)'
       }}
@@ -190,5 +205,6 @@ Modal.propTypes = {
   contentClassName: PropTypes.string,
   bodyClassName: PropTypes.string,
   icon: PropTypes.node,
-  showHeader: PropTypes.bool
+  showHeader: PropTypes.bool,
+  allowBodyScroll: PropTypes.bool
 };

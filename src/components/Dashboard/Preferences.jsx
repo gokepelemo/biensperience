@@ -217,16 +217,13 @@ export default function Preferences() {
 
   return (
     <>
-      <div className="row animation-fade-in">
-        <div className="col-12">
-          <h1 className="form-title">Preferences</h1>
-          <p className="text-muted text-center mb-0">Platform preferences and notification settings</p>
-        </div>
+      <div className="animation-fade-in">
+        <h1 className="form-title">Preferences</h1>
+        <p className="text-muted text-center mb-0">Platform preferences and notification settings</p>
       </div>
 
-      <div className="row my-4 animation-fade-in justify-content-center">
-        <div className="col-12">
-          <Form onSubmit={handleSave} className="form-unified" autoComplete="off">
+      <div className="my-4 animation-fade-in">
+        <Form onSubmit={handleSave} className="form-unified" autoComplete="off">
             <div className="form-section">
               <div className="form-section-title">General</div>
 
@@ -429,7 +426,7 @@ export default function Preferences() {
                 {saving ? 'Saving...' : 'Save Preferences'}
               </Button>
             </div>
-          </Form>
+        </Form>
 
           <Modal
             show={showSmsModal}
@@ -444,7 +441,8 @@ export default function Preferences() {
             footer={
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <Button
-                  variant="outline-secondary"
+                  variant="bootstrap"
+                  bootstrapVariant="outline-secondary"
                   onClick={() => {
                     if (smsLoading) return;
                     setShowSmsModal(false);
@@ -512,7 +510,6 @@ export default function Preferences() {
               </Form.Group>
             )}
           </Modal>
-        </div>
       </div>
     </>
   );

@@ -1051,6 +1051,57 @@ async function createPlanItem(req, res) {
     if (!permCheck.allowed) {
       return errorResponse(res, null, permCheck.reason || 'You must be the owner or a collaborator to add plan items.', 403);
     }
+
+    // Enforce configurable max nesting level.
+    // Definition: root items have depth 0; a direct child has depth 1; etc.
+    const maxNestingLevelRaw = process.env.PLAN_ITEM_MAX_NESTING_LEVEL || process.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL;
+    const maxNestingLevelParsed = parseInt(maxNestingLevelRaw, 10);
+    const maxNestingLevel = Number.isFinite(maxNestingLevelParsed) && maxNestingLevelParsed >= 0 ? maxNestingLevelParsed : 1;
+
+    if (req.body.parent) {
+      if (maxNestingLevel === 0) {
+        return errorResponse(res, null, 'Plan item nesting is disabled (max nesting level is 0)', 400);
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(req.body.parent)) {
+        return errorResponse(res, null, 'Invalid parent plan item ID format', 400);
+      }
+
+      const parentItem = experience.plan_items.id(req.body.parent);
+      if (!parentItem) {
+        return errorResponse(res, null, 'Parent plan item not found in this experience', 400);
+      }
+
+      // Compute depth of the parent by walking up its parent chain.
+      const visited = new Set();
+      let parentDepth = 0;
+      let cursor = parentItem;
+      while (cursor?.parent) {
+        const cursorId = cursor?._id?.toString();
+        if (cursorId) {
+          if (visited.has(cursorId)) {
+            return errorResponse(res, null, 'Invalid plan item hierarchy (cycle detected)', 400);
+          }
+          visited.add(cursorId);
+        }
+
+        parentDepth += 1;
+        if (parentDepth > 50) {
+          return errorResponse(res, null, 'Invalid plan item hierarchy (excessive nesting)', 400);
+        }
+
+        const nextParentId = cursor.parent.toString();
+        const nextParent = experience.plan_items.id(nextParentId);
+        if (!nextParent) {
+          return errorResponse(res, null, 'Invalid plan item hierarchy (missing parent)', 400);
+        }
+        cursor = nextParent;
+      }
+
+      if (parentDepth >= maxNestingLevel) {
+        return errorResponse(res, null, `Cannot add a child item deeper than max nesting level ${maxNestingLevel}`, 400);
+      }
+    }
     
     // Sanitize plan item data before saving
     const planItemData = {
@@ -1164,6 +1215,62 @@ async function updatePlanItem(req, res) {
 
     if (!plan_item) {
       return errorResponse(res, null, 'Plan item not found', 404);
+    }
+
+    // Enforce configurable max nesting level for parent updates.
+    // Allow clearing parent (set to null), but block setting parent so the resulting depth exceeds max.
+    const maxNestingLevelRaw = process.env.PLAN_ITEM_MAX_NESTING_LEVEL || process.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL;
+    const maxNestingLevelParsed = parseInt(maxNestingLevelRaw, 10);
+    const maxNestingLevel = Number.isFinite(maxNestingLevelParsed) && maxNestingLevelParsed >= 0 ? maxNestingLevelParsed : 1;
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'parent') && req.body.parent) {
+      if (maxNestingLevel === 0) {
+        return errorResponse(res, null, 'Plan item nesting is disabled (max nesting level is 0)', 400);
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(req.body.parent)) {
+        return errorResponse(res, null, 'Invalid parent plan item ID format', 400);
+      }
+
+      if (req.body.parent.toString() === req.params.planItemId.toString()) {
+        return errorResponse(res, null, 'Plan item cannot be its own parent', 400);
+      }
+
+      const parentItem = experience.plan_items.id(req.body.parent);
+      if (!parentItem) {
+        return errorResponse(res, null, 'Parent plan item not found in this experience', 400);
+      }
+
+      // Compute depth of the parent by walking up its parent chain.
+      const visited = new Set([req.params.planItemId.toString()]);
+      let parentDepth = 0;
+      let cursor = parentItem;
+
+      while (cursor?.parent) {
+        const cursorId = cursor?._id?.toString();
+        if (cursorId) {
+          if (visited.has(cursorId)) {
+            return errorResponse(res, null, 'Invalid plan item hierarchy (cycle detected)', 400);
+          }
+          visited.add(cursorId);
+        }
+
+        parentDepth += 1;
+        if (parentDepth > 50) {
+          return errorResponse(res, null, 'Invalid plan item hierarchy (excessive nesting)', 400);
+        }
+
+        const nextParentId = cursor.parent.toString();
+        const nextParent = experience.plan_items.id(nextParentId);
+        if (!nextParent) {
+          return errorResponse(res, null, 'Invalid plan item hierarchy (missing parent)', 400);
+        }
+        cursor = nextParent;
+      }
+
+      if (parentDepth >= maxNestingLevel) {
+        return errorResponse(res, null, `Cannot add a child item deeper than max nesting level ${maxNestingLevel}`, 400);
+      }
     }
 
     // Update only provided fields (exclude _id as it's immutable)

@@ -5,11 +5,16 @@
  */
 
 import Cookies from 'js-cookie';
-import store from 'store2';
 import debug from "./debug";
+import { getObfuscatedJson, removeStorageKey, setObfuscatedJson } from './secure-storage-lite';
 
-// Cookie consent storage key
-const COOKIE_CONSENT_KEY = '__cookie_consent__';
+// Cookie consent storage key (canonical)
+const COOKIE_CONSENT_KEY = 'bien:cookieConsent';
+const LEGACY_COOKIE_CONSENT_KEYS = ['__cookie_consent__', 'bien:cookie_consent'];
+
+function getCookieDataStorageKey(name) {
+  return `bien:cookieData:${name}`;
+}
 
 /**
  * Gets the stored cookie consent value
@@ -17,9 +22,40 @@ const COOKIE_CONSENT_KEY = '__cookie_consent__';
  */
 function getStoredConsent() {
   try {
-    const consent = store.get(COOKIE_CONSENT_KEY);
-    if (consent === null || consent === undefined) return null;
-    return consent === true || consent === 'true';
+    const canonical = getObfuscatedJson(localStorage, COOKIE_CONSENT_KEY, null);
+    if (canonical === true) return true;
+    if (canonical === false) return false;
+
+    // Migrate legacy plaintext values
+    for (const legacyKey of LEGACY_COOKIE_CONSENT_KEYS) {
+      try {
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (legacyRaw === null || legacyRaw === undefined) continue;
+
+        let parsed;
+        try {
+          parsed = JSON.parse(legacyRaw);
+        } catch {
+          parsed = legacyRaw;
+        }
+
+        const normalized = parsed === true || parsed === 'true'
+          ? true
+          : parsed === false || parsed === 'false'
+          ? false
+          : null;
+
+        if (normalized !== null) {
+          setObfuscatedJson(localStorage, COOKIE_CONSENT_KEY, normalized);
+          try { localStorage.removeItem(legacyKey); } catch (e) {}
+          return normalized;
+        }
+      } catch {
+        // ignore per-key failures
+      }
+    }
+
+    return null;
   } catch (err) {
     debug.warn('Failed to read cookie consent from localStorage:', err);
     return null;
@@ -57,7 +93,10 @@ export function hasConsentDecided() {
  */
 export function setConsentGiven() {
   try {
-    store.set(COOKIE_CONSENT_KEY, true);
+    setObfuscatedJson(localStorage, COOKIE_CONSENT_KEY, true);
+    LEGACY_COOKIE_CONSENT_KEYS.forEach((k) => {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
     debug.log('Cookie consent granted');
   } catch (err) {
     debug.error('Failed to set cookie consent:', err);
@@ -69,7 +108,10 @@ export function setConsentGiven() {
  */
 export function setConsentDeclined() {
   try {
-    store.set(COOKIE_CONSENT_KEY, false);
+    setObfuscatedJson(localStorage, COOKIE_CONSENT_KEY, false);
+    LEGACY_COOKIE_CONSENT_KEYS.forEach((k) => {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
     debug.log('Cookie consent declined');
   } catch (err) {
     debug.error('Failed to set cookie consent:', err);
@@ -81,7 +123,10 @@ export function setConsentDeclined() {
  */
 export function revokeConsent() {
   try {
-    store.remove(COOKIE_CONSENT_KEY);
+    removeStorageKey(localStorage, COOKIE_CONSENT_KEY);
+    LEGACY_COOKIE_CONSENT_KEYS.forEach((k) => {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
     debug.log('Cookie consent revoked');
   } catch (err) {
     debug.error('Failed to revoke cookie consent:', err);
@@ -129,12 +174,31 @@ export function getCookieData(name) {
 
   // Fallback to localStorage
   try {
-    const data = store.get(name);
+    const storageKey = getCookieDataStorageKey(name);
+    let data = getObfuscatedJson(localStorage, storageKey, null);
+
+    // Migrate legacy plaintext store2 payload if present
+    if (!data) {
+      try {
+        const legacyRaw = localStorage.getItem(name);
+        if (legacyRaw) {
+          const parsed = JSON.parse(legacyRaw);
+          if (parsed && typeof parsed === 'object') {
+            data = parsed;
+            setObfuscatedJson(localStorage, storageKey, parsed);
+          }
+          try { localStorage.removeItem(name); } catch (e) {}
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     if (!data) return {};
     
     // Check expiration metadata
     if (data.__expires && Date.now() > data.__expires) {
-      store.remove(name);
+      removeStorageKey(localStorage, storageKey);
       debug.log(`Cleaned up expired localStorage entry: ${name}`);
       return {};
     }
@@ -166,7 +230,10 @@ export function setCookieData(name, data, expirationMs) {
   // Fallback to localStorage with expiration metadata
   try {
     const storageData = { __data: data, __expires: Date.now() + expirationMs };
-    store.set(name, storageData);
+    const storageKey = getCookieDataStorageKey(name);
+    setObfuscatedJson(localStorage, storageKey, storageData);
+    // Cleanup legacy key (store2 plaintext) if present
+    try { localStorage.removeItem(name); } catch (e) {}
   } catch (err) {
     debug.error(`Error writing to localStorage "${name}":`, err);
   }

@@ -37,10 +37,14 @@ class ErrorBoundary extends React.Component {
         message.includes('Loading chunk');
 
       if (isChunkLoadFailure && typeof window !== 'undefined') {
-        const key = 'bien:chunk_reload_attempted';
-        const alreadyAttempted = window.sessionStorage?.getItem(key) === 'true';
+        const key = 'bien:chunkReloadAttempted';
+        const legacyKey = 'bien:chunk_reload_attempted';
+        const alreadyAttempted =
+          window.sessionStorage?.getItem(key) === 'true' ||
+          window.sessionStorage?.getItem(legacyKey) === 'true';
         if (!alreadyAttempted) {
           window.sessionStorage?.setItem(key, 'true');
+          try { window.sessionStorage?.removeItem(legacyKey); } catch (e) {}
           window.location.reload();
           return;
         }

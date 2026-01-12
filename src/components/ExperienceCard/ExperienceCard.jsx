@@ -14,6 +14,7 @@ import { eventBus } from '../../utilities/event-bus';
 import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useUser } from "../../contexts/UserContext";
+import { getCachedPlanState, setCachedPlanState } from "../../utilities/plan-cache";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
 
@@ -74,9 +75,8 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     // Priority 3: Use sessionStorage for instant rendering (may be stale)
     if (user?._id) {
       try {
-        const cacheKey = `plan_${user._id}_${experience._id}`;
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached !== null) return JSON.parse(cached);
+        const cached = getCachedPlanState({ userId: user._id, experienceId: experience._id });
+        if (cached !== null) return cached;
       } catch (err) {
         // ignore cache errors
       }
@@ -97,12 +97,11 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     if (!user?._id) return; // No caching without user
     
     try {
-      const cacheKey = `plan_${user._id}_${experience._id}`;
-      if (value !== null) {
-        sessionStorage.setItem(cacheKey, JSON.stringify(value));
-      } else {
-        sessionStorage.removeItem(cacheKey);
-      }
+      setCachedPlanState({
+        userId: user._id,
+        experienceId: experience._id,
+        value
+      });
     } catch (err) {
       // Silently fail if sessionStorage is not available
     }

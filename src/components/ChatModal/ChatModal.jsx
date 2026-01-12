@@ -17,6 +17,7 @@ import styles from './ChatModal.module.scss';
 
 import { logger } from '../../utilities/logger';
 import useStreamChat from '../../hooks/useStreamChat';
+import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 
 export default function ChatModal({ show, onClose, title, channelType = 'messaging', channelId }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
@@ -56,7 +57,9 @@ export default function ChatModal({ show, onClose, title, channelType = 'messagi
         if (!cancelled) setChannel(streamChannel);
       } catch (err) {
         logger.error('[ChatModal] Failed to initialize channel', err);
-        if (!cancelled) setChannelError(err?.message || 'Failed to initialize chat');
+        if (!cancelled) {
+          setChannelError(getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to initialize chat' }));
+        }
       } finally {
         if (!cancelled) setChannelLoading(false);
       }

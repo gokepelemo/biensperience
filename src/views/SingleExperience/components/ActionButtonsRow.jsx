@@ -1,6 +1,6 @@
 /**
  * ActionButtonsRow Component
- * Displays action buttons for SingleExperience: Plan It, Edit Date, Edit Experience, Delete
+ * Displays action buttons for SingleExperience: Plan It, Update Date, Edit Experience, Delete
  *
  * Wrapped with React.memo to prevent unnecessary re-renders when parent state changes
  * that don't affect this component's props.
@@ -170,7 +170,7 @@ function ActionButtonsRow({
                       : "Click to add planned date")
                 }
               >
-                <FaCalendarAlt /> Edit Date
+                <FaCalendarAlt /> Update Date
               </button>
             </FadeIn>
           )}

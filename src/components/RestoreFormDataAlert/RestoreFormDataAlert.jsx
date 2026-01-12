@@ -30,16 +30,31 @@ function formatDuration(ms) {
   }
 }
 
-export default function RestoreFormDataAlert({ formId, onRestore, onDiscard, show = true }) {
+export default function RestoreFormDataAlert({ formId, userId = null, onRestore, onDiscard, show = true }) {
   const [age, setAge] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (formId && show) {
-      const formAge = getFormDataAge(formId);
-      setAge(formAge);
+    let cancelled = false;
+
+    if (!formId || !show) {
+      setAge(null);
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [formId, show]);
+
+    (async () => {
+      const formAge = await getFormDataAge(formId, userId);
+      if (!cancelled) {
+        setAge(formAge);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formId, show, userId]);
 
   if (!show || dismissed || age === null) {
     return null;

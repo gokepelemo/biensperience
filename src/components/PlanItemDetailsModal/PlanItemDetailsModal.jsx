@@ -20,6 +20,7 @@ import Button from '../Button/Button';
 import Loading from '../Loading/Loading';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
+import AddDetailTypeModal from '../AddDetailTypeModal';
 import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
 import GoogleMap from '../GoogleMap/GoogleMap';
@@ -40,6 +41,7 @@ import { sanitizeUrl } from '../../utilities/sanitize';
 import Tooltip from '../Tooltip/Tooltip';
 import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
+import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 
 export default function PlanItemDetailsModal({
   show,
@@ -135,6 +137,7 @@ export default function PlanItemDetailsModal({
   const [selectedDetailType, setSelectedDetailType] = useState(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
+  const [showDetailTypeSelectorModal, setShowDetailTypeSelectorModal] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
   // Local state for immediate UI feedback on scheduled date/time changes
@@ -150,6 +153,32 @@ export default function PlanItemDetailsModal({
   const titleInputRef = useRef(null);
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
+
+  // Mobile: allow the details "modal" to extend beyond the viewport and use full-page scrolling.
+  // On close, the underlying SingleExperience scroll position is restored (handled by Modal).
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    if (!show) return;
+
+    try {
+      const mql = window.matchMedia('(max-width: 768px)');
+      const update = () => setIsMobileViewport(!!mql.matches);
+      update();
+
+      if (typeof mql.addEventListener === 'function') {
+        mql.addEventListener('change', update);
+        return () => mql.removeEventListener('change', update);
+      }
+
+      // Safari fallback
+      if (typeof mql.addListener === 'function') {
+        mql.addListener(update);
+        return () => mql.removeListener(update);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [show]);
 
   // Fetch exchange rates for currency conversion
   // Use displayCurrency if provided, otherwise plan currency
@@ -216,7 +245,9 @@ export default function PlanItemDetailsModal({
       } catch (err) {
         logger.error('[PlanItemDetailsModal] Failed to initialize plan item chat', err);
         if (!cancelled) {
-          setChatError(err?.message || 'Failed to initialize chat');
+          setChatError(
+            getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to initialize chat' })
+          );
         }
       } finally {
         if (!cancelled) setChatLoading(false);
@@ -1228,9 +1259,10 @@ export default function PlanItemDetailsModal({
       title={editableTitle}
       size="fullscreen"
       centered={false}
-      bodyClassName={styles.modalBodyFullscreen}
+      allowBodyScroll={isMobileViewport}
+      bodyClassName={isMobileViewport ? styles.modalBodyDocumentScroll : styles.modalBodyFullscreen}
     >
-      <div className={styles.planItemDetailsModal}>
+      <div className={`${styles.planItemDetailsModal} ${isMobileViewport ? styles.documentScrollMode : ''}`}>
         {/* Assignment section */}
         <div className={styles.assignmentSection}>
           <label className={styles.assignmentLabel}>{lang.current.planItemDetailsModal.assignedTo}</label>
@@ -1891,6 +1923,8 @@ export default function PlanItemDetailsModal({
                   icon="📋"
                   title={lang.current.planItemDetailsModal.noDetailsAdded}
                   description={lang.current.planItemDetailsModal.noDetailsDescription}
+                  primaryAction={canEdit && (onAddCostForItem || onAddDetail) ? (lang.current.planItemDetailsModal.addDetails || 'Add Details') : null}
+                  onPrimaryAction={canEdit && (onAddCostForItem || onAddDetail) ? () => setShowDetailTypeSelectorModal(true) : null}
                   size="md"
                   fillContainer
                 />
@@ -2083,6 +2117,13 @@ export default function PlanItemDetailsModal({
         initialDate={planItem?.scheduled_date || null}
         initialTime={planItem?.scheduled_time || null}
         planItemText={planItem?.text || 'Plan Item'}
+      />
+
+      {/* Add Detail Type Selector Modal - for empty state "Add Details" button */}
+      <AddDetailTypeModal
+        show={showDetailTypeSelectorModal}
+        onClose={() => setShowDetailTypeSelectorModal(false)}
+        onSelectType={handleSelectDetailType}
       />
     </Modal>
   );

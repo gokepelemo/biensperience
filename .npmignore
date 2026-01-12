@@ -1,0 +1,29 @@
+.env
+.env.*
+node_modules/
+.git/
+.github/
+.vscode/
+.DS_Store
+
+# Source/dev-only
+src/
+storybook-static/
+.storybook/
+documentation/
+tests/
+build-storybook/
+
+# Locks & tool caches
+bun.lock
+.beads/
+.claude/
+.do/
+
+# Local uploads & temp artifacts
+uploads/documents/
+uploads/images/
+uploads/temp/
+
+# Visual regression assets (big)
+tests/visual-regression/baselines/

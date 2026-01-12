@@ -1,0 +1,15 @@
+.grab {
+  cursor: grab;
+}
+
+.grabbing {
+  cursor: grabbing;
+}
+.centeredGrayText {
+  color: var(--bs-gray-600);
+  text-align: center;
+}
+
+.dangerText {
+  color: var(--bs-danger);
+}

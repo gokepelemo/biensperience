@@ -6,6 +6,7 @@ import Alert from '../Alert/Alert';
 
 import MessagesModal from './MessagesModal';
 import { getOrCreateDmChannel } from '../../utilities/chat-api';
+import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import { logger } from '../../utilities/logger';
 
 export default function DirectMessageChatButton({ otherUserId, otherUserName = 'User', buttonText = 'Message' }) {
@@ -24,7 +25,7 @@ export default function DirectMessageChatButton({ otherUserId, otherUserName = '
       setShow(true);
     } catch (err) {
       logger.error('[DirectMessageChatButton] Failed to open DM', err);
-      setError(err?.message || 'Failed to open DM');
+      setError(getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to open DM' }));
     } finally {
       setLoading(false);
     }
