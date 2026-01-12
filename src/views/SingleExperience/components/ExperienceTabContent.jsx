@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BsPlusCircle, BsPersonPlus, BsListUl, BsCardList, BsPencilSquare, BsTrash3 } from 'react-icons/bs';
+import { FaClock, FaDollarSign } from 'react-icons/fa';
 import { lang } from '../../../lang.constants';
 import ActionsMenu from '../../../components/ActionsMenu';
 import {
@@ -169,16 +170,21 @@ function SortableExperiencePlanItem({
           </div>
 
           <div className="plan-item-title flex-grow-1 fw-semibold">
-            {planItem.url ? (
-              <Link
-                to={planItem.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {planItem.text}
-              </Link>
-            ) : (
-              <span>{planItem.text}</span>
+            {planItem.url ? (() => {
+              const safeUrl = sanitizeUrl(planItem.url);
+              return safeUrl ? (
+                <a
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {sanitizeText(planItem.text)}
+                </a>
+              ) : (
+                <span>{sanitizeText(planItem.text)}</span>
+              );
+            })() : (
+              <span>{sanitizeText(planItem.text)}</span>
             )}
           </div>
         </div>
@@ -410,12 +416,12 @@ const SortableCompactExperiencePlanItem = memo(function SortableCompactExperienc
       <span className="compact-item-meta">
         {Number(planItem.cost_estimate) > 0 && (
           <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost_estimate}`}>
-            💰
+            <FaDollarSign />
           </span>
         )}
         {Number(planItem.planning_days) > 0 && (
           <span className="compact-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
-            ⏱️
+            <FaClock />
           </span>
         )}
       </span>

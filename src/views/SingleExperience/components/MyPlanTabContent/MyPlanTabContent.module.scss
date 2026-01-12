@@ -1,0 +1,34 @@
+/**
+ * MyPlanTabContent SCSS Module
+ * Styles for the MyPlanTabContent component and its child components
+ */
+
+@use '../../../styles/scss/abstracts' as *;
+
+/**
+ * Centered gray text styling
+ */
+.centeredGrayText {
+  text-align: center;
+  color: var(--color-text-muted);
+  margin: $space-2 0;
+}
+
+/**
+ * Danger/error text styling
+ */
+.dangerText {
+  color: var(--color-text-danger);
+  font-weight: 500;
+}
+
+/**
+ * Drag handle cursor styles
+ */
+.grab {
+  cursor: grab;
+}
+
+.grabbing {
+  cursor: grabbing;
+}

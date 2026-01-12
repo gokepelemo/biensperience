@@ -52,9 +52,11 @@
 /* ============================================
    VARIANT: GRADIENT (Primary Action)
    ============================================ */
+
+// Force white text for maximum legibility, override any variable
 .btnGradient {
   background: var(--btn-gradient-bg);
-  color: var(--btn-gradient-color);
+  color: #fff !important;
   box-shadow: var(--btn-shadow-base);
 
   &:hover:not(:disabled) {

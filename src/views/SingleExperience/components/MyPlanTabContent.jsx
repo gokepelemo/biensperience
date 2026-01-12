@@ -1,3 +1,52 @@
+// ...existing code...
+import {
+  NESTING_THRESHOLD_PX,
+  PROMOTION_THRESHOLD_PX,
+  HIERARCHY_ANIMATION_DURATION_MS,
+  MAX_PLAN_ITEM_DEPTH,
+  SKELETON_TEXT_SMALL_WIDTH_PX,
+  SKELETON_TEXT_SMALL_HEIGHT_PX,
+  SKELETON_TEXT_LARGE_WIDTH_PX,
+  SKELETON_TEXT_LARGE_HEIGHT_PX,
+  SKELETON_CIRCLE_SIZE_PX,
+  SKELETON_TEXT_MEDIUM_WIDTH,
+  SKELETON_TEXT_MEDIUM_HEIGHT_PX,
+  SKELETON_TEXT_DOUBLE_HEIGHT_PX,
+  COMPLETION_SUCCESS_THRESHOLD,
+  COMPLETION_WARNING_THRESHOLD,
+  DRAG_ACTIVATION_DISTANCE_PX
+} from './MyPlanTabContent/constants';
+
+/**
+ * @typedef {Object} PlanItem
+ * @property {string} _id - Unique identifier
+ * @property {string} plan_item_id - Reference to experience plan item
+ * @property {string} text - Item text/title
+ * @property {boolean} complete - Completion status
+ * @property {number} [cost] - Actual cost
+ * @property {string} [parent] - Parent item ID for nesting
+ * @property {string} [scheduled_date] - ISO date string
+ * @property {string} [scheduled_time] - HH:MM time string
+ * @property {string} [activity_type] - Activity type key
+ */
+
+/**
+ * @typedef {Object} ActivityGroup
+ * @property {string} type - Activity type key
+ * @property {string} label - Display label
+ * @property {string} icon - Emoji icon
+ * @property {string} category - Category for sorting
+ * @property {PlanItem[]} items - Items in this group
+ */
+
+/**
+ * @typedef {Object} Action
+ * @property {string} id - Action identifier
+ * @property {string} label - Display label
+ * @property {React.ReactElement} icon - Icon component
+ * @property {Function} onClick - Click handler
+ */
+
 /**
  * MyPlanTabContent Component
  * Displays user's plan with CRUD operations, metrics, and collaborative features
@@ -7,32 +56,16 @@
 import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BsPlusCircle,
-  BsPersonPlus,
-  BsArrowRepeat,
   BsListUl,
   BsCardList,
   BsCalendarWeek,
-  BsThreeDotsVertical,
-  BsChatDots,
-  BsPencilSquare,
-  BsTrash3,
-  BsCalendarEvent,
-  BsEye,
-  BsPinAngle,
-  BsPinAngleFill,
 } from 'react-icons/bs';
 import {
-  FaStickyNote,
-  FaClipboardList,
   FaCalendarAlt,
   FaDollarSign,
   FaCheckCircle,
-  FaClock,
-  FaUser,
-  FaThumbtack
+  FaClock
 } from 'react-icons/fa';
-import ActionsMenu from '../../../components/ActionsMenu';
 import {
   DndContext,
   closestCenter,
@@ -47,40 +80,34 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisplay';
 import Loading from '../../../components/Loading/Loading';
 import Banner from '../../../components/Banner/Banner';
 import { Text } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
-import DragHandle from '../../../components/DragHandle/DragHandle';
-import CostEstimate from '../../../components/CostEstimate/CostEstimate';
-import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import MetricsBar from '../../../components/MetricsBar/MetricsBar';
 import CostsList from '../../../components/CostsList';
-import Checkbox from '../../../components/Checkbox/Checkbox';
 import SearchableSelect from '../../../components/FormField/SearchableSelect';
 import AddDateModal from '../../../components/AddDateModal';
 import { useUIPreference } from '../../../hooks/useUIPreference';
+import { usePlanChat } from '../../../hooks/usePlanChat';
 import { updatePlanItem, pinPlanItem } from '../../../utilities/plans-api';
-import { getOrCreatePlanChannel } from '../../../utilities/chat-api';
 import { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAGS, FEATURE_FLAG_CONTEXT } from '../../../utilities/feature-flags';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatDateMetricCard, formatDateForInput } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { formatCostEstimate } from '../../../utilities/cost-utils';
 import { lang } from '../../../lang.constants';
-import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 import debug from '../../../utilities/debug';
 import MessagesModal from '../../../components/ChatModal/MessagesModal';
-import {
-  getActivityType,
-  getActivityTypeIcon,
-  getActivityTypeLabel,
-  getActivityTypeDisplay,
-  ACTIVITY_CATEGORIES
-} from '../../../constants/activity-types';
+import { groupItemsByType, groupPlanItemsByDate } from './MyPlanTabContent/utils/grouping';
+import { createFlattenPlanItems } from '../../../utilities/plan-item-utils';
+import styles from './MyPlanTabContent.module.scss';
+import TimelinePlanItem from './MyPlanTabContent/TimelinePlanItem';
+import TimelineDateGroup from './MyPlanTabContent/TimelineDateGroup';
+import SortableCompactPlanItem from './MyPlanTabContent/SortableCompactPlanItem';
+import SortablePlanItem from './MyPlanTabContent/SortablePlanItem';
+import PlanActionsDropdown from './MyPlanTabContent/PlanActionsDropdown';
 
 // View options for plan items display
 const VIEW_OPTIONS = [
@@ -91,1596 +118,63 @@ const VIEW_OPTIONS = [
 ];
 
 /**
- * Group plan items by activity type
- * Child items are always grouped with their parent to maintain hierarchy
- * The group is determined by the parent's activity type
- * @param {Array} items - Plan items to group
- * @param {Array} allItems - All plan items (for parent lookup)
- * @returns {Object} { groups: Array<{type, label, icon, items}>, ungrouped: Array }
+ * MyPlanTabContent Component
+ *
+ * Displays the user's plan with CRUD operations, metrics, collaborative features, and multiple view modes.
+ * Handles plan item rendering, drag-and-drop reordering, pinning, scheduling, and real-time presence.
+ * Integrates with the design system for layout, spacing, and accessibility.
+ *
+ * @param {Object} props - Component props
+ * @param {string|number} props.selectedPlanId - The currently selected plan's ID
+ * @param {Object} props.user - The current user object
+ * @param {Function} props.idEquals - Function to compare IDs for equality
+ * @param {Object} props.userPlan - The user's canonical plan object
+ * @param {Function} props.setUserPlan - Setter for the user's plan
+ * @param {Array} props.sharedPlans - Array of shared/collaborative plans
+ * @param {Function} props.setSharedPlans - Setter for shared plans
+ * @param {Object} props.planOwner - The owner of the plan
+ * @param {Array} props.planCollaborators - Array of plan collaborators
+ * @param {boolean} props.planOwnerLoading - Loading state for plan owner
+ * @param {boolean} props.planCollaboratorsLoading - Loading state for collaborators
+ * @param {boolean} props.hashSelecting - UI state for hash selection
+ * @param {boolean} props.showSyncButton - Whether to show the sync button
+ * @param {boolean} props.showSyncAlert - Whether to show the sync alert
+ * @param {Function} props.dismissSyncAlert - Handler to dismiss sync alert
+ * @param {boolean} props.loading - Loading state for the plan
+ * @param {boolean} props.plansLoading - Loading state for plans
+ * @param {Set} props.expandedParents - Set of expanded parent item keys
+ * @param {string|null} props.animatingCollapse - Key of parent currently animating collapse
+ * @param {Function} props.getExpansionKey - Function to get canonical expansion key for an item
+ * @param {Function} props.isItemExpanded - Function to check if an item is expanded
+ * @param {string|null} props.displayedPlannedDate - The displayed planned date
+ * @param {Function} props.setIsEditingDate - Setter for editing date state
+ * @param {Function} props.setPlannedDate - Setter for planned date
+ * @param {Function} props.setShowDatePicker - Setter for date picker visibility
+ * @param {Object} props.plannedDateRef - Ref for planned date input
+ * @param {Function} props.handleSyncPlan - Handler to sync plan with experience
+ * @param {Function} props.handleAddPlanInstanceItem - Handler to add a plan item
+ * @param {Function} props.handleEditPlanInstanceItem - Handler to edit a plan item
+ * @param {Function} props.openCollaboratorModal - Handler to open collaborator modal
+ * @param {Function} props.toggleExpanded - Handler to toggle item expansion
+ * @param {Function} props.setPlanInstanceItemToDelete - Setter for item to delete
+ * @param {Function} props.setShowPlanInstanceDeleteModal - Setter for delete modal visibility
+ * @param {Function} props.handlePlanItemToggleComplete - Handler to toggle item completion
+ * @param {Function} props.handleViewPlanItemDetails - Handler to view item details
+ * @param {Object|null} props.hoveredPlanItem - Currently hovered plan item
+ * @param {Function} props.setHoveredPlanItem - Setter for hovered plan item
+ * @param {Object} props.lang - Language strings
+ * @param {Function} props.onReorderPlanItems - Handler for reordering plan items
+ * @param {Array} [props.costs] - Array of cost objects
+ * @param {Object|null} [props.costSummary] - Summary of costs
+ * @param {boolean} [props.costsLoading] - Loading state for costs
+ * @param {Function} [props.onAddCost] - Handler to add a cost
+ * @param {Function} [props.onUpdateCost] - Handler to update a cost
+ * @param {Function} [props.onDeleteCost] - Handler to delete a cost
+ * @param {boolean} [props.presenceConnected] - Real-time presence connection state
+ * @param {Array} [props.planMembers] - Array of plan members for presence
+ * @param {Function} [props.setTyping] - Handler for typing state
+ * @returns {JSX.Element} The rendered plan tab content
  */
-function groupItemsByActivityType(items, allItems = []) {
-  const groups = {};
-  const ungrouped = [];
-
-  // Build parent lookup from allItems (includes all plan items for reference)
-  const parentMap = new Map();
-  for (const item of allItems) {
-    const id = item._id?.toString() || item.plan_item_id?.toString();
-    if (id) parentMap.set(id, item);
-  }
-
-  // Build children lookup - find all children for each parent
-  // Key by BOTH _id and plan_item_id to handle different reference formats
-  const childrenByParent = new Map();
-  for (const item of items) {
-    if (item.parent) {
-      const parentId = item.parent.toString();
-      if (!childrenByParent.has(parentId)) {
-        childrenByParent.set(parentId, []);
-      }
-      childrenByParent.get(parentId).push(item);
-    }
-  }
-
-  // Helper to get children for a parent item (checks both _id and plan_item_id)
-  const getChildren = (item) => {
-    const children = [];
-    if (item._id) {
-      const byId = childrenByParent.get(item._id.toString()) || [];
-      children.push(...byId);
-    }
-    if (item.plan_item_id) {
-      const byPlanItemId = childrenByParent.get(item.plan_item_id.toString()) || [];
-      // Avoid duplicates if _id and plan_item_id are the same
-      for (const child of byPlanItemId) {
-        if (!children.includes(child)) {
-          children.push(child);
-        }
-      }
-    }
-    return children;
-  };
-
-  // Track which items have been added (to avoid duplicating children)
-  const addedItems = new Set();
-
-  for (const item of items) {
-    // Skip child items - they'll be added after their parent
-    if (item.isChild || item.parent) {
-      continue;
-    }
-
-    const itemId = (item._id || item.plan_item_id)?.toString();
-    addedItems.add(itemId);
-
-    const activityType = item.activity_type;
-
-    if (!activityType) {
-      // Parent goes to ungrouped
-      ungrouped.push(item);
-      // Children follow their parent in ungrouped, maintaining hierarchy
-      const children = getChildren(item);
-      for (const child of children) {
-        const childId = (child._id || child.plan_item_id)?.toString();
-        addedItems.add(childId);
-        ungrouped.push({ ...child, isChild: true });
-      }
-      continue;
-    }
-
-    if (!groups[activityType]) {
-      const typeInfo = getActivityType(activityType);
-      groups[activityType] = {
-        type: activityType,
-        label: typeInfo?.label || activityType,
-        icon: typeInfo?.icon || '📌',
-        category: typeInfo?.category || 'other',
-        items: []
-      };
-    }
-
-    // Add parent item
-    groups[activityType].items.push(item);
-
-    // Add children immediately after parent to maintain hierarchy
-    // Children stay in the same group as their parent regardless of their own activity_type
-    const children = getChildren(item);
-    for (const child of children) {
-      const childId = (child._id || child.plan_item_id)?.toString();
-      addedItems.add(childId);
-      groups[activityType].items.push({
-        ...child,
-        isChild: true,
-        // Track if child has a different activity type than parent (for display purposes)
-        inheritedActivityType: !child.activity_type || child.activity_type === activityType
-      });
-    }
-  }
-
-  // Second pass: add orphaned children (whose parent is not in this list)
-  for (const item of items) {
-    if (!item.parent) continue; // Skip parents
-
-    const itemId = (item._id || item.plan_item_id)?.toString();
-    if (addedItems.has(itemId)) continue; // Already added with parent
-
-    // This is an orphaned child - add it to ungrouped so it's visible
-    addedItems.add(itemId);
-    ungrouped.push({ ...item, isChild: true, isOrphaned: true });
-  }
-
-  // Sort groups by category order, then alphabetically
-  const categoryOrder = { essentials: 1, experiences: 2, services: 3, other: 4 };
-  const sortedGroups = Object.values(groups).sort((a, b) => {
-    const orderA = categoryOrder[a.category] || 4;
-    const orderB = categoryOrder[b.category] || 4;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.label.localeCompare(b.label);
-  });
-
-  return { groups: sortedGroups, ungrouped };
-}
-
-/**
- * PlanActionsDropdown - Unified dropdown for Add, Manage Collaborators, and Sync actions
- */
-function PlanActionsDropdown({
-  canEdit,
-  isPlanOwner,
-  showSyncButton,
-  loading,
-  handleAddPlanInstanceItem,
-  openCollaboratorModal,
-  handleSyncPlan,
-  chatEnabled,
-  chatLoading,
-  openPlanChat
-}) {
-  const actions = useMemo(() => {
-    return [
-      {
-        id: 'chat',
-        label: chatLoading ? 'Opening…' : 'Chat',
-        icon: <BsChatDots />,
-        onClick: () => openPlanChat(),
-        disabled: chatLoading,
-        hidden: !chatEnabled,
-      },
-      {
-        id: 'add-plan-item',
-        label: lang.current.button.addPlanItem,
-        icon: <BsPlusCircle />,
-        onClick: () => handleAddPlanInstanceItem(),
-        hidden: !canEdit,
-      },
-      {
-        id: 'collaborators',
-        label: lang.current.button.addCollaborators,
-        icon: <BsPersonPlus />,
-        onClick: () => openCollaboratorModal('plan'),
-        hidden: !isPlanOwner,
-      },
-      {
-        id: 'sync',
-        label: loading ? lang.current.button.syncing : lang.current.button.syncNow,
-        icon: <BsArrowRepeat className={loading ? 'spin' : undefined} />,
-        onClick: () => handleSyncPlan(),
-        disabled: loading,
-        hidden: !showSyncButton,
-      },
-    ];
-  }, [
-    canEdit,
-    chatEnabled,
-    chatLoading,
-    handleAddPlanInstanceItem,
-    handleSyncPlan,
-    isPlanOwner,
-    lang,
-    loading,
-    openCollaboratorModal,
-    openPlanChat,
-    showSyncButton,
-  ]);
-
-  const hasAnyActions = actions.some(action => !action.hidden);
-  if (!hasAnyActions) return null;
-
-  return (
-    <div className="plan-actions-dropdown">
-      <ActionsMenu
-        trigger={<BsPlusCircle />}
-        triggerVariant="primary"
-        actions={actions}
-        ariaLabel={lang.current.tooltip.planActions}
-        size="md"
-        position="bottom-right"
-      />
-    </div>
-  );
-}
-
-function buildStandardPlanItemActions({
-  planItem,
-  parentItem,
-  canAddChild,
-  lang,
-  isPinned,
-  onPinItem,
-  onEdit,
-  onAddChild,
-  onSchedule,
-  onViewDetails,
-  onDelete,
-}) {
-  const isChild = Boolean(planItem.isChild || planItem.parent);
-  const isRoot = !planItem.parent && !planItem.isChild;
-
-  const items = [
-    {
-      id: 'edit',
-      label: lang.current.button?.update || 'Update',
-      icon: <BsPencilSquare />,
-      onClick: () => onEdit(planItem),
-    },
-  ];
-
-  if (canAddChild) {
-    items.splice(1, 0, {
-      id: 'add-child',
-      label: lang.current.button?.addChildItem || 'Add Child Item',
-      icon: <BsPlusCircle />,
-      onClick: () => onAddChild(planItem.plan_item_id || planItem._id),
-    });
-  }
-
-  if (!isChild) {
-    items.push({
-      id: 'schedule',
-      label: 'Schedule Date',
-      icon: <BsCalendarEvent />,
-      onClick: () => onSchedule(planItem, parentItem),
-    });
-  }
-
-  if (planItem.url) {
-    items.push({
-      id: 'view-details',
-      label: 'View Details',
-      icon: <BsEye />,
-      onClick: () => onViewDetails(planItem),
-    });
-  }
-
-  if (isRoot && onPinItem) {
-    items.push({
-      id: 'pin',
-      label: isPinned ? 'Unpin' : 'Pin to Top',
-      icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
-      variant: isPinned ? 'active' : 'default',
-      onClick: () => onPinItem(planItem),
-    });
-  }
-
-  items.push({
-    id: 'delete',
-    label: lang.current.tooltip.delete,
-    icon: <BsTrash3 />,
-    variant: 'danger',
-    onClick: () => onDelete(planItem),
-  });
-
-  return items;
-}
-
-/**
- * SortablePlanItem - Individual plan item with drag-and-drop support
- * Memoized to prevent unnecessary re-renders when only one item's complete state changes
- */
-const SortablePlanItem = memo(function SortablePlanItem({
-  planItem,
-  currentPlan,
-  user,
-  idEquals,
-  canEdit,
-  canAddChild = false,
-  toggleExpanded,
-  hasChildren = false,
-  isExpanded = false,
-  getExpansionKey,
-  handleAddPlanInstanceItem,
-  handleEditPlanInstanceItem,
-  setPlanInstanceItemToDelete,
-  setShowPlanInstanceDeleteModal,
-  handlePlanItemToggleComplete,
-  hoveredPlanItem,
-  setHoveredPlanItem,
-  handleViewPlanItemDetails,
-  planOwner,
-  planCollaborators,
-  lang,
-  onPinItem,
-  isPinned = false
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: (planItem.plan_item_id || planItem._id).toString(),
-    disabled: !canEdit, // Only allow dragging if user can edit
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 1000 : 'auto',
-  };
-
-  // Card view: consolidate non-complete actions into a 3-dot menu to avoid wrapping.
-  const cardActions = useMemo(() => {
-    if (!canEdit) return [];
-
-    const itemId = planItem.plan_item_id || planItem._id;
-    const items = [];
-
-    if (canAddChild) {
-      items.push({
-        id: 'add-child',
-        label: lang.current.button?.addChildItem || lang.current.button?.addChild || 'Add Child Item',
-        icon: <BsPlusCircle />,
-        onClick: () => handleAddPlanInstanceItem(itemId),
-      });
-    }
-
-    items.push({
-      id: 'edit',
-      label: lang.current.button?.update || lang.current.button?.edit || 'Update',
-      icon: <BsPencilSquare />,
-      onClick: () => handleEditPlanInstanceItem(planItem),
-    });
-
-    // Pin action - only for root items
-    if (!planItem.parent && !planItem.isChild && onPinItem) {
-      items.push({
-        id: 'pin',
-        label: isPinned ? 'Unpin' : 'Pin to Top',
-        icon: isPinned ? <BsPinAngleFill /> : <BsPinAngle />,
-        variant: isPinned ? 'active' : 'default',
-        onClick: () => onPinItem(planItem),
-      });
-    }
-
-    items.push({
-      id: 'delete',
-      label: lang.current.tooltip?.delete || lang.current.button?.delete || 'Delete',
-      icon: <BsTrash3 />,
-      variant: 'danger',
-      onClick: () => {
-        setPlanInstanceItemToDelete(planItem);
-        setShowPlanInstanceDeleteModal(true);
-      },
-    });
-
-    return items;
-  }, [
-    canEdit,
-    canAddChild,
-    lang,
-    planItem,
-    onPinItem,
-    isPinned,
-    handleAddPlanInstanceItem,
-    handleEditPlanInstanceItem,
-    setPlanInstanceItemToDelete,
-    setShowPlanInstanceDeleteModal,
-  ]);
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      data-plan-item-id={planItem._id}
-      className={`plan-item-card mb-3 overflow-hidden ${
-        planItem.isVisible ? "" : "collapsed"
-      } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
-    >
-      <div className="plan-item-header p-3 p-md-4">
-        <div className="plan-item-title-row">
-          <div className="plan-item-tree">
-            {!planItem.isChild ? (
-              (() => {
-                if (hasChildren) {
-                  // For pinned items with children: show star with expand arrow
-                  if (isPinned) {
-                    return (
-                      <span
-                        className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
-                        onClick={() => toggleExpanded(planItem)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
-                        aria-expanded={isExpanded}
-                        aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                        title={lang.current.tooltip.pinnedToTopExpandCollapse}
-                      >
-                        <FaThumbtack className="text-warning pinned-pin-icon" />
-                        <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
-                      </span>
-                    );
-                  }
-                  return (
-                    <span
-                      className="expand-toggle"
-                      onClick={() => toggleExpanded(planItem)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
-                      aria-expanded={isExpanded}
-                      aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                    >
-                      {isExpanded ? '▼' : '▶'}
-                    </span>
-                  );
-                } else {
-                  // For items without children: show pin instead of bullet when pinned
-                  return (
-                    <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
-                      {isPinned ? <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
-                    </span>
-                  );
-                }
-              })()
-            ) : (
-              <span className="child-arrow">↳</span>
-            )}
-          </div>
-
-          <div className="plan-item-title flex-grow-1 fw-semibold">
-            {planItem.url ? (
-              <Link
-                to={planItem.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {planItem.text}
-              </Link>
-            ) : (
-              <span>{planItem.text}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Drag handle - positioned between title and action buttons */}
-        {/* Pinned items don't show drag handle since they're always at top */}
-        {canEdit && !isPinned && (
-          <div {...attributes} {...listeners} className="drag-handle-wrapper" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
-            <DragHandle
-              isDragging={isDragging}
-              disabled={!canEdit}
-            />
-          </div>
-        )}
-
-        <div className="plan-item-actions plan-item-card-actions">
-          <button
-            className={`btn btn-sm btn-complete-toggle ${
-              planItem.complete
-                ? "btn-success"
-                : "btn-outline-success"
-            }`}
-            type="button"
-            disabled={!canEdit}
-            onClick={(e) => {
-              if (!canEdit) return;
-              // Blur the button to prevent focus-based scroll restoration
-              e.currentTarget.blur();
-              handlePlanItemToggleComplete(planItem);
-            }}
-            onMouseEnter={() =>
-              setHoveredPlanItem(
-                planItem._id ||
-                  planItem.plan_item_id
-              )
-            }
-            onMouseLeave={() =>
-              setHoveredPlanItem(null)
-            }
-            aria-label={
-              planItem.complete
-                ? `${lang.current.button.undoComplete} ${planItem.text}`
-                : `${lang.current.button.markComplete} ${planItem.text}`
-            }
-            aria-pressed={!!planItem.complete}
-            title={
-              planItem.complete
-                ? lang.current.button.undoComplete
-                : lang.current.button.markComplete
-            }
-          >
-            {planItem.complete
-              ? hoveredPlanItem ===
-                (planItem._id ||
-                  planItem.plan_item_id)
-                ? lang.current.button.undoComplete
-                : lang.current.button.done
-              : lang.current.button.markComplete}
-          </button>
-          <ActionsMenu
-            actions={cardActions}
-            ariaLabel={`Actions: ${planItem.text}`}
-            size="md"
-            position="bottom-right"
-            disabled={!canEdit}
-          />
-        </div>
-      </div>
-      {/* Always show details section for View Details button */}
-      <div className="plan-item-details p-2 p-md-3">
-          <div className="plan-item-meta">
-            {Number(planItem.cost) > 0 && (
-              <span className="plan-item-cost">
-                <CostEstimate
-                  cost={planItem.cost}
-                  showTooltip={true}
-                  compact={true}
-                />
-              </span>
-            )}
-            {Number(planItem.planning_days) > 0 && (
-              <span className="plan-item-days">
-                <PlanningTime
-                  days={planItem.planning_days}
-                  showTooltip={true}
-                />
-              </span>
-            )}
-
-            {/* Assignment indicator */}
-            {planItem.assignedTo && (() => {
-              // Handle both populated object and ID-only cases
-              const isPopulated = typeof planItem.assignedTo === 'object' && planItem.assignedTo.name;
-              const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
-
-              // Use name from populated object first, then fallback to collaborators lookup
-              let assigneeName = isPopulated ? planItem.assignedTo.name : null;
-
-              if (!assigneeName) {
-                const assignee = [planOwner, ...planCollaborators].find(c => {
-                  const collabId = c?._id || c?.user?._id;
-                  return collabId === assigneeId || collabId?.toString() === assigneeId?.toString();
-                });
-                assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
-              }
-
-              return (
-                <Link
-                  to={`/profile/${assigneeId}`}
-                  className="plan-item-assigned"
-                  title={`Assigned to ${assigneeName} - Click to view profile`}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  👤 {assigneeName}
-                </Link>
-              );
-            })()}
-
-            {/* Notes count indicator - clickable to open details modal with notes tab */}
-            {planItem.details?.notes?.length > 0 && (
-              <span
-                className="plan-item-notes-count"
-                title={lang.current.tooltip.clickToViewNotes}
-                style={{ cursor: 'pointer' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleViewPlanItemDetails(planItem, 'notes');
-                }}
-              >
-                <FaStickyNote /> {planItem.details.notes.length}
-              </span>
-            )}
-
-            {/* View Details button - always visible */}
-            <button
-              className="btn-view-details"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleViewPlanItemDetails(planItem);
-              }}
-            type="button"
-            title={lang.current.tooltip.viewNotesAssignmentsDetails}
-          >
-            <FaClipboardList /> {lang.current.label.details}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison - only re-render if these specific props change
-  // This prevents re-render when sibling items' complete state changes
-  return (
-    prevProps.planItem._id === nextProps.planItem._id &&
-    prevProps.planItem.complete === nextProps.planItem.complete &&
-    prevProps.planItem.text === nextProps.planItem.text &&
-    prevProps.planItem.isVisible === nextProps.planItem.isVisible &&
-    prevProps.planItem.isChild === nextProps.planItem.isChild &&
-    (prevProps.planItem.parent?.toString() || null) === (nextProps.planItem.parent?.toString() || null) &&
-    prevProps.planItem.cost === nextProps.planItem.cost &&
-    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
-    prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
-    prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
-    prevProps.canEdit === nextProps.canEdit &&
-    prevProps.hoveredPlanItem === nextProps.hoveredPlanItem &&
-    prevProps.canAddChild === nextProps.canAddChild &&
-    prevProps.isPinned === nextProps.isPinned &&
-    // Expand/collapse state - compare derived values so memoized items re-render reliably
-    prevProps.hasChildren === nextProps.hasChildren &&
-    prevProps.isExpanded === nextProps.isExpanded
-  );
-});
-
-/**
- * SortableCompactPlanItem - One-line view with checkbox and drag-and-drop for plan items
- * Memoized to prevent unnecessary re-renders
- */
-const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
-  planItem,
-  canEdit,
-  canAddChild = false,
-  handlePlanItemToggleComplete,
-  handleViewPlanItemDetails,
-  handleAddPlanInstanceItem,
-  handleEditPlanInstanceItem,
-  setPlanInstanceItemToDelete,
-  setShowPlanInstanceDeleteModal,
-  onScheduleDate,
-  onPinItem,
-  isPinned = false,
-  lang,
-  parentItem = null,
-  showActivityBadge = false,
-  planOwner = null,
-  planCollaborators = [],
-  // Expand/collapse props
-  hasChildren = false,
-  isExpanded = true,
-  onToggleExpand = null
-}) {
-  const itemId = planItem.plan_item_id || planItem._id;
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: (planItem.plan_item_id || planItem._id).toString(),
-    disabled: !canEdit,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 1000 : 'auto',
-  };
-
-  // Build actions array for ActionsMenu
-  const actions = useMemo(() => {
-    return buildStandardPlanItemActions({
-      planItem,
-      parentItem,
-      canAddChild,
-      lang,
-      isPinned,
-      onPinItem,
-      onEdit: (item) => handleEditPlanInstanceItem(item),
-      onAddChild: (id) => handleAddPlanInstanceItem(id),
-      onSchedule: (item, parent) => onScheduleDate(item, parent),
-      onViewDetails: (item) => handleViewPlanItemDetails(item),
-      onDelete: (item) => {
-        setPlanInstanceItemToDelete(item);
-        setShowPlanInstanceDeleteModal(true);
-      },
-    });
-  }, [
-    canAddChild,
-    handleAddPlanInstanceItem,
-    handleEditPlanInstanceItem,
-    handleViewPlanItemDetails,
-    isPinned,
-    lang,
-    onPinItem,
-    onScheduleDate,
-    parentItem,
-    planItem,
-    setPlanInstanceItemToDelete,
-    setShowPlanInstanceDeleteModal,
-  ]);
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      data-plan-item-id={planItem._id}
-      className={`compact-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''} ${isDragging ? 'dragging' : ''}`}
-    >
-      {/* Drag handle - hidden for pinned items since they're always at top */}
-      {canEdit && !isPinned && (
-        <div {...attributes} {...listeners} className="compact-drag-handle" style={{ cursor: isDragging ? 'grabbing' : 'grab' }}>
-          <DragHandle
-            isDragging={isDragging}
-            disabled={!canEdit}
-          />
-        </div>
-      )}
-
-      {/* Hierarchy indicator - pin replaces bullet when pinned, expand/collapse for parents with children */}
-      <span className={`compact-item-indent ${isPinned && !planItem.isChild ? 'pinned-pin' : ''}`}>
-        {planItem.isChild ? (
-          '↳'
-        ) : hasChildren && onToggleExpand ? (
-          isPinned ? (
-            <button
-              type="button"
-              className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-              title={lang.current.tooltip.pinnedToTopExpandCollapse}
-            >
-              <FaThumbtack className="text-warning pinned-pin-icon" />
-              <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="expand-toggle compact-expand-toggle"
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-            >
-              {isExpanded ? '▼' : '▶'}
-            </button>
-          )
-        ) : isPinned ? (
-          <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
-        ) : (
-          '•'
-        )}
-      </span>
-
-      {/* Checkbox for completion */}
-      <Checkbox
-        id={`compact-item-${itemId}`}
-        checked={!!planItem.complete}
-        onChange={() => handlePlanItemToggleComplete(planItem)}
-        disabled={!canEdit}
-        size="sm"
-        className="compact-item-checkbox"
-      />
-
-      {/* Item text */}
-      <span
-        className={`compact-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''} ${isPinned ? 'is-pinned' : ''}`}
-      >
-        {planItem.url ? (() => {
-          const safeUrl = sanitizeUrl(planItem.url);
-
-          // If the URL is valid, render a single interactive element (<a>)
-          // to avoid nesting an <a> inside another interactive container.
-          if (safeUrl) {
-            return (
-              <a
-                className="compact-item-title-link"
-                href={safeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Open link in new tab"
-              >
-                {sanitizeText(planItem.text)}
-              </a>
-            );
-          }
-
-          // Fallback: invalid URL should still allow viewing details.
-          return (
-            <button
-              type="button"
-              className="compact-item-title-button"
-              onClick={() => handleViewPlanItemDetails(planItem)}
-              title="View details"
-            >
-              {sanitizeText(planItem.text)}
-            </button>
-          );
-        })() : (
-          <button
-            type="button"
-            className="compact-item-title-button"
-            onClick={() => handleViewPlanItemDetails(planItem)}
-            title="View details"
-          >
-            {sanitizeText(planItem.text)}
-          </button>
-        )}
-        {/* Activity type badge for child items with different type than parent */}
-        {(() => {
-          const { badge } = getActivityTypeDisplay(planItem, parentItem);
-          if (badge) {
-            return (
-              <span className="compact-activity-badge" title={badge.label}>
-                ({badge.icon} {badge.label})
-              </span>
-            );
-          }
-          // Show activity badge when explicitly requested (in grouped view)
-          if (showActivityBadge && planItem.activity_type && !planItem.isChild) {
-            const typeInfo = getActivityType(planItem.activity_type);
-            if (typeInfo) {
-              return (
-                <span className="compact-activity-badge-inline" title={typeInfo.label}>
-                  {typeInfo.icon}
-                </span>
-              );
-            }
-          }
-          return null;
-        })()}
-      </span>
-
-      {/* Meta info - cost and planning days */}
-      <span className="compact-item-meta">
-        {Number(planItem.cost) > 0 && (
-          <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
-            <FaDollarSign />
-          </span>
-        )}
-        {Number(planItem.planning_days) > 0 && (
-          <span className="compact-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
-            <FaClock />
-          </span>
-        )}
-        {planItem.details?.notes?.length > 0 && (
-          <span className="compact-meta-notes" title={`${planItem.details.notes.length} ${planItem.details.notes.length === 1 ? 'note' : 'notes'}`}>
-            <FaStickyNote /> {planItem.details.notes.length}
-          </span>
-        )}
-        {planItem.assignedTo && (() => {
-          // Resolve assignee name for tooltip
-          const isPopulated = typeof planItem.assignedTo === 'object' && planItem.assignedTo.name;
-          const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
-          let assigneeName = isPopulated ? planItem.assignedTo.name : null;
-          if (!assigneeName && (planOwner || planCollaborators.length > 0)) {
-            const assignee = [planOwner, ...planCollaborators].find(c => {
-              const collabId = c?._id || c?.user?._id;
-              return collabId === assigneeId || collabId?.toString() === assigneeId?.toString();
-            });
-            assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
-          }
-          return (
-            <span className="compact-meta-assigned" title={`Assigned to ${assigneeName || 'team member'}`}>
-              <FaUser />
-            </span>
-          );
-        })()}
-      </span>
-
-      {/* Actions menu */}
-      {canEdit && (
-        <ActionsMenu
-          actions={actions}
-          size="sm"
-          ariaLabel={lang.current.aria.itemActions}
-        />
-      )}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.planItem._id === nextProps.planItem._id &&
-    prevProps.planItem.complete === nextProps.planItem.complete &&
-    prevProps.planItem.text === nextProps.planItem.text &&
-    prevProps.planItem.isChild === nextProps.planItem.isChild &&
-    prevProps.planItem.cost === nextProps.planItem.cost &&
-    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
-    prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
-    prevProps.planItem.activity_type === nextProps.planItem.activity_type &&
-    prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
-    prevProps.canEdit === nextProps.canEdit &&
-    prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type &&
-    prevProps.showActivityBadge === nextProps.showActivityBadge &&
-    prevProps.planOwner?._id === nextProps.planOwner?._id &&
-    prevProps.planCollaborators?.length === nextProps.planCollaborators?.length &&
-    prevProps.isPinned === nextProps.isPinned &&
-    // Expand/collapse state
-    prevProps.hasChildren === nextProps.hasChildren &&
-    prevProps.isExpanded === nextProps.isExpanded
-  );
-});
-
-/**
- * Get time of day category based on hour
- */
-function getTimeOfDay(timeString) {
-  if (!timeString) return null;
-  const match = timeString.match(/^(\d{1,2}):/);
-  if (!match) return null;
-  const hour = parseInt(match[1], 10);
-  if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 17) return 'afternoon';
-  return 'evening';
-}
-
-/**
- * Format time for display (12-hour format)
- */
-function formatTimeForDisplay(timeString) {
-  if (!timeString) return null;
-  const match = timeString.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return timeString;
-  const hour = parseInt(match[1], 10);
-  const minutes = match[2];
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes} ${period}`;
-}
-
-/**
- * Group items within a time section by activity type
- * Child items are always grouped with their parent to maintain hierarchy
- * Items within each group are sorted by scheduled_time, with children after their parent
- * @param {Array} items - Items in a time section
- * @returns {Array} Items grouped by activity type with ungrouped at the end
- */
-function groupTimeItemsByActivityType(items) {
-  if (!items || items.length === 0) return [];
-
-  const groups = {};
-  const ungrouped = [];
-
-  // Build parent lookup from items in this section (map both _id and plan_item_id)
-  const parentMap = new Map();
-  for (const item of items) {
-    if (!item.parent && !item.isChild) {
-      if (item._id) parentMap.set(item._id.toString(), item);
-      if (item.plan_item_id) parentMap.set(item.plan_item_id.toString(), item);
-    }
-  }
-
-  // Build children lookup - find all children for each parent in this section
-  const childrenByParent = new Map();
-  for (const item of items) {
-    if (item.parent || item.isChild) {
-      const parentId = (item.parent || '').toString();
-      if (parentId) {
-        if (!childrenByParent.has(parentId)) {
-          childrenByParent.set(parentId, []);
-        }
-        childrenByParent.get(parentId).push(item);
-      }
-    }
-  }
-
-  // Helper to get children for a parent item (checks both _id and plan_item_id)
-  const getChildrenForParent = (item) => {
-    const children = [];
-    if (item._id) {
-      const byId = childrenByParent.get(item._id.toString()) || [];
-      children.push(...byId);
-    }
-    if (item.plan_item_id) {
-      const byPlanItemId = childrenByParent.get(item.plan_item_id.toString()) || [];
-      for (const child of byPlanItemId) {
-        if (!children.includes(child)) {
-          children.push(child);
-        }
-      }
-    }
-    return children;
-  };
-
-  // Track which items have been added (to avoid duplicating children)
-  const addedItems = new Set();
-
-  const addDescendants = (parent, rootActivityType, targetArray) => {
-    const children = getChildrenForParent(parent);
-    for (const child of children) {
-      const childId = (child._id || child.plan_item_id)?.toString();
-      if (!childId || addedItems.has(childId)) continue;
-      addedItems.add(childId);
-      targetArray.push({
-        ...child,
-        isChild: true,
-        inheritedActivityType: rootActivityType
-          ? (!child.activity_type || child.activity_type === rootActivityType)
-          : true
-      });
-      addDescendants(child, rootActivityType, targetArray);
-    }
-  };
-
-  // First pass: process root items and all descendants (depth-first)
-  for (const item of items) {
-    if (item.parent || item.isChild) continue;
-
-    const itemId = (item._id || item.plan_item_id)?.toString();
-    if (!itemId || addedItems.has(itemId)) continue;
-    addedItems.add(itemId);
-
-    const activityType = item.activity_type;
-    if (!activityType) {
-      ungrouped.push(item);
-      addDescendants(item, null, ungrouped);
-      continue;
-    }
-
-    if (!groups[activityType]) {
-      const typeInfo = getActivityType(activityType);
-      groups[activityType] = {
-        type: activityType,
-        label: typeInfo?.label || activityType,
-        icon: typeInfo?.icon || '📌',
-        category: typeInfo?.category || 'other',
-        items: []
-      };
-    }
-
-    groups[activityType].items.push(item);
-    addDescendants(item, activityType, groups[activityType].items);
-  }
-
-  // Second pass: add orphaned children (whose parent is not in this section)
-  for (const item of items) {
-    if (!(item.parent || item.isChild)) continue; // Skip parents
-
-    const itemId = (item._id || item.plan_item_id)?.toString();
-    if (addedItems.has(itemId)) continue; // Already added with parent
-
-    // This is an orphaned child - add it to ungrouped so it's visible
-    addedItems.add(itemId);
-    ungrouped.push({ ...item, isChild: true, isOrphaned: true });
-  }
-
-  // Sort groups by category order, then alphabetically
-  const categoryOrder = { essentials: 1, experiences: 2, services: 3, other: 4 };
-  const sortedGroups = Object.values(groups).sort((a, b) => {
-    const orderA = categoryOrder[a.category] || 4;
-    const orderB = categoryOrder[b.category] || 4;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.label.localeCompare(b.label);
-  });
-
-  return { groups: sortedGroups, ungrouped };
-}
-
-/**
- * Group plan items by date and time of day for Timeline view
- * Child items inherit scheduled_date/time from their parent if not set
- * Within each time section, items are further grouped by activity type
- */
-function groupPlanItemsByDate(items) {
-  const groups = {};
-  const unscheduled = [];
-
-  // Create a map of items by BOTH _id and plan_item_id for parent lookups
-  const itemsById = new Map();
-  items.forEach(item => {
-    if (item._id) {
-      itemsById.set(item._id.toString(), item);
-    }
-    if (item.plan_item_id) {
-      itemsById.set(item.plan_item_id.toString(), item);
-    }
-  });
-
-  // Parent-only scheduling: a hierarchy's date/time is determined by its root item.
-  // If the root has no scheduled_date, the entire hierarchy is considered unscheduled.
-  const parentItems = items.filter(item => !item.parent);
-  const childItems = items.filter(item => !!item.parent);
-
-  const childrenByParent = new Map();
-  childItems.forEach(child => {
-    const parentId = child.parent.toString();
-    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
-    childrenByParent.get(parentId).push(child);
-  });
-
-  // Helper to get children for a parent item (checks both _id and plan_item_id)
-  const getChildrenForParent = (item) => {
-    const children = [];
-    if (item._id) {
-      const byId = childrenByParent.get(item._id.toString()) || [];
-      children.push(...byId);
-    }
-    if (item.plan_item_id) {
-      const byPlanItemId = childrenByParent.get(item.plan_item_id.toString()) || [];
-      for (const child of byPlanItemId) {
-        if (!children.includes(child)) {
-          children.push(child);
-        }
-      }
-    }
-    return children;
-  };
-
-  const addedIds = new Set();
-
-  const addDescendantsToTarget = (parent, rootSchedule, pushFn) => {
-    const children = getChildrenForParent(parent);
-    for (const child of children) {
-      const childId = (child._id || child.plan_item_id)?.toString();
-      if (!childId || addedIds.has(childId)) continue;
-      addedIds.add(childId);
-      pushFn({
-        ...child,
-        isChild: true,
-        inheritedSchedule: Boolean(rootSchedule?.scheduled_date),
-        // Reflect root schedule on descendants for Timeline display/sorting.
-        scheduled_date: rootSchedule?.scheduled_date ?? null,
-        scheduled_time: rootSchedule?.scheduled_time ?? null
-      });
-      addDescendantsToTarget(child, rootSchedule, pushFn);
-    }
-  };
-
-  const addHierarchyToUnscheduled = (root) => {
-    const rootId = (root._id || root.plan_item_id)?.toString();
-    if (rootId) addedIds.add(rootId);
-    unscheduled.push({ ...root, inheritedSchedule: false });
-    addDescendantsToTarget(root, { scheduled_date: null, scheduled_time: null }, (it) => {
-      unscheduled.push({ ...it, inheritedSchedule: false });
-    });
-  };
-
-  const addHierarchyToScheduled = (root) => {
-    const rootId = (root._id || root.plan_item_id)?.toString();
-    if (rootId) addedIds.add(rootId);
-
-    const date = new Date(root.scheduled_date);
-    if (isNaN(date.getTime())) {
-      addHierarchyToUnscheduled(root);
-      return;
-    }
-
-    const dateKey = date.toISOString().split('T')[0];
-    if (!groups[dateKey]) {
-      groups[dateKey] = {
-        date,
-        dateKey,
-        morning: [],
-        afternoon: [],
-        evening: [],
-        unspecified: []
-      };
-    }
-
-    const timeOfDay = getTimeOfDay(root.scheduled_time);
-    const pushFn = (it) => {
-      if (timeOfDay) groups[dateKey][timeOfDay].push(it);
-      else groups[dateKey].unspecified.push(it);
-    };
-
-    pushFn({ ...root, inheritedSchedule: false });
-    addDescendantsToTarget(
-      root,
-      { scheduled_date: root.scheduled_date, scheduled_time: root.scheduled_time },
-      pushFn
-    );
-  };
-
-  // Process each root item; it brings its entire hierarchy along
-  parentItems.forEach((root) => {
-    if (!root?.scheduled_date) {
-      addHierarchyToUnscheduled(root);
-      return;
-    }
-    addHierarchyToScheduled(root);
-  });
-
-  // Any remaining items are orphaned (missing root). Show them under unscheduled.
-  items.forEach((item) => {
-    const itemId = (item._id || item.plan_item_id)?.toString();
-    if (!itemId || addedIds.has(itemId)) return;
-    addedIds.add(itemId);
-    unscheduled.push({
-      ...item,
-      isChild: Boolean(item.parent),
-      isOrphaned: Boolean(item.parent),
-      inheritedSchedule: false
-    });
-  });
-
-  // Group items by activity type within each time section
-  for (const dateKey of Object.keys(groups)) {
-    groups[dateKey].morningByActivity = groupTimeItemsByActivityType(groups[dateKey].morning);
-    groups[dateKey].afternoonByActivity = groupTimeItemsByActivityType(groups[dateKey].afternoon);
-    groups[dateKey].eveningByActivity = groupTimeItemsByActivityType(groups[dateKey].evening);
-    groups[dateKey].unspecifiedByActivity = groupTimeItemsByActivityType(groups[dateKey].unspecified);
-  }
-
-  // Sort groups by date
-  const sortedGroups = Object.values(groups).sort((a, b) => a.date - b.date);
-
-  // Group unscheduled items by activity type
-  const unscheduledByActivity = groupTimeItemsByActivityType(unscheduled);
-
-  return { groups: sortedGroups, unscheduled, unscheduledByActivity };
-}
-
-/**
- * TimelinePlanItem - Similar to compact item but with time display for Timeline view
- */
-const TimelinePlanItem = memo(function TimelinePlanItem({
-  planItem,
-  canEdit,
-  canAddChild = false,
-  handlePlanItemToggleComplete,
-  handleViewPlanItemDetails,
-  handleAddPlanInstanceItem,
-  handleEditPlanInstanceItem,
-  setPlanInstanceItemToDelete,
-  setShowPlanInstanceDeleteModal,
-  onScheduleDate,
-  lang,
-  parentItem = null,
-  planOwner = null,
-  planCollaborators = [],
-  onPinItem,
-  isPinned = false,
-  // Expand/collapse props
-  hasChildren = false,
-  isExpanded = true,
-  onToggleExpand = null
-}) {
-  const itemId = planItem.plan_item_id || planItem._id;
-  const formattedTime = formatTimeForDisplay(planItem.scheduled_time);
-
-  // Build actions array for ActionsMenu (same pattern as SortableCompactPlanItem)
-  const actions = useMemo(() => {
-    return buildStandardPlanItemActions({
-      planItem,
-      parentItem,
-      canAddChild,
-      lang,
-      isPinned,
-      onPinItem,
-      onEdit: (item) => handleEditPlanInstanceItem(item),
-      onAddChild: (id) => handleAddPlanInstanceItem(id),
-      onSchedule: (item, parent) => onScheduleDate(item, parent),
-      onViewDetails: (item) => handleViewPlanItemDetails(item),
-      onDelete: (item) => {
-        setPlanInstanceItemToDelete(item);
-        setShowPlanInstanceDeleteModal(true);
-      },
-    });
-  }, [
-    canAddChild,
-    handleAddPlanInstanceItem,
-    handleEditPlanInstanceItem,
-    handleViewPlanItemDetails,
-    isPinned,
-    lang,
-    onPinItem,
-    onScheduleDate,
-    parentItem,
-    planItem,
-    setPlanInstanceItemToDelete,
-    setShowPlanInstanceDeleteModal,
-  ]);
-
-  return (
-    <div
-      data-plan-item-id={planItem._id}
-      className={`timeline-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''}`}
-    >
-      {/* Hierarchy indicator - pin replaces bullet when pinned, expand/collapse for parents with children */}
-      <span className={`timeline-item-indent ${isPinned && !planItem.isChild ? 'pinned-pin' : ''}`}>
-        {planItem.isChild ? (
-          '↳'
-        ) : hasChildren && onToggleExpand ? (
-          isPinned ? (
-            <button
-              type="button"
-              className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-              title={lang.current.tooltip.pinnedToTopExpandCollapse}
-            >
-              <FaThumbtack className="text-warning pinned-pin-icon" />
-              <span className="expand-arrow-icon">{isExpanded ? "▼" : "▶"}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="expand-toggle compact-expand-toggle"
-              onClick={(e) => { e.stopPropagation(); onToggleExpand(planItem); }}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-            >
-              {isExpanded ? "▼" : "▶"}
-            </button>
-          )
-        ) : isPinned ? (
-          <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
-        ) : (
-          '•'
-        )}
-      </span>
-
-      {/* Checkbox for completion */}
-      <Checkbox
-        id={`timeline-item-${itemId}`}
-        checked={!!planItem.complete}
-        onChange={() => handlePlanItemToggleComplete(planItem)}
-        disabled={!canEdit}
-        size="sm"
-        className="timeline-item-checkbox"
-      />
-
-      {/* Item text - clickable to view details */}
-      <span
-        className={`timeline-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''} ${isPinned ? 'is-pinned' : ''}`}
-        onClick={() => handleViewPlanItemDetails(planItem)}
-        title="Click to view details"
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleViewPlanItemDetails(planItem);
-          }
-        }}
-      >
-        {planItem.url ? (() => {
-          const safeUrl = sanitizeUrl(planItem.url);
-          return safeUrl ? (
-            <a
-              href={safeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {sanitizeText(planItem.text)}
-            </a>
-          ) : sanitizeText(planItem.text);
-        })() : (
-          sanitizeText(planItem.text)
-        )}
-        {/* Activity type badge for child items with different type than parent */}
-        {(() => {
-          const { badge } = getActivityTypeDisplay(planItem, parentItem);
-          if (badge) {
-            return (
-              <span className="timeline-activity-badge" title={badge.label}>
-                ({badge.icon} {badge.label})
-              </span>
-            );
-          }
-          return null;
-        })()}
-      </span>
-
-      {/* Time display for timeline view */}
-      {formattedTime && (
-        <span
-          className={`timeline-item-time ${planItem.inheritedSchedule ? 'inherited' : ''}`}
-          title={planItem.inheritedSchedule
-            ? `Inherited from parent - ${formattedTime}`
-            : `Scheduled at ${formattedTime}`
-          }
-        >
-          🕐 {formattedTime}
-          {planItem.inheritedSchedule && <span className="inherited-indicator">*</span>}
-        </span>
-      )}
-
-      {/* Meta info - cost and planning days */}
-      <span className="timeline-item-meta">
-        {Number(planItem.cost) > 0 && (
-          <span className="timeline-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
-            <FaDollarSign />
-          </span>
-        )}
-        {Number(planItem.planning_days) > 0 && (
-          <span className="timeline-meta-days" title={`${planItem.planning_days} ${planItem.planning_days === 1 ? 'day' : 'days'}`}>
-            <FaClock />
-          </span>
-        )}
-        {planItem.details?.notes?.length > 0 && (
-          <span className="timeline-meta-notes" title={`${planItem.details.notes.length} ${planItem.details.notes.length === 1 ? 'note' : 'notes'}`}>
-            <FaStickyNote /> {planItem.details.notes.length}
-          </span>
-        )}
-        {planItem.assignedTo && (() => {
-          // Resolve assignee name for tooltip
-          const isPopulated = typeof planItem.assignedTo === 'object' && planItem.assignedTo.name;
-          const assigneeId = planItem.assignedTo._id || planItem.assignedTo;
-          let assigneeName = isPopulated ? planItem.assignedTo.name : null;
-          if (!assigneeName && (planOwner || planCollaborators.length > 0)) {
-            const assignee = [planOwner, ...planCollaborators].find(c => {
-              const collabId = c?._id || c?.user?._id;
-              return collabId === assigneeId || collabId?.toString() === assigneeId?.toString();
-            });
-            assigneeName = assignee?.name || assignee?.user?.name || 'Assigned';
-          }
-          return (
-            <span className="timeline-meta-assigned" title={`Assigned to ${assigneeName || 'team member'}`}>
-              <FaUser />
-            </span>
-          );
-        })()}
-      </span>
-
-      {/* Actions menu */}
-      {canEdit && (
-        <ActionsMenu
-          actions={actions}
-          size="sm"
-          ariaLabel={lang.current.aria.itemActions}
-        />
-      )}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.planItem._id === nextProps.planItem._id &&
-    prevProps.planItem.complete === nextProps.planItem.complete &&
-    prevProps.planItem.text === nextProps.planItem.text &&
-    prevProps.planItem.isChild === nextProps.planItem.isChild &&
-    prevProps.planItem.cost === nextProps.planItem.cost &&
-    prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
-    prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
-    prevProps.planItem.activity_type === nextProps.planItem.activity_type &&
-    prevProps.planItem.scheduled_date === nextProps.planItem.scheduled_date &&
-    prevProps.planItem.scheduled_time === nextProps.planItem.scheduled_time &&
-    prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
-    prevProps.canEdit === nextProps.canEdit &&
-    prevProps.parentItem?.activity_type === nextProps.parentItem?.activity_type &&
-    prevProps.planOwner?._id === nextProps.planOwner?._id &&
-    prevProps.planCollaborators?.length === nextProps.planCollaborators?.length &&
-    prevProps.isPinned === nextProps.isPinned &&
-    // Expand/collapse state
-    prevProps.hasChildren === nextProps.hasChildren &&
-    prevProps.isExpanded === nextProps.isExpanded
-  );
-});
-
-/**
- * TimelineDateGroup - Renders a group of plan items for a specific date
- * Items are grouped first by time of day, then by activity type within each time section
- */
-const TimelineDateGroup = memo(function TimelineDateGroup({
-  group,
-  isItemVisibleFn,
-  sharedItemHandlers,
-  getItemProps
-}) {
-  const formatDateHeader = (date) => {
-    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
-    return date.toLocaleDateString(undefined, options);
-  };
-
-  const timeOfDayLabels = {
-    morning: 'Morning',
-    afternoon: 'Afternoon',
-    evening: 'Evening',
-    unspecified: ''
-  };
-
-  // Render activity type groups within a time section
-  const renderActivityGroups = (activityData) => {
-    if (!activityData || (activityData.groups?.length === 0 && activityData.ungrouped?.length === 0)) {
-      return null;
-    }
-
-    // Filter function - use provided function or show all
-    const checkVisible = isItemVisibleFn || (() => true);
-
-    return (
-      <>
-        {/* Grouped items by activity type */}
-        {activityData.groups?.map(activityGroup => {
-          const visibleItems = activityGroup.items.filter(checkVisible);
-          if (visibleItems.length === 0) return null;
-          return (
-            <div key={activityGroup.type} className="timeline-activity-group">
-              <div className="timeline-activity-header">
-                <span className="timeline-activity-icon">{activityGroup.icon}</span>
-                <span className="timeline-activity-label">{activityGroup.label}</span>
-              </div>
-              <div className="timeline-activity-items">
-                {visibleItems.map(item => {
-                  const itemProps = typeof getItemProps === 'function' ? getItemProps(item) : {};
-                  return (
-                    <TimelinePlanItem
-                      key={item.plan_item_id || item._id}
-                      planItem={item}
-                      {...sharedItemHandlers}
-                      {...itemProps}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Ungrouped items (no activity type) */}
-        {(() => {
-          const visibleUngrouped = (activityData.ungrouped || []).filter(checkVisible);
-          if (visibleUngrouped.length === 0) return null;
-          return (
-            <div className="timeline-activity-group timeline-activity-ungrouped">
-              {activityData.groups?.length > 0 && (
-                <div className="timeline-activity-header">
-                  <span className="timeline-activity-icon">📌</span>
-                  <span className="timeline-activity-label">Other</span>
-                </div>
-              )}
-              <div className="timeline-activity-items">
-                {visibleUngrouped.map(item => {
-                  const itemProps = typeof getItemProps === 'function' ? getItemProps(item) : {};
-                  return (
-                    <TimelinePlanItem
-                      key={item.plan_item_id || item._id}
-                      planItem={item}
-                      {...sharedItemHandlers}
-                      {...itemProps}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-      </>
-    );
-  };
-
-  const renderTimeSection = (activityData, timeOfDay) => {
-    // Check if data is empty - handle both empty array and empty object with no items
-    if (!activityData || 
-        (Array.isArray(activityData) && activityData.length === 0) ||
-        (activityData.groups?.length === 0 && activityData.ungrouped?.length === 0)) {
-      return null;
-    }
-
-    return (
-      <div className="timeline-time-section" key={timeOfDay}>
-        {timeOfDay !== 'unspecified' && (
-          <div className="timeline-time-header">
-            {timeOfDayLabels[timeOfDay]}
-          </div>
-        )}
-        <div className="timeline-time-items">
-          {renderActivityGroups(activityData)}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="timeline-date-group">
-      <div className="timeline-date-header">
-        {formatDateHeader(group.date)}
-      </div>
-      <div className="timeline-date-content">
-        {renderTimeSection(group.morningByActivity, 'morning')}
-        {renderTimeSection(group.afternoonByActivity, 'afternoon')}
-        {renderTimeSection(group.eveningByActivity, 'evening')}
-        {renderTimeSection(group.unspecifiedByActivity, 'unspecified')}
-      </div>
-    </div>
-  );
-});
-
 export default function MyPlanTabContent({
   // Plan selection & user
   selectedPlanId,
@@ -1757,26 +251,18 @@ export default function MyPlanTabContent({
     const parsed = parseInt(raw, 10);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
   }, []);
-  // Check if chat is enabled:
-  // 1. Chat API key must be configured (currently Stream Chat)
-  // 2. Plan owner must have chat feature flag (or user is super admin)
-  const chatConfigured = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
-  const chatEnabled = useMemo(() => {
-    if (!chatConfigured) return false;
-    // Check if plan owner has chat enabled, or if current user is super admin
-    return hasFeatureFlagInContext({
-      loggedInUser: user,
-      entityCreatorUser: planOwner,
-      flagKey: 'chat',
-      context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR,
-      options: { allowSuperAdmin: true }
-    });
-  }, [chatConfigured, user, planOwner]);
 
-  const [showMessagesModal, setShowMessagesModal] = useState(false);
-  const [messagesInitialChannelId, setMessagesInitialChannelId] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState('');
+  // Chat functionality
+  const {
+    chatEnabled,
+    chatLoading,
+    chatError,
+    showMessagesModal,
+    setShowMessagesModal,
+    messagesInitialChannelId,
+    openPlanChat
+  } = usePlanChat({ planId: selectedPlanId, user, planOwner });
+
   // Tab loading state for smooth transitions
   const [planTabLoading, setPlanTabLoading] = useState(true);
   // View state for plan items display (card or compact) - persisted in user preferences
@@ -1980,7 +466,7 @@ export default function MyPlanTabContent({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts (prevents accidental drags)
+        distance: DRAG_ACTIVATION_DISTANCE_PX, // Require 8px movement before drag starts (prevents accidental drags)
       },
     }),
     useSensor(KeyboardSensor, {
@@ -2032,13 +518,11 @@ export default function MyPlanTabContent({
     const draggedIsChild = !!draggedItem.parent;
 
     // Detect horizontal offset to determine nesting/promotion intent
-    // Drag right (40px+) = nest under target, Drag left (40px+) = promote to root
+    // Drag right (NESTING_THRESHOLD_PX+) = nest under target, Drag left (NESTING_THRESHOLD_PX+) = promote to root
     // Use event.delta.x which dnd-kit provides directly (more reliable than rect coordinates)
-    const NESTING_THRESHOLD = 40; // pixels
-    const PROMOTION_THRESHOLD = -40; // pixels - drag 40px left to indicate promotion
     const horizontalOffset = event.delta?.x || 0;
-    const nestingIntent = horizontalOffset > NESTING_THRESHOLD;
-    const promotionIntent = horizontalOffset < PROMOTION_THRESHOLD;
+    const nestingIntent = horizontalOffset > NESTING_THRESHOLD_PX;
+    const promotionIntent = horizontalOffset < PROMOTION_THRESHOLD_PX;
     debug.log('[Drag] Hierarchy detection', { horizontalOffset, nestingIntent, promotionIntent, thresholds: { nest: NESTING_THRESHOLD, promote: PROMOTION_THRESHOLD } });
 
     debug.log('[Drag] Hierarchy-aware reorder', {
@@ -2073,7 +557,7 @@ export default function MyPlanTabContent({
     // 5. If both are at same level → simple reorder
 
     // Get the flattened visual order to find item above
-    const flattenedItems = flattenPlanItems(currentPlan.plan);
+    const flattenedItems = flattenPlanItemsFn(currentPlan.plan);
     const draggedFlatIndex = flattenedItems.findIndex(
       (item) => (item.plan_item_id || item._id).toString() === draggedId
     );
@@ -2211,7 +695,7 @@ export default function MyPlanTabContent({
         // Remove class after animation completes
         setTimeout(() => {
           draggedItemElement.classList.remove(`hierarchy-${hierarchyChangeType}`);
-        }, 500);
+        }, HIERARCHY_ANIMATION_DURATION_MS);
       }
     }
 
@@ -2246,35 +730,16 @@ export default function MyPlanTabContent({
       return idToExpansionKey.get(rawParentId) || rawParentId;
     }, [idToExpansionKey]);
 
-  // Helper to flatten and mark children (same as Experience Plan Items)
-  // Uses getExpansionKey for consistent canonical ID handling
-  const flattenPlanItems = (items) => {
-    const result = [];
-    const addItem = (item, isChild = false) => {
-      // Normalize child->parent references to a canonical key so expand/collapse works
-      // regardless of whether parent is stored as plan_item_id or _id.
-      const parentKey = getCanonicalParentKey(item);
-      const isVisible =
-        !isChild ||
-        (expandedParents.has(parentKey) &&
-          animatingCollapse !== parentKey);
-      result.push({ ...item, isChild, isVisible, parentKey });
-
-      // Find children - a child's parent field equals the parent's plan_item_id (canonical key)
-      const itemKey = getExpansionKey(item);
-      items
-        .filter(
-          (sub) =>
-            sub.parent &&
-            getCanonicalParentKey(sub) === itemKey
-        )
-        .forEach((sub) => addItem(sub, true));
-    };
-    items
-      .filter((item) => !item.parent)
-      .forEach((item) => addItem(item, false));
-    return result;
-  };
+    // Memoized flattenPlanItems function with injected dependencies
+    const flattenPlanItemsFn = useMemo(
+      () => createFlattenPlanItems({
+        expandedParents,
+        animatingCollapse,
+        getExpansionKey,
+        getCanonicalParentKey
+      }),
+      [expandedParents, animatingCollapse, getExpansionKey, getCanonicalParentKey]
+    );
 
   // Permission checks
   const isSuperAdmin = user?.role === 'super_admin' || user?.isSuperAdmin === true;
@@ -2285,23 +750,6 @@ export default function MyPlanTabContent({
       (p) => idEquals(p._id, user._id) && ["owner", "collaborator"].includes(p.type)
     );
   const canEdit = isSuperAdmin || isPlanOwner || isPlanCollaborator;
-
-  const openPlanChat = useCallback(async () => {
-    if (!currentPlan?._id) return;
-
-    setChatError('');
-    setChatLoading(true);
-
-    try {
-      const result = await getOrCreatePlanChannel(currentPlan._id);
-      setMessagesInitialChannelId(result?.id || '');
-      setShowMessagesModal(true);
-    } catch (err) {
-      setChatError(err?.message || 'Failed to open plan chat');
-    } finally {
-      setChatLoading(false);
-    }
-  }, [currentPlan?._id]);
 
   // Compute earliest scheduled date from plan items as fallback
   // NOTE: ALL useMemo hooks must be called BEFORE any early returns to maintain hooks order
@@ -2322,8 +770,8 @@ export default function MyPlanTabContent({
   // These useMemos handle null currentPlan gracefully
   const flattenedItems = useMemo(() => {
     if (!currentPlan?.plan || currentPlan.plan.length === 0) return [];
-    return flattenPlanItems(currentPlan.plan);
-  }, [currentPlan?.plan, expandedParents, animatingCollapse, getExpansionKey, getCanonicalParentKey]);
+    return flattenPlanItemsFn(currentPlan.plan);
+  }, [currentPlan?.plan, flattenPlanItemsFn]);
 
   const filteredItems = useMemo(() => {
     return flattenedItems.filter(
@@ -2420,7 +868,7 @@ export default function MyPlanTabContent({
   const activityGroups = useMemo(() => {
     if (planItemsView !== 'activity' || flattenedItems.length === 0) return null;
     // Use allUnpinnedItems so pinned item renders separately and children are included
-    return groupItemsByActivityType(allUnpinnedItems, currentPlan?.plan || []);
+    return groupItemsByType(allUnpinnedItems, { parentLookup: currentPlan?.plan || [] });
   }, [planItemsView, flattenedItems, allUnpinnedItems, currentPlan?.plan]);
 
   const parentsWithChildren = useMemo(() => {
@@ -2483,7 +931,7 @@ export default function MyPlanTabContent({
       if (!parent) return Infinity;
 
       depth += 1;
-      if (depth > 50) return Infinity;
+      if (depth > MAX_PLAN_ITEM_DEPTH) return Infinity;
       cursor = parent;
     }
 
@@ -2623,8 +1071,8 @@ export default function MyPlanTabContent({
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="col-md-3 col-sm-6">
                   <div className="metric-card">
-                    <SkeletonLoader variant="text" width="60px" height="14px" className="mb-2" />
-                    <SkeletonLoader variant="text" width="80px" height="24px" />
+                    <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className="mb-2" />
+                    <SkeletonLoader variant="text" width={SKELETON_TEXT_LARGE_WIDTH_PX + 'px'} height={SKELETON_TEXT_LARGE_HEIGHT_PX + 'px'} />
                   </div>
                 </div>
               ))}
@@ -2635,10 +1083,10 @@ export default function MyPlanTabContent({
             {[1, 2, 3].map((i) => (
               <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
                 <div className="d-flex gap-3 mb-3">
-                  <SkeletonLoader variant="circle" width={24} height={24} />
-                  <SkeletonLoader variant="text" width="70%" height={20} />
+                  <SkeletonLoader variant="circle" width={SKELETON_CIRCLE_SIZE_PX} height={SKELETON_CIRCLE_SIZE_PX} />
+                  <SkeletonLoader variant="text" width={SKELETON_TEXT_MEDIUM_WIDTH} height={SKELETON_TEXT_MEDIUM_HEIGHT_PX} />
                 </div>
-                <SkeletonLoader variant="text" lines={2} height={16} />
+                <SkeletonLoader variant="text" lines={2} height={SKELETON_TEXT_DOUBLE_HEIGHT_PX} />
               </div>
             ))}
           </div>
@@ -2649,7 +1097,7 @@ export default function MyPlanTabContent({
     // Only show "Plan not found" when loading is complete and plan truly doesn't exist
     return (
       <div className="my-plan-view mt-4">
-        <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
+        <p className={styles.centeredGrayText}>
           {lang.current.alert.planNotFound}
         </p>
       </div>
@@ -2673,8 +1121,8 @@ export default function MyPlanTabContent({
       type: 'completion',
       value: currentPlan.completion_percentage || 0,
       icon: <FaCheckCircle />,
-      color: (currentPlan.completion_percentage || 0) >= 100 ? 'success' :
-             (currentPlan.completion_percentage || 0) >= 50 ? 'primary' : 'default'
+      color: (currentPlan.completion_percentage || 0) >= COMPLETION_SUCCESS_THRESHOLD ? 'success' :
+             (currentPlan.completion_percentage || 0) >= COMPLETION_WARNING_THRESHOLD ? 'primary' : 'default'
     },
     {
       id: 'total-cost',
@@ -2727,7 +1175,7 @@ export default function MyPlanTabContent({
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="col-md-3 col-sm-6">
               <div className="metric-card">
-                <SkeletonLoader variant="text" width="60px" height="14px" className="mb-2" />
+                <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className="mb-2" />
                 <SkeletonLoader variant="text" width="80px" height="24px" />
               </div>
             </div>
@@ -2814,7 +1262,7 @@ export default function MyPlanTabContent({
           />
         </div>
         {chatError && (
-          <p style={{ color: 'var(--bs-danger)' }}>{chatError}</p>
+          <p className={styles.dangerText}>{chatError}</p>
         )}
         <MessagesModal
           show={showMessagesModal}
@@ -2836,7 +1284,7 @@ export default function MyPlanTabContent({
             ))}
           </div>
         ) : (
-          <p style={{ color: 'var(--bs-gray-600)', textAlign: 'center' }}>
+          <p className={styles.centeredGrayText}>
             {lang.current.alert.noPlanItems}
           </p>
         )}
@@ -2901,7 +1349,7 @@ export default function MyPlanTabContent({
       </div>
 
       {chatError && (
-        <p style={{ color: 'var(--bs-danger)' }}>{chatError}</p>
+        <p className={styles.dangerText}>{chatError}</p>
       )}
 
       <MessagesModal
@@ -2940,16 +1388,14 @@ export default function MyPlanTabContent({
           >
             {itemsToRender.map((planItem) => {
               const itemId = (planItem._id || planItem.plan_item_id)?.toString();
-              const itemHasChildren = hasChildren(planItem);
-              const itemExpanded = itemHasChildren ? isItemExpanded(planItem) : false;
-              const itemCanAddChild = canAddChildToItem(planItem);
+              const itemProps = getItemProps(planItem);
               return (
                 <SortablePlanItem
                   key={planItem.plan_item_id || planItem._id}
                   planItem={planItem}
-                  canAddChild={itemCanAddChild}
-                  hasChildren={itemHasChildren}
-                  isExpanded={itemExpanded}
+                  canAddChild={itemProps.canAddChild}
+                  hasChildren={itemProps.hasChildren}
+                  isExpanded={itemProps.isExpanded}
                   {...sharedSortablePlanItemProps}
                   isPinned={itemId === pinnedItemId}
                 />
