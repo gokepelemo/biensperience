@@ -20,16 +20,11 @@ export function usePlanChat({ planId, user, planOwner }) {
   // Check if chat is configured (API key present)
   const chatConfigured = Boolean(import.meta.env.VITE_STREAM_CHAT_API_KEY);
 
-  // Check if chat is enabled for this plan
-  const chatEnabled = useMemo(() => {
-    if (!chatConfigured) return false;
-
-    // Check if plan owner has chat enabled, or if current user is super admin
-    return useFeatureFlag('chat', {
-      user: planOwner,
-      fallback: false
-    });
-  }, [chatConfigured, planOwner]);
+  // Check if chat is enabled for this plan - useFeatureFlag must be called at hook level
+  const { enabled: chatEnabled } = useFeatureFlag('chat', {
+    user: planOwner,
+    fallback: false
+  });
 
   // Handler to open plan chat
   const openPlanChat = useCallback(async () => {
