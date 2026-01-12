@@ -173,17 +173,17 @@ export function groupPlanItemsByDate(items) {
 
   // Group items by activity type within each time section
   for (const dateKey of Object.keys(groups)) {
-    groups[dateKey].morningByActivity = groupTimeItemsByActivityType(groups[dateKey].morning);
-    groups[dateKey].afternoonByActivity = groupTimeItemsByActivityType(groups[dateKey].afternoon);
-    groups[dateKey].eveningByActivity = groupTimeItemsByActivityType(groups[dateKey].evening);
-    groups[dateKey].unspecifiedByActivity = groupTimeItemsByActivityType(groups[dateKey].unspecified);
+    groups[dateKey].morningByActivity = groupItemsByType(groups[dateKey].morning);
+    groups[dateKey].afternoonByActivity = groupItemsByType(groups[dateKey].afternoon);
+    groups[dateKey].eveningByActivity = groupItemsByType(groups[dateKey].evening);
+    groups[dateKey].unspecifiedByActivity = groupItemsByType(groups[dateKey].unspecified);
   }
 
   // Sort groups by date
   const sortedGroups = Object.values(groups).sort((a, b) => a.date - b.date);
 
   // Group unscheduled items by activity type
-  const unscheduledByActivity = groupTimeItemsByActivityType(unscheduled);
+  const unscheduledByActivity = groupItemsByType(unscheduled);
 
   return { groups: sortedGroups, unscheduled, unscheduledByActivity };
 }
