@@ -62,17 +62,31 @@
   /* Fullscreen variant must stop forcing 100vh/dvh so content can grow */
   .modalFullscreen {
     height: auto;
-    min-height: 0;
+    min-height: auto; /* Changed from 0 - allow content to determine height */
     max-height: none;
     overflow: visible;
     flex: 0 0 auto;
+    /* Reset fullscreen-specific properties that interfere with document scroll */
+    align-self: auto;
 
     .modalContent {
       height: auto;
       max-height: none;
       overflow: visible;
-      min-height: 0;
+      min-height: auto; /* Changed from 0 - allow content to determine height */
       flex: 0 0 auto;
+      /* Reset padding that might cause visual issues */
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .modalBody {
+      /* Critical: Override the fullscreen modalBody styles that cause content collapse */
+      flex: 0 0 auto;
+      min-height: auto;
+      height: auto;
+      overflow: visible;
+      display: block; /* Break flex chain for document scroll mode */
     }
   }
 }
