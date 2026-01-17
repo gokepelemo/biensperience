@@ -279,7 +279,7 @@ if (process.env.NODE_ENV !== 'test') {
 // Apply strict auth rate limiter to authentication endpoints (login, password)
 // to mitigate brute-force attacks. The authLimiter is configured in
 // `config/rateLimiters.js` and skips successful requests where appropriate.
-const { authLimiter, modificationLimiter, externalApiLimiter } = require('./config/rateLimiters');
+const { authLimiter, modificationLimiter, externalApiLimiter, staticAssetsLimiter } = require('./config/rateLimiters');
 app.use('/api/auth', authLimiter, require('./routes/api/auth'));
 
 // Session ID middleware - manage session IDs for authenticated requests (after auth)
@@ -388,8 +388,9 @@ app.use('/api', (err, req, res, next) => {
 });
 
 // Catch-all route for React app (only in production)
+// SECURITY: Apply rate limiting to prevent abuse of static file serving
 if (process.env.NODE_ENV !== 'test') {
-  app.get('/*', (req, res, next) => {
+  app.get('/*', staticAssetsLimiter, (req, res, next) => {
     // Never hijack API routes.
     if (req.path.startsWith('/api/')) return next();
 

@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { FaTh, FaMap } from "react-icons/fa";
 import { lang } from "../../lang.constants";
-import { getCountryData } from "../../utilities/countries-api";
+import { getCountryData, loadMoreDestinations, loadMoreExperiences } from "../../utilities/countries-api";
 import { eventBus } from "../../utilities/event-bus";
 import { useViewModePreference } from "../../hooks/useUIPreference";
 import useGeocodedMarkers from "../../hooks/useGeocodedMarkers";
@@ -27,12 +27,83 @@ function slugToDisplayName(slug) {
     .replace(/\b\w/g, char => char.toUpperCase());
 }
 
+/**
+ * Normalize a country name to a slug for comparison
+ * e.g., "United States" -> "united-states"
+ */
+function normalizeCountrySlug(name) {
+  return name?.toLowerCase().replace(/[\s-]+/g, '-') || '';
+}
+
+/**
+ * Create entity event handlers for real-time updates
+ * Reduces duplication between destination and experience event subscriptions
+ *
+ * @param {Object} config - Configuration for the entity handlers
+ * @param {string} config.entityKey - Key to extract entity from event (e.g., 'destination', 'experience')
+ * @param {string} config.entityIdKey - Key for entity ID in delete events (e.g., 'destinationId', 'experienceId')
+ * @param {Function} config.setItems - State setter for items array
+ * @param {Function} config.setMeta - State setter for pagination meta
+ * @param {Function} config.matchesCountry - Function to check if entity belongs to current country
+ * @returns {Object} Object with created, updated, deleted handlers
+ */
+function createEntityEventHandlers({ entityKey, entityIdKey, setItems, setMeta, matchesCountry }) {
+  return {
+    created: (event) => {
+      const created = event[entityKey] || event.detail?.[entityKey];
+      if (!created?._id) return;
+
+      if (!matchesCountry(created)) return;
+
+      // Add to the beginning of the list
+      setItems(prev => [created, ...prev]);
+      // Update meta count
+      setMeta(prev => prev ? { ...prev, total: prev.total + 1 } : prev);
+    },
+    updated: (event) => {
+      const updated = event[entityKey] || event.detail?.[entityKey];
+      if (!updated?._id) return;
+
+      setItems(prev =>
+        prev.map(item => item._id === updated._id ? { ...item, ...updated } : item)
+      );
+    },
+    deleted: (event) => {
+      const deletedId = event[entityIdKey] || event.detail?.[entityIdKey];
+      if (!deletedId) return;
+
+      setItems(prev => prev.filter(item => item._id !== deletedId));
+      // Update meta count
+      setMeta(prev => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
+    }
+  };
+}
+
 export default function Countries() {
   const { countryName } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // View mode preference (list or map)
-  const { viewMode, setViewMode } = useViewModePreference('countries', 'list');
+  // URL query param takes precedence over persisted preference for shareable links
+  const { viewMode: persistedViewMode, setViewMode: setPersistedViewMode } = useViewModePreference('countries', 'list');
+  const urlViewMode = searchParams.get('view');
+  const viewMode = (urlViewMode === 'map' || urlViewMode === 'list') ? urlViewMode : persistedViewMode;
+
+  // Sync view mode changes to both URL and localStorage
+  const setViewMode = useCallback((newMode) => {
+    setPersistedViewMode(newMode);
+    // Update URL without adding to history for each toggle
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      if (newMode === 'list') {
+        newParams.delete('view'); // Remove param for default view
+      } else {
+        newParams.set('view', newMode);
+      }
+      return newParams;
+    }, { replace: true });
+  }, [setPersistedViewMode, setSearchParams]);
 
   // Data state
   const [destinations, setDestinations] = useState([]);
@@ -92,7 +163,7 @@ export default function Countries() {
     }
   }, [countryName]);
 
-  // Load more destinations
+  // Load more destinations using dedicated API utility
   const handleLoadMoreDestinations = useCallback(async () => {
     if (!destinationsMeta?.hasMore || loadingMoreDestinations) return;
 
@@ -102,28 +173,23 @@ export default function Countries() {
 
       logger.info('[Countries] Loading more destinations', { page: nextPage });
 
-      const result = await getCountryData(countryName, {
-        destinationsPage: nextPage,
-        destinationsLimit: destinationsMeta.limit,
-        experiencesPage: experiencesMeta?.page || 1,
-        experiencesLimit: 0 // Don't re-fetch experiences
-      });
+      const result = await loadMoreDestinations(countryName, nextPage, destinationsMeta.limit);
 
-      setDestinations(prev => [...prev, ...(result.destinations || [])]);
+      setDestinations(prev => [...prev, ...result.destinations]);
       setDestinationsMeta(result.destinationsMeta);
 
       logger.info('[Countries] Loaded more destinations', {
-        newCount: result.destinations?.length,
-        totalLoaded: destinations.length + (result.destinations?.length || 0)
+        newCount: result.destinations.length,
+        totalLoaded: destinations.length + result.destinations.length
       });
     } catch (err) {
       logger.error('[Countries] Failed to load more destinations', { error: err.message });
     } finally {
       setLoadingMoreDestinations(false);
     }
-  }, [countryName, destinationsMeta, experiencesMeta, loadingMoreDestinations, destinations.length]);
+  }, [countryName, destinationsMeta, loadingMoreDestinations, destinations.length]);
 
-  // Load more experiences
+  // Load more experiences using dedicated API utility
   const handleLoadMoreExperiences = useCallback(async () => {
     if (!experiencesMeta?.hasMore || loadingMoreExperiences) return;
 
@@ -133,26 +199,21 @@ export default function Countries() {
 
       logger.info('[Countries] Loading more experiences', { page: nextPage });
 
-      const result = await getCountryData(countryName, {
-        destinationsPage: destinationsMeta?.page || 1,
-        destinationsLimit: 0, // Don't re-fetch destinations
-        experiencesPage: nextPage,
-        experiencesLimit: experiencesMeta.limit
-      });
+      const result = await loadMoreExperiences(countryName, nextPage, experiencesMeta.limit);
 
-      setExperiences(prev => [...prev, ...(result.experiences || [])]);
+      setExperiences(prev => [...prev, ...result.experiences]);
       setExperiencesMeta(result.experiencesMeta);
 
       logger.info('[Countries] Loaded more experiences', {
-        newCount: result.experiences?.length,
-        totalLoaded: experiences.length + (result.experiences?.length || 0)
+        newCount: result.experiences.length,
+        totalLoaded: experiences.length + result.experiences.length
       });
     } catch (err) {
       logger.error('[Countries] Failed to load more experiences', { error: err.message });
     } finally {
       setLoadingMoreExperiences(false);
     }
-  }, [countryName, destinationsMeta, experiencesMeta, loadingMoreExperiences, experiences.length]);
+  }, [countryName, experiencesMeta, loadingMoreExperiences, experiences.length]);
 
   // Initial data fetch
   useEffect(() => {
@@ -161,42 +222,19 @@ export default function Countries() {
 
   // Subscribe to destination events for real-time updates
   useEffect(() => {
-    const handleDestinationCreated = (event) => {
-      const created = event.destination || event.detail?.destination;
-      if (!created?._id) return;
+    const currentCountrySlug = normalizeCountrySlug(countryName);
 
-      // Check if the destination belongs to this country (case-insensitive comparison)
-      const destinationCountry = created.country?.toLowerCase().replace(/[\s-]+/g, '-');
-      const currentCountry = countryName?.toLowerCase().replace(/[\s-]+/g, '-');
-      if (destinationCountry !== currentCountry) return;
+    const handlers = createEntityEventHandlers({
+      entityKey: 'destination',
+      entityIdKey: 'destinationId',
+      setItems: setDestinations,
+      setMeta: setDestinationsMeta,
+      matchesCountry: (dest) => normalizeCountrySlug(dest.country) === currentCountrySlug
+    });
 
-      // Add to the beginning of the list
-      setDestinations(prev => [created, ...prev]);
-      // Update meta count
-      setDestinationsMeta(prev => prev ? { ...prev, total: prev.total + 1 } : prev);
-    };
-
-    const handleDestinationUpdated = (event) => {
-      const updated = event.destination || event.detail?.destination;
-      if (!updated?._id) return;
-
-      setDestinations(prev =>
-        prev.map(d => d._id === updated._id ? { ...d, ...updated } : d)
-      );
-    };
-
-    const handleDestinationDeleted = (event) => {
-      const deletedId = event.destinationId || event.detail?.destinationId;
-      if (!deletedId) return;
-
-      setDestinations(prev => prev.filter(d => d._id !== deletedId));
-      // Update meta count
-      setDestinationsMeta(prev => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
-    };
-
-    const unsubCreate = eventBus.subscribe('destination:created', handleDestinationCreated);
-    const unsubUpdate = eventBus.subscribe('destination:updated', handleDestinationUpdated);
-    const unsubDelete = eventBus.subscribe('destination:deleted', handleDestinationDeleted);
+    const unsubCreate = eventBus.subscribe('destination:created', handlers.created);
+    const unsubUpdate = eventBus.subscribe('destination:updated', handlers.updated);
+    const unsubDelete = eventBus.subscribe('destination:deleted', handlers.deleted);
 
     return () => {
       unsubCreate();
@@ -207,42 +245,19 @@ export default function Countries() {
 
   // Subscribe to experience events for real-time updates
   useEffect(() => {
-    const handleExperienceCreated = (event) => {
-      const created = event.experience || event.detail?.experience;
-      if (!created?._id) return;
+    const currentCountrySlug = normalizeCountrySlug(countryName);
 
-      // Check if the experience's destination belongs to this country
-      const destCountry = created.destination?.country?.toLowerCase().replace(/[\s-]+/g, '-');
-      const currentCountry = countryName?.toLowerCase().replace(/[\s-]+/g, '-');
-      if (destCountry !== currentCountry) return;
+    const handlers = createEntityEventHandlers({
+      entityKey: 'experience',
+      entityIdKey: 'experienceId',
+      setItems: setExperiences,
+      setMeta: setExperiencesMeta,
+      matchesCountry: (exp) => normalizeCountrySlug(exp.destination?.country) === currentCountrySlug
+    });
 
-      // Add to the beginning of the list
-      setExperiences(prev => [created, ...prev]);
-      // Update meta count
-      setExperiencesMeta(prev => prev ? { ...prev, total: prev.total + 1 } : prev);
-    };
-
-    const handleExperienceUpdated = (event) => {
-      const updated = event.experience || event.detail?.experience;
-      if (!updated?._id) return;
-
-      setExperiences(prev =>
-        prev.map(e => e._id === updated._id ? { ...e, ...updated } : e)
-      );
-    };
-
-    const handleExperienceDeleted = (event) => {
-      const deletedId = event.experienceId || event.detail?.experienceId;
-      if (!deletedId) return;
-
-      setExperiences(prev => prev.filter(e => e._id !== deletedId));
-      // Update meta count
-      setExperiencesMeta(prev => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
-    };
-
-    const unsubCreate = eventBus.subscribe('experience:created', handleExperienceCreated);
-    const unsubUpdate = eventBus.subscribe('experience:updated', handleExperienceUpdated);
-    const unsubDelete = eventBus.subscribe('experience:deleted', handleExperienceDeleted);
+    const unsubCreate = eventBus.subscribe('experience:created', handlers.created);
+    const unsubUpdate = eventBus.subscribe('experience:updated', handlers.updated);
+    const unsubDelete = eventBus.subscribe('experience:deleted', handlers.deleted);
 
     return () => {
       unsubCreate();
@@ -335,9 +350,21 @@ export default function Countries() {
           <FadeIn>
             <FlexCenter>
               <div className="col-12 col-md-8">
-                <Alert type="danger" dismissible={false}>
-                  {error}
-                </Alert>
+                <SpaceY size="4">
+                  <Alert type="danger" dismissible={false}>
+                    {error}
+                  </Alert>
+                  <FlexCenter>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      onClick={fetchCountryData}
+                      leftIcon={<span>↻</span>}
+                    >
+                      {lang.current.button.tryAgain || 'Try Again'}
+                    </Button>
+                  </FlexCenter>
+                </SpaceY>
               </div>
             </FlexCenter>
           </FadeIn>

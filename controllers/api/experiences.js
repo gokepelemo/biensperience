@@ -230,6 +230,9 @@ async function index(req, res) {
         }
       }
 
+      // Support filtering by curated experiences (only show experiences created by users with curator flag)
+      const isCuratedFilter = req.query.curated === 'true' || req.query.curated === true;
+
       const baseQuery = Experience.find(filter)
         .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
         .slice('photos', 1)
@@ -254,7 +257,50 @@ async function index(req, res) {
       };
       const sortObj = sortMap[sortBy] || (sortOrder === 'asc' ? { createdAt: 1 } : { createdAt: -1 });
 
-      const total = await Experience.countDocuments(filter);
+      const total = isCuratedFilter
+        ? await Experience.aggregate([
+            { $match: filter },
+            // Find the owner permission
+            {
+              $addFields: {
+                ownerPermission: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: '$permissions',
+                        cond: { $eq: ['$$this.type', 'owner'] }
+                      }
+                    },
+                    0
+                  ]
+                }
+              }
+            },
+            // Lookup the owner user
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'ownerPermission._id',
+                foreignField: '_id',
+                as: 'ownerUser'
+              }
+            },
+            // Unwind the owner user (should only be one)
+            { $unwind: { path: '$ownerUser', preserveNullAndEmptyArrays: false } },
+            // Filter to only include users with curator flag
+            {
+              $match: {
+                'ownerUser.feature_flags': {
+                  $elemMatch: {
+                    flag: 'curator',
+                    enabled: true
+                  }
+                }
+              }
+            },
+            { $count: 'total' }
+          ]).then(result => result[0]?.total || 0)
+        : await Experience.countDocuments(filter);
   backendLogger.debug('Experiences index request', { query: req.query, filter });
       // If sorting by destination, use aggregation to lookup destination and sort by destination.name
       const isDestinationSort = sortBy === 'destination' || sortBy === 'destination-desc';
@@ -262,18 +308,81 @@ async function index(req, res) {
 
       // If ?all=true requested, return full array (compatibility)
       if (req.query.all === 'true' || req.query.all === true) {
-        if (isDestinationSort) {
-          const all = await Experience.aggregate([
-            { $match: filter },
-            // lookup destination
-            { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
-            { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
-            // lookup photos (keep first photo only)
+        if (isDestinationSort || isCuratedFilter) {
+          const pipeline = [
+            { $match: filter }
+          ];
+
+          // Add curator filtering if requested
+          if (isCuratedFilter) {
+            pipeline.push(
+              // Find the owner permission
+              {
+                $addFields: {
+                  ownerPermission: {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: '$permissions',
+                          cond: { $eq: ['$$this.type', 'owner'] }
+                        }
+                      },
+                      0
+                    ]
+                  }
+                }
+              },
+              // Lookup the owner user
+              {
+                $lookup: {
+                  from: 'users',
+                  localField: 'ownerPermission._id',
+                  foreignField: '_id',
+                  as: 'ownerUser'
+                }
+              },
+              // Unwind the owner user (should only be one)
+              { $unwind: { path: '$ownerUser', preserveNullAndEmptyArrays: false } },
+              // Filter to only include users with curator flag
+              {
+                $match: {
+                  'ownerUser.feature_flags': {
+                    $elemMatch: {
+                      flag: 'curator',
+                      enabled: true
+                    }
+                  }
+                }
+              }
+            );
+          }
+
+          // Add destination lookup and sorting if needed
+          if (isDestinationSort) {
+            pipeline.push(
+              { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
+              { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+              { $sort: { 'destination.name': destSortDir } }
+            );
+          }
+
+          // Add photo lookup and processing
+          pipeline.push(
             { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
-            { $addFields: { photos: { $slice: ['$photos', 1] } } },
-            { $sort: { 'destination.name': destSortDir } },
-            { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
-          ]).exec();
+            { $addFields: { photos: { $slice: ['$photos', 1] } } }
+          );
+
+          // Add sorting if not destination sort
+          if (!isDestinationSort) {
+            pipeline.push({ $sort: sortObj });
+          }
+
+          // Add projection
+          pipeline.push({
+            $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 }
+          });
+
+          const all = await Experience.aggregate(pipeline).exec();
           return successResponse(res, all);
         }
 
@@ -289,19 +398,82 @@ async function index(req, res) {
 
       // Apply sort and pagination
       let experiences;
-      if (isDestinationSort) {
-        // Use aggregation for destination sort + pagination
+      if (isDestinationSort || isCuratedFilter) {
+        // Use aggregation for destination sort, curated filtering, or both
         const pipeline = [
-          { $match: filter },
-          { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
-          { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+          { $match: filter }
+        ];
+
+        // Add curator filtering if requested
+        if (isCuratedFilter) {
+          pipeline.push(
+            // Find the owner permission
+            {
+              $addFields: {
+                ownerPermission: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: '$permissions',
+                        cond: { $eq: ['$$this.type', 'owner'] }
+                      }
+                    },
+                    0
+                  ]
+                }
+              }
+            },
+            // Lookup the owner user
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'ownerPermission._id',
+                foreignField: '_id',
+                as: 'ownerUser'
+              }
+            },
+            // Unwind the owner user (should only be one)
+            { $unwind: { path: '$ownerUser', preserveNullAndEmptyArrays: false } },
+            // Filter to only include users with curator flag
+            {
+              $match: {
+                'ownerUser.feature_flags': {
+                  $elemMatch: {
+                    flag: 'curator',
+                    enabled: true
+                  }
+                }
+              }
+            }
+          );
+        }
+
+        // Add destination lookup and sorting if needed
+        if (isDestinationSort) {
+          pipeline.push(
+            { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
+            { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+            { $sort: { 'destination.name': destSortDir } }
+          );
+        }
+
+        // Add photo lookup and processing
+        pipeline.push(
           { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
-          { $addFields: { photos: { $slice: ['$photos', 1] } } },
-          { $sort: { 'destination.name': destSortDir } },
+          { $addFields: { photos: { $slice: ['$photos', 1] } } }
+        );
+
+        // Add sorting if not destination sort
+        if (!isDestinationSort) {
+          pipeline.push({ $sort: sortObj });
+        }
+
+        // Add pagination
+        pipeline.push(
           { $skip: skip },
           { $limit: l },
           { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
-        ];
+        );
 
         experiences = await Experience.aggregate(pipeline).exec();
       } else {

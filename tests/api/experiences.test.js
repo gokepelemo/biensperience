@@ -134,6 +134,51 @@ describe('Experiences API Routes', () => {
 
       logger.success('Pagination working correctly');
     });
+
+    test('should filter experiences by curated flag', async () => {
+      logger.section('GET /api/experiences - Filter by curated');
+
+      // Create a curator user with the curator feature flag
+      const curatorUser = await createTestUser({
+        email: 'curator@test.com',
+        feature_flags: [{
+          flag: 'curator',
+          enabled: true,
+          granted_at: new Date()
+        }]
+      });
+
+      // Create a regular user without curator flag
+      const regularUser = await createTestUser({
+        email: 'regular@test.com'
+      });
+
+      const token = generateAuthToken(curatorUser);
+      const destination = await createTestDestination(curatorUser);
+
+      // Create experiences by both users
+      const curatorExperience = await createTestExperience(curatorUser, destination, { name: 'Curator Experience' });
+      const regularExperience = await createTestExperience(regularUser, destination, { name: 'Regular Experience' });
+
+      // Test without curated filter - should return both experiences
+      const allResponse = await request(app)
+        .get('/api/experiences')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(allResponse.status).toBe(200);
+      expect(allResponse.body.data.length).toBe(2);
+
+      // Test with curated=true - should return only curator's experience
+      const curatedResponse = await request(app)
+        .get('/api/experiences?curated=true')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(curatedResponse.status).toBe(200);
+      expect(curatedResponse.body.data.length).toBe(1);
+      expect(curatedResponse.body.data[0].name).toBe('Curator Experience');
+
+      logger.success('Experiences filtered by curated flag');
+    });
   });
 
   describe('POST /api/experiences - Create experience', () => {

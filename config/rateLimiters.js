@@ -88,10 +88,25 @@ const externalApiLimiter = rateLimit({
   skip: skipIfSuperAdmin,
 });
 
+/**
+ * Rate limiter for static assets and SPA catch-all route
+ * Generous limits to allow normal browsing while preventing abuse
+ * Configurable via env: STATIC_RATE_WINDOW_MS, STATIC_RATE_MAX
+ */
+const staticAssetsLimiter = rateLimit({
+  windowMs: parseInt(process.env.STATIC_RATE_WINDOW_MS || '', 10) || (1 * 60 * 1000), // 1 minute
+  max: parseInt(process.env.STATIC_RATE_MAX || '', 10) || 120, // 120 requests per minute (2 per second avg)
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  // No super admin skip for static assets - it's unauthenticated
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
   collaboratorLimiter,
   modificationLimiter,
-  externalApiLimiter
+  externalApiLimiter,
+  staticAssetsLimiter
 };
