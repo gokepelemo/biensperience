@@ -430,7 +430,13 @@ export default function Profile() {
     }
 
     // For other users' profiles, use the API response (only their owned plans)
-    return deduplicateById(userExperiences) || [];
+    // For super admins, the API returns separate entries for each plan (no deduplication needed)
+    // For regular users, deduplicate experiences (backwards compatibility)
+    if (isSuperAdmin(user)) {
+      return userExperiences || [];
+    } else {
+      return deduplicateById(userExperiences) || [];
+    }
   }, [userExperiences, isOwnProfile, plans]);
 
   // Deduplicate created experiences by ID
@@ -2177,6 +2183,7 @@ export default function Profile() {
                           key={experience._planId || experience._id || index}
                           userPlans={plans}
                           showSharedIcon={experience._isCollaborative || false}
+                          planId={experience._planId}
                         />
                       ))}
                       {/* Show placeholders on non-last pages to reserve space (own profile only) */}

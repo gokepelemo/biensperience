@@ -52,11 +52,11 @@ export default function AppHome() {
 
     (async () => {
       try {
-        logger.info('AppHome: Fetching fresh unfiltered data on mount');
-        // Clear any filters and fetch all data
+        logger.info('AppHome: Fetching fresh curated experiences on mount');
+        // Clear any filters and fetch curated experiences only
         await Promise.all([
           applyDestinationsFilter({}),
-          applyExperiencesFilter({})
+          applyExperiencesFilter({ curated: true })
         ]);
         if (mounted) {
           setInitialFetchComplete(true);

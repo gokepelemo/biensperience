@@ -7,7 +7,6 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
-import Loading from "../../components/Loading/Loading";
 import { Button, Container, Mobile, Desktop, FadeIn, EmptyState } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
@@ -726,12 +725,23 @@ export default function Experiences() {
       />
 
       {initialLoading || loading || directFilterLoading || !initialLoadComplete ? (
-        <Loading
-          variant="centered"
-          size="lg"
-          animation="engine"
-          message={lang.current.alert.loadingExperiences}
-        />
+        <FadeIn>
+          <div className={styles.experiencesList}>
+            {/* Skeleton loaders matching ExperienceCard dimensions (20rem × 12rem min-height) */}
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className={styles.experienceSkeleton}>
+                <div className={styles.experienceSkeletonContent}>
+                  <div className={styles.experienceSkeletonTitle} />
+                </div>
+                <div className={styles.experienceSkeletonActions}>
+                  <div className={styles.experienceSkeletonButton} />
+                  <div className={styles.experienceSkeletonButton} />
+                  <div className={styles.experienceSkeletonButton} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
       ) : (
         <FadeIn>
           <>

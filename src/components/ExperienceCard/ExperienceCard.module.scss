@@ -289,3 +289,20 @@
     font-size: $font-size-base;
   }
 }
+
+/* Curated Experience Badge - top-left corner */
+.curatedBadge {
+  position: absolute;
+  top: $space-2;
+  left: $space-2;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  .tag {
+    box-shadow: var(--shadow-sm);
+    border: none;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+}

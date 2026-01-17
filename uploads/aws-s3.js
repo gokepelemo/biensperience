@@ -292,7 +292,7 @@ const s3Upload = async function (file, originalName, newName, options = {}) {
   const contentType = mime.lookup(originalName);
   const extension = mime.extension(contentType);
 
-  // Read file content.
+  // Read file content using secure wrappers that include defense-in-depth validation.
   // Under Bun, Node.js stream compatibility can be imperfect for AWS SDK v3,
   // and we've seen uploads hang indefinitely when using fs.createReadStream().
   // Given our document limits (<= 50MB) and safety checks (<= 100MB), using a
@@ -300,9 +300,11 @@ const s3Upload = async function (file, originalName, newName, options = {}) {
   let body;
   try {
     if (typeof Bun !== 'undefined') {
-      body = await fs.promises.readFile(validatedLocalPath);
+      // SECURITY: Use secureReadFile which re-validates the path before reading
+      body = await secureReadFile(validatedLocalPath);
     } else {
-      body = fs.createReadStream(validatedLocalPath);
+      // SECURITY: Use secureCreateReadStream which re-validates the path before creating stream
+      body = secureCreateReadStream(validatedLocalPath);
     }
   } catch (readErr) {
     backendLogger.error('Failed to read upload file', { path: validatedLocalPath, error: readErr.message });

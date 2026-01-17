@@ -230,6 +230,9 @@ async function index(req, res) {
         }
       }
 
+      // Support filtering by curated experiences (only show experiences created by users with curator flag)
+      const isCuratedFilter = req.query.curated === 'true' || req.query.curated === true;
+
       const baseQuery = Experience.find(filter)
         .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
         .slice('photos', 1)
@@ -254,7 +257,50 @@ async function index(req, res) {
       };
       const sortObj = sortMap[sortBy] || (sortOrder === 'asc' ? { createdAt: 1 } : { createdAt: -1 });
 
-      const total = await Experience.countDocuments(filter);
+      const total = isCuratedFilter
+        ? await Experience.aggregate([
+            { $match: filter },
+            // Find the owner permission
+            {
+              $addFields: {
+                ownerPermission: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: '$permissions',
+                        cond: { $eq: ['$$this.type', 'owner'] }
+                      }
+                    },
+                    0
+                  ]
+                }
+              }
+            },
+            // Lookup the owner user
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'ownerPermission._id',
+                foreignField: '_id',
+                as: 'ownerUser'
+              }
+            },
+            // Unwind the owner user (should only be one)
+            { $unwind: { path: '$ownerUser', preserveNullAndEmptyArrays: false } },
+            // Filter to only include users with curator flag
+            {
+              $match: {
+                'ownerUser.feature_flags': {
+                  $elemMatch: {
+                    flag: 'curator',
+                    enabled: true
+                  }
+                }
+              }
+            },
+            { $count: 'total' }
+          ]).then(result => result[0]?.total || 0)
+        : await Experience.countDocuments(filter);
   backendLogger.debug('Experiences index request', { query: req.query, filter });
       // If sorting by destination, use aggregation to lookup destination and sort by destination.name
       const isDestinationSort = sortBy === 'destination' || sortBy === 'destination-desc';
@@ -262,18 +308,103 @@ async function index(req, res) {
 
       // If ?all=true requested, return full array (compatibility)
       if (req.query.all === 'true' || req.query.all === true) {
-        if (isDestinationSort) {
-          const all = await Experience.aggregate([
-            { $match: filter },
-            // lookup destination
-            { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
-            { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
-            // lookup photos (keep first photo only)
+        if (isDestinationSort || isCuratedFilter) {
+          const pipeline = [
+            { $match: filter }
+          ];
+
+          // Add curator filtering if requested
+          if (isCuratedFilter) {
+            pipeline.push(
+              // Find the owner permission
+              {
+                $addFields: {
+                  ownerPermission: {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: '$permissions',
+                          cond: { $eq: ['$$this.type', 'owner'] }
+                        }
+                      },
+                      0
+                    ]
+                  }
+                }
+              },
+              // Lookup the owner user
+              {
+                $lookup: {
+                  from: 'users',
+                  localField: 'ownerPermission._id',
+                  foreignField: '_id',
+                  as: 'ownerUser'
+                }
+              },
+              // Unwind the owner user (should only be one)
+              { $unwind: { path: '$ownerUser', preserveNullAndEmptyArrays: false } },
+              // Filter to only include users with curator flag
+              {
+                $match: {
+                  'ownerUser.feature_flags': {
+                    $elemMatch: {
+                      flag: 'curator',
+                      enabled: true
+                    }
+                  }
+                }
+              }
+            );
+          }
+
+          // Add destination lookup and sorting if needed
+          if (isDestinationSort) {
+            pipeline.push(
+              { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
+              { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+              { $sort: { 'destination.name': destSortDir } }
+            );
+          }
+
+          // Add photo lookup and processing
+          pipeline.push(
             { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
-            { $addFields: { photos: { $slice: ['$photos', 1] } } },
-            { $sort: { 'destination.name': destSortDir } },
-            { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
-          ]).exec();
+            { $addFields: { photos: { $slice: ['$photos', 1] } } }
+          );
+
+          // Add sorting if not destination sort
+          if (!isDestinationSort) {
+            pipeline.push({ $sort: sortObj });
+          }
+
+          // Add projection
+          pipeline.push({
+            $project: { 
+              name: 1, 
+              destination: 1, 
+              photos: 1, 
+              default_photo_id: 1, 
+              permissions: 1, 
+              experience_type: 1, 
+              createdAt: 1, 
+              updatedAt: 1,
+              isCurated: isCuratedFilter ? true : {
+                $cond: {
+                  if: { $and: [
+                    { $isArray: '$ownerUser.feature_flags' },
+                    { $gt: [{ $size: { $filter: { input: '$ownerUser.feature_flags', cond: { $and: [
+                      { $eq: ['$$this.flag', 'curator'] },
+                      { $eq: ['$$this.enabled', true] }
+                    ] } } } }, 0] }
+                  ] },
+                  then: true,
+                  else: false
+                }
+              }
+            }
+          });
+
+          const all = await Experience.aggregate(pipeline).exec();
           return successResponse(res, all);
         }
 
@@ -284,24 +415,142 @@ async function index(req, res) {
           .sort(sortObj)
           .lean({ virtuals: false })
           .exec();
+
+        // Add isCurated field to all experiences
+        if (all.length > 0) {
+          // Get all owner IDs from experiences
+          const ownerIds = all.map(exp => {
+            const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+            return ownerPerm?._id;
+          }).filter(id => id);
+
+          if (ownerIds.length > 0) {
+            // Fetch owners with feature flags
+            const owners = await User.find({ _id: { $in: ownerIds } })
+              .select('_id feature_flags')
+              .lean();
+
+            // Create a map of owner ID to curator status
+            const ownerCuratorMap = new Map();
+            owners.forEach(owner => {
+              const isCurator = owner.feature_flags?.some(flag => 
+                flag.flag === 'curator' && flag.enabled === true
+              ) || false;
+              ownerCuratorMap.set(owner._id.toString(), isCurator);
+            });
+
+            // Add isCurated field to each experience
+            all.forEach(exp => {
+              const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+              const ownerId = ownerPerm?._id?.toString();
+              exp.isCurated = ownerCuratorMap.get(ownerId) || false;
+            });
+          }
+        }
+
         return successResponse(res, all);
       }
 
       // Apply sort and pagination
       let experiences;
-      if (isDestinationSort) {
-        // Use aggregation for destination sort + pagination
+      if (isDestinationSort || isCuratedFilter) {
+        // Use aggregation for destination sort, curated filtering, or both
         const pipeline = [
-          { $match: filter },
-          { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
-          { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+          { $match: filter }
+        ];
+
+        // Add curator filtering if requested
+        if (isCuratedFilter) {
+          pipeline.push(
+            // Find the owner permission
+            {
+              $addFields: {
+                ownerPermission: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: '$permissions',
+                        cond: { $eq: ['$$this.type', 'owner'] }
+                      }
+                    },
+                    0
+                  ]
+                }
+              }
+            },
+            // Lookup the owner user
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'ownerPermission._id',
+                foreignField: '_id',
+                as: 'ownerUser'
+              }
+            },
+            // Unwind the owner user (should only be one)
+            { $unwind: { path: '$ownerUser', preserveNullAndEmptyArrays: false } },
+            // Filter to only include users with curator flag
+            {
+              $match: {
+                'ownerUser.feature_flags': {
+                  $elemMatch: {
+                    flag: 'curator',
+                    enabled: true
+                  }
+                }
+              }
+            }
+          );
+        }
+
+        // Add destination lookup and sorting if needed
+        if (isDestinationSort) {
+          pipeline.push(
+            { $lookup: { from: 'destinations', localField: 'destination', foreignField: '_id', as: 'destination' } },
+            { $unwind: { path: '$destination', preserveNullAndEmptyArrays: true } },
+            { $sort: { 'destination.name': destSortDir } }
+          );
+        }
+
+        // Add photo lookup and processing
+        pipeline.push(
           { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
-          { $addFields: { photos: { $slice: ['$photos', 1] } } },
-          { $sort: { 'destination.name': destSortDir } },
+          { $addFields: { photos: { $slice: ['$photos', 1] } } }
+        );
+
+        // Add sorting if not destination sort
+        if (!isDestinationSort) {
+          pipeline.push({ $sort: sortObj });
+        }
+
+        // Add pagination
+        pipeline.push(
           { $skip: skip },
           { $limit: l },
-          { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
-        ];
+          { $project: { 
+            name: 1, 
+            destination: 1, 
+            photos: 1, 
+            default_photo_id: 1, 
+            permissions: 1, 
+            experience_type: 1, 
+            createdAt: 1, 
+            updatedAt: 1,
+            isCurated: isCuratedFilter ? true : {
+              $cond: {
+                if: { $and: [
+                  { $isArray: '$ownerUser.feature_flags' },
+                  { $gt: [{ $size: { $filter: { input: '$ownerUser.feature_flags', cond: { $and: [
+                    { $eq: ['$$this.flag', 'curator'] },
+                    { $eq: ['$$this.enabled', true] }
+                  ] } } } }, 0] }
+                ] },
+                then: true,
+                else: false
+              }
+            }
+          } }
+        );
 
         experiences = await Experience.aggregate(pipeline).exec();
       } else {
@@ -325,6 +574,38 @@ async function index(req, res) {
         total,
         userId: req.user?._id
       });
+
+      // Add isCurated field to all experiences
+      if (experiences.length > 0) {
+        // Get all owner IDs from experiences
+        const ownerIds = experiences.map(exp => {
+          const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+          return ownerPerm?._id;
+        }).filter(id => id);
+
+        if (ownerIds.length > 0) {
+          // Fetch owners with feature flags
+          const owners = await User.find({ _id: { $in: ownerIds } })
+            .select('_id feature_flags')
+            .lean();
+
+          // Create a map of owner ID to curator status
+          const ownerCuratorMap = new Map();
+          owners.forEach(owner => {
+            const isCurator = owner.feature_flags?.some(flag => 
+              flag.flag === 'curator' && flag.enabled === true
+            ) || false;
+            ownerCuratorMap.set(owner._id.toString(), isCurator);
+          });
+
+          // Add isCurated field to each experience
+          experiences.forEach(exp => {
+            const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+            const ownerId = ownerPerm?._id?.toString();
+            exp.isCurated = ownerCuratorMap.get(ownerId) || false;
+          });
+        }
+      }
 
       return paginatedResponse(res, experiences, {
         page: p,
@@ -1471,19 +1752,36 @@ async function showUserExperiences(req, res) {
 
     const plans = await query.exec();
 
-    // Extract unique experiences from plans
-    const experiences = plans
-      .filter(plan => plan.experience) // Filter out null experiences
-      .map(plan => plan.experience);
+    // Check if requester is super admin
+    const { isSuperAdmin } = require('../../utilities/permissions');
+    const includePlanIds = isSuperAdmin(req.user);
 
-    // Deduplicate by experience ID (a user might have multiple plans for same experience)
-    const seen = new Set();
-    const uniqueExperiences = experiences.filter(exp => {
-      const id = exp._id.toString();
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
+    let uniqueExperiences;
+    if (includePlanIds) {
+      // For super admins, return separate entries for each plan (no deduplication)
+      // This allows them to see and navigate to specific plans
+      uniqueExperiences = plans
+        .filter(plan => plan.experience)
+        .map(plan => {
+          const experience = plan.experience.toObject ? plan.experience.toObject() : plan.experience;
+          return {
+            ...experience,
+            _planId: plan._id
+          };
+        });
+    } else {
+      // For regular users, deduplicate experiences (backwards compatibility)
+      const experienceMap = new Map();
+      plans
+        .filter(plan => plan.experience)
+        .forEach(plan => {
+          const expId = plan.experience._id.toString();
+          if (!experienceMap.has(expId)) {
+            experienceMap.set(expId, plan.experience);
+          }
+        });
+      uniqueExperiences = Array.from(experienceMap.values());
+    }
 
     // Return paginated response with metadata, or just array for backwards compatibility
     if (hasPagination) {

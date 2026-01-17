@@ -114,12 +114,18 @@ export default function Destinations() {
       />
 
       {(loading || !initialLoadComplete) ? (
-        <Loading
-          variant="centered"
-          size="lg"
-          animation="engine"
-          message={lang.current.destinationsView.loading}
-        />
+        <Container className="my-4">
+          <div className={styles.destinationsList}>
+            {/* Skeleton loaders matching DestinationCard dimensions (12rem × 8rem) */}
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className={styles.destinationSkeleton}>
+                <div className={styles.destinationSkeletonOverlay}>
+                  <div className={styles.destinationSkeletonTitle} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Container>
       ) : (
         <Container className="my-4">
           <div className={styles.destinationsList}>

@@ -2884,9 +2884,14 @@ export default function SingleExperience() {
   // MAIN COMPONENT RENDER
   // ============================================================================
 
+  // Show skeleton loader while experience data is loading
+  if (!experience && !experienceNotFound) {
+    return <SingleExperienceSkeleton />;
+  }
+
   return (
     <>
-      
+
         {experience && (
           <PageOpenGraph
             title={experience.name}
