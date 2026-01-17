@@ -78,6 +78,12 @@
   :global(.photoCard) {
     border-radius: var(--radius-md);
   }
+
+  // Increase max-height on mobile/tablet for fullscreen modal
+  @media (max-width: 991px) {
+    max-height: 70vh;
+    min-height: 250px;
+  }
 }
 
 .photoUploadSection {
@@ -97,6 +103,11 @@
   // PhotoUpload component adjustments
   :global(.uploadZone) {
     min-height: 150px;
+  }
+
+  // Increase max-height on mobile/tablet for fullscreen modal
+  @media (max-width: 991px) {
+    max-height: 50vh;
   }
 }
 
