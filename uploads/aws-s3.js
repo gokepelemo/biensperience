@@ -41,6 +41,12 @@ function resolveAndValidateLocalUploadPath(inputPath) {
     throw new Error('Invalid file path: null bytes not allowed');
   }
 
+  // Additional validation: reject paths with suspicious characters
+  if (/[\x00-\x1f\x7f-\x9f]/.test(inputPath)) {
+    backendLogger.error('S3 upload blocked: control characters in path', { path: inputPath });
+    throw new Error('Invalid file path: control characters not allowed');
+  }
+
   // Require absolute paths (multer typically provides absolute paths).
   // This prevents callers from smuggling relative traversal like "../../etc/passwd".
   if (!path.isAbsolute(inputPath)) {
@@ -56,6 +62,12 @@ function resolveAndValidateLocalUploadPath(inputPath) {
   } catch (e) {
     backendLogger.error('File realpath resolution failed', { path: inputPath, error: e.message });
     throw new Error('Invalid file path - file does not exist or is not accessible');
+  }
+
+  // SECURITY: Verify that realPath is still absolute and within expected directory structure
+  if (!path.isAbsolute(realPath)) {
+    backendLogger.error('S3 upload blocked: realpath resolved to non-absolute path', { realPath, originalPath: inputPath });
+    throw new Error('Invalid file path: resolved path must be absolute');
   }
 
   // Allowed directories for uploads
@@ -82,20 +94,150 @@ function resolveAndValidateLocalUploadPath(inputPath) {
   }
 
   // Ensure it's a regular file and within size limit.
+  // SECURITY: realPath is now validated - it's within allowedDirs and resolved via realpathSync
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+  let stats;
   try {
-    const stats = fs.statSync(realPath);
-    if (!stats.isFile()) {
-      throw new Error('Path is not a regular file');
-    }
-    if (stats.size > 100 * 1024 * 1024) {
-      throw new Error('File too large');
-    }
+    stats = fs.statSync(realPath);
   } catch (statErr) {
-    backendLogger.error('File validation failed', { realPath, error: statErr.message });
+    backendLogger.error('File stat failed', { realPath, error: statErr.message });
     throw new Error('Invalid file path - file does not exist or is not accessible');
   }
 
+  if (!stats.isFile()) {
+    backendLogger.error('Path is not a regular file', { realPath });
+    throw new Error('Path is not a regular file');
+  }
+
+  if (stats.size > MAX_FILE_SIZE) {
+    backendLogger.error('File too large', { realPath, size: stats.size, maxSize: MAX_FILE_SIZE });
+    throw new Error('File too large');
+  }
+
+  // Mark path as validated for downstream consumers
+  // This is a security invariant: any path returned from this function is safe
   return realPath;
+}
+
+/**
+ * Securely read a file that has been validated by resolveAndValidateLocalUploadPath.
+ * This wrapper exists to make the security boundary explicit for static analysis tools.
+ *
+ * SECURITY INVARIANT: The validatedPath parameter MUST have been returned by
+ * resolveAndValidateLocalUploadPath(). Passing any other path is a security violation.
+ *
+ * @param {string} validatedPath - A path that was returned by resolveAndValidateLocalUploadPath
+ * @returns {Promise<Buffer>} The file contents as a Buffer
+ * @throws {Error} If file cannot be read
+ */
+async function secureReadFile(validatedPath) {
+  // Defense in depth: re-verify the path is within allowed directories
+  // This provides an additional check even if called incorrectly
+  if (!validatedPath || typeof validatedPath !== 'string') {
+    throw new Error('Invalid validated path');
+  }
+
+  // Additional security: ensure path is absolute and doesn't contain suspicious characters
+  if (!path.isAbsolute(validatedPath) || /[\x00-\x1f\x7f-\x9f]/.test(validatedPath)) {
+    backendLogger.error('secureReadFile: invalid path format', { validatedPath });
+    throw new Error('Invalid file path: path format not allowed');
+  }
+
+  // Verify path is still within allowed directories (defense in depth)
+  const allowedDirs = [
+    UPLOADS_ROOT,
+    path.resolve(UPLOADS_ROOT, 'documents'),
+    path.resolve(UPLOADS_ROOT, 'images'),
+    path.resolve(UPLOADS_ROOT, 'temp')
+  ];
+
+  const isAllowed = allowedDirs.some((dir) => {
+    try {
+      const relative = path.relative(dir, validatedPath);
+      if (relative === '') return true;
+      return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    } catch (_e) {
+      return false;
+    }
+  });
+
+  if (!isAllowed) {
+    backendLogger.error('secureReadFile: path not in allowed directories', { validatedPath });
+    throw new Error('Invalid file path: access denied');
+  }
+
+  // Final security check: ensure the file still exists and is accessible
+  try {
+    const stats = fs.statSync(validatedPath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a regular file');
+    }
+  } catch (statErr) {
+    backendLogger.error('secureReadFile: file validation failed', { validatedPath, error: statErr.message });
+    throw new Error('Invalid file path - file not accessible');
+  }
+
+  return fs.promises.readFile(validatedPath);
+}
+
+/**
+ * Securely create a read stream for a file that has been validated.
+ * This wrapper exists to make the security boundary explicit for static analysis tools.
+ *
+ * SECURITY INVARIANT: The validatedPath parameter MUST have been returned by
+ * resolveAndValidateLocalUploadPath(). Passing any other path is a security violation.
+ *
+ * @param {string} validatedPath - A path that was returned by resolveAndValidateLocalUploadPath
+ * @returns {fs.ReadStream} A readable stream for the file
+ * @throws {Error} If file cannot be accessed
+ */
+function secureCreateReadStream(validatedPath) {
+  // Defense in depth: re-verify the path is within allowed directories
+  if (!validatedPath || typeof validatedPath !== 'string') {
+    throw new Error('Invalid validated path');
+  }
+
+  // Additional security: ensure path is absolute and doesn't contain suspicious characters
+  if (!path.isAbsolute(validatedPath) || /[\x00-\x1f\x7f-\x9f]/.test(validatedPath)) {
+    backendLogger.error('secureCreateReadStream: invalid path format', { validatedPath });
+    throw new Error('Invalid file path: path format not allowed');
+  }
+
+  // Verify path is still within allowed directories (defense in depth)
+  const allowedDirs = [
+    UPLOADS_ROOT,
+    path.resolve(UPLOADS_ROOT, 'documents'),
+    path.resolve(UPLOADS_ROOT, 'images'),
+    path.resolve(UPLOADS_ROOT, 'temp')
+  ];
+
+  const isAllowed = allowedDirs.some((dir) => {
+    try {
+      const relative = path.relative(dir, validatedPath);
+      if (relative === '') return true;
+      return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    } catch (_e) {
+      return false;
+    }
+  });
+
+  if (!isAllowed) {
+    backendLogger.error('secureCreateReadStream: path not in allowed directories', { validatedPath });
+    throw new Error('Invalid file path: access denied');
+  }
+
+  // Final security check: ensure the file still exists and is accessible
+  try {
+    const stats = fs.statSync(validatedPath);
+    if (!stats.isFile()) {
+      throw new Error('Path is not a regular file');
+    }
+  } catch (statErr) {
+    backendLogger.error('secureCreateReadStream: file validation failed', { validatedPath, error: statErr.message });
+    throw new Error('Invalid file path - file not accessible');
+  }
+
+  return fs.createReadStream(validatedPath);
 }
 
 function getS3UploadTimeoutMs() {
@@ -442,4 +584,15 @@ const getBucketConfig = function () {
   };
 };
 
-module.exports = { s3Upload, s3Delete, s3GetSignedUrl, s3Download, s3DownloadBuffer, getBucketConfig };
+module.exports = {
+  s3Upload,
+  s3Delete,
+  s3GetSignedUrl,
+  s3Download,
+  s3DownloadBuffer,
+  getBucketConfig,
+  // Security functions exported for testing
+  resolveAndValidateLocalUploadPath,
+  secureReadFile,
+  secureCreateReadStream
+};

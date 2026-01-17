@@ -26,6 +26,7 @@
 
 import { getActivityType } from '../../../../../constants/activity-types';
 import { getTimeOfDay } from './time';
+import { groupItemsByType } from '../../../../../utilities/plan-grouping-utils';
 
 
 // Re-export the new unified utility for local compatibility
