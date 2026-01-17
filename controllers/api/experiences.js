@@ -379,7 +379,29 @@ async function index(req, res) {
 
           // Add projection
           pipeline.push({
-            $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 }
+            $project: { 
+              name: 1, 
+              destination: 1, 
+              photos: 1, 
+              default_photo_id: 1, 
+              permissions: 1, 
+              experience_type: 1, 
+              createdAt: 1, 
+              updatedAt: 1,
+              isCurated: isCuratedFilter ? true : {
+                $cond: {
+                  if: { $and: [
+                    { $isArray: '$ownerUser.feature_flags' },
+                    { $gt: [{ $size: { $filter: { input: '$ownerUser.feature_flags', cond: { $and: [
+                      { $eq: ['$$this.flag', 'curator'] },
+                      { $eq: ['$$this.enabled', true] }
+                    ] } } } }, 0] }
+                  ] },
+                  then: true,
+                  else: false
+                }
+              }
+            }
           });
 
           const all = await Experience.aggregate(pipeline).exec();
@@ -393,6 +415,39 @@ async function index(req, res) {
           .sort(sortObj)
           .lean({ virtuals: false })
           .exec();
+
+        // Add isCurated field to all experiences
+        if (all.length > 0) {
+          // Get all owner IDs from experiences
+          const ownerIds = all.map(exp => {
+            const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+            return ownerPerm?._id;
+          }).filter(id => id);
+
+          if (ownerIds.length > 0) {
+            // Fetch owners with feature flags
+            const owners = await User.find({ _id: { $in: ownerIds } })
+              .select('_id feature_flags')
+              .lean();
+
+            // Create a map of owner ID to curator status
+            const ownerCuratorMap = new Map();
+            owners.forEach(owner => {
+              const isCurator = owner.feature_flags?.some(flag => 
+                flag.flag === 'curator' && flag.enabled === true
+              ) || false;
+              ownerCuratorMap.set(owner._id.toString(), isCurator);
+            });
+
+            // Add isCurated field to each experience
+            all.forEach(exp => {
+              const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+              const ownerId = ownerPerm?._id?.toString();
+              exp.isCurated = ownerCuratorMap.get(ownerId) || false;
+            });
+          }
+        }
+
         return successResponse(res, all);
       }
 
@@ -472,7 +527,29 @@ async function index(req, res) {
         pipeline.push(
           { $skip: skip },
           { $limit: l },
-          { $project: { name: 1, destination: 1, photos: 1, default_photo_id: 1, permissions: 1, experience_type: 1, createdAt: 1, updatedAt: 1 } }
+          { $project: { 
+            name: 1, 
+            destination: 1, 
+            photos: 1, 
+            default_photo_id: 1, 
+            permissions: 1, 
+            experience_type: 1, 
+            createdAt: 1, 
+            updatedAt: 1,
+            isCurated: isCuratedFilter ? true : {
+              $cond: {
+                if: { $and: [
+                  { $isArray: '$ownerUser.feature_flags' },
+                  { $gt: [{ $size: { $filter: { input: '$ownerUser.feature_flags', cond: { $and: [
+                    { $eq: ['$$this.flag', 'curator'] },
+                    { $eq: ['$$this.enabled', true] }
+                  ] } } } }, 0] }
+                ] },
+                then: true,
+                else: false
+              }
+            }
+          } }
         );
 
         experiences = await Experience.aggregate(pipeline).exec();
@@ -497,6 +574,38 @@ async function index(req, res) {
         total,
         userId: req.user?._id
       });
+
+      // Add isCurated field to all experiences
+      if (experiences.length > 0) {
+        // Get all owner IDs from experiences
+        const ownerIds = experiences.map(exp => {
+          const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+          return ownerPerm?._id;
+        }).filter(id => id);
+
+        if (ownerIds.length > 0) {
+          // Fetch owners with feature flags
+          const owners = await User.find({ _id: { $in: ownerIds } })
+            .select('_id feature_flags')
+            .lean();
+
+          // Create a map of owner ID to curator status
+          const ownerCuratorMap = new Map();
+          owners.forEach(owner => {
+            const isCurator = owner.feature_flags?.some(flag => 
+              flag.flag === 'curator' && flag.enabled === true
+            ) || false;
+            ownerCuratorMap.set(owner._id.toString(), isCurator);
+          });
+
+          // Add isCurated field to each experience
+          experiences.forEach(exp => {
+            const ownerPerm = exp.permissions?.find(p => p.type === 'owner');
+            const ownerId = ownerPerm?._id?.toString();
+            exp.isCurated = ownerCuratorMap.get(ownerId) || false;
+          });
+        }
+      }
 
       return paginatedResponse(res, experiences, {
         page: p,

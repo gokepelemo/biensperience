@@ -1,7 +1,7 @@
 import styles from "./ExperienceCard.module.scss";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect, useRef } from "react";
-import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers } from "react-icons/fa";
+import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers, FaStar } from "react-icons/fa";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
@@ -17,6 +17,7 @@ import { useUser } from "../../contexts/UserContext";
 import { getCachedPlanState, setCachedPlanState } from "../../utilities/plan-cache";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import imagePreloader from '../../utilities/image-preloader';
+import { Badge } from "react-bootstrap";
 
 // In-memory cache of URLs we've already successfully loaded during this session.
 // This prevents skeleton re-appearing and redundant preload work on remounts.
@@ -562,6 +563,28 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               aria-label={lang.current.label?.sharedPlan || 'Shared Plan'}
             >
               <FaUsers className={styles.sharedIcon} />
+            </div>
+          )}
+          {/* Curated Experience Badge - shown in top-left corner */}
+          {experience.isCurated && (
+            <div
+              className={styles.curatedBadge}
+              title="Curated Experience"
+              aria-label="Curated Experience"
+            >
+              <Badge
+                bg="secondary"
+                className={styles.tag}
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)',
+                  color: 'white',
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.5rem'
+                }}
+              >
+                <FaStar size={10} style={{ marginRight: '0.25rem' }} />
+                Curated
+              </Badge>
             </div>
           )}
           <Link to={planId ? `/experiences/${experience._id}#plan-${planId}` : `/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
