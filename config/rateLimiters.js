@@ -74,9 +74,24 @@ const modificationLimiter = rateLimit({
   skip: skipIfSuperAdmin,
 });
 
+/**
+ * Rate limiter for external API calls and expensive operations
+ * More restrictive to prevent abuse of external services
+ * Configurable via env: EXTERNAL_RATE_WINDOW_MS, EXTERNAL_RATE_MAX
+ */
+const externalApiLimiter = rateLimit({
+  windowMs: parseInt(process.env.EXTERNAL_RATE_WINDOW_MS || '', 10) || (15 * 60 * 1000), // 15 minutes
+  max: parseInt(process.env.EXTERNAL_RATE_MAX || '', 10) || 200,
+  message: 'Too many external API requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipIfSuperAdmin,
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
   collaboratorLimiter,
-  modificationLimiter
+  modificationLimiter,
+  externalApiLimiter
 };

@@ -279,7 +279,7 @@ if (process.env.NODE_ENV !== 'test') {
 // Apply strict auth rate limiter to authentication endpoints (login, password)
 // to mitigate brute-force attacks. The authLimiter is configured in
 // `config/rateLimiters.js` and skips successful requests where appropriate.
-const { authLimiter, modificationLimiter } = require('./config/rateLimiters');
+const { authLimiter, modificationLimiter, externalApiLimiter } = require('./config/rateLimiters');
 app.use('/api/auth', authLimiter, require('./routes/api/auth'));
 
 // Session ID middleware - manage session IDs for authenticated requests (after auth)
@@ -359,7 +359,7 @@ app.use("/api/experiences", require("./routes/api/experiences"));
 app.use("/api/photos", require("./routes/api/photos"));
 app.use("/api/plans", require("./routes/api/plans"));
 app.use("/api/documents", require("./routes/api/documents"));
-app.use("/api/search", require("./routes/api/search"));
+app.use("/api/search", externalApiLimiter, require("./routes/api/search"));
 app.use("/api/tokens", require("./routes/api/tokens"));
 app.use("/api/invites", require("./routes/api/invites"));
 app.use("/api/invite-tracking", require("./routes/api/invite-tracking"));
@@ -368,8 +368,10 @@ app.use("/api/dashboard", require("./routes/api/dashboard"));
 app.use("/api/follows", require("./routes/api/follows"));
 app.use("/api/ai", require("./routes/api/ai"));
 app.use("/api/chat", require("./routes/api/chat"));
-app.use("/api/geocode", require("./routes/api/geocode"));
-app.use("/api/countries", require("./routes/api/countries"));
+
+// Apply stricter rate limiting to external API routes
+app.use("/api/geocode", externalApiLimiter, require("./routes/api/geocode"));
+app.use("/api/countries", externalApiLimiter, require("./routes/api/countries"));
 app.use("/health-check", (req, res) => {
   res.send("OK");
 });
