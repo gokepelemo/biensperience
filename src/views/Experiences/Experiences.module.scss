@@ -19,3 +19,91 @@
     }
   }
 }
+
+/* Experience Skeleton - matches ExperienceCard layout exactly */
+/* Card: 20rem width, min-height 12rem, border-radius md, centered title + bottom actions row */
+.experienceSkeleton {
+  width: 20rem;
+  min-height: 12rem;
+  margin: $space-2; // Match ExperienceCard's outer wrapper (Bootstrap m-2)
+  border-radius: $radius-md;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-3;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Content area matching ExperienceCard's .experienceCardLink (flex-grow-1, centered) */
+.experienceSkeletonContent {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Title overlay matching ExperienceCard's .experienceCardTitle (blur background, centered) */
+.experienceSkeletonTitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-3 $space-4;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: $radius-md;
+  width: 100%;
+  max-width: 100%;
+
+  // Inner shimmer bar for text
+  &::after {
+    content: '';
+    display: block;
+    height: calc(#{$font-size-lg} * #{$line-height-normal});
+    width: 70%;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: $radius-sm;
+  }
+}
+
+/* Actions row matching ExperienceCard's .experienceCardActions */
+.experienceSkeletonActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  padding: $space-3;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Round buttons matching ExperienceCard's btn-icon (--btn-height-md = 44px) */
+.experienceSkeletonButton {
+  width: var(--btn-height-md, 44px);
+  height: var(--btn-height-md, 44px);
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  opacity: 0.9;
+}
+
+/* Shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

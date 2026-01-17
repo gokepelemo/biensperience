@@ -188,11 +188,23 @@ export default function ExperiencesByTag() {
       </FadeIn>
 
       {loading ? (
-        <Loading
-          variant="centered"
-          size="lg"
-          message={lang.current.experiencesByTag.loadingExperiences.replace('{tagName}', displayTagName)}
-        />
+        <FadeIn>
+          <div className={styles.experiencesList}>
+            {/* Skeleton loaders matching ExperienceCard dimensions (20rem × 12rem min-height) */}
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className={styles.experienceSkeleton}>
+                <div className={styles.experienceSkeletonContent}>
+                  <div className={styles.experienceSkeletonTitle} />
+                </div>
+                <div className={styles.experienceSkeletonActions}>
+                  <div className={styles.experienceSkeletonButton} />
+                  <div className={styles.experienceSkeletonButton} />
+                  <div className={styles.experienceSkeletonButton} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
       ) : (
         <FadeIn>
           <div className={styles.experiencesList}>

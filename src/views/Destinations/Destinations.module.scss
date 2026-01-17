@@ -19,3 +19,57 @@
     }
   }
 }
+
+/* Destination Skeleton - matches DestinationCard layout exactly */
+/* Card: 12rem × 8rem, border-radius 2xl, centered title overlay with blur */
+.destinationSkeleton {
+  width: 12rem;
+  height: 8rem;
+  margin: $space-2; // Match DestinationCard's outer wrapper (Bootstrap m-2)
+  border-radius: $radius-2xl;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-3;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: destinationsShimmer 1.5s infinite;
+}
+
+/* Centered title overlay matching DestinationCard's .destinationCardTitle */
+.destinationSkeletonOverlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-3;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: $radius-md;
+  width: 100%;
+  max-width: 100%;
+}
+
+.destinationSkeletonTitle {
+  height: calc(#{$font-size-lg} * #{$line-height-snug});
+  width: 70%;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: $radius-sm;
+}
+
+/* Shimmer animation for skeleton loaders */
+@keyframes destinationsShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

@@ -358,11 +358,46 @@ export default function AllUsers() {
 
           {/* Users Table */}
           {loading ? (
-            <Loading
-              variant="centered"
-              size="lg"
-              message={lang.current.admin.loadingUsers}
-            />
+            <Card>
+              <Card.Body className="p-0">
+                <Table hover striped responsive>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell header>Name</TableCell>
+                      <TableCell header>Email</TableCell>
+                      <TableCell header>Role</TableCell>
+                      <TableCell header>Joined</TableCell>
+                      <TableCell header className="text-end">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {/* Skeleton table rows */}
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <SkeletonLoader variant="text" width="120px" height="16px" />
+                        </TableCell>
+                        <TableCell>
+                          <SkeletonLoader variant="text" width="180px" height="16px" />
+                        </TableCell>
+                        <TableCell>
+                          <SkeletonLoader variant="text" width="100px" height="20px" />
+                        </TableCell>
+                        <TableCell>
+                          <SkeletonLoader variant="text" width="80px" height="16px" />
+                        </TableCell>
+                        <TableCell className="text-end">
+                          <div className="d-flex justify-content-end gap-2">
+                            <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+                            <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card.Body>
+            </Card>
           ) : (
             <Card>
               <div className={styles.searchFilterBar}>
