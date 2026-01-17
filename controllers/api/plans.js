@@ -456,6 +456,7 @@ const getUserPlans = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   // Include both owned plans AND collaborative plans (where user is a collaborator)
+  // Note: Super admins do NOT get to see all plans in dropdown - only their own and collaborative ones
   const filter = {
     $or: [
       { user: req.user._id },
@@ -967,6 +968,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   }
 
   // Single optimized query: get user's own plan OR plans where user is collaborator/owner
+  // Note: Super admins do NOT get to see all plans in dropdown - only their own and collaborative ones
   const plans = await Plan.find({
     experience: experienceId,
     $or: [
@@ -1074,6 +1076,7 @@ const checkUserPlanForExperience = asyncHandler(async (req, res) => {
   }
 
   // Find all plans where user is owner OR collaborator
+  // Note: Super admins do NOT get special access here - only their own and collaborative plans
   // Lean query with minimal fields - very fast
   const plans = await Plan.find({
     experience: experienceId,

@@ -421,8 +421,8 @@ export default function DocumentsTab({
     );
   }
 
-  // Empty state
-  if (documents.length === 0 && !showDisabled) {
+  // Empty state - when no documents are available (including disabled ones when showDisabled is true)
+  if (documents.length === 0) {
     return (
       <div className={styles.documentsTab}>
         <input
@@ -445,15 +445,20 @@ export default function DocumentsTab({
               variant="outline"
               size="sm"
               onClick={handleToggleDisabled}
+              className={styles.adminToggle}
+              title="Super Admin Only"
             >
               <FaBan className={styles.adminIcon} />
-              Show Disabled Documents
+              {showDisabled ? 'Hide Disabled' : 'Show Disabled'}
+              <span className={styles.adminBadge}>🔐</span>
             </Button>
           </div>
         )}
 
         <EmptyState
           variant="documents"
+          title={showDisabled ? 'No Disabled Documents Found' : undefined}
+          description={showDisabled ? 'There are no disabled documents for this plan item.' : undefined}
           primaryAction={canEdit ? (lang.current.planItemDetailsModal?.uploadDocument || 'Upload Document') : null}
           onPrimaryAction={canEdit ? handleUploadClick : null}
           size="md"

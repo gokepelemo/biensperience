@@ -22,7 +22,7 @@ import imagePreloader from '../../utilities/image-preloader';
 // This prevents skeleton re-appearing and redundant preload work on remounts.
 const loadedImageUrls = new Set();
 
-function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false, showSharedIcon = false }) {
+function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false, showSharedIcon = false, planId }) {
   const { user } = useUser();
   const { fetchPlans, plans: globalPlans } = useData();
   const { error: showError } = useToast();
@@ -564,7 +564,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               <FaUsers className={styles.sharedIcon} />
             </div>
           )}
-          <Link to={`/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
+          <Link to={planId ? `/experiences/${experience._id}#plan-${planId}` : `/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
             <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100`} style={{ textAlign: 'center' }}>
               {experience.name}
             </span>

@@ -1471,19 +1471,36 @@ async function showUserExperiences(req, res) {
 
     const plans = await query.exec();
 
-    // Extract unique experiences from plans
-    const experiences = plans
-      .filter(plan => plan.experience) // Filter out null experiences
-      .map(plan => plan.experience);
+    // Check if requester is super admin
+    const { isSuperAdmin } = require('../../utilities/permissions');
+    const includePlanIds = isSuperAdmin(req.user);
 
-    // Deduplicate by experience ID (a user might have multiple plans for same experience)
-    const seen = new Set();
-    const uniqueExperiences = experiences.filter(exp => {
-      const id = exp._id.toString();
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
+    let uniqueExperiences;
+    if (includePlanIds) {
+      // For super admins, return separate entries for each plan (no deduplication)
+      // This allows them to see and navigate to specific plans
+      uniqueExperiences = plans
+        .filter(plan => plan.experience)
+        .map(plan => {
+          const experience = plan.experience.toObject ? plan.experience.toObject() : plan.experience;
+          return {
+            ...experience,
+            _planId: plan._id
+          };
+        });
+    } else {
+      // For regular users, deduplicate experiences (backwards compatibility)
+      const experienceMap = new Map();
+      plans
+        .filter(plan => plan.experience)
+        .forEach(plan => {
+          const expId = plan.experience._id.toString();
+          if (!experienceMap.has(expId)) {
+            experienceMap.set(expId, plan.experience);
+          }
+        });
+      uniqueExperiences = Array.from(experienceMap.values());
+    }
 
     // Return paginated response with metadata, or just array for backwards compatibility
     if (hasPagination) {

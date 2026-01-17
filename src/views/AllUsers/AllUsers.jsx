@@ -8,10 +8,10 @@ import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
-import Loading from "../../components/Loading/Loading";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
 import Pagination from "../../components/Pagination/Pagination";
 import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, EmptyState } from "../../components/design-system";
+import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
 import { logger } from "../../utilities/logger";
@@ -545,7 +545,7 @@ export default function AllUsers() {
                                   title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeSuperAdmin}
                                 >
                                   {updatingUser === userData._id ? (
-                                    <Loading size="sm" showMessage={false} />
+                                    <SkeletonLoader variant="rectangle" width="80px" height="32px" />
                                   ) : (
                                     <>
                                       <FaUserShield className="me-1" />
@@ -566,7 +566,7 @@ export default function AllUsers() {
                                   title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeRegularUser}
                                 >
                                   {updatingUser === userData._id ? (
-                                    <Loading size="sm" showMessage={false} />
+                                    <SkeletonLoader variant="rectangle" width="80px" height="32px" />
                                   ) : (
                                     <>
                                       <FaUser className="me-1" />

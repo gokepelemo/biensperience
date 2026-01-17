@@ -23,7 +23,7 @@ const Plan = require('../../models/plan');
 const User = require('../../models/user');
 const { s3Upload, s3Delete, s3GetSignedUrl } = require('../../uploads/aws-s3');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
-const { isOwner, isCollaborator } = require('../../utilities/permissions');
+const { isOwner, isCollaborator, isSuperAdmin } = require('../../utilities/permissions');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const backendLogger = require('../../utilities/backend-logger');
 const {
@@ -1063,6 +1063,12 @@ async function verifyEntityAccess(userId, entityType, entityId, planId = null) {
       return false;
     }
 
+    // Check if user is super admin - they have access to everything
+    const user = await User.findById(userId);
+    if (user && isSuperAdmin(user)) {
+      return true;
+    }
+
     switch (entityType) {
       case 'plan':
       case 'plan_item': {
@@ -1104,6 +1110,10 @@ async function verifyEntityAccess(userId, entityType, entityId, planId = null) {
  * Check if user can access a document
  */
 async function canAccessDocument(userId, document) {
+  // Check if user is super admin - they have access to everything
+  const user = await User.findById(userId);
+  if (user && isSuperAdmin(user)) return true;
+
   // Owner always has access
   if (isOwner(userId, document)) return true;
 

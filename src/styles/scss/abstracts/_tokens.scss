@@ -119,7 +119,7 @@
 
   /* Brand Colors */
   --color-primary: #{$color-primary};
-  --color-primary-rgb: #{color.channel($color-primary, "red", $space: rgb)}, #{color.channel($color-primary, "green", $space: rgb)}, #{color.channel($color-primary, "blue", $space: rgb)};
+  --color-primary-rgb: #{red($color-primary)}, #{green($color-primary)}, #{blue($color-primary)};
   --color-primary-light: #{$color-primary-light};
   --color-primary-dark: #{$color-primary-dark};
   --color-primary-hover: #{$color-primary-hover};
