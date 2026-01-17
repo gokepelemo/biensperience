@@ -7,7 +7,6 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
-import Loading from "../../components/Loading/Loading";
 import { Button, Container, Mobile, Desktop, FadeIn, EmptyState } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
