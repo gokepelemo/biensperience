@@ -795,3 +795,6 @@ function toLocalDate(input) {
     return null;
   }
 }
+
+// Export functions
+export { getRelativeTime };
