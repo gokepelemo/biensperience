@@ -17,10 +17,11 @@ import EmptyState from '../EmptyState/EmptyState';
 import Loading from '../Loading/Loading';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import { updatePlanItem } from '../../utilities/plans-api';
-import { getPhotosByIds, deletePhoto } from '../../utilities/photos-api';
+import { getPhotosByIds, deletePhoto, uploadPhoto } from '../../utilities/photos-api';
 import { isSuperAdmin } from '../../utilities/permissions';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
+import DropZone from '../DropZone';
 import styles from './PhotosTab.module.scss';
 
 /**
@@ -55,6 +56,7 @@ export default function PhotosTab({
   // UI state
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   
   // Delete confirmation state
@@ -226,6 +228,65 @@ export default function PhotosTab({
       setPhotoIds(newIds);
     }
   }, [photoIds]);
+
+  // ============================================
+  // DRAG AND DROP HANDLER
+  // ============================================
+
+  /**
+   * Handle files dropped onto the drop zone
+   */
+  const handleDrop = useCallback(async (files) => {
+    if (!files || files.length === 0) return;
+
+    logger.info('[PhotosTab] Files dropped for upload', { count: files.length });
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const uploadedPhotos = [];
+
+      for (const file of Array.from(files)) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          logger.warn('[PhotosTab] Skipping non-image file', { fileName: file.name, type: file.type });
+          continue;
+        }
+
+        // Create FormData for upload
+        const formData = new FormData();
+        formData.append('image', file);
+        if (planItem?.text) formData.append('name', planItem.text);
+
+        logger.debug('[PhotosTab] Uploading dropped photo', { fileName: file.name });
+
+        const uploadedPhoto = await uploadPhoto(formData);
+        uploadedPhotos.push(uploadedPhoto);
+      }
+
+      if (uploadedPhotos.length > 0) {
+        // Update local state with new photos
+        const newPhotos = [...photos, ...uploadedPhotos];
+        const newIds = [...photoIds, ...uploadedPhotos.map(p => p._id)];
+
+        setPhotos(newPhotos);
+        setPhotoIds(newIds);
+
+        logger.info('[PhotosTab] Photos uploaded via drag-drop', {
+          uploadedCount: uploadedPhotos.length,
+          totalCount: newPhotos.length
+        });
+      } else {
+        setError('No valid image files were uploaded');
+      }
+    } catch (err) {
+      logger.error('[PhotosTab] Drag-drop upload failed', { error: err.message });
+      setError(err.message || 'Failed to upload photos');
+    } finally {
+      setUploading(false);
+    }
+  }, [photos, photoIds, planItem?.text]);
 
   // ============================================
   // AUTO-SAVE
@@ -442,12 +503,21 @@ export default function PhotosTab({
               )}
             </div>
             <div className={styles.photoUploadWrapper}>
-              <PhotoUpload
-                data={photoUploadData}
-                setData={handlePhotoDataChange}
-                hideUploadedPhotos={true}
-                maxHeight="400px"
-              />
+              <DropZone
+                onDrop={handleDrop}
+                accept="image/*"
+                multiple={true}
+                disabled={uploading}
+                dropMessage="Drop photos here to upload"
+                className={styles.photoDropZone}
+              >
+                <PhotoUpload
+                  data={photoUploadData}
+                  setData={handlePhotoDataChange}
+                  hideUploadedPhotos={true}
+                  maxHeight="400px"
+                />
+              </DropZone>
             </div>
             
             {/* Delete button for currently selected photo */}

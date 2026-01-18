@@ -582,8 +582,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
                   padding: '0.25rem 0.5rem'
                 }}
               >
-                <FaStar size={10} style={{ marginRight: '0.25rem' }} />
-                Curated
+                <FaStar size={10} />
               </Badge>
             </div>
           )}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, lazy, Suspense } from "react";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
+import { BiensperienceChakraProvider } from "../../contexts/ChakraContext";
 import { ToastProvider, useToast } from "../../contexts/ToastContext";
 import { UserProvider, useUser } from "../../contexts/UserContext";
 import { DataProvider } from "../../contexts/DataContext";
@@ -114,25 +115,27 @@ export default function App() {
           })}
         </script>
       </Helmet>
-      <ToastProvider>
-        <UserProvider>
-          <AppProvider>
-            <DataProvider>
-              <TooltipProvider>
-                <PlanExperienceProvider>
-                  <NavigationIntentProvider>
-                    <ExperienceWizardProvider>
-                      <DestinationWizardProvider>
-                        <AppContent />
-                      </DestinationWizardProvider>
-                    </ExperienceWizardProvider>
-                  </NavigationIntentProvider>
-                </PlanExperienceProvider>
-              </TooltipProvider>
-            </DataProvider>
-          </AppProvider>
-        </UserProvider>
-      </ToastProvider>
+      <BiensperienceChakraProvider>
+        <ToastProvider>
+          <UserProvider>
+            <AppProvider>
+              <DataProvider>
+                <TooltipProvider>
+                  <PlanExperienceProvider>
+                    <NavigationIntentProvider>
+                      <ExperienceWizardProvider>
+                        <DestinationWizardProvider>
+                          <AppContent />
+                        </DestinationWizardProvider>
+                      </ExperienceWizardProvider>
+                    </NavigationIntentProvider>
+                  </PlanExperienceProvider>
+                </TooltipProvider>
+              </DataProvider>
+            </AppProvider>
+          </UserProvider>
+        </ToastProvider>
+      </BiensperienceChakraProvider>
     </HelmetProvider>
   );
 }

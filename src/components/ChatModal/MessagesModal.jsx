@@ -12,7 +12,7 @@ import {
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 import { FaChevronDown, FaTimes } from 'react-icons/fa';
-import { Link, useInRouterContext } from 'react-router-dom';
+import { Link, useInRouterContext, useLocation, useParams } from 'react-router-dom';
 
 import Alert from '../Alert/Alert';
 import styles from './MessagesModal.module.scss';
@@ -24,6 +24,9 @@ import { getPlanById } from '../../utilities/plans-api';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import { logger } from '../../utilities/logger';
 import { broadcastEvent } from '../../utilities/event-bus';
+import { useUIPreference } from '../../hooks/useUIPreference';
+import { updateUser } from '../../utilities/users-api';
+import { useUser } from '../../contexts/UserContext';
 
 /**
  * Get display name for channel list/sidebar (shows just other user's name for DMs)
@@ -68,11 +71,15 @@ export default function MessagesModal({
 }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
   const inRouterContext = useInRouterContext();
+  const location = useLocation();
+  const params = useParams();
   // Track if we're in the process of closing to prevent re-initialization
   const isClosingRef = useRef(false);
 
   const modalContentRef = useRef(null);
   const previouslyFocusedElRef = useRef(null);
+
+  const { user } = useUser();
 
   const [uiTheme, setUiTheme] = useState(() => {
     try {
@@ -88,6 +95,13 @@ export default function MessagesModal({
   const [channels, setChannels] = useState([]);
   const [activeChannel, setActiveChannel] = useState(null);
   const [planExperienceCache, setPlanExperienceCache] = useState({});
+
+  // User preference for active channels in messages list
+  // Default to null (show all channels) for backward compatibility
+  const [activeChannelIds, setActiveChannelIds] = useUIPreference('messages.activeChannels', null);
+
+  // Track if we've synced preferences to backend to avoid initial load sync
+  const hasSyncedPreferencesRef = useRef(false);
 
   const [loading, setLoading] = useState(false);
   const [channelSwitching, setChannelSwitching] = useState(false);
@@ -460,11 +474,35 @@ export default function MessagesModal({
         // IMPORTANT UX: plan item group chats should ONLY appear inside the
         // PlanItemDetails modal Chat tab, not in the global Messages modal.
         // Plan group chats are included in the global Messages modal.
-        const filtered = (result || []).filter((ch) => {
+        let filtered = (result || []).filter((ch) => {
           if (ch?.data?.planItemId) return false;
           if (typeof ch?.id === 'string' && ch.id.startsWith('planItem_')) return false;
           return true;
         });
+
+        // Filter based on user's active channels preference
+        // If activeChannelIds is null (default), show all channels
+        // If it's an array, only show channels with IDs in the array
+        if (activeChannelIds && Array.isArray(activeChannelIds)) {
+          const activeChannelIdSet = new Set(activeChannelIds);
+          const newChannelIds = filtered
+            .map(ch => ch?.id || ch?.cid)
+            .filter(channelId => channelId && !activeChannelIdSet.has(channelId));
+
+          // Add any new channels to the active list
+          if (newChannelIds.length > 0) {
+            setActiveChannelIds(prev => [...(prev || []), ...newChannelIds]);
+          }
+
+          filtered = filtered.filter((ch) => {
+            const channelId = ch?.id || ch?.cid;
+            return activeChannelIdSet.has(channelId);
+          });
+        } else if (activeChannelIds === null && filtered.length > 0) {
+          // Initialize preference with all current channels when first loading
+          const allChannelIds = filtered.map(ch => ch?.id || ch?.cid);
+          setActiveChannelIds(allChannelIds);
+        }
 
         setChannels(filtered);
 
@@ -573,7 +611,7 @@ export default function MessagesModal({
     return () => {
       cancelled = true;
     };
-  }, [show, client, currentUser?.id, initialChannelId, targetUserId]);
+  }, [show, client, currentUser?.id, initialChannelId, targetUserId, activeChannelIds]);
 
   // Defensive: avoid a visually blank modal if Stream client init ends in a weird state
   // (e.g. StrictMode double-invocation cancellation). If we have an API key, are not
@@ -648,6 +686,20 @@ export default function MessagesModal({
         setActiveChannel(next);
       }
 
+      // Update user preference to hide this channel from messages list
+      // Optimistically update the preference (remove channel from active list)
+      setActiveChannelIds(prev => {
+        if (prev === null) {
+          // If no preference set yet, create one excluding this channel
+          const allChannelIds = channels.map(ch => ch?.id || ch?.cid).filter(id => id !== channelId);
+          return allChannelIds;
+        } else if (Array.isArray(prev)) {
+          // Remove this channel from the active list
+          return prev.filter(id => id !== channelId);
+        }
+        return prev;
+      });
+
       // Emit event for channel removed
       try {
         broadcastEvent('channel:removed', {
@@ -661,7 +713,35 @@ export default function MessagesModal({
     } catch (err) {
       logger.error('[MessagesModal] Failed to remove channel', err);
     }
-  }, [activeChannel, channels]);
+  }, [activeChannel, channels, setActiveChannelIds]);
+
+  // Sync activeChannelIds to backend when it changes (after initial load)
+  useEffect(() => {
+    if (!user?._id || !hasSyncedPreferencesRef.current) {
+      // Skip initial load
+      hasSyncedPreferencesRef.current = true;
+      return;
+    }
+
+    // Debounce the API call to avoid excessive requests
+    const timeoutId = setTimeout(async () => {
+      try {
+        await updateUser(user._id, {
+          preferences: {
+            messages: {
+              activeChannels: activeChannelIds
+            }
+          }
+        });
+        logger.debug('[MessagesModal] Synced active channels to backend', { activeChannelIds });
+      } catch (err) {
+        logger.error('[MessagesModal] Failed to sync active channels to backend', err);
+        // Don't show error to user - this is a background sync
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [activeChannelIds, user?._id]);
 
   const renderMobileDropdownItems = useCallback(() => {
     return channels.map((ch) => {
@@ -777,6 +857,37 @@ export default function MessagesModal({
     };
   }, [activeChannel, currentUser?.id, planExperienceCache, title]);
 
+  // Handle clicking on entity link in modal title
+  const handleEntityLinkClick = useCallback((event) => {
+    if (!headerTitle.linkTo) return;
+
+    // Check if we're already on the same entity page
+    const currentPath = location.pathname;
+    const linkTo = headerTitle.linkTo;
+
+    // For profile links: /profile/:profileId
+    if (linkTo.startsWith('/profile/')) {
+      const linkProfileId = linkTo.split('/profile/')[1];
+      if (currentPath === `/profile/${params.profileId}` && linkProfileId === params.profileId) {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+    }
+
+    // For experience links: /experiences/:experienceId
+    if (linkTo.startsWith('/experiences/')) {
+      const linkExperienceId = linkTo.split('/experiences/')[1].split('#')[0]; // Remove hash
+      if (currentPath === `/experiences/${params.experienceId}` && linkExperienceId === params.experienceId) {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+    }
+
+    // Allow normal navigation for different entities
+  }, [headerTitle.linkTo, location.pathname, params.profileId, params.experienceId, onClose]);
+
   // If a plan/plan-item channel becomes active, fetch its experienceId once so we can build a deep link.
   useEffect(() => {
     if (!activeChannel) return undefined;
@@ -848,7 +959,7 @@ export default function MessagesModal({
                   {' — '}
                   {headerTitle.linkTo ? (
                     inRouterContext ? (
-                      <Link to={headerTitle.linkTo} className={styles.modalTitleLink}>
+                      <Link to={headerTitle.linkTo} className={styles.modalTitleLink} onClick={handleEntityLinkClick}>
                         <ChannelTitle
                           label={headerTitle.label}
                           className={styles.modalTitleChannel}
@@ -856,7 +967,7 @@ export default function MessagesModal({
                         />
                       </Link>
                     ) : (
-                      <a href={headerTitle.linkTo} className={styles.modalTitleLink}>
+                      <a href={headerTitle.linkTo} className={styles.modalTitleLink} onClick={handleEntityLinkClick}>
                         <ChannelTitle
                           label={headerTitle.label}
                           className={styles.modalTitleChannel}

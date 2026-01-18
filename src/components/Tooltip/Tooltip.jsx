@@ -1,24 +1,26 @@
-import React, { useId, useMemo } from 'react';
-import { OverlayTrigger, Tooltip as BootstrapTooltip } from 'react-bootstrap';
+import React, { useMemo, isValidElement } from 'react';
+import { Tooltip as ChakraTooltip, Box } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
+import styles from './Tooltip.module.scss';
 
 /**
- * Tooltip Component - Bootstrap Tooltip with Popper.js
+ * Tooltip Component - Chakra UI v3 tooltip implementation
  * Wraps child element with a tooltip that appears on hover/focus
  *
  * @param {Object} props
  * @param {React.ReactNode} props.children - Element to attach tooltip to
  * @param {string|React.ReactNode} props.content - Tooltip content
- * @param {string} [props.placement='top'] - Tooltip placement: 'top', 'bottom', 'left', 'right', 'auto'
- * @param {string[]} [props.trigger=['hover', 'focus']] - Trigger events
+ * @param {string} [props.placement='top'] - Tooltip placement: 'top', 'bottom', 'left', 'right', 'auto', etc.
+ * @param {string[]} [props.trigger=['hover', 'focus']] - Trigger events (Chakra handles hover/focus by default)
  * @param {number} [props.delay] - Delay in ms before showing/hiding
- * @param {Object} [props.delayShow] - Delay before showing
- * @param {Object} [props.delayHide] - Delay before hiding
+ * @param {Object} [props.delayShow] - Delay before showing (maps to openDelay)
+ * @param {Object} [props.delayHide] - Delay before hiding (maps to closeDelay)
  * @param {string} [props.className] - Additional CSS class for tooltip
- * @param {boolean} [props.show] - Controlled show state
+ * @param {boolean} [props.show] - Controlled show state (maps to open)
  * @param {Function} [props.onToggle] - Callback when tooltip toggles
- * @param {boolean} [props.rootClose=false] - Close on click outside (for click-triggered tooltips)
+ * @param {boolean} [props.rootClose=false] - Close on click outside (maps to closeOnClick)
+ * @param {string} [props.variant] - Tooltip variant ('light' for light backgrounds)
  */
 export default function Tooltip({
   children,
@@ -33,87 +35,92 @@ export default function Tooltip({
   onToggle,
   rootClose = false,
   container,
+  variant,
 }) {
-  // Generate stable ID using React's useId hook to prevent re-render issues
-  const tooltipId = useId();
+  // Calculate delay configuration
+  const openDelay = useMemo(() => {
+    if (delay != null) return delay;
+    if (delayShow != null) return delayShow;
+    return 250; // Default delay
+  }, [delay, delayShow]);
 
-  // Default to rendering overlays at the document.body level.
-  // This avoids tooltips being clipped by parents (e.g., modals with overflow hidden).
-  const resolvedContainer = useMemo(() => {
-    if (container !== undefined) return container;
-    if (typeof document !== 'undefined') return document.body;
-    return undefined;
-  }, [container]);
+  const closeDelay = useMemo(() => {
+    if (delay != null) return delay;
+    if (delayHide != null) return delayHide;
+    return 0;
+  }, [delay, delayHide]);
 
   // If no content, just return children without tooltip
   if (!content) {
     return <>{children}</>;
   }
 
-  // Memoize the tooltip render function to prevent unnecessary re-renders
-  const renderTooltip = useMemo(() => (props) => (
-    <BootstrapTooltip id={`tooltip-${tooltipId}`} className={className} {...props}>
-      {content}
-    </BootstrapTooltip>
-  ), [tooltipId, className, content]);
-
-  // Memoize Popper.js configuration to prevent re-initialization on every render
-  const popperConfig = useMemo(() => ({
-    modifiers: [
-      {
-        // react-bootstrap normally enables flip by default.
-        // Since we provide a custom popperConfig, include flip explicitly so tooltips
-        // still appear when there's not enough room for the preferred placement.
-        name: 'flip',
-        options: {
-          fallbackPlacements: ['top', 'bottom', 'right', 'left'],
-        },
-      },
-      {
-        name: 'preventOverflow',
-        options: {
-          boundary: 'viewport',
-        },
-      },
-      {
-        name: 'offset',
-        options: {
-          offset: [0, 8], // Add space between trigger and tooltip
-        },
-      },
-    ],
-  }), []);
-
-  // Memoize delay configuration to prevent reference changes
-  const delayConfig = useMemo(() => {
-    if (delay != null) return delay;
-    if (delayShow != null || delayHide != null) {
-      return { show: delayShow ?? 0, hide: delayHide ?? 0 };
+  // Ensure children can receive refs - wrap in Box if necessary
+  const wrappedChildren = useMemo(() => {
+    // If children is a valid React element and can accept ref, use it directly
+    if (isValidElement(children)) {
+      return children;
     }
-    return undefined;
-  }, [delay, delayShow, delayHide]);
+    // Otherwise wrap in a span to receive the tooltip ref
+    return (
+      <Box as="span" display="inline-block" className={styles.tooltipTrigger}>
+        {children}
+      </Box>
+    );
+  }, [children]);
 
   return (
-    <OverlayTrigger
-      placement={placement}
-      delay={delayConfig}
-      overlay={renderTooltip}
-      trigger={trigger}
-      show={show}
-      onToggle={onToggle}
-      popperConfig={popperConfig}
-      rootClose={rootClose}
-      container={resolvedContainer}
+    <ChakraTooltip.Root
+      openDelay={openDelay}
+      closeDelay={closeDelay}
+      open={show}
+      onOpenChange={show !== undefined ? (details) => onToggle?.(details.open) : undefined}
+      closeOnClick={rootClose}
+      positioning={{ placement }}
     >
-      {children}
-    </OverlayTrigger>
+      <ChakraTooltip.Trigger asChild>
+        {wrappedChildren}
+      </ChakraTooltip.Trigger>
+      <ChakraTooltip.Positioner>
+        <ChakraTooltip.Content
+          className={className}
+          css={{
+            bg: 'var(--color-bg-tertiary, #2d2d2d)',
+            color: 'var(--color-text-primary, #fff)',
+            fontSize: 'var(--font-size-sm)',
+            px: 'var(--space-3)',
+            py: 'var(--space-2)',
+            borderRadius: 'var(--radius-sm, 0.25rem)',
+            boxShadow: 'var(--shadow-md)',
+            maxWidth: '300px',
+            zIndex: 1800,
+          }}
+        >
+          <ChakraTooltip.Arrow>
+            <ChakraTooltip.ArrowTip
+              css={{
+                '--arrow-background': 'var(--color-bg-tertiary, #2d2d2d)',
+              }}
+            />
+          </ChakraTooltip.Arrow>
+          {content}
+        </ChakraTooltip.Content>
+      </ChakraTooltip.Positioner>
+    </ChakraTooltip.Root>
   );
 }
 
 Tooltip.propTypes = {
   children: PropTypes.node.isRequired,
   content: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
-  placement: PropTypes.oneOf(['auto', 'top', 'bottom', 'left', 'right', 'auto-start', 'auto-end', 'top-start', 'top-end', 'bottom-start', 'bottom-end', 'left-start', 'left-end', 'right-start', 'right-end']),
+  placement: PropTypes.oneOf([
+    'auto', 'top', 'bottom', 'left', 'right',
+    'auto-start', 'auto-end',
+    'top-start', 'top-end',
+    'bottom-start', 'bottom-end',
+    'left-start', 'left-end',
+    'right-start', 'right-end'
+  ]),
   trigger: PropTypes.arrayOf(PropTypes.string),
   delay: PropTypes.number,
   delayShow: PropTypes.number,
@@ -123,12 +130,13 @@ Tooltip.propTypes = {
   onToggle: PropTypes.func,
   rootClose: PropTypes.bool,
   container: PropTypes.any,
+  variant: PropTypes.string,
 };
 
 /**
  * FormTooltip Component - Specialized tooltip for form fields
  * Shows an info icon with tooltip next to form labels
- * 
+ *
  * @param {Object} props
  * @param {string|React.ReactNode} props.content - Tooltip content
  * @param {string} [props.placement='top'] - Tooltip placement
@@ -140,14 +148,18 @@ export function FormTooltip({ content, placement = 'top', icon = 'ℹ️', iconC
 
   return (
     <Tooltip content={content} placement={placement}>
-      <span 
-        className={`${iconClass} cursor-help`} 
+      <Box
+        as="span"
+        className={`${iconClass} ${styles.cursorHelp}`}
         tabIndex={0}
         role="button"
         aria-label={lang.current.tooltip.moreInformation}
+        display="inline-flex"
+        alignItems="center"
+        cursor="help"
       >
         {icon}
-      </span>
+      </Box>
     </Tooltip>
   );
 }

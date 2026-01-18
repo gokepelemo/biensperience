@@ -71,7 +71,8 @@ export function UserProvider({ children }) {
             currency: prefs.currency || null,
             language: prefs.language || null,
             theme: prefs.theme || null,
-            timezone: prefs.timezone || null
+            timezone: prefs.timezone || null,
+            'messages.activeChannels': prefs.messages?.activeChannels || null
           });
         } catch (e) { /* ignore */ }
         // Apply theme immediately for user
@@ -430,6 +431,22 @@ export function UserProvider({ children }) {
             themeManager.applyTheme(updatedUser.preferences.theme);
           } catch (e) {
             // ignore theme errors
+          }
+        }
+
+        // Update localStorage preferences if they changed
+        if (updatedUser.preferences) {
+          try {
+            const prefs = updatedUser.preferences;
+            storePreferences({
+              currency: prefs.currency || null,
+              language: prefs.language || null,
+              theme: prefs.theme || null,
+              timezone: prefs.timezone || null,
+              'messages.activeChannels': prefs.messages?.activeChannels || null
+            });
+          } catch (e) {
+            // ignore preferences storage errors
           }
         }
       }

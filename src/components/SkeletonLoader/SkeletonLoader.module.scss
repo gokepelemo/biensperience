@@ -1,111 +1,17 @@
 /**
  * SkeletonLoader Component Styles (SCSS Module)
- * Migrated from SkeletonLoader.css to SkeletonLoader.module.scss
- * Uses SASS variables and mixins for better maintainability
+ * Now uses react-loading-skeleton library with minimal customizations
  */
 
 @use '../../styles/scss/abstracts' as *;
 
-.skeletonLoader {
-  display: block;
-  box-sizing: border-box;
-  flex-shrink: 0;
-  background: var(--color-bg-tertiary);
-  border-radius: $radius-sm;
-  position: relative;
-  overflow: hidden;
-  contain: layout style; // Prevent layout shifts
-  /* Keep skeletons perfectly still; shimmer handles perceived motion */
-  transform: translateZ(0); // Avoid subpixel shimmer tearing in some browsers
-}
-
-/* Animation */
-.skeletonAnimate {
-  background: linear-gradient(
-    90deg,
-    var(--color-bg-tertiary) 0%,
-    var(--color-bg-secondary) 50%,
-    var(--color-bg-tertiary) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
-}
-
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* Text variant */
-.skeletonText {
-  height: $font-size-base;
-  border-radius: $radius-sm;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-/* Circle variant */
-.skeletonCircle {
-  border-radius: $radius-full;
-  aspect-ratio: 1;
-}
-
-/* Rectangle variant */
-.skeletonRectangle {
-  border-radius: $radius-md;
-}
-
-/* Text group container */
+// Text group container for multi-line text skeletons
 .skeletonTextGroup {
   @include flex-column;
 }
 
-/* Size variants */
-.skeletonText.skeletonSm {
-  height: $font-size-sm;
-}
-
-.skeletonText.skeletonLg {
-  height: $font-size-lg;
-}
-
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .skeletonLoader {
-    background: var(--color-bg-tertiary-dark);
-  }
-
-  .skeletonAnimate {
-    background: linear-gradient(
-      90deg,
-      var(--color-bg-tertiary-dark) 0%,
-      var(--color-bg-secondary) 50%,
-      var(--color-bg-tertiary-dark) 100%
-    );
-  }
-}
-
-[data-theme="dark"] {
-  .skeletonLoader {
-    background: var(--color-bg-tertiary-dark);
-  }
-
-  .skeletonAnimate {
-    background: linear-gradient(
-      90deg,
-      var(--color-bg-tertiary-dark) 0%,
-      var(--color-bg-secondary) 50%,
-      var(--color-bg-tertiary-dark) 100%
-    );
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeletonAnimate {
-    animation: none;
-  }
+// Custom styling for react-loading-skeleton
+.skeletonLoader {
+  // Any custom overrides can go here if needed
+  // react-loading-skeleton handles most styling automatically
 }

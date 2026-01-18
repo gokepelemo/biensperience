@@ -1,11 +1,50 @@
-import { uploadFile, sendRequest } from "./send-request.js";
+import { uploadFile, uploadFileWithProgress, sendRequest } from "./send-request.js";
 import { logger } from "./logger.js";
 import { broadcastEvent } from "./event-bus.js";
 
 const BASE_URL = `/api/photos/`
 
-export async function uploadPhoto(request) {
-    const result = await uploadFile(`${BASE_URL}`, "POST", request);
+// Maximum photo file size (10MB) - for UI display
+export const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
+
+/**
+ * Format file size for display
+ * @param {number} bytes - Size in bytes
+ * @returns {string} Human-readable size
+ */
+export function formatPhotoSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+/**
+ * Get photo file size limit for display
+ * @returns {string} Human-readable max size
+ */
+export function getPhotoSizeLimit() {
+  return formatPhotoSize(MAX_PHOTO_SIZE);
+}
+
+/**
+ * Upload a single photo
+ * @param {FormData} request - FormData with photo file
+ * @param {Object} options - Upload options
+ * @param {Function} options.onProgress - Progress callback: ({ loaded, total, percent }) => void
+ * @param {AbortSignal} options.signal - AbortSignal for cancellation
+ * @returns {Promise<Object>} Uploaded photo object
+ */
+export async function uploadPhoto(request, options = {}) {
+    const { onProgress, signal } = options;
+
+    // Use uploadFileWithProgress if onProgress callback is provided
+    const uploadFn = onProgress ? uploadFileWithProgress : uploadFile;
+    const result = await uploadFn(`${BASE_URL}`, "POST", request, {
+        onProgress,
+        signal
+    });
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for created events

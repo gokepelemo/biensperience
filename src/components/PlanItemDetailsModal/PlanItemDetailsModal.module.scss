@@ -120,18 +120,24 @@
     overflow: visible;
   }
 
-  /* Common tab wrappers: remove forced 100% height + internal scrolling */
+  /* Common tab wrappers: preserve flex properties but adjust for document scroll mode */
   .notesTabWrapper,
   .photosTabWrapper,
   .documentsTabWrapper,
   .detailsTabContent,
   .locationTabContent {
-    display: block;
-    flex: 0 0 auto;
-    height: auto;
-    min-height: unset;
+    /* Keep flex properties to fill available space */
+    flex: 1 1 0;
+    height: 100%;
+    min-height: 0;
+    /* Adjust overflow for document scroll mode */
     overflow: visible;
     overscroll-behavior: auto;
+
+    /* Override tabWrapperActive display:flex with display:block for document scroll mode */
+    &.tabWrapperActive {
+      display: block;
+    }
   }
 
   /* Details tab: remove internal scroll container so page scroll handles it */
@@ -582,6 +588,20 @@
   @media (max-width: 768px) {
     padding: $space-3 $space-4;
   }
+}
+
+/* Tab wrapper visibility states - used instead of inline display styles
+ * to properly respect documentScrollMode overrides */
+.tabWrapperActive {
+  /* Ensure flex properties are maintained when visible */
+  display: flex !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+.tabWrapperHidden {
+  display: none !important;
 }
 
 .comingSoonMessage {

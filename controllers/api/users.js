@@ -454,6 +454,19 @@ async function updateUser(req, res, next) {
         prefs.notifications = n;
       }
 
+      // messages
+      if (p.messages && typeof p.messages === 'object') {
+        const m = {};
+        if (Array.isArray(p.messages.activeChannels)) {
+          // Validate that activeChannels contains only strings (channel IDs)
+          m.activeChannels = p.messages.activeChannels.filter(id => typeof id === 'string' && id.trim().length > 0);
+        } else if (p.messages.activeChannels === null) {
+          // Allow null to show all channels
+          m.activeChannels = null;
+        }
+        prefs.messages = m;
+      }
+
       // Only set preferences if at least one valid value present
       if (Object.keys(prefs).length > 0) {
         validatedUpdateData.preferences = prefs;
@@ -899,6 +912,19 @@ async function updateUserAsAdmin(req, res) {
           n.types = p.notifications.types.filter(t => ['activity', 'reminder', 'marketing', 'updates'].includes(t));
         }
         prefs.notifications = n;
+      }
+
+      // messages
+      if (p.messages && typeof p.messages === 'object') {
+        const m = {};
+        if (Array.isArray(p.messages.activeChannels)) {
+          // Validate that activeChannels contains only strings (channel IDs)
+          m.activeChannels = p.messages.activeChannels.filter(id => typeof id === 'string' && id.trim().length > 0);
+        } else if (p.messages.activeChannels === null) {
+          // Allow null to show all channels
+          m.activeChannels = null;
+        }
+        prefs.messages = m;
       }
 
       // Only set preferences if at least one valid value present

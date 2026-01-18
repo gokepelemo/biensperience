@@ -327,7 +327,6 @@ function DashboardSkeleton() {
           {/* Welcome section skeleton */}
           <div className={styles.skeletonWelcome}>
             <SkeletonLoader variant="text" width="320px" height={36} className={styles.skeletonWelcomeTitle} />
-            <SkeletonLoader variant="text" width="280px" height={20} className={styles.skeletonWelcomeSubtitle} />
           </div>
 
           {/* Stats grid skeleton - 4 cards matching actual layout */}

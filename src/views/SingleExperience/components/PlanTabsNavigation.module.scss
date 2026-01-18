@@ -138,15 +138,22 @@
   cursor: pointer;
   color: var(--color-text-secondary);
   margin-bottom: -1px;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 
   &:hover {
     color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-medium);
   }
 
   svg {
     width: 0.75rem;
     height: 0.75rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:hover {
+      border-bottom-color: var(--color-border-light);
+    }
   }
 }
 
