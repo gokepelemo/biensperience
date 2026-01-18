@@ -196,8 +196,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               <div style={{
                 fontSize: 'var(--font-size-sm)',
                 color: 'var(--color-text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-1)',
               }}>
-                <FaClock style={{ marginRight: 'var(--space-1)' }} />
+                <FaClock />
                 {activity.time}
               </div>
             </div>

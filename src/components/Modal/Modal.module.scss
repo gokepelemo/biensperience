@@ -23,7 +23,7 @@
   justify-content: center !important;
   opacity: 1 !important;
   pointer-events: auto !important; /* Allow backdrop to capture clicks for onClose */
-  overflow: hidden !important; /* Prevent any overflow from modal backdrop */
+  overflow: visible !important; /* Allow tooltips and other overlays to show above modal */
   overscroll-behavior: contain; /* Prevent scroll chaining to parent */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }

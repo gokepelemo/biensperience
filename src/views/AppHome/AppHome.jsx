@@ -52,11 +52,11 @@ export default function AppHome() {
 
     (async () => {
       try {
-        logger.info('AppHome: Fetching fresh curated experiences on mount');
-        // Clear any filters and fetch curated experiences only
+        logger.info('AppHome: Fetching fresh data on mount');
+        // Clear any filters and fetch all experiences (will filter locally)
         await Promise.all([
           applyDestinationsFilter({}),
-          applyExperiencesFilter({ curated: true })
+          applyExperiencesFilter({})
         ]);
         if (mounted) {
           setInitialFetchComplete(true);
@@ -73,11 +73,14 @@ export default function AppHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Filter experiences to show only curated ones
+  const curatedExperiences = experiences.filter(exp => exp.isCurated);
+
   // Determine loading states for each section
   // Show skeleton only if: no data exists AND (loading OR initial fetch hasn't completed)
   // This prevents flashing when data already exists but a background refresh is happening
   const isDestinationsLoading = destinations.length === 0 && (loading || !initialFetchComplete);
-  const isExperiencesLoading = experiences.length === 0 && (loading || !initialFetchComplete);
+  const isExperiencesLoading = curatedExperiences.length === 0 && (loading || !initialFetchComplete);
 
   // Check if this is a new user with no content (only after fetch completes)
   const isEmptyState = initialFetchComplete && !loading && destinations.length === 0 && experiences.length === 0;
@@ -204,11 +207,11 @@ export default function AppHome() {
                 ))}
               </div>
             </FlexCenter>
-          ) : experiences && experiences.length > 0 ? (
+          ) : curatedExperiences && curatedExperiences.length > 0 ? (
             <>
               <FlexCenter className="animation-fade-in">
                 <div className={styles.experiencesList}>
-                  {(showAllExperiences ? experiences : experiences.slice(0, EXPERIENCES_INITIAL_DISPLAY))
+                  {(showAllExperiences ? curatedExperiences : curatedExperiences.slice(0, EXPERIENCES_INITIAL_DISPLAY))
                     .map((experience, index) => (
                       <ExperienceCard
                         key={experience._id || index}

@@ -148,6 +148,8 @@ export default function PlanItemDetailsModal({
   const [chatChannel, setChatChannel] = useState(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState('');
+  // Track which plan item the current chat channel belongs to
+  const chatChannelPlanItemIdRef = useRef(null);
   const assignmentInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const titleInputRef = useRef(null);
@@ -225,8 +227,19 @@ export default function PlanItemDetailsModal({
       // before trying to create/watch a channel.
       if (!chatClient || typeof chatClient.channel !== 'function') return;
 
-      // Skip if already connected (connection persists across tab switches)
-      if (chatClient && chatChannel) return;
+      // Check if we're switching to a different plan item
+      // If so, clear the existing channel so we can initialize a new one
+      const currentChannelPlanItemId = chatChannelPlanItemIdRef.current;
+      if (currentChannelPlanItemId && currentChannelPlanItemId !== planItemIdStr) {
+        // Switching plan items - clear the old channel
+        setChatChannel(null);
+        chatChannelPlanItemIdRef.current = null;
+        // Allow the effect to re-run with cleared state
+        return;
+      }
+
+      // Skip if already connected to the correct channel (persists across tab switches)
+      if (chatClient && chatChannel && currentChannelPlanItemId === planItemIdStr) return;
 
       setChatLoading(true);
       setChatError('');
@@ -241,7 +254,10 @@ export default function PlanItemDetailsModal({
         const streamChannel = chatClient.channel('messaging', channelId);
         await streamChannel.watch();
 
-        if (!cancelled) setChatChannel(streamChannel);
+        if (!cancelled) {
+          setChatChannel(streamChannel);
+          chatChannelPlanItemIdRef.current = planItemIdStr;
+        }
       } catch (err) {
         logger.error('[PlanItemDetailsModal] Failed to initialize plan item chat', err);
         if (!cancelled) {
@@ -276,6 +292,7 @@ export default function PlanItemDetailsModal({
     setChatChannel(null);
     setChatError('');
     setChatLoading(false);
+    chatChannelPlanItemIdRef.current = null;
   }, [show]);
 
   const mergedChatError = chatClientError || chatError;
@@ -2063,8 +2080,7 @@ export default function PlanItemDetailsModal({
           {/* PhotosTab - keep mounted but hidden to preserve state during tab switches */}
           {/* Use CSS class instead of inline display to maintain flex height chain */}
           <div
-            className={styles.photosTabWrapper}
-            style={{ display: activeTab === 'photos' ? 'flex' : 'none' }}
+            className={`${styles.photosTabWrapper} ${activeTab === 'photos' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
             <PhotosTab
               planItem={planItem}
@@ -2077,8 +2093,7 @@ export default function PlanItemDetailsModal({
           {/* DocumentsTab - keep mounted but hidden to preserve state during tab switches */}
           {/* Use CSS class instead of inline display to maintain flex height chain */}
           <div
-            className={styles.documentsTabWrapper}
-            style={{ display: activeTab === 'documents' ? 'flex' : 'none' }}
+            className={`${styles.documentsTabWrapper} ${activeTab === 'documents' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
             <DocumentsTab
               planItem={planItem}

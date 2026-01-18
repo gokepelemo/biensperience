@@ -1,12 +1,74 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Toast as BootstrapToast } from 'react-bootstrap';
+import React, { useEffect } from 'react';
+import { Box, Button, HStack, VStack, CloseButton } from '@chakra-ui/react';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import styles from './Toast.module.scss';
 
 /**
+ * Get icon component based on type
+ */
+const getIcon = (type) => {
+  switch (type) {
+    case 'success':
+      return FaCheckCircle;
+    case 'error':
+    case 'danger':
+      return FaExclamationCircle;
+    case 'warning':
+      return FaExclamationTriangle;
+    case 'info':
+    case 'primary':
+    default:
+      return FaInfoCircle;
+  }
+};
+
+/**
+ * Get background color based on type
+ */
+const getBackgroundColor = (type, bg) => {
+  const variant = bg || type;
+  const colorMap = {
+    'success': 'var(--color-success)',
+    'error': 'var(--color-danger)',
+    'danger': 'var(--color-danger)',
+    'warning': 'var(--color-warning)',
+    'info': 'var(--color-info)',
+    'primary': 'var(--color-primary)',
+    'secondary': 'var(--color-text-muted)',
+    'light': 'var(--color-bg-secondary)',
+    'dark': 'var(--color-bg-tertiary)',
+  };
+  return colorMap[variant] || 'var(--color-info)';
+};
+
+/**
+ * Get text color based on background
+ */
+const getTextColor = (type, bg) => {
+  const variant = bg || type;
+  const lightBgVariants = ['light', 'warning', 'secondary'];
+  return lightBgVariants.includes(variant) ? 'var(--color-text-primary)' : 'white';
+};
+
+/**
  * Toast notification component with auto-dismiss and positioning support.
- * See PropTypes for full prop documentation.
+ * Uses Chakra UI Box components for layout with Biensperience design tokens.
+ *
+ * @param {Object} props
+ * @param {string} props.id - Unique toast ID
+ * @param {string} props.message - Message to display
+ * @param {string} [props.header] - Optional header text
+ * @param {string} [props.type='info'] - Toast type: 'success', 'error', 'warning', 'info', 'primary', etc.
+ * @param {string} [props.bg] - Background variant (overrides type)
+ * @param {string} [props.position='top-end'] - Position on screen
+ * @param {number} [props.duration=5000] - Auto-dismiss duration in ms (0 = no auto-dismiss)
+ * @param {Function} props.onClose - Callback when toast closes
+ * @param {number} [props.index=0] - Index for stacking calculation
+ * @param {Array} [props.actions] - Action buttons [{label, onClick, variant}]
+ * @param {boolean} [props.showCloseButton=true] - Show close button
+ * @param {boolean} [props.autohide] - Enable autohide
+ * @param {string} [props.animation='fade'] - Animation type ('fade' or 'slide')
  */
 export default function Toast({
   id,
@@ -23,45 +85,12 @@ export default function Toast({
   autohide,
   animation = 'fade',
 }) {
-  const [show, setShow] = useState(false);
-  const toastRef = useRef(null);
+  const IconComponent = getIcon(type);
+  const backgroundColor = getBackgroundColor(type, bg);
+  const textColor = getTextColor(type, bg);
 
-  // Map old type names to Bootstrap variants
-  const getBootstrapVariant = () => {
-    if (bg) return bg;
-    
-    const typeMap = {
-      'error': 'danger',
-      'cookie-consent': 'primary',
-      'success': 'success',
-      'warning': 'warning',
-      'info': 'info'
-    };
-    return typeMap[type] || type;
-  };
-
-  const getIcon = () => {
-    const iconClass = "me-2";
-    switch (type) {
-      case 'success':
-        return <FaCheckCircle className={iconClass} />;
-      case 'error':
-      case 'danger':
-        return <FaExclamationCircle className={iconClass} />;
-      case 'warning':
-        return <FaExclamationTriangle className={iconClass} />;
-      case 'info':
-      case 'primary':
-      default:
-        return <FaInfoCircle className={iconClass} />;
-    }
-  };
-
+  // Auto-hide logic
   useEffect(() => {
-    // Show toast on mount
-    setShow(true);
-
-    // Auto-hide logic
     const shouldAutohide = autohide !== undefined ? autohide : duration > 0;
     if (shouldAutohide && duration > 0) {
       const timer = setTimeout(() => {
@@ -73,11 +102,10 @@ export default function Toast({
   }, [duration, autohide]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleClose = () => {
-    setShow(false);
-    // Give time for exit animation
+    // Brief delay for exit animation
     setTimeout(() => {
       onClose(id);
-    }, 300);
+    }, 150);
   };
 
   // Calculate position styling
@@ -115,74 +143,97 @@ export default function Toast({
     return positionStyles;
   };
 
-  const variant = getBootstrapVariant();
-  const textClass = ['light', 'warning', 'info', 'secondary'].includes(variant) ? 'text-dark' : 'text-white';
-
   return (
-    <BootstrapToast
-      ref={toastRef}
-      show={show}
-      onClose={handleClose}
-      style={getPositionStyle()}
+    <Box
       className={`${styles.biensperienceToast} ${animation === 'slide' ? styles.toastSlide : ''}`}
-      bg={variant}
-      autohide={false} // We handle autohide manually
+      style={getPositionStyle()}
+      bg={backgroundColor}
+      color={textColor}
+      minW="300px"
+      maxW="500px"
+      borderRadius="var(--radius-md)"
+      boxShadow="var(--shadow-md)"
+      overflow="hidden"
+      position="relative"
     >
-      {header && (
-        <BootstrapToast.Header
-          closeButton={showCloseButton}
-          closeVariant={['light', 'warning', 'info', 'secondary'].includes(variant) ? 'black' : 'white'}
-          className={textClass}
-        >
-          {getIcon()}
-          <strong className="me-auto">{header}</strong>
-        </BootstrapToast.Header>
-      )}
-      {!header && showCloseButton && (
-        <button
-          type="button"
-          className={`btn-close ${['light', 'warning', 'info', 'secondary'].includes(variant) ? '' : styles.btnCloseWhite}`}
-          aria-label={lang.current.toast.close}
+      {/* Close button */}
+      {showCloseButton && (
+        <CloseButton
+          position="absolute"
+          top="0.5rem"
+          right="0.5rem"
           onClick={handleClose}
-          style={{
-            position: 'absolute',
-            top: '0.5rem',
-            right: '0.5rem',
-            zIndex: 2
-          }}
+          aria-label={lang.current.toast.close}
+          color={textColor}
+          opacity={0.8}
+          _hover={{ opacity: 1 }}
+          zIndex={2}
         />
       )}
-      <BootstrapToast.Body className={`${styles.toastBody} ${textClass}`}>
-        <div className={`d-flex align-items-start ${styles.toastBodyFlex}`}>
-          {!header && (
-            <div className={styles.toastIconWrapper}>
-              {getIcon()}
-            </div>
-          )}
-          <div className={`flex-grow-1 ${styles.toastMessageContent}`}>
-            {message}
+
+      <Box p="var(--space-3) var(--space-4)" pr={showCloseButton ? '3rem' : 'var(--space-4)'}>
+        <HStack align="flex-start" gap="var(--space-2)">
+          {/* Icon */}
+          <Box className={styles.toastIconWrapper} fontSize="1.2rem" mt="2px">
+            <IconComponent />
+          </Box>
+
+          {/* Content */}
+          <VStack align="stretch" flex="1" gap="var(--space-2)">
+            {/* Header */}
+            {header && (
+              <Box
+                fontWeight="var(--font-weight-bold)"
+                fontSize="var(--font-size-base)"
+              >
+                {header}
+              </Box>
+            )}
+
+            {/* Message */}
+            <Box
+              className={styles.toastMessageContent}
+              fontSize="var(--font-size-base)"
+              fontWeight="var(--font-weight-semibold)"
+              lineHeight="var(--line-height-relaxed)"
+            >
+              {message}
+            </Box>
+
+            {/* Actions */}
             {actions && (
-              <div className={styles.toastActions}>
+              <HStack className={styles.toastActions} gap="var(--space-2)" mt="var(--space-2)">
                 {Array.isArray(actions)
                   ? actions.map((action, idx) => (
-                      <button
+                      <Button
                         key={idx}
-                        className={`btn ${action.variant ? `btn-${action.variant}` : 'btn-light'}`}
+                        size="sm"
+                        variant={action.variant === 'primary' ? 'solid' : 'ghost'}
+                        bg={action.variant === 'primary' ? 'rgba(255, 255, 255, 0.95)' : 'transparent'}
+                        color={action.variant === 'primary' ? backgroundColor : textColor}
+                        fontWeight="var(--font-weight-semibold)"
+                        fontSize="var(--font-size-sm)"
+                        minH="32px"
+                        px="var(--space-3)"
+                        _hover={{
+                          bg: action.variant === 'primary' ? 'white' : 'rgba(255, 255, 255, 0.1)',
+                          transform: 'translateY(-1px)',
+                        }}
                         onClick={() => {
                           action.onClick();
                           handleClose();
                         }}
                       >
                         {action.label}
-                      </button>
+                      </Button>
                     ))
                   : actions
                 }
-              </div>
+              </HStack>
             )}
-          </div>
-        </div>
-      </BootstrapToast.Body>
-    </BootstrapToast>
+          </VStack>
+        </HStack>
+      </Box>
+    </Box>
   );
 }

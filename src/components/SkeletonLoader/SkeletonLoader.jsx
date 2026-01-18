@@ -1,9 +1,12 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import styles from './SkeletonLoader.module.scss';
 
 /**
  * SkeletonLoader component for displaying loading states
+ * Now uses react-loading-skeleton library for better performance and features
  *
  * @param {Object} props - Component props
  * @param {string} props.variant - Loading shape: 'text', 'circle', 'rectangle'
@@ -27,13 +30,8 @@ export default function SkeletonLoader({
   ...props
 }) {
   // Build className string with CSS Modules
-  const variantClass = styles[`skeleton${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
-  const sizeClass = size !== 'md' && variant === 'text' ? styles[`skeleton${size.charAt(0).toUpperCase() + size.slice(1)}`] : null;
   const classes = [
     styles.skeletonLoader,
-    variantClass,
-    sizeClass,
-    animate && styles.skeletonAnimate,
     className
   ].filter(Boolean).join(' ');
 
@@ -44,33 +42,66 @@ export default function SkeletonLoader({
     ...(height && { height: typeof height === 'number' ? `${height}px` : height })
   };
 
-  // Render multiple lines for text variant
-  if (variant === 'text' && lines > 1) {
-    return (
-      <div className={styles.skeletonTextGroup} style={style}>
-        {Array.from({ length: lines }, (_, index) => (
-          <div
-            key={index}
-            className={classes}
-            style={{
-              ...computedStyle,
-              width: index === lines - 1 ? '70%' : '100%', // Last line shorter
-              marginBottom: index < lines - 1 ? 'var(--space-2)' : 0
-            }}
-            {...props}
-          />
-        ))}
-      </div>
-    );
-  }
+  // Map our variants to react-loading-skeleton props
+  const skeletonProps = {
+    width: computedStyle.width,
+    height: computedStyle.height,
+    style: computedStyle,
+    className: classes,
+    enableAnimation: animate,
+    ...props
+  };
 
-  return (
-    <div
-      className={classes}
-      style={computedStyle}
-      {...props}
-    />
-  );
+  // Handle different variants
+  switch (variant) {
+    case 'circle':
+      return (
+        <Skeleton
+          {...skeletonProps}
+          circle
+          width={height || width} // Use height for circle diameter
+          height={height || width}
+        />
+      );
+
+    case 'rectangle':
+      return (
+        <Skeleton
+          {...skeletonProps}
+          borderRadius={8} // Match our rectangle border radius
+        />
+      );
+
+    case 'text':
+    default:
+      // Handle multiple lines
+      if (lines > 1) {
+        return (
+          <div className={styles.skeletonTextGroup} style={style}>
+            {Array.from({ length: lines }, (_, index) => (
+              <Skeleton
+                key={index}
+                {...skeletonProps}
+                width={index === lines - 1 ? '70%' : '100%'} // Last line shorter
+                style={{
+                  ...computedStyle,
+                  width: index === lines - 1 ? '70%' : '100%',
+                  marginBottom: index < lines - 1 ? 'var(--space-2)' : 0
+                }}
+              />
+            ))}
+          </div>
+        );
+      }
+
+      // Single line text
+      return (
+        <Skeleton
+          {...skeletonProps}
+          borderRadius={4} // Match our text border radius
+        />
+      );
+  }
 }
 
 SkeletonLoader.propTypes = {

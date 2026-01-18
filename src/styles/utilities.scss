@@ -254,7 +254,8 @@
    ============================================ */
 
 .mention-link {
-  color: white !important; /* Force white on purple gradient backgrounds */
+  /* Default: primary color for light backgrounds (e.g., received message bubbles) */
+  color: var(--color-primary);
   font-weight: bold;
   text-decoration: underline;
   text-decoration-style: dotted;
@@ -263,13 +264,33 @@
 }
 
 .mention-link:hover {
-  color: white !important; /* Keep white on hover */
+  color: var(--color-primary-dark);
   text-decoration-style: solid;
   opacity: 0.9;
 }
 
-/* Ensure visited links also stay white */
+/* Ensure visited links maintain primary color */
 .mention-link:visited {
+  color: var(--color-primary);
+}
+
+/* On dark/colored backgrounds (author message bubbles with purple bg), use white */
+.mention-link[data-on-dark="true"],
+.note-bubble-author .mention-link {
+  color: white !important;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+}
+
+.mention-link[data-on-dark="true"]:hover,
+.note-bubble-author .mention-link:hover {
+  color: white !important;
+  text-decoration-style: solid;
+  text-decoration-color: rgba(255, 255, 255, 0.95);
+  opacity: 0.9;
+}
+
+.mention-link[data-on-dark="true"]:visited,
+.note-bubble-author .mention-link:visited {
   color: white !important;
 }
 

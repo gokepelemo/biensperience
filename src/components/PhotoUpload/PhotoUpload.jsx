@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import styles from "./PhotoUpload.module.scss";
 import DOMPurify from "dompurify";
-import { uploadPhoto, uploadPhotoBatch, uploadPhotoUrl, deletePhoto } from "../../utilities/photos-api";
+import { uploadPhoto, uploadPhotoBatch, uploadPhotoUrl, deletePhoto, getPhotoSizeLimit } from "../../utilities/photos-api";
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { getImageDimensionsSafe } from "../../utilities/image-utils";
@@ -9,6 +9,7 @@ import { lang } from "../../lang.constants";
 import Alert from "../Alert/Alert";
 import AlertModal from "../AlertModal/AlertModal";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
+import ProgressBar from "../ProgressBar/ProgressBar";
 import { logger } from "../../utilities/logger";
 import { FormControl, Pill } from "../../components/design-system";
 import Slider from 'react-slick';
@@ -64,6 +65,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
   const [urlQueue, setUrlQueue] = useState([]);
   const [editingUrlIndex, setEditingUrlIndex] = useState(null);
   const [showCreditFields, setShowCreditFields] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // Upload progress: { loaded, total, percent, fileName }
 
   const [photos, setPhotos] = useState(() => {
     if (Array.isArray(data.photos_full) && data.photos_full.length > 0) return data.photos_full.filter(Boolean);
@@ -374,10 +376,14 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
         let uploadedPhotos = [];
 
         if (files.length === 1) {
-          const dimensions = await getImageDimensionsSafe(files[0]);
+          const file = files[0];
+          const dimensions = await getImageDimensionsSafe(file);
+
+          // Set initial progress state
+          setUploadProgress({ loaded: 0, total: file.size, percent: 0, fileName: file.name });
 
           let formData = new FormData();
-          formData.append("image", files[0]);
+          formData.append("image", file);
           if (uploadForm.photo_credit)
             formData.append("photo_credit", uploadForm.photo_credit);
           if (uploadForm.photo_credit_url)
@@ -386,11 +392,25 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
           if (dimensions.width) formData.append("width", dimensions.width);
           if (dimensions.height) formData.append("height", dimensions.height);
 
-          const uploadedImage = await uploadPhoto(formData);
+          const uploadedImage = await uploadPhoto(formData, {
+            onProgress: (progress) => {
+              setUploadProgress(prev => ({
+                ...prev,
+                loaded: progress.loaded,
+                total: progress.total,
+                percent: progress.percent
+              }));
+            }
+          });
 
           // API returns { success: true, data: <photo object> }
           uploadedPhotos = [uploadedImage.data || uploadedImage.upload || uploadedImage];
         } else {
+          // Calculate total size for batch upload progress
+          const totalSize = Array.from(files).reduce((sum, f) => sum + f.size, 0);
+          const fileNames = Array.from(files).map(f => f.name).join(', ');
+          setUploadProgress({ loaded: 0, total: totalSize, percent: 0, fileName: `${files.length} files` });
+
           const dimensionsArray = await Promise.all(
             Array.from(files).map(file => getImageDimensionsSafe(file))
           );
@@ -409,6 +429,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             formData.append("photo_credit_url", uploadForm.photo_credit_url);
           if (data.name) formData.append("name", data.name);
 
+          // Note: uploadPhotoBatch doesn't support progress yet, but we show indeterminate progress
           const response = await uploadPhotoBatch(formData);
 
           // API returns { success: true, data: [array of photos] }
@@ -433,6 +454,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
       handleError(err);
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -563,9 +585,31 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
               aria-label={lang.current.aria.chooseImageFiles}
               aria-describedby="image-upload-help"
             />
+            <div className={styles.fileSizeHint}>
+              Max file size: {getPhotoSizeLimit()} per image
+            </div>
             <span id="image-upload-help" className="visually-hidden">
               {lang.current.photo.acceptedFormats}
             </span>
+
+            {/* Upload progress indicator for file mode */}
+            {uploadProgress && (
+              <div className={`${styles.uploadProgressContainer} mt-3`} aria-busy="true">
+                <div className={styles.uploadProgressInfo}>
+                  <span className={styles.uploadFileName}>{uploadProgress.fileName}</span>
+                  <span className={styles.uploadSize}>
+                    {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
+                  </span>
+                </div>
+                <ProgressBar
+                  value={uploadProgress.percent}
+                  color="primary"
+                  size="sm"
+                  showPercentage
+                  animated
+                />
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -615,6 +659,25 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
                     : lang.current.button.upload || 'Upload'}
               </button>
             </div>
+
+            {/* Upload progress indicator */}
+            {uploadProgress && (
+              <div className={styles.uploadProgressContainer} aria-busy="true">
+                <div className={styles.uploadProgressInfo}>
+                  <span className={styles.uploadFileName}>{uploadProgress.fileName}</span>
+                  <span className={styles.uploadSize}>
+                    {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
+                  </span>
+                </div>
+                <ProgressBar
+                  value={uploadProgress.percent}
+                  color="primary"
+                  size="sm"
+                  showPercentage
+                  animated
+                />
+              </div>
+            )}
 
             {urlQueue.length > 0 && (
               <div className="url-queue mb-3">
@@ -865,7 +928,46 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
         message={lang.current.photo.deletePhotoMessage}
         confirmText={lang.current.photo.deletePhotoConfirm}
         confirmVariant="danger"
-      />
+      >
+        {/* Thumbnail preview of photo to be deleted */}
+        {photoToDeleteIndex !== null && photos[photoToDeleteIndex] && (
+          <div className={styles.deletePreviewContainer}>
+            <img
+              src={sanitizeImageUrl(photos[photoToDeleteIndex].url) || photos[photoToDeleteIndex]}
+              alt={`Photo ${photoToDeleteIndex + 1} to be deleted`}
+              className={styles.deletePreviewImage}
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+            {photos[photoToDeleteIndex].photo_credit && (
+              <div className={styles.deletePreviewCredit}>
+                Credit: {sanitizeText(photos[photoToDeleteIndex].photo_credit)}
+              </div>
+            )}
+          </div>
+        )}
+      </ConfirmModal>
+
+      {/* Aria-live region for screen reader announcements - only when uploading */}
+      {uploading && (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="visually-hidden"
+        >
+          {uploadProgress && uploadProgress.percent < 100 && (
+            `Uploading ${uploadProgress.fileName}: ${uploadProgress.percent}% complete`
+          )}
+          {uploadProgress && uploadProgress.percent === 100 && (
+            'Upload complete'
+          )}
+          {!uploadProgress && (
+            'Uploading photos...'
+          )}
+        </div>
+      )}
     </div>
   );
 }

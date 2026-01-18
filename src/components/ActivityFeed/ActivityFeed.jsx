@@ -17,12 +17,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { FaCalendarAlt, FaMapMarkerAlt, FaStar, FaUsers, FaFilter, FaChevronRight } from 'react-icons/fa';
+import { FaCalendarAlt, FaMapMarkerAlt, FaStar, FaUsers, FaFilter, FaChevronRight, FaRegClock } from 'react-icons/fa';
+import { getRelativeTime } from '../../utilities/date-utils';
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { getFollowFeed } from '../../utilities/follows-api';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { SkeletonLoader } from '../design-system';
+
 import styles from './ActivityFeed.module.scss';
 
 // Activity type filter options
@@ -511,7 +513,10 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
                         <span className={styles.activityTarget}> - {activity.targetItem}</span>
                       )}
                     </p>
-                    <span className={styles.activityTime}>{activity.time}</span>
+                    <span className={styles.activityTime} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5em' }}>
+                      <FaRegClock style={{ fontSize: '1em', marginRight: '0.2em', opacity: 0.7 }} />
+                      {getRelativeTime(new Date(activity.timestamp))}
+                    </span>
                   </div>
                   {activity.link && (
                     <Link to={activity.link} className={styles.activityArrow}>

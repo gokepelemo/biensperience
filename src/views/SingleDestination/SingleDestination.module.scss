@@ -5,6 +5,11 @@
   margin-bottom: $space-4;
 
   :global(.breadcrumb) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    list-style: none;
     background: transparent;
     padding: 0;
     margin-bottom: 0;
@@ -12,9 +17,13 @@
   }
 
   :global(.breadcrumb-item) {
+    display: flex;
+    align-items: center;
     color: var(--color-text-muted);
 
     a {
+      display: inline-flex;
+      align-items: center;
       color: var(--color-text-secondary);
       text-decoration: none;
       transition: color var(--transition-fast);
@@ -30,7 +39,9 @@
     }
 
     + :global(.breadcrumb-item)::before {
+      margin-right: 0.25rem;
       color: var(--color-text-muted);
+      content: var(--bs-breadcrumb-divider, "/");
     }
   }
 }

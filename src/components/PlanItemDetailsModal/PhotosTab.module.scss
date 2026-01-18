@@ -159,3 +159,29 @@
     transform: translateY(0);
   }
 }
+
+/* Drop zone styles */
+.photoDropZone {
+  position: relative;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  padding: $space-3; /* Add padding between content and drop zone border */
+
+  /* Override DropZone default styles when not dragging */
+  &:not(.dragging) {
+    border: 2px dashed var(--color-border, #e5e7eb);
+    background: var(--color-bg-secondary, #f9fafb);
+  }
+
+  /* Style when dragging */
+  &.dragging {
+    border-color: var(--color-primary, #007bff);
+    background: rgba(var(--color-primary-rgb, 0, 123, 255), 0.05);
+  }
+
+  /* Disabled state */
+  &.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}

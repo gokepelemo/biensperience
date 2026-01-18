@@ -24,6 +24,7 @@ import { FaExclamationTriangle, FaTrash } from "react-icons/fa";
  * @param {string} props.warningText - Custom warning text (default: "This action cannot be undone!")
  * @param {boolean} props.confirmDisabled - Whether the confirm button is disabled
  * @param {React.ReactNode} props.blockerContent - Custom content to show when action is blocked (replaces normal content)
+ * @param {React.ReactNode} props.children - Custom content to display before the message (e.g., thumbnail preview)
  */
 export default function ConfirmModal({
   show,
@@ -40,7 +41,8 @@ export default function ConfirmModal({
   showIcon = true,
   warningText = "This action cannot be undone!",
   confirmDisabled = false,
-  blockerContent = null
+  blockerContent = null,
+  children = null
 }) {
   // Build title with icon
   const titleContent = (
@@ -130,6 +132,9 @@ export default function ConfirmModal({
         blockerContent
       ) : (
         <>
+          {/* Custom content (e.g., thumbnail preview) */}
+          {children}
+
           {/* Warning alert */}
           {showWarning && (
             <Alert

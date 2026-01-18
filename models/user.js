@@ -270,6 +270,14 @@ const userSchema = new Schema(
           webhooks: { type: [String], default: [] },
           // types: activity, reminders, marketing, updates
           types: { type: [String], enum: ['activity','reminder','marketing','updates'], default: ['activity','reminder'] }
+        },
+        messages: {
+          type: new Schema({
+            // List of active message channel IDs that should be displayed in the messages list
+            // When null, all channels are shown (default behavior)
+            activeChannels: { type: [String], default: null }
+          }, { _id: false }),
+          default: {}
         }
       }, { _id: false }),
       default: {}

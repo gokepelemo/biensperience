@@ -198,6 +198,12 @@ export default function SingleExperience() {
   const [loading, setLoading] = useState(false);
   const [experienceNotFound, setExperienceNotFound] = useState(false);
 
+  // Stale data flags - mark when data needs refresh on next user-initiated re-render
+  const [experienceOwnerStale, setExperienceOwnerStale] = useState(false);
+  const [experienceCollaboratorsStale, setExperienceCollaboratorsStale] = useState(false);
+  const [planOwnerStale, setPlanOwnerStale] = useState(false);
+  const [planCollaboratorsStale, setPlanCollaboratorsStale] = useState(false);
+
   // Ref for latest experience to avoid stale closures in effects
   const experienceRef = useRef(null);
   useEffect(() => {
@@ -646,7 +652,7 @@ export default function SingleExperience() {
   );
 
   // Fetch fresh user data for owners and collaborators
-  const { users: experienceOwnerData, loading: experienceOwnerLoading } =
+  const { users: experienceOwnerData, loading: experienceOwnerLoading, refetch: refetchExperienceOwner } =
     useCollaboratorUsers(experienceOwnerIds);
   const experienceOwner = experienceOwnerData?.[0];
 
@@ -1886,6 +1892,32 @@ export default function SingleExperience() {
       isMounted = false;
     };
   }, [activeTab, experience?._id, experience?.plan_items, selectedPlanId, currentPlan?.plan, user?._id, getExpansionKey]);
+
+  // Subscribe to user updates to mark related data as stale (lazy refresh pattern)
+  useEffect(() => {
+    if (!experienceOwnerId) return;
+
+    const handleUserUpdated = (event) => {
+      const updatedUser = event.user;
+      if (updatedUser && updatedUser._id === experienceOwnerId) {
+        logger.debug('[SingleExperience] Experience owner updated, marking owner data as stale', { userId: updatedUser._id });
+        // Mark experience owner data as stale - will be refreshed on next user-initiated re-render
+        setExperienceOwnerStale(true);
+      }
+    };
+
+    const unsubscribe = eventBus.subscribe('user:updated', handleUserUpdated);
+    return () => unsubscribe();
+  }, [experienceOwnerId]);
+
+  // Refresh stale collaborator data when component re-renders (lazy refresh pattern)
+  useEffect(() => {
+    if (experienceOwnerStale && refetchExperienceOwner) {
+      logger.debug('[SingleExperience] Refreshing stale experience owner data');
+      refetchExperienceOwner();
+      setExperienceOwnerStale(false);
+    }
+  }, [experienceOwnerStale, refetchExperienceOwner, experience]);
 
   const handleAddPlanInstanceItem = useCallback((parentId = null) => {
     setEditingPlanItem(parentId ? { parent: parentId } : {});

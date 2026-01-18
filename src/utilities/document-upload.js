@@ -5,7 +5,7 @@
  * Works with: utilities/ai-document-utils.js (backend)
  */
 
-import { sendRequest, uploadFile } from './send-request';
+import { sendRequest, uploadFile, uploadFileWithProgress } from './send-request';
 import { logger } from './logger';
 
 // Supported document types (must match backend)
@@ -94,6 +94,25 @@ export function formatFileSize(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Get human-readable file size limits for display
+ * @returns {Object} { maxSize: string, byType: { pdf: string, image: string, word: string, text: string } }
+ */
+export function getFileSizeLimits() {
+  const maxOverall = Math.max(...Object.values(MAX_FILE_SIZES));
+  return {
+    maxSize: formatFileSize(maxOverall),
+    byType: {
+      pdf: formatFileSize(MAX_FILE_SIZES.pdf),
+      image: formatFileSize(MAX_FILE_SIZES.image),
+      word: formatFileSize(MAX_FILE_SIZES.word),
+      text: formatFileSize(MAX_FILE_SIZES.text)
+    },
+    // Summary for tooltip
+    summary: `PDF: up to ${formatFileSize(MAX_FILE_SIZES.pdf)}, Images: up to ${formatFileSize(MAX_FILE_SIZES.image)}, Word: up to ${formatFileSize(MAX_FILE_SIZES.word)}, Text: up to ${formatFileSize(MAX_FILE_SIZES.text)}`
+  };
 }
 
 /**
@@ -298,6 +317,8 @@ export async function getDocumentsByEntity(entityType, entityId, options = {}) {
  * @param {string} options.visibility - 'collaborators' or 'private' (default: 'collaborators')
  * @param {boolean} options.aiParsingEnabled - Enable AI parsing (default: true)
  * @param {string} options.documentTypeHint - Hint for document type
+ * @param {Function} options.onProgress - Progress callback: ({ loaded, total, percent }) => void
+ * @param {AbortSignal} options.signal - AbortSignal for cancellation
  * @returns {Promise<Object>} Upload result with document data
  */
 export async function uploadDocument(file, options = {}) {
@@ -309,7 +330,9 @@ export async function uploadDocument(file, options = {}) {
     visibility = 'collaborators',
     aiParsingEnabled = true,
     documentTypeHint,
-    timeoutMs
+    timeoutMs,
+    onProgress,
+    signal
   } = options;
 
   // Validate
@@ -353,8 +376,14 @@ export async function uploadDocument(file, options = {}) {
         )
       );
 
-    // Use uploadFile to handle CSRF token and authentication
-    const result = await uploadFile('/api/documents', 'POST', formData, { timeoutMs: computedTimeoutMs });
+    // Use uploadFileWithProgress if onProgress callback is provided for real-time progress updates
+    // Otherwise fall back to uploadFile which uses fetch() (simpler but no progress)
+    const uploadFn = onProgress ? uploadFileWithProgress : uploadFile;
+    const result = await uploadFn('/api/documents', 'POST', formData, {
+      timeoutMs: computedTimeoutMs,
+      onProgress,
+      signal
+    });
 
     logger.info('[document-upload] Document uploaded successfully', {
       entityType,

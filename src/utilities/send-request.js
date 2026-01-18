@@ -456,3 +456,142 @@ export async function sendQueuedRequest(url, method = "GET", payload = null, req
 
 // Re-export PRIORITY for consumers
 export { PRIORITY };
+
+/**
+ * Upload file with progress tracking using XMLHttpRequest
+ * This is needed because fetch() doesn't support upload progress events.
+ *
+ * @param {string} url - The URL to upload to
+ * @param {string} [method="POST"] - HTTP method
+ * @param {FormData|File} payload - File or FormData payload
+ * @param {Object} [options={}] - Upload options
+ * @param {number} [options.timeoutMs] - Timeout in milliseconds (default: 5 minutes)
+ * @param {Function} [options.onProgress] - Progress callback: ({ loaded, total, percent }) => void
+ * @param {AbortSignal} [options.signal] - AbortSignal for cancellation
+ * @returns {Promise<Object>} Response data as JSON
+ */
+export async function uploadFileWithProgress(url, method = "POST", payload, options = {}) {
+    const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT;
+    const { onProgress, signal } = options;
+
+    // Get auth token and CSRF token
+    const token = getToken();
+    let csrfTokenValue = null;
+
+    const isStateChanging = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
+    if (isStateChanging) {
+        try {
+            csrfTokenValue = await getCsrfToken();
+        } catch (error) {
+            logger.error('[send-request] Failed to get CSRF token for upload with progress', { error: error.message }, error);
+        }
+    }
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Setup timeout
+        const timeoutId = setTimeout(() => {
+            xhr.abort();
+            logger.error('File upload with progress timed out', { url, method, timeoutMs });
+            reject(new Error('Upload timed out. Please try again.'));
+        }, timeoutMs);
+
+        // Handle abort signal
+        if (signal) {
+            signal.addEventListener('abort', () => {
+                clearTimeout(timeoutId);
+                xhr.abort();
+                reject(new Error('Upload cancelled'));
+            });
+        }
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable && onProgress) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                onProgress({
+                    loaded: event.loaded,
+                    total: event.total,
+                    percent
+                });
+            }
+        });
+
+        // Handle completion
+        xhr.addEventListener('load', () => {
+            clearTimeout(timeoutId);
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    resolve(response);
+                } catch (e) {
+                    reject(new Error('Invalid response from server'));
+                }
+            } else if (xhr.status === 401) {
+                logger.warn('Received 401 Unauthorized during upload - logging out user', {
+                    url,
+                    method,
+                    status: xhr.status
+                });
+                logout();
+                window.location.href = '/';
+                reject(new Error('Session expired. Please log in again.'));
+            } else {
+                // Try to extract error message from response
+                let errorMessage = `Upload failed: ${xhr.status} ${xhr.statusText}`;
+                try {
+                    const errorData = JSON.parse(xhr.responseText);
+                    if (errorData.error) {
+                        errorMessage = errorData.error;
+                    }
+                } catch {
+                    // Use status text if not JSON
+                    if (xhr.responseText && xhr.responseText.length < 200) {
+                        errorMessage = xhr.responseText;
+                    }
+                }
+                logger.error('File upload with progress failed', {
+                    url,
+                    method,
+                    status: xhr.status,
+                    errorMessage
+                });
+                reject(new Error(errorMessage));
+            }
+        });
+
+        // Handle network errors
+        xhr.addEventListener('error', () => {
+            clearTimeout(timeoutId);
+            logger.error('File upload network error', { url, method });
+            reject(new Error('Network error during upload. Please check your connection and try again.'));
+        });
+
+        // Handle abort
+        xhr.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            // Don't reject here if already handled by timeout or signal
+        });
+
+        // Open connection
+        xhr.open(method, url, true);
+
+        // Set credentials (cookies)
+        xhr.withCredentials = true;
+
+        // Set headers
+        if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+        if (csrfTokenValue) {
+            xhr.setRequestHeader('x-csrf-token', csrfTokenValue);
+        }
+        // Don't set Content-Type for FormData - browser will set it with boundary
+
+        // Send the request
+        xhr.send(payload);
+    });
+}

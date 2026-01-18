@@ -145,6 +145,7 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
 
   return (
     <div
+      className={isAuthor ? 'note-bubble-author' : 'note-bubble-received'}
       style={{
         padding: 'var(--space-4) var(--space-5)',
         backgroundColor: isAuthor ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
@@ -633,7 +634,7 @@ export default function PlanItemNotes({
             return (
               <div
                 key={note._id}
-                className={`${styles.messageRow} ${isAuthor ? styles.messageRowAuthor : styles.messageRowReceived}`}
+                className={`${styles.messageRow} ${isAuthor ? styles.messageRowAuthor : styles.messageRowReceived} ${note._optimistic ? styles.messageRowOptimistic : ''}`}
               >
                 {/* Avatar for received messages */}
                 {!isAuthor && (
