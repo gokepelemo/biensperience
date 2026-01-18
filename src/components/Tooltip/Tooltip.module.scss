@@ -1,0 +1,11 @@
+/* Tooltip Component Styles */
+
+.tooltipTrigger {
+  /* Ensures the trigger element can receive focus and hover events */
+  display: inline-block;
+}
+
+.cursorHelp {
+  /* Help cursor for informational tooltips */
+  cursor: help !important;
+}

@@ -579,7 +579,8 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
                   background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)',
                   color: 'white',
                   fontSize: '0.75rem',
-                  padding: '0.25rem 0.5rem'
+                  padding: '0.25rem 0.5rem',
+                  border: 'none'
                 }}
               >
                 <FaStar size={10} />
