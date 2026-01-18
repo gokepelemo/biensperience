@@ -1,0 +1,76 @@
+// Tooltip Component Styles - Chakra UI integration
+// Maintains compatibility with Biensperience design system
+
+@use '../../styles/scss/abstracts' as *;
+
+// Variables using design tokens
+$tooltip-z-index: 1800;
+$tooltip-max-width: 300px;
+$tooltip-transition-duration: 0.15s;
+
+// Tooltip trigger styles
+.tooltipTrigger {
+  display: inline-block;
+  cursor: inherit;
+}
+
+// Form tooltip specific styles
+.cursorHelp {
+  cursor: help;
+}
+
+// Chakra tooltip overrides for design system integration
+// These styles are applied via Chakra's sx prop but we keep fallbacks here
+:global {
+  // Override Chakra tooltip styles to match design system
+  .chakra-tooltip {
+    background: var(--color-bg-tertiary, #2d2d2d) !important;
+    color: var(--color-text-primary, #fff) !important;
+    font-size: var(--font-size-sm) !important;
+    font-weight: var(--font-weight-normal, 400) !important;
+    padding: var(--space-2) var(--space-3) !important;
+    border-radius: var(--radius-sm, 0.25rem) !important;
+    box-shadow: var(--shadow-md) !important;
+    max-width: $tooltip-max-width !important;
+    z-index: $tooltip-z-index !important;
+
+    // Arrow styling
+    .chakra-tooltip__arrow {
+      background: var(--color-bg-tertiary, #2d2d2d) !important;
+    }
+  }
+
+  // Dark mode support via data-theme attribute
+  [data-theme="dark"] .chakra-tooltip {
+    background: var(--color-bg-tertiary, #212529) !important;
+
+    .chakra-tooltip__arrow {
+      background: var(--color-bg-tertiary, #212529) !important;
+    }
+  }
+
+  // Dark mode support via media query
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .chakra-tooltip {
+      background: var(--color-bg-tertiary, #212529) !important;
+
+      .chakra-tooltip__arrow {
+        background: var(--color-bg-tertiary, #212529) !important;
+      }
+    }
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  :global(.chakra-tooltip) {
+    border: 1px solid;
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  :global(.chakra-tooltip) {
+    transition: none !important;
+  }
+}

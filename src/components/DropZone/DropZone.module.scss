@@ -1,0 +1,61 @@
+@use '../../styles/scss/abstracts' as *;
+
+.dropZone {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.dragging {
+  // Add subtle outline during drag
+}
+
+.disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.dragOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 2px dashed var(--color-primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dragContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.dragIcon {
+  font-size: 3rem;
+  color: var(--color-primary);
+}
+
+.dragMessage {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
