@@ -21,3 +21,8 @@ export { default as DocumentViewerModal } from './DocumentViewerModal';
 export { default as EmptyState, VARIANT_CONFIG as EmptyStateVariants } from './EmptyState';
 export { default as EntityNotFound } from './EntityNotFound';
 export { default as Toggle, ToggleGroup } from './Toggle';
+
+// Modal Abstraction Layer
+// IMPORTANT: All modal consumers should import from here, NOT from ../Modal/Modal
+// This enables zero-regression migration to Chakra UI
+export { default as Modal } from './ModalWrapper/ModalWrapper';
