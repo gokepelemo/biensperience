@@ -2655,13 +2655,21 @@ export default function SingleExperience() {
 
       const updateItemComplete = (plan, targetItemId, complete) => {
         if (!plan?.plan) return plan;
+        const updatedPlan = plan.plan.map((item) =>
+          idEquals(item._id, targetItemId) || idEquals(item.plan_item_id, targetItemId)
+            ? { ...item, complete }
+            : item
+        );
+
+        // Calculate new completion percentage optimistically
+        const totalItems = updatedPlan.length;
+        const completedItems = updatedPlan.filter(item => item.complete).length;
+        const completion_percentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
         return {
           ...plan,
-          plan: plan.plan.map((item) =>
-            idEquals(item._id, targetItemId) || idEquals(item.plan_item_id, targetItemId)
-              ? { ...item, complete }
-              : item
-          )
+          plan: updatedPlan,
+          completion_percentage
         };
       };
 

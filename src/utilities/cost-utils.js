@@ -152,10 +152,17 @@ export function formatCostEstimate(cost, options = {}) {
  * @param {number} exactCost - The exact cost value for display in tooltip
  * @param {Object} options - Formatting options
  * @param {string} options.currency - Currency code (default: 'USD')
+ * @param {boolean} options.isActual - Whether this is actual tracked cost (default: false)
  * @returns {string} Tooltip text with exact amount and explanation
  */
 export function getCostEstimateTooltip(exactCost, options = {}) {
-  const { currency = 'USD' } = options;
+  const { currency = 'USD', isActual = false } = options;
+
+  // If this is an actual/tracked cost, use the tracked cost tooltip instead
+  if (isActual) {
+    return getTrackedCostTooltip(exactCost, 0, { currency });
+  }
+
   const symbol = getCurrencySymbol(currency);
 
   if (!exactCost || exactCost <= 0) {

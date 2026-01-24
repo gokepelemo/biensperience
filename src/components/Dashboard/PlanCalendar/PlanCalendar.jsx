@@ -93,8 +93,10 @@ export default function PlanCalendar({ plans = [], className = '' }) {
   }, []);
 
   // Custom event component - renders purple dot with tooltip
+  // Memoized to prevent unnecessary re-renders and tooltip flashing
   const EventComponent = useCallback(({ event }) => {
-    const tooltipContent = (
+    // Memoize tooltip content to prevent re-creation on every render
+    const tooltipContent = useMemo(() => (
       <div className={styles.eventTooltip}>
         <span className={styles.eventTooltipTitle}>{event.title}</span>
         {event.isCollaborative && (
@@ -103,7 +105,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
           </span>
         )}
       </div>
-    );
+    ), [event.title, event.isCollaborative]);
 
     return (
       <Tooltip content={tooltipContent} placement="top">
