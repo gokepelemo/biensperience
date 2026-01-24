@@ -25,6 +25,40 @@ const localizer = dateFnsLocalizer({
 });
 
 /**
+ * Calendar Event Component - renders purple dot with tooltip
+ * Memoized to prevent unnecessary re-renders and tooltip flashing
+ */
+const CalendarEvent = React.memo(({ event }) => {
+  // Memoize tooltip content to prevent re-renders
+  const tooltipContent = React.useMemo(() => (
+    <div className={styles.eventTooltip}>
+      <span className={styles.eventTooltipTitle}>{event.title}</span>
+      {event.isCollaborative && (
+        <span className={styles.eventTooltipBadge}>
+          <FaUsers size={10} /> {lang.current.planCalendar.shared}
+        </span>
+      )}
+    </div>
+  ), [event.title, event.isCollaborative]);
+
+  return (
+    <Tooltip content={tooltipContent} placement="top">
+      <div
+        className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-label={event.title}
+      />
+    </Tooltip>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if stable key changes
+  return prevProps.event._stableKey === nextProps.event._stableKey;
+});
+
+CalendarEvent.displayName = 'CalendarEvent';
+
+/**
  * PlanCalendar Component
  * Displays user plans in a calendar view with month/week/day navigation
  *
@@ -57,7 +91,10 @@ export default function PlanCalendar({ plans = [], className = '' }) {
     return plans
       .filter(plan => plan.planned_date)
       .map(plan => {
+        // Create date once and reuse for stability
         const plannedDate = new Date(plan.planned_date);
+        const plannedTimestamp = plannedDate.getTime();
+
         return {
           id: plan._id,
           title: plan.experience?.name || 'Unnamed Experience',
@@ -66,6 +103,8 @@ export default function PlanCalendar({ plans = [], className = '' }) {
           allDay: true,
           resource: plan,
           isCollaborative: plan.isCollaborative,
+          // Add stable key for React.memo comparison
+          _stableKey: `${plan._id}-${plannedTimestamp}-${plan.isCollaborative}`,
         };
       });
   }, [plans]);
@@ -90,33 +129,6 @@ export default function PlanCalendar({ plans = [], className = '' }) {
         cursor: 'pointer',
       },
     };
-  }, []);
-
-  // Custom event component - renders purple dot with tooltip
-  // Memoized to prevent unnecessary re-renders and tooltip flashing
-  const EventComponent = useCallback(({ event }) => {
-    // Memoize tooltip content to prevent re-creation on every render
-    const tooltipContent = useMemo(() => (
-      <div className={styles.eventTooltip}>
-        <span className={styles.eventTooltipTitle}>{event.title}</span>
-        {event.isCollaborative && (
-          <span className={styles.eventTooltipBadge}>
-            <FaUsers size={10} /> {lang.current.planCalendar.shared}
-          </span>
-        )}
-      </div>
-    ), [event.title, event.isCollaborative]);
-
-    return (
-      <Tooltip content={tooltipContent} placement="top">
-        <div
-          className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
-          role="button"
-          tabIndex={0}
-          aria-label={event.title}
-        />
-      </Tooltip>
-    );
   }, []);
 
   // Custom toolbar component with design system styling
@@ -197,7 +209,7 @@ export default function PlanCalendar({ plans = [], className = '' }) {
         view={currentView}
         onView={handleViewChange}
         components={{
-          event: EventComponent,
+          event: CalendarEvent,
           toolbar: CustomToolbar,
         }}
         popup

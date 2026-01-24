@@ -41,6 +41,11 @@ const config = defineConfig({
       bg: 'var(--color-bg-primary)',
       color: 'var(--color-text-primary)',
     },
+    // Ensure SVG icons display inline with text
+    'svg': {
+      display: 'inline-block',
+      verticalAlign: 'middle',
+    },
   },
 });
 

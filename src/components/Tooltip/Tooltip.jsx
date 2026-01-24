@@ -22,7 +22,7 @@ import styles from './Tooltip.module.scss';
  * @param {boolean} [props.rootClose=false] - Close on click outside (maps to closeOnClick)
  * @param {string} [props.variant] - Tooltip variant ('light' for light backgrounds)
  */
-export default function Tooltip({
+function Tooltip({
   children,
   content,
   placement = 'top',
@@ -69,6 +69,23 @@ export default function Tooltip({
     );
   }, [children]);
 
+  // Memoize CSS styles to prevent re-renders
+  const tooltipStyles = useMemo(() => ({
+    bg: 'var(--color-bg-tertiary, #2d2d2d)',
+    color: 'var(--color-text-primary, #fff)',
+    fontSize: 'var(--font-size-sm)',
+    px: 'var(--space-3)',
+    py: 'var(--space-2)',
+    borderRadius: 'var(--radius-sm, 0.25rem)',
+    boxShadow: 'var(--shadow-md)',
+    maxWidth: '300px',
+    zIndex: 1800,
+  }), []);
+
+  const arrowStyles = useMemo(() => ({
+    '--arrow-background': 'var(--color-bg-tertiary, #2d2d2d)',
+  }), []);
+
   return (
     <ChakraTooltip.Root
       openDelay={openDelay}
@@ -84,23 +101,11 @@ export default function Tooltip({
       <ChakraTooltip.Positioner>
         <ChakraTooltip.Content
           className={className}
-          css={{
-            bg: 'var(--color-bg-tertiary, #2d2d2d)',
-            color: 'var(--color-text-primary, #fff)',
-            fontSize: 'var(--font-size-sm)',
-            px: 'var(--space-3)',
-            py: 'var(--space-2)',
-            borderRadius: 'var(--radius-sm, 0.25rem)',
-            boxShadow: 'var(--shadow-md)',
-            maxWidth: '300px',
-            zIndex: 1800,
-          }}
+          css={tooltipStyles}
         >
           <ChakraTooltip.Arrow>
             <ChakraTooltip.ArrowTip
-              css={{
-                '--arrow-background': 'var(--color-bg-tertiary, #2d2d2d)',
-              }}
+              css={arrowStyles}
             />
           </ChakraTooltip.Arrow>
           {content}
@@ -110,7 +115,24 @@ export default function Tooltip({
   );
 }
 
-Tooltip.propTypes = {
+const MemoizedTooltip = React.memo(Tooltip, (prevProps, nextProps) => {
+  // Custom comparison for memoization - only re-render if key props change
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.placement === nextProps.placement &&
+    prevProps.show === nextProps.show &&
+    prevProps.className === nextProps.className &&
+    prevProps.delay === nextProps.delay &&
+    prevProps.delayShow === nextProps.delayShow &&
+    prevProps.delayHide === nextProps.delayHide &&
+    prevProps.rootClose === nextProps.rootClose &&
+    prevProps.variant === nextProps.variant &&
+    // Shallow compare children (React elements are stable if props don't change)
+    prevProps.children === nextProps.children
+  );
+});
+
+MemoizedTooltip.propTypes = {
   children: PropTypes.node.isRequired,
   content: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
   placement: PropTypes.oneOf([
@@ -132,6 +154,8 @@ Tooltip.propTypes = {
   container: PropTypes.any,
   variant: PropTypes.string,
 };
+
+export default MemoizedTooltip;
 
 /**
  * FormTooltip Component - Specialized tooltip for form fields
