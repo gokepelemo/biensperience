@@ -29,7 +29,10 @@ const localizer = dateFnsLocalizer({
  * Memoized to prevent unnecessary re-renders and tooltip flashing
  */
 const CalendarEvent = React.memo(({ event }) => {
-  // Memoize tooltip content to prevent re-renders
+  // Use stable key from event for React key instead of object reference
+  const eventKey = event._stableKey;
+
+  // Memoize tooltip content with stable dependencies
   const tooltipContent = React.useMemo(() => (
     <div className={styles.eventTooltip}>
       <span className={styles.eventTooltipTitle}>{event.title}</span>
@@ -39,16 +42,21 @@ const CalendarEvent = React.memo(({ event }) => {
         </span>
       )}
     </div>
-  ), [event.title, event.isCollaborative]);
+  ), [event.title, event.isCollaborative, eventKey]); // Include eventKey for stability
+
+  // Memoize the event dot element to prevent re-creation
+  const eventDotElement = React.useMemo(() => (
+    <div
+      className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={event.title}
+    />
+  ), [event.title, event.isCollaborative, styles.eventDot, styles.eventDotShared]);
 
   return (
     <Tooltip content={tooltipContent} placement="top">
-      <div
-        className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
-        role="button"
-        tabIndex={0}
-        aria-label={event.title}
-      />
+      {eventDotElement}
     </Tooltip>
   );
 }, (prevProps, nextProps) => {
@@ -86,26 +94,30 @@ export default function PlanCalendar({ plans = [], className = '' }) {
     setCalendarView(newView);
   }, [setCalendarView]);
 
-  // Transform plans into calendar events
+  // Transform plans into calendar events - ensure stable object references
   const events = useMemo(() => {
     return plans
       .filter(plan => plan.planned_date)
       .map(plan => {
-        // Create date once and reuse for stability
+        // Create stable date object
         const plannedDate = new Date(plan.planned_date);
         const plannedTimestamp = plannedDate.getTime();
 
-        return {
+        // Create stable event object with frozen properties
+        const event = {
           id: plan._id,
           title: plan.experience?.name || 'Unnamed Experience',
           start: plannedDate,
           end: plannedDate,
           allDay: true,
-          resource: plan,
+          resource: plan, // Keep plan reference for navigation
           isCollaborative: plan.isCollaborative,
           // Add stable key for React.memo comparison
           _stableKey: `${plan._id}-${plannedTimestamp}-${plan.isCollaborative}`,
         };
+
+        // Freeze the event object to prevent mutations
+        return Object.freeze(event);
       });
   }, [plans]);
 

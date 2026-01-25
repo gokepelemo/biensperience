@@ -117,19 +117,25 @@ function Tooltip({
 
 const MemoizedTooltip = React.memo(Tooltip, (prevProps, nextProps) => {
   // Custom comparison for memoization - only re-render if key props change
-  return (
-    prevProps.content === nextProps.content &&
-    prevProps.placement === nextProps.placement &&
-    prevProps.show === nextProps.show &&
-    prevProps.className === nextProps.className &&
-    prevProps.delay === nextProps.delay &&
-    prevProps.delayShow === nextProps.delayShow &&
-    prevProps.delayHide === nextProps.delayHide &&
-    prevProps.rootClose === nextProps.rootClose &&
-    prevProps.variant === nextProps.variant &&
-    // Shallow compare children (React elements are stable if props don't change)
-    prevProps.children === nextProps.children
-  );
+  const contentEqual = prevProps.content === nextProps.content;
+  const placementEqual = prevProps.placement === nextProps.placement;
+  const showEqual = prevProps.show === nextProps.show;
+  const classNameEqual = prevProps.className === nextProps.className;
+  const delayEqual = prevProps.delay === nextProps.delay;
+  const delayShowEqual = prevProps.delayShow === nextProps.delayShow;
+  const delayHideEqual = prevProps.delayHide === nextProps.delayHide;
+  const rootCloseEqual = prevProps.rootClose === nextProps.rootClose;
+  const variantEqual = prevProps.variant === nextProps.variant;
+
+  // For children, check if they're the same React element or primitive
+  const childrenEqual = prevProps.children === nextProps.children ||
+    (React.isValidElement(prevProps.children) && React.isValidElement(nextProps.children) &&
+     prevProps.children.key === nextProps.children.key &&
+     prevProps.children.type === nextProps.children.type);
+
+  return contentEqual && placementEqual && showEqual && classNameEqual &&
+         delayEqual && delayShowEqual && delayHideEqual && rootCloseEqual &&
+         variantEqual && childrenEqual;
 });
 
 MemoizedTooltip.propTypes = {
