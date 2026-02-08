@@ -4,11 +4,10 @@
  * Shows added, removed, and modified items with checkbox selection
  */
 
-import Modal from '../../../components/Modal/Modal';
 import Alert from '../../../components/Alert/Alert';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
-import { FormCheck } from '../../../components/design-system';
+import { Modal, FormCheck } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
