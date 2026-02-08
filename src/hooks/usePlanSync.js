@@ -54,7 +54,7 @@ function setSyncAlertCookie(planId) {
  * @param {Object} options - Hook options
  * @param {Object} options.experience - The experience object with plan_items
  * @param {string} options.selectedPlanId - Currently selected plan ID
- * @param {Array} options.sharedPlans - Array of shared plans
+ * @param {Array} options.allPlans - Array of all accessible plans (user's own + shared/collaborative)
  * @param {Function} options.fetchSharedPlans - Function to refresh shared plans
  * @param {Function} options.fetchUserPlan - Function to refresh user's plan
  * @param {Function} options.fetchPlans - Function to refresh global plans state
@@ -64,7 +64,7 @@ function setSyncAlertCookie(planId) {
 export default function usePlanSync({
   experience,
   selectedPlanId,
-  sharedPlans,
+  allPlans,
   fetchSharedPlans,
   fetchUserPlan,
   fetchPlans,
@@ -136,7 +136,7 @@ export default function usePlanSync({
     if (!selectedPlanId || !experience) return;
 
     try {
-      const currentPlan = sharedPlans.find((p) => idEquals(p._id, selectedPlanId));
+      const currentPlan = allPlans.find((p) => idEquals(p._id, selectedPlanId));
       if (!currentPlan) return;
 
       const changes = {
@@ -247,7 +247,7 @@ export default function usePlanSync({
       const errorMsg = handleError(err, { context: 'Calculate sync changes' });
       showError?.(errorMsg);
     }
-  }, [selectedPlanId, experience, sharedPlans, showError]);
+  }, [selectedPlanId, experience, allPlans, showError]);
 
   /**
    * Apply selected sync changes to the plan
@@ -258,7 +258,7 @@ export default function usePlanSync({
     try {
       setSyncLoading(true);
 
-      const currentPlan = sharedPlans.find((p) => idEquals(p._id, selectedPlanId));
+      const currentPlan = allPlans.find((p) => idEquals(p._id, selectedPlanId));
       if (!currentPlan) {
         throw new Error('Current plan not found');
       }
@@ -352,7 +352,7 @@ export default function usePlanSync({
   }, [
     selectedPlanId,
     experience,
-    sharedPlans,
+    allPlans,
     fetchSharedPlans,
     fetchUserPlan,
     fetchPlans,
@@ -393,17 +393,17 @@ export default function usePlanSync({
   }, []);
 
   // Ref to track latest data for event handlers (avoids stale closures)
-  const dataRef = useRef({ experience, sharedPlans, selectedPlanId });
+  const dataRef = useRef({ experience, allPlans, selectedPlanId });
   useEffect(() => {
-    dataRef.current = { experience, sharedPlans, selectedPlanId };
-  }, [experience, sharedPlans, selectedPlanId]);
+    dataRef.current = { experience, allPlans, selectedPlanId };
+  }, [experience, allPlans, selectedPlanId]);
 
   /**
    * Recompute divergence and update sync button/alert state
    * Can be called manually or from effects
    */
   const recheckDivergence = useCallback(() => {
-    const { experience: exp, sharedPlans: plans, selectedPlanId: planId } = dataRef.current;
+    const { experience: exp, allPlans: plans, selectedPlanId: planId } = dataRef.current;
 
     if (!planId || plans.length === 0 || !exp) {
       return;
@@ -437,7 +437,7 @@ export default function usePlanSync({
   // Check for divergence when plan or experience changes
   useEffect(() => {
     recheckDivergence();
-  }, [selectedPlanId, sharedPlans, experience, recheckDivergence]);
+  }, [selectedPlanId, allPlans, experience, recheckDivergence]);
 
   // Subscribe to experience plan item events via event bus for instant sync banner updates
   // This provides immediate feedback when The Plan changes, even before React re-renders
@@ -455,11 +455,12 @@ export default function usePlanSync({
         experienceId: eventExpId
       });
 
-      // Small delay to allow React state to settle after the event is processed
+      // Delay to allow React state to settle after the event is processed
       // The experience state will be updated by SingleExperience's applyExperiencePlanItemEvent
+      // 300ms ensures the optimistic update, re-render, and useEffect ref update have completed
       setTimeout(() => {
         recheckDivergence();
-      }, 50);
+      }, 300);
     };
 
     // Subscribe to all experience plan item event types

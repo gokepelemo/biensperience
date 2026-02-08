@@ -1065,7 +1065,7 @@ export default function SingleExperience() {
   } = usePlanSync({
     experience,
     selectedPlanId,
-    sharedPlans,
+    allPlans: allAccessiblePlans,
     fetchSharedPlans,
     fetchUserPlan,
     fetchPlans,
