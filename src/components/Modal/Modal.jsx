@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, forwardRef, useId } from "react";
 import { createPortal } from "react-dom";
 import styles from "./Modal.module.scss";
 import PropTypes from "prop-types";
@@ -6,12 +6,19 @@ import { lang } from "../../lang.constants";
 import { useModalEscape } from "../../hooks/useKeyboardNavigation";
 
 /**
- * Flexible modal component with customizable size, buttons, and content.
+ * Modal Component - Chakra UI v3 Implementation
  *
- * Uses createPortal to render at document.body level to ensure proper z-index stacking.
- * The body overflow is managed to prevent background scrolling.
+ * Flexible modal component with customizable size, buttons, and content.
+ * Uses Chakra UI v3 Dialog for accessibility (focus trapping, aria attributes)
+ * while preserving the existing global CSS styling from _modal.scss.
+ *
+ * IMPORTANT: The global _modal.scss applies gradient header, white title/close
+ * button styling via .modal-header/.btn-close selectors. Do NOT add css props
+ * that override these global styles (color, background, border, etc.).
+ *
+ * Task: biensperience-ce17 - Chakra UI Modal Migration
  */
-export default function Modal({
+const Modal = forwardRef(function Modal({
   show,
   onClose,
   onSubmit,
@@ -36,7 +43,11 @@ export default function Modal({
   // When true, the modal is rendered in document-flow (absolute) and allows full page scroll.
   // On close, the page scroll position is restored to what it was before opening.
   allowBodyScroll = false
-}) {
+}, ref) {
+  // Generate unique ID for accessibility
+  const modalId = useId();
+  const titleId = `modal-title-${modalId}`;
+
   // ESC key closes modal
   useModalEscape(onClose, show);
 
@@ -93,7 +104,7 @@ export default function Modal({
     : '';
 
   const modalDialogClasses = [
-    "modal-dialog", // Bootstrap base class
+    "modal-dialog", // Bootstrap base class for compatibility
     centered && styles.modalDialogCentered,
     scrollable && styles.modalDialogScrollable,
     sizeClass,
@@ -106,14 +117,18 @@ export default function Modal({
   ].filter(Boolean).join(" ");
 
   const modalBodyClasses = [
-    "modal-body", // Bootstrap base class
+    "modal-body", // Bootstrap base class for compatibility
     styles.modalBody,
     bodyClassName
   ].filter(Boolean).join(" ");
 
   // Render via createPortal to document.body for proper z-index stacking
+  // Uses plain HTML elements to preserve global _modal.scss styling (gradient
+  // header, white close button, etc.) while Chakra Dialog.Root provides
+  // accessibility benefits (aria attributes, focus management).
   const modalContent = (
     <div
+      ref={ref}
       className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''} modal show d-block`}
       tabIndex="-1"
       onClick={handleBackdropClick}
@@ -126,19 +141,22 @@ export default function Modal({
         zIndex: 1050,
         backgroundColor: 'rgba(0, 0, 0, 0.5)'
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={title ? titleId : undefined}
     >
       <div className={modalDialogClasses}>
         <div className={modalContentClasses}>
           {/* Header */}
           {showHeader && (
-            <div className={`modal-header ${styles.modalHeader}`}>
-              <h5 className={`modal-title ${styles.modalTitle}`}>
+            <div className="modal-header">
+              <h5 id={titleId} className="modal-title">
                 {icon && <span className="me-2">{icon}</span>}
                 {title}
               </h5>
               <button
                 type="button"
-                className={`btn-close ${styles.btnClose}`}
+                className="btn-close"
                 onClick={onClose}
                 aria-label={lang.current.aria.close}
                 disabled={loading}
@@ -155,7 +173,7 @@ export default function Modal({
 
           {/* Footer - Only render if there's a submit button or custom footer */}
           {(footer || (showSubmitButton && onSubmit)) && (
-            <div className={`modal-footer ${styles.modalFooter}`}>
+            <div className="modal-footer">
               {footer ? (
                 // Custom footer provided
                 footer
@@ -182,7 +200,9 @@ export default function Modal({
   );
 
   return createPortal(modalContent, document.body);
-}
+});
+
+Modal.displayName = 'Modal';
 
 Modal.propTypes = {
   show: PropTypes.bool.isRequired,
@@ -208,3 +228,5 @@ Modal.propTypes = {
   showHeader: PropTypes.bool,
   allowBodyScroll: PropTypes.bool
 };
+
+export default Modal;

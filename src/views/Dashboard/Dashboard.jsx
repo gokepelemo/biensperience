@@ -257,11 +257,11 @@ export default function Dashboard() {
                   icon={<FaMapMarkerAlt />}
                 />
                 <StatsCard
-                  label="Estimated Cost"
+                  label={lang.current.label.totalSpent}
                   value={formatCostEstimate(totalSpentValue)}
                   color="var(--color-info)"
                   icon={<FaDollarSign />}
-                  tooltip={`Cost estimate: ${formatCurrency(totalSpentValue)}`}
+                  tooltip={`${lang.current.label.trackedCosts}: ${formatCurrency(totalSpentValue)}`}
                 />
               </div>
 

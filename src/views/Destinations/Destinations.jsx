@@ -9,8 +9,7 @@ import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterDestinations } from "../../utilities/sort-filter";
-import { Container, Mobile, Desktop, EmptyState } from "../../components/design-system";
-import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
+import { Container, Mobile, Desktop, EmptyState, SkeletonLoader, DestinationCardSkeleton } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
 import { lang } from "../../lang.constants";
 
@@ -116,14 +115,7 @@ export default function Destinations() {
       {(loading || !initialLoadComplete) ? (
         <Container className="my-4">
           <div className={styles.destinationsList}>
-            {/* Skeleton loaders matching DestinationCard dimensions (12rem × 8rem) */}
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className={styles.destinationSkeleton}>
-                <div className={styles.destinationSkeletonOverlay}>
-                  <div className={styles.destinationSkeletonTitle} />
-                </div>
-              </div>
-            ))}
+            <DestinationCardSkeleton count={6} />
           </div>
         </Container>
       ) : (

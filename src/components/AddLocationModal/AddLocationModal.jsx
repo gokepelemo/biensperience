@@ -8,9 +8,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaMapMarkerAlt, FaSearch, FaSpinner, FaCheck } from 'react-icons/fa';
-import Modal from '../Modal/Modal';
 import GoogleMap from '../GoogleMap/GoogleMap';
-import { Button } from '../design-system';
+import { Modal, Button } from '../design-system';
 import styles from './AddLocationModal.module.scss';
 import { logger } from '../../utilities/logger';
 import { sendRequest } from '../../utilities/send-request';

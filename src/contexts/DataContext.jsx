@@ -792,11 +792,10 @@ export function DataProvider({ children }) {
 
     const onPlanCreated = (e) => {
       try {
-        const detail = e?.detail || {};
-        const plan = detail.plan;
+        const plan = e?.plan || e?.data;
         if (!plan || !plan._id) return;
 
-        const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+        const rawExp = e?.experienceId || plan?.experience?._id || plan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
         // BATCH all state updates to prevent UI flashing (single re-render)
@@ -871,11 +870,10 @@ export function DataProvider({ children }) {
 
     const onPlanUpdated = (e) => {
       try {
-        const detail = e?.detail || {};
-        const plan = detail.plan;
+        const plan = e?.plan || e?.data;
         if (!plan || !plan._id) return;
 
-        const rawExp = detail.experienceId || plan?.experience?._id || plan?.experience || null;
+        const rawExp = e?.experienceId || plan?.experience?._id || plan?.experience || null;
         const expId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
 
         // BATCH all state updates to prevent UI flashing (single re-render)
@@ -928,9 +926,8 @@ export function DataProvider({ children }) {
 
     const onPlanDeleted = (e) => {
       try {
-        const detail = e?.detail || {};
-        const plan = detail.plan;
-        const experienceId = detail.experienceId || (plan && (plan.experience?._id || plan.experience)) || null;
+        const plan = e?.plan || e?.data;
+        const experienceId = e?.experienceId || (plan && (plan.experience?._id || plan.experience)) || null;
         const expId = experienceId && experienceId.toString ? experienceId.toString() : experienceId;
 
         // BATCH all state updates to prevent UI flashing (single re-render)

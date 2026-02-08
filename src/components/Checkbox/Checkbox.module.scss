@@ -1,90 +1,251 @@
 @use '../../styles/scss/abstracts' as *;
 
-/* Tokenized Checkbox */
-.bpCheckbox {
+/* ─── Root ─── */
+.root {
   display: inline-flex;
   align-items: center;
-  gap: $space-3;
+  gap: $space-2;
   cursor: pointer;
   user-select: none;
+  vertical-align: middle;
 
   &.isDisabled {
-    opacity: 0.6;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 }
 
-/* Hidden native input, but accessible */
-.bpCheckboxInput {
+/* ─── Hidden native input (accessible) ─── */
+.hiddenInput {
   position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
-
-  /* Focus and checked states */
-  &:focus + .bpCheckboxBox,
-  &:hover + .bpCheckboxBox {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
-  }
-
-  &:checked + .bpCheckboxBox {
-    border-color: transparent;
-    background: var(--gradient-primary);
-
-    .bpCheckboxCheck {
-      opacity: 1;
-    }
-  }
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
 }
 
-/* Size variants */
-.bpCheckboxMd .bpCheckboxBox {
-  width: 24px;
-  height: 24px;
-}
-
-.bpCheckboxSm .bpCheckboxBox {
-  width: 20px;
-  height: 20px;
-}
-
-.bpCheckboxLg .bpCheckboxBox {
-  width: 28px;
-  height: 28px;
-}
-
-/* Checkbox box */
-.bpCheckboxBox {
+/* ─── Control (the visual box) ─── */
+.control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--color-border-medium);
-  background: var(--color-bg-primary);
-  color: #fff;
-  border-radius: $radius-md;
-  transition: all var(--transition-base);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  border-radius: $radius-sm;
+  transition: background $transition-fast-smooth,
+              border-color $transition-fast-smooth,
+              box-shadow $transition-fast-smooth;
 }
 
-/* Hover state for parent */
-.bpCheckbox:hover .bpCheckboxBox {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
-}
-
-/* Checkmark SVG */
-.bpCheckboxCheck {
-  width: 16px;
-  height: 16px;
-  stroke: white;
-  transform: scale(0.6) translateY(1px);
+/* ─── Checkmark / Indicator ─── */
+.indicator {
   opacity: 0;
-  transition: opacity var(--transition-fast) ease;
+  transform: scale(0.5);
+  transition: opacity $transition-fast-smooth,
+              transform $transition-fast-smooth;
 }
 
-/* Label */
-.bpCheckboxLabel {
+/* ─── When checked ─── */
+.hiddenInput:checked ~ .control .indicator {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ─── Focus ring ─── */
+.hiddenInput:focus-visible ~ .control {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.35);
+}
+
+/* ─── Size variants ─── */
+.sizeSm {
+  .control {
+    width: 18px;
+    height: 18px;
+  }
+  .indicator {
+    width: 12px;
+    height: 12px;
+  }
+  .label {
+    font-size: var(--font-size-xs);
+  }
+}
+
+.sizeMd {
+  .control {
+    width: 22px;
+    height: 22px;
+  }
+  .indicator {
+    width: 14px;
+    height: 14px;
+  }
+  .label {
+    font-size: var(--font-size-sm);
+  }
+}
+
+.sizeLg {
+  .control {
+    width: 26px;
+    height: 26px;
+  }
+  .indicator {
+    width: 16px;
+    height: 16px;
+  }
+  .label {
+    font-size: var(--font-size-base);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Variant: OUTLINE (default — Chakra‑style)
+   Unchecked: bordered, transparent fill
+   Checked: solid fill, white check
+   ═══════════════════════════════════════════ */
+.variantOutline {
+  .control {
+    border: 2px solid var(--color-border-medium);
+    background: var(--color-bg-primary);
+  }
+
+  &:hover:not(.isDisabled) .control {
+    border-color: var(--color-primary);
+  }
+
+  .hiddenInput:checked ~ .control {
+    border-color: transparent;
+    background: var(--color-primary);
+    .indicator { stroke: #fff; }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Variant: SUBTLE
+   Unchecked: tinted bg, no border
+   Checked: darker tint, colored check
+   ═══════════════════════════════════════════ */
+.variantSubtle {
+  .control {
+    border: 2px solid transparent;
+    background: var(--color-primary-shadow-light, rgba(102, 126, 234, 0.12));
+  }
+
+  &:hover:not(.isDisabled) .control {
+    background: rgba(102, 126, 234, 0.2);
+  }
+
+  .hiddenInput:checked ~ .control {
+    background: rgba(102, 126, 234, 0.2);
+    .indicator { stroke: var(--color-primary); }
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Variant: SOLID
+   Unchecked: solid primary bg, faint check
+   Checked: solid primary bg, white check
+   ═══════════════════════════════════════════ */
+.variantSolid {
+  .control {
+    border: 2px solid transparent;
+    background: var(--color-primary);
+  }
+
+  .indicator {
+    stroke: rgba(255, 255, 255, 0.35);
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  &:hover:not(.isDisabled) .control {
+    background: var(--color-primary-hover, #5a67d8);
+  }
+
+  .hiddenInput:checked ~ .control .indicator {
+    stroke: #fff;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Color scheme overrides (extend as needed)
+   ═══════════════════════════════════════════ */
+.colorSuccess {
+  &.variantOutline .hiddenInput:checked ~ .control {
+    background: var(--bs-success, #198754);
+  }
+  &.variantSubtle .control {
+    background: rgba(25, 135, 84, 0.12);
+  }
+  &.variantSubtle .hiddenInput:checked ~ .control {
+    background: rgba(25, 135, 84, 0.2);
+    .indicator { stroke: var(--bs-success, #198754); }
+  }
+  &.variantSolid .control {
+    background: var(--bs-success, #198754);
+  }
+
+  &.variantOutline:hover:not(.isDisabled) .control,
+  &.variantSubtle:hover:not(.isDisabled) .control {
+    border-color: var(--bs-success, #198754);
+  }
+  .hiddenInput:focus-visible ~ .control {
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.35);
+  }
+}
+
+.colorDanger {
+  &.variantOutline .hiddenInput:checked ~ .control {
+    background: var(--bs-danger, #dc3545);
+  }
+  &.variantSubtle .control {
+    background: rgba(220, 53, 69, 0.12);
+  }
+  &.variantSubtle .hiddenInput:checked ~ .control {
+    background: rgba(220, 53, 69, 0.2);
+    .indicator { stroke: var(--bs-danger, #dc3545); }
+  }
+  &.variantSolid .control {
+    background: var(--bs-danger, #dc3545);
+  }
+
+  &.variantOutline:hover:not(.isDisabled) .control,
+  &.variantSubtle:hover:not(.isDisabled) .control {
+    border-color: var(--bs-danger, #dc3545);
+  }
+  .hiddenInput:focus-visible ~ .control {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.35);
+  }
+}
+
+.colorWarning {
+  &.variantOutline .hiddenInput:checked ~ .control {
+    background: var(--bs-warning, #ffc107);
+  }
+  &.variantSubtle .control {
+    background: rgba(255, 193, 7, 0.12);
+  }
+  &.variantSubtle .hiddenInput:checked ~ .control {
+    background: rgba(255, 193, 7, 0.2);
+    .indicator { stroke: var(--bs-warning, #ffc107); }
+  }
+  &.variantSolid .control {
+    background: var(--bs-warning, #ffc107);
+  }
+
+  &.variantOutline:hover:not(.isDisabled) .control,
+  &.variantSubtle:hover:not(.isDisabled) .control {
+    border-color: var(--bs-warning, #ffc107);
+  }
+  .hiddenInput:focus-visible ~ .control {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.35);
+  }
+}
+
+/* ─── Label ─── */
+.label {
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
+import Checkbox from '../Checkbox/Checkbox';
 import styles from './Form.module.scss';
 
 /**
@@ -124,39 +125,66 @@ FormControl.propTypes = {
 };
 
 /**
- * FormCheck component for checkboxes and radio buttons
+ * FormCheck component for checkboxes and radio buttons.
+ * Delegates to the design-system Checkbox for consistent styling.
+ * Accepts either `children` or `label` prop for the label text.
  */
 export function FormCheck({
   children,
+  label,
   type = 'checkbox',
   id,
   className = '',
   style = {},
+  variant = 'outline',
+  size = 'md',
+  colorScheme,
   ...props
 }) {
-  const classes = [styles.formCheck, className].filter(Boolean).join(' ');
+  const resolvedLabel = children || label || undefined;
 
+  // Radio inputs still use the legacy FormCheck markup
+  if (type === 'radio') {
+    const classes = [styles.formCheck, className].filter(Boolean).join(' ');
+    return (
+      <div className={classes} style={style}>
+        <input
+          type="radio"
+          className={styles.formCheckInput}
+          id={id}
+          {...props}
+        />
+        <label className={styles.formCheckLabel} htmlFor={id}>
+          {resolvedLabel}
+        </label>
+      </div>
+    );
+  }
+
+  // Checkbox delegates to the Checkbox design-system component
   return (
-    <div className={classes} style={style}>
-      <input
-        type={type}
-        className={styles.formCheckInput}
-        id={id}
-        {...props}
-      />
-      <label className={styles.formCheckLabel} htmlFor={id}>
-        {children}
-      </label>
-    </div>
+    <Checkbox
+      id={id}
+      label={resolvedLabel}
+      className={className}
+      variant={variant}
+      size={size}
+      colorScheme={colorScheme}
+      {...props}
+    />
   );
 }
 
 FormCheck.propTypes = {
-  children: PropTypes.node.isRequired,
+  children: PropTypes.node,
+  label: PropTypes.node,
   type: PropTypes.oneOf(['checkbox', 'radio']),
-  id: PropTypes.string.isRequired,
+  id: PropTypes.string,
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
+  variant: PropTypes.oneOf(['outline', 'subtle', 'solid']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  colorScheme: PropTypes.oneOf(['primary', 'success', 'warning', 'danger']),
 };
 
 /**

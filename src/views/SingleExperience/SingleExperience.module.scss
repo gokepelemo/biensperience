@@ -597,6 +597,29 @@
   }
 }
 
+/* Plan item title button - card view clickable text (opens details modal) */
+:global(.plan-item-title-button) {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  line-height: inherit;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary-alpha-20);
+    border-radius: var(--radius-sm);
+  }
+}
+
 :global(.experience-header-grid) {
   display: grid;
   grid-template-columns: 1fr 1fr;

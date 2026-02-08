@@ -11,7 +11,7 @@
  * @module hooks/useUIPreference
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useUser } from '../contexts/UserContext';
 import {
   getUIPreference,
@@ -63,15 +63,26 @@ export function useUIPreference(key, defaultValue, options = {}) {
   const [value, setValueState] = useState(defaultValue);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Stabilize defaultValue reference to prevent re-triggering load effect
+  // when callers pass a new array/object literal (e.g., [] or {}) each render
+  const defaultValueRef = useRef(defaultValue);
+
+  // Keep a ref of the current value so setValue doesn't need it as a dependency
+  const valueRef = useRef(value);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
   // Load initial value from storage
   useEffect(() => {
     let isMounted = true;
 
     async function loadPreference() {
       try {
+        const fallback = defaultValueRef.current;
         if (userId) {
           // Use encrypted storage
-          const stored = await retrievePreference(key, defaultValue, { userId });
+          const stored = await retrievePreference(key, fallback, { userId });
           if (isMounted) {
             setValueState(stored);
             setIsLoading(false);
@@ -80,13 +91,13 @@ export function useUIPreference(key, defaultValue, options = {}) {
           // Fallback to legacy unencrypted storage
           const stored = getUIPreference(key);
           if (isMounted) {
-            setValueState(stored !== undefined && stored !== null ? stored : defaultValue);
+            setValueState(stored !== undefined && stored !== null ? stored : fallback);
             setIsLoading(false);
           }
         }
       } catch (e) {
         if (isMounted) {
-          setValueState(defaultValue);
+          setValueState(defaultValueRef.current);
           setIsLoading(false);
         }
       }
@@ -97,12 +108,12 @@ export function useUIPreference(key, defaultValue, options = {}) {
     return () => {
       isMounted = false;
     };
-  }, [key, defaultValue, userId]);
+  }, [key, userId]);
 
   // Persist value changes to storage
   const setValue = useCallback(async (newValue) => {
     // Support functional updates like useState
-    const valueToSet = typeof newValue === 'function' ? newValue(value) : newValue;
+    const valueToSet = typeof newValue === 'function' ? newValue(valueRef.current) : newValue;
     setValueState(valueToSet);
 
     if (userId) {
@@ -112,7 +123,7 @@ export function useUIPreference(key, defaultValue, options = {}) {
       // Fallback to legacy storage
       setUIPreference(key, valueToSet);
     }
-  }, [key, value, userId, ttl]);
+  }, [key, userId, ttl]);
 
   return [value, setValue, isLoading];
 }

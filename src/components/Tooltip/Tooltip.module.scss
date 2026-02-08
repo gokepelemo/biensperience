@@ -32,6 +32,10 @@ $tooltip-transition-duration: 0.15s;
     border-radius: var(--radius-sm, 0.25rem) !important;
     box-shadow: var(--shadow-md) !important;
     max-width: $tooltip-max-width !important;
+    width: max-content !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    white-space: normal !important;
     z-index: $tooltip-z-index !important;
 
     // Arrow styling

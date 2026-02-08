@@ -68,14 +68,13 @@ export default function MyPlans() {
   // Currency conversion hook for proper cost rollups
   const { calculateTotal, formatTotal, userCurrency } = useCurrencyConversion();
 
-  // Filter plans based on dropdown selection
-  const ownedPlans = plans.filter(plan => !plan.isCollaborative);
-  const sharedPlans = plans.filter(plan => plan.isCollaborative);
-  const displayedPlans = planFilter === PLAN_FILTERS.ALL
-    ? plans
-    : planFilter === PLAN_FILTERS.OWNED
-      ? ownedPlans
-      : sharedPlans;
+  // Filter plans based on dropdown selection - memoize to prevent new array references
+  // that would cause PlanCalendar to re-render and tooltips to flash in a loop
+  const displayedPlans = useMemo(() => {
+    if (planFilter === PLAN_FILTERS.ALL) return plans;
+    if (planFilter === PLAN_FILTERS.OWNED) return plans.filter(plan => !plan.isCollaborative);
+    return plans.filter(plan => plan.isCollaborative);
+  }, [plans, planFilter]);
 
   // Filter options for searchable select with icons
   // Use pagination totals (from API) for accurate counts across all pages
@@ -209,8 +208,7 @@ export default function MyPlans() {
   useEffect(() => {
     // Handle plan:created - add new plan to list
     const unsubscribeCreated = eventBus.subscribe('plan:created', async (event) => {
-      const detail = event.detail || {};
-      const plan = detail.plan || detail.data;
+      const plan = event.plan || event.data;
       if (!plan || !plan._id) return;
 
       // Add new plan to list (at the beginning, most recent first)
@@ -250,8 +248,7 @@ export default function MyPlans() {
       // - updatePlanItem: { plan, planId }
       // - updatePlan: { data, planId, version }
       // - reorderPlanItems: { data, planId, version }
-      const detail = event.detail || {};
-      const plan = detail.plan || detail.data;
+      const plan = event.plan || event.data;
       if (!plan || !plan._id) return;
 
       // Update the plan in local state with fresh data from server
@@ -283,8 +280,7 @@ export default function MyPlans() {
 
     // Handle plan:deleted - remove plan from list
     const unsubscribeDeleted = eventBus.subscribe('plan:deleted', (event) => {
-      const detail = event.detail || {};
-      const planId = detail.planId;
+      const planId = event.planId;
       if (!planId) return;
 
       // Use batchedUpdates to ensure both state updates see the same plan data
@@ -536,6 +532,7 @@ export default function MyPlans() {
                                     compact={true}
                                     isActual={true}
                                     exact={true}
+                                    costCount={plan.costs?.length}
                                   />
                                 </Text>
                               </div>

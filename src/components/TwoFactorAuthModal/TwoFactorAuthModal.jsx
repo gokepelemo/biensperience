@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import { FaShieldAlt, FaRedo } from 'react-icons/fa';
 import { Button } from 'react-bootstrap';
 import Alert from '../Alert/Alert';

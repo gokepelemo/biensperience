@@ -1,4 +1,4 @@
-import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle, FaUserMinus, FaList, FaUserFriends } from "react-icons/fa";
+import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle, FaUserMinus, FaList, FaUserFriends, FaArrowLeft } from "react-icons/fa";
 import { getSocialNetwork, getLinkIcon, getLinkDisplayText, buildLinkUrl } from "../../utilities/social-links";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
@@ -1545,6 +1545,14 @@ export default function Profile() {
   // Show private profile state
   // Profile is private if: isPrivate flag is set, and user is not owner/admin
   if (currentProfile?.isPrivate && !isOwner) {
+    const handleBack = () => {
+      if (document.referrer && document.referrer.startsWith(window.location.origin)) {
+        navigate(-1);
+      } else {
+        navigate('/');
+      }
+    };
+
     return (
       <div style={{ padding: 'var(--space-20) 0' }}>
         <Container>
@@ -1553,8 +1561,8 @@ export default function Profile() {
             icon="🔒"
             title={lang.current.profile.privateProfileTitle}
             description={lang.current.profile.privateProfileDescription}
-            primaryAction={lang.current.button.goBack}
-            onPrimaryAction={() => navigate(-1)}
+            primaryAction={<><FaArrowLeft /> Back</>}
+            onPrimaryAction={handleBack}
             size="lg"
           />
         </Container>

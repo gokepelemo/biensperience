@@ -1,83 +1,18 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { FaTh, FaMap } from "react-icons/fa";
 import { lang } from "../../lang.constants";
-import { getCountryData, loadMoreDestinations, loadMoreExperiences } from "../../utilities/countries-api";
-import { eventBus } from "../../utilities/event-bus";
 import { useViewModePreference } from "../../hooks/useUIPreference";
 import useGeocodedMarkers from "../../hooks/useGeocodedMarkers";
+import useCountryData from "../../hooks/useCountryData";
 import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import { MapWithListings } from "../../components/InteractiveMap";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import Alert from "../../components/Alert/Alert";
-import { Button, FlexCenter, SpaceY, EmptyState, FadeIn, SkeletonLoader } from "../../components/design-system";
-import { logger } from "../../utilities/logger";
+import { Button, FlexCenter, SpaceY, EmptyState, FadeIn, SkeletonLoader, ExperienceCardSkeleton, DestinationCardSkeleton } from "../../components/design-system";
 import styles from "./Countries.module.scss";
-
-/**
- * Convert a URL slug to title case display name
- * e.g., "united-states" -> "United States"
- */
-function slugToDisplayName(slug) {
-  if (!slug) return '';
-  return decodeURIComponent(slug)
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase());
-}
-
-/**
- * Normalize a country name to a slug for comparison
- * e.g., "United States" -> "united-states"
- */
-function normalizeCountrySlug(name) {
-  return name?.toLowerCase().replace(/[\s-]+/g, '-') || '';
-}
-
-/**
- * Create entity event handlers for real-time updates
- * Reduces duplication between destination and experience event subscriptions
- *
- * @param {Object} config - Configuration for the entity handlers
- * @param {string} config.entityKey - Key to extract entity from event (e.g., 'destination', 'experience')
- * @param {string} config.entityIdKey - Key for entity ID in delete events (e.g., 'destinationId', 'experienceId')
- * @param {Function} config.setItems - State setter for items array
- * @param {Function} config.setMeta - State setter for pagination meta
- * @param {Function} config.matchesCountry - Function to check if entity belongs to current country
- * @returns {Object} Object with created, updated, deleted handlers
- */
-function createEntityEventHandlers({ entityKey, entityIdKey, setItems, setMeta, matchesCountry }) {
-  return {
-    created: (event) => {
-      const created = event[entityKey] || event.detail?.[entityKey];
-      if (!created?._id) return;
-
-      if (!matchesCountry(created)) return;
-
-      // Add to the beginning of the list
-      setItems(prev => [created, ...prev]);
-      // Update meta count
-      setMeta(prev => prev ? { ...prev, total: prev.total + 1 } : prev);
-    },
-    updated: (event) => {
-      const updated = event[entityKey] || event.detail?.[entityKey];
-      if (!updated?._id) return;
-
-      setItems(prev =>
-        prev.map(item => item._id === updated._id ? { ...item, ...updated } : item)
-      );
-    },
-    deleted: (event) => {
-      const deletedId = event[entityIdKey] || event.detail?.[entityIdKey];
-      if (!deletedId) return;
-
-      setItems(prev => prev.filter(item => item._id !== deletedId));
-      // Update meta count
-      setMeta(prev => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
-    }
-  };
-}
 
 export default function Countries() {
   const { countryName } = useParams();
@@ -93,11 +28,10 @@ export default function Countries() {
   // Sync view mode changes to both URL and localStorage
   const setViewMode = useCallback((newMode) => {
     setPersistedViewMode(newMode);
-    // Update URL without adding to history for each toggle
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       if (newMode === 'list') {
-        newParams.delete('view'); // Remove param for default view
+        newParams.delete('view');
       } else {
         newParams.set('view', newMode);
       }
@@ -105,20 +39,24 @@ export default function Countries() {
     }, { replace: true });
   }, [setPersistedViewMode, setSearchParams]);
 
-  // Data state
-  const [destinations, setDestinations] = useState([]);
-  const [experiences, setExperiences] = useState([]);
-  const [country, setCountry] = useState(null);
-
-  // Pagination metadata
-  const [destinationsMeta, setDestinationsMeta] = useState(null);
-  const [experiencesMeta, setExperiencesMeta] = useState(null);
-
-  // Loading states
-  const [loading, setLoading] = useState(true);
-  const [loadingMoreDestinations, setLoadingMoreDestinations] = useState(false);
-  const [loadingMoreExperiences, setLoadingMoreExperiences] = useState(false);
-  const [error, setError] = useState(null);
+  // All data fetching, pagination, events, and computed values
+  const {
+    destinations,
+    experiences,
+    displayCountryName,
+    destinationsMeta,
+    experiencesMeta,
+    loading,
+    loadingMoreDestinations,
+    loadingMoreExperiences,
+    error,
+    fetchCountryData,
+    handleLoadMoreDestinations,
+    handleLoadMoreExperiences,
+    pageTitle,
+    pageDescription,
+    subtitle
+  } = useCountryData(countryName);
 
   // Map markers from geocoding hook
   const { markers: mapMarkers, isLoading: isGeocodingMarkers, hasData: hasMapData } = useGeocodedMarkers({
@@ -126,159 +64,6 @@ export default function Countries() {
     experiences,
     loading
   });
-
-  // Convert slug to display name for initial render, API will return canonical name
-  const displayCountryName = country || slugToDisplayName(countryName);
-
-  // Fetch initial data for the country
-  const fetchCountryData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      logger.info('[Countries] Fetching country data', { country: countryName });
-
-      const result = await getCountryData(countryName);
-
-      setCountry(result.country);
-      setDestinations(result.destinations || []);
-      setExperiences(result.experiences || []);
-      setDestinationsMeta(result.destinationsMeta);
-      setExperiencesMeta(result.experiencesMeta);
-
-      logger.info('[Countries] Data loaded successfully', {
-        country: result.country,
-        destinationsCount: result.destinations?.length || 0,
-        totalDestinations: result.destinationsMeta?.total,
-        experiencesCount: result.experiences?.length || 0,
-        totalExperiences: result.experiencesMeta?.total
-      });
-    } catch (err) {
-      logger.error('[Countries] Failed to fetch country data', {
-        error: err.message,
-        country: countryName
-      });
-      setError(err.message || lang.current.countriesView.failedToLoadData);
-    } finally {
-      setLoading(false);
-    }
-  }, [countryName]);
-
-  // Load more destinations using dedicated API utility
-  const handleLoadMoreDestinations = useCallback(async () => {
-    if (!destinationsMeta?.hasMore || loadingMoreDestinations) return;
-
-    try {
-      setLoadingMoreDestinations(true);
-      const nextPage = destinationsMeta.page + 1;
-
-      logger.info('[Countries] Loading more destinations', { page: nextPage });
-
-      const result = await loadMoreDestinations(countryName, nextPage, destinationsMeta.limit);
-
-      setDestinations(prev => [...prev, ...result.destinations]);
-      setDestinationsMeta(result.destinationsMeta);
-
-      logger.info('[Countries] Loaded more destinations', {
-        newCount: result.destinations.length,
-        totalLoaded: destinations.length + result.destinations.length
-      });
-    } catch (err) {
-      logger.error('[Countries] Failed to load more destinations', { error: err.message });
-    } finally {
-      setLoadingMoreDestinations(false);
-    }
-  }, [countryName, destinationsMeta, loadingMoreDestinations, destinations.length]);
-
-  // Load more experiences using dedicated API utility
-  const handleLoadMoreExperiences = useCallback(async () => {
-    if (!experiencesMeta?.hasMore || loadingMoreExperiences) return;
-
-    try {
-      setLoadingMoreExperiences(true);
-      const nextPage = experiencesMeta.page + 1;
-
-      logger.info('[Countries] Loading more experiences', { page: nextPage });
-
-      const result = await loadMoreExperiences(countryName, nextPage, experiencesMeta.limit);
-
-      setExperiences(prev => [...prev, ...result.experiences]);
-      setExperiencesMeta(result.experiencesMeta);
-
-      logger.info('[Countries] Loaded more experiences', {
-        newCount: result.experiences.length,
-        totalLoaded: experiences.length + result.experiences.length
-      });
-    } catch (err) {
-      logger.error('[Countries] Failed to load more experiences', { error: err.message });
-    } finally {
-      setLoadingMoreExperiences(false);
-    }
-  }, [countryName, experiencesMeta, loadingMoreExperiences, experiences.length]);
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchCountryData();
-  }, [fetchCountryData]);
-
-  // Subscribe to destination events for real-time updates
-  useEffect(() => {
-    const currentCountrySlug = normalizeCountrySlug(countryName);
-
-    const handlers = createEntityEventHandlers({
-      entityKey: 'destination',
-      entityIdKey: 'destinationId',
-      setItems: setDestinations,
-      setMeta: setDestinationsMeta,
-      matchesCountry: (dest) => normalizeCountrySlug(dest.country) === currentCountrySlug
-    });
-
-    const unsubCreate = eventBus.subscribe('destination:created', handlers.created);
-    const unsubUpdate = eventBus.subscribe('destination:updated', handlers.updated);
-    const unsubDelete = eventBus.subscribe('destination:deleted', handlers.deleted);
-
-    return () => {
-      unsubCreate();
-      unsubUpdate();
-      unsubDelete();
-    };
-  }, [countryName]);
-
-  // Subscribe to experience events for real-time updates
-  useEffect(() => {
-    const currentCountrySlug = normalizeCountrySlug(countryName);
-
-    const handlers = createEntityEventHandlers({
-      entityKey: 'experience',
-      entityIdKey: 'experienceId',
-      setItems: setExperiences,
-      setMeta: setExperiencesMeta,
-      matchesCountry: (exp) => normalizeCountrySlug(exp.destination?.country) === currentCountrySlug
-    });
-
-    const unsubCreate = eventBus.subscribe('experience:created', handlers.created);
-    const unsubUpdate = eventBus.subscribe('experience:updated', handlers.updated);
-    const unsubDelete = eventBus.subscribe('experience:deleted', handlers.deleted);
-
-    return () => {
-      unsubCreate();
-      unsubUpdate();
-      unsubDelete();
-    };
-  }, [countryName]);
-
-  // Memoized page metadata
-  const { pageTitle, pageDescription } = useMemo(() => ({
-    pageTitle: `${displayCountryName} - ${lang.current.viewMeta.defaultTitle}`,
-    pageDescription: lang.current.countriesView.pageDescription.replace('{country}', displayCountryName)
-  }), [displayCountryName]);
-
-  // Memoized subtitle using total counts from meta
-  const subtitle = useMemo(() => {
-    if (loading) return null;
-    const destCount = destinationsMeta?.total || destinations.length;
-    const expCount = experiencesMeta?.total || experiences.length;
-    return `${destCount} ${destCount === 1 ? 'destination' : 'destinations'} • ${expCount} ${expCount === 1 ? 'experience' : 'experiences'}`;
-  }, [loading, destinationsMeta?.total, experiencesMeta?.total, destinations.length, experiences.length]);
 
   // Handle marker click - navigate to destination/experience
   const handleMarkerClick = useCallback((marker) => {
@@ -415,14 +200,7 @@ export default function Countries() {
               </h2>
               <div className={styles.destinationsList}>
                 {loading ? (
-                  // Skeleton loaders matching DestinationCard dimensions (12rem × 8rem)
-                  Array.from({ length: 6 }).map((_, index) => (
-                    <div key={index} className={styles.destinationSkeleton}>
-                      <div className={styles.destinationSkeletonOverlay}>
-                        <div className={styles.destinationSkeletonTitle} />
-                      </div>
-                    </div>
-                  ))
+                  <DestinationCardSkeleton count={6} />
                 ) : destinations.length > 0 ? (
                   destinations.map((destination, index) => (
                     <FadeIn key={destination._id || index} delay={index * 30}>
@@ -468,19 +246,7 @@ export default function Countries() {
               </h2>
               <div className={styles.experiencesList}>
                 {loading ? (
-                  // Skeleton loaders matching ExperienceCard dimensions (20rem × 12rem min-height)
-                  Array.from({ length: 6 }).map((_, index) => (
-                    <div key={index} className={styles.experienceSkeleton}>
-                      <div className={styles.experienceSkeletonContent}>
-                        <div className={styles.experienceSkeletonTitle} />
-                      </div>
-                      <div className={styles.experienceSkeletonActions}>
-                        <div className={styles.experienceSkeletonButton} />
-                        <div className={styles.experienceSkeletonButton} />
-                        <div className={styles.experienceSkeletonButton} />
-                      </div>
-                    </div>
-                  ))
+                  <ExperienceCardSkeleton count={6} />
                 ) : experiences.length > 0 ? (
                   experiences.map((experience, index) => (
                     <FadeIn key={experience._id || index} delay={index * 30}>

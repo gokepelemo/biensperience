@@ -1,7 +1,7 @@
 import styles from "./NewDestinationModal.module.scss";
 import { useState, useEffect } from "react";
 import { Form } from "react-bootstrap";
-import Modal from "../Modal/Modal";
+import { Modal } from '../design-system';
 import FormField from "../FormField/FormField";
 import { createDestination } from "../../utilities/destinations-api";
 import { useData } from "../../contexts/DataContext";

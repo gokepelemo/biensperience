@@ -1,10 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import styles from './PhotoUploadModal.module.scss';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
-import { Button } from '../design-system';
+import { Button, Modal } from '../design-system';
 import { lang } from '../../lang.constants';
 import { logger } from '../../utilities/logger';
+
+/**
+ * PhotoUploadModal - Modal for managing photo uploads on entities
+ *
+ * Migrated to use the design-system Modal abstraction which provides
+ * Chakra UI Dialog support via feature flag, built-in focus trapping,
+ * scroll lock, ESC handling, and ARIA attributes.
+ *
+ * Task: biensperience-4fc9
+ */
 
 export default function PhotoUploadModal({
   show,
@@ -18,6 +27,7 @@ export default function PhotoUploadModal({
   const [localData, setLocalData] = useState(() => ({ photos: [], photos_full: [] }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const id = useId();
 
   // Initialize localData when the modal opens (transition false->true) or
   // when the modal opened but entity became available shortly after. We
@@ -137,28 +147,41 @@ export default function PhotoUploadModal({
     }
   }, [localData, onSave, onClose]);
 
-  if (!show) return null;
+  const footerContent = (
+    <div className={styles.modalFooter}>
+      <Button variant="outline" onClick={onClose} disabled={saving}>{lang.current.photoUploadModal.cancel}</Button>
+      <Button
+        variant="primary"
+        onClick={handleSave}
+        disabled={saving}
+        aria-busy={saving}
+      >
+        {saving ? lang.current.photoUploadModal.saving : lang.current.photoUploadModal.save}
+      </Button>
+    </div>
+  );
 
   return (
-    <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label={lang.current.photoUploadModal.managePhotosAria}>
-      <div className={styles.modalContent}>
-        <div className={styles.modalHeader}>
-          <h4>{lang.current.photoUploadModal.title}</h4>
-          <button className={styles.closeBtn} onClick={onClose} aria-label={lang.current.photoUploadModal.closeAria}>✕</button>
-        </div>
-
-        <div className={styles.modalBody}>
-          <PhotoUpload data={localData} setData={setLocalData} />
-          {error && <div className={styles.error}>{error}</div>}
-        </div>
-
-        <div className={styles.modalFooter}>
-          <Button variant="outline" onClick={onClose} disabled={saving}>{lang.current.photoUploadModal.cancel}</Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? lang.current.photoUploadModal.saving : lang.current.photoUploadModal.save}
-          </Button>
-        </div>
+    <Modal
+      show={show}
+      onClose={onClose}
+      title={lang.current.photoUploadModal.title}
+      size="lg"
+      scrollable
+      centered
+      footer={footerContent}
+      showSubmitButton={false}
+      bodyClassName={styles.modalBody}
+      loading={saving}
+    >
+      <PhotoUpload data={localData} setData={setLocalData} />
+      <div aria-live="assertive" aria-atomic="true">
+        {error && (
+          <div className={styles.error} role="alert" id={`${id}-error`}>
+            {error}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

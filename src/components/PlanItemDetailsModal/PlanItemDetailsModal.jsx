@@ -15,7 +15,7 @@ import {
   Window
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import Button from '../Button/Button';
 import Loading from '../Loading/Loading';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';

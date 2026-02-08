@@ -275,7 +275,10 @@ const userSchema = new Schema(
           type: new Schema({
             // List of active message channel IDs that should be displayed in the messages list
             // When null, all channels are shown (default behavior)
-            activeChannels: { type: [String], default: null }
+            activeChannels: { type: [String], default: null },
+            // List of channel IDs the user has deliberately dismissed/hidden
+            // These channels won't auto-reappear on reload and are shown in a muted section
+            dismissedChannels: { type: [String], default: [] }
           }, { _id: false }),
           default: {}
         }

@@ -1,11 +1,10 @@
 import styles from "./NewPlanItem.module.scss";
 import { useCallback, useState, useMemo } from "react";
-import Modal from "../Modal/Modal";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";
 import { handleError } from "../../utilities/error-handler";
 import { createUrlSlug } from "../../utilities/url-utils";
-import { FormControl, FormLabel } from "../../components/design-system";
+import { Modal, FormControl, FormLabel } from "../../components/design-system";
 import { useFormPersistence } from "../../hooks/useFormPersistence";
 import { formatRestorationMessage } from "../../utilities/time-utils";
 import { useToast } from "../../contexts/ToastContext";

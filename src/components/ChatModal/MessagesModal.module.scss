@@ -313,6 +313,125 @@
   flex-shrink: 0;
 }
 
+/* Dismissed/hidden channels section */
+.dismissedSection {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.dismissedToggle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted, var(--color-text-secondary));
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+}
+
+.dismissedChevron {
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.dismissedLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.dismissedList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dismissedListItem {
+  position: relative;
+}
+
+.dismissedChannelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  width: 100%;
+  padding: 8px 8px 8px 16px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    opacity: 0.85;
+    background: var(--color-bg-hover);
+  }
+}
+
+.dismissedChannelName {
+  display: block;
+  flex: 1;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  position: relative;
+  text-decoration: line-through;
+  text-decoration-color: var(--color-text-muted, var(--color-text-secondary));
+}
+
+.restoreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  opacity: 0;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: opacity 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+
+  &:hover {
+    background: var(--color-success-bg, rgba(25, 135, 84, 0.1));
+    border-color: var(--color-success-border, rgba(25, 135, 84, 0.3));
+    color: var(--color-success, #198754);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+}
+
+.dismissedChannelRow:hover .restoreButton {
+  opacity: 1;
+  color: var(--color-success, #198754);
+}
+
 .pane {
   display: flex;
   flex-direction: column;
@@ -328,14 +447,15 @@
    */
   /* Left/right gutter for chat content (bubbles, list, input).
    * Header stays full-bleed; its *content* aligns to this gutter.
+   * Use spacing-5 as minimum so avatars and bubbles have breathing room.
    */
-  --messagesModalChatGutter: var(--str-chat__spacing-4);
+  --messagesModalChatGutter: var(--str-chat__spacing-5, 20px);
   padding: var(--messagesModalChatGutter);
 
   /* Match Stream Chat's own responsive breakpoint (min-device-width: 768px). */
   @media only screen and (min-device-width: 768px) {
-    /* Keep Stream Chat's desktop behavior, but ensure a comfortable minimum gutter. */
-    --messagesModalChatGutter: max(min(var(--str-chat__spacing-10), 4%), var(--str-chat__spacing-4));
+    /* Comfortable gutter that scales with container but never gets too tight. */
+    --messagesModalChatGutter: max(min(var(--str-chat__spacing-10), 5%), var(--str-chat__spacing-6, 24px));
   }
 }
 
@@ -506,8 +626,9 @@
   align-self: stretch;
   box-sizing: border-box;
   padding-inline: var(--messagesModalChatGutter);
-  /* Explicit physical padding to avoid edge cases where Stream CSS overrides logical padding */
-  padding-left: var(--messagesModalChatGutter);
+  /* Extra left padding so the header avatar doesn't hug the sidebar divider */
+  padding-left: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
+  padding-right: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
 }
 
 /* Force message list gutters to match the header gutter (normal + virtual list). */
@@ -543,13 +664,13 @@
  * (Stream Chat resets ul padding to 0 by default.)
  */
 .pane :global(.str-chat__list .str-chat__message-list-scroll .str-chat__ul) {
-  padding-right: var(--messagesModalChatGutter);
-  padding-left: 0;
+  padding-right: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
+  padding-left: var(--str-chat__spacing-2, 8px);
   box-sizing: border-box;
 }
 
 .pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div .str-chat__ul) {
-  padding-right: var(--messagesModalChatGutter);
-  padding-left: 0;
+  padding-right: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
+  padding-left: var(--str-chat__spacing-2, 8px);
   box-sizing: border-box;
 }

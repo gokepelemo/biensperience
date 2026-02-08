@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './GoogleMap.module.scss';
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import { FaDirections, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 

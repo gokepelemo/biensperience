@@ -5,6 +5,7 @@
 
 import React, { memo } from 'react';
 import PropTypes from 'prop-types';
+import SkeletonLoader from '../SkeletonLoader/SkeletonLoader';
 import styles from './MapListingCardSkeleton.module.scss';
 
 /**
@@ -18,12 +19,14 @@ function MapListingCardSkeleton({ count = 1 }) {
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className={styles.skeleton}>
           <div className={styles.imageContainer}>
-            <div className={styles.imagePlaceholder} />
-            <div className={styles.badgePlaceholder} />
+            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
+            <div className={styles.badgePlaceholder}>
+              <SkeletonLoader variant="rectangle" width={60} height={16} />
+            </div>
           </div>
           <div className={styles.content}>
-            <div className={styles.namePlaceholder} />
-            <div className={styles.locationPlaceholder} />
+            <SkeletonLoader variant="text" width="80%" height={16} />
+            <SkeletonLoader variant="text" width="60%" height={12} />
           </div>
         </div>
       ))}

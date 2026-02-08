@@ -44,6 +44,7 @@ export default function CostEstimate({
   compact = true,
   isActual = false, // New prop to distinguish actual vs estimated costs
   exact = false, // New prop to show exact amounts without rounding
+  costCount, // Number of cost entries (for tracked cost tooltips)
   tooltipContent, // Custom tooltip content (overrides default)
   tooltipVariant = 'default', // 'default' | 'light' - for dark backgrounds
   className = ''
@@ -55,8 +56,8 @@ export default function CostEstimate({
 
   // Get tooltip text - use custom content if provided, otherwise default
   const tooltipText = useMemo(() => {
-    return tooltipContent !== undefined ? tooltipContent : getCostEstimateTooltip(cost, { currency, isActual });
-  }, [cost, currency, isActual, tooltipContent]);
+    return tooltipContent !== undefined ? tooltipContent : getCostEstimateTooltip(cost, { currency, isActual, costCount });
+  }, [cost, currency, isActual, costCount, tooltipContent]);
 
   // Get dollar signs for visual indicator
   const dollarSignsData = useMemo(() => {

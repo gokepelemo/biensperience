@@ -519,6 +519,12 @@ const en = {
     totalSpent: "Tracked Costs",
     trackedCosts: "Tracked Costs",
     messages: "Messages",
+    hiddenConversations: "Hidden conversations",
+    noHiddenConversations: "No hidden conversations",
+    restoreConversation: "Restore conversation",
+    hideConversation: "Hide conversation",
+    conversationHidden: "Conversation hidden",
+    conversationRestored: "Conversation restored",
     planItem: "Plan Item",
     photos: "Photos",
     // Navigation and tab labels

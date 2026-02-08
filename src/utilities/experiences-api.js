@@ -514,6 +514,13 @@ export async function reorderExperiencePlanItems(experienceId, reorderedItems) {
 
       broadcastEvent('experience:updated', eventPayload);
 
+      // Also emit experience:item:reordered for usePlanSync to detect divergence
+      broadcastEvent('experience:item:reordered', {
+        experienceId: result._id,
+        planItems: result.plan_items,
+        version
+      });
+
       logger.debug('[experiences-api] Reorder events dispatched successfully', { version });
     } catch (e) {
       logger.warn('[experiences-api] Failed to dispatch reorder events', {}, e);

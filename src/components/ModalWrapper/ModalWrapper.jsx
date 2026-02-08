@@ -2,33 +2,38 @@
  * Modal Abstraction Layer
  *
  * This component provides a stable API for Modal usage across the application.
- * It wraps the underlying modal implementation (currently Bootstrap Modal,
- * future: Chakra UI Modal) to enable seamless UI framework transitions.
+ * It wraps either the current custom Modal or the Chakra UI Dialog implementation,
+ * controlled by the 'chakra_modal' feature flag.
  *
- * CRITICAL: This abstraction enables zero-regression migration to Chakra UI.
+ * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All modal consumers should import from design-system, NOT directly from Modal.
  *
- * Implementation Strategy:
- * 1. Phase 1 (Current): Wraps Bootstrap Modal with pass-through props
- * 2. Phase 2: Add feature flag to toggle between Bootstrap and Chakra
- * 3. Phase 3: Default to Chakra, keep Bootstrap fallback
- * 4. Phase 4: Remove Bootstrap implementation
+ * Implementation Status:
+ * - Phase 1: Bootstrap Modal (completed)
+ * - Phase 2: Feature flag toggle (completed)
+ * - Phase 3 (Current): Feature-flagged Chakra UI Dialog
+ * - Phase 4: Remove legacy implementation (pending validation)
  *
  * API Stability Guarantee:
- * - Props interface will NOT change during migration
+ * - Props interface is stable and will not change
  * - All consumers can import { Modal } from 'design-system'
  * - Implementation swap is transparent to consumers
  *
- * Task: biensperience-012c
- * Related: biensperience-b93c (E2E tests), biensperience-8653 (documentation)
+ * Task: biensperience-012c, biensperience-277f
+ * Related: biensperience-b93c (E2E tests), biensperience-cd21 (visual regression)
  */
 
 import { forwardRef } from 'react';
 import PropTypes from 'prop-types';
-import BootstrapModal from '../Modal/Modal';
+import Modal from '../Modal/Modal';
+import ChakraModal from '../Modal/ChakraModal';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * Modal Component - Design System Abstraction
+ *
+ * Now uses Chakra UI v3 Modal implementation for improved accessibility,
+ * consistent styling, and better integration with the design system.
  *
  * @param {Object} props - Modal properties
  * @param {boolean} props.show - Controls modal visibility
@@ -98,17 +103,10 @@ import BootstrapModal from '../Modal/Modal';
  * </Modal>
  */
 const ModalWrapper = forwardRef((props, ref) => {
-  // Feature flag for future Chakra UI implementation
-  // const useChakraModal = useFeatureFlag('chakra_modal'); // Future: Phase 2
-  const useChakraModal = false; // Phase 1: Always use Bootstrap
-
-  // Future: Return Chakra Modal when feature flag is enabled
-  // if (useChakraModal) {
-  //   return <ChakraModalWrapper {...props} ref={ref} />;
-  // }
-
-  // Phase 1: Pass through to Bootstrap Modal
-  return <BootstrapModal {...props} ref={ref} />;
+  // Feature-flagged: Use Chakra UI Dialog when 'chakra_modal' flag is enabled
+  const { enabled: useChakra } = useFeatureFlag('chakra_modal');
+  const ModalComponent = useChakra ? ChakraModal : Modal;
+  return <ModalComponent {...props} ref={ref} />;
 });
 
 // Display name for React DevTools

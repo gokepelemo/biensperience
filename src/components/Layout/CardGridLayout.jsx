@@ -6,6 +6,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
+import SkeletonLoader from '../SkeletonLoader/SkeletonLoader';
 import styles from './CardGridLayout.module.scss';
 
 /**
@@ -49,11 +50,11 @@ export default function CardGridLayout({
       <div className={containerClasses}>
         {Array.from({ length: skeletonCount }).map((_, index) => (
           <div key={index} className={styles.skeletonCard}>
-            <div className={styles.skeletonImage} />
+            <SkeletonLoader variant="rectangle" width="100%" height={0} style={{ aspectRatio: '16 / 10' }} />
             <div className={styles.skeletonContent}>
-              <div className={styles.skeletonTitle} />
-              <div className={styles.skeletonText} />
-              <div className={styles.skeletonText} style={{ width: '60%' }} />
+              <SkeletonLoader variant="text" width="80%" height={20} />
+              <SkeletonLoader variant="text" width="100%" height={14} />
+              <SkeletonLoader variant="text" width="60%" height={14} />
             </div>
           </div>
         ))}

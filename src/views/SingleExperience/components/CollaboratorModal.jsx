@@ -1,16 +1,20 @@
 /**
  * CollaboratorModal Component
  * Modal for managing collaborators on plans or experiences
- * Refactored to use unified Autocomplete component and design tokens
+ * Refactored to use unified Autocomplete component and design tokens.
+ * Migrated to Chakra UI via design-system abstraction with enhanced
+ * accessibility: useId for form elements, aria-live for status messages,
+ * keyboard-accessible remove buttons, and semantic footer via Modal prop.
+ *
+ * Task: biensperience-837c
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId, useCallback } from 'react';
 import { FaTimes, FaUserPlus, FaEnvelope, FaCheck } from 'react-icons/fa';
-import Modal from '../../../components/Modal/Modal';
 import Autocomplete from '../../../components/Autocomplete/Autocomplete';
 import Alert from '../../../components/Alert/Alert';
 import FormField from '../../../components/FormField/FormField';
-import { Button as DSButton, Pill } from '../../../components/design-system';
+import { Modal, Button as DSButton, Pill } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
 import { lang } from '../../../lang.constants';
 import styles from './CollaboratorModal.module.scss';
@@ -45,6 +49,7 @@ export default function CollaboratorModal({
 
   const autoCloseTimerRef = useRef(null);
   const emailSuccessTimerRef = useRef(null);
+  const id = useId();
 
   const title = context === 'plan' ? 'Manage Plan Collaborators' : 'Manage Experience Collaborators';
 
@@ -97,10 +102,10 @@ export default function CollaboratorModal({
     };
   }, [show, addSuccess, actuallyRemovedCollaborators.length, onHide]);
 
-  const handleEmailChange = (field, value) => {
+  const handleEmailChange = useCallback((field, value) => {
     setEmailForm(prev => ({ ...prev, [field]: value }));
     setEmailError('');
-  };
+  }, []);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -143,6 +148,77 @@ export default function CollaboratorModal({
     }
   };
 
+  // Render a keyboard-accessible remove button for collaborator pills
+  const renderRemoveButton = useCallback((collaboratorId, collaboratorName) => (
+    <button
+      type="button"
+      onClick={() => onRemoveCollaborator(collaboratorId)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRemoveCollaborator(collaboratorId); } }}
+      aria-label={`Remove ${collaboratorName}`}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        marginLeft: 'var(--space-2)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        color: 'inherit',
+      }}
+    >
+      <FaTimes aria-hidden="true" />
+    </button>
+  ), [onRemoveCollaborator]);
+
+  // Footer content rendered via Modal's footer prop for proper semantic structure
+  const footerContent = (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      width: '100%',
+      gap: 'var(--space-2)',
+    }}>
+      {step === 'edit' ? (
+        <>
+          <DSButton
+            variant="outline"
+            size="md"
+            onClick={onHide}
+          >
+            Close
+          </DSButton>
+          <DSButton
+            variant="gradient"
+            size="md"
+            onClick={() => setStep('confirm')}
+            disabled={!hasChanges}
+          >
+            Review Changes
+          </DSButton>
+        </>
+      ) : (
+        <>
+          <DSButton
+            variant="outline"
+            size="md"
+            onClick={() => setStep('edit')}
+          >
+            Back
+          </DSButton>
+          <DSButton
+            variant="gradient"
+            size="md"
+            onClick={onAddCollaborators}
+            disabled={!hasChanges}
+          >
+            <FaCheck style={{ marginRight: 'var(--space-2)' }} aria-hidden="true" />
+            Confirm Changes
+          </DSButton>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <Modal
       show={show}
@@ -151,61 +227,72 @@ export default function CollaboratorModal({
       size="lg"
       scrollable={true}
       bodyClassName={styles.collaboratorModalBody}
+      footer={footerContent}
+      showSubmitButton={false}
     >
       <div
         className={`${styles.collaboratorModalContent} modal-content-styled`}
+        role="region"
+        aria-label={title}
       >
-        {/* Success Messages */}
-        {addSuccess && addedCollaborators.length > 0 && (
-          <Alert
-            type="success"
-            dismissible
-            onDismiss={() => {}}
-          >
-            Successfully added {addedCollaborators.length} collaborator{addedCollaborators.length > 1 ? 's' : ''}!
-          </Alert>
-        )}
+        {/* Status messages region for screen readers */}
+        <div aria-live="polite" aria-atomic="true">
+          {/* Success Messages */}
+          {addSuccess && addedCollaborators.length > 0 && (
+            <Alert
+              type="success"
+              dismissible
+              onDismiss={() => {}}
+            >
+              Successfully added {addedCollaborators.length} collaborator{addedCollaborators.length > 1 ? 's' : ''}!
+            </Alert>
+          )}
 
-        {actuallyRemovedCollaborators.length > 0 && (
-          <Alert
-            type="info"
-            dismissible
-            onDismiss={() => {}}
-          >
-            Successfully removed {actuallyRemovedCollaborators.length} collaborator{actuallyRemovedCollaborators.length > 1 ? 's' : ''}!
-          </Alert>
-        )}
+          {actuallyRemovedCollaborators.length > 0 && (
+            <Alert
+              type="info"
+              dismissible
+              onDismiss={() => {}}
+            >
+              Successfully removed {actuallyRemovedCollaborators.length} collaborator{actuallyRemovedCollaborators.length > 1 ? 's' : ''}!
+            </Alert>
+          )}
 
-        {emailSuccess && (
-          <Alert
-            type="success"
-            dismissible
-            onDismiss={() => setEmailSuccess(false)}
-          >
-            Email invite sent successfully! They will receive an invitation to join Biensperience and collaborate on this {context}.
-          </Alert>
-        )}
+          {emailSuccess && (
+            <Alert
+              type="success"
+              dismissible
+              onDismiss={() => setEmailSuccess(false)}
+            >
+              Email invite sent successfully! They will receive an invitation to join Biensperience and collaborate on this {context}.
+            </Alert>
+          )}
 
-        {emailError && (
-          <Alert
-            type="danger"
-            dismissible
-            onDismiss={() => setEmailError('')}
-          >
-            {emailError}
-          </Alert>
-        )}
+          {emailError && (
+            <Alert
+              type="danger"
+              dismissible
+              onDismiss={() => setEmailError('')}
+            >
+              {emailError}
+            </Alert>
+          )}
+        </div>
 
         {/* Step: Edit - Show current collaborators and add new ones */}
         {step === 'edit' && (
           <>
             {/* Existing Collaborators */}
-            <div className="modal-section">
-              <h5 className="text-color_primary" style={{
-                marginBottom: 'var(--space-3)',
-                fontSize: 'var(--font-size-lg)',
-                fontWeight: 'var(--font-weight-semibold)',
-              }}>
+            <section className="modal-section" aria-labelledby={`${id}-current-heading`}>
+              <h5
+                id={`${id}-current-heading`}
+                className="text-color_primary"
+                style={{
+                  marginBottom: 'var(--space-3)',
+                  fontSize: 'var(--font-size-lg)',
+                  fontWeight: 'var(--font-weight-semibold)',
+                }}
+              >
                 Current Collaborators
               </h5>
               {existingCollaborators.length === 0 ? (
@@ -213,64 +300,69 @@ export default function CollaboratorModal({
                   No collaborators yet. Add some below!
                 </p>
               ) : (
-                <div style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 'var(--space-2)',
-                  marginBottom: 'var(--space-3)'
-                }}>
+                <div
+                  role="list"
+                  aria-label="Current collaborators"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 'var(--space-2)',
+                    marginBottom: 'var(--space-3)'
+                  }}
+                >
                   {existingCollaborators
                     .filter(collab => !removedCollaborators.includes(collab._id))
                     .map(collab => (
-                      <Pill
-                        key={collab._id}
-                        variant="primary"
-                        size="md"
-                      >
-                        {collab.name}
-                        <FaTimes
-                          onClick={() => onRemoveCollaborator(collab._id)}
-                          style={{
-                            cursor: 'pointer',
-                            marginLeft: 'var(--space-2)',
-                          }}
-                        />
-                      </Pill>
+                      <div key={collab._id} role="listitem">
+                        <Pill
+                          variant="primary"
+                          size="md"
+                        >
+                          {collab.name}
+                          {renderRemoveButton(collab._id, collab.name)}
+                        </Pill>
+                      </div>
                     ))}
                 </div>
               )}
-            </div>
+            </section>
           </>
         )}
 
         {/* Step: Edit - Add Collaborators section */}
         {step === 'edit' && (
-          <div className="modal-section">
-            <h5 className="text-color_primary" style={{
-              marginBottom: 'var(--space-3)',
-              fontSize: 'var(--font-size-lg)',
-              fontWeight: 'var(--font-weight-semibold)',
-            }}>
+          <section className="modal-section" aria-labelledby={`${id}-add-heading`}>
+            <h5
+              id={`${id}-add-heading`}
+              className="text-color_primary"
+              style={{
+                marginBottom: 'var(--space-3)',
+                fontSize: 'var(--font-size-lg)',
+                fontWeight: 'var(--font-weight-semibold)',
+              }}
+            >
               Add Collaborators
             </h5>
 
             {/* Mode Toggle */}
-            <div className="modal-button-group" style={{ marginBottom: 'var(--space-3)' }}>
+            <div className="modal-button-group" role="group" aria-label="Add collaborator method" style={{ marginBottom: 'var(--space-3)' }}>
               <DSButton
                 variant={mode === 'search' ? 'gradient' : 'outline'}
                 size="sm"
                 onClick={() => setMode('search')}
+                aria-pressed={mode === 'search'}
                 style={{ marginRight: 'var(--space-2)' }}
               >
-                <FaUserPlus style={{ marginRight: 'var(--space-2)' }} />
+                <FaUserPlus style={{ marginRight: 'var(--space-2)' }} aria-hidden="true" />
                 Search Existing Users
               </DSButton>
               <DSButton
                 variant={mode === 'email' ? 'gradient' : 'outline'}
                 size="sm"
                 onClick={() => setMode('email')}
+                aria-pressed={mode === 'email'}
               >
-                <FaEnvelope style={{ marginRight: 'var(--space-2)' }} />
+                <FaEnvelope style={{ marginRight: 'var(--space-2)' }} aria-hidden="true" />
                 Send Email Invite
               </DSButton>
             </div>
@@ -310,26 +402,25 @@ export default function CollaboratorModal({
                     <strong className="d-block mb-2 text-secondary font-size-adjust-sm fw-semibold">
                       {lang.current.message.selected.replace('{count}', newlySelectedCollaborators.length)}
                     </strong>
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 'var(--space-2)'
-                    }}>
+                    <div
+                      role="list"
+                      aria-label="Selected collaborators to add"
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 'var(--space-2)'
+                      }}
+                    >
                       {newlySelectedCollaborators.map(user => (
-                        <Pill
-                          key={user._id || user.id}
-                          variant="success"
-                          size="md"
-                        >
-                          {user.name}
-                          <FaTimes
-                            onClick={() => onRemoveCollaborator(user._id || user.id)}
-                            style={{
-                              cursor: 'pointer',
-                              marginLeft: 'var(--space-2)',
-                            }}
-                          />
-                        </Pill>
+                        <div key={user._id || user.id} role="listitem">
+                          <Pill
+                            variant="success"
+                            size="md"
+                          >
+                            {user.name}
+                            {renderRemoveButton(user._id || user.id, user.name)}
+                          </Pill>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -341,6 +432,7 @@ export default function CollaboratorModal({
             {mode === 'email' && (
               <>
                 <FormField
+                  id={`${id}-invite-email`}
                   name="email"
                   label={lang.current.aria.emailAddress}
                   type="email"
@@ -350,9 +442,11 @@ export default function CollaboratorModal({
                   isInvalid={emailError && emailError.includes('email')}
                   invalidFeedback={emailError && emailError.includes('email') ? emailError : undefined}
                   required
+                  autoComplete="email"
                 />
 
                 <FormField
+                  id={`${id}-invite-name`}
                   name="name"
                   label="Name"
                   type="text"
@@ -362,17 +456,21 @@ export default function CollaboratorModal({
                   isInvalid={emailError && emailError.includes('Name')}
                   invalidFeedback={emailError && emailError.includes('Name') ? emailError : undefined}
                   required
+                  autoComplete="name"
                 />
 
-                <div style={{
-                  padding: 'var(--space-3)',
-                  backgroundColor: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border-light)',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: 'var(--space-3)',
-                }}>
+                <div
+                  role="note"
+                  style={{
+                    padding: 'var(--space-3)',
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    border: '1px solid var(--color-border-light)',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
                   <small style={{ color: 'var(--color-text-secondary)' }}>
-                    <strong>Note:</strong> We'll send an email to <strong>{emailForm.email || 'this address'}</strong> inviting them to join Biensperience and collaborate on <strong>{experienceName || 'this experience'}</strong> in <strong>{destinationName || 'this destination'}</strong>.
+                    <strong>Note:</strong> We&apos;ll send an email to <strong>{emailForm.email || 'this address'}</strong> inviting them to join Biensperience and collaborate on <strong>{experienceName || 'this experience'}</strong> in <strong>{destinationName || 'this destination'}</strong>.
                   </small>
                 </div>
 
@@ -381,23 +479,28 @@ export default function CollaboratorModal({
                   size="md"
                   onClick={handleSendInvite}
                   disabled={isSendingEmail || !emailForm.email.trim() || !emailForm.name.trim()}
+                  aria-busy={isSendingEmail}
                   style={{ width: '100%', marginBottom: 'var(--space-3)' }}
                 >
                   {isSendingEmail ? 'Sending...' : 'Send Email Invite'}
                 </DSButton>
               </>
             )}
-          </div>
+          </section>
         )}
 
         {/* Step: Confirm - Review changes before applying */}
         {step === 'confirm' && (
-          <div className="modal-section">
-            <h5 className="text-color_primary" style={{
-              marginBottom: 'var(--space-3)',
-              fontSize: 'var(--font-size-lg)',
-              fontWeight: 'var(--font-weight-semibold)',
-            }}>
+          <section className="modal-section" aria-labelledby={`${id}-review-heading`}>
+            <h5
+              id={`${id}-review-heading`}
+              className="text-color_primary"
+              style={{
+                marginBottom: 'var(--space-3)',
+                fontSize: 'var(--font-size-lg)',
+                fontWeight: 'var(--font-weight-semibold)',
+              }}
+            >
               Review Changes
             </h5>
 
@@ -407,15 +510,21 @@ export default function CollaboratorModal({
                 <strong className="d-block mb-2 text-success font-size-adjust-sm">
                   Adding {newlySelectedCollaborators.length} collaborator{newlySelectedCollaborators.length > 1 ? 's' : ''}:
                 </strong>
-                <div style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 'var(--space-2)'
-                }}>
+                <div
+                  role="list"
+                  aria-label="Collaborators to add"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 'var(--space-2)'
+                  }}
+                >
                   {newlySelectedCollaborators.map(user => (
-                    <Pill key={user._id || user.id} variant="success" size="md">
-                      {user.name}
-                    </Pill>
+                    <div key={user._id || user.id} role="listitem">
+                      <Pill variant="success" size="md">
+                        {user.name}
+                      </Pill>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -427,17 +536,23 @@ export default function CollaboratorModal({
                 <strong className="d-block mb-2 text-danger font-size-adjust-sm">
                   Removing {removedCollaborators.length} collaborator{removedCollaborators.length > 1 ? 's' : ''}:
                 </strong>
-                <div style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 'var(--space-2)'
-                }}>
+                <div
+                  role="list"
+                  aria-label="Collaborators to remove"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 'var(--space-2)'
+                  }}
+                >
                   {existingCollaborators
                     .filter(collab => removedCollaborators.includes(collab._id))
                     .map(collab => (
-                      <Pill key={collab._id} variant="danger" size="md">
-                        {collab.name}
-                      </Pill>
+                      <div key={collab._id} role="listitem">
+                        <Pill variant="danger" size="md">
+                          {collab.name}
+                        </Pill>
+                      </div>
                     ))}
                 </div>
               </div>
@@ -448,56 +563,8 @@ export default function CollaboratorModal({
                 No changes to apply.
               </p>
             )}
-          </div>
+          </section>
         )}
-
-        {/* Footer Buttons */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 'var(--space-2)',
-          paddingTop: 'var(--space-3)',
-          borderTop: '1px solid var(--color-border-light)',
-        }}>
-          {step === 'edit' ? (
-            <>
-              <DSButton
-                variant="outline"
-                size="md"
-                onClick={onHide}
-              >
-                Close
-              </DSButton>
-              <DSButton
-                variant="gradient"
-                size="md"
-                onClick={() => setStep('confirm')}
-                disabled={!hasChanges}
-              >
-                Review Changes
-              </DSButton>
-            </>
-          ) : (
-            <>
-              <DSButton
-                variant="outline"
-                size="md"
-                onClick={() => setStep('edit')}
-              >
-                Back
-              </DSButton>
-              <DSButton
-                variant="gradient"
-                size="md"
-                onClick={onAddCollaborators}
-                disabled={!hasChanges}
-              >
-                <FaCheck style={{ marginRight: 'var(--space-2)' }} />
-                Confirm Changes
-              </DSButton>
-            </>
-          )}
-        </div>
       </div>
     </Modal>
   );

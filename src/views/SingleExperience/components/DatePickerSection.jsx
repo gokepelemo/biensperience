@@ -3,9 +3,8 @@
  * Modal for setting/editing planned dates
  */
 
-import Modal from '../../../components/Modal/Modal';
 import Alert from '../../../components/Alert/Alert';
-import { FormLabel, FormControl } from '../../../components/design-system';
+import { Modal, FormLabel, FormControl } from '../../../components/design-system';
 import { getMinimumPlanningDate, isValidPlannedDate } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { FaCalendarAlt } from 'react-icons/fa';

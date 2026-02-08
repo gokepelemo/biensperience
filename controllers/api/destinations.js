@@ -3,11 +3,12 @@ const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const Experience = require("../../models/experience");
 const Photo = require("../../models/photo");
+const Activity = require("../../models/activity");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require("../../utilities/backend-logger");
-const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
+const { trackCreate, trackUpdate, trackDelete, extractMetadata, extractActor } = require('../../utilities/activity-tracker');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
 const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
@@ -495,6 +496,29 @@ async function toggleUserFavoriteDestination(req, res) {
       await destination.save();
       // Populate photos before returning to ensure frontend has complete data
       await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
+
+      // Log favorite_added activity (non-blocking)
+      Activity.create({
+        timestamp: new Date(),
+        action: 'favorite_added',
+        actor: extractActor(user),
+        resource: {
+          id: destination._id,
+          type: 'Destination',
+          name: destination.name || 'Unnamed destination'
+        },
+        reason: 'User added destination to favorites',
+        metadata: extractMetadata(req),
+        status: 'success',
+        tags: ['destination', 'favorite', 'social']
+      }).catch(err => {
+        backendLogger.error('Failed to log favorite_added activity', {
+          error: err.message,
+          userId: user._id,
+          destinationId: destination._id
+        });
+      });
+
       return successResponse(res, destination, 'Destination added to favorites', 201);
     } else {
       // Removing from favorites
@@ -520,6 +544,29 @@ async function toggleUserFavoriteDestination(req, res) {
       await destination.save();
       // Populate photos before returning to ensure frontend has complete data
       await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
+
+      // Log favorite_removed activity (non-blocking)
+      Activity.create({
+        timestamp: new Date(),
+        action: 'favorite_removed',
+        actor: extractActor(user),
+        resource: {
+          id: destination._id,
+          type: 'Destination',
+          name: destination.name || 'Unnamed destination'
+        },
+        reason: 'User removed destination from favorites',
+        metadata: extractMetadata(req),
+        status: 'success',
+        tags: ['destination', 'favorite', 'social']
+      }).catch(err => {
+        backendLogger.error('Failed to log favorite_removed activity', {
+          error: err.message,
+          userId: user._id,
+          destinationId: destination._id
+        });
+      });
+
       return successResponse(res, destination, 'Destination removed from favorites');
     }
   } catch (err) {

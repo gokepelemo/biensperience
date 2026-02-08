@@ -133,6 +133,11 @@ export const FEATURE_FLAGS = {
     key: 'chat',
     description: 'In-app messaging (provider-agnostic)',
     tier: 'beta'
+  },
+  CHAKRA_MODAL: {
+    key: 'chakra_modal',
+    description: 'Use Chakra UI Dialog for modals (accessibility & focus trapping)',
+    tier: 'beta'
   }
 };
 

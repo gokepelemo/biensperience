@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Button,
-  
+  Modal,
 } from '../design-system';
 import { Form } from 'react-bootstrap';
 import Checkbox from '../Checkbox/Checkbox';
-import Modal from '../Modal/Modal';
 import Alert from '../Alert/Alert';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';

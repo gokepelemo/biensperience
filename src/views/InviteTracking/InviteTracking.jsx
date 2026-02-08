@@ -25,11 +25,10 @@ import { createFilter } from '../../utilities/trie';
 import { exportToCsv, formatDateForCsv } from '../../utilities/csv-utils';
 import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
-import Modal from '../../components/Modal/Modal';
 import Pagination from '../../components/Pagination/Pagination';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import UserInviteModal from '../../components/UserInviteModal/UserInviteModal';
-import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState } from '../../components/design-system';
+import { Modal, Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState } from '../../components/design-system';
 import styles from './InviteTracking.module.scss';
 
 // Status filter options

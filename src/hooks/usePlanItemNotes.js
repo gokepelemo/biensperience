@@ -27,6 +27,7 @@ import {
  * @param {Function} options.setSelectedDetailsItem - Setter for selected item
  * @param {Function} options.setSharedPlans - Setter for shared plans state
  * @param {Function} options.success - Toast success function
+ * @param {Object} options.user - Current authenticated user
  * @param {Function} options.showError - Toast error function
  *
  * @returns {Object} Note CRUD handlers
@@ -36,6 +37,7 @@ export function usePlanItemNotes({
   selectedDetailsItem,
   setSelectedDetailsItem,
   setSharedPlans,
+  user,
   success,
   showError
 }) {
@@ -43,10 +45,12 @@ export function usePlanItemNotes({
   // of the callbacks themselves
   const selectedPlanIdRef = useRef(selectedPlanId);
   const selectedDetailsItemRef = useRef(selectedDetailsItem);
+  const userRef = useRef(user);
 
   // Keep refs in sync
   selectedPlanIdRef.current = selectedPlanId;
   selectedDetailsItemRef.current = selectedDetailsItem;
+  userRef.current = user;
 
   /**
    * Helper to update plan state after a note operation
@@ -74,22 +78,27 @@ export function usePlanItemNotes({
    * Add a note to the selected plan item
    * @param {string} content - Note content
    */
-  const handleAddNote = useCallback(async (content) => {
+  const handleAddNote = useCallback(async (content, visibility = 'contributors') => {
     const planId = selectedPlanIdRef.current;
     const selectedItem = selectedDetailsItemRef.current;
+    const currentUser = userRef.current;
 
     if (!planId || !selectedItem?._id || !content.trim()) return;
 
     // Create optimistic note with temporary ID
+    // Use 'user' field (matching backend noteSchema) with current user data
     const optimisticNote = {
       _id: `optimistic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       content: content.trim(),
-      created_by: {
-        _id: selectedItem.created_by?._id || 'unknown',
-        name: selectedItem.created_by?.name || 'Unknown User'
-      },
-      created_at: new Date().toISOString(),
-      visibility: 'contributors', // Default visibility
+      user: currentUser ? {
+        _id: currentUser._id,
+        name: currentUser.name,
+        photos: currentUser.photos,
+        default_photo_id: currentUser.default_photo_id,
+        oauthProfilePhoto: currentUser.oauthProfilePhoto
+      } : { _id: 'unknown', name: 'Unknown User' },
+      createdAt: new Date().toISOString(),
+      visibility,
       _optimistic: true // Flag to identify optimistic updates
     };
 
@@ -114,7 +123,7 @@ export function usePlanItemNotes({
     );
 
     try {
-      const updatedPlan = await addPlanItemNote(planId, selectedItem._id, content);
+      const updatedPlan = await addPlanItemNote(planId, selectedItem._id, content, visibility);
       updatePlanState(updatedPlan);
       success(lang.current.notification?.note?.added || 'Your note has been added and is visible to collaborators');
 
@@ -152,7 +161,7 @@ export function usePlanItemNotes({
    * @param {string} noteId - Note ID to update
    * @param {string} content - Updated content
    */
-  const handleUpdateNote = useCallback(async (noteId, content) => {
+  const handleUpdateNote = useCallback(async (noteId, content, visibility) => {
     const planId = selectedPlanIdRef.current;
     const selectedItem = selectedDetailsItemRef.current;
 
@@ -191,7 +200,7 @@ export function usePlanItemNotes({
     );
 
     try {
-      const updatedPlan = await updatePlanItemNote(planId, selectedItem._id, noteId, content);
+      const updatedPlan = await updatePlanItemNote(planId, selectedItem._id, noteId, content, visibility);
       updatePlanState(updatedPlan);
       success(lang.current.notification?.note?.updated || 'Note updated. All collaborators can see your changes.');
 

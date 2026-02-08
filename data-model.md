@@ -684,6 +684,8 @@ The platform uses an event-driven architecture for real-time updates and cross-t
 
 All API mutations emit events via `broadcastEvent()` which handles both same-tab and cross-tab dispatch.
 
+#### Core Entity Events
+
 | Event | Payload | Source | Consumers |
 |-------|---------|--------|-----------|
 | `destination:created` | `{ destination, destinationId }` | destinations-api.js | DataContext |
@@ -692,32 +694,85 @@ All API mutations emit events via `broadcastEvent()` which handles both same-tab
 | `experience:created` | `{ experience, experienceId }` | experiences-api.js | DataContext |
 | `experience:updated` | `{ experience, experienceId }` | experiences-api.js | DataContext |
 | `experience:deleted` | `{ experienceId }` | experiences-api.js | DataContext |
-| `plan:created` | `{ plan, planId, experienceId }` | plans-api.js | DataContext |
-| `plan:updated` | `{ plan, planId }` | plans-api.js | DataContext |
-| `plan:deleted` | `{ planId }` | plans-api.js | DataContext |
+| `experience:archived` | `{ experience, experienceId }` | experiences-api.js | DataContext |
+| `plan:created` | `{ plan, planId, experienceId }` | plans-api.js | DataContext, usePlanManagement |
+| `plan:updated` | `{ plan, planId }` | plans-api.js | DataContext, usePlanManagement |
+| `plan:deleted` | `{ planId }` | plans-api.js | DataContext, usePlanManagement |
+| `plan:operation` | `{ planId, operation }` | plans-api.js | usePlanManagement (CRDT reconciliation) |
 | `user:updated` | `{ user, userId }` | users-api.js | UserContext |
 | `photo:created` | `{ photo, photoId }` | photos-api.js | Components |
 | `photos:created` | `{ photos, photoIds }` | photos-api.js | Components |
 | `photo:deleted` | `{ photoId }` | photos-api.js | Components |
 
-### Granular Plan Events
+#### Experience Granular Events
 
-| Event | Description |
-|-------|-------------|
-| `plan:item:added` | Plan item added |
-| `plan:item:updated` | Plan item modified |
-| `plan:item:completed` | Plan item marked complete |
-| `plan:item:deleted` | Plan item removed |
-| `plan:item:reordered` | Plan items reordered |
-| `plan:item:scheduled` | Plan item date/time set |
-| `plan:item:note:added` | Note added to plan item |
-| `plan:item:note:updated` | Note modified |
-| `plan:item:note:deleted` | Note removed |
-| `plan:cost_added` | Cost entry added |
-| `plan:cost_updated` | Cost entry modified |
-| `plan:cost_deleted` | Cost entry removed |
-| `plan:collaborator:added` | Collaborator added to plan |
-| `plan:collaborator:removed` | Collaborator removed from plan |
+| Event | Payload | Source | Consumers |
+|-------|---------|--------|-----------|
+| `experience:item:added` | `{ experienceId, planItem }` | experiences-api.js | SingleExperience (WS), usePlanSync |
+| `experience:item:updated` | `{ experienceId, planItem, planItemId }` | experiences-api.js | SingleExperience (WS), usePlanSync |
+| `experience:item:deleted` | `{ experienceId, planItemId }` | experiences-api.js | SingleExperience (WS), usePlanSync |
+| `experience:item:completed` | `{ experienceId, planItemId, planItem }` | experiences-api.js | _(not subscribed — legacy)_ |
+| `experience:item:reordered` | `{ experienceId, planItems, version }` | experiences-api.js | usePlanSync |
+| `experience:collaborator:added` | `{ experienceId, userId, experience }` | experiences-api.js | SingleExperience |
+| `experience:collaborator:removed` | `{ experienceId, userId, experience }` | experiences-api.js | SingleExperience |
+
+#### Plan Granular Events
+
+| Event | Payload | Source | Consumers |
+|-------|---------|--------|-----------|
+| `plan:item:added` | `{ plan, planId, item }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:item:updated` | `{ plan, planId, itemId }` | plans-api.js | SingleExperience (PlanItemDetailsModal sync) |
+| `plan:item:deleted` | `{ plan, planId, itemId }` | plans-api.js | SingleExperience (PlanItemDetailsModal sync) |
+| `plan:item:scheduled` | `{ planId, itemId, scheduled_date, scheduled_time }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:item:reordered` | `{ plan, planId }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:item:note:added` | `{ plan, planId, itemId, note }` | plans-api.js | usePlanItemNotes (emitter only) |
+| `plan:item:note:updated` | `{ plan, planId, itemId, noteId, note }` | plans-api.js | usePlanItemNotes (emitter only) |
+| `plan:item:note:deleted` | `{ plan, planId, itemId, noteId }` | plans-api.js | usePlanItemNotes (emitter only) |
+| `plan:item:detail:added` | `{ plan, planId, itemId, detailType }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:item:detail:updated` | `{ plan, planId, itemId, detailType, detailId }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:item:detail:deleted` | `{ plan, planId, itemId, detailType, detailId }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:item:pinned` | `{ planId, itemId, pinnedItemId }` | plans-api.js | _(covered by plan:updated)_ |
+| `plan:collaborator:added` | `{ plan, planId, userId }` | plans-api.js | SingleExperience |
+| `plan:collaborator:removed` | `{ plan, planId, userId }` | plans-api.js | SingleExperience |
+| `plan:cost_added` | `{ plan, planId, costData, cost }` | plans-api.js | usePlanCosts |
+| `plan:cost_updated` | `{ plan, planId, costId, updates, cost }` | plans-api.js | usePlanCosts |
+| `plan:cost_deleted` | `{ planId, costId }` | plans-api.js | usePlanCosts |
+| `plan:access_requested` | `{ planId, message }` | plans-api.js | _(notification only)_ |
+
+**Note:** Most granular plan events are emitted alongside `plan:updated`. The granular events enable targeted subscriptions (e.g., cost hooks only listen to cost events), while `plan:updated` provides a catch-all for `usePlanManagement` to reconcile full plan state.
+
+#### System Events
+
+| Event | Payload | Source | Consumers |
+|-------|---------|--------|-----------|
+| `bien:request_access` | `{ resourceType, resourceId, action }` | error-handler.js | SingleExperience (RequestPlanAccessModal) |
+| `plan:owner:updated` | `{ planId, newOwner }` | plans-api.js | SingleExperience |
+
+### Optimistic UI Dual-Update Pattern
+
+Handlers that mutate plan items must update **both** `setSharedPlans` and `setUserPlan` optimistically when the selected plan is the user's own plan. This prevents stale state during the window between optimistic apply and background refetch.
+
+**Gold standard handlers** (correctly implement dual-update):
+- `handleSavePlanInstanceItem` — add/edit plan items
+- `handlePlanItemToggleComplete` — toggle completion
+- `handlePlanInstanceItemDelete` — delete plan items
+- `handleReorderPlanItems` — reorder via drag-and-drop
+
+**Pattern:**
+```javascript
+const apply = () => {
+  // Always update sharedPlans
+  setSharedPlans(prev => prev.map(p => idEquals(p._id, planId) ? transform(p) : p));
+  // Also update userPlan when it's the selected plan
+  if (userPlan && idEquals(userPlan._id, planId)) {
+    setUserPlan(prev => prev ? transform(prev) : prev);
+  }
+};
+const rollback = () => {
+  setSharedPlans(prevSnapshot);
+  if (prevUserPlanSnapshot) setUserPlan(prevUserPlanSnapshot);
+};
+```
 
 ### WebSocket Broadcasts
 
@@ -747,16 +802,17 @@ broadcastEvent('experience', experienceId, {
 
 Key React hooks for state management:
 
-| Hook | Purpose |
-|------|---------|
-| `usePlanManagement` | Plan CRUD operations with optimistic UI |
-| `usePlanItemNotes` | Note CRUD with stable callbacks |
-| `useExperienceActions` | Share/export/remove handlers |
-| `useCollaboratorManager` | Collaborator management with modals |
-| `useFormPersistence` | Auto-save forms to encrypted localStorage |
-| `useWebSocketEvents` | WebSocket connection and room management |
-| `useUIPreference` | Encrypted UI preference persistence |
-| `useModalManager` | Centralized modal state management |
-| `useDateManagement` | Date picker and scheduling logic |
-| `useKeyboardNavigation` | Keyboard shortcuts for lists |
-| `usePlanSync` | Plan synchronization with experience |
+| Hook | Purpose | Event Subscriptions |
+|------|---------|---------------------|
+| `usePlanManagement` | Plan CRUD operations with optimistic UI, CRDT reconciliation | `plan:operation`, `plan:created`, `plan:updated`, `plan:deleted` |
+| `usePlanItemNotes` | Note CRUD with stable callbacks | Emits `plan:item:note:*`; subscribes to own emissions |
+| `usePlanCosts` | Cost CRUD with optimistic UI | `plan:cost_added`, `plan:cost_updated`, `plan:cost_deleted` |
+| `usePlanSync` | Detects experience plan item divergence from user's plan, shows sync banner | `experience:item:added`, `experience:item:updated`, `experience:item:deleted`, `experience:item:reordered` |
+| `useExperienceActions` | Share/export/remove handlers | _(none — fire-and-forget)_ |
+| `useCollaboratorManager` | Collaborator management with modals | _(none)_ |
+| `useFormPersistence` | Auto-save forms to encrypted localStorage | _(none)_ |
+| `useWebSocketEvents` | WebSocket connection and room management | WS transport events |
+| `useUIPreference` | Encrypted UI preference persistence | _(none)_ |
+| `useModalManager` | Centralized modal state management | _(none)_ |
+| `useDateManagement` | Date picker and scheduling logic | _(none)_ |
+| `useKeyboardNavigation` | Keyboard shortcuts for lists | _(none)_ |

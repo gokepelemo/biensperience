@@ -11,7 +11,7 @@ import {
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
 
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import Alert from '../Alert/Alert';
 import styles from './ChatModal.module.scss';
 

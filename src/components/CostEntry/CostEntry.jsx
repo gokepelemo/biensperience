@@ -9,10 +9,9 @@
  */
 
 import { useState, useEffect, useMemo, useId } from 'react';
-import Modal from '../Modal/Modal';
 import { lang } from '../../lang.constants';
 import { getCurrencySymbol, getCurrencyDropdownOptions } from '../../utilities/currency-utils';
-import { Button, Form, FormGroup, FormLabel, FormControl, FormText } from '../../components/design-system';
+import { Modal, Button, Form, FormGroup, FormLabel, FormControl, FormText } from '../../components/design-system';
 import {
   ACTIVITY_TYPES,
   ACTIVITY_CATEGORIES,

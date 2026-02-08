@@ -297,11 +297,14 @@
 }
 
 // Tooltip content styling
+// pointer-events: none prevents the tooltip from intercepting hover,
+// which would cause the dot's mouseLeave to fire and create a flash loop
 .eventTooltip {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-1) 0;
+  pointer-events: none;
 }
 
 .eventTooltipTitle {

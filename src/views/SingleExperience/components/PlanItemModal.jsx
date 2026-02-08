@@ -14,10 +14,9 @@
  */
 
 import { useState, useEffect, useId, useRef, useCallback } from 'react';
-import Modal from '../../../components/Modal/Modal';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
 import { lang } from '../../../lang.constants';
-import { FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
+import { Modal, FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
 import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
 import { logger } from '../../../utilities/logger';
 

@@ -1,5 +1,5 @@
 import styles from "./AlertModal.module.scss";
-import Modal from "../Modal/Modal";
+import { Modal } from '../design-system';
 
 /**
  * AlertModal - A reusable modal for displaying alert messages

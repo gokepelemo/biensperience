@@ -1106,6 +1106,7 @@ export default function SingleExperience() {
     selectedDetailsItem,
     setSelectedDetailsItem,
     setSharedPlans,
+    user,
     success,
     showError
   });
@@ -2251,6 +2252,7 @@ export default function SingleExperience() {
     // Store the item to delete and previous state for rollback
     const itemToDelete = planInstanceItemToDelete;
     let prevPlansSnapshot = null;
+    let prevUserPlanSnapshot = null;
 
     const apply = () => {
       // Use functional update to avoid stale closure issues
@@ -2268,6 +2270,16 @@ export default function SingleExperience() {
         };
         return updatedPlans;
       });
+
+      // Keep userPlan consistent when it is the selected plan
+      if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
+        prevUserPlanSnapshot = { ...userPlan, plan: Array.isArray(userPlan.plan) ? [...userPlan.plan] : [] };
+        setUserPlan(prev => prev ? {
+          ...prev,
+          plan: filterOutById(prev.plan, itemToDelete._id)
+        } : prev);
+      }
+
       closeModal();
       setPlanInstanceItemToDelete(null);
     };
@@ -2279,6 +2291,9 @@ export default function SingleExperience() {
     const rollback = () => {
       if (prevPlansSnapshot) {
         setSharedPlans(prevPlansSnapshot);
+      }
+      if (prevUserPlanSnapshot) {
+        setUserPlan(prevUserPlanSnapshot);
       }
     };
 
@@ -2298,6 +2313,7 @@ export default function SingleExperience() {
   }, [
     selectedPlanId,
     planInstanceItemToDelete,
+    userPlan,
     fetchSharedPlans,
     fetchUserPlan,
     fetchPlans,
@@ -2686,6 +2702,21 @@ export default function SingleExperience() {
         if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
           setUserPlan((prev) => updateItemComplete(prev, itemId, newComplete));
         }
+
+        // Broadcast optimistic plan:updated so Dashboard/DataContext update instantly
+        // Build the optimistic plan from whichever source matches
+        const sourcePlan = (userPlan && idEquals(userPlan._id, selectedPlanId))
+          ? userPlan
+          : sharedPlans.find(p => idEquals(p._id, selectedPlanId));
+        if (sourcePlan) {
+          const optimisticPlan = updateItemComplete(sourcePlan, itemId, newComplete);
+          eventBus.emit('plan:updated', {
+            plan: optimisticPlan,
+            planId: selectedPlanId,
+            data: optimisticPlan,
+            _optimistic: true
+          });
+        }
       };
 
       const apiCall = async () => {
@@ -2730,6 +2761,7 @@ export default function SingleExperience() {
     [
       selectedPlanId,
       setSharedPlans,
+      sharedPlans,
       userPlan,
       setUserPlan,
       showError,
@@ -2754,16 +2786,26 @@ export default function SingleExperience() {
         draggedItemId
       });
 
-      // Optimistic update to sharedPlans state
+      // Optimistic update to sharedPlans and userPlan state
       const prevPlans = [...sharedPlans];
       const planIndex = sharedPlans.findIndex((p) => idEquals(p._id, planId));
       const prevPlan = planIndex >= 0 ? { ...sharedPlans[planIndex] } : null;
+      const prevUserPlan = userPlan && idEquals(userPlan._id, planId)
+        ? { ...userPlan, plan: Array.isArray(userPlan.plan) ? [...userPlan.plan] : [] }
+        : null;
 
       const apply = () => {
-        if (!prevPlan || planIndex < 0) return;
-        const updatedPlans = [...sharedPlans];
-        updatedPlans[planIndex] = { ...prevPlan, plan: reorderedItems };
-        setSharedPlans(updatedPlans);
+        // Update sharedPlans if it contains this plan
+        if (prevPlan && planIndex >= 0) {
+          const updatedPlans = [...sharedPlans];
+          updatedPlans[planIndex] = { ...prevPlan, plan: reorderedItems };
+          setSharedPlans(updatedPlans);
+        }
+
+        // Keep userPlan consistent when it is the selected plan
+        if (userPlan && idEquals(userPlan._id, planId)) {
+          setUserPlan(prev => prev ? { ...prev, plan: reorderedItems } : prev);
+        }
       };
 
       const apiCall = async () => {
@@ -2772,6 +2814,9 @@ export default function SingleExperience() {
 
       const rollback = () => {
         setSharedPlans(prevPlans);
+        if (prevUserPlan) {
+          setUserPlan(prevUserPlan);
+        }
       };
 
       const onSuccess = async () => {
@@ -2810,6 +2855,7 @@ export default function SingleExperience() {
     },
     [
       sharedPlans,
+      userPlan,
       fetchSharedPlans,
       fetchUserPlan,
       fetchPlans,

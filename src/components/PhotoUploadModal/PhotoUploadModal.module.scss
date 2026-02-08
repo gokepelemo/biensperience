@@ -1,31 +1,12 @@
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(2,6,23,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.modalContent {
-  width: min(900px, 96%);
-  max-height: 90vh;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.modalHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border-light);
-}
+/**
+ * PhotoUploadModal Styles
+ *
+ * Migrated to design-system Modal - overlay, header, content wrapper,
+ * and close button are now handled by the Modal component.
+ * Only body and footer styles remain for custom layout within Modal.
+ *
+ * Task: biensperience-4fc9
+ */
 
 .modalBody {
   padding: var(--space-4);
@@ -34,18 +15,10 @@
 }
 
 .modalFooter {
-  padding: var(--space-3);
   display: flex;
   gap: var(--space-3);
   justify-content: flex-end;
-  border-top: 1px solid var(--color-border-light);
-}
-
-.closeBtn {
-  background: transparent;
-  border: none;
-  font-size: 1.25rem;
-  cursor: pointer;
+  width: 100%;
 }
 
 .error {

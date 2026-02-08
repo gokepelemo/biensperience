@@ -11,7 +11,7 @@ import {
   Window
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
-import { FaChevronDown, FaTimes } from 'react-icons/fa';
+import { FaChevronDown, FaChevronRight, FaTimes, FaUndo } from 'react-icons/fa';
 import { Link, useInRouterContext, useLocation, useParams } from 'react-router-dom';
 
 import Alert from '../Alert/Alert';
@@ -100,12 +100,30 @@ export default function MessagesModal({
   // Default to null (show all channels) for backward compatibility
   const [activeChannelIds, setActiveChannelIds] = useUIPreference('messages.activeChannels', null);
 
+  // User preference for dismissed/hidden channels
+  // Channels the user deliberately removed — persisted so they don't reappear on reload
+  const [dismissedChannelIds, setDismissedChannelIds] = useUIPreference('messages.dismissedChannels', []);
+
+  // Ref to track activeChannelIds for use in loadChannels without triggering re-fetch
+  const activeChannelIdsRef = useRef(activeChannelIds);
+  useEffect(() => {
+    activeChannelIdsRef.current = activeChannelIds;
+  }, [activeChannelIds]);
+
+  // Ref to track dismissedChannelIds for use in loadChannels without triggering re-fetch
+  const dismissedChannelIdsRef = useRef(dismissedChannelIds);
+  useEffect(() => {
+    dismissedChannelIdsRef.current = dismissedChannelIds;
+  }, [dismissedChannelIds]);
+
   // Track if we've synced preferences to backend to avoid initial load sync
   const hasSyncedPreferencesRef = useRef(false);
 
   const [loading, setLoading] = useState(false);
   const [channelSwitching, setChannelSwitching] = useState(false);
   const [error, setError] = useState('');
+  const [dismissedChannels, setDismissedChannels] = useState([]);
+  const [dismissedSectionOpen, setDismissedSectionOpen] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
   const mobileSelectorRef = useRef(null);
   const mobileDropdownToggleRef = useRef(null);
@@ -217,6 +235,8 @@ export default function MessagesModal({
     // Reset internal state after parent is notified
     setChannels([]);
     setActiveChannel(null);
+    setDismissedChannels([]);
+    setDismissedSectionOpen(false);
     setError('');
     setLoading(false);
     setMobileDropdownOpen(false);
@@ -480,28 +500,47 @@ export default function MessagesModal({
           return true;
         });
 
-        // Filter based on user's active channels preference
+        // Filter based on user's active channels preference (read from ref to avoid re-fetch loops)
         // If activeChannelIds is null (default), show all channels
         // If it's an array, only show channels with IDs in the array
-        if (activeChannelIds && Array.isArray(activeChannelIds)) {
-          const activeChannelIdSet = new Set(activeChannelIds);
+        const currentActiveChannelIds = activeChannelIdsRef.current;
+        const currentDismissedChannelIds = dismissedChannelIdsRef.current;
+        const dismissedSet = new Set(Array.isArray(currentDismissedChannelIds) ? currentDismissedChannelIds : []);
+
+        // Separate dismissed channels from active ones for the hidden section
+        const dismissedList = filtered.filter((ch) => {
+          const channelId = ch?.id || ch?.cid;
+          return channelId && dismissedSet.has(channelId);
+        });
+        setDismissedChannels(dismissedList);
+
+        if (currentActiveChannelIds && Array.isArray(currentActiveChannelIds)) {
+          const activeChannelIdSet = new Set(currentActiveChannelIds);
           const newChannelIds = filtered
             .map(ch => ch?.id || ch?.cid)
-            .filter(channelId => channelId && !activeChannelIdSet.has(channelId));
+            .filter(channelId => channelId && !activeChannelIdSet.has(channelId) && !dismissedSet.has(channelId));
 
-          // Add any new channels to the active list
+          // Add any genuinely new channels (not dismissed) to the active list
           if (newChannelIds.length > 0) {
             setActiveChannelIds(prev => [...(prev || []), ...newChannelIds]);
           }
 
           filtered = filtered.filter((ch) => {
             const channelId = ch?.id || ch?.cid;
-            return activeChannelIdSet.has(channelId);
+            // Show if in active list AND not dismissed
+            return activeChannelIdSet.has(channelId) && !dismissedSet.has(channelId);
           });
-        } else if (activeChannelIds === null && filtered.length > 0) {
-          // Initialize preference with all current channels when first loading
-          const allChannelIds = filtered.map(ch => ch?.id || ch?.cid);
+        } else if (currentActiveChannelIds === null && filtered.length > 0) {
+          // Initialize preference with all current channels (minus dismissed) when first loading
+          const allChannelIds = filtered
+            .map(ch => ch?.id || ch?.cid)
+            .filter(id => !dismissedSet.has(id));
           setActiveChannelIds(allChannelIds);
+          // Also filter out dismissed channels from the display
+          filtered = filtered.filter((ch) => {
+            const channelId = ch?.id || ch?.cid;
+            return !dismissedSet.has(channelId);
+          });
         }
 
         setChannels(filtered);
@@ -611,7 +650,8 @@ export default function MessagesModal({
     return () => {
       cancelled = true;
     };
-  }, [show, client, currentUser?.id, initialChannelId, targetUserId, activeChannelIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, client, currentUser?.id, initialChannelId, targetUserId]);
 
   // Defensive: avoid a visually blank modal if Stream client init ends in a weird state
   // (e.g. StrictMode double-invocation cancellation). If we have an API key, are not
@@ -679,6 +719,12 @@ export default function MessagesModal({
       // Remove from local channels list so it disappears from the sidebar
       setChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== channelId));
 
+      // Add to dismissed channels list so it appears in the hidden section
+      setDismissedChannels(prev => {
+        if (prev.some(ch => (ch?.id || ch?.cid) === channelId)) return prev;
+        return [...prev, channel];
+      });
+
       // If the removed channel was active, switch to the first available channel
       if (activeChannel?.id === channel?.id) {
         const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== channelId);
@@ -700,6 +746,13 @@ export default function MessagesModal({
         return prev;
       });
 
+      // Add channel to dismissed list preference so it persists across reloads
+      setDismissedChannelIds(prev => {
+        const current = Array.isArray(prev) ? prev : [];
+        if (current.includes(channelId)) return current;
+        return [...current, channelId];
+      });
+
       // Emit event for channel removed
       try {
         broadcastEvent('channel:removed', {
@@ -713,9 +766,47 @@ export default function MessagesModal({
     } catch (err) {
       logger.error('[MessagesModal] Failed to remove channel', err);
     }
-  }, [activeChannel, channels, setActiveChannelIds]);
+  }, [activeChannel, channels, setActiveChannelIds, setDismissedChannelIds]);
 
-  // Sync activeChannelIds to backend when it changes (after initial load)
+  // Restore a dismissed channel back to the active list
+  const handleRestoreChannel = useCallback((e, channel) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const channelId = channel?.id || channel?.cid;
+    if (!channelId) return;
+
+    // Move from dismissed to active channels
+    setDismissedChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== channelId));
+    setChannels(prev => {
+      if (prev.some(ch => (ch?.id || ch?.cid) === channelId)) return prev;
+      return [...prev, channel];
+    });
+
+    // Remove from dismissed preference
+    setDismissedChannelIds(prev => {
+      const current = Array.isArray(prev) ? prev : [];
+      return current.filter(id => id !== channelId);
+    });
+
+    // Add back to active channels preference
+    setActiveChannelIds(prev => {
+      if (prev === null) return null; // null means show all
+      const current = Array.isArray(prev) ? prev : [];
+      if (current.includes(channelId)) return current;
+      return [...current, channelId];
+    });
+
+    // Emit event for channel restored
+    try {
+      broadcastEvent('channel:restored', { channelId });
+      logger.debug('[MessagesModal] Channel restored event dispatched', { channelId });
+    } catch (eventErr) {
+      // Silently ignore event emission errors
+    }
+  }, [setActiveChannelIds, setDismissedChannelIds]);
+
+  // Sync activeChannelIds and dismissedChannelIds to backend when they change (after initial load)
   useEffect(() => {
     if (!user?._id || !hasSyncedPreferencesRef.current) {
       // Skip initial load
@@ -729,19 +820,20 @@ export default function MessagesModal({
         await updateUser(user._id, {
           preferences: {
             messages: {
-              activeChannels: activeChannelIds
+              activeChannels: activeChannelIds,
+              dismissedChannels: Array.isArray(dismissedChannelIds) ? dismissedChannelIds : []
             }
           }
         });
-        logger.debug('[MessagesModal] Synced active channels to backend', { activeChannelIds });
+        logger.debug('[MessagesModal] Synced message preferences to backend', { activeChannelIds, dismissedChannelIds });
       } catch (err) {
-        logger.error('[MessagesModal] Failed to sync active channels to backend', err);
+        logger.error('[MessagesModal] Failed to sync message preferences to backend', err);
         // Don't show error to user - this is a background sync
       }
     }, 1000); // 1 second debounce
 
     return () => clearTimeout(timeoutId);
-  }, [activeChannelIds, user?._id]);
+  }, [activeChannelIds, dismissedChannelIds, user?._id]);
 
   const renderMobileDropdownItems = useCallback(() => {
     return channels.map((ch) => {
@@ -1072,57 +1164,112 @@ export default function MessagesModal({
                 >
                   <div className={styles.layout}>
                     <aside className={styles.sidebar} aria-label="Channels">
-                      {(channels || []).length === 0 ? (
+                      {(channels || []).length === 0 && (dismissedChannels || []).length === 0 ? (
                         <div className={styles.empty}>No messages yet.</div>
                       ) : (
-                        <ul className={styles.channelList}>
-                          {channels.map((ch) => {
-                            const label = getListDisplayName({
-                              channel: ch,
-                              currentUserId: currentUser?.id
-                            });
-                            const isActive = activeChannel?.id && ch?.id === activeChannel.id;
-                            // Get unread count for this channel
-                            const unreadCount = ch?.state?.unreadCount || 0;
+                        <>
+                          {/* Dismissed/hidden channels collapsible section */}
+                          {(dismissedChannels || []).length > 0 && (
+                            <div className={styles.dismissedSection}>
+                              <button
+                                type="button"
+                                className={styles.dismissedToggle}
+                                onClick={() => setDismissedSectionOpen(prev => !prev)}
+                                aria-expanded={dismissedSectionOpen}
+                                aria-controls="dismissed-channels-list"
+                              >
+                                <FaChevronRight className={`${styles.dismissedChevron} ${dismissedSectionOpen ? styles.open : ''}`} />
+                                <span className={styles.dismissedLabel}>
+                                  Hidden conversations ({dismissedChannels.length})
+                                </span>
+                              </button>
+                              {dismissedSectionOpen && (
+                                <ul id="dismissed-channels-list" className={styles.dismissedList}>
+                                  {dismissedChannels.map((ch) => {
+                                    const label = getListDisplayName({
+                                      channel: ch,
+                                      currentUserId: currentUser?.id
+                                    });
+                                    return (
+                                      <li key={ch.cid || ch.id} className={styles.dismissedListItem}>
+                                        <div className={styles.dismissedChannelRow}>
+                                          <ChannelTitle
+                                            label={label}
+                                            className={styles.dismissedChannelName}
+                                            innerClassName={styles.channelTitleInner}
+                                          />
+                                          <button
+                                            type="button"
+                                            className={styles.restoreButton}
+                                            onClick={(e) => handleRestoreChannel(e, ch)}
+                                            aria-label="Restore conversation"
+                                            title="Restore conversation"
+                                          >
+                                            <FaUndo />
+                                          </button>
+                                        </div>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </div>
+                          )}
 
-                            return (
-                              <li key={ch.cid || ch.id} className={styles.channelListItem}>
-                                <div
-                                  role="button"
-                                  tabIndex={0}
-                                  className={`${styles.channelButton} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
-                                  onClick={() => handleSelectChannel(ch)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      handleSelectChannel(ch);
-                                    }
-                                  }}
-                                >
-                                  <ChannelTitle
-                                    label={label}
-                                    className={styles.channelName}
-                                    innerClassName={styles.channelTitleInner}
-                                  />
-                                  {unreadCount > 0 && (
-                                    <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
-                                      {unreadCount > 99 ? '99+' : unreadCount}
-                                    </span>
-                                  )}
+                          {/* Active channels list */}
+                          {(channels || []).length === 0 ? (
+                            <div className={styles.empty}>No active conversations.</div>
+                          ) : (
+                            <ul className={styles.channelList}>
+                              {channels.map((ch) => {
+                                const label = getListDisplayName({
+                                  channel: ch,
+                                  currentUserId: currentUser?.id
+                                });
+                                const isActive = activeChannel?.id && ch?.id === activeChannel.id;
+                                // Get unread count for this channel
+                                const unreadCount = ch?.state?.unreadCount || 0;
 
-                                  <button
-                                    type="button"
-                                    className={styles.deleteChannelButton}
-                                    onClick={(e) => handleRemoveChannel(e, ch)}
-                                    aria-label="Remove conversation"
-                                  >
-                                    <FaTimes />
-                                  </button>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
+                                return (
+                                  <li key={ch.cid || ch.id} className={styles.channelListItem}>
+                                    <div
+                                      role="button"
+                                      tabIndex={0}
+                                      className={`${styles.channelButton} ${isActive ? styles.active : ''} ${unreadCount > 0 ? styles.hasUnread : ''}`}
+                                      onClick={() => handleSelectChannel(ch)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          handleSelectChannel(ch);
+                                        }
+                                      }}
+                                    >
+                                      <ChannelTitle
+                                        label={label}
+                                        className={styles.channelName}
+                                        innerClassName={styles.channelTitleInner}
+                                      />
+                                      {unreadCount > 0 && (
+                                        <span className={styles.unreadBadge} aria-label={`${unreadCount} unread messages`}>
+                                          {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        className={styles.deleteChannelButton}
+                                        onClick={(e) => handleRemoveChannel(e, ch)}
+                                        aria-label="Hide conversation"
+                                      >
+                                        <FaTimes />
+                                      </button>
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </>
                       )}
                     </aside>
 

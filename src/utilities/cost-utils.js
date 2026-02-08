@@ -156,11 +156,11 @@ export function formatCostEstimate(cost, options = {}) {
  * @returns {string} Tooltip text with exact amount and explanation
  */
 export function getCostEstimateTooltip(exactCost, options = {}) {
-  const { currency = 'USD', isActual = false } = options;
+  const { currency = 'USD', isActual = false, costCount } = options;
 
   // If this is an actual/tracked cost, use the tracked cost tooltip instead
   if (isActual) {
-    return getTrackedCostTooltip(exactCost, 0, { currency });
+    return getTrackedCostTooltip(exactCost, costCount, { currency });
   }
 
   const symbol = getCurrencySymbol(currency);
@@ -187,7 +187,7 @@ export function getCostEstimateTooltip(exactCost, options = {}) {
  * @param {string} options.currency - Currency code (default: 'USD')
  * @returns {string} Tooltip text with total and explanation
  */
-export function getTrackedCostTooltip(totalCost, costCount = 0, options = {}) {
+export function getTrackedCostTooltip(totalCost, costCount, options = {}) {
   const { currency = 'USD' } = options;
   const symbol = getCurrencySymbol(currency);
 
@@ -200,8 +200,13 @@ export function getTrackedCostTooltip(totalCost, costCount = 0, options = {}) {
     maximumFractionDigits: 2
   });
 
-  const entryText = costCount === 1 ? '1 expense' : `${costCount} expenses`;
-  return `Total: ${symbol}${formatted} (${entryText})`;
+  // Only show expense count if explicitly provided
+  if (costCount != null && costCount >= 0) {
+    const entryText = costCount === 1 ? '1 expense' : `${costCount} expenses`;
+    return `Total: ${symbol}${formatted} (${entryText})`;
+  }
+
+  return `Tracked: ${symbol}${formatted} — Real expenses you've recorded.`;
 }
 
 /**

@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import { logger } from '../../utilities/logger';
 import styles from './AssignPlanItemModal.module.scss';
 

@@ -14,11 +14,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import EmptyState from '../EmptyState/EmptyState';
 import Loading from '../Loading/Loading';
-import Modal from '../Modal/Modal';
 import Tooltip from '../Tooltip/Tooltip';
 import DocumentViewerModal from '../DocumentViewerModal';
 import ProgressBar from '../ProgressBar/ProgressBar';
-import { Button } from '../design-system';
+import { Modal, Button } from '../design-system';
 import {
   getDocumentsByEntity,
   uploadDocument,

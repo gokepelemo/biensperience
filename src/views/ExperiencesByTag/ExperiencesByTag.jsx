@@ -7,12 +7,11 @@ import Alert from "../../components/Alert/Alert";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
-import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import Pagination from "../../components/Pagination/Pagination";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
-import { Button, Container, FlexBetween, FlexCenter, FadeIn } from "../../components/design-system";
+import { Button, Container, FlexBetween, FlexCenter, FadeIn, SkeletonLoader, ExperienceCardSkeleton } from "../../components/design-system";
 import { FaUser, FaArrowRight } from "react-icons/fa";
 import { lang } from "../../lang.constants";
 
@@ -190,19 +189,7 @@ export default function ExperiencesByTag() {
       {loading ? (
         <FadeIn>
           <div className={styles.experiencesList}>
-            {/* Skeleton loaders matching ExperienceCard dimensions (20rem × 12rem min-height) */}
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className={styles.experienceSkeleton}>
-                <div className={styles.experienceSkeletonContent}>
-                  <div className={styles.experienceSkeletonTitle} />
-                </div>
-                <div className={styles.experienceSkeletonActions}>
-                  <div className={styles.experienceSkeletonButton} />
-                  <div className={styles.experienceSkeletonButton} />
-                  <div className={styles.experienceSkeletonButton} />
-                </div>
-              </div>
-            ))}
+            <ExperienceCardSkeleton count={6} />
           </div>
         </FadeIn>
       ) : (

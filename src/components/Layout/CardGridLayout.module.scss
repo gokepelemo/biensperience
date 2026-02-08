@@ -180,52 +180,10 @@
   background: var(--color-bg-secondary);
   border-radius: $radius-lg;
   overflow: hidden;
-  animation: shimmer 1.5s infinite;
-}
-
-.skeletonImage {
-  aspect-ratio: 16 / 10;
-  background: linear-gradient(
-    90deg,
-    var(--color-bg-tertiary) 25%,
-    var(--color-bg-secondary) 50%,
-    var(--color-bg-tertiary) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
 }
 
 .skeletonContent {
   padding: $layout-gap-md;
-}
-
-.skeletonTitle {
-  height: 20px;
-  width: 80%;
-  background: var(--color-bg-tertiary);
-  border-radius: $radius-sm;
-  margin-bottom: $space-3;
-}
-
-.skeletonText {
-  height: 14px;
-  width: 100%;
-  background: var(--color-bg-tertiary);
-  border-radius: $radius-sm;
-  margin-bottom: $space-2;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
 }
 
 // Empty State

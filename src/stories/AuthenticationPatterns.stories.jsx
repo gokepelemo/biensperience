@@ -5,7 +5,7 @@ import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo
 import Checkbox from '../components/Checkbox/Checkbox';
 import Divider from '../components/Divider/Divider';
 import DesignNotes from './helpers/DesignNotes';
-import Modal from '../components/Modal/Modal';
+import { Modal } from '../components/design-system';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal/PrivacyPolicyModal';
 import TermsOfServiceModal from '../components/TermsOfServiceModal/TermsOfServiceModal';
 

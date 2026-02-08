@@ -196,10 +196,24 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   {sanitizeText(planItem.text)}
                 </a>
               ) : (
-                <span>{sanitizeText(planItem.text)}</span>
+                <button
+                  type="button"
+                  className="plan-item-title-button"
+                  onClick={() => handleViewPlanItemDetails(planItem)}
+                  title={lang.current.tooltip.viewNotesAssignmentsDetails}
+                >
+                  {sanitizeText(planItem.text)}
+                </button>
               );
             })() : (
-              <span>{sanitizeText(planItem.text)}</span>
+              <button
+                type="button"
+                className="plan-item-title-button"
+                onClick={() => handleViewPlanItemDetails(planItem)}
+                title={lang.current.tooltip.viewNotesAssignmentsDetails}
+              >
+                {sanitizeText(planItem.text)}
+              </button>
             )}
           </div>
         </div>

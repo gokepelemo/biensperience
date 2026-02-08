@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import Modal from '../Modal/Modal';
-import { Button } from '../../components/design-system';
+import { Modal, Button } from '../../components/design-system';
 import Loading from '../Loading/Loading';
 import Alert from '../Alert/Alert';
 import {

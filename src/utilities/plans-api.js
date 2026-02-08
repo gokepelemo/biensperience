@@ -86,10 +86,20 @@ export function getPlanById(planId) {
  * Request access to a plan the user cannot view
  * POST /api/plans/:id/access-requests
  */
-export function requestPlanAccess(planId, message = '') {
-  return sendRequest(`${BASE_URL}/${planId}/access-requests`, 'POST', {
+export async function requestPlanAccess(planId, message = '') {
+  const result = await sendRequest(`${BASE_URL}/${planId}/access-requests`, 'POST', {
     message
   });
+
+  // Emit event so other components can react (e.g., show confirmation UI)
+  try {
+    broadcastEvent('plan:access_requested', { planId, message });
+    logger.debug('[plans-api] Plan access request event dispatched', { planId });
+  } catch (e) {
+    // Silently ignore - don't break the mutation
+  }
+
+  return result;
 }
 
 /**
@@ -594,11 +604,11 @@ export async function reorderPlanItems(planId, reorderedItems) {
 /**
  * Add a note to a plan item
  */
-export async function addPlanItemNote(planId, itemId, content) {
+export async function addPlanItemNote(planId, itemId, content, visibility) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes`, "POST", {
-      content
-    });
+    const payload = { content };
+    if (visibility) payload.visibility = visibility;
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes`, "POST", payload);
 
     // Emit events via event bus (handles local + cross-tab dispatch)
     try {
@@ -632,11 +642,11 @@ export async function addPlanItemNote(planId, itemId, content) {
 /**
  * Update a note on a plan item
  */
-export async function updatePlanItemNote(planId, itemId, noteId, content) {
+export async function updatePlanItemNote(planId, itemId, noteId, content, visibility) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "PATCH", {
-      content
-    });
+    const payload = { content };
+    if (visibility !== undefined) payload.visibility = visibility;
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "PATCH", payload);
 
     // Emit events via event bus (handles local + cross-tab dispatch)
     try {

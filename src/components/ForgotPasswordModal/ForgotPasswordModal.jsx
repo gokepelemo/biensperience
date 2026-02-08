@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import FormField from '../FormField/FormField';
 import Alert from '../Alert/Alert';
 import { requestPasswordReset } from '../../utilities/users-api';

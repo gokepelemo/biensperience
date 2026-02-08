@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 import { FaCheck, FaArrowLeft, FaExclamationTriangle, FaArchive, FaUserFriends, FaTrash } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -7,8 +7,7 @@ import { searchUsers } from '../../utilities/search-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
 import { logger } from '../../utilities/logger';
-import { Button, Text } from '../design-system';
-import Modal from '../Modal/Modal';
+import { Button, Text, Modal } from '../design-system';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import Banner from '../Banner/Banner';
 import Loading from '../Loading/Loading';
@@ -40,6 +39,10 @@ const ACTIONS = {
  * TransferOwnershipModal - Multi-step modal for handling experience deletion
  * when other users have created plans for the experience.
  *
+ * Migrated to Chakra UI via design-system abstraction with enhanced
+ * accessibility: useId for unique IDs, aria-live for status messages,
+ * ARIA step indicator, keyboard-accessible action cards, and semantic roles.
+ *
  * Flow:
  * 1. Check for existing plans
  * 2. If plans exist:
@@ -47,6 +50,8 @@ const ACTIONS = {
  *    b. If transfer: select user from collaborators or search
  *    c. Confirm action
  * 3. If no plans: show standard delete confirmation
+ *
+ * Task: biensperience-26f9
  */
 export default function TransferOwnershipModal({
   show,
@@ -56,6 +61,7 @@ export default function TransferOwnershipModal({
 }) {
   const { user } = useUser();
   const { success: showSuccess, error: showError } = useToast();
+  const id = useId();
 
   // Step management
   const [currentStep, setCurrentStep] = useState(STEPS.LOADING);
@@ -245,8 +251,8 @@ export default function TransferOwnershipModal({
         <div className={styles.stepContent}>
           {hasPlans ? (
             <>
-              <div className={styles.warningBanner}>
-                <FaExclamationTriangle className={styles.warningIcon} />
+              <div className={styles.warningBanner} role="alert">
+                <FaExclamationTriangle className={styles.warningIcon} aria-hidden="true" />
                 <div>
                   <Text weight="semibold">
                     {count === 1
@@ -265,18 +271,19 @@ export default function TransferOwnershipModal({
                 {t().cannotDeleteDirectly || "Since other users are planning this experience, you cannot delete it directly. Choose how you'd like to proceed:"}
               </Text>
 
-              <div className={styles.actionCards}>
+              <div className={styles.actionCards} role="group" aria-label="Available actions">
                 <button
                   type="button"
                   className={styles.actionCard}
                   onClick={() => handleActionSelect(ACTIONS.TRANSFER)}
+                  aria-describedby={`${id}-transfer-desc`}
                 >
                   <div className={styles.actionIcon}>
-                    <FaUserFriends />
+                    <FaUserFriends aria-hidden="true" />
                   </div>
                   <div className={styles.actionContent}>
                     <Text weight="semibold">{t().transferOwnershipAction || 'Transfer Ownership'}</Text>
-                    <Text size="sm" variant="muted">
+                    <Text size="sm" variant="muted" id={`${id}-transfer-desc`}>
                       {t().transferOwnershipDescription || 'Give ownership to another user who can continue managing the experience.'}
                     </Text>
                   </div>
@@ -286,13 +293,14 @@ export default function TransferOwnershipModal({
                   type="button"
                   className={styles.actionCard}
                   onClick={() => handleActionSelect(ACTIONS.ARCHIVE)}
+                  aria-describedby={`${id}-archive-desc`}
                 >
                   <div className={styles.actionIcon}>
-                    <FaArchive />
+                    <FaArchive aria-hidden="true" />
                   </div>
                   <div className={styles.actionContent}>
                     <Text weight="semibold">{t().archiveExperienceAction || 'Archive Experience'}</Text>
-                    <Text size="sm" variant="muted">
+                    <Text size="sm" variant="muted" id={`${id}-archive-desc`}>
                       {t().archiveExperienceDescription || 'Move to archive. The experience remains accessible to users with plans, but will no longer appear in public listings.'}
                     </Text>
                   </div>
@@ -301,7 +309,7 @@ export default function TransferOwnershipModal({
             </>
           ) : (
             <div className={styles.deleteConfirm}>
-              <FaTrash className={styles.deleteIcon} />
+              <FaTrash className={styles.deleteIcon} aria-hidden="true" />
               <Text weight="semibold" className="mb-2">{t().titleDeleteExperience || 'Delete Experience'}?</Text>
               <Text variant="muted">
                 {t().noPlansExist || 'No users have created plans for this experience. You can safely delete it.'}
@@ -319,7 +327,7 @@ export default function TransferOwnershipModal({
             {t().searchUserPrompt?.replace('{name}', experience?.name) || `Search for a user to transfer ownership of "${experience?.name}" to:`}
           </Text>
 
-          <div className={styles.searchSection}>
+          <div className={styles.searchSection} role="search" aria-label={t().searchPlaceholder || 'Search by name or email'}>
             <Autocomplete
               placeholder={t().searchPlaceholder || 'Search by name or email...'}
               value={userSearchTerm}
@@ -356,7 +364,7 @@ export default function TransferOwnershipModal({
           <div className={styles.confirmContent}>
             {selectedAction === ACTIONS.DELETE && (
               <>
-                <FaTrash className={styles.confirmIcon} style={{ color: 'var(--color-danger)' }} />
+                <FaTrash className={styles.confirmIcon} style={{ color: 'var(--color-danger)' }} aria-hidden="true" />
                 <Text weight="semibold" size="lg" className="mb-2">
                   {t().confirmDelete?.replace('{name}', experience?.name) || `Delete "${experience?.name}"?`}
                 </Text>
@@ -368,7 +376,7 @@ export default function TransferOwnershipModal({
 
             {selectedAction === ACTIONS.TRANSFER && selectedUser && (
               <>
-                <FaUserFriends className={styles.confirmIcon} style={{ color: 'var(--color-primary)' }} />
+                <FaUserFriends className={styles.confirmIcon} style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
                 <Text weight="semibold" size="lg" className="mb-2">
                   {t().confirmTransfer?.replace('{name}', selectedUser.name) || `Transfer to ${selectedUser.name}?`}
                 </Text>
@@ -381,7 +389,7 @@ export default function TransferOwnershipModal({
 
             {selectedAction === ACTIONS.ARCHIVE && (
               <>
-                <FaArchive className={styles.confirmIcon} style={{ color: 'var(--color-warning)' }} />
+                <FaArchive className={styles.confirmIcon} style={{ color: 'var(--color-warning)' }} aria-hidden="true" />
                 <Text weight="semibold" size="lg" className="mb-2">
                   {t().confirmArchive?.replace('{name}', experience?.name) || `Archive "${experience?.name}"?`}
                 </Text>
@@ -423,8 +431,9 @@ export default function TransferOwnershipModal({
             className={styles.backButton}
             onClick={handleBack}
             disabled={loading}
+            aria-label={t().buttonBackToPrevious || 'Go back to previous step'}
           >
-            <FaArrowLeft size={12} className="me-2" />
+            <FaArrowLeft size={12} className="me-2" aria-hidden="true" />
             {t().buttonBack || 'Back'}
           </button>
         )}
@@ -444,6 +453,7 @@ export default function TransferOwnershipModal({
             size="md"
             onClick={handleConfirm}
             disabled={loading || (selectedAction === ACTIONS.TRANSFER && !selectedUser)}
+            aria-busy={loading}
           >
             {getConfirmButtonText()}
           </Button>
@@ -463,48 +473,67 @@ export default function TransferOwnershipModal({
       footer={renderFooter()}
       contentClassName={styles.modalContentWrapper}
       loading={loading}
+      showSubmitButton={false}
     >
       {/* Step Indicator */}
       {currentStep !== STEPS.LOADING && planCheckData?.requiresTransfer && (
-        <div className={styles.stepIndicator}>
-          <div className={`${styles.step} ${currentStep >= STEPS.CHOOSE_ACTION ? styles.active : ''} ${currentStep > STEPS.CHOOSE_ACTION ? styles.completed : ''}`}>
-            <span className={styles.stepNumber}>
+        <nav
+          className={styles.stepIndicator}
+          aria-label="Progress"
+        >
+          <div
+            className={`${styles.step} ${currentStep >= STEPS.CHOOSE_ACTION ? styles.active : ''} ${currentStep > STEPS.CHOOSE_ACTION ? styles.completed : ''}`}
+            aria-current={currentStep === STEPS.CHOOSE_ACTION ? 'step' : undefined}
+          >
+            <span className={styles.stepNumber} aria-hidden="true">
               {currentStep > STEPS.CHOOSE_ACTION ? <FaCheck size={12} /> : '1'}
             </span>
-            <span className={styles.stepLabel}>Choose Action</span>
+            <span className={styles.stepLabel}>
+              {currentStep > STEPS.CHOOSE_ACTION ? 'Choose Action (completed)' : 'Choose Action'}
+            </span>
           </div>
           {selectedAction === ACTIONS.TRANSFER && (
             <>
-              <div className={`${styles.stepConnector} ${currentStep > STEPS.CHOOSE_ACTION ? styles.active : ''}`} />
-              <div className={`${styles.step} ${currentStep >= STEPS.SELECT_USER ? styles.active : ''} ${currentStep > STEPS.SELECT_USER ? styles.completed : ''}`}>
-                <span className={styles.stepNumber}>
+              <div className={`${styles.stepConnector} ${currentStep > STEPS.CHOOSE_ACTION ? styles.active : ''}`} aria-hidden="true" />
+              <div
+                className={`${styles.step} ${currentStep >= STEPS.SELECT_USER ? styles.active : ''} ${currentStep > STEPS.SELECT_USER ? styles.completed : ''}`}
+                aria-current={currentStep === STEPS.SELECT_USER ? 'step' : undefined}
+              >
+                <span className={styles.stepNumber} aria-hidden="true">
                   {currentStep > STEPS.SELECT_USER ? <FaCheck size={12} /> : '2'}
                 </span>
-                <span className={styles.stepLabel}>Select User</span>
+                <span className={styles.stepLabel}>
+                  {currentStep > STEPS.SELECT_USER ? 'Select User (completed)' : 'Select User'}
+                </span>
               </div>
             </>
           )}
-          <div className={`${styles.stepConnector} ${currentStep >= STEPS.CONFIRM ? styles.active : ''}`} />
-          <div className={`${styles.step} ${currentStep >= STEPS.CONFIRM ? styles.active : ''}`}>
-            <span className={styles.stepNumber}>
+          <div className={`${styles.stepConnector} ${currentStep >= STEPS.CONFIRM ? styles.active : ''}`} aria-hidden="true" />
+          <div
+            className={`${styles.step} ${currentStep >= STEPS.CONFIRM ? styles.active : ''}`}
+            aria-current={currentStep === STEPS.CONFIRM ? 'step' : undefined}
+          >
+            <span className={styles.stepNumber} aria-hidden="true">
               {selectedAction === ACTIONS.TRANSFER ? '3' : '2'}
             </span>
             <span className={styles.stepLabel}>Confirm</span>
           </div>
-        </div>
+        </nav>
       )}
 
       {/* Error Banner */}
-      {error && (
-        <Banner
-          type="danger"
-          variant="light"
-          message={error}
-          dismissible
-          onDismiss={() => setError('')}
-          className="mb-4"
-        />
-      )}
+      <div aria-live="assertive" aria-atomic="true">
+        {error && (
+          <Banner
+            type="danger"
+            variant="light"
+            message={error}
+            dismissible
+            onDismiss={() => setError('')}
+            className="mb-4"
+          />
+        )}
+      </div>
 
       {/* Step Content */}
       {renderStepContent()}

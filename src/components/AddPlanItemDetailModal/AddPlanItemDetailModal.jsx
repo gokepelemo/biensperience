@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import Modal from '../Modal/Modal';
+import { Modal } from '../design-system';
 import DetailTypeSelector from './DetailTypeSelector';
 import DetailEntryForm from './DetailEntryForm';
 import DocumentUploadStep from './DocumentUploadStep';

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Modal from "../Modal/Modal";
+import { Modal } from '../design-system';
 import { FaCheckCircle } from "react-icons/fa";
 
 /**

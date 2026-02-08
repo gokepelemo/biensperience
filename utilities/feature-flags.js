@@ -162,6 +162,15 @@ const FEATURE_FLAGS = {
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'beta'
+  },
+
+  // Chakra UI Modal (Dialog)
+  CHAKRA_MODAL: {
+    key: 'chakra_modal',
+    description: 'Use Chakra UI Dialog for modals (accessibility & focus trapping)',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'beta'
   }
 };
 

@@ -79,6 +79,10 @@ function Tooltip({
     borderRadius: 'var(--radius-sm, 0.25rem)',
     boxShadow: 'var(--shadow-md)',
     maxWidth: '300px',
+    width: 'max-content',
+    overflowWrap: 'break-word',
+    wordBreak: 'break-word',
+    whiteSpace: 'normal',
     zIndex: 1800,
   }), []);
 
