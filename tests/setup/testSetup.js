@@ -43,10 +43,7 @@ async function connect() {
 
   const mongoUri = mongoServer.getUri();
   if (!isConnected()) {
-    await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(mongoUri);
   }
 
   activeUsers = Math.max(activeUsers, 0) + 1;

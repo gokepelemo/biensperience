@@ -14,7 +14,7 @@ if (!mongoUri) {
     process.exit(1);
 }
 
-mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true }).catch(err => {
+mongoose.connect(mongoUri).catch(err => {
     backendLogger.error('Failed to connect to MongoDB', { error: err.message });
     console.error('Failed to connect to MongoDB:', err.message);
     process.exit(1);
