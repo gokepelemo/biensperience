@@ -3,7 +3,7 @@
  *
  * This component provides a stable API for Modal usage across the application.
  * It wraps either the current custom Modal or the Chakra UI Dialog implementation,
- * controlled by the 'chakra_modal' feature flag.
+ * controlled by the 'chakra_ui' feature flag.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All modal consumers should import from design-system, NOT directly from Modal.
@@ -11,15 +11,16 @@
  * Implementation Status:
  * - Phase 1: Bootstrap Modal (completed)
  * - Phase 2: Feature flag toggle (completed)
- * - Phase 3 (Current): Feature-flagged Chakra UI Dialog
- * - Phase 4: Remove legacy implementation (pending validation)
+ * - Phase 3: Feature-flagged Chakra UI Dialog (completed)
+ * - Phase 4 (Current): Chakra UI Dialog is default; Bootstrap available via 'bootstrap_modal' flag
+ * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
  * - Props interface is stable and will not change
  * - All consumers can import { Modal } from 'design-system'
  * - Implementation swap is transparent to consumers
  *
- * Task: biensperience-012c, biensperience-277f
+ * Task: biensperience-012c, biensperience-277f, biensperience-0512
  * Related: biensperience-b93c (E2E tests), biensperience-cd21 (visual regression)
  */
 
@@ -103,9 +104,10 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
  * </Modal>
  */
 const ModalWrapper = forwardRef((props, ref) => {
-  // Feature-flagged: Use Chakra UI Dialog when 'chakra_modal' flag is enabled
-  const { enabled: useChakra } = useFeatureFlag('chakra_modal');
-  const ModalComponent = useChakra ? ChakraModal : Modal;
+  // Chakra UI Dialog is now the default implementation (Phase 4)
+  // Users can opt into the legacy Bootstrap Modal via 'bootstrap_modal' flag
+  const { enabled: useLegacy } = useFeatureFlag('bootstrap_modal');
+  const ModalComponent = useLegacy ? Modal : ChakraModal;
   return <ModalComponent {...props} ref={ref} />;
 });
 

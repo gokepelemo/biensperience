@@ -158,6 +158,9 @@
     "test:frontend:coverage": "NODE_ENV=test jest --config=jest.config.frontend.js --coverage",
     "test:visual": "./tests/visual-regression/run-tests.sh",
     "test:visual:update": "./tests/visual-regression/run-tests.sh --update-baseline",
+    "test:visual:modal": "npx playwright test tests/visual-regression/modal-comparison.spec.js",
+    "test:visual:modal:update": "npx playwright test tests/visual-regression/modal-comparison.spec.js --update-snapshots",
+    "test:visual:modal:report": "npx playwright show-report tests/visual-regression/report",
     "test:e2e": "./tests/e2e/run-modal-tests.sh",
     "test:e2e:headed": "./tests/e2e/run-modal-tests.sh --headed",
     "test:e2e:slow": "./tests/e2e/run-modal-tests.sh --slow",
@@ -170,6 +173,7 @@
     "build-storybook": "storybook build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@storybook/addon-essentials": "^9.0.0-alpha.12",
     "@storybook/blocks": "^9.0.0-alpha.17",
     "@storybook/react-vite": "^9.1.17",

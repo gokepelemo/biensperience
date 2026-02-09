@@ -164,10 +164,19 @@ const FEATURE_FLAGS = {
     tier: 'beta'
   },
 
-  // Chakra UI Modal (Dialog)
-  CHAKRA_MODAL: {
-    key: 'chakra_modal',
-    description: 'Use Chakra UI Dialog for modals (accessibility & focus trapping)',
+  // Chakra UI (all components: modals, buttons, pills, etc.)
+  CHAKRA_UI: {
+    key: 'chakra_ui',
+    description: 'Use Chakra UI primitives for modals, buttons, pills, and other components (accessibility & ARIA support)',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'beta'
+  },
+
+  // Bootstrap Modal (legacy escape hatch)
+  BOOTSTRAP_MODAL: {
+    key: 'bootstrap_modal',
+    description: 'Use legacy Bootstrap Modal instead of Chakra UI Dialog (escape hatch)',
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'beta'

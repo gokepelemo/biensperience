@@ -85,7 +85,7 @@ Implement Chakra UI wrapper with feature flag:
 ```javascript
 // ModalWrapper.jsx
 const ModalWrapper = (props) => {
-  const useChakraModal = useFeatureFlag('chakra_modal'); // Feature flag
+  const useChakraModal = useFeatureFlag('chakra_ui'); // Feature flag
 
   if (useChakraModal) {
     return <ChakraModalWrapper {...props} />;
@@ -107,7 +107,7 @@ const ModalWrapper = (props) => {
 
 Enable Chakra as default:
 ```javascript
-const useChakraModal = useFeatureFlag('chakra_modal', { defaultValue: true });
+const useChakraModal = useFeatureFlag('chakra_ui', { defaultValue: true });
 ```
 
 Monitor for 1 week, then remove Bootstrap implementation.
@@ -383,7 +383,7 @@ import ChakraModalWrapper from './ChakraModalWrapper';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const ModalWrapper = forwardRef((props, ref) => {
-  const useChakraModal = useFeatureFlag('chakra_modal');
+  const useChakraModal = useFeatureFlag('chakra_ui');
 
   if (useChakraModal) {
     return <ChakraModalWrapper {...props} ref={ref} />;

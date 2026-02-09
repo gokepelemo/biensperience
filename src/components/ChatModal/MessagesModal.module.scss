@@ -435,28 +435,18 @@
 .pane {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-height: 0;
   overflow: hidden;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   transition: opacity 0.15s ease;
 
-  /* Keep Stream Chat header aligned with message list item gutters.
-   * Stream Chat uses different horizontal padding on larger screens, and message
-   * list items "bleed" into that gutter with negative margins.
+  /* CSS variable for gutter reference - used by Stream Chat component overrides.
+   * Uses Stream Chat's native spacing-2 (8px) for minimal breathing room
+   * so avatars and bubbles don't touch the pane edges.
    */
-  /* Left/right gutter for chat content (bubbles, list, input).
-   * Header stays full-bleed; its *content* aligns to this gutter.
-   * Use spacing-5 as minimum so avatars and bubbles have breathing room.
-   */
-  --messagesModalChatGutter: var(--str-chat__spacing-5, 20px);
-  padding: var(--messagesModalChatGutter);
-
-  /* Match Stream Chat's own responsive breakpoint (min-device-width: 768px). */
-  @media only screen and (min-device-width: 768px) {
-    /* Comfortable gutter that scales with container but never gets too tight. */
-    --messagesModalChatGutter: max(min(var(--str-chat__spacing-10), 5%), var(--str-chat__spacing-6, 24px));
-  }
+  --messagesModalChatGutter: var(--str-chat__spacing-2, 8px);
 }
 
 .pane.switching {
@@ -609,6 +599,12 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+
+  /* Override Stream Chat's internal spacing variables to add more left gutter.
+   * This is cleaner than trying to override each component's padding individually.
+   * Stream Chat components read these variables for their internal layout.
+   */
+  --str-chat__message-list-gutter: var(--str-chat__spacing-6, 1.5rem);
 }
 
 /* Stream Chat (scoped) token alignment */
@@ -616,19 +612,18 @@
 @include streamChatOverlayZIndex('.pane');
 @include streamChatSendToChannelCheckbox('.pane');
 
-/* Align ChannelHeader title bar edges with message list items */
+/* ChannelHeader title bar - full width */
 .pane :global(.str-chat__channel-header) {
-  /* Stream Chat's main panel uses align-items:center; ensure header stretches full width
-   * so its content gutter can align with the message list gutter.
-   */
   width: 100%;
   max-width: 100%;
   align-self: stretch;
   box-sizing: border-box;
-  padding-inline: var(--messagesModalChatGutter);
-  /* Extra left padding so the header avatar doesn't hug the sidebar divider */
-  padding-left: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
-  padding-right: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
+}
+
+/* Main panel - full width, no side padding */
+.pane :global(.str-chat__main-panel) {
+  padding-inline: 0;
+  box-sizing: border-box;
 }
 
 /* Force message list gutters to match the header gutter (normal + virtual list). */
@@ -660,17 +655,4 @@
   padding-inline: var(--messagesModalChatGutter);
 }
 
-/* Give the message list itself a right gutter so outgoing bubbles don't hug the modal edge.
- * (Stream Chat resets ul padding to 0 by default.)
- */
-.pane :global(.str-chat__list .str-chat__message-list-scroll .str-chat__ul) {
-  padding-right: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
-  padding-left: var(--str-chat__spacing-2, 8px);
-  box-sizing: border-box;
-}
-
-.pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div .str-chat__ul) {
-  padding-right: calc(var(--messagesModalChatGutter) + var(--str-chat__spacing-2, 8px));
-  padding-left: var(--str-chat__spacing-2, 8px);
-  box-sizing: border-box;
-}
+/* No extra margins for avatars, bubbles, or date separators - pane is full width */

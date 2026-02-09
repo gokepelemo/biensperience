@@ -77,14 +77,16 @@
   /* Override Bootstrap's default btn-close for gradient headers */
   background: transparent !important;
   border: none;
+  box-sizing: border-box; /* Override Bootstrap's content-box */
   /* Larger touch target (WCAG 2.5.5 - min 44x44px) */
   width: 44px;
   height: 44px;
   min-width: 44px;
   min-height: 44px;
   padding: 0;
-  margin: 0;
-  margin-left: auto;
+  /* Override Bootstrap's negative margin alignment hack */
+  margin: 0 !important;
+  margin-left: auto !important;
   /* Display properties for custom × symbol */
   display: flex;
   align-items: center;
@@ -95,6 +97,8 @@
   line-height: 1;
   color: white;
   opacity: 0.9;
+  /* Override Bootstrap's --bs-btn-close-opacity */
+  filter: none;
   /* Smooth transitions */
   transition: opacity $transition-normal, background-color $transition-normal, transform $transition-normal;
   /* Ensure the button appears on top of gradient */

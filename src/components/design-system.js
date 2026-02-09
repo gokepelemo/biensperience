@@ -1,9 +1,15 @@
 // Design System Components
 export { default as ActionsMenu } from './ActionsMenu';
-export { default as Button } from './Button';
+// Button Abstraction Layer
+// IMPORTANT: All button consumers should import from here, NOT from ../Button/Button
+// This enables zero-regression migration to Chakra UI
+export { default as Button } from './ButtonWrapper/ButtonWrapper';
 export { default as Checkbox } from './Checkbox/Checkbox';
-export { default as Pill } from './Pill';
-export { default as TagPill } from './Pill/TagPill';
+// Pill Abstraction Layer
+// IMPORTANT: All pill consumers should import from here, NOT from ../Pill/Pill
+// This enables zero-regression migration to Chakra UI
+export { default as Pill } from './PillWrapper/PillWrapper';
+export { default as TagPill } from './PillWrapper/TagPillWrapper';
 export { default as SkeletonLoader } from './SkeletonLoader';
 export { default as ExperienceCardSkeleton } from './SkeletonLoader/ExperienceCardSkeleton';
 export { default as DestinationCardSkeleton } from './SkeletonLoader/DestinationCardSkeleton';

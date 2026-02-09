@@ -6,17 +6,18 @@ import { lang } from "../../lang.constants";
 import { useModalEscape } from "../../hooks/useKeyboardNavigation";
 
 /**
- * Modal Component - Chakra UI v3 Implementation
+ * Modal Component - Legacy Implementation
  *
  * Flexible modal component with customizable size, buttons, and content.
- * Uses Chakra UI v3 Dialog for accessibility (focus trapping, aria attributes)
- * while preserving the existing global CSS styling from _modal.scss.
+ * Uses plain HTML elements with createPortal for rendering. The global
+ * _modal.scss applies gradient header, white title/close button styling
+ * via .modal-header/.btn-close selectors.
  *
- * IMPORTANT: The global _modal.scss applies gradient header, white title/close
- * button styling via .modal-header/.btn-close selectors. Do NOT add css props
- * that override these global styles (color, background, border, etc.).
+ * This is the fallback implementation when the 'bootstrap_modal' feature
+ * flag is enabled. The default implementation is ChakraModal.jsx which
+ * adds Chakra UI v3 Dialog for focus trapping and ARIA support.
  *
- * Task: biensperience-ce17 - Chakra UI Modal Migration
+ * Task: biensperience-ce17 - Modal Migration
  */
 const Modal = forwardRef(function Modal({
   show,
