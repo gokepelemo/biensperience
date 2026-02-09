@@ -38,8 +38,8 @@ export const STORAGE_KEYS = {
   // Consent
   cookieConsent: 'bien:cookieConsent',
 
-  // Form drafts
-  formDraftsPrefix: 'bien:formDrafts:',
+  // Form drafts (single consolidated key)
+  formDrafts: 'bien:formDrafts',
 
   // Misc
   chunkReloadAttempted: 'bien:chunkReloadAttempted',
@@ -49,9 +49,7 @@ export const STORAGE_KEYS = {
     return `bien:cookieData:${name}`;
   },
 
-  formDraftsBucket(bucketId) {
-    return `${this.formDraftsPrefix}${bucketId}`;
-  },
+
 
   emailVerificationResendCooldownPrefix: 'bien:emailVerificationResendCooldown:',
 };

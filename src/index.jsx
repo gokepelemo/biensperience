@@ -48,7 +48,7 @@ try {
   // ignore
 }
 
-// Proactively migrate legacy __form* keys into consolidated bien:formDrafts:* buckets.
+// Proactively migrate legacy __form* and per-user bien:formDrafts:* keys into consolidated bien:formDrafts.
 try {
   migrateFormDraftsFromLegacyStorage().catch(() => {});
 } catch (e) {

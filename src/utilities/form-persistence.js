@@ -12,17 +12,21 @@ import { encryptData, decryptData } from './crypto-utils';
 
 // Legacy namespaces (deprecated)
 // Historically, form drafts have been persisted under a few similar prefixes.
-// We migrate all variants into the consolidated encrypted `bien:formDrafts:*` bucket.
+// We migrate all variants into the single consolidated encrypted `bien:formDrafts` key.
 const LEGACY_FORM_STORAGE_PREFIXES = [
   '__form_data__',
   '__form__data__',
   '__form__data'
 ];
 
-// Canonical consolidated form drafts store
+// Legacy per-user bucket prefix (deprecated — migrated to single key)
+const LEGACY_FORM_DRAFTS_PREFIX = 'bien:formDrafts:';
+
+// Canonical consolidated form drafts store — single key for ALL users.
+// Inside the encrypted payload, each userId (or 'anon') is a sub-key.
 // NOTE: The pending hash is the only localStorage key allowed to remain unencrypted.
 // All form drafts are stored encrypted-at-rest under `bien:`.
-const FORM_DRAFTS_PREFIX = 'bien:formDrafts:';
+const FORM_DRAFTS_KEY = 'bien:formDrafts';
 
 // Anonymous drafts still must be encrypted; this deterministic key material enables
 // decrypting across sessions without leaking plaintext to localStorage.
@@ -34,51 +38,99 @@ const FORM_DRAFTS_SCHEMA_VERSION = 1;
 const DEFAULT_TTL = 24 * 60 * 60 * 1000;
 
 /**
- * Generate storage key for a form
- * @param {string} formId - Unique identifier for the form
- * @param {string} userId - User ID for user-specific storage (optional)
- * @returns {string} Storage key
+ * Get the sub-key for a user within the consolidated drafts object.
+ * @param {string} userId - User ID (optional)
+ * @returns {string} Sub-key ('anon' for unauthenticated users)
  */
-function getBucketId(userId = null) {
+function getUserSubKey(userId = null) {
   return userId || 'anon';
-}
-
-function getBucketKey(userId = null) {
-  return `${FORM_DRAFTS_PREFIX}${getBucketId(userId)}`;
 }
 
 function getKeyMaterial(userId = null) {
   return userId || ANON_KEY_MATERIAL;
 }
 
-async function readBucket(userId = null) {
-  const bucketKey = getBucketKey(userId);
-  const raw = localStorage.getItem(bucketKey);
+/**
+ * Read the entire consolidated form drafts object from localStorage.
+ * Structure: { version, users: { <userId|'anon'>: { forms: { <formId>: { data, timestamp, expiresAt } } } } }
+ * @returns {Object} The consolidated drafts object
+ */
+async function readStore() {
+  const raw = localStorage.getItem(FORM_DRAFTS_KEY);
 
   if (!raw) {
-    return { version: FORM_DRAFTS_SCHEMA_VERSION, forms: {} };
+    return { version: FORM_DRAFTS_SCHEMA_VERSION, users: {} };
   }
 
-  const decrypted = await decryptData(raw, getKeyMaterial(userId));
+  // The whole object is encrypted with a fixed app-level key
+  const decrypted = await decryptData(raw, ANON_KEY_MATERIAL);
   if (!decrypted || typeof decrypted !== 'object') {
+    return { version: FORM_DRAFTS_SCHEMA_VERSION, users: {} };
+  }
+
+  return {
+    version: FORM_DRAFTS_SCHEMA_VERSION,
+    users: decrypted.users && typeof decrypted.users === 'object' ? decrypted.users : {}
+  };
+}
+
+/**
+ * Write the entire consolidated form drafts object to localStorage.
+ * @param {Object} draftsStore - The full drafts object
+ */
+async function writeStore(draftsStore) {
+  const payload = {
+    version: FORM_DRAFTS_SCHEMA_VERSION,
+    users: draftsStore?.users && typeof draftsStore.users === 'object' ? draftsStore.users : {}
+  };
+
+  const encrypted = await encryptData(payload, ANON_KEY_MATERIAL);
+  localStorage.setItem(FORM_DRAFTS_KEY, encrypted);
+}
+
+/**
+ * Read the forms bucket for a specific user from the consolidated store.
+ * @param {string} userId - User ID (optional)
+ * @returns {Object} { version, forms: { ... } }
+ */
+async function readBucket(userId = null) {
+  const store = await readStore();
+  const subKey = getUserSubKey(userId);
+  const userBucket = store.users[subKey];
+
+  if (!userBucket || typeof userBucket !== 'object') {
     return { version: FORM_DRAFTS_SCHEMA_VERSION, forms: {} };
   }
 
   return {
     version: FORM_DRAFTS_SCHEMA_VERSION,
-    forms: decrypted.forms && typeof decrypted.forms === 'object' ? decrypted.forms : {}
+    forms: userBucket.forms && typeof userBucket.forms === 'object' ? userBucket.forms : {}
   };
 }
 
+/**
+ * Write the forms bucket for a specific user into the consolidated store.
+ * @param {string} userId - User ID (optional)
+ * @param {Object} bucket - { forms: { ... } }
+ */
 async function writeBucket(userId, bucket) {
-  const bucketKey = getBucketKey(userId);
-  const payload = {
-    version: FORM_DRAFTS_SCHEMA_VERSION,
-    forms: bucket?.forms && typeof bucket.forms === 'object' ? bucket.forms : {}
-  };
+  const draftsStore = await readStore();
+  const subKey = getUserSubKey(userId);
+  const forms = bucket?.forms && typeof bucket.forms === 'object' ? bucket.forms : {};
 
-  const encrypted = await encryptData(payload, getKeyMaterial(userId));
-  localStorage.setItem(bucketKey, encrypted);
+  if (Object.keys(forms).length === 0) {
+    // Remove empty user sub-key to keep the store clean
+    delete draftsStore.users[subKey];
+  } else {
+    draftsStore.users[subKey] = { forms };
+  }
+
+  // If the entire store is empty, remove the key entirely
+  if (Object.keys(draftsStore.users).length === 0) {
+    localStorage.removeItem(FORM_DRAFTS_KEY);
+  } else {
+    await writeStore(draftsStore);
+  }
 }
 
 function getLegacyPrefixMatch(key) {
@@ -113,62 +165,98 @@ async function migrateLegacyFormData() {
   legacyMigrationRan = true;
 
   try {
-    // Migrate legacy __form_data__* style keys.
-    const allKeys = store.keys();
-    const legacyKeys = allKeys.filter(k => k && getLegacyPrefixMatch(k));
-    if (legacyKeys.length === 0) {
-      return;
-    }
-
-    const buckets = new Map(); // bucketId -> { userId, bucket }
     let migratedCount = 0;
 
-    for (const legacyKey of legacyKeys) {
-      const parsed = parseLegacyKey(legacyKey);
-      if (!parsed?.formId) continue;
+    // ── Phase 1: Migrate old per-user bucket keys (bien:formDrafts:<userId>) ──
+    // These were the previous consolidated format — one key per user.
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(LEGACY_FORM_DRAFTS_PREFIX)) continue;
 
-      const legacyPayload = store.get(legacyKey);
-      if (!legacyPayload) {
-        store.remove(legacyKey);
+      const userId = key.slice(LEGACY_FORM_DRAFTS_PREFIX.length) || null;
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        localStorage.removeItem(key);
         continue;
       }
 
-      const legacyUserId = parsed.userId;
-      const bucketId = getBucketId(legacyUserId);
-      const bucketUserId = legacyUserId || null;
+      try {
+        const keyMat = getKeyMaterial(userId === 'anon' ? null : userId);
+        const decrypted = await decryptData(raw, keyMat);
+        if (decrypted && typeof decrypted === 'object' && decrypted.forms) {
+          // Merge into the new single-key store
+          const effectiveUserId = userId === 'anon' ? null : userId;
+          const draftsStore = await readStore();
+          const subKey = getUserSubKey(effectiveUserId);
 
-      if (!buckets.has(bucketId)) {
-        const existingBucket = await readBucket(bucketUserId);
-        buckets.set(bucketId, { userId: bucketUserId, bucket: existingBucket });
+          if (!draftsStore.users[subKey]) {
+            draftsStore.users[subKey] = { forms: {} };
+          }
+          // Merge forms (existing entries in new store take precedence)
+          for (const [formId, entry] of Object.entries(decrypted.forms)) {
+            if (!draftsStore.users[subKey].forms[formId]) {
+              draftsStore.users[subKey].forms[formId] = entry;
+              migratedCount++;
+            }
+          }
+          await writeStore(draftsStore);
+        }
+      } catch (e) {
+        logger.warn('[FormPersistence] Failed to migrate per-user bucket', { key, error: e.message });
       }
 
-      const entry = buckets.get(bucketId);
-      const timestamp = legacyPayload.timestamp || Date.now();
-      const expiresAt = legacyPayload.expiresAt || (timestamp + DEFAULT_TTL);
+      localStorage.removeItem(key);
+    }
 
-      let data = legacyPayload.data;
-      if (legacyPayload.encrypted) {
-        data = await decryptData(legacyPayload.data, getKeyMaterial(bucketUserId));
+    // ── Phase 2: Migrate ancient __form_data__* style keys ──
+    const allKeys = store.keys();
+    const legacyKeys = allKeys.filter(k => k && getLegacyPrefixMatch(k));
+
+    if (legacyKeys.length > 0) {
+      const draftsStore = await readStore();
+
+      for (const legacyKey of legacyKeys) {
+        const parsed = parseLegacyKey(legacyKey);
+        if (!parsed?.formId) continue;
+
+        const legacyPayload = store.get(legacyKey);
+        if (!legacyPayload) {
+          store.remove(legacyKey);
+          continue;
+        }
+
+        const legacyUserId = parsed.userId;
+        const subKey = getUserSubKey(legacyUserId);
+        const timestamp = legacyPayload.timestamp || Date.now();
+        const expiresAt = legacyPayload.expiresAt || (timestamp + DEFAULT_TTL);
+
+        let data = legacyPayload.data;
+        if (legacyPayload.encrypted) {
+          data = await decryptData(legacyPayload.data, getKeyMaterial(legacyUserId));
+        }
+
+        if (!draftsStore.users[subKey]) {
+          draftsStore.users[subKey] = { forms: {} };
+        }
+
+        if (!draftsStore.users[subKey].forms[parsed.formId]) {
+          draftsStore.users[subKey].forms[parsed.formId] = {
+            data,
+            timestamp,
+            expiresAt
+          };
+          migratedCount++;
+        }
+
+        store.remove(legacyKey);
       }
 
-      entry.bucket.forms[parsed.formId] = {
-        data,
-        timestamp,
-        expiresAt
-      };
-
-      store.remove(legacyKey);
-      migratedCount++;
+      await writeStore(draftsStore);
     }
 
-    for (const { userId, bucket } of buckets.values()) {
-      await writeBucket(userId, bucket);
+    if (migratedCount > 0) {
+      logger.info('[FormPersistence] Migrated legacy form drafts', { migratedCount });
     }
-
-    logger.info('[FormPersistence] Migrated legacy form drafts', {
-      migratedCount,
-      buckets: buckets.size
-    });
   } catch (err) {
     logger.warn('[FormPersistence] Legacy migration failed', { error: err.message });
   }
@@ -176,7 +264,7 @@ async function migrateLegacyFormData() {
 
 /**
  * Proactively migrate legacy form draft keys into the consolidated encrypted
- * `bien:formDrafts:*` bucket.
+ * `bien:formDrafts` key.
  *
  * Safe to call multiple times.
  */
@@ -284,12 +372,7 @@ export async function clearFormData(formId, userId = null) {
       delete bucket.forms[formId];
     }
 
-    const remaining = Object.keys(bucket.forms || {}).length;
-    if (remaining === 0) {
-      localStorage.removeItem(getBucketKey(userId));
-    } else {
-      await writeBucket(userId, bucket);
-    }
+    await writeBucket(userId, bucket);
 
     logger.debug('Form data cleared', { formId, userId: userId ? 'provided' : 'none' });
     return true;
@@ -395,10 +478,16 @@ export function clearAllFormData() {
       }
     });
 
-    // Remove all consolidated buckets
+    // Remove the consolidated form drafts key
+    if (localStorage.getItem(FORM_DRAFTS_KEY)) {
+      localStorage.removeItem(FORM_DRAFTS_KEY);
+      clearedCount++;
+    }
+
+    // Remove any lingering legacy per-user bucket keys
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && key.startsWith(FORM_DRAFTS_PREFIX)) {
+      if (key && key.startsWith(LEGACY_FORM_DRAFTS_PREFIX)) {
         localStorage.removeItem(key);
         clearedCount++;
       }
