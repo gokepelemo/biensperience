@@ -1108,6 +1108,8 @@ export default function SingleExperience() {
     selectedDetailsItem,
     setSelectedDetailsItem,
     setSharedPlans,
+    setUserPlan,
+    userPlan,
     user,
     success,
     showError

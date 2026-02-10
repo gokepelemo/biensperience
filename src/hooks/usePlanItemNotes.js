@@ -26,6 +26,8 @@ import {
  * @param {Object} options.selectedDetailsItem - Currently selected plan item
  * @param {Function} options.setSelectedDetailsItem - Setter for selected item
  * @param {Function} options.setSharedPlans - Setter for shared plans state
+ * @param {Function} options.setUserPlan - Setter for user's own plan state
+ * @param {Object} options.userPlan - Current user's own plan
  * @param {Function} options.success - Toast success function
  * @param {Object} options.user - Current authenticated user
  * @param {Function} options.showError - Toast error function
@@ -37,6 +39,8 @@ export function usePlanItemNotes({
   selectedDetailsItem,
   setSelectedDetailsItem,
   setSharedPlans,
+  setUserPlan,
+  userPlan,
   user,
   success,
   showError
@@ -46,11 +50,13 @@ export function usePlanItemNotes({
   const selectedPlanIdRef = useRef(selectedPlanId);
   const selectedDetailsItemRef = useRef(selectedDetailsItem);
   const userRef = useRef(user);
+  const userPlanRef = useRef(userPlan);
 
   // Keep refs in sync
   selectedPlanIdRef.current = selectedPlanId;
   selectedDetailsItemRef.current = selectedDetailsItem;
   userRef.current = user;
+  userPlanRef.current = userPlan;
 
   /**
    * Helper to update plan state after a note operation
@@ -60,10 +66,15 @@ export function usePlanItemNotes({
     const planId = selectedPlanIdRef.current;
     const selectedItem = selectedDetailsItemRef.current;
 
-    // Update collaborative plans
+    // Update collaborative plans (shared plans)
     setSharedPlans(prevPlans =>
       prevPlans.map(p => idEquals(p._id, planId) ? updatedPlan : p)
     );
+
+    // Update user's own plan if it matches the selected plan
+    if (setUserPlan) {
+      setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? updatedPlan : prev);
+    }
 
     // Update selected item if it was affected
     if (selectedItem?._id) {
@@ -72,7 +83,7 @@ export function usePlanItemNotes({
         setSelectedDetailsItem(updatedItem);
       }
     }
-  }, [setSharedPlans, setSelectedDetailsItem]);
+  }, [setSharedPlans, setUserPlan, setSelectedDetailsItem]);
 
   /**
    * Add a note to the selected plan item
@@ -112,15 +123,23 @@ export function usePlanItemNotes({
     };
     setSelectedDetailsItem(optimisticItem);
 
+    // Helper to apply optimistic note to a plan
+    const applyOptimisticAdd = (plan) => ({
+      ...plan,
+      plan: plan.plan.map(item =>
+        idEquals(item._id, selectedItem._id) ? optimisticItem : item
+      )
+    });
+
     // Update collaborative plans with optimistic note
     setSharedPlans(prevPlans =>
-      prevPlans.map(p => idEquals(p._id, planId) ? {
-        ...p,
-        plan: p.plan.map(item =>
-          idEquals(item._id, selectedItem._id) ? optimisticItem : item
-        )
-      } : p)
+      prevPlans.map(p => idEquals(p._id, planId) ? applyOptimisticAdd(p) : p)
     );
+
+    // Update user's own plan with optimistic note
+    if (setUserPlan) {
+      setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? applyOptimisticAdd(prev) : prev);
+    }
 
     try {
       const updatedPlan = await addPlanItemNote(planId, selectedItem._id, content, visibility);
@@ -143,18 +162,25 @@ export function usePlanItemNotes({
 
       // Revert optimistic update on failure
       setSelectedDetailsItem(selectedItem);
+
+      const revertAdd = (plan) => ({
+        ...plan,
+        plan: plan.plan.map(item =>
+          idEquals(item._id, selectedItem._id) ? selectedItem : item
+        )
+      });
+
       setSharedPlans(prevPlans =>
-        prevPlans.map(p => idEquals(p._id, planId) ? {
-          ...p,
-          plan: p.plan.map(item =>
-            idEquals(item._id, selectedItem._id) ? selectedItem : item
-          )
-        } : p)
+        prevPlans.map(p => idEquals(p._id, planId) ? revertAdd(p) : p)
       );
+
+      if (setUserPlan) {
+        setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? revertAdd(prev) : prev);
+      }
 
       showError(error.message || 'Failed to add note');
     }
-  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans]);
+  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
 
   /**
    * Update an existing note
@@ -189,15 +215,23 @@ export function usePlanItemNotes({
     };
     setSelectedDetailsItem(optimisticItem);
 
+    // Helper to apply optimistic note update to a plan
+    const applyOptimisticUpdate = (plan) => ({
+      ...plan,
+      plan: plan.plan.map(item =>
+        idEquals(item._id, selectedItem._id) ? optimisticItem : item
+      )
+    });
+
     // Update collaborative plans with optimistic update
     setSharedPlans(prevPlans =>
-      prevPlans.map(p => idEquals(p._id, planId) ? {
-        ...p,
-        plan: p.plan.map(item =>
-          idEquals(item._id, selectedItem._id) ? optimisticItem : item
-        )
-      } : p)
+      prevPlans.map(p => idEquals(p._id, planId) ? applyOptimisticUpdate(p) : p)
     );
+
+    // Update user's own plan with optimistic update
+    if (setUserPlan) {
+      setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? applyOptimisticUpdate(prev) : prev);
+    }
 
     try {
       const updatedPlan = await updatePlanItemNote(planId, selectedItem._id, noteId, content, visibility);
@@ -221,18 +255,25 @@ export function usePlanItemNotes({
 
       // Revert optimistic update on failure
       setSelectedDetailsItem(selectedItem);
+
+      const revertUpdate = (plan) => ({
+        ...plan,
+        plan: plan.plan.map(item =>
+          idEquals(item._id, selectedItem._id) ? selectedItem : item
+        )
+      });
+
       setSharedPlans(prevPlans =>
-        prevPlans.map(p => idEquals(p._id, planId) ? {
-          ...p,
-          plan: p.plan.map(item =>
-            idEquals(item._id, selectedItem._id) ? selectedItem : item
-          )
-        } : p)
+        prevPlans.map(p => idEquals(p._id, planId) ? revertUpdate(p) : p)
       );
+
+      if (setUserPlan) {
+        setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? revertUpdate(prev) : prev);
+      }
 
       showError(error.message || 'Failed to update note');
     }
-  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans]);
+  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
 
   /**
    * Delete a note
@@ -261,15 +302,23 @@ export function usePlanItemNotes({
     };
     setSelectedDetailsItem(optimisticItem);
 
+    // Helper to apply optimistic note deletion to a plan
+    const applyOptimisticDelete = (plan) => ({
+      ...plan,
+      plan: plan.plan.map(item =>
+        idEquals(item._id, selectedItem._id) ? optimisticItem : item
+      )
+    });
+
     // Update collaborative plans with optimistic deletion
     setSharedPlans(prevPlans =>
-      prevPlans.map(p => idEquals(p._id, planId) ? {
-        ...p,
-        plan: p.plan.map(item =>
-          idEquals(item._id, selectedItem._id) ? optimisticItem : item
-        )
-      } : p)
+      prevPlans.map(p => idEquals(p._id, planId) ? applyOptimisticDelete(p) : p)
     );
+
+    // Update user's own plan with optimistic deletion
+    if (setUserPlan) {
+      setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? applyOptimisticDelete(prev) : prev);
+    }
 
     try {
       const updatedPlan = await deletePlanItemNote(planId, selectedItem._id, noteId);
@@ -292,18 +341,25 @@ export function usePlanItemNotes({
 
       // Revert optimistic update on failure
       setSelectedDetailsItem(selectedItem);
+
+      const revertDelete = (plan) => ({
+        ...plan,
+        plan: plan.plan.map(item =>
+          idEquals(item._id, selectedItem._id) ? selectedItem : item
+        )
+      });
+
       setSharedPlans(prevPlans =>
-        prevPlans.map(p => idEquals(p._id, planId) ? {
-          ...p,
-          plan: p.plan.map(item =>
-            idEquals(item._id, selectedItem._id) ? selectedItem : item
-          )
-        } : p)
+        prevPlans.map(p => idEquals(p._id, planId) ? revertDelete(p) : p)
       );
+
+      if (setUserPlan) {
+        setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? revertDelete(prev) : prev);
+      }
 
       showError(error.message || 'Failed to delete note');
     }
-  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans]);
+  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
 
   return {
     handleAddNote,

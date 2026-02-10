@@ -1,5 +1,5 @@
 import React, { useMemo, isValidElement } from 'react';
-import { Tooltip as ChakraTooltip, Box } from '@chakra-ui/react';
+import { Tooltip as ChakraTooltip, Portal, Box } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
 import styles from './Tooltip.module.scss';
@@ -50,11 +50,6 @@ function Tooltip({
     return 0;
   }, [delay, delayHide]);
 
-  // If no content, just return children without tooltip
-  if (!content) {
-    return <>{children}</>;
-  }
-
   // Ensure children can receive refs - wrap in Box if necessary
   const wrappedChildren = useMemo(() => {
     // If children is a valid React element and can accept ref, use it directly
@@ -90,6 +85,12 @@ function Tooltip({
     '--arrow-background': 'var(--color-bg-tertiary, #2d2d2d)',
   }), []);
 
+  // If no content, just return children without tooltip
+  // This check is placed AFTER all hooks to comply with React's rules of hooks
+  if (!content) {
+    return <>{children}</>;
+  }
+
   return (
     <ChakraTooltip.Root
       openDelay={openDelay}
@@ -102,19 +103,21 @@ function Tooltip({
       <ChakraTooltip.Trigger asChild>
         {wrappedChildren}
       </ChakraTooltip.Trigger>
-      <ChakraTooltip.Positioner>
-        <ChakraTooltip.Content
-          className={className}
-          css={tooltipStyles}
-        >
-          <ChakraTooltip.Arrow>
-            <ChakraTooltip.ArrowTip
-              css={arrowStyles}
-            />
-          </ChakraTooltip.Arrow>
-          {content}
-        </ChakraTooltip.Content>
-      </ChakraTooltip.Positioner>
+      <Portal>
+        <ChakraTooltip.Positioner>
+          <ChakraTooltip.Content
+            className={className}
+            css={tooltipStyles}
+          >
+            <ChakraTooltip.Arrow>
+              <ChakraTooltip.ArrowTip
+                css={arrowStyles}
+              />
+            </ChakraTooltip.Arrow>
+            {content}
+          </ChakraTooltip.Content>
+        </ChakraTooltip.Positioner>
+      </Portal>
     </ChakraTooltip.Root>
   );
 }

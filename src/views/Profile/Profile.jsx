@@ -70,8 +70,8 @@ export default function Profile() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState(null);
   const [uiState, setUiState] = useState({
-    activity: true,
-    follows: false,
+    activity: isOwnProfile,
+    follows: !isOwnProfile,
     experiences: false,
     created: false,
     destinations: false,
@@ -79,6 +79,8 @@ export default function Profile() {
 
   // Track previous profileId to detect navigation between profiles
   const prevProfileIdRef = useRef(profileId);
+  // Track whether the initial profile load has completed (for context-sync effect)
+  const initialProfileLoadedRef = useRef(false);
 
   // Guard against stale async responses overwriting UI after navigation.
   // We intentionally use refs (not state) to avoid introducing extra re-renders.
@@ -143,6 +145,8 @@ export default function Profile() {
       setFollowsList([]);
       setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
       setFollowRelationship(null);
+      // Reset initial load tracking so context-sync effect waits for getProfile
+      initialProfileLoadedRef.current = false;
       // Reset follows userId tracking so the next effect correctly detects the change
       // Note: We intentionally don't reset prevFollowsUserIdRef here - it's handled by the follows effect
       // Update ref to new value
@@ -605,22 +609,22 @@ export default function Profile() {
         setProfileError(lang.current.alert.failedToLoadProfile);
       }
     } finally {
-      if (!isStale()) setIsLoadingProfile(false);
+      if (!isStale()) {
+        setIsLoadingProfile(false);
+        initialProfileLoadedRef.current = true;
+      }
     }
   }, [userId, isOwner, profile]);
 
-  // Load profile from context for owner, or fetch for other users
+  // Sync owner profile from context AFTER initial load completes.
+  // This keeps currentProfile fresh when the UserContext profile updates
+  // (e.g. avatar change) without interfering with getProfile's loading flow.
   useEffect(() => {
-    if (isOwner && profile && profile._id === userId) {
-      // Owner viewing their own profile - use context
-      setCurrentProfile(profile);
-      setIsLoadingProfile(false);
-    } else if (!isOwner || !profile) {
-      // Viewing another user or profile not loaded yet
-      setCurrentProfile(null);
-      setIsLoadingProfile(true);
+    if (isOwner && profile && profile._id === userId && initialProfileLoadedRef.current) {
+      // Only merge context updates once the initial load has completed
+      mergeProfile(profile);
     }
-  }, [profileId, isOwner, profile, userId]);
+  }, [isOwner, profile, userId, mergeProfile]);
 
   // If viewing another user's profile and Activity tab is selected (which they can't see),
   // switch to Follows tab instead
@@ -628,7 +632,8 @@ export default function Profile() {
     if (!isOwnProfile && uiState.activity) {
       setUiState(prev => ({ ...prev, activity: false, follows: true }));
     }
-  }, [isOwnProfile, uiState.activity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwnProfile]);
 
   const handleRoleUpdate = async (newRole) => {
     if (!isSuperAdmin(user)) {

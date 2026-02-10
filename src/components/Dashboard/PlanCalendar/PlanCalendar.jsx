@@ -4,8 +4,8 @@ import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import enUS from 'date-fns/locale/en-US';
 import { useNavigate } from 'react-router-dom';
-import { FaUsers } from 'react-icons/fa';
-import { Tooltip } from '../../design-system';
+import { FaUsers, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
+import { Tooltip as ChakraTooltip, Portal, Box } from '@chakra-ui/react';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { lang } from '../../../lang.constants';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -25,42 +25,102 @@ const localizer = dateFnsLocalizer({
 });
 
 /**
- * Calendar Event Component - renders purple dot with tooltip
+ * Calendar Event Component - renders purple dot with rich Chakra tooltip
+ * Uses Chakra UI Tooltip with Portal to escape overflow:hidden containers
  * Memoized to prevent unnecessary re-renders and tooltip flashing
  */
 const CalendarEvent = React.memo(({ event }) => {
-  // Memoize tooltip content with stable dependencies
-  const tooltipContent = React.useMemo(() => (
-    <div className={styles.eventTooltip}>
-      <span className={styles.eventTooltipTitle}>{event.title}</span>
-      {event.isCollaborative && (
-        <span className={styles.eventTooltipBadge}>
-          <FaUsers size={10} /> {lang.current.planCalendar.shared}
-        </span>
-      )}
-    </div>
-  ), [event.title, event.isCollaborative]);
+  // Build destination display string (e.g. "Paris, France" or just "Paris")
+  const destinationDisplay = React.useMemo(() => {
+    if (!event.destination) return null;
+    return event.destinationCountry
+      ? `${event.destination}, ${event.destinationCountry}`
+      : event.destination;
+  }, [event.destination, event.destinationCountry]);
 
-  // Memoize the event element to prevent re-creation
-  // Renders both a dot (visible in month view) and a title span (visible in week/day views)
-  const eventElement = React.useMemo(() => (
-    <div
-      className={`${styles.eventWrapper} ${event.isCollaborative ? styles.eventWrapperShared : ''}`}
-      role="button"
-      tabIndex={0}
-      aria-label={event.title}
-    >
-      <span
-        className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
-      />
-      <span className={styles.eventTitle}>{event.title}</span>
-    </div>
-  ), [event.title, event.isCollaborative]);
+  // Rich tooltip content with experience name, destination, date, and collaborative badge
+  const tooltipContent = React.useMemo(() => (
+    <Box display="flex" flexDirection="column" gap="1" py="1">
+      <Box fontWeight="semibold" fontSize="sm">
+        {event.title}
+      </Box>
+      {destinationDisplay && (
+        <Box display="flex" alignItems="center" gap="1" fontSize="xs" opacity="0.85">
+          <FaMapMarkerAlt size={10} style={{ flexShrink: 0 }} />
+          <span>{destinationDisplay}</span>
+        </Box>
+      )}
+      {event.start && (
+        <Box display="flex" alignItems="center" gap="1" fontSize="xs" opacity="0.85">
+          <FaCalendarAlt size={10} style={{ flexShrink: 0 }} />
+          <span>{format(event.start, 'MMM d, yyyy')}</span>
+        </Box>
+      )}
+      {event.isCollaborative && (
+        <Box
+          display="inline-flex"
+          alignItems="center"
+          gap="1"
+          fontSize="xs"
+          mt="0.5"
+          px="1.5"
+          py="0.5"
+          bg="whiteAlpha.200"
+          borderRadius="sm"
+          width="fit-content"
+        >
+          <FaUsers size={10} />
+          <span>{lang.current.planCalendar.shared}</span>
+        </Box>
+      )}
+    </Box>
+  ), [event.title, event.start, event.isCollaborative, destinationDisplay]);
 
   return (
-    <Tooltip content={tooltipContent} placement="top" delayHide={100}>
-      {eventElement}
-    </Tooltip>
+    <ChakraTooltip.Root
+      openDelay={200}
+      closeDelay={50}
+      positioning={{ placement: 'top' }}
+    >
+      <ChakraTooltip.Trigger asChild>
+        <div
+          className={`${styles.eventWrapper} ${event.isCollaborative ? styles.eventWrapperShared : ''}`}
+          role="button"
+          tabIndex={0}
+          aria-label={event.title}
+        >
+          <span
+            className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
+          />
+          <span className={styles.eventTitle}>{event.title}</span>
+        </div>
+      </ChakraTooltip.Trigger>
+      <Portal>
+        <ChakraTooltip.Positioner>
+          <ChakraTooltip.Content
+            css={{
+              bg: 'var(--color-bg-tertiary, #2d2d2d)',
+              color: 'var(--color-text-primary, #fff)',
+              fontSize: 'var(--font-size-sm)',
+              px: 'var(--space-3)',
+              py: 'var(--space-2)',
+              borderRadius: 'var(--radius-md, 0.375rem)',
+              boxShadow: 'var(--shadow-lg)',
+              maxWidth: '280px',
+              width: 'max-content',
+              zIndex: 1800,
+            }}
+          >
+            <ChakraTooltip.Arrow>
+              <ChakraTooltip.ArrowTip
+                css={{ '--arrow-background': 'var(--color-bg-tertiary, #2d2d2d)' }}
+              />
+            </ChakraTooltip.Arrow>
+            {tooltipContent}
+          </ChakraTooltip.Content>
+        </ChakraTooltip.Positioner>
+      </Portal>
+    </ChakraTooltip.Root>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison: only re-render if stable key changes
@@ -193,17 +253,24 @@ function PlanCalendarInner({ plans = [], className = '' }) {
         const plannedDate = new Date(plan.planned_date);
         const plannedTimestamp = plannedDate.getTime();
 
+        // Extract destination info from populated experience
+        const destination = plan.experience?.destination;
+        const destinationName = destination?.name || '';
+        const destinationCountry = destination?.country || '';
+
         // Create stable event object with frozen properties
         const event = {
           id: plan._id,
           title: plan.experience?.name || 'Unnamed Experience',
+          destination: destinationName,
+          destinationCountry: destinationCountry,
           start: plannedDate,
           end: plannedDate,
           allDay: true,
           resource: plan, // Keep plan reference for navigation
           isCollaborative: plan.isCollaborative,
           // Add stable key for React.memo comparison
-          _stableKey: `${plan._id}-${plannedTimestamp}-${plan.isCollaborative}`,
+          _stableKey: `${plan._id}-${plannedTimestamp}-${plan.isCollaborative}-${destinationName}`,
         };
 
         // Freeze the event object to prevent mutations

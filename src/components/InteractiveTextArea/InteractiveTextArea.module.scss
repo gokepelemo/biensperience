@@ -19,41 +19,73 @@
   min-height: 100px;
   box-sizing: border-box;
   display: block !important;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  background-color: var(--color-bg-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 
-  // RichTextarea wraps everything in an inline-block span/div that calculates width
-  // based on content. We need to force ALL descendants to be full width.
-  // The library structure is: .interactiveTextareaInput > div (inline-block wrapper) > div (overlay) + textarea
-
-  // Force the immediate wrapper to be full width block
-  > * {
-    width: 100% !important;
-    display: block !important;
-    box-sizing: border-box !important;
+  &:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+    outline: none;
   }
 
-  // Override RichTextarea's inline width calculation on all nested divs
-  div {
-    width: 100% !important;
-    display: block !important;
-    box-sizing: border-box !important;
-  }
+  // RichTextarea structure:
+  //   .interactiveTextareaInput (this)
+  //     > div (inline-block wrapper - needs full width)
+  //       > div (overlay - needs full width)
+  //         > div (content container with spans - spans must stay inline!)
+  //       > textarea (needs full width)
 
-  // Ensure RichTextarea's internal elements are also full width
-  :global(textarea) {
-    width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  :global(.rich-textarea__overlay) {
+  // Force the immediate RichTextarea wrapper div to full width
+  > div {
     width: 100% !important;
     box-sizing: border-box !important;
   }
 
-  // Ensure textarea is full width without affecting position
+  // Force overlay and textarea containers (direct children of wrapper)
+  > div > div,
+  > div > textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  // Force overlay's inner structural divs to full width
+  > div > div > div {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  // DO NOT set display:block on spans - they are inline highlight elements
+  // that must flow inline with text for proper cursor alignment
+
+  // Ensure textarea element is full width
   // NOTE: Do NOT override position - RichTextarea needs absolute positioning for overlay alignment
   textarea {
     width: 100% !important;
     box-sizing: border-box !important;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+
+    &::placeholder {
+      color: var(--color-text-muted);
+      font-style: italic;
+      opacity: 0.7;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:focus-within {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.25);
+    }
   }
 }
 
@@ -78,12 +110,13 @@
   right: 0;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-1) 0;
 }
 
 .mentionSuggestionItem {
@@ -91,40 +124,51 @@
   align-items: center;
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
-  border-bottom: 1px solid var(--color-bg-secondary);
-  transition: var(--transition-fast);
+  transition: background-color var(--transition-fast);
+  border-radius: var(--radius-sm);
+  margin: 0 var(--space-1);
 
   &:hover {
-    background-color: var(--color-bg-secondary);
+    background-color: rgba(var(--color-primary-rgb), 0.08);
   }
 
-  &:last-child {
-    border-bottom: none;
+  &:active {
+    background-color: rgba(var(--color-primary-rgb), 0.14);
   }
 }
 
 .mentionSuggestionIcon {
-  font-size: 1.2rem;
-  margin-right: var(--space-2);
-  min-width: 24px;
-  text-align: center;
+  font-size: 1.25rem;
+  margin-right: var(--space-3);
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  flex-shrink: 0;
 }
 
 .mentionSuggestionContent {
   flex: 1;
+  min-width: 0;
 }
 
 .mentionSuggestionName {
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  margin-bottom: var(--space-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mentionSuggestionType {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   text-transform: capitalize;
+  margin-top: 1px;
 }
 
 /* Mention links in rendered text */
@@ -185,11 +229,13 @@
   }
 
   .mentionSuggestionItem {
-    border-bottom-color: var(--color-border-dark);
-
     &:hover {
-      background-color: var(--color-bg-tertiary);
+      background-color: rgba(var(--color-primary-rgb), 0.12);
     }
+  }
+
+  .mentionSuggestionIcon {
+    background: rgba(var(--color-primary-rgb), 0.12);
   }
 
   .interactiveTextareaFooter {

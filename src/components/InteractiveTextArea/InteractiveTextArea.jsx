@@ -119,7 +119,7 @@ const InteractiveTextArea = ({
   const [isResolvingMentions, setIsResolvingMentions] = useState(false);
 
   // Force full width on RichTextarea wrapper to override library's inline width calculation
-  // IMPORTANT: Only target the RichTextarea input container, NOT the footer dropdown
+  // IMPORTANT: Only target structural container divs, NOT inline spans used for highlight overlays
   const inputWrapperRef = useRef(null);
 
   useEffect(() => {
@@ -128,22 +128,41 @@ const InteractiveTextArea = ({
     const forceFullWidth = () => {
       if (!inputWrapperRef.current) return;
 
-      // Only target elements within the RichTextarea input wrapper
       const inputContainer = inputWrapperRef.current;
 
-      // Force the input container itself
+      // Force the wrapper container itself to full width
       inputContainer.style.setProperty('width', '100%', 'important');
       inputContainer.style.setProperty('display', 'block', 'important');
 
-      // Force all descendant divs/spans within the input only
-      const allElements = inputContainer.querySelectorAll('div, span');
-      allElements.forEach(el => {
-        el.style.setProperty('width', '100%', 'important');
-        el.style.setProperty('display', 'block', 'important');
-        el.style.setProperty('box-sizing', 'border-box', 'important');
-      });
+      // RichTextarea structure:
+      //   wrapper div (inline-block) ← force to full width
+      //     overlay div (absolute) ← force to full width
+      //       content div with spans ← leave spans inline!
+      //     textarea (absolute) ← force to full width
+      // Only target the top-level RichTextarea wrapper div (direct child of inputContainer)
+      const richTextareaWrapper = inputContainer.querySelector(':scope > div');
+      if (richTextareaWrapper) {
+        richTextareaWrapper.style.setProperty('width', '100%', 'important');
+        richTextareaWrapper.style.setProperty('box-sizing', 'border-box', 'important');
 
-      // Force the textarea itself
+        // Force width on the overlay and textarea containers (direct children of wrapper)
+        const children = richTextareaWrapper.children;
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+          child.style.setProperty('width', '100%', 'important');
+          child.style.setProperty('box-sizing', 'border-box', 'important');
+          // For overlay div, also force its inner structural divs
+          if (child.tagName === 'DIV') {
+            const innerDivs = child.querySelectorAll(':scope > div');
+            innerDivs.forEach(d => {
+              d.style.setProperty('width', '100%', 'important');
+              d.style.setProperty('box-sizing', 'border-box', 'important');
+            });
+          }
+        }
+      }
+
+      // Force the textarea element itself
       const textarea = inputContainer.querySelector('textarea');
       if (textarea) {
         textarea.style.setProperty('width', '100%', 'important');

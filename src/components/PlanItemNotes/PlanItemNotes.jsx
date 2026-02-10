@@ -76,12 +76,16 @@ function NoteForm({
         onChange={onContentChange}
         availableEntities={availableEntities}
         entityData={entityData}
-        placeholder="Type your note... Use @ to mention users, destinations, or experiences"
-        rows={4}
+        placeholder="Write your note here..."
+        rows={3}
         disabled={loading || disabled}
         highlightUrls={true}
         showFooter={false}
       />
+
+      <div className={styles.formHint}>
+        <span>💡 Use <strong>@</strong> to mention people &amp; places, <strong>#</strong> for plan items</span>
+      </div>
 
       <div className={styles.formActions}>
         {/* Visibility selector on the left */}

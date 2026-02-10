@@ -210,15 +210,17 @@
 
 /* Note Form - Unified form for Add and Edit operations */
 .noteForm {
-  padding: $space-4;
-  background-color: var(--color-bg-secondary);
+  padding: $space-4 $space-4 $space-3;
+  background-color: var(--color-bg-primary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-light);
-  margin-bottom: $space-4;
+  border-top: none;
+  box-shadow: var(--shadow-sm);
 
   @media (prefers-color-scheme: dark) {
     background-color: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
+    border-top: none;
   }
 }
 
@@ -231,7 +233,7 @@
   bottom: 0;
   z-index: 10;
   padding: $space-4;
-  background-color: var(--color-bg-secondary);
+  background-color: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border-light);
   display: flex;
   flex-direction: column;
@@ -251,18 +253,27 @@
 
   h4 {
     margin: 0;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: $font-weight-semibold;
     color: var(--color-text-primary);
+    letter-spacing: -0.01em;
   }
 }
 
 .closeFormButton {
   color: var(--color-text-muted);
   padding: $space-1;
+  border-radius: var(--radius-full);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
 
   &:hover {
     color: var(--color-text-primary);
+    background-color: var(--color-bg-tertiary);
   }
 }
 
@@ -271,6 +282,24 @@
   align-items: center;
   gap: $space-2;
   margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid var(--color-border-light);
+
+  @media (prefers-color-scheme: dark) {
+    border-top-color: var(--color-border-dark);
+  }
+}
+
+.formHint {
+  margin-top: $space-2;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+
+  strong {
+    color: var(--color-primary);
+    font-weight: $font-weight-semibold;
+  }
 }
 
 .formActionsSpacer {
