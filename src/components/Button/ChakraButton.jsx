@@ -21,7 +21,7 @@
 
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { Button as ChakraButtonPrimitive } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import styles from './Button.module.scss';
 import { calculateButtonWidth } from '../../utilities/button-utils';
 
@@ -32,45 +32,16 @@ const BOOTSTRAP_VARIANTS = [
 ];
 
 /**
- * Reset styles to completely override Chakra's default button styling.
- * This ensures the CSS Module classes from Button.module.scss are the
- * sole source of visual styling — pixel-perfect match with the original.
+ * Using chakra.button (the styled factory) instead of the Button recipe component.
+ *
+ * The Button recipe component (import { Button } from '@chakra-ui/react') applies
+ * a full set of recipe base + variant + size styles that fight with our CSS Module
+ * classes. The chakra.button factory creates a bare styled <button> element with
+ * NO recipe styles — only Chakra's runtime (ARIA, ref forwarding, css prop support).
+ * This means our CSS Module classes from Button.module.scss are the sole source of
+ * visual styling, with zero specificity conflicts.
  */
-const CHAKRA_RESET_STYLES = {
-  // Reset Chakra defaults
-  bg: 'transparent',
-  color: 'inherit',
-  border: 'none',
-  borderRadius: 'unset',
-  fontWeight: 'unset',
-  fontSize: 'unset',
-  lineHeight: 'unset',
-  height: 'auto',
-  minHeight: 'unset',
-  minWidth: 'unset',
-  paddingInline: 'unset',
-  paddingBlock: 'unset',
-  // Prevent Chakra's hover/active/focus styles
-  _hover: {
-    bg: 'transparent',
-    color: 'inherit',
-    border: 'none',
-    boxShadow: 'none',
-  },
-  _active: {
-    bg: 'transparent',
-    color: 'inherit',
-    border: 'none',
-  },
-  _focusVisible: {
-    boxShadow: 'none',
-    outline: 'none',
-  },
-  _disabled: {
-    opacity: 'unset',
-    cursor: 'not-allowed',
-  },
-};
+const StyledButton = chakra('button');
 
 const ChakraButton = React.forwardRef(function ChakraButton({
   children,
@@ -163,32 +134,28 @@ const ChakraButton = React.forwardRef(function ChakraButton({
     </>
   );
 
-  // Build the props for ChakraButtonPrimitive
-  const chakraProps = {
+  // Build the props for the styled button
+  const buttonProps = {
     ref,
     className: classes,
     onClick,
     disabled,
     type,
     style: calculatedStyle,
-    // Completely reset Chakra styling — CSS Modules handle everything
-    ...CHAKRA_RESET_STYLES,
-    // Pass variant='unstyled' to prevent Chakra recipe application
-    variant: 'plain',
     ...props,
   };
 
   // If caller requested a custom element via `as`, pass it through
   if (as) {
-    chakraProps.as = as;
-    if (href) chakraProps.href = href;
-    if (to) chakraProps.to = to;
+    buttonProps.as = as;
+    if (href) buttonProps.href = href;
+    if (to) buttonProps.to = to;
   }
 
   return (
-    <ChakraButtonPrimitive {...chakraProps}>
+    <StyledButton {...buttonProps}>
       {buttonContent}
-    </ChakraButtonPrimitive>
+    </StyledButton>
   );
 });
 

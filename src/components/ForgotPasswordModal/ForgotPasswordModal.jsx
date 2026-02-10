@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Modal } from '../design-system';
+import { Modal, Alert } from '../design-system';
 import FormField from '../FormField/FormField';
-import Alert from '../Alert/Alert';
 import { requestPasswordReset } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';

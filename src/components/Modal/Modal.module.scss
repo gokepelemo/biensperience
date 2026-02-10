@@ -35,18 +35,32 @@
  */
 .modalAllowBodyScroll {
   position: absolute !important;
+  /* Critical: unset bottom so the element can grow beyond the viewport */
+  bottom: auto !important;
   height: auto !important;
   min-height: 100% !important;
+  /* Both overflow axes must be 'visible' — setting only overflow-x to 'hidden'
+   * triggers the CSS spec rule that computes overflow-y to 'auto', creating an
+   * implicit scroll container that clips content to the element's height. */
   overflow: visible !important;
   align-items: flex-start !important;
   justify-content: flex-start !important;
   overscroll-behavior: auto;
+  width: 100% !important;
+  max-width: 100% !important;
 
   :global(.modal-dialog) {
     margin: 0 auto;
     padding: $space-3;
     height: auto;
     max-height: none;
+    /* Prevent horizontal overflow on mobile */
+    max-width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: $breakpoint-md) {
+      padding: 0;
+    }
   }
 
   .modalContent {
@@ -73,7 +87,11 @@
       height: auto;
       max-height: none;
       overflow: visible;
-      min-height: auto; /* Changed from 0 - allow content to determine height */
+      min-height: 100vh;
+      min-height: 100dvh;
+      /* Flex column so .modalBody can grow to fill */
+      display: flex;
+      flex-direction: column;
       flex: 0 0 auto;
       /* Reset padding that might cause visual issues */
       padding-top: 0;
@@ -81,12 +99,13 @@
     }
 
     .modalBody {
-      /* Critical: Override the fullscreen modalBody styles that cause content collapse */
-      flex: 0 0 auto;
-      min-height: auto;
+      /* Flex grower: fill remaining space in min-height: 100dvh parent */
+      flex: 1 1 auto;
+      min-height: 0;
       height: auto;
       overflow: visible;
-      display: block; /* Break flex chain for document scroll mode */
+      display: flex;
+      flex-direction: column;
     }
   }
 }
@@ -114,6 +133,10 @@
   max-height: 90vh;
   pointer-events: auto !important; /* Ensure content captures clicks */
   overscroll-behavior: contain; /* Prevent scroll chaining to parent */
+  /* Prevent horizontal overflow on mobile */
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Modal Body - Base scroll containment */
@@ -241,6 +264,15 @@
   .modalLg,
   .modalXl {
     max-width: 90%;
+  }
+}
+
+/* Fullscreen modal on mobile - remove border-radius and safe area padding */
+@include breakpoint-max(md) {
+  .modalFullscreen {
+    .modalContent {
+      border-radius: 0;
+    }
   }
 }
 

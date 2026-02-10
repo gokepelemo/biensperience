@@ -1,7 +1,14 @@
 .chatContainer {
   height: 60vh;
+  max-width: 100%;
+  overflow-x: hidden;
+
+  @media (max-width: 576px) {
+    height: 70vh;
+  }
 }
 
 .chatContainer :global(.str-chat__container) {
   height: 100%;
+  max-width: 100%;
 }

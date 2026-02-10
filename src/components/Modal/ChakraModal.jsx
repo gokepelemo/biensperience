@@ -143,6 +143,11 @@ const ChakraModal = forwardRef(function ChakraModal({
             alignItems: allowBodyScroll ? 'flex-start' : 'center',
             justifyContent: allowBodyScroll ? 'flex-start' : 'center',
             padding: 0,
+            width: '100%',
+            maxWidth: '100%',
+            ...(allowBodyScroll
+              ? { overflow: 'visible' }
+              : { overflowX: 'hidden' }),
           }}
         >
           {/* Dialog.Content provides ARIA role="dialog" + aria-modal + focus trap anchor */}
@@ -155,10 +160,15 @@ const ChakraModal = forwardRef(function ChakraModal({
               boxShadow: 'none',
               borderRadius: 0,
               padding: 0,
-              maxWidth: 'none',
-              width: 'auto',
+              maxWidth: '100%',
+              width: size === 'fullscreen' ? '100%' : 'auto',
               maxHeight: 'none',
               position: 'relative',
+              // allowBodyScroll: overflow must be fully visible so the CSS spec
+              // doesn't force overflow-y to 'auto' (creating a scroll container).
+              ...(allowBodyScroll
+                ? { overflow: 'visible' }
+                : { overflowX: 'hidden' }),
             }}
           >
             {/* Plain HTML from here down — global _modal.scss targets these class names */}

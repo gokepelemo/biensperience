@@ -1,4 +1,4 @@
-import { FormTooltip } from '../Tooltip/Tooltip';
+import { FormTooltip } from '../design-system';
 import "./UpdateExperience.module.scss";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
@@ -12,11 +12,10 @@ import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import TagInput from "../../components/TagInput/TagInput";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Banner from "../Banner/Banner";
-import Alert from "../Alert/Alert";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
-import { Modal } from '../design-system';
+import { Modal, Alert } from '../design-system';
 import FormField from "../FormField/FormField";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
 import { Form } from "react-bootstrap";

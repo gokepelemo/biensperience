@@ -220,20 +220,20 @@
 
     // Ensure events in week/day view are visible
     .rbc-time-view .rbc-event {
-      background: var(--color-primary) !important;
+      background: transparent !important;
       border: none !important;
       border-radius: var(--radius-sm);
-      padding: var(--space-1) var(--space-2);
-      color: white;
+      padding: 0;
+      color: var(--color-text-primary);
       font-size: var(--font-size-xs);
+      overflow: visible;
     }
 
     .rbc-time-view .rbc-event-content {
-      color: white;
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      color: inherit;
+      display: flex;
+      align-items: center;
+      overflow: visible;
     }
 
     .rbc-row-segment {
@@ -265,34 +265,95 @@
   }
 }
 
+// Event wrapper - contains dot and title
+.eventWrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  width: 100%;
+  min-height: 12px;
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
 // Purple dot event styling
 .eventDot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--color-primary);
-  display: block;
+  display: inline-block;
   cursor: pointer;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   flex-shrink: 0;
 
-  &:hover {
+  .eventWrapper:hover & {
     transform: scale(1.4);
     box-shadow: 0 0 8px var(--color-primary);
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
   }
 
   // Shared/collaborative plans get a different color
   &.eventDotShared {
     background: var(--color-info);
 
-    &:hover {
+    .eventWrapper:hover & {
       box-shadow: 0 0 8px var(--color-info);
     }
+  }
+}
+
+// Event title - hidden in month view, visible in week/day views
+.eventTitle {
+  display: none; // Hidden in month view (dots only)
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+// Week/Day view - show title next to dot and style as a block
+:global(.rbc-time-view) {
+  .eventWrapper {
+    background: var(--color-primary);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1) var(--space-2);
+    color: white;
+    gap: var(--space-2);
+  }
+
+  .eventWrapperShared {
+    background: var(--color-info);
+  }
+
+  .eventDot {
+    width: 8px;
+    height: 8px;
+    background: white;
+    flex-shrink: 0;
+
+    .eventWrapper:hover & {
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    }
+
+    &.eventDotShared {
+      background: white;
+
+      .eventWrapper:hover & {
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+      }
+    }
+  }
+
+  .eventTitle {
+    display: inline;
+    color: white;
   }
 }
 
@@ -488,6 +549,11 @@
   .eventDot {
     width: 8px;
     height: 8px;
+  }
+
+  :global(.rbc-time-view) .eventDot {
+    width: 6px;
+    height: 6px;
   }
 
   .toolbarViews {

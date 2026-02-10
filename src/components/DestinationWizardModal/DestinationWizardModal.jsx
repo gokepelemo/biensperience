@@ -17,11 +17,10 @@ import { useTravelTipsManager } from '../../hooks/useTravelTipsManager';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { lang } from '../../lang.constants';
-import { Button } from '../design-system';
+import { Button, Alert } from '../design-system';
 import FormField from '../FormField/FormField';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import TravelTipsManager from '../TravelTipsManager/TravelTipsManager';
-import Alert from '../Alert/Alert';
 import styles from './DestinationWizardModal.module.scss';
 
 const STEPS = {

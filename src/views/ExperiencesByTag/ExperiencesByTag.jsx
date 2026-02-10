@@ -3,7 +3,6 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
-import Alert from "../../components/Alert/Alert";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
@@ -11,7 +10,7 @@ import Pagination from "../../components/Pagination/Pagination";
 import { createUrlSlug } from "../../utilities/url-utils";
 import { logger } from "../../utilities/logger";
 import * as experiencesAPI from "../../utilities/experiences-api";
-import { Button, Container, FlexBetween, FlexCenter, FadeIn, SkeletonLoader, ExperienceCardSkeleton } from "../../components/design-system";
+import { Button, Container, FlexBetween, FlexCenter, FadeIn, SkeletonLoader, ExperienceCardSkeleton, Alert } from "../../components/design-system";
 import { FaUser, FaArrowRight } from "react-icons/fa";
 import { lang } from "../../lang.constants";
 

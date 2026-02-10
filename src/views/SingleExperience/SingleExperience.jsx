@@ -8,6 +8,7 @@ import CollaboratorModal from './components/CollaboratorModal';
 import SyncPlanModal from './components/SyncPlanModal';
 import PlanItemModal from './components/PlanItemModal';
 import PlanItemDetailsModal from '../../components/PlanItemDetailsModal/PlanItemDetailsModal';
+import IncompleteChildrenDialog from '../../components/IncompleteChildrenDialog/IncompleteChildrenDialog';
 import styles from "./SingleExperience.module.scss";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
@@ -32,10 +33,8 @@ import RequestPlanAccessModal from "../../components/RequestPlanAccessModal/Requ
 import CostEntry from "../../components/CostEntry";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
-import Alert from "../../components/Alert/Alert";
-import Tooltip from "../../components/Tooltip/Tooltip";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState, EntityNotFound } from "../../components/design-system";
+import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState, EntityNotFound, Alert, Tooltip } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
@@ -238,6 +237,9 @@ export default function SingleExperience() {
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [requestAccessPlanId, setRequestAccessPlanId] = useState(null);
+
+  // Incomplete children dialog state (blocks parent completion when children are incomplete)
+  const [incompleteChildrenDialogData, setIncompleteChildrenDialogData] = useState(null);
 
   // Curator tooltip state (two-click pattern: first shows tooltip, second navigates)
   const [curatorTooltipVisible, setCuratorTooltipVisible] = useState(false);
@@ -2660,14 +2662,37 @@ export default function SingleExperience() {
   );
 
   const handlePlanItemToggleComplete = useCallback(
-    async (planItem) => {
+    async (planItem, { skipChildCheck = false } = {}) => {
       if (!selectedPlanId || !planItem) return;
-
-      beginUserInteraction('toggle-complete');
 
       const itemId = normalizeId(planItem._id || planItem.plan_item_id);
       const prevComplete = !!planItem.complete;
       const newComplete = !prevComplete;
+
+      // When marking a parent item complete, check for incomplete children first
+      if (newComplete && !skipChildCheck) {
+        const currentPlanItems = selectedPlan?.plan || [];
+        const parentKey = (planItem._id || planItem.plan_item_id)?.toString();
+
+        const children = currentPlanItems.filter((item) => {
+          const p = item.parent;
+          if (!p) return false;
+          const parentId = (typeof p === 'object' ? p._id || p : p)?.toString();
+          return parentId === parentKey ||
+            (planItem.plan_item_id && parentId === planItem.plan_item_id?.toString());
+        });
+
+        if (children.length > 0) {
+          const incompleteChildren = children.filter((c) => !c.complete);
+          if (incompleteChildren.length > 0) {
+            // Block completion — show dialog with incomplete children
+            setIncompleteChildrenDialogData({ parentItem: planItem, incompleteChildren });
+            return;
+          }
+        }
+      }
+
+      beginUserInteraction('toggle-complete');
 
       const updateItemComplete = (plan, targetItemId, complete) => {
         if (!plan?.plan) return plan;
@@ -2760,6 +2785,7 @@ export default function SingleExperience() {
     },
     [
       selectedPlanId,
+      selectedPlan,
       setSharedPlans,
       sharedPlans,
       userPlan,
@@ -3931,6 +3957,26 @@ export default function SingleExperience() {
         planItems={selectedPlan?.plan || []}
         onSave={handleSaveInlineCost}
         loading={inlineCostLoading}
+      />
+
+      {/* Incomplete Children Dialog - blocks parent completion until children are done */}
+      <IncompleteChildrenDialog
+        show={!!incompleteChildrenDialogData}
+        onClose={() => setIncompleteChildrenDialogData(null)}
+        parentItem={incompleteChildrenDialogData?.parentItem}
+        incompleteChildren={incompleteChildrenDialogData?.incompleteChildren || []}
+        onToggleChildComplete={async (childItem) => {
+          await handlePlanItemToggleComplete(childItem, { skipChildCheck: true });
+        }}
+        onCompleteParent={async () => {
+          if (incompleteChildrenDialogData?.parentItem) {
+            await handlePlanItemToggleComplete(
+              incompleteChildrenDialogData.parentItem,
+              { skipChildCheck: true }
+            );
+          }
+        }}
+        lang={lang}
       />
 
       {/* Photo Upload Modal - for adding photos when experience has none */}

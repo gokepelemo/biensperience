@@ -24,14 +24,12 @@ import { createFilter } from '../../utilities/trie';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { lang } from '../../lang.constants';
-import { Button, Pill } from '../design-system';
+import { Button, Pill, Alert, FormTooltip } from '../design-system';
 import FormField from '../FormField/FormField';
-import { FormTooltip } from '../Tooltip/Tooltip';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
-import Alert from '../Alert/Alert';
 import styles from './ExperienceWizardModal.module.scss';
 
 const STEPS = {

@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 
-import { Button } from '../design-system';
-import Alert from '../Alert/Alert';
+import { Button, Alert } from '../design-system';
 
 import MessagesModal from './MessagesModal';
 import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';

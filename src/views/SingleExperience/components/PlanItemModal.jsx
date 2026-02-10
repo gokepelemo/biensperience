@@ -16,7 +16,7 @@
 import { useState, useEffect, useId, useRef, useCallback } from 'react';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
 import { lang } from '../../../lang.constants';
-import { Modal, FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
+import { Modal, FormGroup, FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
 import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
 import { logger } from '../../../utilities/logger';
 
@@ -203,7 +203,7 @@ export default function PlanItemModal({
     >
       <form className="plan-item-modal-form" onSubmit={handleSubmit}>
         {/* Item Description */}
-        <div className="mb-3">
+        <FormGroup className="mb-3">
           <FormLabel htmlFor={`${formId}-text`}>
             {l.current?.label?.itemDescription || "Item Description"}{" "}
             <span style={{ color: 'var(--bs-danger)' }}>*</span>
@@ -216,10 +216,10 @@ export default function PlanItemModal({
             placeholder={l.current?.placeholder?.itemDescription || "Enter item description..."}
             required
           />
-        </div>
+        </FormGroup>
 
         {/* URL (Optional) */}
-        <div className="mb-3">
+        <FormGroup className="mb-3">
           <FormLabel htmlFor={`${formId}-url`}>
             {l.current?.label?.urlOptional || "URL (Optional)"}
           </FormLabel>
@@ -230,10 +230,10 @@ export default function PlanItemModal({
             onChange={(e) => updateField('url', e.target.value)}
             placeholder={l.current?.placeholder?.urlPlaceholder || "https://..."}
           />
-        </div>
+        </FormGroup>
 
         {/* Cost */}
-        <div className="mb-3">
+        <FormGroup className="mb-3">
           <FormLabel htmlFor={`${formId}-cost`}>
             {l.current?.label?.cost || "Cost"}
           </FormLabel>
@@ -258,10 +258,10 @@ export default function PlanItemModal({
               placeholder="0.00"
             />
           </FormInputGroup>
-        </div>
+        </FormGroup>
 
         {/* Planning Days */}
-        <div className="mb-3">
+        <FormGroup className="mb-3">
           <FormLabel htmlFor={`${formId}-days`}>
             {l.current?.label?.planningTimeLabel || "Planning Time"}
           </FormLabel>
@@ -285,10 +285,10 @@ export default function PlanItemModal({
               placeholder="0"
             />
           </FormInputGroup>
-        </div>
+        </FormGroup>
 
         {/* Activity Type */}
-        <div className="mb-3">
+        <FormGroup className="mb-3">
           <FormLabel htmlFor={`${formId}-activityType`}>
             {l.current?.label?.activityType || "Activity Type"}
             <small className="text-muted ms-2">(optional)</small>
@@ -299,10 +299,10 @@ export default function PlanItemModal({
             onChange={(value) => updateField('activity_type', value)}
             placeholder={l.current?.placeholder?.activityTypePlaceholder || "Select activity type..."}
           />
-        </div>
+        </FormGroup>
 
         {/* Address with Autocomplete */}
-        <div className="mb-3">
+        <FormGroup className="mb-3">
           <FormLabel htmlFor={`${formId}-address`}>
             {l.current?.label?.address || "Address"}
             <small className="text-muted ms-2">
@@ -374,7 +374,7 @@ export default function PlanItemModal({
               {formState.location.country || formState.location.address}
             </small>
           )}
-        </div>
+        </FormGroup>
       </form>
     </Modal>
   );

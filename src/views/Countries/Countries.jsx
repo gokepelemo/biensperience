@@ -10,8 +10,7 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import { MapWithListings } from "../../components/InteractiveMap";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
-import Alert from "../../components/Alert/Alert";
-import { Button, FlexCenter, SpaceY, EmptyState, FadeIn, SkeletonLoader, ExperienceCardSkeleton, DestinationCardSkeleton } from "../../components/design-system";
+import { Button, FlexCenter, SpaceY, EmptyState, FadeIn, SkeletonLoader, ExperienceCardSkeleton, DestinationCardSkeleton, Alert } from "../../components/design-system";
 import styles from "./Countries.module.scss";
 
 export default function Countries() {

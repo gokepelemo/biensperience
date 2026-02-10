@@ -14,10 +14,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import EmptyState from '../EmptyState/EmptyState';
 import Loading from '../Loading/Loading';
-import Tooltip from '../Tooltip/Tooltip';
 import DocumentViewerModal from '../DocumentViewerModal';
-import ProgressBar from '../ProgressBar/ProgressBar';
-import { Modal, Button } from '../design-system';
+import { Modal, Button, Tooltip, ProgressBar } from '../design-system';
 import {
   getDocumentsByEntity,
   uploadDocument,

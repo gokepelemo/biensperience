@@ -14,7 +14,7 @@ import 'stream-chat-react/dist/css/v2/index.css';
 import { FaChevronDown, FaChevronRight, FaTimes, FaUndo } from 'react-icons/fa';
 import { Link, useInRouterContext, useLocation, useParams } from 'react-router-dom';
 
-import Alert from '../Alert/Alert';
+import { Alert } from '../design-system';
 import styles from './MessagesModal.module.scss';
 import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';

@@ -3,8 +3,7 @@
  * Modal for setting/editing planned dates
  */
 
-import Alert from '../../../components/Alert/Alert';
-import { Modal, FormLabel, FormControl } from '../../../components/design-system';
+import { Modal, FormGroup, FormLabel, FormControl, Alert } from '../../../components/design-system';
 import { getMinimumPlanningDate, isValidPlannedDate } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { FaCalendarAlt } from 'react-icons/fa';
@@ -100,7 +99,7 @@ export default function DatePickerSection({
         </p>
       )}
 
-      <div className="mb-3">
+      <FormGroup className="mb-3">
         <FormLabel htmlFor="plannedDate" className="fw-semibold">
           {lang.current.label.whenDoYouWantExperience}
         </FormLabel>
@@ -129,7 +128,7 @@ export default function DatePickerSection({
               message={lang.current.alert.notEnoughTimeWarning}
             />
           )}
-      </div>
+      </FormGroup>
     </Modal>
   );
 }

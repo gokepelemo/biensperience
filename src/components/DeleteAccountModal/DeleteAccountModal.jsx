@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Form } from 'react-bootstrap';
-import { Modal } from '../design-system';
-import Alert from '../Alert/Alert';
+import { Modal, Alert } from '../design-system';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import { FaExclamationTriangle, FaTrash, FaExchangeAlt, FaUser } from 'react-icons/fa';
 import { deleteAccount, searchUsers } from '../../utilities/users-api';

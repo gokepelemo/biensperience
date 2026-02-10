@@ -10,9 +10,10 @@
  *
  * Implementation Status:
  * - Phase 1: Custom Button with CSS Modules (completed)
- * - Phase 2 (Current): Feature-flagged Chakra UI Button
- * - Phase 3: Chakra UI Button as default (pending validation)
- * - Phase 4: Remove legacy implementation (after validation period)
+ * - Phase 2: Feature-flagged Chakra UI Button (completed)
+ * - Phase 3: Chakra UI Button validation (completed)
+ * - Phase 4 (Current): Chakra UI Button is default; legacy available via 'bootstrap_button' flag
+ * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
  * - Props interface is stable and will not change
@@ -46,9 +47,10 @@ const BOOTSTRAP_VARIANTS = [
  * @returns {React.ReactElement} Button component
  */
 const ButtonWrapper = forwardRef((props, ref) => {
-  // Feature-flagged: Use Chakra UI Button when 'chakra_ui' flag is enabled
-  const { enabled: useChakra } = useFeatureFlag('chakra_ui');
-  const ButtonComponent = useChakra ? ChakraButton : Button;
+  // Chakra UI Button is now the default implementation (Phase 4)
+  // Users can opt into the legacy Bootstrap Button via 'bootstrap_button' flag
+  const { enabled: useLegacy } = useFeatureFlag('bootstrap_button');
+  const ButtonComponent = useLegacy ? Button : ChakraButton;
   return <ButtonComponent {...props} ref={ref} />;
 });
 

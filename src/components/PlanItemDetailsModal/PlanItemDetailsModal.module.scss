@@ -67,15 +67,27 @@
   max-height: 100%; /* Prevent overflow beyond parent */
   /* Flex item properties when inside modal body */
   flex: 1 1 0;
+  /* Prevent horizontal overflow */
+  max-width: 100%;
+  box-sizing: border-box;
 
-  /* Mobile document-scroll mode: let content extend naturally */
-  @media (max-width: 768px) {
+  /* Mobile/Tablet document-scroll mode: let content extend naturally
+   * Uses 991px breakpoint to match tab dropdown visibility */
+  @media (max-width: 991px) {
     height: auto;
-    min-height: unset;
+    /* Ensure modal card covers the full viewport even with short content */
+    min-height: 100vh;
+    min-height: 100dvh;
     max-height: none;
+    /* Use overflow: visible on both axes to avoid CSS spec trap where
+     * split overflow axes (one hidden, one visible) forces the visible
+     * axis to compute as 'auto', creating an implicit scroll container. */
     overflow: visible;
-    flex: 0 0 auto;
+    /* Grow to fill parent (.modalBodyDocumentScroll) */
+    flex: 1 1 auto;
     border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -96,48 +108,76 @@
   overflow: hidden;
 }
 
-/* Mobile document-scroll mode
+/* Mobile/Tablet document-scroll mode (≤991px)
  * Used with Modal's allowBodyScroll=true.
  * We want the modal body to size to content and allow the page to scroll.
  */
 .modalBodyDocumentScroll {
-  display: block;
+  display: flex;
+  flex-direction: column;
   height: auto;
-  min-height: unset;
+  min-height: 0;
   overflow: visible;
+  /* Grow to fill parent .modalContent */
+  flex: 1 1 auto;
 }
 
-/* When the PlanItemDetailsModal is rendered in document-scroll mode (mobile),
+/* When the PlanItemDetailsModal is rendered in document-scroll mode (mobile/tablet ≤991px),
  * we want content to size naturally (no fixed-height flex chain, no internal scroll panes).
+ * This mode activates when isMobileViewport is true (at max-width: 991px).
+ *
+ * CRITICAL: Keep .detailsContent as display: flex so child EmptyState components
+ * with fillContainer work correctly. The flex chain must be maintained for proper
+ * vertical centering and sizing of empty states.
  */
 .documentScrollMode {
-  display: block;
+  display: flex;
+  flex-direction: column;
 
   .detailsContent {
-    display: block;
-    flex: 0 0 auto;
-    min-height: unset;
+    /* Keep flex display to support EmptyState fillContainer */
+    display: flex;
+    flex-direction: column;
     overflow: visible;
+    height: auto;
+    /* Grow to fill remaining space in the min-height: 100dvh parent */
+    flex: 1 1 auto;
+    /* Ensure minimum usable height for content/empty states */
+    min-height: 400px;
   }
 
-  /* Common tab wrappers: preserve flex properties but adjust for document scroll mode */
+  /* Common tab wrappers: size to content in document scroll mode */
   .notesTabWrapper,
   .photosTabWrapper,
   .documentsTabWrapper,
   .detailsTabContent,
-  .locationTabContent {
-    /* Keep flex properties to fill available space */
-    flex: 1 1 0;
-    height: 100%;
-    min-height: 0;
-    /* Adjust overflow for document scroll mode */
+  .locationTabContent,
+  .chatTabWrapper {
+    /* Flex container for proper child sizing (EmptyState, etc.) */
+    display: flex !important;
+    flex-direction: column !important;
+    /* Allow content to determine height, but grow to fill space */
+    flex: 1 1 auto !important;
+    height: auto !important;
+    /* Use fixed minimum heights instead of percentage (parent has auto height) */
+    min-height: 300px !important;
+    /* Allow content to flow naturally with page scroll */
     overflow: visible;
     overscroll-behavior: auto;
 
-    /* Override tabWrapperActive display:flex with display:block for document scroll mode */
+    /* Override tabWrapperActive constraints for document scroll mode */
     &.tabWrapperActive {
-      display: block;
+      display: flex !important;
+      flex-direction: column !important;
+      flex: 1 1 auto !important;
+      height: auto !important;
+      min-height: 300px !important;
     }
+  }
+
+  /* Hidden tabs should remain hidden */
+  .tabWrapperHidden {
+    display: none !important;
   }
 
   /* Details tab: remove internal scroll container so page scroll handles it */
@@ -156,9 +196,11 @@
   border-bottom: 1px solid var(--color-border-light);
   display: flex;
   justify-content: flex-end;
+  box-sizing: border-box;
+  max-width: 100%;
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
+    padding: $space-3;
   }
 }
 
@@ -190,11 +232,20 @@
   gap: $space-3;
   border-top: 1px solid var(--color-border-light);
   border-bottom: 1px solid var(--color-border-light);
+  box-sizing: border-box;
+  max-width: 100%;
 
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Stack layout to match document scroll mode */
+  @media (max-width: 991px) {
     flex-direction: column;
     align-items: flex-start;
     padding: $space-4;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-3;
   }
 }
 
@@ -322,7 +373,8 @@
   padding-left: $space-4;
   border-left: 1px solid var(--color-border-light);
 
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Stack below assignment to match document scroll mode */
+  @media (max-width: 991px) {
     margin-left: 0;
     padding-left: 0;
     padding-top: $space-3;
@@ -334,7 +386,7 @@
 
 /* Complete button - uses Button component, only layout overrides needed */
 .completeButton {
-  @media (max-width: 768px) {
+  @media (max-width: 991px) {
     width: 100%;
     justify-content: center;
   }
@@ -401,10 +453,16 @@
   padding: $space-3 $space-4;
   background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border-light);
+  box-sizing: border-box;
+  max-width: 100%;
 
   /* Show on mobile/tablet */
   @media (max-width: 991px) {
     display: block;
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-3;
   }
 }
 
@@ -505,6 +563,9 @@
   /* This is also a flex container for its children */
   display: flex;
   flex-direction: column;
+  /* Prevent horizontal overflow */
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* =============================================================================
@@ -535,17 +596,14 @@
   overflow: hidden;
   /* Ensure width fills container */
   width: 100%;
-
-  /* Mobile adjustments - minimum height for usability */
-  @media (max-width: 768px) {
-    min-height: 300px;
-  }
 }
 
 @mixin tabWrapperMobile {
-  /* Mobile: Minimum height to ensure usability */
-  @media (max-width: 768px) {
-    min-height: 300px;
+  /* Mobile/Tablet: Content-based sizing with minimum usability height
+   * Uses 991px breakpoint to match document scroll mode activation */
+  @media (max-width: 991px) {
+    /* Use content-based minimum with a floor for empty states */
+    min-height: max(200px, min-content);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -568,9 +626,11 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  max-width: 100%;
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
+    padding: $space-3;
   }
 }
 
@@ -584,9 +644,11 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  max-width: 100%;
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
+    padding: $space-3;
   }
 }
 
@@ -628,9 +690,10 @@
   gap: 0;
   background: var(--color-bg-primary);
 
-  /* Mobile: Minimum height to ensure usability */
-  @media (max-width: 768px) {
-    min-height: 400px;
+  /* Mobile/Tablet: Content-based minimum height for usability
+   * Matches document scroll mode activation at 991px */
+  @media (max-width: 991px) {
+    min-height: max(300px, min-content);
   }
 }
 
@@ -719,8 +782,8 @@
   background: var(--color-bg-primary) !important;
   position: relative !important;
 
-  /* Mobile: Thread takes full width as overlay */
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Thread takes full width as overlay */
+  @media (max-width: 991px) {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
@@ -1190,11 +1253,13 @@
   margin-top: $space-4;
   border-top: 1px solid var(--color-border-light);
   background: var(--color-bg-secondary);
+  box-sizing: border-box;
+  max-width: 100%;
 
   @media (max-width: 768px) {
     flex-direction: column;
     gap: $space-3;
-    padding: $space-4;
+    padding: $space-3;
   }
 }
 
@@ -1236,10 +1301,18 @@
   padding: $space-4 $space-6;
   background: var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border-light);
+  box-sizing: border-box;
+  max-width: 100%;
+
+  /* Mobile/Tablet: Tighter spacing to match document scroll mode */
+  @media (max-width: 991px) {
+    padding: $space-4;
+    gap: $space-2;
+    overflow-x: hidden;
+  }
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
-    gap: $space-2;
+    padding: $space-3;
   }
 }
 
@@ -1255,17 +1328,24 @@
   flex: 1 1 auto;
   max-width: 200px;
   @include transition-all($transition-fast);
+  box-sizing: border-box;
 
   &:hover {
     border-color: var(--color-border-medium);
     box-shadow: var(--shadow-sm);
   }
 
-  @media (max-width: 768px) {
-    min-width: 120px;
+  /* Mobile/Tablet: Grid layout for info cards */
+  @media (max-width: 991px) {
+    min-width: 0;
     max-width: none;
-    flex: 1 1 calc(50% - $space-2);
+    flex: 1 1 calc(50% - #{$space-2});
     padding: $space-2 $space-3;
+    overflow: hidden;
+  }
+
+  @media (max-width: $breakpoint-xs) {
+    flex: 1 1 100%;
   }
 }
 
@@ -1281,6 +1361,8 @@
   gap: $space-1;
   min-width: 0;
   flex: 1;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .infoLabel {
@@ -1299,6 +1381,8 @@
   font-weight: $font-weight-semibold;
   color: var(--color-text-primary);
   @include text-ellipsis;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Scheduled date card - clickable to edit date/time */
@@ -1405,7 +1489,8 @@
     outline-offset: 2px;
   }
 
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Full width for touch targets */
+  @media (max-width: 991px) {
     flex: 1 1 100%;
     min-width: 0;
   }
@@ -1434,7 +1519,7 @@
 
 .addDropdownMenu {
   position: absolute;
-  top: calc(100% + $space-2);
+  top: calc(100% + #{$space-2});
   right: 0;
   min-width: 280px;
   background: var(--color-bg-primary);
@@ -1447,10 +1532,16 @@
   display: flex;
   flex-direction: column;
 
-  @media (max-width: 768px) {
-    left: 0;
-    right: 0;
-    min-width: 100%;
+  /* Mobile/Tablet: Fixed position bottom sheet for better touch UX */
+  @media (max-width: 991px) {
+    position: fixed;
+    left: $space-3;
+    right: $space-3;
+    top: auto;
+    bottom: $space-3;
+    min-width: unset;
+    max-height: 60vh;
+    border-radius: var(--radius-lg);
   }
 }
 
@@ -1545,7 +1636,8 @@
   gap: $space-2;
   min-width: 100px;
 
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Full width for touch-friendly layout */
+  @media (max-width: 991px) {
     flex: 1 1 100%;
     min-width: 0;
   }
@@ -1572,9 +1664,11 @@
   border-bottom: 1px solid var(--color-border-light);
   background: var(--color-bg-secondary);
   flex-shrink: 0;
+  box-sizing: border-box;
+  max-width: 100%;
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
+    padding: $space-3;
   }
 }
 
@@ -1602,10 +1696,12 @@
   overscroll-behavior: contain;
   /* Smooth scrolling on iOS */
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  max-width: 100%;
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
-    gap: $space-4;
+    padding: $space-3;
+    gap: $space-3;
   }
 }
 
@@ -1657,6 +1753,9 @@
   padding: $space-4;
   border-bottom: 1px solid var(--color-border-light);
   @include transition-all($transition-fast);
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 
   &:last-child {
     border-bottom: none;
@@ -1664,6 +1763,10 @@
 
   &:hover {
     background: rgba(var(--color-primary-rgb), 0.03);
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-3;
   }
 }
 
@@ -1688,7 +1791,8 @@
 .detailItemContent {
   padding-left: $space-5; /* Align with header text */
 
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Remove left padding for compact layout */
+  @media (max-width: 991px) {
     padding-left: 0;
   }
 }
@@ -1698,12 +1802,19 @@
   font-weight: $font-weight-medium;
   color: var(--color-text-primary);
   margin-bottom: $space-2;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .detailItemMeta {
   display: flex;
   flex-direction: column;
   gap: $space-1;
+  max-width: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 .detailMetaRow {
@@ -1712,11 +1823,36 @@
   gap: $space-2;
   font-size: $font-size-sm;
   color: var(--color-text-secondary);
+  max-width: 100%;
+
+  dt {
+    color: var(--color-text-primary);
+    font-weight: $font-weight-medium;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 
   strong {
     color: var(--color-text-primary);
     font-weight: $font-weight-medium;
-    min-width: 100px;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  /* Mobile/Tablet: Allow wrapping for long values */
+  @media (max-width: 991px) {
+    flex-wrap: wrap;
+
+    dt, strong {
+      min-width: 70px;
+    }
   }
 }
 
@@ -1732,6 +1868,9 @@
   font-weight: $font-weight-semibold;
   color: var(--color-primary);
   letter-spacing: 0.05em;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-all;
 }
 
 /* Empty state for details tab - fills available space and centers content */
@@ -1782,10 +1921,17 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  max-width: 100%;
+
+  /* Mobile/Tablet: Content-based sizing with minimum height for map */
+  @media (max-width: 991px) {
+    padding: $space-4;
+    min-height: max(300px, min-content);
+  }
 
   @media (max-width: 768px) {
-    padding: $space-3 $space-4;
-    min-height: 300px;
+    padding: $space-3;
   }
 }
 
@@ -1798,6 +1944,18 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-light);
   margin-bottom: $space-4;
+  box-sizing: border-box;
+  max-width: 100%;
+
+  /* Mobile/Tablet: Wrap elements for narrow viewports */
+  @media (max-width: 991px) {
+    flex-wrap: wrap;
+    gap: $space-3;
+  }
+
+  @media (max-width: 768px) {
+    padding: $space-3;
+  }
 }
 
 .locationIcon {
@@ -1824,6 +1982,8 @@
   color: var(--color-text-primary);
   line-height: 1.4;
   margin-bottom: $space-1;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .locationMeta {
@@ -1845,7 +2005,8 @@
   overflow: hidden;
   border: 1px solid var(--color-border-light);
 
-  @media (max-width: 768px) {
+  /* Mobile/Tablet: Reduced map height for document scroll mode */
+  @media (max-width: 991px) {
     min-height: 300px;
   }
 }

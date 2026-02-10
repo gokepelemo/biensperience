@@ -3,10 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { confirmEmail } from '../../utilities/users-api';
 import { useUser } from '../../contexts/UserContext';
 import { handleError } from '../../utilities/error-handler';
-import Alert from '../../components/Alert/Alert';
 import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
-import { Button } from '../../components/design-system';
+import { Button, Alert } from '../../components/design-system';
 import styles from './ConfirmEmail.module.scss';
 import { lang } from '../../lang.constants';
 

@@ -122,6 +122,37 @@
   }
 }
 
+/* Mobile responsive adjustments */
+@media (max-width: 576px) {
+  .assignPlanItemModal {
+    padding: 0.5rem 0;
+  }
+
+  .modalDescription {
+    margin-bottom: 1rem;
+
+    p {
+      font-size: 0.875rem;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+  }
+
+  .modalActions {
+    flex-direction: column;
+
+    .btnAssign,
+    .btnUnassign,
+    .btnCancel {
+      width: 100%;
+    }
+  }
+
+  .formControl {
+    font-size: 1rem; // Prevent iOS zoom on focus
+  }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .modalDescription strong {

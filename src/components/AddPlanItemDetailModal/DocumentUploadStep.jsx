@@ -6,7 +6,7 @@
 import { useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import styles from './AddPlanItemDetailModal.module.scss';
-import Tooltip from '../Tooltip/Tooltip';
+import { Tooltip } from '../design-system';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { validateDocument, ALL_SUPPORTED_MIMES, MAX_FILE_SIZES, formatFileSize as formatFileSizeUtil } from '../../utilities/document-upload';

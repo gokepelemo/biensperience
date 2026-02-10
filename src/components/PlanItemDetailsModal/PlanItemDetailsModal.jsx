@@ -15,7 +15,7 @@ import {
   Window
 } from 'stream-chat-react';
 import 'stream-chat-react/dist/css/v2/index.css';
-import { Modal } from '../design-system';
+import { Modal, Alert, Tooltip } from '../design-system';
 import Button from '../Button/Button';
 import Loading from '../Loading/Loading';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
@@ -25,7 +25,6 @@ import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
 import GoogleMap from '../GoogleMap/GoogleMap';
 import EmptyState from '../EmptyState/EmptyState';
-import Alert from '../Alert/Alert';
 import DocumentsTab from './DocumentsTab';
 import PhotosTab from './PhotosTab';
 import styles from './PlanItemDetailsModal.module.scss';
@@ -38,7 +37,6 @@ import { updatePlanItem } from '../../utilities/plans-api';
 import { broadcastEvent } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
-import Tooltip from '../Tooltip/Tooltip';
 import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
@@ -156,14 +154,15 @@ export default function PlanItemDetailsModal({
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
 
-  // Mobile: allow the details "modal" to extend beyond the viewport and use full-page scrolling.
+  // Mobile/Tablet: allow the details "modal" to extend beyond the viewport and use full-page scrolling.
   // On close, the underlying SingleExperience scroll position is restored (handled by Modal).
+  // Uses 991px breakpoint to match tab dropdown visibility (same breakpoint as .detailsTabs display: none)
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   useEffect(() => {
     if (!show) return;
 
     try {
-      const mql = window.matchMedia('(max-width: 768px)');
+      const mql = window.matchMedia('(max-width: 991px)');
       const update = () => setIsMobileViewport(!!mql.matches);
       update();
 
@@ -1466,7 +1465,7 @@ export default function PlanItemDetailsModal({
                 {/* + Add Button with Dropdown - add costs, transport details, etc. */}
                 {canEdit && (onAddCostForItem || onAddDetail) && (
                   <div className={styles.addDropdownWrapper} ref={addDropdownRef}>
-                    <Tooltip content="Add costs, reservations, or other details" placement="top">
+                    <Tooltip content={showAddDropdown ? '' : 'Add costs, reservations, or other details'} placement="top">
                       <Button
                         variant="gradient"
                         size="sm"

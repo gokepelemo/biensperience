@@ -9,9 +9,8 @@ import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
-import Alert from "../../components/Alert/Alert";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
-import { Button, FlexCenter, SpaceY, EmptyState } from "../../components/design-system";
+import { Button, FlexCenter, SpaceY, EmptyState, Alert } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
 import styles from "./AppHome.module.scss";
 
@@ -222,7 +221,7 @@ export default function AppHome() {
                     ))}
                 </div>
               </FlexCenter>
-              {experiences.length > EXPERIENCES_INITIAL_DISPLAY && (
+              {curatedExperiences.length > EXPERIENCES_INITIAL_DISPLAY && (
                 <div className="col-12 text-center mt-4 mb-5">
                   <Button
                     variant="link"

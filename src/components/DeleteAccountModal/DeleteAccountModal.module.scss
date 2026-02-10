@@ -74,6 +74,9 @@
 
 .optionContent {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 
   h4 {
     margin: 0 0 var(--space-2);

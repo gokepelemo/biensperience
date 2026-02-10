@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import Alert from '../Alert/Alert';
+import { Alert } from '../design-system';
 import { getFormDataAge } from '../../utilities/form-persistence';
 import { logger } from '../../utilities/logger';
 

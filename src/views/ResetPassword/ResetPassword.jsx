@@ -4,9 +4,8 @@ import { resetPassword } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
 import FormField from '../../components/FormField/FormField';
-import Alert from '../../components/Alert/Alert';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
-import { Button } from '../../components/design-system';
+import { Button, Alert } from '../../components/design-system';
 import styles from './ResetPassword.module.scss';
 
 export default function ResetPassword() {

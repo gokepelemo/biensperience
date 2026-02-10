@@ -5,7 +5,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import enUS from 'date-fns/locale/en-US';
 import { useNavigate } from 'react-router-dom';
 import { FaUsers } from 'react-icons/fa';
-import Tooltip from '../../Tooltip/Tooltip';
+import { Tooltip } from '../../design-system';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { lang } from '../../../lang.constants';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -41,19 +41,25 @@ const CalendarEvent = React.memo(({ event }) => {
     </div>
   ), [event.title, event.isCollaborative]);
 
-  // Memoize the event dot element to prevent re-creation
-  const eventDotElement = React.useMemo(() => (
+  // Memoize the event element to prevent re-creation
+  // Renders both a dot (visible in month view) and a title span (visible in week/day views)
+  const eventElement = React.useMemo(() => (
     <div
-      className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
+      className={`${styles.eventWrapper} ${event.isCollaborative ? styles.eventWrapperShared : ''}`}
       role="button"
       tabIndex={0}
       aria-label={event.title}
-    />
+    >
+      <span
+        className={`${styles.eventDot} ${event.isCollaborative ? styles.eventDotShared : ''}`}
+      />
+      <span className={styles.eventTitle}>{event.title}</span>
+    </div>
   ), [event.title, event.isCollaborative]);
 
   return (
     <Tooltip content={tooltipContent} placement="top" delayHide={100}>
-      {eventDotElement}
+      {eventElement}
     </Tooltip>
   );
 }, (prevProps, nextProps) => {

@@ -11,7 +11,7 @@ import { useTravelTipsManager } from "../../hooks/useTravelTipsManager";
 import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
 import { formatRestorationMessage } from "../../utilities/time-utils";
 import PhotoUpload from "../PhotoUpload/PhotoUpload";
-import Alert from "../Alert/Alert";
+import { Alert } from "../design-system";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import SuccessModal from "../SuccessModal/SuccessModal";
 import FormField from "../FormField/FormField";

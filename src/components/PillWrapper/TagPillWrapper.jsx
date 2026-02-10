@@ -21,8 +21,8 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
  * is enabled, otherwise falls back to the custom CSS Modules TagPill.
  */
 export default function TagPillWrapper(props) {
-  const { enabled: useChakra } = useFeatureFlag('chakra_ui');
-  const TagPillComponent = useChakra ? ChakraTagPill : TagPill;
+  const { enabled: useLegacy } = useFeatureFlag('bootstrap_tagpill');
+  const TagPillComponent = useLegacy ? TagPill : ChakraTagPill;
   return <TagPillComponent {...props} />;
 }
 

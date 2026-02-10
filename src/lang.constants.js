@@ -92,6 +92,19 @@ const en = {
     addDestination: "Add a Destination",
     browseExperiences: "Browse Experiences",
     addPhotoCredits: "+ Add Photo Credits",
+    notNow: "Not Now",
+    completing: "Completing…",
+  },
+
+  // Dialog / overlay strings
+  dialog: {
+    incompleteChildItems: "Incomplete Child Items",
+    completeChildrenFirst: "Complete all child items before marking the parent complete.",
+    allChildrenComplete: "All items complete!",
+    markParentCompleteQuestion: "All child items are now complete. Would you like to mark",
+    asComplete: "as complete too?",
+    itemRemaining: "item remaining",
+    itemsRemaining: "items remaining",
   },
 
   alert: {

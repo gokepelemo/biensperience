@@ -11,7 +11,6 @@ import DestinationCard from "./../../components/DestinationCard/DestinationCard"
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import Pagination from '../../components/Pagination/Pagination';
-import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import { ProfileSkeleton, ProfileHeaderSkeleton, ProfileContentGridSkeleton } from "./components";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
@@ -28,7 +27,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, EmptyState, Container, EntityNotFound } from "../../components/design-system";
+import { Button, EmptyState, Container, EntityNotFound, Alert } from "../../components/design-system";
 import { Card, Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";

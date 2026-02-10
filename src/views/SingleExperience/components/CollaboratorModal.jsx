@@ -12,9 +12,8 @@
 import { useState, useEffect, useRef, useId, useCallback } from 'react';
 import { FaTimes, FaUserPlus, FaEnvelope, FaCheck } from 'react-icons/fa';
 import Autocomplete from '../../../components/Autocomplete/Autocomplete';
-import Alert from '../../../components/Alert/Alert';
 import FormField from '../../../components/FormField/FormField';
-import { Modal, Button as DSButton, Pill } from '../../../components/design-system';
+import { Modal, Button as DSButton, Pill, Alert } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
 import { lang } from '../../../lang.constants';
 import styles from './CollaboratorModal.module.scss';

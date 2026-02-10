@@ -3,8 +3,10 @@
 /* New plan item form */
 .newPlanItem {
   width: 50%;
-  min-width: 400px;
+  min-width: 0;
+  max-width: 100%;
   display: block;
+  box-sizing: border-box;
 
   button {
     grid-column: 1 / span 2;
@@ -18,6 +20,10 @@
 
   * {
     margin: $space-2 0;
+  }
+
+  @media (max-width: $breakpoint-sm) {
+    width: 100%;
   }
 }
 

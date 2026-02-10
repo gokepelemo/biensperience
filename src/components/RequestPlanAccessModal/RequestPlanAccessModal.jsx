@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useState } from 'react';
 
-import Alert from '../Alert/Alert';
-import { Modal, FormGroup, FormLabel, FormControl } from '../design-system';
+import { Modal, FormGroup, FormLabel, FormControl, Alert } from '../design-system';
 
 /**
  * Request plan access modal

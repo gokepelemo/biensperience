@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Button,
   Modal,
+  Alert,
 } from '../design-system';
 import { Form } from 'react-bootstrap';
 import Checkbox from '../Checkbox/Checkbox';
-import Alert from '../Alert/Alert';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
 import { updateUser, startPhoneVerification, confirmPhoneVerification } from '../../utilities/users-api';

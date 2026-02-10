@@ -10,9 +10,10 @@
  *
  * Implementation Status:
  * - Phase 1: Custom Pill with CSS Modules (completed)
- * - Phase 2 (Current): Feature-flagged Chakra UI Badge
- * - Phase 3: Chakra UI Badge as default (pending validation)
- * - Phase 4: Remove legacy implementation (after validation period)
+ * - Phase 2: Feature-flagged Chakra UI (completed) Badge
+ * - Phase 3: Chakra UI Pill validation (completed)
+ * - Phase 4 (Current): Chakra UI Pill is default; legacy available via 'bootstrap_pill' flag
+ * - Phase 5: Remove legacy implementation (after validation period)
  *
  * Task: biensperience-bbd4
  * Related: biensperience-8dd6 (Phase 1), biensperience-6ba4 (umbrella)
@@ -30,8 +31,8 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
  * is enabled, otherwise falls back to the custom CSS Modules Pill.
  */
 export default function PillWrapper(props) {
-  const { enabled: useChakra } = useFeatureFlag('chakra_ui');
-  const PillComponent = useChakra ? ChakraPill : Pill;
+  const { enabled: useLegacy } = useFeatureFlag('bootstrap_pill');
+  const PillComponent = useLegacy ? Pill : ChakraPill;
   return <PillComponent {...props} />;
 }
 

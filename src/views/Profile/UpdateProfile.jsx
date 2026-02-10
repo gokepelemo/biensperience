@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash } from "react-icons/fa";
 import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
-import Alert from "../../components/Alert/Alert";
 import Loading from "../../components/Loading/Loading";
 import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData } from "../../utilities/users-api";
 import { updateToken, logout } from "../../utilities/users-service";
@@ -15,11 +14,10 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import FormField from "../../components/FormField/FormField";
-import { FormTooltip } from "../../components/Tooltip/Tooltip";
 import { Form } from "react-bootstrap";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { reverseGeocode } from "../../utilities/address-utils";
-import { Button } from "../../components/design-system";
+import { Button, Alert, FormTooltip, Modal } from "../../components/design-system";
 import { hasFeatureFlag, FEATURE_FLAGS } from "../../utilities/feature-flags";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Checkbox from "../../components/Checkbox/Checkbox";
@@ -1286,53 +1284,41 @@ export default function UpdateProfile() {
       )}
 
       {showConfirmModal && (
-        <div className="modal fade show d-block" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{lang.current.profile.confirmProfileUpdate}</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowConfirmModal(false)}
-                  aria-label={lang.current.profile.close}
-                >
-                  <span aria-hidden="true">&times;</span>
-                </button>
-              </div>
-              <div className="modal-body">
-                <p>{lang.current.profile.confirmUpdateReview}</p>
-                <ul className="list-group">
-                  {Object.entries(changes).map(([field, change]) => (
-                    <li key={field} className="list-group-item">
-                      <div className="whitespace-pre-line">
-                        {formatChanges(field, change, 'profile')}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowConfirmModal(false)}
-                  aria-label={lang.current.button.cancel}
-                >
-                  {lang.current.button.cancel}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={confirmUpdate}
-                  aria-label={lang.current.profile.updateProfile}
-                >
-                  {lang.current.profile.updateProfile}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Modal
+          show={showConfirmModal}
+          onClose={() => setShowConfirmModal(false)}
+          title={lang.current.profile.confirmProfileUpdate}
+          centered
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setShowConfirmModal(false)}
+                aria-label={lang.current.button.cancel}
+              >
+                {lang.current.button.cancel}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmUpdate}
+                aria-label={lang.current.profile.updateProfile}
+              >
+                {lang.current.profile.updateProfile}
+              </Button>
+            </>
+          }
+        >
+          <p>{lang.current.profile.confirmUpdateReview}</p>
+          <ul className="list-group">
+            {Object.entries(changes).map(([field, change]) => (
+              <li key={field} className="list-group-item">
+                <div className="whitespace-pre-line">
+                  {formatChanges(field, change, 'profile')}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Modal>
       )}
 
       {/* Delete Account Modal */}

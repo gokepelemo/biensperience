@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import Stepper from '../components/Stepper/Stepper';
 import Pagination from '../components/Pagination/Pagination';
-import ProgressBar from '../components/ProgressBar/ProgressBar';
-import Tooltip from '../components/Tooltip/Tooltip';
+import { Tooltip, ProgressBar } from '../components/design-system';
 import { Button } from 'react-bootstrap';
 
 export default {

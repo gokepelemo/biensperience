@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { FaInfoCircle, FaQuestionCircle, FaExclamationTriangle, FaCheckCircle, FaCog } from 'react-icons/fa';
-import Tooltip, { FormTooltip } from '../../components/Tooltip/Tooltip';
+import { Tooltip, FormTooltip } from '../../components/design-system';
 import InfoTooltip from '../../components/InfoTooltip/InfoTooltip';
 import { TooltipProvider } from '../../contexts/TooltipContext';
 

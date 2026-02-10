@@ -8,7 +8,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import styles from './AddPlanItemDetailModal.module.scss';
 import { DETAIL_TYPES } from './constants';
-import Tooltip from '../Tooltip/Tooltip';
+import { Tooltip } from '../design-system';
 import Checkbox from '../Checkbox/Checkbox';
 import { lang } from '../../lang.constants';
 import { getCurrencyDropdownOptions } from '../../utilities/currency-utils';
