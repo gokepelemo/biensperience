@@ -1303,12 +1303,17 @@
   border-bottom: 1px solid var(--color-border-light);
   box-sizing: border-box;
   max-width: 100%;
+  /* Allow dropdown to overflow this container */
+  overflow: visible;
 
   /* Mobile/Tablet: Tighter spacing to match document scroll mode */
   @media (max-width: 991px) {
     padding: $space-4;
     gap: $space-2;
-    overflow-x: hidden;
+    /* Allow dropdown overflow on mobile */
+    overflow: visible;
+    position: relative;
+    z-index: 5;
   }
 
   @media (max-width: 768px) {
@@ -1510,6 +1515,13 @@
 .addDropdownWrapper {
   position: relative;
   display: inline-flex;
+  /* Establish stacking context for dropdown */
+  z-index: $z-index-modal-dropdown;
+
+  /* Mobile: Center the button */
+  @media (max-width: 991px) {
+    justify-content: center;
+  }
 }
 
 .addButtonCaret {
@@ -1532,16 +1544,19 @@
   display: flex;
   flex-direction: column;
 
-  /* Mobile/Tablet: Fixed position bottom sheet for better touch UX */
+  /* Mobile/Tablet: Position below button with centered alignment */
   @media (max-width: 991px) {
-    position: fixed;
-    left: $space-3;
-    right: $space-3;
-    top: auto;
-    bottom: $space-3;
-    min-width: unset;
-    max-height: 60vh;
+    position: absolute;
+    top: calc(100% + #{$space-2});
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    min-width: min(320px, calc(100vw - #{$space-6}));
+    max-height: 50vh;
     border-radius: var(--radius-lg);
+    /* Ensure dropdown appears above all modal content */
+    z-index: 9999;
   }
 }
 
@@ -1635,11 +1650,16 @@
   flex-direction: column;
   gap: $space-2;
   min-width: 100px;
+  /* Allow dropdown to overflow */
+  overflow: visible;
 
   /* Mobile/Tablet: Full width for touch-friendly layout */
   @media (max-width: 991px) {
     flex: 1 1 100%;
     min-width: 0;
+    /* Establish stacking context for dropdown visibility */
+    position: relative;
+    z-index: 10;
   }
 }
 

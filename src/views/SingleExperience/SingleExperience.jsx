@@ -15,7 +15,7 @@ import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { FaMapMarkerAlt, FaShare, FaRegImage, FaStar, FaHome } from "react-icons/fa";
-import { Row, Col, Badge, Breadcrumb } from "react-bootstrap";
+import { Row, Col, Badge } from "react-bootstrap";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -34,7 +34,7 @@ import CostEntry from "../../components/CostEntry";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState, EntityNotFound, Alert, Tooltip } from "../../components/design-system";
+import { Button, Container, FadeIn, FormLabel, FormControl, FormCheck, Text, EmptyState, EntityNotFound, Alert, Tooltip, Breadcrumb } from "../../components/design-system";
 import Loading from "../../components/Loading/Loading";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
 import SingleExperienceSkeleton from "./components/SingleExperienceSkeleton";
@@ -3042,25 +3042,16 @@ export default function SingleExperience() {
         <div className={styles.experienceDetailContainer}>
           <Container>
             {/* Breadcrumb Navigation */}
-            <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
-              <Breadcrumb>
-                <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
-                  <FaHome size={12} style={{ marginRight: '4px' }} />
-                  Home
-                </Breadcrumb.Item>
-                {experience.destination && experience.destination.name && (
-                  <Breadcrumb.Item
-                    linkAs={Link}
-                    linkProps={{ to: `/destinations/${experience.destination._id}` }}
-                  >
-                    {experience.destination.name}
-                  </Breadcrumb.Item>
-                )}
-                <Breadcrumb.Item active>
-                  {experience.name}
-                </Breadcrumb.Item>
-              </Breadcrumb>
-            </nav>
+            <Breadcrumb
+              items={
+                experience.destination && experience.destination.name
+                  ? [{ label: experience.destination.name, href: `/destinations/${experience.destination._id}` }]
+                  : []
+              }
+              currentPage={experience.name}
+              backTo={experience.destination ? `/destinations/${experience.destination._id}` : "/"}
+              backLabel={experience.destination ? experience.destination.name : "Home"}
+            />
 
             <Row>
               {/* Main Content Column (8 cols on lg+) */}
