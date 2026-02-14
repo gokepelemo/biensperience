@@ -1,5 +1,6 @@
 // Design System Components
 export { default as ActionsMenu } from './ActionsMenu';
+export { default as Breadcrumb } from './Breadcrumb';
 // Button Abstraction Layer
 // IMPORTANT: All button consumers should import from here, NOT from ../Button/Button
 // This enables zero-regression migration to Chakra UI

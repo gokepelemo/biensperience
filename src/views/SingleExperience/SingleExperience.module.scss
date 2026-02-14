@@ -56,6 +56,11 @@
   }
 }
 
+/* Mobile Breadcrumb (back arrow only - title rendered in view content) */
+.mobileBreadcrumb {
+  margin-bottom: $space-4;
+}
+
 /* Main container for the experience detail view */
 .experienceDetailContainer {
   min-height: 100vh;

@@ -5,6 +5,7 @@
  */
 
 import { Container, Row, Col } from 'react-bootstrap';
+import { Show, Hide } from '../../../components/Responsive';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import styles from '../SingleExperience.module.scss';
 
@@ -12,16 +13,28 @@ export default function SingleExperienceSkeleton() {
   return (
     <div className={styles.experienceDetailContainer}>
       <Container>
-        {/* Breadcrumb Skeleton */}
-        <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-            <SkeletonLoader variant="text" width="50px" height="14px" />
-            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>0/0</span>
-            <SkeletonLoader variant="text" width="80px" height="14px" />
-            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>0/0</span>
-            <SkeletonLoader variant="text" width="120px" height="14px" />
+        {/* Desktop Breadcrumb Skeleton */}
+        <Hide on="mobile">
+          <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              <SkeletonLoader variant="text" width="50px" height="var(--font-size-sm)" />
+              <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{'\u2002/\u2002'}</span>
+              <SkeletonLoader variant="text" width="90px" height="var(--font-size-sm)" />
+              <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{'\u2002/\u2002'}</span>
+              <SkeletonLoader variant="text" width="130px" height="var(--font-size-sm)" />
+            </div>
+          </nav>
+        </Hide>
+
+        {/* Mobile Breadcrumb Skeleton (back arrow only - title is in view content) */}
+        <Show on="mobile">
+          <div className={styles.mobileBreadcrumb}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <SkeletonLoader variant="text" width="14px" height="14px" />
+              <SkeletonLoader variant="text" width="100px" height="var(--font-size-sm)" />
+            </div>
           </div>
-        </nav>
+        </Show>
 
         <Row>
           {/* Main Content Column (8 cols on lg+) */}

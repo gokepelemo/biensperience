@@ -48,6 +48,11 @@
   }
 }
 
+/* Mobile Breadcrumb (back arrow only - title rendered in view content) */
+.mobileBreadcrumb {
+  margin-bottom: $space-4;
+}
+
 /* Hero Image Section */
 .heroSection {
   border-radius: var(--radius-xl);

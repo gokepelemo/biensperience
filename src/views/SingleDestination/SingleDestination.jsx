@@ -18,12 +18,12 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildDestinationSchema } from '../../utilities/schema-utils';
 import { isOwner, canEdit as canEditPermission } from "../../utilities/permissions";
-import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState, Alert } from "../../components/design-system";
+import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState, Alert, Breadcrumb, Show, Hide } from "../../components/design-system";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from "react-icons/fa";
 import MetricsBar from "../../components/MetricsBar/MetricsBar";
-import { Row, Col, Card, Breadcrumb } from "react-bootstrap";
+import { Row, Col, Card } from "react-bootstrap";
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
@@ -486,14 +486,28 @@ export default function SingleDestination() {
     return (
       <div className={styles.destinationContainer}>
         <Container>
-          {/* Breadcrumb skeleton */}
-          <div style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-            <SkeletonLoader variant="text" width="50px" height="16px" />
-            <span style={{ color: 'var(--color-text-muted)' }}>0/0</span>
-            <SkeletonLoader variant="text" width="90px" height="16px" />
-            <span style={{ color: 'var(--color-text-muted)' }}>0/0</span>
-            <SkeletonLoader variant="text" width="120px" height="16px" />
-          </div>
+          {/* Desktop Breadcrumb Skeleton */}
+          <Hide on="mobile">
+            <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                <SkeletonLoader variant="text" width="50px" height="var(--font-size-sm)" />
+                <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{'\u2002/\u2002'}</span>
+                <SkeletonLoader variant="text" width="100px" height="var(--font-size-sm)" />
+                <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{'\u2002/\u2002'}</span>
+                <SkeletonLoader variant="text" width="140px" height="var(--font-size-sm)" />
+              </div>
+            </nav>
+          </Hide>
+
+          {/* Mobile Breadcrumb Skeleton (back arrow only - title is in view content) */}
+          <Show on="mobile">
+            <div className={styles.mobileBreadcrumb}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <SkeletonLoader variant="text" width="14px" height="14px" />
+                <SkeletonLoader variant="text" width="100px" height="var(--font-size-sm)" />
+              </div>
+            </div>
+          </Show>
 
           {/* Hero section skeleton */}
           <SkeletonLoader variant="rectangle" width="100%" height="450px" className={styles.skeletonHero} />
@@ -632,20 +646,12 @@ export default function SingleDestination() {
       <div className={styles.destinationContainer}>
         <Container>
           {/* Breadcrumb Navigation */}
-          <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
-            <Breadcrumb>
-              <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
-                <FaHome size={12} style={{ marginRight: '4px' }} />
-                Home
-              </Breadcrumb.Item>
-              <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/destinations" }}>
-                Destinations
-              </Breadcrumb.Item>
-              <Breadcrumb.Item active>
-                {destination.name}
-              </Breadcrumb.Item>
-            </Breadcrumb>
-          </nav>
+          <Breadcrumb
+            items={[]}
+            currentPage={destination.name}
+            backTo="/destinations"
+            backLabel="Destinations"
+          />
 
           {/* Hero Image Section */}
           <div className={styles.heroSection}>
