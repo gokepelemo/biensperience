@@ -362,13 +362,15 @@ export default function NavBar() {
             />
           </NavLink>
           {/* Brand text - scrolls to top when showing h1, navigates home otherwise */}
+          {/* Desktop: shows entity name when scrolled. Mobile: always shows "Biensperience" */}
           <button
             type="button"
             className={`${styles.brandText} ${styles.brandTextButton}`}
             onClick={handleBrandClick}
             aria-label={isShowingH1 ? lang.current.aria.scrollToTop : lang.current.aria.biensperienceHome}
           >
-            {getBrandText()}
+            <span className={styles.brandTextDesktop}>{getBrandText()}</span>
+            <span className={styles.brandTextMobile}>Biensperience</span>
           </button>
         </div>
 
@@ -384,6 +386,20 @@ export default function NavBar() {
         </button>
 
         <div ref={collapseRef} className={`collapse navbar-collapse ${styles.navbarCollapse}`} id="navbarText">
+          {/* Mobile-only: Entity title shown in hamburger menu when scrolled past h1 */}
+          {isShowingH1 && (
+            <button
+              type="button"
+              className={styles.mobileEntityTitle}
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                closeNavigationMenus();
+              }}
+              aria-label={lang.current.aria.scrollToTop}
+            >
+              {h1Text}
+            </button>
+          )}
           <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex" role="menubar">
             <li className="nav-item" role="none">
               <NavLink

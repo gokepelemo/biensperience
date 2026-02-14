@@ -24,24 +24,24 @@
   min-height: 56px;
   height: 56px;
 
-  /* Center all navbar items vertically using flexbox */
+  /* Align all navbar items by text baseline for consistent typography */
   :global(.container-fluid) {
     display: flex;
-    align-items: center; /* Vertical center alignment */
+    align-items: baseline; /* Baseline alignment for mixed font sizes */
     height: 100%;
   }
 
-  /* Desktop: Ensure navbar-collapse centers items horizontally */
+  /* Desktop: Ensure navbar-collapse aligns items by baseline */
   :global(.navbar-collapse) {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     height: 100%;
   }
 
-  /* Desktop: Ensure navbar-nav ul centers items vertically */
+  /* Desktop: Ensure navbar-nav ul aligns items by baseline */
   :global(.navbar-nav) {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     height: 100%;
   }
 }
@@ -153,7 +153,7 @@
 /* Navbar brand wrapper for dynamic text */
 .navbarBrandWrapper {
   display: flex;
-  align-items: center; /* Vertical center alignment */
+  align-items: baseline; /* Baseline alignment to match nav items */
   height: 100%; /* Match navbar height for consistent alignment */
   gap: $space-1; /* Tight gap between logo and text */
 
@@ -166,6 +166,7 @@
 .logoLink {
   display: flex;
   align-items: center;
+  align-self: center; /* Keep logo vertically centered while siblings use baseline */
   text-decoration: none;
   height: 100%; /* Match parent height */
 }
@@ -177,9 +178,55 @@
   color: white !important;
   font-weight: $font-weight-bold;
   opacity: 1; /* Site title is always full opacity */
-  /* Use same font size as nav-links for consistency */
-  font-size: var(--font-size-base);
+  /* Brand name should be larger than nav links for visual hierarchy */
+  font-size: var(--font-size-lg);
   line-height: 1;
+}
+
+/* Desktop: show dynamic text (entity name or Biensperience) */
+.brandTextDesktop {
+  display: inline;
+
+  @media (max-width: 991.98px) {
+    display: none;
+  }
+}
+
+/* Mobile: always show "Biensperience" */
+.brandTextMobile {
+  display: none;
+
+  @media (max-width: 991.98px) {
+    display: inline;
+  }
+}
+
+/* Mobile entity title inside hamburger menu - shown when scrolled past h1 */
+.mobileEntityTitle {
+  display: none; /* Hidden on desktop */
+  width: 100%;
+  padding: $space-3 $space-4;
+  margin-bottom: $space-2;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-radius: $radius-md;
+  color: white;
+  font-size: var(--font-size-base);
+  font-weight: $font-weight-bold;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  @include transition-all($transition-normal);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (max-width: 991.98px) {
+    display: block;
+  }
 }
 
 /* Brand text as clickable button - matches nav-link styling exactly */
@@ -189,7 +236,7 @@
   padding: $space-2 $space-2; /* Reduced padding to bring closer to logo */
   margin: 0; /* No margin - gap handled by wrapper */
   cursor: pointer;
-  font-size: var(--font-size-base); /* Same as nav-links */
+  font-size: var(--font-size-lg); /* Brand name larger than nav links for hierarchy */
   font-family: inherit;
   line-height: 1;
   /* Match nav-link height for alignment */
@@ -246,7 +293,7 @@
     white-space: nowrap; /* Prevent text from wrapping */
     overflow: hidden; /* Hide overflow text */
     text-overflow: ellipsis; /* Show ellipsis for long text */
-    font-size: var(--font-size-lg); /* Larger, more legible font on mobile */
+    font-size: var(--font-size-xl); /* Larger, more legible font on mobile */
   }
 
   .logoLink {
@@ -323,7 +370,7 @@
   color: white !important;
   opacity: 0.75;
   font-weight: $font-weight-bold; /* All nav items bold */
-  font-size: var(--font-size-base); /* Consistent with brand text */
+  font-size: var(--font-size-sm); /* Smaller than brand text for visual hierarchy */
   line-height: 1;
   /* WCAG 2.1 Level AA minimum touch target - fixed height for alignment */
   height: var(--btn-height-md);
@@ -378,7 +425,7 @@
   border: none;
   background: transparent;
   font-weight: $font-weight-bold;
-  font-size: var(--font-size-base); /* Consistent with nav-links and brand text */
+  font-size: var(--font-size-sm); /* Match nav-links, smaller than brand text */
   line-height: 1;
   @include inline-stack($space-2);
   @include transition-all(var(--btn-transition));

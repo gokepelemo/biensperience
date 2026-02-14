@@ -14,12 +14,12 @@ export default function SingleExperienceSkeleton() {
       <Container>
         {/* Breadcrumb Skeleton */}
         <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <SkeletonLoader variant="text" width="50px" height="16px" />
-            <span style={{ color: 'var(--color-text-muted)' }}>/</span>
-            <SkeletonLoader variant="text" width="80px" height="16px" />
-            <span style={{ color: 'var(--color-text-muted)' }}>/</span>
-            <SkeletonLoader variant="text" width="120px" height="16px" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+            <SkeletonLoader variant="text" width="50px" height="14px" />
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>0/0</span>
+            <SkeletonLoader variant="text" width="80px" height="14px" />
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>0/0</span>
+            <SkeletonLoader variant="text" width="120px" height="14px" />
           </div>
         </nav>
 

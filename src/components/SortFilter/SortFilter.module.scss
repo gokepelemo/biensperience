@@ -78,29 +78,27 @@
 
 .sfField {
   width: 100%;
+  min-width: 0; /* Prevent grid blowout from content */
+  box-sizing: border-box;
+
+  /* Ensure all form elements inside stretch to equal width */
+  :global(.form-group),
+  > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  select,
+  input {
+    width: 100%;
+    box-sizing: border-box;
+  }
 }
 
-/* Type filter with inline clear button */
+/* Type filter wrapper */
 .sfTypeWithClear {
   position: relative;
-
-  :global(.type-clear-btn) {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    border: none;
-    background: transparent;
-    font-size: 18px;
-    line-height: 1;
-    padding: 4px 8px;
-    cursor: pointer;
-    color: var(--color-text-secondary);
-
-    &:hover {
-      color: var(--color-danger);
-    }
-  }
+  width: 100%;
 }
 
 :global(.autocomplete-wrapper) {

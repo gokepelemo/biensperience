@@ -104,13 +104,13 @@ export default function SortFilter({
             <FormGroup>
               <FormLabel htmlFor="dest-filter-autocomplete">{lang.current.sortFilter.destination}</FormLabel>
                 <Autocomplete
-                placeholder={lang.current.sortFilter.searchDestinations}
-                items={destinations}
-                entityType="destination"
-                multi={destinationMulti}
-                selected={destinationSelected}
-                keepDropdownOpenOnSelect={false}
-                onSelect={(item) => {
+                  placeholder={lang.current.sortFilter.searchDestinations}
+                  items={destinations}
+                  entityType="destination"
+                  multi={destinationMulti}
+                  selected={destinationSelected}
+                  keepDropdownOpenOnSelect={false}
+                  onSelect={(item) => {
                   // Support multi-select where `item` may be an array of items
                   if (Array.isArray(item)) {
                     if (onDestinationChange) onDestinationChange(item, null);
@@ -139,56 +139,40 @@ export default function SortFilter({
           <div className={styles.sfField} key="type">
             <FormGroup>
               <FormLabel htmlFor="type-filter-autocomplete">{lang.current.sortFilter.type}</FormLabel>
-                <div className={styles.sfTypeWithClear}>
-                      <Autocomplete
-                        placeholder={lang.current.sortFilter.searchTypes}
-                        items={types}
-                        entityType="category"
-                        multi={false}
-                        selected={typeSelected}
-                        value={typeDisplayValue || ''}
-                        onChange={(e) => {
-                          // Propagate input changes as searches to parent
-                          if (typeof onTypeSearch === 'function') onTypeSearch(e.target.value);
-                        }}
-                        onSelect={(item) => {
-                          // Single-select: item will be an object or a string
-                          if (!item || item === 'all') {
-                            if (onTypeChange) onTypeChange('all', null);
-                            return;
-                          }
-                          if (typeof item === 'string') {
-                            if (onTypeChange) onTypeChange(item, { name: item });
-                            return;
-                          }
-                          // object with name
-                          if (item && item.name) {
-                            if (onTypeChange) onTypeChange(item.name, item);
-                          }
-                        }}
-                        onSearch={(term) => {
-                          if (typeof onTypeSearch === 'function') onTypeSearch(term);
-                        }}
-                        displayValue={typeDisplayValue}
-                        disableFilter={false}
-                        loading={typeLoading}
-                        emptyMessage={lang.current.sortFilter.noTypes}
-                      />
-                  {/* Clear button shown when there is a display value */}
-                  {typeDisplayValue ? (
-                    <button
-                      type="button"
-                      className="type-clear-btn"
-                      aria-label={lang.current.sortFilter.clearTypeFilter}
-                      onClick={() => {
-                        if (typeof onTypeChange === 'function') onTypeChange('all', null);
-                        if (typeof onTypeSearch === 'function') onTypeSearch('');
-                      }}
-                    >
-                      ×
-                    </button>
-                  ) : null}
-                </div>
+                <Autocomplete
+                  placeholder={lang.current.sortFilter.searchTypes}
+                  items={types}
+                  entityType="category"
+                  multi={false}
+                  selected={typeSelected}
+                  value={typeDisplayValue || ''}
+                  onChange={(e) => {
+                    // Propagate input changes as searches to parent
+                    if (typeof onTypeSearch === 'function') onTypeSearch(e.target.value);
+                  }}
+                  onSelect={(item) => {
+                    // Single-select: item will be an object or a string
+                    if (!item || item === 'all') {
+                      if (onTypeChange) onTypeChange('all', null);
+                      return;
+                    }
+                    if (typeof item === 'string') {
+                      if (onTypeChange) onTypeChange(item, { name: item });
+                      return;
+                    }
+                    // object with name
+                    if (item && item.name) {
+                      if (onTypeChange) onTypeChange(item.name, item);
+                    }
+                  }}
+                  onSearch={(term) => {
+                    if (typeof onTypeSearch === 'function') onTypeSearch(term);
+                  }}
+                  displayValue={typeDisplayValue}
+                  disableFilter={false}
+                  loading={typeLoading}
+                  emptyMessage={lang.current.sortFilter.noTypes}
+                />
             </FormGroup>
           </div>
         );

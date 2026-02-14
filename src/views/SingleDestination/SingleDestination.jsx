@@ -489,9 +489,9 @@ export default function SingleDestination() {
           {/* Breadcrumb skeleton */}
           <div style={{ marginBottom: 'var(--space-4)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
             <SkeletonLoader variant="text" width="50px" height="16px" />
-            <span style={{ color: 'var(--color-text-muted)' }}>/</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>0/0</span>
             <SkeletonLoader variant="text" width="90px" height="16px" />
-            <span style={{ color: 'var(--color-text-muted)' }}>/</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>0/0</span>
             <SkeletonLoader variant="text" width="120px" height="16px" />
           </div>
 
