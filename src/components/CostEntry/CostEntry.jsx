@@ -341,6 +341,7 @@ export default function CostEntry({
               value={costData.category}
               onChange={handleChange('category')}
               aria-label={costStrings.category}
+              className={styles.selectControl}
             >
               <option value="">{costStrings.categoryPlaceholder}</option>
               {CATEGORY_ORDER.map(categoryKey => {
@@ -389,6 +390,7 @@ export default function CostEntry({
               id={`${formId}-collaborator`}
               value={costData.collaborator}
               onChange={handleChange('collaborator')}
+              className={styles.selectControl}
             >
               <option value="">{costStrings.selectCollaboratorOptional || 'Select Collaborator (optional)'}</option>
               {collaborators.map(collab => (
@@ -417,6 +419,7 @@ export default function CostEntry({
               id={`${formId}-planItem`}
               value={costData.plan_item}
               onChange={handleChange('plan_item')}
+              className={styles.selectControl}
             >
               <option value="">{costStrings.assignedToPlanItemPlaceholder}</option>
               {planItems.map(item => (

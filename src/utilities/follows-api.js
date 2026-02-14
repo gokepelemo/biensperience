@@ -101,12 +101,15 @@ export async function removeFollower(followerId, removedById = null) {
 /**
  * Check if current user is following a specific user
  * @param {string} userId - ID of user to check
- * @returns {Promise<boolean>} Whether current user follows the specified user
+ * @returns {Promise<{isFollowing:boolean,isPending:boolean}>} Follow status object
  */
 export async function getFollowStatus(userId) {
   try {
     const result = await sendRequest(`${BASE_URL}/${userId}/status`);
-    return result.isFollowing;
+    return {
+      isFollowing: result.isFollowing,
+      isPending: result.isPending || false
+    };
   } catch (error) {
     logger.error('Error getting follow status', { error: error.message, userId });
     throw error;
@@ -202,6 +205,95 @@ export async function getFollowFeed(options = {}) {
     return await sendRequest(`${BASE_URL}/feed?${params}`);
   } catch (error) {
     logger.error('Error getting follow feed', { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Get pending follow requests for current user
+ * @param {Object} options - Pagination options
+ * @param {number} [options.limit=20] - Number of requests to return
+ * @param {number} [options.skip=0] - Number of requests to skip
+ * @returns {Promise<Object>} Object with requests array and pagination info
+ */
+export async function getFollowRequests(options = {}) {
+  try {
+    const { limit = 20, skip = 0 } = options;
+    const params = new URLSearchParams({ limit, skip });
+
+    return await sendRequest(`${BASE_URL}/requests?${params}`);
+  } catch (error) {
+    logger.error('Error getting follow requests', { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Get count of pending follow requests
+ * @returns {Promise<number>} Count of pending requests
+ */
+export async function getFollowRequestCount() {
+  try {
+    const result = await sendRequest(`${BASE_URL}/requests/count`);
+    return result.count;
+  } catch (error) {
+    logger.error('Error getting follow request count', { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Accept a follow request
+ * @param {string} requesterId - ID of user who requested to follow
+ * @returns {Promise<Object>} Result with follow details
+ */
+export async function acceptFollowRequest(requesterId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/requests/${requesterId}/accept`, 'PUT');
+
+    logger.info('Follow request accepted', { requesterId });
+
+    // Emit event via event bus
+    try {
+      broadcastEvent('follow:request:accepted', {
+        follow: result.follow,
+        followId: result.follow?._id,
+        followerId: requesterId
+      });
+    } catch (e) {
+      // ignore
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('Error accepting follow request', { error: error.message, requesterId });
+    throw error;
+  }
+}
+
+/**
+ * Reject/ignore a follow request
+ * @param {string} requesterId - ID of user who requested to follow
+ * @returns {Promise<Object>} Success result
+ */
+export async function rejectFollowRequest(requesterId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/requests/${requesterId}`, 'DELETE');
+
+    logger.info('Follow request rejected', { requesterId });
+
+    // Emit event via event bus
+    try {
+      broadcastEvent('follow:request:rejected', {
+        requesterId
+      });
+    } catch (e) {
+      // ignore
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('Error rejecting follow request', { error: error.message, requesterId });
     throw error;
   }
 }

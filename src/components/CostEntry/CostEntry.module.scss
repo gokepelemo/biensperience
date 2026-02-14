@@ -135,6 +135,29 @@
 }
 
 // ============================================================================
+// SELECT CONTROL - Shared styling for all dropdowns
+// ============================================================================
+
+.selectControl {
+  min-height: var(--btn-height-md);
+  padding: $space-2 $space-3;
+  font-size: $font-size-base;
+  font-weight: $font-weight-medium;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-medium);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  @include transition-all($transition-fast);
+
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+    outline: none;
+  }
+}
+
+// ============================================================================
 // CATEGORY & DATE ROW - Side by side on desktop
 // ============================================================================
 
@@ -142,6 +165,16 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: $space-3;
+  align-items: start;
+
+  // Ensure both select and date inputs match in height
+  select,
+  input[type="date"] {
+    min-height: var(--btn-height-md);
+    padding: $space-2 $space-3;
+    font-size: $font-size-base;
+    font-weight: $font-weight-medium;
+  }
 
   // Mobile: Stack vertically
   @include breakpoint-max(sm) {
@@ -296,7 +329,8 @@
 // ============================================================================
 
 @media (prefers-color-scheme: dark) {
-  .currencySelect select {
+  .currencySelect select,
+  .selectControl {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-medium);
     color: var(--color-text-primary);
@@ -317,7 +351,8 @@
 }
 
 [data-theme="dark"] {
-  .currencySelect select {
+  .currencySelect select,
+  .selectControl {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-medium);
     color: var(--color-text-primary);

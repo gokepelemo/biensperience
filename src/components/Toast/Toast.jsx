@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { Box, Button, HStack, VStack, CloseButton } from '@chakra-ui/react';
-import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { Box, Button, HStack, VStack, IconButton } from '@chakra-ui/react';
+import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import styles from './Toast.module.scss';
 
@@ -153,33 +153,18 @@ export default function Toast({
       maxW="500px"
       borderRadius="var(--radius-md)"
       boxShadow="var(--shadow-md)"
-      overflow="hidden"
+      overflow="visible"
       position="relative"
     >
-      {/* Close button */}
-      {showCloseButton && (
-        <CloseButton
-          position="absolute"
-          top="0.5rem"
-          right="0.5rem"
-          onClick={handleClose}
-          aria-label={lang.current.toast.close}
-          color={textColor}
-          opacity={0.8}
-          _hover={{ opacity: 1 }}
-          zIndex={2}
-        />
-      )}
-
-      <Box p="var(--space-3) var(--space-4)" pr={showCloseButton ? '3rem' : 'var(--space-4)'}>
-        <HStack align="flex-start" gap="var(--space-2)">
+      <Box p="var(--space-3) var(--space-4)">
+        <HStack align="center" gap="var(--space-3)">
           {/* Icon */}
-          <Box className={styles.toastIconWrapper} fontSize="1.2rem" mt="2px">
+          <Box className={styles.toastIconWrapper} fontSize="1.25rem" display="flex" alignItems="center" flexShrink={0}>
             <IconComponent />
           </Box>
 
           {/* Content */}
-          <VStack align="stretch" flex="1" gap="var(--space-2)">
+          <VStack align="stretch" flex="1" gap="var(--space-2)" minW="0">
             {/* Header */}
             {header && (
               <Box
@@ -232,6 +217,30 @@ export default function Toast({
               </HStack>
             )}
           </VStack>
+
+          {/* Close button - inside HStack for vertical alignment */}
+          {showCloseButton && (
+            <IconButton
+              onClick={handleClose}
+              aria-label={lang.current.toast.close}
+              variant="ghost"
+              size="xs"
+              color={textColor}
+              opacity={0.8}
+              minW="auto"
+              h="auto"
+              p="1"
+              borderRadius="var(--radius-sm)"
+              _hover={{
+                opacity: 1,
+                bg: 'whiteAlpha.300',
+              }}
+              alignSelf="center"
+              flexShrink={0}
+            >
+              <FaTimes size={12} />
+            </IconButton>
+          )}
         </HStack>
       </Box>
     </Box>

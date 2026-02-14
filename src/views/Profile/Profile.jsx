@@ -93,6 +93,7 @@ export default function Profile() {
 
   // Follow feature state
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isPending, setIsPending] = useState(false); // Follow request pending (for private profiles)
   const [followLoading, setFollowLoading] = useState(false);
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [followRelationship, setFollowRelationship] = useState(null); // { isFollowing, isFollowedBy, isMutual }
@@ -141,6 +142,7 @@ export default function Profile() {
       setCreatedExperiencesMeta(null);
       setFollowCounts({ followers: 0, following: 0 });
       setIsFollowing(false);
+      setIsPending(false);
       setActivityFeedType('own');
       setFollowsList([]);
       setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
@@ -933,15 +935,17 @@ export default function Profile() {
       const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
 
       try {
-        // Get full relationship (isFollowing, isFollowedBy, isMutual)
-        const [relationship, counts] = await Promise.all([
+        // Get full relationship (isFollowing, isFollowedBy, isMutual) and pending status
+        const [relationship, counts, status] = await Promise.all([
           getFollowRelationship(userId),
-          getFollowCounts(userId)
+          getFollowCounts(userId),
+          getFollowStatus(userId)
         ]);
 
         if (isStale()) return;
 
         setIsFollowing(Boolean(relationship?.isFollowing));
+        setIsPending(Boolean(status?.isPending));
         setFollowRelationship(relationship || null);
         setFollowCounts(counts);
       } catch (err) {
@@ -1081,23 +1085,41 @@ export default function Profile() {
       }
     };
 
+    // Handle follow request accepted (when profile owner accepts a follow request)
+    const handleFollowRequestAccepted = (event) => {
+      const followerId = event.followerId || event.payload?.followerId;
+      const followingId = event.followingId || event.payload?.followingId;
+
+      // If the current user's follow request to this profile was accepted
+      if (followerId === user._id && followingId === userId) {
+        setIsFollowing(true);
+        setIsPending(false);
+        setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+        logger.debug('[Profile] Follow request accepted', { followerId, followingId });
+      }
+    };
+
     // Subscribe to both local event bus and WebSocket events
     const unsubCreate = eventBus.subscribe('follow:created', handleFollowCreated);
     const unsubDelete = eventBus.subscribe('follow:deleted', handleFollowDeleted);
     const unsubRemoved = eventBus.subscribe('follower:removed', handleFollowerRemoved);
+    const unsubAccepted = eventBus.subscribe('follow:request:accepted', handleFollowRequestAccepted);
 
     // WebSocket subscriptions for remote events
     const unsubWsCreate = wsSubscribe?.('follow:created', handleFollowCreated);
     const unsubWsDelete = wsSubscribe?.('follow:deleted', handleFollowDeleted);
     const unsubWsRemoved = wsSubscribe?.('follower:removed', handleFollowerRemoved);
+    const unsubWsAccepted = wsSubscribe?.('follow:request:accepted', handleFollowRequestAccepted);
 
     return () => {
       unsubCreate();
       unsubDelete();
       unsubRemoved();
+      unsubAccepted();
       unsubWsCreate?.();
       unsubWsDelete?.();
       unsubWsRemoved?.();
+      unsubWsAccepted?.();
     };
   }, [userId, user._id, wsSubscribe]);
 
@@ -1113,10 +1135,21 @@ export default function Profile() {
 
     setFollowLoading(true);
     try {
-      await followUser(userId, user._id);
-      setIsFollowing(true);
-      // Follow count updates are handled via the `follow:created` event emitted by `followUser()`.
-      success(lang.current.success.nowFollowing);
+      const result = await followUser(userId, user._id);
+
+      // Check if this is a pending request (for private profiles)
+      const profileName = currentProfile?.name ? getFirstName(currentProfile.name) : 'this user';
+      if (result.isPending) {
+        setIsPending(true);
+        setIsFollowing(false);
+        success(`Follow request sent to ${profileName}`, { showCloseButton: false });
+      } else {
+        setIsFollowing(true);
+        setIsPending(false);
+        // Follow count updates are handled via the `follow:created` event emitted by `followUser()`.
+        success(`Now following ${profileName}`, { showCloseButton: false });
+      }
+
       try {
         const rel = await getFollowRelationship(userId);
         setFollowRelationship(rel || null);
@@ -1129,7 +1162,7 @@ export default function Profile() {
     } finally {
       setFollowLoading(false);
     }
-  }, [userId, user._id, followLoading, success, showError]);
+  }, [userId, user._id, currentProfile, followLoading, success, showError]);
 
   // Handle unfollow button click
   const handleUnfollow = useCallback(async () => {
@@ -1146,7 +1179,8 @@ export default function Profile() {
       await unfollowUser(userId, user._id);
       setIsFollowing(false);
       // Follow count updates are handled via the `follow:deleted` event emitted by `unfollowUser()`.
-      success(lang.current.success.unfollowed);
+      const profileName = currentProfile?.name ? getFirstName(currentProfile.name) : 'this user';
+      success(`Unfollowed ${profileName}`, { showCloseButton: false });
       try {
         const rel = await getFollowRelationship(userId);
         setFollowRelationship(rel || null);
@@ -1159,7 +1193,7 @@ export default function Profile() {
     } finally {
       setFollowLoading(false);
     }
-  }, [userId, user._id, followLoading, success, showError]);
+  }, [userId, user._id, currentProfile, followLoading, success, showError]);
 
   // Track which follow actions are in progress (by user ID)
   const [followActionInProgress, setFollowActionInProgress] = useState({});
@@ -1557,6 +1591,39 @@ export default function Profile() {
       }
     };
 
+    const profileFirstName = currentProfile?.name ? getFirstName(currentProfile.name) : 'This user';
+
+    // Handle withdrawing a pending follow request
+    const handleWithdrawRequest = async () => {
+      if (followLoading || !userId) return;
+      setFollowLoading(true);
+      try {
+        await unfollowUser(userId, user._id);
+        setIsPending(false);
+        setIsFollowing(false);
+        success('Follow request withdrawn');
+      } catch (err) {
+        const message = handleError(err, { context: 'Withdraw follow request' });
+        showError(message || 'Failed to withdraw follow request');
+      } finally {
+        setFollowLoading(false);
+      }
+    };
+
+    // Determine what to show based on follow state
+    let primaryActionContent = null;
+    let onPrimaryActionHandler = null;
+
+    if (isPending) {
+      // Request already sent - show disabled state
+      primaryActionContent = 'Requested';
+      onPrimaryActionHandler = null; // No action, effectively disabled
+    } else if (!isFollowing) {
+      // Not following - show follow button
+      primaryActionContent = `Follow ${profileFirstName}`;
+      onPrimaryActionHandler = handleFollow;
+    }
+
     return (
       <div style={{ padding: 'var(--space-20) 0' }}>
         <Container>
@@ -1564,11 +1631,35 @@ export default function Profile() {
             variant="users"
             icon="🔒"
             title={lang.current.profile.privateProfileTitle}
-            description={lang.current.profile.privateProfileDescription}
-            primaryAction={<><FaArrowLeft /> Back</>}
-            onPrimaryAction={handleBack}
+            description={`${profileFirstName}'s profile is private.`}
+            primaryAction={primaryActionContent}
+            onPrimaryAction={onPrimaryActionHandler}
+            secondaryAction={<><FaArrowLeft /> Back</>}
+            onSecondaryAction={handleBack}
             size="lg"
           />
+          {isPending && (
+            <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', marginTop: 'var(--space-4)' }}>
+              Your follow request is pending approval.{' '}
+              <button
+                type="button"
+                onClick={handleWithdrawRequest}
+                disabled={followLoading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: 'var(--color-primary)',
+                  textDecoration: 'underline',
+                  cursor: followLoading ? 'not-allowed' : 'pointer',
+                  font: 'inherit',
+                  opacity: followLoading ? 0.6 : 1,
+                }}
+              >
+                {followLoading ? 'Withdrawing...' : 'Withdraw Request'}
+              </button>
+            </p>
+          )}
         </Container>
       </div>
     );
@@ -1829,8 +1920,8 @@ export default function Profile() {
                       <FaEnvelope /> {openingDirectMessage ? 'Opening…' : 'Message'}
                     </Button>
                   )}
-                  {/* Follow/Unfollow buttons: show for mutual follows only */}
-                  {!isOwner && followRelationship?.isMutual && (
+                  {/* Follow/Unfollow buttons: show for any non-owner */}
+                  {!isOwner && (
                     <>
                       {isFollowing ? (
                         <Button
@@ -1843,6 +1934,15 @@ export default function Profile() {
                           className={styles.followButton}
                         >
                           {followLoading ? lang.current.loading.default : followButtonHovered ? 'Unfollow' : 'Following'}
+                        </Button>
+                      ) : isPending ? (
+                        <Button
+                          variant="outline"
+                          style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
+                          disabled={true}
+                          className={styles.followButton}
+                        >
+                          Requested
                         </Button>
                       ) : (
                         <Button

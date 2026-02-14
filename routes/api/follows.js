@@ -14,6 +14,12 @@ const { modificationLimiter } = require('../../config/rateLimiters');
 // Feed - Activity from users you follow (must be before /:userId routes)
 router.get('/feed', ensureLoggedIn, followsCtrl.getFeed);
 
+// Follow requests endpoints (must be before /:userId routes)
+router.get('/requests', ensureLoggedIn, followsCtrl.getFollowRequests);
+router.get('/requests/count', ensureLoggedIn, followsCtrl.getFollowRequestCount);
+router.put('/requests/:followerId/accept', ensureLoggedIn, modificationLimiter, followsCtrl.acceptFollowRequest);
+router.delete('/requests/:followerId', ensureLoggedIn, modificationLimiter, followsCtrl.rejectFollowRequest);
+
 // Follow/Unfollow a user
 router.post('/:userId', ensureLoggedIn, modificationLimiter, followsCtrl.followUser);
 router.delete('/:userId', ensureLoggedIn, modificationLimiter, followsCtrl.unfollowUser);

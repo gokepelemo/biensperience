@@ -9,8 +9,11 @@ import { useDestinationWizard } from "../../contexts/DestinationWizardContext";
 import SearchBar from "../SearchBar/SearchBar";
 import ActionButtons from "../ActionButtons/ActionButtons";
 import BiensperienceLogo from "../BiensperienceLogo/BiensperienceLogo";
+import FollowerRequestsModal from "../FollowerRequestsModal";
+import { getFollowRequestCount } from "../../utilities/follows-api";
+import { eventBus } from "../../utilities/event-bus";
 import { lang } from "../../lang.constants";
-import { FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar, FaSignOutAlt } from "react-icons/fa";
+import { FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar, FaSignOutAlt, FaUserPlus } from "react-icons/fa";
 
 export default function NavBar() {
   const collapseRef = useRef(null);
@@ -24,6 +27,13 @@ export default function NavBar() {
   const { openExperienceWizard } = useExperienceWizard();
   const { openDestinationWizard } = useDestinationWizard();
   const [logoHovered, setLogoHovered] = useState(false);
+
+  // Follower requests state
+  const [showFollowerRequests, setShowFollowerRequests] = useState(false);
+  const [followerRequestCount, setFollowerRequestCount] = useState(0);
+
+  // Check if user has private profile
+  const hasPrivateProfile = user?.preferences?.profileVisibility === 'private';
 
   const {
     isScrolled,
@@ -148,6 +158,45 @@ export default function NavBar() {
   function handleLogOut() {
     logoutUser();
   }
+
+  // Handler for modal count updates
+  const handleRequestCountChange = useCallback((count) => {
+    setFollowerRequestCount(count);
+  }, []);
+
+  // Fetch follower request count for private profiles
+  useEffect(() => {
+    if (!user || !hasPrivateProfile) {
+      setFollowerRequestCount(0);
+      return;
+    }
+
+    const fetchCount = async () => {
+      try {
+        const count = await getFollowRequestCount();
+        setFollowerRequestCount(count);
+      } catch (err) {
+        // Silent fail - count badge just won't show
+      }
+    };
+
+    fetchCount();
+
+    // Subscribe to follow request events
+    const handleNewRequest = () => fetchCount();
+    const handleRequestAccepted = () => setFollowerRequestCount(prev => Math.max(0, prev - 1));
+    const handleRequestRejected = () => setFollowerRequestCount(prev => Math.max(0, prev - 1));
+
+    const unsub1 = eventBus.subscribe('follow:request:created', handleNewRequest);
+    const unsub2 = eventBus.subscribe('follow:request:accepted', handleRequestAccepted);
+    const unsub3 = eventBus.subscribe('follow:request:rejected', handleRequestRejected);
+
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+    };
+  }, [user, hasPrivateProfile]);
 
   useEffect(() => {
     const collapseEl = collapseRef.current;
@@ -418,6 +467,25 @@ export default function NavBar() {
                     <span>Invites</span>
                   </NavLink>
                 </li>
+                {hasPrivateProfile && (
+                  <li role="none">
+                    <button
+                      type="button"
+                      onClick={(e) => handleNavAction(e, { callback: () => setShowFollowerRequests(true) })}
+                      className={`dropdown-item ${styles.dropdownItem}`}
+                      role="menuitem"
+                      aria-label="View follower requests"
+                    >
+                      <FaUserPlus className={styles.dropdownIcon} />
+                      <span>Follower Requests</span>
+                      {followerRequestCount > 0 && (
+                        <span className={styles.badge} aria-label={`${followerRequestCount} pending`}>
+                          {followerRequestCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                )}
                 {isSuper() && (
                   <li role="none">
                     <NavLink
@@ -488,6 +556,13 @@ export default function NavBar() {
           )}
         </div>
       </div>
+
+      {/* Follower Requests Modal */}
+      <FollowerRequestsModal
+        show={showFollowerRequests}
+        onClose={() => setShowFollowerRequests(false)}
+        onRequestCountChange={handleRequestCountChange}
+      />
     </nav>
   );
 }

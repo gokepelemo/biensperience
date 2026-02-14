@@ -94,47 +94,64 @@ async function getDashboardStats(userId, targetCurrency = 'USD') {
       });
     }
 
-    // Calculate detailed plan metrics
-    let totalSpent = 0;
+    // Calculate detailed plan metrics with cost breakdown
+    // Estimated costs: from plan item cost_estimate snapshots (set when plan is created)
+    // Tracked costs: from plan.costs array (real expenses the user has recorded)
+    let totalEstimatedCost = 0;
+    let ownedPlansEstimatedCost = 0;
+    let sharedPlansEstimatedCost = 0;
+    let totalTrackedCost = 0;
+    let ownedPlansTrackedCost = 0;
+    let sharedPlansTrackedCost = 0;
     let ownedPlans = 0;
     let sharedPlans = 0;
     let completedPlans = 0;
 
     plans.forEach(plan => {
-      // Sum costs from plan.costs array with currency conversion
-      // Each cost entry has { cost, currency } fields
-      if (plan.costs && plan.costs.length > 0) {
-        totalSpent += calculateTotal(plan.costs, targetCurrency);
-      }
-
-      // Also sum costs from plan items (legacy support)
-      // Plan items have cost but no currency field - assume plan's currency or USD
-      const planCurrency = plan.currency || 'USD';
-      (plan.plan || []).forEach(item => {
-        if (item.cost && item.cost > 0) {
-          // Convert plan item cost from plan currency to target currency
-          const costObj = { cost: item.cost, currency: planCurrency };
-          totalSpent += calculateTotal([costObj], targetCurrency);
-        }
-      });
-
-      // Determine user's permission on the plan
+      // Determine user's permission on the plan first (needed for cost breakdown)
       const userPermission = (plan.permissions || []).find(p => p._id?.toString() === userId.toString() && p.entity === 'user');
-
-      backendLogger.debug('Processing plan for stats', {
-        planId: plan._id?.toString(),
-        planUser: plan.user?.toString(),
-        userPermission
-      });
+      let isOwned = false;
 
       if (userPermission) {
-        if (userPermission.type === 'owner') ownedPlans++;
+        if (userPermission.type === 'owner') { ownedPlans++; isOwned = true; }
         else if (userPermission.type === 'collaborator') sharedPlans++;
         // contributors don't count as active plans
       } else if (plan.user?.toString() === userId.toString()) {
         // fallback: direct owner
         ownedPlans++;
+        isOwned = true;
       }
+
+      // Sum tracked costs from plan.costs array (real expenses)
+      let planTrackedCost = 0;
+      if (plan.costs && plan.costs.length > 0) {
+        planTrackedCost = calculateTotal(plan.costs, targetCurrency);
+      }
+      totalTrackedCost += planTrackedCost;
+      if (isOwned) ownedPlansTrackedCost += planTrackedCost;
+      else sharedPlansTrackedCost += planTrackedCost;
+
+      // Sum estimated costs from plan items (cost_estimate snapshots)
+      const planCurrency = plan.currency || 'USD';
+      let planEstimatedCost = 0;
+      (plan.plan || []).forEach(item => {
+        if (item.cost && item.cost > 0) {
+          const costObj = { cost: item.cost, currency: planCurrency };
+          planEstimatedCost += calculateTotal([costObj], targetCurrency);
+        }
+      });
+      totalEstimatedCost += planEstimatedCost;
+      if (isOwned) ownedPlansEstimatedCost += planEstimatedCost;
+      else sharedPlansEstimatedCost += planEstimatedCost;
+
+      backendLogger.debug('Processing plan for stats', {
+        planId: plan._id?.toString(),
+        planUser: plan.user?.toString(),
+        userPermission,
+        isOwned,
+        planEstimatedCost,
+        planTrackedCost
+      });
 
       const totalItems = (plan.plan || []).length;
       const completedItems = (plan.plan || []).filter(i => i.complete).length;
@@ -149,7 +166,8 @@ async function getDashboardStats(userId, targetCurrency = 'USD') {
       ownedPlans,
       sharedPlans,
       completedPlans,
-      totalSpent,
+      totalEstimatedCost,
+      totalTrackedCost,
       targetCurrency
     });
 
@@ -179,7 +197,21 @@ async function getDashboardStats(userId, targetCurrency = 'USD') {
       },
       experiences: experienceCount || 0,
       destinations: destinationCount || 0,
-      totalSpent: totalSpent || 0,
+      // Keep totalSpent for backwards compatibility (now only tracked costs)
+      totalSpent: totalEstimatedCost || 0,
+      // New: detailed cost breakdown
+      costBreakdown: {
+        estimated: {
+          total: totalEstimatedCost || 0,
+          ownedPlans: ownedPlansEstimatedCost || 0,
+          sharedPlans: sharedPlansEstimatedCost || 0
+        },
+        tracked: {
+          total: totalTrackedCost || 0,
+          ownedPlans: ownedPlansTrackedCost || 0,
+          sharedPlans: sharedPlansTrackedCost || 0
+        }
+      },
       currency: targetCurrency
     };
   } catch (error) {
@@ -196,6 +228,10 @@ async function getDashboardStats(userId, targetCurrency = 'USD') {
       experiences: 0,
       destinations: 0,
       totalSpent: 0,
+      costBreakdown: {
+        estimated: { total: 0, ownedPlans: 0, sharedPlans: 0 },
+        tracked: { total: 0, ownedPlans: 0, sharedPlans: 0 }
+      },
       currency: targetCurrency
     };
   }

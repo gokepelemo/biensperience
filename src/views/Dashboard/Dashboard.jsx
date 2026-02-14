@@ -3,11 +3,10 @@ import { Card, Button } from 'react-bootstrap';
 import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign } from 'react-icons/fa';
 import { getDashboardData } from '../../utilities/dashboard-api';
 import { getUser } from '../../utilities/users-service';
-import { formatCostEstimate } from '../../utilities/cost-utils';
-import { formatCurrency } from '../../utilities/currency-utils';
+import { formatCostEstimate, getDashboardCostTooltip } from '../../utilities/cost-utils';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
-import { SkeletonLoader, Heading, Text } from '../../components/design-system';
+import { SkeletonLoader, Heading, Text, Container } from '../../components/design-system';
 import { eventBus } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import {
@@ -257,11 +256,19 @@ export default function Dashboard() {
                   icon={<FaMapMarkerAlt />}
                 />
                 <StatsCard
-                  label={lang.current.label.totalSpent}
+                  label={lang.current.label.estimatedCosts}
                   value={formatCostEstimate(totalSpentValue)}
                   color="var(--color-info)"
                   icon={<FaDollarSign />}
-                  tooltip={`${lang.current.label.trackedCosts}: ${formatCurrency(totalSpentValue)}`}
+                  tooltip={getDashboardCostTooltip(stats.costBreakdown, {
+                    currency: stats.currency || 'USD',
+                    strings: {
+                      explanation: lang.current.label.estimatedCostsExplanation,
+                      myPlans: lang.current.label.trackedCostsMyPlans,
+                      sharedPlans: lang.current.label.trackedCostsSharedPlans,
+                      trackedTotal: lang.current.label.trackedCostsTotal
+                    }
+                  })}
                 />
               </div>
 

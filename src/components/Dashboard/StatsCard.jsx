@@ -72,5 +72,5 @@ StatsCard.propTypes = {
   value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   color: PropTypes.string.isRequired,
   icon: PropTypes.element.isRequired,
-  tooltip: PropTypes.string,
+  tooltip: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
 };

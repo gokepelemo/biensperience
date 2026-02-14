@@ -43,9 +43,12 @@
 
 /* Toast icon wrapper styling */
 .toastIconWrapper {
-  @include flex-center-vertical;
-  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 /* Modern text styling - bold and contemporary */

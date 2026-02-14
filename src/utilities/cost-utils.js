@@ -409,6 +409,59 @@ export function getTotalCostTooltip(totalCost, costEntries = [], options = {}) {
   return tooltip;
 }
 
+/**
+ * Get the dashboard cost breakdown tooltip text.
+ * Shows the difference between estimated and tracked costs with a breakdown
+ * by owned plans vs collaborative (shared) plans.
+ *
+ * @param {Object} costBreakdown - Cost breakdown from dashboard API
+ * @param {Object} costBreakdown.estimated - Estimated costs breakdown
+ * @param {number} costBreakdown.estimated.total - Total estimated costs
+ * @param {number} costBreakdown.estimated.ownedPlans - Estimated costs from owned plans
+ * @param {number} costBreakdown.estimated.sharedPlans - Estimated costs from shared plans
+ * @param {Object} costBreakdown.tracked - Tracked costs breakdown
+ * @param {number} costBreakdown.tracked.total - Total tracked costs
+ * @param {number} costBreakdown.tracked.ownedPlans - Tracked costs from owned plans
+ * @param {number} costBreakdown.tracked.sharedPlans - Tracked costs from shared plans
+ * @param {Object} options - Formatting options
+ * @param {string} options.currency - Currency code (default: 'USD')
+ * @param {Object} options.strings - Language strings for labels
+ * @returns {string} Multi-line tooltip text with cost breakdown
+ */
+export function getDashboardCostTooltip(costBreakdown, options = {}) {
+  const { currency = 'USD', strings = {} } = options;
+  const symbol = getCurrencySymbol(currency);
+
+  const fmt = (value) => {
+    if (!value || value <= 0) return `${symbol}0`;
+    return `${symbol}${value.toLocaleString('en-US', {
+      minimumFractionDigits: value % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    })}`;
+  };
+
+  const explanation = strings.explanation || 'Estimated costs are forecasted budgets from experience creators. Tracked costs are real expenses you\'ve recorded.';
+  const myPlansLabel = strings.myPlans || 'My Plans';
+  const sharedPlansLabel = strings.sharedPlans || 'Shared Plans';
+  const trackedTotalLabel = strings.trackedTotal || 'Total Tracked';
+
+  const estimated = costBreakdown?.estimated || { total: 0, ownedPlans: 0, sharedPlans: 0 };
+  const tracked = costBreakdown?.tracked || { total: 0, ownedPlans: 0, sharedPlans: 0 };
+
+  let tooltip = explanation;
+
+  // Tracked costs breakdown
+  if (tracked.total > 0) {
+    tooltip += `\n\n${trackedTotalLabel}: ${fmt(tracked.total)}`;
+    tooltip += `\n${myPlansLabel}: ${fmt(tracked.ownedPlans)}`;
+    tooltip += `\n${sharedPlansLabel}: ${fmt(tracked.sharedPlans)}`;
+  } else {
+    tooltip += `\n\n${trackedTotalLabel}: ${fmt(0)}`;
+  }
+
+  return tooltip;
+}
+
 export default {
   formatCostEstimate,
   formatActualCost,
@@ -417,6 +470,7 @@ export default {
   getTrackedCostTooltip,
   getCostEstimateLabel,
   getTotalCostTooltip,
+  getDashboardCostTooltip,
   roundCostFriendly,
   getCostLevel,
   getDollarSigns

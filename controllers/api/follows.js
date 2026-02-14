@@ -129,22 +129,36 @@ async function followUser(req, res) {
       return res.status(400).json({ error: 'Cannot follow yourself' });
     }
 
-    // Verify the user to follow exists
+    // Verify the user to follow exists and get their profile visibility
     const userToFollow = await User.findById(followingId).select('name email preferences').lean();
     if (!userToFollow) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const result = await Follow.createFollow(followerId, followingId);
+    // Determine if this should be a pending request (for private profiles)
+    const profileVisibility = userToFollow.preferences?.profileVisibility || 'public';
+
+    const result = await Follow.createFollow(followerId, followingId, {
+      targetProfileVisibility: profileVisibility
+    });
 
     if (!result.success) {
+      // Handle pending case specially - return success with isPending flag
+      if (result.isPending) {
+        return res.status(200).json({
+          success: true,
+          isPending: true,
+          message: 'Follow request already pending'
+        });
+      }
       return res.status(400).json({ error: result.error });
     }
 
-    // Log activity
+    // Log activity with appropriate action type
+    const activityAction = result.isPending ? 'follow_requested' : 'follow_created';
     try {
       await Activity.log({
-        action: 'follow_created',
+        action: activityAction,
         actor: {
           _id: req.user._id,
           email: req.user.email,
@@ -154,131 +168,187 @@ async function followUser(req, res) {
         resource: {
           id: result.follow._id,
           type: 'Follow',
-          name: `${req.user.name} follows ${userToFollow.name}`
+          name: result.isPending
+            ? `${req.user.name} requested to follow ${userToFollow.name}`
+            : `${req.user.name} follows ${userToFollow.name}`
         },
         target: {
           id: followingId,
           type: 'User',
           name: userToFollow.name
         },
-        reason: result.reactivated ? 'Re-followed user' : 'Started following user',
-        tags: ['social', 'follow']
+        reason: result.isPending
+          ? 'Sent follow request'
+          : (result.reactivated ? 'Re-followed user' : 'Started following user'),
+        tags: result.isPending ? ['social', 'follow-request'] : ['social', 'follow']
       });
     } catch (activityError) {
       backendLogger.warn('Failed to log follow activity', { error: activityError.message });
     }
 
-    backendLogger.info('User followed', {
+    backendLogger.info(result.isPending ? 'Follow request sent' : 'User followed', {
       followerId: followerId.toString(),
       followingId: followingId,
-      reactivated: result.reactivated || false
+      reactivated: result.reactivated || false,
+      isPending: result.isPending || false
     });
 
     // Best-effort: send BienBot notifications to both users.
+    // For pending requests, only notify the target user about the request.
     // Mutual follow dedupe: if target was already following actor, do NOT send an additional
     // second notification beyond the normal one-per-user.
     try {
       const actorUser = await User.findById(followerId).select('name preferences').lean();
-      const isMutual = await Follow.isFollowing(followingId, followerId);
 
-      const targetText = isMutual
-        ? `${req.user.name} followed you back — you’re now following each other.`
-        : `${req.user.name} followed you.`;
+      if (result.isPending) {
+        // Pending request: only notify target user
+        const targetText = `${req.user.name} wants to follow you.`;
 
-      const actorText = isMutual
-        ? `You followed ${userToFollow?.name || 'a user'} — you’re now following each other.`
-        : `You followed ${userToFollow?.name || 'a user'}.`;
+        await Promise.all([
+          notifyUser({
+            user: userToFollow,
+            channel: 'bienbot',
+            type: 'activity',
+            message: targetText,
+            data: {
+              kind: 'follow-request',
+              action: 'follow_requested',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              resourceLink: `/users/${followerId.toString()}`
+            },
+            logContext: {
+              feature: 'follow-request',
+              kind: 'target',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              channel: 'bienbot'
+            }
+          }),
+          notifyUser({
+            user: userToFollow,
+            channel: 'webhook',
+            type: 'activity',
+            message: targetText,
+            data: {
+              kind: 'follow-request',
+              action: 'follow_requested',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              resourceLink: `/users/${followerId.toString()}`
+            },
+            logContext: {
+              feature: 'follow-request',
+              kind: 'target',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              channel: 'webhook'
+            }
+          })
+        ]);
+      } else {
+        // Active follow: notify both users
+        const isMutual = await Follow.isFollowing(followingId, followerId);
 
-      await Promise.all([
-        notifyUser({
-          user: userToFollow,
-          channel: 'bienbot',
-          type: 'activity',
-          message: targetText,
-          data: {
-            kind: 'follow',
-            action: 'follow_created',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            resourceLink: `/users/${followerId.toString()}`
-          },
-          logContext: {
-            feature: 'follow',
-            kind: 'target',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            channel: 'bienbot'
-          }
-        }),
-        notifyUser({
-          user: userToFollow,
-          channel: 'webhook',
-          type: 'activity',
-          message: targetText,
-          data: {
-            kind: 'follow',
-            action: 'follow_created',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            resourceLink: `/users/${followerId.toString()}`
-          },
-          logContext: {
-            feature: 'follow',
-            kind: 'target',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            channel: 'webhook'
-          }
-        }),
-        notifyUser({
-          user: actorUser,
-          channel: 'bienbot',
-          type: 'activity',
-          message: actorText,
-          data: {
-            kind: 'follow',
-            action: 'follow_created',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            resourceLink: `/users/${followingId.toString()}`
-          },
-          logContext: {
-            feature: 'follow',
-            kind: 'actor',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            channel: 'bienbot'
-          }
-        }),
-        notifyUser({
-          user: actorUser,
-          channel: 'webhook',
-          type: 'activity',
-          message: actorText,
-          data: {
-            kind: 'follow',
-            action: 'follow_created',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            resourceLink: `/users/${followingId.toString()}`
-          },
-          logContext: {
-            feature: 'follow',
-            kind: 'actor',
-            followerId: followerId.toString(),
-            followingId: followingId.toString(),
-            mutual: isMutual,
-            channel: 'webhook'
-          }
-        })
-      ]);
+        const targetText = isMutual
+          ? `${req.user.name} followed you back — you're now following each other.`
+          : `${req.user.name} followed you.`;
+
+        const actorText = isMutual
+          ? `You followed ${userToFollow?.name || 'a user'} — you're now following each other.`
+          : `You followed ${userToFollow?.name || 'a user'}.`;
+
+        await Promise.all([
+          notifyUser({
+            user: userToFollow,
+            channel: 'bienbot',
+            type: 'activity',
+            message: targetText,
+            data: {
+              kind: 'follow',
+              action: 'follow_created',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              resourceLink: `/users/${followerId.toString()}`
+            },
+            logContext: {
+              feature: 'follow',
+              kind: 'target',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              channel: 'bienbot'
+            }
+          }),
+          notifyUser({
+            user: userToFollow,
+            channel: 'webhook',
+            type: 'activity',
+            message: targetText,
+            data: {
+              kind: 'follow',
+              action: 'follow_created',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              resourceLink: `/users/${followerId.toString()}`
+            },
+            logContext: {
+              feature: 'follow',
+              kind: 'target',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              channel: 'webhook'
+            }
+          }),
+          notifyUser({
+            user: actorUser,
+            channel: 'bienbot',
+            type: 'activity',
+            message: actorText,
+            data: {
+              kind: 'follow',
+              action: 'follow_created',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              resourceLink: `/users/${followingId.toString()}`
+            },
+            logContext: {
+              feature: 'follow',
+              kind: 'actor',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              channel: 'bienbot'
+            }
+          }),
+          notifyUser({
+            user: actorUser,
+            channel: 'webhook',
+            type: 'activity',
+            message: actorText,
+            data: {
+              kind: 'follow',
+              action: 'follow_created',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              resourceLink: `/users/${followingId.toString()}`
+            },
+            logContext: {
+              feature: 'follow',
+              kind: 'actor',
+              followerId: followerId.toString(),
+              followingId: followingId.toString(),
+              mutual: isMutual,
+              channel: 'webhook'
+            }
+          })
+        ]);
+      }
     } catch (notifyErr) {
       backendLogger.warn('Failed to send follow notifications (continuing)', {
         error: notifyErr.message,
@@ -288,16 +358,18 @@ async function followUser(req, res) {
     }
 
     // Broadcast WebSocket event to the followed user's profile room
-    // This enables real-time UI updates when someone follows them
+    // This enables real-time UI updates when someone follows them or requests to follow
+    const eventType = result.isPending ? 'follow:request:created' : 'follow:created';
     try {
       broadcastEvent('user', followingId.toString(), {
-        type: 'follow:created',
+        type: eventType,
         payload: {
           followId: result.follow._id?.toString(),
           followerId: followerId.toString(),
           followerName: req.user.name,
           followingId: followingId.toString(),
-          userId: followingId.toString()
+          userId: followingId.toString(),
+          isPending: result.isPending || false
         }
       }, followerId.toString()); // Exclude the follower from receiving this
     } catch (wsError) {
@@ -307,7 +379,10 @@ async function followUser(req, res) {
     res.status(201).json({
       success: true,
       follow: result.follow,
-      message: result.reactivated ? 'Re-followed user' : 'Now following user'
+      isPending: result.isPending || false,
+      message: result.isPending
+        ? 'Follow request sent'
+        : (result.reactivated ? 'Re-followed user' : 'Now following user')
     });
   } catch (error) {
     backendLogger.error('Error following user', { error: error.message, stack: error.stack });
@@ -493,11 +568,15 @@ async function getFollowStatus(req, res) {
     const followerId = req.user._id;
     const followingId = req.params.userId;
 
-    const isFollowing = await Follow.isFollowing(followerId, followingId);
+    const [isFollowing, isPending] = await Promise.all([
+      Follow.isFollowing(followerId, followingId),
+      Follow.hasPendingRequest(followerId, followingId)
+    ]);
 
     res.json({
       success: true,
-      isFollowing
+      isFollowing,
+      isPending
     });
   } catch (error) {
     backendLogger.error('Error getting follow status', { error: error.message, stack: error.stack });
@@ -1048,6 +1127,199 @@ async function unblockFollower(req, res) {
   }
 }
 
+/**
+ * Get pending follow requests for current user
+ * GET /api/follows/requests
+ */
+async function getFollowRequests(req, res) {
+  try {
+    const userId = req.user._id;
+    const { limit = 20, skip = 0 } = req.query;
+
+    const { requests, total } = await Follow.getPendingRequests(userId, {
+      limit: Math.min(parseInt(limit, 10), 50),
+      skip: parseInt(skip, 10)
+    });
+
+    res.json({
+      success: true,
+      requests: requests.map(r => ({
+        _id: r._id,
+        follower: {
+          _id: r.follower._id,
+          name: r.follower.name,
+          email: r.follower.email,
+          photos: r.follower.photos,
+          default_photo_id: r.follower.default_photo_id
+        },
+        requestedAt: r.createdAt
+      })),
+      total,
+      limit: parseInt(limit, 10),
+      skip: parseInt(skip, 10)
+    });
+  } catch (error) {
+    backendLogger.error('Error getting follow requests', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to get follow requests' });
+  }
+}
+
+/**
+ * Get count of pending follow requests
+ * GET /api/follows/requests/count
+ */
+async function getFollowRequestCount(req, res) {
+  try {
+    const count = await Follow.getPendingRequestCount(req.user._id);
+    res.json({ success: true, count });
+  } catch (error) {
+    backendLogger.error('Error getting follow request count', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to get follow request count' });
+  }
+}
+
+/**
+ * Accept a follow request
+ * PUT /api/follows/requests/:followerId/accept
+ */
+async function acceptFollowRequest(req, res) {
+  try {
+    const userId = req.user._id;
+    const requesterId = req.params.followerId;
+
+    const result = await Follow.acceptRequest(userId, requesterId);
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    // Log activity
+    try {
+      await Activity.log({
+        action: 'follow_request_accepted',
+        actor: {
+          _id: req.user._id,
+          email: req.user.email,
+          name: req.user.name,
+          role: req.user.role
+        },
+        resource: {
+          id: result.follow._id,
+          type: 'Follow',
+          name: `${result.follow.follower.name} now follows ${req.user.name}`
+        },
+        target: {
+          id: requesterId,
+          type: 'User',
+          name: result.follow.follower.name
+        },
+        reason: 'Accepted follow request',
+        tags: ['social', 'follow-request']
+      });
+    } catch (activityError) {
+      backendLogger.warn('Failed to log accept follow request activity', { error: activityError.message });
+    }
+
+    backendLogger.info('Follow request accepted', {
+      userId: userId.toString(),
+      requesterId
+    });
+
+    // Broadcast to requester that their request was accepted
+    try {
+      broadcastEvent('user', requesterId.toString(), {
+        type: 'follow:request:accepted',
+        payload: {
+          followId: result.follow._id?.toString(),
+          followerId: requesterId.toString(),
+          followingId: userId.toString(),
+          followingName: req.user.name,
+          userId: requesterId.toString()
+        }
+      }, userId.toString());
+    } catch (wsError) {
+      backendLogger.warn('Failed to broadcast follow request accepted event', { error: wsError.message });
+    }
+
+    // Notify requester
+    try {
+      await notifyUser({
+        user: result.follow.follower,
+        channel: 'bienbot',
+        type: 'activity',
+        message: `${req.user.name} accepted your follow request.`,
+        data: {
+          kind: 'follow',
+          action: 'follow_request_accepted',
+          followerId: requesterId.toString(),
+          followingId: userId.toString(),
+          resourceLink: `/users/${userId.toString()}`
+        },
+        logContext: {
+          feature: 'follow-request',
+          kind: 'accepted',
+          channel: 'bienbot'
+        }
+      });
+    } catch (notifyErr) {
+      backendLogger.warn('Failed to send follow request accepted notification', { error: notifyErr.message });
+    }
+
+    res.json({
+      success: true,
+      follow: result.follow,
+      message: 'Follow request accepted'
+    });
+  } catch (error) {
+    backendLogger.error('Error accepting follow request', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to accept follow request' });
+  }
+}
+
+/**
+ * Reject/ignore a follow request
+ * DELETE /api/follows/requests/:followerId
+ */
+async function rejectFollowRequest(req, res) {
+  try {
+    const userId = req.user._id;
+    const requesterId = req.params.followerId;
+
+    const result = await Follow.rejectRequest(userId, requesterId);
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    backendLogger.info('Follow request rejected', {
+      userId: userId.toString(),
+      requesterId
+    });
+
+    // Broadcast to requester (silent - they'll just see their request is gone)
+    try {
+      broadcastEvent('user', requesterId.toString(), {
+        type: 'follow:request:rejected',
+        payload: {
+          followerId: requesterId.toString(),
+          followingId: userId.toString(),
+          userId: requesterId.toString()
+        }
+      }, userId.toString());
+    } catch (wsError) {
+      backendLogger.warn('Failed to broadcast follow request rejected event', { error: wsError.message });
+    }
+
+    res.json({
+      success: true,
+      message: 'Follow request declined'
+    });
+  } catch (error) {
+    backendLogger.error('Error rejecting follow request', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Failed to decline follow request' });
+  }
+}
+
 module.exports = {
   followUser,
   unfollowUser,
@@ -1059,5 +1331,9 @@ module.exports = {
   getFollowRelationship,
   removeFollower,
   blockFollower,
-  unblockFollower
+  unblockFollower,
+  getFollowRequests,
+  getFollowRequestCount,
+  acceptFollowRequest,
+  rejectFollowRequest
 };

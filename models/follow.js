@@ -67,11 +67,20 @@ followSchema.index({ following: 1, status: 1 }); // Who is following me? (for pr
 /**
  * Static method to create a follow relationship
  * Activity logging is handled by the controller
+ * @param {ObjectId} followerId - The user who wants to follow
+ * @param {ObjectId} followingId - The user being followed
+ * @param {Object} options - Optional settings
+ * @param {string} options.targetProfileVisibility - 'public' or 'private' (determines initial status)
  */
-followSchema.statics.createFollow = async function(followerId, followingId) {
+followSchema.statics.createFollow = async function(followerId, followingId, options = {}) {
+  const { targetProfileVisibility = 'public' } = options;
+
   if (followerId.toString() === followingId.toString()) {
     return { success: false, error: 'Cannot follow yourself' };
   }
+
+  // Determine initial status based on profile visibility
+  const initialStatus = targetProfileVisibility === 'private' ? 'pending' : 'active';
 
   try {
     const existing = await this.findOne({ follower: followerId, following: followingId });
@@ -83,14 +92,17 @@ followSchema.statics.createFollow = async function(followerId, followingId) {
       if (existing.status === 'blocked') {
         return { success: false, error: 'You cannot follow this user' };
       }
-      existing.status = 'active';
+      if (existing.status === 'pending') {
+        return { success: false, error: 'Follow request already pending', isPending: true };
+      }
+      existing.status = initialStatus;
       await existing.save();
-      return { success: true, follow: existing, reactivated: true };
+      return { success: true, follow: existing, reactivated: true, isPending: initialStatus === 'pending' };
     }
 
-    const follow = new this({ follower: followerId, following: followingId, status: 'active' });
+    const follow = new this({ follower: followerId, following: followingId, status: initialStatus });
     await follow.save();
-    return { success: true, follow };
+    return { success: true, follow, isPending: initialStatus === 'pending' };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -191,6 +203,86 @@ followSchema.statics.unblockFollower = async function(userId, unblockUserId) {
   } catch (error) {
     return { success: false, error: error.message };
   }
+};
+
+/**
+ * Get pending follow requests for a user (people wanting to follow them)
+ * @param {ObjectId} userId - The user receiving the requests
+ * @param {Object} options - Pagination options
+ * @param {number} options.skip - Number of records to skip
+ * @param {number} options.limit - Max number of records to return
+ */
+followSchema.statics.getPendingRequests = async function(userId, options = {}) {
+  const { skip = 0, limit = 20 } = options;
+
+  const [requests, total] = await Promise.all([
+    this.find({ following: userId, status: 'pending' })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('follower', 'name email photos default_photo_id')
+      .lean(),
+    this.countDocuments({ following: userId, status: 'pending' })
+  ]);
+
+  return { requests, total };
+};
+
+/**
+ * Get count of pending follow requests for a user
+ * @param {ObjectId} userId - The user receiving the requests
+ */
+followSchema.statics.getPendingRequestCount = async function(userId) {
+  return this.countDocuments({ following: userId, status: 'pending' });
+};
+
+/**
+ * Accept a follow request (change status from pending to active)
+ * @param {ObjectId} userId - The user accepting the request (the one being followed)
+ * @param {ObjectId} requesterId - The user who sent the request (the follower)
+ */
+followSchema.statics.acceptRequest = async function(userId, requesterId) {
+  const follow = await this.findOneAndUpdate(
+    { follower: requesterId, following: userId, status: 'pending' },
+    { status: 'active' },
+    { new: true }
+  ).populate('follower', 'name email photos default_photo_id');
+
+  if (!follow) {
+    return { success: false, error: 'Follow request not found' };
+  }
+  return { success: true, follow };
+};
+
+/**
+ * Reject/ignore a follow request (delete the record)
+ * @param {ObjectId} userId - The user rejecting the request (the one being followed)
+ * @param {ObjectId} requesterId - The user who sent the request (the follower)
+ */
+followSchema.statics.rejectRequest = async function(userId, requesterId) {
+  const result = await this.deleteOne({
+    follower: requesterId,
+    following: userId,
+    status: 'pending'
+  });
+
+  return result.deletedCount > 0
+    ? { success: true }
+    : { success: false, error: 'Follow request not found' };
+};
+
+/**
+ * Check if a follow request is pending
+ * @param {ObjectId} followerId - The user who wants to follow
+ * @param {ObjectId} followingId - The user being followed
+ */
+followSchema.statics.hasPendingRequest = async function(followerId, followingId) {
+  const count = await this.countDocuments({
+    follower: followerId,
+    following: followingId,
+    status: 'pending'
+  });
+  return count > 0;
 };
 
 module.exports = mongoose.model('Follow', followSchema);
