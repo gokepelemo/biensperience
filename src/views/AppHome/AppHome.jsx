@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
@@ -72,6 +72,18 @@ export default function AppHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Shuffle destinations for randomized display (Fisher-Yates algorithm)
+  // Memoized to stay stable during component lifecycle, re-shuffles when destinations change
+  const shuffledDestinations = useMemo(() => {
+    if (!destinations || destinations.length === 0) return [];
+    const shuffled = [...destinations];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, [destinations]);
+
   // Filter experiences to show only curated ones
   const curatedExperiences = experiences.filter(exp => exp.isCurated);
 
@@ -134,11 +146,11 @@ export default function AppHome() {
                 ))}
               </div>
             </FlexCenter>
-          ) : destinations && destinations.length > 0 ? (
+          ) : shuffledDestinations && shuffledDestinations.length > 0 ? (
             <>
               <FlexCenter className="animation-fade-in">
                 <div className={styles.destinationsList}>
-                  {(showAllDestinations ? destinations : destinations.slice(0, DESTINATIONS_INITIAL_DISPLAY))
+                  {(showAllDestinations ? shuffledDestinations : shuffledDestinations.slice(0, DESTINATIONS_INITIAL_DISPLAY))
                     .map((destination, index) => (
                       <DestinationCard
                         key={destination._id || index}
@@ -148,7 +160,7 @@ export default function AppHome() {
                     ))}
                 </div>
               </FlexCenter>
-                  {destinations.length > DESTINATIONS_INITIAL_DISPLAY && (
+                  {shuffledDestinations.length > DESTINATIONS_INITIAL_DISPLAY && (
                 <div className="col-12 text-center mt-4 mb-5">
                   <Button
                     variant="link"
