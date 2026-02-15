@@ -21,14 +21,23 @@ function extractData(response) {
  * Fetches all destinations from the API.
  *
  * @async
+ * @param {Object} filters - Query filters
+ * @param {Object} options - Additional options
+ * @param {boolean} options.shuffle - Whether to shuffle results on backend
  * @returns {Promise<Object>} Response with { data: Array, meta: Object } for pagination
  */
-export async function getDestinations (filters = {}) {
+export async function getDestinations (filters = {}, options = {}) {
     // Fetch first page of destinations (default limit=30)
     const params = new URLSearchParams({ page: '1', limit: '30' });
     Object.entries(filters || {}).forEach(([k, v]) => {
         if (v !== undefined && v !== null) params.append(k, v);
     });
+
+    // Add shuffle parameter if requested
+    if (options.shuffle) {
+        params.append('shuffle', 'true');
+    }
+
     // Use queued request for rate limiting and coalescing
     const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/list' });
     // Handle standardized response format { success, data, meta }

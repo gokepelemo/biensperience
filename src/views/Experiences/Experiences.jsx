@@ -726,7 +726,7 @@ export default function Experiences() {
       {initialLoading || loading || directFilterLoading || !initialLoadComplete ? (
         <FadeIn>
           <div className={styles.experiencesList}>
-            <ExperienceCardSkeleton count={6} />
+            <ExperienceCardSkeleton count={experiencesMeta.limit} />
           </div>
         </FadeIn>
       ) : (

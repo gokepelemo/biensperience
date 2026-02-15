@@ -199,7 +199,7 @@ export default function Countries() {
               </h2>
               <div className={styles.destinationsList}>
                 {loading ? (
-                  <DestinationCardSkeleton count={6} />
+                  <DestinationCardSkeleton count={destinationsMeta.limit} />
                 ) : destinations.length > 0 ? (
                   destinations.map((destination, index) => (
                     <FadeIn key={destination._id || index} delay={index * 30}>
@@ -245,7 +245,7 @@ export default function Countries() {
               </h2>
               <div className={styles.experiencesList}>
                 {loading ? (
-                  <ExperienceCardSkeleton count={6} />
+                  <ExperienceCardSkeleton count={experiencesMeta.limit} />
                 ) : experiences.length > 0 ? (
                   experiences.map((experience, index) => (
                     <FadeIn key={experience._id || index} delay={index * 30}>

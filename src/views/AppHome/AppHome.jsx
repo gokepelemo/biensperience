@@ -10,7 +10,7 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
-import { Button, FlexCenter, SpaceY, EmptyState, Alert } from "../../components/design-system";
+import { Button, FlexCenter, SpaceY, EmptyState } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
 import styles from "./AppHome.module.scss";
 
@@ -34,7 +34,7 @@ export default function AppHome() {
   const hasFetchedRef = useRef(false);
 
   // Determine if we have existing data
-  const hasExistingData = destinations.length > 0 || experiences.length > 0;
+  const hasExistingData = destinations.length > 0 && experiences.length > 0;
 
   // Fetch fresh data when component mounts (only if no data exists)
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function AppHome() {
 
   // Determine if we should show empty state
   // Only show empty state when data is loaded AND not currently loading
-  const isEmptyState = isDataLoaded && !hasExistingData && !isDestinationsLoading && !isExperiencesLoading;
+  const isEmptyState = isDataLoaded && destinations.length === 0 && experiences.length === 0 && !isDestinationsLoading && !isExperiencesLoading;
 
   // Helper function to render show more/less button
   const renderShowMoreButton = (isExpanded, onToggle, itemCount, limit) => {
@@ -164,17 +164,13 @@ export default function AppHome() {
             </>
           ) : (
             <FlexCenter className="animation-fade-in">
-              <div className="col-12">
-                <Alert type="info" dismissible={false}>
-                  <p className="mb-2">{lang.current.alert.noDestinationsYet}</p>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => navigate('/destinations/new')}
-                  >
-                    {lang.current.button.createDestination}
-                  </Button>
-                </Alert>
+              <div className="col-12 col-md-8 col-lg-6">
+                <EmptyState
+                  variant="destinations"
+                  primaryAction={lang.current.button.createDestination}
+                  onPrimaryAction={() => navigate('/destinations/new')}
+                  size="md"
+                />
               </div>
             </FlexCenter>
           )}
@@ -227,17 +223,13 @@ export default function AppHome() {
             </>
           ) : (
             <FlexCenter className="animation-fade-in">
-              <div className="col-12">
-                <Alert type="info" dismissible={false}>
-                  <p className="mb-2">{lang.current.alert.noExperiencesYet}</p>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => openExperienceWizard()}
-                  >
-                    {lang.current.button.createExperience}
-                  </Button>
-                </Alert>
+              <div className="col-12 col-md-8 col-lg-6">
+                <EmptyState
+                  variant="experiences"
+                  primaryAction={lang.current.button.createExperience}
+                  onPrimaryAction={() => openExperienceWizard()}
+                  size="md"
+                />
               </div>
             </FlexCenter>
           )}

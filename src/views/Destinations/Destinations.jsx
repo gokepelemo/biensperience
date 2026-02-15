@@ -122,7 +122,7 @@ export default function Destinations() {
       {(loading || !initialLoadComplete) ? (
         <Container className="my-4">
           <div className={styles.destinationsList}>
-            <DestinationCardSkeleton count={6} />
+            <DestinationCardSkeleton count={destinationsMeta.limit} />
           </div>
         </Container>
       ) : (

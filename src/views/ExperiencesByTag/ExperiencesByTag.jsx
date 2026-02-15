@@ -188,7 +188,7 @@ export default function ExperiencesByTag() {
       {loading ? (
         <FadeIn>
           <div className={styles.experiencesList}>
-            <ExperienceCardSkeleton count={6} />
+            <ExperienceCardSkeleton count={ITEMS_PER_PAGE} />
           </div>
         </FadeIn>
       ) : (

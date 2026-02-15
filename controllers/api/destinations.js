@@ -28,7 +28,10 @@ async function index(req, res) {
 
     const skip = (p - 1) * l;
 
-    // Sorting support
+    // Shuffle support: randomize results before pagination
+    const shuffle = req.query.shuffle === 'true' || req.query.shuffle === true;
+
+    // Sorting support (only used when not shuffling)
     const sortBy = req.query.sort_by || req.query.sort || 'name';
     const sortOrder = req.query.sort_order || req.query.order || 'asc';
     const sortMap = {
@@ -74,15 +77,36 @@ async function index(req, res) {
       ];
     }
 
-    // Count total documents (apply searchFilter if present)
-    const total = await Destination.countDocuments(searchFilter);
-    const destinations = await Destination.find(searchFilter)
-      .populate("photos", "url caption photo_credit photo_credit_url width height")
-      .sort(sortObj)
-      .skip(skip)
-      .limit(l)
-      .lean()
-      .exec();
+    let destinations;
+    let total;
+
+    if (shuffle) {
+      // When shuffling, fetch all results first, then shuffle and paginate
+      const allDestinations = await Destination.find(searchFilter)
+        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .lean()
+        .exec();
+
+      // Fisher-Yates shuffle algorithm
+      for (let i = allDestinations.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allDestinations[i], allDestinations[j]] = [allDestinations[j], allDestinations[i]];
+      }
+
+      total = allDestinations.length;
+      // Apply pagination to shuffled results
+      destinations = allDestinations.slice(skip, skip + l);
+    } else {
+      // Standard pagination with sorting
+      total = await Destination.countDocuments(searchFilter);
+      destinations = await Destination.find(searchFilter)
+        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .sort(sortObj)
+        .skip(skip)
+        .limit(l)
+        .lean()
+        .exec();
+    }
 
     const totalPages = Math.ceil(total / l);
     return paginatedResponse(res, destinations, {
