@@ -24,6 +24,13 @@ export default function Destinations() {
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef(null);
 
+  // Load initial destinations data
+  useEffect(() => {
+    if (destinations.length === 0 && !loading) {
+      applyDestinationsFilter({}, { shuffle: false });
+    }
+  }, [destinations.length, loading, applyDestinationsFilter]);
+
   useEffect(() => {
     if (!fetchMoreDestinations || !destinationsMeta?.hasMore || loadingMore) return;
     const el = sentinelRef.current;

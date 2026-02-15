@@ -20,7 +20,7 @@ const INITIAL_DISPLAY_LIMITS = {
 };
 
 export default function AppHome() {
-  const { experiences, destinations, plans, loading, applyDestinationsFilter, applyExperiencesFilter } = useData();
+  const { experiences, destinationsShuffled: destinations, plans, loading, applyDestinationsFilter, applyExperiencesFilter } = useData();
   const { user } = useUser();
   const { openExperienceWizard } = useExperienceWizard();
   const navigate = useNavigate();

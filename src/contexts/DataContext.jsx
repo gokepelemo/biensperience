@@ -34,7 +34,9 @@ export function DataProvider({ children }) {
   logger.debug('DataProvider function called');
   const { user, isAuthenticated } = useUser();
   const [destinations, setDestinations] = useState([]);
+  const [destinationsShuffled, setDestinationsShuffled] = useState([]);
   const [destinationsFilters, setDestinationsFilters] = useState({});
+  const [destinationsOptions, setDestinationsOptions] = useState({});
   const [experiences, setExperiences] = useState([]);
   const [destinationsMeta, setDestinationsMeta] = useState({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
   const [experiencesMeta, setExperiencesMeta] = useState({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
@@ -42,6 +44,7 @@ export function DataProvider({ children }) {
   const experiencesFiltersRef = React.useRef(experiencesFilters);
   // Refs to access current data without triggering callback recreation
   const destinationsRef = React.useRef(destinations);
+  const destinationsShuffledRef = React.useRef(destinationsShuffled);
   const experiencesRef = React.useRef(experiences);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -124,17 +127,22 @@ export function DataProvider({ children }) {
 
   /**
    * Fetch all destinations from API
+   * @param {Object} options - Options for fetching
+   * @param {boolean} options.shuffle - Whether to shuffle results on backend
    * @returns {Promise<Array>} Array of destinations
    */
-  const fetchDestinations = useCallback(async () => {
-    logger.debug('fetchDestinations called', { user: user ? user.email : 'null' });
+  const fetchDestinations = useCallback(async (options = {}) => {
+    // Merge passed options with current options to maintain state
+    const mergedOptions = { ...destinationsOptions, ...options };
+    const { shuffle = false } = mergedOptions;
+    logger.debug('fetchDestinations called', { user: user ? user.email : 'null', shuffle, options, mergedOptions });
 
     try {
       logger.debug('Calling getDestinations API (page=1)');
-      const resp = await getDestinations(destinationsFilters);
+      const resp = await getDestinations(destinationsFilters, { shuffle });
       // resp should be object with data/meta from API
       if (resp && resp.data && resp.meta) {
-        setDestinations(resp.data || []);
+        // Don't set state here - let caller handle it based on shuffle option
         setDestinationsMeta(resp.meta);
         setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
         // Clear stale flag after successful refresh
@@ -142,7 +150,7 @@ export function DataProvider({ children }) {
         return resp.data || [];
       } else if (Array.isArray(resp)) {
         // Backwards compatibility: if API returns array, treat as single page
-        setDestinations(resp || []);
+        // Don't set state here - let caller handle it based on shuffle option
         setDestinationsMeta({ page: 1, limit: resp.length, total: resp.length, totalPages: 1, hasMore: false });
         setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
         // Clear stale flag after successful refresh
@@ -156,7 +164,7 @@ export function DataProvider({ children }) {
       logger.error('Failed to fetch destinations', { error: error.message });
       return [];
     }
-  }, [destinationsFilters]);
+  }, [destinationsFilters, destinationsOptions]);
 
   // Keep a ref with the latest experiencesFilters to avoid stale closures in
   // async fetch functions. This lets fetchMoreExperiences and fetchExperiences
@@ -171,24 +179,34 @@ export function DataProvider({ children }) {
   }, [destinations]);
 
   useEffect(() => {
+    destinationsShuffledRef.current = destinationsShuffled;
+  }, [destinationsShuffled]);
+
+  useEffect(() => {
     experiencesRef.current = experiences;
   }, [experiences]);
 
-  const applyDestinationsFilter = useCallback(async (filters = {}) => {
+  const applyDestinationsFilter = useCallback(async (filters = {}, options = {}) => {
     const cleanFilters = filters || {};
     const isEmptyFilter = Object.keys(cleanFilters).length === 0;
-    const currentDestinations = destinationsRef.current;
+    const { shuffle = false } = options;
+
+    // Use different state based on shuffle option
+    const currentDestinations = shuffle ? destinationsShuffledRef.current : destinationsRef.current;
     const hasExistingData = currentDestinations.length > 0;
 
     // If applying empty filter and data already exists, skip the refresh
     // This prevents unnecessary flash/re-render when navigating back to home
-    if (isEmptyFilter && hasExistingData) {
-      logger.debug('applyDestinationsFilter: Empty filter with existing data, skipping refresh');
+    if (isEmptyFilter && hasExistingData && !options.forceRefresh) {
+      logger.debug('applyDestinationsFilter: Empty filter with existing data, skipping refresh', { shuffle });
       setDestinationsFilters(cleanFilters);
+      // Still update options even if we skip the fetch
+      setDestinationsOptions(options);
       return currentDestinations;
     }
 
     setDestinationsFilters(cleanFilters);
+    setDestinationsOptions(options);
 
     // Set loading state BEFORE clearing destinations
     // This prevents "No destinations" flash while filter is being applied
@@ -196,12 +214,23 @@ export function DataProvider({ children }) {
 
     // Only clear data if we're actually changing filters
     if (!isEmptyFilter) {
-      setDestinations([]);
+      if (shuffle) {
+        setDestinationsShuffled([]);
+      } else {
+        setDestinations([]);
+      }
       setDestinationsMeta({ page: 0, limit: 30, total: 0, totalPages: 0, hasMore: true });
     }
 
     try {
-      return await fetchDestinations();
+      const result = await fetchDestinations(options);
+      // Store results in appropriate state based on shuffle option
+      if (shuffle) {
+        setDestinationsShuffled(result);
+      } else {
+        setDestinations(result);
+      }
+      return result;
     } finally {
       // Clear loading state after filter is applied
       setLoading(false);
@@ -775,7 +804,8 @@ export function DataProvider({ children }) {
     });
     if (isAuthenticated && user) {
       logger.debug('Calling refreshAll() for user', { user: user.email });
-      refreshAll();
+      // Don't fetch destinations initially - let AppHome handle it with shuffle
+      refreshAll({ destinations: false });
     } else {
       logger.debug('Clearing data - user not authenticated or user is null');
       // Clear data when user logs out
@@ -1155,6 +1185,7 @@ export function DataProvider({ children }) {
   const value = {
     // State
     destinations,
+    destinationsShuffled,
     experiences,
     plans,
     loading,
