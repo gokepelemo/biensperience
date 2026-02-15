@@ -1,7 +1,8 @@
 import styles from "./Profile.module.scss";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash } from "react-icons/fa";
+import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash, FaFacebook, FaGoogle, FaKey, FaUnlink } from "react-icons/fa";
+import { FaXTwitter } from "react-icons/fa6";
 import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Loading from "../../components/Loading/Loading";
@@ -23,6 +24,7 @@ import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import Checkbox from "../../components/Checkbox/Checkbox";
 import DeleteAccountModal from "../../components/DeleteAccountModal/DeleteAccountModal";
 import { logger } from "../../utilities/logger";
+import { getLinkedAccounts, unlinkAccount, linkAccount } from "../../utilities/oauth-service";
 
 // Demo mode detection
 const isDemoMode = process.env.REACT_APP_DEMO_MODE === 'true';
@@ -50,6 +52,9 @@ export default function UpdateProfile() {
   const [geolocating, setGeolocating] = useState(false);
   const [flagSearchValue, setFlagSearchValue] = useState("");
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [linkedAccounts, setLinkedAccounts] = useState(null);
+  const [linkedAccountsLoading, setLinkedAccountsLoading] = useState(true);
+  const [unlinkingProvider, setUnlinkingProvider] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { userId } = useParams();
@@ -66,6 +71,59 @@ export default function UpdateProfile() {
       return;
     }
   }, [user, isAdminMode, navigate]);
+
+  // Fetch linked accounts on load (only for self-editing)
+  useEffect(() => {
+    async function fetchLinkedAccounts() {
+      if (!isEditingSelf || !user) {
+        setLinkedAccountsLoading(false);
+        return;
+      }
+
+      try {
+        const accounts = await getLinkedAccounts();
+        setLinkedAccounts(accounts);
+      } catch (err) {
+        logger.error('[UpdateProfile] Failed to fetch linked accounts', { error: err.message });
+        showError(lang.current.profile.failedToLoadLinkedAccounts);
+      } finally {
+        setLinkedAccountsLoading(false);
+      }
+    }
+
+    fetchLinkedAccounts();
+  }, [user, isEditingSelf, showError]);
+
+  // Handle linking an account (redirect to OAuth flow)
+  const handleLinkAccount = (provider) => {
+    linkAccount(provider);
+  };
+
+  // Handle unlinking an account
+  const handleUnlinkAccount = async (provider) => {
+    // Check if this is the only auth method
+    if (linkedAccounts) {
+      const linkedCount = [linkedAccounts.facebook, linkedAccounts.google, linkedAccounts.twitter].filter(Boolean).length;
+      if (linkedCount <= 1 && !linkedAccounts.hasPassword) {
+        showError(lang.current.profile.cannotUnlinkOnlyAuth);
+        return;
+      }
+    }
+
+    setUnlinkingProvider(provider);
+    try {
+      await unlinkAccount(provider);
+      // Refresh linked accounts
+      const accounts = await getLinkedAccounts();
+      setLinkedAccounts(accounts);
+      success(lang.current.profile.accountUnlinkedSuccess.replace('{provider}', provider.charAt(0).toUpperCase() + provider.slice(1)));
+    } catch (err) {
+      logger.error('[UpdateProfile] Failed to unlink account', { error: err.message, provider });
+      showError(lang.current.profile.failedToUnlinkAccount.replace('{provider}', provider.charAt(0).toUpperCase() + provider.slice(1)));
+    } finally {
+      setUnlinkingProvider(null);
+    }
+  };
 
   // Handle hash-based URL for delete account modal
   // Track if modal was opened via hash (vs direct button click)
@@ -811,7 +869,185 @@ export default function UpdateProfile() {
               </div>
 
               {/* ============================================
-                  SECTION 3: Curator Profile (Only for curators)
+                  SECTION 3: Linked Accounts (Self-editing only)
+                  ============================================ */}
+              {isEditingSelf && (
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionCardHeader}>
+                    <h3><FaLink /> {lang.current.profile.linkedAccounts}</h3>
+                  </div>
+                  <div className={styles.sectionCardBody}>
+                    <p className="text-muted mb-4">{lang.current.profile.linkedAccountsDescription}</p>
+
+                    {linkedAccountsLoading ? (
+                      <div className="text-center py-4">
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                      </div>
+                    ) : linkedAccounts ? (
+                      <>
+                        <div className={styles.linkedAccountsList}>
+                          {/* Facebook */}
+                          <div className={styles.linkedAccountItem}>
+                            <div className={styles.linkedAccountInfo}>
+                              <div className={`${styles.linkedAccountIcon} ${linkedAccounts.facebook ? styles.facebook : styles.disabled}`}>
+                                <FaFacebook />
+                              </div>
+                              <div className={styles.linkedAccountDetails}>
+                                <span className={styles.linkedAccountName}>{lang.current.profile.linkedFacebook}</span>
+                                <span className={`${styles.linkedAccountStatus} ${linkedAccounts.facebook ? styles.linked : styles.notLinked}`}>
+                                  {linkedAccounts.facebook ? (
+                                    <><FaCheckCircle /> {lang.current.profile.linked}</>
+                                  ) : (
+                                    lang.current.profile.notLinked
+                                  )}
+                                </span>
+                                {linkedAccounts.facebook && linkedAccounts.accounts?.find(a => a.provider === 'facebook')?.linkedAt && (
+                                  <span className={styles.linkedAccountDate}>
+                                    {lang.current.profile.accountLinkedAt.replace('{date}', new Date(linkedAccounts.accounts.find(a => a.provider === 'facebook').linkedAt).toLocaleDateString())}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className={styles.linkedAccountActions}>
+                              {linkedAccounts.facebook ? (
+                                <button
+                                  type="button"
+                                  className={`${styles.linkedAccountBtn} ${styles.unlink}`}
+                                  onClick={() => handleUnlinkAccount('facebook')}
+                                  disabled={unlinkingProvider === 'facebook'}
+                                >
+                                  {unlinkingProvider === 'facebook' ? (
+                                    <span className={styles.linkedAccountSpinner} />
+                                  ) : (
+                                    <><FaUnlink /> {lang.current.profile.unlinkAccount}</>
+                                  )}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={`${styles.linkedAccountBtn} ${styles.link}`}
+                                  onClick={() => handleLinkAccount('facebook')}
+                                >
+                                  {lang.current.profile.linkAccount}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Google */}
+                          <div className={styles.linkedAccountItem}>
+                            <div className={styles.linkedAccountInfo}>
+                              <div className={`${styles.linkedAccountIcon} ${linkedAccounts.google ? styles.google : styles.disabled}`}>
+                                <FaGoogle />
+                              </div>
+                              <div className={styles.linkedAccountDetails}>
+                                <span className={styles.linkedAccountName}>{lang.current.profile.linkedGoogle}</span>
+                                <span className={`${styles.linkedAccountStatus} ${linkedAccounts.google ? styles.linked : styles.notLinked}`}>
+                                  {linkedAccounts.google ? (
+                                    <><FaCheckCircle /> {lang.current.profile.linked}</>
+                                  ) : (
+                                    lang.current.profile.notLinked
+                                  )}
+                                </span>
+                                {linkedAccounts.google && linkedAccounts.accounts?.find(a => a.provider === 'google')?.linkedAt && (
+                                  <span className={styles.linkedAccountDate}>
+                                    {lang.current.profile.accountLinkedAt.replace('{date}', new Date(linkedAccounts.accounts.find(a => a.provider === 'google').linkedAt).toLocaleDateString())}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className={styles.linkedAccountActions}>
+                              {linkedAccounts.google ? (
+                                <button
+                                  type="button"
+                                  className={`${styles.linkedAccountBtn} ${styles.unlink}`}
+                                  onClick={() => handleUnlinkAccount('google')}
+                                  disabled={unlinkingProvider === 'google'}
+                                >
+                                  {unlinkingProvider === 'google' ? (
+                                    <span className={styles.linkedAccountSpinner} />
+                                  ) : (
+                                    <><FaUnlink /> {lang.current.profile.unlinkAccount}</>
+                                  )}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={`${styles.linkedAccountBtn} ${styles.link}`}
+                                  onClick={() => handleLinkAccount('google')}
+                                >
+                                  {lang.current.profile.linkAccount}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* X (Twitter) */}
+                          <div className={styles.linkedAccountItem}>
+                            <div className={styles.linkedAccountInfo}>
+                              <div className={`${styles.linkedAccountIcon} ${linkedAccounts.twitter ? styles.twitter : styles.disabled}`}>
+                                <FaXTwitter />
+                              </div>
+                              <div className={styles.linkedAccountDetails}>
+                                <span className={styles.linkedAccountName}>{lang.current.profile.linkedTwitter}</span>
+                                <span className={`${styles.linkedAccountStatus} ${linkedAccounts.twitter ? styles.linked : styles.notLinked}`}>
+                                  {linkedAccounts.twitter ? (
+                                    <><FaCheckCircle /> {lang.current.profile.linked}</>
+                                  ) : (
+                                    lang.current.profile.notLinked
+                                  )}
+                                </span>
+                                {linkedAccounts.twitter && linkedAccounts.accounts?.find(a => a.provider === 'twitter')?.linkedAt && (
+                                  <span className={styles.linkedAccountDate}>
+                                    {lang.current.profile.accountLinkedAt.replace('{date}', new Date(linkedAccounts.accounts.find(a => a.provider === 'twitter').linkedAt).toLocaleDateString())}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className={styles.linkedAccountActions}>
+                              {linkedAccounts.twitter ? (
+                                <button
+                                  type="button"
+                                  className={`${styles.linkedAccountBtn} ${styles.unlink}`}
+                                  onClick={() => handleUnlinkAccount('twitter')}
+                                  disabled={unlinkingProvider === 'twitter'}
+                                >
+                                  {unlinkingProvider === 'twitter' ? (
+                                    <span className={styles.linkedAccountSpinner} />
+                                  ) : (
+                                    <><FaUnlink /> {lang.current.profile.unlinkAccount}</>
+                                  )}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className={`${styles.linkedAccountBtn} ${styles.link}`}
+                                  onClick={() => handleLinkAccount('twitter')}
+                                >
+                                  {lang.current.profile.linkAccount}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Password status indicator */}
+                        <div className={`${styles.linkedAccountsPasswordStatus} ${!linkedAccounts.hasPassword ? styles.noPassword : ''}`}>
+                          <FaKey />
+                          <span>{linkedAccounts.hasPassword ? lang.current.profile.hasPassword : lang.current.profile.noPassword}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className={styles.linkedAccountsEmpty}>
+                        <p>{lang.current.profile.noLinkedAccounts}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ============================================
+                  SECTION 4: Curator Profile (Only for curators)
                   ============================================ */}
               {hasFeatureFlag(currentUser, 'curator') && (
                 <div className={styles.sectionCard}>
@@ -1031,7 +1267,7 @@ export default function UpdateProfile() {
               )}
 
               {/* ============================================
-                  SECTION 4: Super Admin Permissions (Super Admin Only)
+                  SECTION 5: Super Admin Permissions (Super Admin Only)
                   ============================================ */}
               {isSuperAdmin(user) && (
                 <div className={styles.sectionCard}>
@@ -1212,7 +1448,7 @@ export default function UpdateProfile() {
               )}
 
               {/* ============================================
-                  SECTION 5: Danger Zone (Delete Account - Self only)
+                  SECTION 6: Danger Zone (Delete Account - Self only)
                   ============================================ */}
               {isEditingSelf && (
                 <div className={`${styles.sectionCard} ${styles.dangerZone}`}>

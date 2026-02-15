@@ -13,6 +13,39 @@ const User = require('../../models/user');
 const { createSessionForUser } = require('../../utilities/session-middleware');
 
 /**
+ * Parse Facebook signed request
+ * @param {string} signedRequest - The signed request from Facebook
+ * @param {string} appSecret - Facebook app secret
+ * @returns {object} Decoded payload
+ */
+function parseSignedRequest(signedRequest, appSecret) {
+  const crypto = require('crypto');
+
+  try {
+    const [encodedSig, payload] = signedRequest.split('.', 2);
+
+    // Decode the signature and payload
+    const sig = Buffer.from(encodedSig.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    const data = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString());
+
+    // Verify signature
+    const expectedSig = crypto
+      .createHmac('sha256', appSecret)
+      .update(payload)
+      .digest();
+
+    if (!crypto.timingSafeEqual(sig, expectedSig)) {
+      throw new Error('Invalid signature');
+    }
+
+    return data;
+  } catch (error) {
+    backendLogger.error('Failed to parse Facebook signed request', { error: error.message });
+    return {};
+  }
+}
+
+/**
  * CSRF Token Endpoint
  * Returns a CSRF token for the client to use in subsequent requests
  * This is a GET request so it's not protected by CSRF itself
@@ -133,6 +166,66 @@ router.get('/facebook/callback',
 );
 
 /**
+ * Facebook Deauthorize Callback
+ * Called by Facebook when a user deauthorizes the app
+ * Removes Facebook account link from user profile
+ */
+router.post('/facebook/deauthorize', async (req, res) => {
+  try {
+    const { signed_request } = req.body;
+
+    if (!signed_request) {
+      backendLogger.warn('Facebook deauthorize callback received without signed_request');
+      return res.status(400).json({ error: 'Missing signed_request' });
+    }
+
+    // Parse the signed request to get user ID
+    // Facebook sends user_id in the signed request when user deauthorizes
+    const { user_id } = parseSignedRequest(signed_request, process.env.FACEBOOK_APP_SECRET);
+
+    if (!user_id) {
+      backendLogger.warn('Facebook deauthorize callback received without user_id in signed_request');
+      return res.status(400).json({ error: 'Invalid signed_request' });
+    }
+
+    // Find user by Facebook ID and unlink the account
+    const user = await User.findOne({ facebookId: user_id });
+
+    if (!user) {
+      backendLogger.info('Facebook deauthorize: User not found', { facebookId: user_id });
+      return res.status(200).json({ success: true }); // Still return success
+    }
+
+    // Remove Facebook account link
+    user.facebookId = undefined;
+    user.oauthProfilePhoto = undefined; // Remove if it was a Facebook photo
+
+    // Remove from linked accounts
+    if (user.linkedAccounts) {
+      user.linkedAccounts = user.linkedAccounts.filter(acc => acc.provider !== 'facebook');
+    }
+
+    await user.save();
+
+    backendLogger.info('Facebook account unlinked via deauthorize callback', {
+      userId: user._id,
+      facebookId: user_id
+    });
+
+    // Facebook expects a 200 response
+    res.status(200).json({ success: true });
+
+  } catch (error) {
+    backendLogger.error('Facebook deauthorize callback error', {
+      error: error.message,
+      body: req.body
+    });
+    // Still return 200 to Facebook to avoid retries
+    res.status(200).json({ success: true });
+  }
+});
+
+/**
  * Google OAuth Routes
  */
 
@@ -219,38 +312,32 @@ router.get('/google/callback',
 
 // Initiate Twitter OAuth
 router.get('/twitter', authLimiter, (req, res, next) => {
-  // Generate CSRF token and store in session
-  const generateToken = req.app.get('csrfTokenGenerator');
-  
-  if (!generateToken || typeof generateToken !== 'function') {
-    backendLogger.error('CSRF token generator not found or not a function', { type: typeof generateToken });
-    return res.status(500).json({ 
-      error: 'Server configuration error',
-      message: 'CSRF token generator is not available' 
-    });
-  }
-  
-  const csrfToken = generateToken(req, res);
-  req.session.oauthState = csrfToken;
-  
-  // Pass state parameter for CSRF protection (OAuth 2.0 supports state)
-  passport.authenticate('twitter', {
-    scope: ['tweet.read', 'users.read', 'offline.access'],
-    state: csrfToken
-  })(req, res, next);
+  // Store request token in session for OAuth 1.0a CSRF protection
+  req.session.twitterOAuthStarted = true;
+  req.session.twitterOAuthTimestamp = Date.now();
+
+  // OAuth 1.0a doesn't use state parameter like OAuth 2.0
+  passport.authenticate('twitter')(req, res, next);
 });
 
 // Twitter OAuth callback
 router.get('/twitter/callback',
   (req, res, next) => {
-    // Validate CSRF state parameter (Twitter OAuth 2.0 supports state)
-    const state = req.query.state;
-    const sessionState = req.session.oauthState;
+    // OAuth 1.0a CSRF protection - verify OAuth flow was initiated
+    if (!req.session.twitterOAuthStarted) {
+      backendLogger.error('Twitter OAuth callback without prior initiation - potential CSRF attack', {
+        hasSession: !!req.session,
+        provider: 'twitter'
+      });
+      return res.redirect('/login?error=oauth_csrf_failed');
+    }
 
-    if (!state || !sessionState || state !== sessionState) {
-      backendLogger.error('Twitter OAuth state mismatch - potential CSRF attack', {
-        hasState: !!state,
-        hasSessionState: !!sessionState,
+    // Check if OAuth flow is not too old (5 minutes max)
+    const oauthTimestamp = req.session.twitterOAuthTimestamp;
+    if (!oauthTimestamp || (Date.now() - oauthTimestamp) > 5 * 60 * 1000) {
+      backendLogger.error('Twitter OAuth callback expired - potential replay attack', {
+        timestamp: oauthTimestamp,
+        age: Date.now() - oauthTimestamp,
         provider: 'twitter'
       });
       return res.redirect('/login?error=oauth_csrf_failed');
@@ -302,8 +389,9 @@ router.get('/twitter/callback',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
 
-      // Clear session state
-      delete req.session.oauthState;
+      // Clear OAuth 1.0a session state
+      delete req.session.twitterOAuthStarted;
+      delete req.session.twitterOAuthTimestamp;
 
       // Redirect to frontend without token in URL
       res.redirect(`/?oauth=twitter`);
