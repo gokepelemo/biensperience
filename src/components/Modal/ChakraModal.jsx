@@ -81,13 +81,14 @@ const ChakraModal = forwardRef(function ChakraModal({
 
   const modalDialogClasses = [
     'modal-dialog',
-    centered && styles.modalDialogCentered,
+    centered && 'modal-dialog-centered',
     scrollable && styles.modalDialogScrollable,
     sizeClass,
     dialogClassName
   ].filter(Boolean).join(' ');
 
   const modalContentClasses = [
+    'modal-content',
     styles.modalContent,
     contentClassName
   ].filter(Boolean).join(' ');
@@ -111,7 +112,6 @@ const ChakraModal = forwardRef(function ChakraModal({
       trapFocus={false}
       preventScroll={!allowBodyScroll}
       lazyMount
-      unmountOnExit
       motionPreset="none"
     >
       <Portal>
@@ -151,7 +151,7 @@ const ChakraModal = forwardRef(function ChakraModal({
         >
           {/* Dialog.Content provides ARIA role="dialog" + aria-modal + focus trap anchor */}
           <Dialog.Content
-            className={modalDialogClasses}
+            className={`modal fade ${show ? 'show' : ''} ${modalDialogClasses}`}
             aria-labelledby={title ? titleId : undefined}
             style={{
               // Reset all Chakra Dialog.Content recipe styles

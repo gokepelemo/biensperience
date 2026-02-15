@@ -47,13 +47,22 @@
 
 /* Logo Container */
 .logoContainer {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
   margin-bottom: var(--space-4);
   margin-top: var(--space-2);
 
   @media (min-width: $breakpoint-sm) {
     margin-bottom: var(--space-6);
     margin-top: 0;
+  }
+
+  @media (max-width: #{$breakpoint-md - 1px}) {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-3);
   }
 }
 
@@ -310,6 +319,73 @@
   margin-top: var(--space-6);
   color: var(--color-text-secondary);
   font-size: var(--font-size-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+
+  @media (min-width: $breakpoint-sm) {
+    gap: var(--space-4);
+  }
+}
+
+.authFooterLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.legalLinks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.legalLink {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+.legalSeparator {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.appDescription {
+  flex: 1;
+  max-width: 300px;
+
+  @media (max-width: #{$breakpoint-md - 1px}) {
+    max-width: 100%;
+  }
+}
+
+.appDescriptionText {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+  text-align: right;
+
+  @media (max-width: #{$breakpoint-md - 1px}) {
+    text-align: center;
+  }
 }
 
 .switchLink {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Form, InputGroup, Button, Card } from "react-bootstrap";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaInfoCircle, FaCopy, FaCheck } from "react-icons/fa";
+import { Fieldset } from "@chakra-ui/react";
 import * as usersService from "../../utilities/users-service";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
@@ -182,9 +183,14 @@ export default function LoginForm({ setUser }) {
     return (
         <div className={styles.authContainer}>
             <div className={styles.authWrapper}>
-                {/* Logo */}
+                {/* Logo and App Description */}
                 <div className={styles.logoContainer}>
                     <BiensperienceLogo type="white" size="xl" />
+                    <div className={styles.appDescription}>
+                        <p className={styles.appDescriptionText}>
+                            Plan amazing travel experiences and share your adventures with fellow travelers worldwide.
+                        </p>
+                    </div>
                 </div>
 
                 {/* Main Card */}
@@ -250,82 +256,86 @@ export default function LoginForm({ setUser }) {
                         aria-describedby={error ? "login-error" : undefined}
                     >
                         {/* Email Field */}
-                        <Form.Group className="mb-4">
-                            <Form.Label
+                        <Fieldset.Root className="mb-4">
+                            <Fieldset.Legend
                                 htmlFor="login-email"
                                 className={styles.formLabel}
                             >
                                 {lang.current.label.email}
-                            </Form.Label>
-                            <InputGroup className={styles.inputGroup}>
-                                <InputGroup.Text
-                                    className={styles.inputIcon}
-                                    aria-hidden="true"
-                                >
-                                    <FaEnvelope />
-                                </InputGroup.Text>
-                                <Form.Control
-                                    ref={emailInputRef}
-                                    id="login-email"
-                                    type="email"
-                                    name="email"
-                                    value={credentials.email}
-                                    onChange={handleChange}
-                                    placeholder={lang.current.placeholder.email}
-                                    required
-                                    autoComplete="email"
-                                    className={styles.formInput}
-                                    aria-required="true"
-                                    aria-invalid={error ? "true" : "false"}
-                                    disabled={isLoading}
-                                />
-                            </InputGroup>
-                        </Form.Group>
+                            </Fieldset.Legend>
+                            <Fieldset.Content>
+                                <InputGroup className={styles.inputGroup}>
+                                    <InputGroup.Text
+                                        className={styles.inputIcon}
+                                        aria-hidden="true"
+                                    >
+                                        <FaEnvelope />
+                                    </InputGroup.Text>
+                                    <Form.Control
+                                        ref={emailInputRef}
+                                        id="login-email"
+                                        type="email"
+                                        name="email"
+                                        value={credentials.email}
+                                        onChange={handleChange}
+                                        placeholder={lang.current.placeholder.email}
+                                        required
+                                        autoComplete="email"
+                                        className={styles.formInput}
+                                        aria-required="true"
+                                        aria-invalid={error ? "true" : "false"}
+                                        disabled={isLoading}
+                                    />
+                                </InputGroup>
+                            </Fieldset.Content>
+                        </Fieldset.Root>
 
                         {/* Password Field */}
-                        <Form.Group className="mb-4">
-                            <Form.Label
+                        <Fieldset.Root className="mb-4">
+                            <Fieldset.Legend
                                 htmlFor="login-password"
                                 className={styles.formLabel}
                             >
                                 {lang.current.label.password}
-                            </Form.Label>
-                            <InputGroup className={styles.inputGroup}>
-                                <InputGroup.Text
-                                    className={styles.inputIcon}
-                                    aria-hidden="true"
-                                >
-                                    <FaLock />
-                                </InputGroup.Text>
-                                <Form.Control
-                                    id="login-password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="password"
-                                    value={credentials.password}
-                                    onChange={handleChange}
-                                    onFocus={handlePasswordFocus}
-                                    onBlur={handlePasswordBlur}
-                                    placeholder={lang.current.placeholder.password}
-                                    required
-                                    autoComplete="current-password"
-                                    className={styles.formInput}
-                                    aria-required="true"
-                                    aria-invalid={error ? "true" : "false"}
-                                    disabled={isLoading}
-                                />
-                                <Button
-                                    variant="link"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className={styles.passwordToggle}
-                                    type="button"
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
-                                    aria-pressed={showPassword}
-                                    disabled={isLoading}
-                                >
-                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                </Button>
-                            </InputGroup>
-                        </Form.Group>
+                            </Fieldset.Legend>
+                            <Fieldset.Content>
+                                <InputGroup className={styles.inputGroup}>
+                                    <InputGroup.Text
+                                        className={styles.inputIcon}
+                                        aria-hidden="true"
+                                    >
+                                        <FaLock />
+                                    </InputGroup.Text>
+                                    <Form.Control
+                                        id="login-password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        name="password"
+                                        value={credentials.password}
+                                        onChange={handleChange}
+                                        onFocus={handlePasswordFocus}
+                                        onBlur={handlePasswordBlur}
+                                        placeholder={lang.current.placeholder.password}
+                                        required
+                                        autoComplete="current-password"
+                                        className={styles.formInput}
+                                        aria-required="true"
+                                        aria-invalid={error ? "true" : "false"}
+                                        disabled={isLoading}
+                                    />
+                                    <Button
+                                        variant="link"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className={styles.passwordToggle}
+                                        type="button"
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        aria-pressed={showPassword}
+                                        disabled={isLoading}
+                                    >
+                                        {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                    </Button>
+                                </InputGroup>
+                            </Fieldset.Content>
+                        </Fieldset.Root>
 
                         {/* Remember Me & Forgot Password */}
                         <div className={styles.rememberForgotContainer}>
@@ -388,17 +398,28 @@ export default function LoginForm({ setUser }) {
                     </Form>
                 </Card>
 
-                {/* Sign Up Link */}
+                {/* Sign Up Link and Legal Links */}
                 <div className={styles.authFooter}>
-                    <span>{lang.current.message.dontHaveAccount}</span>{' '}
-                    <button
-                        type="button"
-                        className={styles.switchLink}
-                        onClick={() => navigate('/signup')}
-                        disabled={isLoading}
-                    >
-                        {lang.current.button.signup}
-                    </button>
+                    <div className={styles.authFooterLinks}>
+                        <span>{lang.current.message.dontHaveAccount}</span>{' '}
+                        <button
+                            type="button"
+                            className={styles.switchLink}
+                            onClick={() => navigate('/signup')}
+                            disabled={isLoading}
+                        >
+                            {lang.current.button.signup}
+                        </button>
+                    </div>
+                    <div className={styles.legalLinks}>
+                        <a href="#privacy" className={styles.legalLink}>
+                            Privacy Policy
+                        </a>
+                        <span className={styles.legalSeparator}>•</span>
+                        <a href="#terms" className={styles.legalLink}>
+                            Terms of Service
+                        </a>
+                    </div>
                 </div>
             </div>
 

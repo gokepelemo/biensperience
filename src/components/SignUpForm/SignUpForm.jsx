@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Form, InputGroup, Button, Card } from "react-bootstrap";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUser, FaArrowRight, FaTicketAlt } from "react-icons/fa";
+import { Fieldset } from "@chakra-ui/react";
 import { signUp } from "../../utilities/users-service";
 import { validateInviteCode } from "../../utilities/invite-codes-service";
 import { lang } from "../../lang.constants";
@@ -173,9 +174,14 @@ function SignUpForm(props) {
   return (
     <div className={styles.authContainer}>
       <div className={styles.authWrapper}>
-        {/* Logo */}
+        {/* Logo and App Description */}
         <div className={styles.logoContainer}>
           <BiensperienceLogo type="white" size="xl" />
+          <div className={styles.appDescription}>
+            <p className={styles.appDescriptionText}>
+              Plan amazing travel experiences and share your adventures with fellow travelers worldwide.
+            </p>
+          </div>
         </div>
 
         {/* Main Card */}
@@ -189,175 +195,185 @@ function SignUpForm(props) {
           {/* Form */}
           <Form onSubmit={handleSubmit} autoComplete="off">
             {/* Name Field */}
-            <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.current.label.name}</Form.Label>
-              <InputGroup className={styles.inputGroup}>
-                <InputGroup.Text className={styles.inputIcon}>
-                  <FaUser />
-                </InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  name="name"
-                  value={state.name}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.name}
-                  required
-                  autoComplete="name"
-                  className={styles.formInput}
-                />
-              </InputGroup>
-            </Form.Group>
+            <Fieldset.Root className="mb-4">
+              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.name}</Fieldset.Legend>
+              <Fieldset.Content>
+                <InputGroup className={styles.inputGroup}>
+                  <InputGroup.Text className={styles.inputIcon}>
+                    <FaUser />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="text"
+                    name="name"
+                    value={state.name}
+                    onChange={handleChange}
+                    placeholder={lang.current.placeholder.name}
+                    required
+                    autoComplete="name"
+                    className={styles.formInput}
+                  />
+                </InputGroup>
+              </Fieldset.Content>
+            </Fieldset.Root>
 
             {/* Email Field */}
-            <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.current.label.email}</Form.Label>
-              <InputGroup className={styles.inputGroup}>
-                <InputGroup.Text className={styles.inputIcon}>
-                  <FaEnvelope />
-                </InputGroup.Text>
-                <Form.Control
-                  type="email"
-                  name="email"
-                  value={state.email}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.email}
-                  required
-                  autoComplete="email"
-                  className={styles.formInput}
-                />
-              </InputGroup>
-            </Form.Group>
+            <Fieldset.Root className="mb-4">
+              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.email}</Fieldset.Legend>
+              <Fieldset.Content>
+                <InputGroup className={styles.inputGroup}>
+                  <InputGroup.Text className={styles.inputIcon}>
+                    <FaEnvelope />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="email"
+                    name="email"
+                    value={state.email}
+                    onChange={handleChange}
+                    placeholder={lang.current.placeholder.email}
+                    required
+                    autoComplete="email"
+                    className={styles.formInput}
+                  />
+                </InputGroup>
+              </Fieldset.Content>
+            </Fieldset.Root>
 
             {/* Password Field */}
-            <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.current.label.password}</Form.Label>
-              <InputGroup className={styles.inputGroup}>
-                <InputGroup.Text className={styles.inputIcon}>
-                  <FaLock />
-                </InputGroup.Text>
-                <Form.Control
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={state.password}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.password}
-                  required
-                  autoComplete="new-password"
-                  className={styles.formInput}
-                />
-                <Button
-                  variant="link"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className={styles.passwordToggle}
-                >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </Button>
-              </InputGroup>
-            </Form.Group>
+            <Fieldset.Root className="mb-4">
+              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.password}</Fieldset.Legend>
+              <Fieldset.Content>
+                <InputGroup className={styles.inputGroup}>
+                  <InputGroup.Text className={styles.inputIcon}>
+                    <FaLock />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={state.password}
+                    onChange={handleChange}
+                    placeholder={lang.current.placeholder.password}
+                    required
+                    autoComplete="new-password"
+                    className={styles.formInput}
+                  />
+                  <Button
+                    variant="link"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={styles.passwordToggle}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </Button>
+                </InputGroup>
+              </Fieldset.Content>
+            </Fieldset.Root>
 
             {/* Confirm Password Field */}
-            <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.current.label.confirmPassword}</Form.Label>
-              <InputGroup className={styles.inputGroup}>
-                <InputGroup.Text className={styles.inputIcon}>
-                  <FaLock />
-                </InputGroup.Text>
-                <Form.Control
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  name="confirm"
-                  value={state.confirm}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.confirmPassword}
-                  required
-                  autoComplete="new-password"
-                  className={styles.formInput}
-                />
-                <Button
-                  variant="link"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className={styles.passwordToggle}
-                >
-                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                </Button>
-              </InputGroup>
-            </Form.Group>
+            <Fieldset.Root className="mb-4">
+              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.confirmPassword}</Fieldset.Legend>
+              <Fieldset.Content>
+                <InputGroup className={styles.inputGroup}>
+                  <InputGroup.Text className={styles.inputIcon}>
+                    <FaLock />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirm"
+                    value={state.confirm}
+                    onChange={handleChange}
+                    placeholder={lang.current.placeholder.confirmPassword}
+                    required
+                    autoComplete="new-password"
+                    className={styles.formInput}
+                  />
+                  <Button
+                    variant="link"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className={styles.passwordToggle}
+                  >
+                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                  </Button>
+                </InputGroup>
+              </Fieldset.Content>
+            </Fieldset.Root>
 
             {/* Invite Code Field */}
-            <Form.Group className="mb-4">
-              <Form.Label className={styles.formLabel}>{lang.current.invite.inviteCodeOptional}</Form.Label>
-              <InputGroup className={styles.inputGroup}>
-                <InputGroup.Text className={styles.inputIcon}>
-                  <FaTicketAlt />
-                </InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  name="inviteCode"
-                  value={state.inviteCode}
-                  onChange={handleChange}
-                  placeholder="XXX-XXX-XXX"
-                  autoComplete="off"
-                  maxLength={11}
-                  className={`${styles.formInput} ${styles.inviteCodeInput}`}
-                />
-              </InputGroup>
-              {inviteValidation.isValidating && (
-                <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  {lang.current.invite.validatingCode}
-                </small>
-              )}
-              {inviteValidation.isValid && inviteValidation.details && (
-                <div className={styles.inviteDetails}>
-                  <small className="text-success" style={{ display: 'block' }}>
-                    ✓ {lang.current.invite.validCode}
+            <Fieldset.Root className="mb-4">
+              <Fieldset.Legend className={styles.formLabel}>{lang.current.invite.inviteCodeOptional}</Fieldset.Legend>
+              <Fieldset.Content>
+                <InputGroup className={styles.inputGroup}>
+                  <InputGroup.Text className={styles.inputIcon}>
+                    <FaTicketAlt />
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="text"
+                    name="inviteCode"
+                    value={state.inviteCode}
+                    onChange={handleChange}
+                    placeholder="XXX-XXX-XXX"
+                    autoComplete="off"
+                    maxLength={11}
+                    className={`${styles.formInput} ${styles.inviteCodeInput}`}
+                  />
+                </InputGroup>
+                {inviteValidation.isValidating && (
+                  <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                    {lang.current.invite.validatingCode}
                   </small>
-                  {inviteValidation.details.requiresEmail && (
-                    <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
-                      {inviteValidation.details.message || lang.current.invite.enterEmailForDetails}
+                )}
+                {inviteValidation.isValid && inviteValidation.details && (
+                  <div className={styles.inviteDetails}>
+                    <small className="text-success" style={{ display: 'block' }}>
+                      ✓ {lang.current.invite.validCode}
                     </small>
-                  )}
-                  {!inviteValidation.details.requiresEmail && inviteValidation.details.inviterName && (
-                    <small className={styles.inviterInfo} style={{ display: 'block', marginTop: '0.25rem' }}>
-                      {lang.current.invite.invitedBy.replace('{name}', inviteValidation.details.inviterName)}
-                    </small>
-                  )}
-                  {!inviteValidation.details.requiresEmail && inviteValidation.details.customMessage && (
-                    <small className={styles.inviteMessage} style={{ display: 'block', marginTop: '0.25rem', fontStyle: 'italic' }}>
-                      "{inviteValidation.details.customMessage}"
-                    </small>
-                  )}
-                  {!inviteValidation.details.requiresEmail && inviteValidation.details.experienceNames?.length > 0 && (
-                    <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                      <small className="text-muted">{lang.current.invite.experiencesIncluded}:</small>
-                      <ul className={styles.resourceList}>
-                        {inviteValidation.details.experienceNames.map((name, idx) => (
-                          <li key={idx}><small>{name}</small></li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {!inviteValidation.details.requiresEmail && inviteValidation.details.destinationNames?.length > 0 && (
-                    <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                      <small className="text-muted">{lang.current.invite.destinationsIncluded}:</small>
-                      <ul className={styles.resourceList}>
-                        {inviteValidation.details.destinationNames.map((name, idx) => (
-                          <li key={idx}><small>{name}</small></li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-              {inviteValidation.error && (
-                <small className="text-danger" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  {inviteValidation.error}
-                </small>
-              )}
-              {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
-                <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  {lang.current.invite.inviteCodeHelp}
-                </small>
-              )}
-            </Form.Group>
+                    {inviteValidation.details.requiresEmail && (
+                      <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
+                        {inviteValidation.details.message || lang.current.invite.enterEmailForDetails}
+                      </small>
+                    )}
+                    {!inviteValidation.details.requiresEmail && inviteValidation.details.inviterName && (
+                      <small className={styles.inviterInfo} style={{ display: 'block', marginTop: '0.25rem' }}>
+                        {lang.current.invite.invitedBy.replace('{name}', inviteValidation.details.inviterName)}
+                      </small>
+                    )}
+                    {!inviteValidation.details.requiresEmail && inviteValidation.details.customMessage && (
+                      <small className={styles.inviteMessage} style={{ display: 'block', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                        "{inviteValidation.details.customMessage}"
+                      </small>
+                    )}
+                    {!inviteValidation.details.requiresEmail && inviteValidation.details.experienceNames?.length > 0 && (
+                      <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
+                        <small className="text-muted">{lang.current.invite.experiencesIncluded}:</small>
+                        <ul className={styles.resourceList}>
+                          {inviteValidation.details.experienceNames.map((name, idx) => (
+                            <li key={idx}><small>{name}</small></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {!inviteValidation.details.requiresEmail && inviteValidation.details.destinationNames?.length > 0 && (
+                      <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
+                        <small className="text-muted">{lang.current.invite.destinationsIncluded}:</small>
+                        <ul className={styles.resourceList}>
+                          {inviteValidation.details.destinationNames.map((name, idx) => (
+                            <li key={idx}><small>{name}</small></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {inviteValidation.error && (
+                  <small className="text-danger" style={{ display: 'block', marginTop: '0.5rem' }}>
+                    {inviteValidation.error}
+                  </small>
+                )}
+                {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
+                  <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                    {lang.current.invite.inviteCodeHelp}
+                  </small>
+                )}
+              </Fieldset.Content>
+            </Fieldset.Root>
 
             {/* Terms & Privacy checkbox */}
             <div className={styles.termsContainer}>
@@ -405,12 +421,23 @@ function SignUpForm(props) {
           </Form>
         </Card>
 
-        {/* Sign In Link */}
+        {/* Sign In Link and Legal Links */}
         <div className={styles.authFooter}>
-          <span>{lang.current.message.alreadyHaveAccount}</span>{' '}
-          <button type="button" className={styles.switchLink} onClick={handleLoginClick}>
-            {lang.current.button.signIn}
-          </button>
+          <div className={styles.authFooterLinks}>
+            <span>{lang.current.message.alreadyHaveAccount}</span>{' '}
+            <button type="button" className={styles.switchLink} onClick={handleLoginClick}>
+              {lang.current.button.signIn}
+            </button>
+          </div>
+          <div className={styles.legalLinks}>
+            <a href="#privacy" className={styles.legalLink}>
+              Privacy Policy
+            </a>
+            <span className={styles.legalSeparator}>•</span>
+            <a href="#terms" className={styles.legalLink}>
+              Terms of Service
+            </a>
+          </div>
         </div>
       </div>
 

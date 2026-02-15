@@ -6,10 +6,53 @@
 const passport = require('passport');
 const FacebookStrategy = require('passport-facebook').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const TwitterStrategy = require('@superfaceai/passport-twitter-oauth2').Strategy;
+const TwitterStrategy = require('passport-twitter').Strategy;
 const User = require('../models/user');
+const Photo = require('../models/photo');
 const jwt = require('jsonwebtoken');
 const backendLogger = require('../utilities/backend-logger');
+
+/**
+ * Create a profile photo entity from OAuth provider photo URL
+ * @param {string} photoUrl - The OAuth photo URL
+ * @param {ObjectId} userId - The user ID who owns the photo
+ * @param {string} provider - The OAuth provider (facebook, google, twitter)
+ * @returns {ObjectId|null} - The created photo ID or null if creation failed
+ */
+async function createOAuthProfilePhoto(photoUrl, userId, provider) {
+  if (!photoUrl) return null;
+
+  try {
+    const photoData = {
+      url: photoUrl,
+      photo_credit: `${provider.charAt(0).toUpperCase() + provider.slice(1)} Profile Photo`,
+      photo_credit_url: photoUrl,
+      permissions: [{
+        _id: userId,
+        entity: 'user',
+        type: 'owner',
+        granted_by: userId
+      }]
+    };
+
+    const photo = await Photo.create(photoData);
+    backendLogger.info('OAuth profile photo created', {
+      photoId: photo._id,
+      userId: userId,
+      provider: provider,
+      url: photoUrl
+    });
+    return photo._id;
+  } catch (error) {
+    backendLogger.error('Failed to create OAuth profile photo', {
+      error: error.message,
+      userId: userId,
+      provider: provider,
+      url: photoUrl
+    });
+    return null;
+  }
+}
 
 /**
  * Serialize user for session
@@ -23,7 +66,7 @@ passport.serializeUser((user, done) => {
  */
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id).populate('photo');
+    const user = await User.findById(id);
     done(null, user);
   } catch (err) {
     done(err, null);
@@ -77,7 +120,7 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
       }
       
       // Check if user exists by Facebook ID
-      let user = await User.findOne({ facebookId: profile.id }).populate('photo');
+      let user = await User.findOne({ facebookId: profile.id });
       
       if (user) {
         // User exists, log them in
@@ -86,7 +129,7 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
       
       // Check if user exists by email (link accounts)
       if (email) {
-        user = await User.findOne({ email }).populate('photo');
+        user = await User.findOne({ email });
         if (user) {
           // Link Facebook to existing account
           user.facebookId = profile.id;
@@ -119,6 +162,17 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
       });
       
       await newUser.save();
+      
+      // Create profile photo entity if OAuth photo exists
+      if (profile.photos && profile.photos[0]) {
+        const photoId = await createOAuthProfilePhoto(profile.photos[0].value, newUser._id, 'facebook');
+        if (photoId) {
+          newUser.photos.push(photoId);
+          newUser.default_photo_id = photoId;
+          await newUser.save();
+        }
+      }
+      
       return done(null, newUser);
       
     } catch (err) {
@@ -173,7 +227,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       }
       
       // Check if user exists by Google ID
-      let user = await User.findOne({ googleId: profile.id }).populate('photo');
+      let user = await User.findOne({ googleId: profile.id });
       
       if (user) {
         // User exists, log them in
@@ -182,7 +236,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       
       // Check if user exists by email (link accounts)
       if (email) {
-        user = await User.findOne({ email }).populate('photo');
+        user = await User.findOne({ email });
         if (user) {
           // Link Google to existing account
           user.googleId = profile.id;
@@ -215,6 +269,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       });
       
       await newUser.save();
+      
+      // Create profile photo entity if OAuth photo exists
+      if (profile.photos && profile.photos[0]) {
+        const photoId = await createOAuthProfilePhoto(profile.photos[0].value, newUser._id, 'google');
+        if (photoId) {
+          newUser.photos.push(photoId);
+          newUser.default_photo_id = photoId;
+          await newUser.save();
+        }
+      }
+      
       return done(null, newUser);
       
     } catch (err) {
@@ -224,30 +289,31 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 /**
- * Twitter Strategy (OAuth 2.0)
+ * Twitter Strategy (OAuth 1.0a)
  */
-if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
-  backendLogger.info('Initializing Twitter OAuth 2.0 strategy', {
-    hasClientId: !!process.env.TWITTER_CLIENT_ID,
+if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
+  backendLogger.info('Initializing Twitter OAuth 1.0a strategy', {
+    hasConsumerKey: !!process.env.TWITTER_CONSUMER_KEY,
     callbackUrl: process.env.TWITTER_CALLBACK_URL
   });
   
   passport.use(new TwitterStrategy({
-    clientType: 'confidential',
-    clientID: process.env.TWITTER_CLIENT_ID,
-    clientSecret: process.env.TWITTER_CLIENT_SECRET,
+    consumerKey: process.env.TWITTER_CONSUMER_KEY,
+    consumerSecret: process.env.TWITTER_CONSUMER_SECRET,
     callbackURL: process.env.TWITTER_CALLBACK_URL || 'http://localhost:3001/api/auth/twitter/callback',
-    scope: ['tweet.read', 'users.read', 'offline.access'],
     passReqToCallback: true,
   },
   async (req, accessToken, refreshToken, profile, done) => {
     try {
       backendLogger.info('Twitter OAuth callback invoked', {
         profileId: profile.id,
-        username: profile.username
+        username: profile.username,
+        displayName: profile.displayName,
+        hasPhotos: !!(profile.photos && profile.photos.length > 0),
+        profileKeys: Object.keys(profile)
       });
       
-      // OAuth 2.0 profile structure is different
+      // OAuth 1.0a profile structure
       const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
       
       // If user is already logged in (account linking)
@@ -282,7 +348,7 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       }
       
       // Check if user exists by Twitter ID
-      let user = await User.findOne({ twitterId: profile.id }).populate('photo');
+      let user = await User.findOne({ twitterId: profile.id });
       
       if (user) {
         // User exists, log them in
@@ -291,7 +357,7 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       
       // Check if user exists by email (link accounts)
       if (email) {
-        user = await User.findOne({ email }).populate('photo');
+        user = await User.findOne({ email });
         if (user) {
           // Link Twitter to existing account
           user.twitterId = profile.id;
@@ -310,13 +376,14 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       }
       
       // Create new user
+      const profilePhotoUrl = profile.photos && profile.photos[0] ? profile.photos[0].value.replace('_normal', '') : null;
+      
       const newUser = new User({
-        name: profile.displayName || profile.data?.name || profile.username,
+        name: profile.displayName || profile.username,
         email: email || `twitter_${profile.id}@biensperience.com`,
         twitterId: profile.id,
         provider: 'twitter',
-        oauthProfilePhoto: profile.photos && profile.photos[0] ? profile.photos[0].value.replace('_normal', '') : 
-                          (profile.data?.profile_image_url ? profile.data.profile_image_url.replace('_normal', '') : null),
+        oauthProfilePhoto: profilePhotoUrl,
         linkedAccounts: [{
           provider: 'twitter',
           providerId: profile.id,
@@ -325,6 +392,17 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       });
       
       await newUser.save();
+      
+      // Create profile photo entity if OAuth photo exists
+      if (profilePhotoUrl) {
+        const photoId = await createOAuthProfilePhoto(profilePhotoUrl, newUser._id, 'twitter');
+        if (photoId) {
+          newUser.photos.push(photoId);
+          newUser.default_photo_id = photoId;
+          await newUser.save();
+        }
+      }
+      
       backendLogger.info('Twitter OAuth new user created', {
         email: newUser.email,
         userId: newUser._id.toString()
@@ -332,13 +410,13 @@ if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       return done(null, newUser);
       
     } catch (err) {
-      backendLogger.error('[Twitter Strategy] Error', { error: err.message, stack: err.stack, profileId: profile.id });
+      backendLogger.error('[Twitter OAuth 1.0a] Error', { error: err.message, stack: err.stack, profileId: profile.id });
       return done(err, null);
     }
   }));
 } else {
-  backendLogger.warn('Twitter OAuth 2.0 not configured', { 
-    missing: ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET'].filter(key => !process.env[key]) 
+  backendLogger.warn('Twitter OAuth 1.0a not configured', { 
+    missing: ['TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET'].filter(key => !process.env[key]) 
   });
 }
 

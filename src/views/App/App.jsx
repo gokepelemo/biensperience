@@ -162,6 +162,10 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // OAuth processing state
+  const [isProcessingOAuth, setIsProcessingOAuth] = React.useState(false);
+  const oauthProcessedRef = React.useRef(false);
+
   const PENDING_HASH_STORAGE_KEY = STORAGE_KEYS.pendingHash;
 
   const applyHashToUrl = useCallback((hash, { mode } = {}) => {
@@ -479,13 +483,37 @@ function AppContent() {
 
   // Effect: handle OAuth callback once on mount
   useEffect(() => {
+    // Prevent duplicate OAuth processing in React StrictMode
+    if (oauthProcessedRef.current) {
+      return;
+    }
+    oauthProcessedRef.current = true;
+
     const processOAuth = async () => {
+      // Check if we have OAuth params to process
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasOAuthParam = urlParams.has('oauth');
+
+      if (!hasOAuthParam) {
+        return; // No OAuth processing needed
+      }
+
       try {
+        setIsProcessingOAuth(true);
         const result = await handleOAuthCallback();
         if (result) {
           const { user: oauthUser, provider } = result;
           updateUser(oauthUser);
-          const message = lang.current.notification?.auth?.oauthSuccess?.replace('{provider}', provider) || `Welcome back! You're signed in with ${provider}.`;
+          
+          // Map provider names to display names
+          const providerDisplayNames = {
+            facebook: 'Facebook',
+            google: 'Google',
+            twitter: 'X'
+          };
+          const displayProvider = providerDisplayNames[provider] || provider.charAt(0).toUpperCase() + provider.slice(1);
+          
+          const message = lang.current.notification?.auth?.oauthSuccess?.replace('{provider}', displayProvider) || `Welcome back! You're signed in with ${displayProvider}.`;
           success(message);
 
           // Redirect to intended route after OAuth login (deep linking support)
@@ -498,6 +526,13 @@ function AppContent() {
         }
       } catch (err) {
         showError(err.message || 'Authentication failed');
+      } finally {
+        // Always remove oauth query param after processing (success or failure)
+        const url = new URL(window.location);
+        url.searchParams.delete('oauth');
+        window.history.replaceState({}, document.title, url.pathname + url.hash);
+        
+        setIsProcessingOAuth(false);
       }
     };
 
@@ -553,7 +588,11 @@ function AppContent() {
           <LegalModalsHandler />
           {/* Multi-step Plan Experience Modal - globally accessible */}
           {isAuthenticated && <MultiStepPlanModal />}
-          {isAuthenticated ? (
+          {isProcessingOAuth ? (
+            <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
+              <Loading variant="centered" size="lg" message="Completing sign in..." />
+            </Container>
+          ) : isAuthenticated ? (
             <>
               <NavBar />
               <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
