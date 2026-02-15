@@ -339,7 +339,7 @@
 
 .legalLinks {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
   gap: var(--space-2);
   font-size: var(--font-size-sm);
@@ -365,6 +365,7 @@
 .legalSeparator {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+  line-height: 1;
 }
 
 .appDescription {

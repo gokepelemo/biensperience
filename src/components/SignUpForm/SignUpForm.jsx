@@ -176,7 +176,7 @@ function SignUpForm(props) {
       <div className={styles.authWrapper}>
         {/* Logo and App Description */}
         <div className={styles.logoContainer}>
-          <BiensperienceLogo type="white" size="xl" />
+          <BiensperienceLogo type="white" size="2xl" />
           <div className={styles.appDescription}>
             <p className={styles.appDescriptionText}>
               Plan amazing travel experiences and share your adventures with fellow travelers worldwide.
