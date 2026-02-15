@@ -33,6 +33,9 @@ export default function AppHome() {
   // Prevent double fetching
   const hasFetchedRef = useRef(false);
 
+  // Determine if we have existing data
+  const hasExistingData = destinations.length > 0 || experiences.length > 0;
+
   // Fetch fresh data when component mounts (only if no data exists)
   useEffect(() => {
     // Skip if data already exists or we've already fetched
@@ -73,9 +76,11 @@ export default function AppHome() {
   );
 
   // Determine loading states
-  const hasExistingData = destinations.length > 0 || experiences.length > 0;
   const isDestinationsLoading = destinations.length === 0 && (loading || !isDataLoaded);
   const isExperiencesLoading = curatedExperiences.length === 0 && (loading || !isDataLoaded);
+
+  // Determine if we should show empty state
+  const isEmptyState = isDataLoaded && !hasExistingData;
 
   // Helper function to render show more/less button
   const renderShowMoreButton = (isExpanded, onToggle, itemCount, limit) => {
