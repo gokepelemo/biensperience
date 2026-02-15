@@ -41,18 +41,16 @@
   }
 }
 
-/* Unified header controls - perfect vertical alignment, full width */
+/* Unified header controls - compact alignment */
 .headerControls {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: center;
   gap: $space-3;
-  height: 56px; /* Fixed height for both elements */
   width: 100%; /* Full width of container */
 
   @media (max-width: 768px) {
     flex-direction: column;
-    height: auto;
     gap: $space-2;
   }
 }
@@ -117,27 +115,33 @@
   }
 }
 
-/* Add Note Pill - rounded rectangle, same height as search */
+/* Add Note Pill - compact button, proportionate to search bar */
 .addNotePill {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: $space-2;
-  padding: 0 $space-5;
+  padding: 0 $space-4;
   background: var(--color-primary);
   color: white;
   border: none;
   border-radius: var(--radius-full);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  height: 100%; /* Fill parent height - matches search */
+  height: 44px; /* Fixed compact height - WCAG touch target minimum */
+  min-width: 110px;
   transition: background-color var(--transition-fast);
 
   &:hover:not(:disabled) {
     background: var(--color-primary-dark);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   &:disabled {
@@ -147,7 +151,7 @@
 
   @media (max-width: 768px) {
     width: 100%;
-    height: 56px; /* Explicit height on mobile */
+    height: 48px; /* Slightly larger on mobile for touch */
   }
 }
 

@@ -34,16 +34,16 @@ import TimelineDateGroup from './TimelineDateGroup';
 function PlanItemsRenderer({
   viewType,
   itemsToRender,
-  pinnedItems,
-  activityGroups,
-  timelineGroups,
+  pinnedItems = [],
+  activityGroups = null,
+  timelineGroups = null,
   sensors,
   onDragEnd,
   sharedItemHandlers,
-  sharedSortablePlanItemProps,
+  sharedSortablePlanItemProps = {},
   getItemProps,
   isItemVisible,
-  pinnedItemId
+  pinnedItemId = null
 }) {
   /**
    * Render Card View with drag-and-drop
@@ -385,14 +385,6 @@ PlanItemsRenderer.propTypes = {
   getItemProps: PropTypes.func.isRequired,
   isItemVisible: PropTypes.func.isRequired,
   pinnedItemId: PropTypes.string
-};
-
-PlanItemsRenderer.defaultProps = {
-  pinnedItems: [],
-  activityGroups: null,
-  timelineGroups: null,
-  sharedSortablePlanItemProps: {},
-  pinnedItemId: null
 };
 
 export default PlanItemsRenderer;

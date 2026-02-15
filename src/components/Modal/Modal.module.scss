@@ -133,9 +133,9 @@
   max-height: 90vh;
   pointer-events: auto !important; /* Ensure content captures clicks */
   overscroll-behavior: contain; /* Prevent scroll chaining to parent */
-  /* Prevent horizontal overflow on mobile */
+  /* Allow dropdowns to render outside content bounds */
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: visible;
   box-sizing: border-box;
 }
 

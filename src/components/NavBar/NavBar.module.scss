@@ -24,6 +24,11 @@
   min-height: 56px;
   height: 56px;
 
+  /* Mobile: Remove border for seamless dropdown flow */
+  @media (max-width: 991.98px) {
+    border-bottom: none;
+  }
+
   /* Align all navbar items by text baseline for consistent typography */
   :global(.container-fluid) {
     display: flex;
@@ -52,15 +57,16 @@
   @media (max-width: 991.98px) {
     /* Base state - always positioned, visibility controlled by show class */
     position: absolute !important;
-    top: 100% !important;
+    top: 110% !important; /* Match navbar height exactly */
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
     background: #1e1e1e !important;
-    z-index: 1000 !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important;
+    z-index: 999 !important; /* Below navbar toggler (z-index: 20) but above content */
+    box-shadow: none !important; /* Seamless flow from navbar */
     padding: $space-4 0 !important;
     flex-direction: column !important;
+    border-top: none !important; /* No separator line */
 
     /* Hidden by default - use transform instead of height for absolute positioning */
     &:global(.collapse:not(.show):not(.collapsing)) {

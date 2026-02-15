@@ -116,14 +116,16 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  /* Must appear above modals when portaled to <body> (mobile/tablet) */
-  z-index: calc(var(--z-index-tooltip, 1070) + 100);
+  /* Must appear above modal backdrop (z-index: 1050) and be clickable */
+  z-index: 9999;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: dropdownFadeIn 0.15s ease-out;
+  /* Ensure clicks are captured */
+  pointer-events: auto;
 }
 
 @keyframes dropdownFadeIn {
@@ -184,6 +186,8 @@
   max-height: 240px;
   overflow-y: auto;
   background: var(--color-bg-primary);
+  /* Ensure clicks are captured on options */
+  pointer-events: auto;
 
   /* Custom scrollbar - works in light and dark mode */
   &::-webkit-scrollbar {

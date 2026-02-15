@@ -951,11 +951,10 @@ async function getFeed(req, res) {
         isOwnActivity
       });
 
-      // Special-case destination permission events (legacy support for permission_added/removed)
-      if (activity.resource?.type === 'Destination') {
-        if (activity.action === 'permission_added') actionText = 'Favorited';
-        if (activity.action === 'permission_removed') actionText = 'Unfavorited';
-      }
+      // Note: We no longer special-case destination permission events as "Favorited".
+      // The destinations controller now creates dedicated 'favorite_added'/'favorite_removed' activities.
+      // Keeping permission_added events for destinations visible as regular permission events
+      // preserves accurate audit trail (e.g., when contributor permissions are added for other reasons).
 
       // For User resource updates, don't repeat the user's name as the item
       // Instead, the action text already includes the context (e.g., "Updated their profile")

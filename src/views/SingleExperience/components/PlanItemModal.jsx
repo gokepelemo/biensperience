@@ -15,10 +15,10 @@
 
 import { useState, useEffect, useId, useRef, useCallback } from 'react';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
+import AddressAutocomplete from '../../../components/AddressAutocomplete';
 import { lang } from '../../../lang.constants';
 import { Modal, FormGroup, FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
-import { getAddressSuggestions, getPlaceDetails } from '../../../utilities/address-utils';
-import { logger } from '../../../utilities/logger';
+import styles from './PlanItemModal.module.scss';
 
 // Default empty form state
 const DEFAULT_FORM_STATE = {
@@ -62,12 +62,6 @@ export default function PlanItemModal({
   // INTERNAL form state - isolated from parent
   const [formState, setFormState] = useState(DEFAULT_FORM_STATE);
 
-  // Address autocomplete state (also internal)
-  const [addressInput, setAddressInput] = useState('');
-  const [addressSuggestions, setAddressSuggestions] = useState([]);
-  const [addressLoading, setAddressLoading] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
   // Initialize form state when modal opens
   useEffect(() => {
     if (show && !wasOpenRef.current) {
@@ -86,12 +80,6 @@ export default function PlanItemModal({
         location: initial.location || null,
         parent: initial.parent || null
       });
-
-      // Initialize address input
-      setAddressInput(initial.location?.address || '');
-      setAddressSuggestions([]);
-      setAddressLoading(false);
-      setShowSuggestions(false);
     } else if (!show && wasOpenRef.current) {
       // Modal just closed - reset tracking ref
       wasOpenRef.current = false;
@@ -105,68 +93,6 @@ export default function PlanItemModal({
       [field]: value
     }));
   }, []);
-
-  // Address search handler
-  const handleAddressSearch = useCallback(async (input) => {
-    setAddressInput(input);
-
-    if (!input || input.trim().length < 2) {
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    setAddressLoading(true);
-    try {
-      const suggestions = await getAddressSuggestions(input, { types: 'address', limit: 5 });
-      setAddressSuggestions(suggestions);
-      setShowSuggestions(suggestions.length > 0);
-    } catch (error) {
-      logger.error('[PlanItemModal] Address search error', { error: error.message });
-      setAddressSuggestions([]);
-    } finally {
-      setAddressLoading(false);
-    }
-  }, []);
-
-  // Handle address selection from suggestions
-  const handleAddressSelect = useCallback(async (suggestion) => {
-    setAddressLoading(true);
-    setShowSuggestions(false);
-
-    try {
-      const placeDetails = await getPlaceDetails(suggestion.placeId);
-
-      if (placeDetails) {
-        setAddressInput(placeDetails.formattedAddress);
-        updateField('location', {
-          address: placeDetails.formattedAddress,
-          geo: placeDetails.location ? {
-            type: 'Point',
-            coordinates: [placeDetails.location.lng, placeDetails.location.lat]
-          } : null,
-          city: placeDetails.components?.city || null,
-          state: placeDetails.components?.state || null,
-          country: placeDetails.components?.country || null,
-          postalCode: placeDetails.components?.postalCode || null,
-          placeId: placeDetails.placeId || null
-        });
-        logger.debug('[PlanItemModal] Address selected', { address: placeDetails.formattedAddress });
-      }
-    } catch (error) {
-      logger.error('[PlanItemModal] Error getting place details', { error: error.message });
-    } finally {
-      setAddressLoading(false);
-    }
-  }, [updateField]);
-
-  // Clear address
-  const handleClearAddress = useCallback(() => {
-    setAddressInput('');
-    setAddressSuggestions([]);
-    setShowSuggestions(false);
-    updateField('location', null);
-  }, [updateField]);
 
   // Submit handler - sends form data to parent
   const handleSubmit = useCallback(async (e) => {
@@ -201,9 +127,9 @@ export default function PlanItemModal({
       loading={loading}
       disableSubmit={!formState.text}
     >
-      <form className="plan-item-modal-form" onSubmit={handleSubmit}>
+      <form className={styles.form} onSubmit={handleSubmit}>
         {/* Item Description */}
-        <FormGroup className="mb-3">
+        <FormGroup>
           <FormLabel htmlFor={`${formId}-text`}>
             {l.current?.label?.itemDescription || "Item Description"}{" "}
             <span style={{ color: 'var(--bs-danger)' }}>*</span>
@@ -219,7 +145,7 @@ export default function PlanItemModal({
         </FormGroup>
 
         {/* URL (Optional) */}
-        <FormGroup className="mb-3">
+        <FormGroup>
           <FormLabel htmlFor={`${formId}-url`}>
             {l.current?.label?.urlOptional || "URL (Optional)"}
           </FormLabel>
@@ -232,146 +158,92 @@ export default function PlanItemModal({
           />
         </FormGroup>
 
-        {/* Cost */}
-        <FormGroup className="mb-3">
-          <FormLabel htmlFor={`${formId}-cost`}>
-            {l.current?.label?.cost || "Cost"}
-          </FormLabel>
-          <FormInputGroup prefix="$">
-            <FormControl
-              type="number"
-              id={`${formId}-cost`}
-              value={formState.cost || ''}
-              onChange={(e) => updateField('cost', parseFloat(e.target.value) || 0)}
-              onFocus={(e) => {
-                if (e.target.value === '0') {
-                  updateField('cost', '');
-                }
-              }}
-              onBlur={(e) => {
-                if (e.target.value === '') {
-                  updateField('cost', 0);
-                }
-              }}
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-            />
-          </FormInputGroup>
-        </FormGroup>
+        {/* Cost + Planning Days - Side by Side */}
+        <div className={styles.twoColumnRow}>
+          {/* Cost */}
+          <FormGroup>
+            <FormLabel htmlFor={`${formId}-cost`}>
+              {l.current?.label?.cost || "Cost"}
+            </FormLabel>
+            <FormInputGroup prefix="$">
+              <FormControl
+                type="number"
+                id={`${formId}-cost`}
+                value={formState.cost || ''}
+                onChange={(e) => updateField('cost', parseFloat(e.target.value) || 0)}
+                onFocus={(e) => {
+                  if (e.target.value === '0') {
+                    updateField('cost', '');
+                  }
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === '') {
+                    updateField('cost', 0);
+                  }
+                }}
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </FormInputGroup>
+          </FormGroup>
 
-        {/* Planning Days */}
-        <FormGroup className="mb-3">
-          <FormLabel htmlFor={`${formId}-days`}>
-            {l.current?.label?.planningTimeLabel || "Planning Time"}
-          </FormLabel>
-          <FormInputGroup suffix="days">
-            <FormControl
-              type="number"
-              id={`${formId}-days`}
-              value={formState.planning_days || ''}
-              onChange={(e) => updateField('planning_days', parseInt(e.target.value) || 0)}
-              onFocus={(e) => {
-                if (e.target.value === '0') {
-                  updateField('planning_days', '');
-                }
-              }}
-              onBlur={(e) => {
-                if (e.target.value === '') {
-                  updateField('planning_days', 0);
-                }
-              }}
-              min="0"
-              placeholder="0"
-            />
-          </FormInputGroup>
-        </FormGroup>
+          {/* Planning Days */}
+          <FormGroup>
+            <FormLabel htmlFor={`${formId}-days`}>
+              {l.current?.label?.planningTimeLabel || "Planning Time"}
+            </FormLabel>
+            <FormInputGroup suffix="days">
+              <FormControl
+                type="number"
+                id={`${formId}-days`}
+                value={formState.planning_days || ''}
+                onChange={(e) => updateField('planning_days', parseInt(e.target.value) || 0)}
+                onFocus={(e) => {
+                  if (e.target.value === '0') {
+                    updateField('planning_days', '');
+                  }
+                }}
+                onBlur={(e) => {
+                  if (e.target.value === '') {
+                    updateField('planning_days', 0);
+                  }
+                }}
+                min="0"
+                placeholder="0"
+              />
+            </FormInputGroup>
+          </FormGroup>
+        </div>
 
-        {/* Activity Type */}
-        <FormGroup className="mb-3">
+        {/* Activity Type - Full Width for readable dropdown */}
+        <FormGroup>
           <FormLabel htmlFor={`${formId}-activityType`}>
             {l.current?.label?.activityType || "Activity Type"}
-            <small className="text-muted ms-2">(optional)</small>
           </FormLabel>
           <ActivityTypeSelect
             id={`${formId}-activityType`}
             value={formState.activity_type}
             onChange={(value) => updateField('activity_type', value)}
-            placeholder={l.current?.placeholder?.activityTypePlaceholder || "Select activity type..."}
+            placeholder={l.current?.placeholder?.activityTypePlaceholder || "Select type..."}
           />
         </FormGroup>
 
-        {/* Address with Autocomplete */}
-        <FormGroup className="mb-3">
+        {/* Address with Autocomplete - Full Width */}
+        <FormGroup>
           <FormLabel htmlFor={`${formId}-address`}>
             {l.current?.label?.address || "Address"}
-            <small className="text-muted ms-2">
-              {l.current?.helper?.addressOptional || "(optional)"}
-            </small>
           </FormLabel>
-          <div className="position-relative">
-            <FormInputGroup>
-              <FormControl
-                type="text"
-                id={`${formId}-address`}
-                value={addressInput}
-                onChange={(e) => handleAddressSearch(e.target.value)}
-                onFocus={() => {
-                  if (addressSuggestions.length > 0) {
-                    setShowSuggestions(true);
-                  }
-                }}
-                onBlur={() => {
-                  // Delay hiding to allow click on suggestion
-                  setTimeout(() => setShowSuggestions(false), 200);
-                }}
-                placeholder={l.current?.placeholder?.addressPlaceholder || "Enter address..."}
-                autoComplete="off"
-              />
-              {addressLoading && (
-                <span>
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                </span>
-              )}
-              {addressInput && !addressLoading && (
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={handleClearAddress}
-                  aria-label="Clear address"
-                >
-                  ×
-                </button>
-              )}
-            </FormInputGroup>
-
-            {/* Address Suggestions Dropdown */}
-            {showSuggestions && addressSuggestions.length > 0 && (
-              <ul
-                className="list-group position-absolute w-100 shadow-sm"
-                style={{ zIndex: 1050, maxHeight: '200px', overflowY: 'auto' }}
-              >
-                {addressSuggestions.map((suggestion) => (
-                  <li
-                    key={suggestion.placeId}
-                    className="list-group-item list-group-item-action"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleAddressSelect(suggestion)}
-                    onMouseDown={(e) => e.preventDefault()}
-                  >
-                    <div className="fw-medium">{suggestion.mainText}</div>
-                    <small className="text-muted">{suggestion.secondaryText}</small>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
+          <AddressAutocomplete
+            id={`${formId}-address`}
+            value={formState.location}
+            onChange={(location) => updateField('location', location)}
+            placeholder={l.current?.placeholder?.addressPlaceholder || "Enter address..."}
+          />
           {/* Show selected location info */}
           {formState.location?.address && (
-            <small className="text-success mt-1 d-block">
-              ✓ Location saved: {formState.location.city && `${formState.location.city}, `}
-              {formState.location.country || formState.location.address}
+            <small className={styles.locationConfirm}>
+              ✓ {formState.location.city || formState.location.country || 'Saved'}
             </small>
           )}
         </FormGroup>

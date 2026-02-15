@@ -16,6 +16,9 @@ import { logger } from '../../utilities/logger';
 // Google Maps API Key from environment variable (Vite)
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
+// Libraries to load (places is needed for address autocomplete)
+const GOOGLE_MAPS_LIBRARIES = ['places'];
+
 // Default map options
 const DEFAULT_MAP_OPTIONS = {
   disableDefaultUI: false,
@@ -67,10 +70,11 @@ export default function InteractiveMap({
   const mapRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
 
-  // Load Google Maps API
+  // Load Google Maps API with places library for address autocomplete
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    id: 'google-map-script'
+    id: 'google-map-script',
+    libraries: GOOGLE_MAPS_LIBRARIES
   });
 
   // Container style

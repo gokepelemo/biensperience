@@ -1882,14 +1882,29 @@
    ============================================== */
 
 @media (max-width: 991px) {
-  /* Increase spacing between plan items on mobile */
+  /* Tighter spacing between plan items on tablet/mobile */
   :global(.plan-item-card.mb-3) {
-    margin-bottom: $space-6 !important;
+    margin-bottom: $space-3 !important;
+  }
+
+  /* Tighter card internal padding */
+  :global(.plan-item-card) {
+    padding: $space-3;
+  }
+
+  :global(.plan-item-header) {
+    padding: $space-2 $space-3 !important;
+    padding-bottom: $space-2 !important;
+    gap: $space-2;
+  }
+
+  :global(.plan-item-details) {
+    padding: $space-2 $space-3 !important;
   }
 
   /* Consistent spacing for plan metrics container */
   :global(.plan-metrics-container) {
-    margin-bottom: $space-6 !important;
+    margin-bottom: $space-4 !important;
   }
 
   /* Increase plan item title size on mobile */
@@ -1987,6 +2002,40 @@
 
   :global(.plan-item-tree) {
     margin-bottom: 0.5rem;
+  }
+}
+
+/* Small mobile - tighten card spacing further */
+@include breakpoint-max(sm) {
+  :global(.plan-item-card.mb-3) {
+    margin-bottom: $space-2 !important;
+  }
+
+  :global(.plan-item-card) {
+    padding: $space-2;
+  }
+
+  :global(.plan-item-header) {
+    padding: $space-2 !important;
+    padding-bottom: $space-1 !important;
+    gap: $space-1;
+  }
+
+  :global(.plan-item-details) {
+    padding: $space-1 $space-2 !important;
+  }
+
+  :global(.plan-item-title-row) {
+    gap: $space-1;
+  }
+
+  :global(.plan-item-tree) {
+    margin-bottom: $space-1;
+  }
+
+  :global(.plan-item-actions) {
+    gap: $space-1;
+    margin-top: $space-1;
   }
 }
 

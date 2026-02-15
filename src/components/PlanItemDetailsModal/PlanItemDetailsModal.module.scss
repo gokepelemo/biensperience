@@ -234,6 +234,11 @@
   border-bottom: 1px solid var(--color-border-light);
   box-sizing: border-box;
   max-width: 100%;
+  /* Allow dropdown to overflow - critical for visibility */
+  overflow: visible;
+  /* Establish stacking context for dropdown */
+  position: relative;
+  z-index: 20;
 
   /* Mobile/Tablet: Stack layout to match document scroll mode */
   @media (max-width: 991px) {
@@ -241,7 +246,8 @@
     align-items: flex-start;
     padding: $space-4;
     width: 100%;
-    overflow-x: hidden;
+    /* Keep overflow visible for dropdown */
+    overflow: visible;
   }
 
   @media (max-width: 768px) {
@@ -259,6 +265,8 @@
 .assignmentAutocompleteWrapper {
   flex: 1;
   position: relative;
+  /* Establish stacking context so dropdown appears above all modal content */
+  z-index: $z-index-modal-dropdown;
 }
 
 .assignmentLink {
@@ -312,18 +320,20 @@
 }
 
 .assignmentDropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  /* Use fixed positioning to escape overflow:hidden containers */
+  position: fixed;
+  /* Width will be set dynamically via JS, fallback to auto */
+  width: auto;
+  min-width: 200px;
   margin-top: $space-1;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
   max-height: 200px;
   overflow-y: auto;
-  z-index: $z-index-modal-dropdown; /* Dropdowns inside modals need higher z-index than modal */
+  /* Highest z-index to appear above all modal content */
+  z-index: 99999;
 }
 
 .assignmentOption {

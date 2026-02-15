@@ -1,0 +1,91 @@
+/**
+ * PlanItemModal Styles
+ * Compact layout to eliminate scrolling
+ */
+
+@use '../../../styles/scss/abstracts' as *;
+
+/* Form container with tighter spacing */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  /* Create stacking context above modal footer for dropdowns */
+  position: relative;
+  z-index: 2;
+}
+
+/* Two-column grid for compact numeric fields */
+.twoColumnRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-3;
+
+  /* Stack on very small screens */
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Override default FormGroup margins within this modal */
+.form :global(.mb-3) {
+  margin-bottom: 0 !important;
+}
+
+/* Tighter label spacing */
+.form :global(.form-label) {
+  margin-bottom: $space-1;
+  font-size: var(--font-size-sm);
+}
+
+/* Ensure inputs aren't too tall */
+.form :global(.form-control) {
+  padding: $space-2 $space-3;
+}
+
+/* Location confirmation text - more compact */
+.locationConfirm {
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  margin-top: $space-1;
+}
+
+/* Address input wrapper with full width */
+.addressInputWrapper {
+  position: relative;
+  width: 100%;
+
+  input {
+    width: 100%;
+    padding-right: $space-10; /* Space for clear button */
+  }
+}
+
+.addressSpinner {
+  position: absolute;
+  right: $space-3;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+}
+
+.addressClearBtn {
+  position: absolute;
+  right: $space-2;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  padding: $space-1 $space-2;
+  cursor: pointer;
+  line-height: 1;
+  border-radius: $radius-sm;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+}

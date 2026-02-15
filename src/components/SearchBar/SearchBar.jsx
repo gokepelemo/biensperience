@@ -10,10 +10,11 @@ import styles from './SearchBar.module.scss';
  * Global search component using the unified Autocomplete component
  * Searches across destinations, experiences, users, and plans
  */
-export default function SearchBar({ 
-  placeholder = 'Search destinations, experiences, users...', 
+export default function SearchBar({
+  placeholder = 'Search destinations, experiences, users...',
   className = '',
-  size = 'md'
+  size = 'md',
+  onResultSelect
 }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,8 +44,14 @@ export default function SearchBar({
     // The target page will handle 404 if not found
     // We try experience first, then the page will redirect if needed
     navigate(`/experiences/${objectId}`);
+
+    // Notify parent (e.g., to close mobile menu)
+    if (typeof onResultSelect === 'function') {
+      onResultSelect({ _id: objectId, type: 'objectId' });
+    }
+
     return true;
-  }, [navigate]);
+  }, [navigate, onResultSelect]);
 
   /**
    * Perform search with debouncing
@@ -254,7 +261,12 @@ export default function SearchBar({
     // Clear search
     setSearchQuery('');
     setResults([]);
-  }, [navigate]);
+
+    // Notify parent (e.g., to close mobile menu)
+    if (typeof onResultSelect === 'function') {
+      onResultSelect(result);
+    }
+  }, [navigate, onResultSelect]);
 
   /**
    * Cleanup debounce timer on unmount

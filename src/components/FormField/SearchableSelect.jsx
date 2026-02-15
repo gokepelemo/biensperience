@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useId, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { Portal } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { FaSearch, FaChevronDown, FaCheck } from 'react-icons/fa';
 import { createFilter } from '../../utilities/trie';
@@ -101,7 +101,9 @@ export default function SearchableSelect({
     const handleClickOutside = (e) => {
       // When portaled, the dropdown is fixed and outside the container DOM subtree.
       // Check outside both the container AND the dropdown.
-      const dropdownRef = document.querySelector(`[data-searchable-select="${selectId}"]`);
+      // Note: CSS.escape handles special characters in useId() output (e.g., colons in ":r0:")
+      const escapedId = CSS.escape(selectId);
+      const dropdownRef = document.querySelector(`[data-searchable-select="${escapedId}"]`);
 
       const clickedOutsideContainer = containerRef.current && !containerRef.current.contains(e.target);
       const clickedOutsideDropdown = shouldPortal && dropdownRef && !dropdownRef.contains(e.target);
@@ -122,7 +124,9 @@ export default function SearchableSelect({
     if (!shouldPortal) return;
 
     // Query dropdown and trigger
-    const dropdown = document.querySelector(`[data-searchable-select="${selectId}"]`);
+    // Note: CSS.escape handles special characters in useId() output (e.g., colons in ":r0:")
+    const escapedId = CSS.escape(selectId);
+    const dropdown = document.querySelector(`[data-searchable-select="${escapedId}"]`);
     const trigger = containerRef.current?.querySelector(`.${styles.trigger}`);
 
     if (!dropdown || !trigger) return;
@@ -367,7 +371,7 @@ export default function SearchableSelect({
             className={styles.dropdown}
             role="presentation"
             data-searchable-select={selectId}
-            style={shouldPortal ? { visibility: 'hidden', zIndex: 'calc(var(--z-index-tooltip, 1070) + 100)' } : undefined}
+            style={shouldPortal ? { visibility: 'hidden', zIndex: 9999 } : undefined}
           >
             {/* Search input */}
             {searchable && (
@@ -403,7 +407,13 @@ export default function SearchableSelect({
                     className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${(multiple ? selectedValues.includes(option.value) : option.value === value) ? styles.selected : ''}`}
                     role="option"
                     aria-selected={(multiple ? selectedValues.includes(option.value) : option.value === value)}
-                    onClick={() => handleSelect(option)}
+                    onMouseDown={(e) => {
+                      // Handle selection on mousedown to ensure it fires before
+                      // any click-outside handlers can close the dropdown
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleSelect(option);
+                    }}
                     onMouseEnter={() => setHighlightedIndex(index)}
                   >
                     {option.icon && (
@@ -425,10 +435,10 @@ export default function SearchableSelect({
           </div>
         );
 
-        // When portaled, `position: fixed` stays viewport-relative even when
-        // ancestors (like modals/FadeIn) apply transforms or overflow clipping.
+        // When portaled, use Chakra's Portal which is aware of Dialog focus traps.
+        // This ensures the dropdown remains interactive inside Chakra modals.
         if (shouldPortal) {
-          return createPortal(dropdown, document.body);
+          return <Portal>{dropdown}</Portal>;
         }
 
         return dropdown;

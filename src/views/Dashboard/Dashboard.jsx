@@ -320,45 +320,52 @@ function DashboardSkeleton() {
       <div className={styles.skeletonLayout}>
         {/* Sidebar skeleton */}
         <aside className={styles.skeletonSidebar}>
-          <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonSidebarTitle} />
           <div className={styles.skeletonNavItems}>
             {/* 4 nav items to match actual navigation */}
             {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonLoader key={i} variant="rectangle" width="100%" height={40} />
+              <SkeletonLoader key={i} variant="rectangle" width="100%" height={44} style={{ borderRadius: 'var(--radius-md)' }} />
             ))}
           </div>
         </aside>
 
         {/* Main content skeleton */}
         <main className={styles.skeletonMain}>
-          {/* Welcome section skeleton */}
+          {/* Welcome section skeleton - matches welcomeSection */}
           <div className={styles.skeletonWelcome}>
-            <SkeletonLoader variant="text" width="320px" height={36} className={styles.skeletonWelcomeTitle} />
+            <SkeletonLoader variant="text" width="320px" height="var(--font-size-3xl)" style={{ marginBottom: 'var(--space-2)' }} />
+            <SkeletonLoader variant="text" width="280px" height="var(--font-size-lg)" />
           </div>
 
           {/* Stats grid skeleton - 4 cards matching actual layout */}
           <div className={styles.skeletonStatsGrid}>
             {/* ActivePlansCard skeleton - taller due to breakdown */}
-            <div className={styles.skeletonActivePlansCard}>
-              <div className={styles.skeletonActivePlansContent}>
-                <SkeletonLoader variant="text" width="48px" height={36} />
-                <SkeletonLoader variant="text" width="100px" height={16} />
-                <div className={styles.skeletonActivePlansBreakdown}>
-                  <SkeletonLoader variant="text" width="80px" height={14} />
-                  <SkeletonLoader variant="text" width="70px" height={14} />
+            <div className={styles.skeletonStatCard}>
+              <div className={styles.skeletonStatContent}>
+                <SkeletonLoader variant="text" width="48px" height="var(--font-size-3xl)" style={{ marginBottom: 'var(--space-1)' }} />
+                <SkeletonLoader variant="text" width="85px" height="var(--font-size-sm)" style={{ marginBottom: 'var(--space-3)' }} />
+                {/* Plan breakdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <SkeletonLoader variant="circle" width={12} height={12} />
+                    <SkeletonLoader variant="text" width="60px" height="var(--font-size-xs)" />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <SkeletonLoader variant="circle" width={12} height={12} />
+                    <SkeletonLoader variant="text" width="55px" height="var(--font-size-xs)" />
+                  </div>
                 </div>
               </div>
-              <SkeletonLoader variant="rectangle" className={styles.skeletonStatIcon} />
+              <SkeletonLoader variant="rectangle" width={48} height={48} style={{ borderRadius: 'var(--radius-lg)', flexShrink: 0 }} />
             </div>
 
             {/* 3 StatsCard skeletons */}
-            {Array.from({ length: 3 }).map((_, i) => (
+            {[85, 95, 115].map((labelWidth, i) => (
               <div key={i} className={styles.skeletonStatCard}>
                 <div className={styles.skeletonStatContent}>
-                  <SkeletonLoader variant="text" width="48px" height={36} />
-                  <SkeletonLoader variant="text" width="90px" height={16} />
+                  <SkeletonLoader variant="text" width="48px" height="var(--font-size-3xl)" style={{ marginBottom: 'var(--space-1)' }} />
+                  <SkeletonLoader variant="text" width={`${labelWidth}px`} height="var(--font-size-sm)" />
                 </div>
-                <SkeletonLoader variant="rectangle" className={styles.skeletonStatIcon} />
+                <SkeletonLoader variant="rectangle" width={48} height={48} style={{ borderRadius: 'var(--radius-lg)', flexShrink: 0 }} />
               </div>
             ))}
           </div>
@@ -367,16 +374,19 @@ function DashboardSkeleton() {
           <div className={styles.skeletonContentGrid}>
             {/* Activity card skeleton */}
             <div className={styles.skeletonActivityCard}>
-              <SkeletonLoader variant="text" width="140px" height={24} className={styles.skeletonActivityTitle} />
+              <SkeletonLoader variant="text" width="140px" height="var(--font-size-xl)" style={{ marginBottom: 'var(--space-6)' }} />
               <div className={styles.skeletonActivityList}>
                 {/* 4 activity items to match typical list */}
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className={styles.skeletonActivityItem}>
                     <div className={styles.skeletonActivityItemContent}>
-                      <SkeletonLoader variant="text" width="70%" height={16} />
-                      <SkeletonLoader variant="text" width="100px" height={14} />
+                      <SkeletonLoader variant="text" width={`${60 + (i % 3) * 10}%`} height="var(--font-size-base)" style={{ marginBottom: 'var(--space-1)' }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                        <SkeletonLoader variant="circle" width={12} height={12} />
+                        <SkeletonLoader variant="text" width="80px" height="var(--font-size-sm)" />
+                      </div>
                     </div>
-                    <SkeletonLoader variant="rectangle" width={60} height={32} />
+                    <SkeletonLoader variant="rectangle" width={60} height={32} style={{ borderRadius: 'var(--radius-md)' }} />
                   </div>
                 ))}
               </div>
@@ -386,22 +396,25 @@ function DashboardSkeleton() {
             <div className={styles.skeletonSideColumn}>
               {/* Quick actions skeleton */}
               <div className={styles.skeletonQuickActionsCard}>
-                <SkeletonLoader variant="text" width="120px" height={24} className={styles.skeletonQuickActionsTitle} />
+                <SkeletonLoader variant="text" width="120px" height="var(--font-size-xl)" style={{ marginBottom: 'var(--space-6)' }} />
                 <div className={styles.skeletonQuickActionsList}>
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <SkeletonLoader key={i} variant="rectangle" width="100%" className={styles.skeletonQuickActionBtn} />
+                    <SkeletonLoader key={i} variant="rectangle" width="100%" height={38} style={{ borderRadius: 'var(--radius-md)' }} />
                   ))}
                 </div>
               </div>
 
               {/* Upcoming plans skeleton */}
               <div className={styles.skeletonUpcomingCard}>
-                <SkeletonLoader variant="text" width="130px" height={24} className={styles.skeletonUpcomingTitle} />
+                <SkeletonLoader variant="text" width="140px" height="var(--font-size-xl)" style={{ marginBottom: 'var(--space-6)' }} />
                 <div className={styles.skeletonUpcomingList}>
                   {Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className={styles.skeletonUpcomingItem}>
-                      <SkeletonLoader variant="text" width="80%" height={16} />
-                      <SkeletonLoader variant="text" width="100px" height={14} />
+                      <SkeletonLoader variant="text" width={`${70 + (i % 3) * 10}%`} height="var(--font-size-base)" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                        <SkeletonLoader variant="circle" width={12} height={12} />
+                        <SkeletonLoader variant="text" width="70px" height="var(--font-size-sm)" />
+                      </div>
                     </div>
                   ))}
                 </div>

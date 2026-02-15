@@ -133,6 +133,11 @@
   padding: $space-5;
   font-size: $font-size-base;
   line-height: $line-height-relaxed;
+  /* Stacking context for dropdowns to appear above footer */
+  position: relative;
+  z-index: 2;
+  /* Allow dropdowns to render outside modal body bounds */
+  overflow: visible;
 }
 
 /* ============================================
@@ -143,6 +148,9 @@
   border-top: 1px solid var(--color-border-medium);
   padding: $space-4 $space-5;
   background: var(--color-bg-secondary);
+  /* Lower stacking context so body dropdowns appear above */
+  position: relative;
+  z-index: 1;
 }
 
 .modal-footer .btn {

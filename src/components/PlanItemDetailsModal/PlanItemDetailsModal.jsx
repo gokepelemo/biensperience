@@ -480,10 +480,31 @@ export default function PlanItemDetailsModal({
     setHighlightedIndex(0);
   }, [assignmentSearch, collaborators, collaboratorTrieFilter]);
 
-  // Focus input when editing starts
+  // Focus input and position dropdown when editing starts
   useEffect(() => {
     if (isEditingAssignment && assignmentInputRef.current) {
       assignmentInputRef.current.focus();
+
+      // Position the fixed dropdown relative to the input
+      const positionDropdown = () => {
+        if (dropdownRef.current && assignmentInputRef.current) {
+          const inputRect = assignmentInputRef.current.getBoundingClientRect();
+          dropdownRef.current.style.top = `${inputRect.bottom + 4}px`;
+          dropdownRef.current.style.left = `${inputRect.left}px`;
+          dropdownRef.current.style.width = `${inputRect.width}px`;
+        }
+      };
+
+      // Initial position after render
+      requestAnimationFrame(positionDropdown);
+
+      // Reposition on scroll/resize
+      window.addEventListener('scroll', positionDropdown, true);
+      window.addEventListener('resize', positionDropdown);
+      return () => {
+        window.removeEventListener('scroll', positionDropdown, true);
+        window.removeEventListener('resize', positionDropdown);
+      };
     }
   }, [isEditingAssignment]);
 

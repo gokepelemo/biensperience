@@ -37,6 +37,12 @@ const VISIBILITY_OPTIONS = [
 /**
  * NoteForm Component - Unified form for Add and Edit operations
  * Ensures consistent interface between add and edit modes
+ *
+ * Accessibility:
+ * - Auto-focuses textarea on mount for keyboard users
+ * - Enter key submits when content is valid (Shift+Enter for newlines)
+ * - Close button has aria-label for screen readers
+ * - Visibility dropdown has aria-label describing its purpose
  */
 function NoteForm({
   mode = 'add', // 'add' or 'edit'
@@ -55,36 +61,72 @@ function NoteForm({
   const title = isEdit ? 'Edit Note' : 'Add a Note';
   const submitText = isEdit ? 'Save' : 'Add Note';
   const loadingText = isEdit ? 'Saving...' : 'Adding...';
+  const textareaRef = useRef(null);
+
+  // Auto-focus textarea when form mounts for keyboard accessibility
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Small delay to ensure DOM is ready after render
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Handle keyboard shortcuts (Enter to submit, Escape to cancel)
+  const handleKeyDown = useCallback((e) => {
+    // Enter without Shift submits the form (if content is valid)
+    if (e.key === 'Enter' && !e.shiftKey && content?.trim() && !loading) {
+      e.preventDefault();
+      onSubmit();
+    }
+    // Escape cancels the form
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  }, [content, loading, onSubmit, onCancel]);
+
+  const selectedVisibility = VISIBILITY_OPTIONS.find(opt => opt.value === visibility);
 
   return (
-    <div className={styles.noteForm}>
+    <div
+      className={styles.noteForm}
+      role="form"
+      aria-label={title}
+      onKeyDown={handleKeyDown}
+    >
       <div className={styles.formHeader}>
-        <h4>{title}</h4>
+        <h4 id="note-form-title">{title}</h4>
         <Button
           variant="link"
           size="sm"
           onClick={onCancel}
           className={styles.closeFormButton}
           disabled={loading}
+          aria-label="Close note form"
         >
-          <FaTimes />
+          <FaTimes aria-hidden="true" />
         </Button>
       </div>
 
       <InteractiveTextArea
+        ref={textareaRef}
         value={content}
         onChange={onContentChange}
         availableEntities={availableEntities}
         entityData={entityData}
         placeholder="Write your note here..."
-        rows={3}
+        rows={2}
         disabled={loading || disabled}
         highlightUrls={true}
         showFooter={false}
+        aria-labelledby="note-form-title"
       />
 
-      <div className={styles.formHint}>
-        <span>💡 Use <strong>@</strong> to mention people &amp; places, <strong>#</strong> for plan items</span>
+      <div className={styles.formHint} aria-live="polite">
+        <span>Use <strong>@</strong> to mention people &amp; places, <strong>#</strong> for plan items</span>
       </div>
 
       <div className={styles.formActions}>
@@ -94,18 +136,20 @@ function NoteForm({
             variant="outline-secondary"
             size="sm"
             className={styles.visibilitySelector}
+            aria-label={`Note visibility: ${selectedVisibility?.label || 'All Contributors'}`}
           >
-            {VISIBILITY_OPTIONS.find(opt => opt.value === visibility)?.icon}{' '}
-            {VISIBILITY_OPTIONS.find(opt => opt.value === visibility)?.label}
+            <span aria-hidden="true">{selectedVisibility?.icon}</span>{' '}
+            {selectedVisibility?.label}
           </Dropdown.Toggle>
-          <Dropdown.Menu>
+          <Dropdown.Menu aria-label="Note visibility options">
             {VISIBILITY_OPTIONS.map(option => (
               <Dropdown.Item
                 key={option.value}
                 eventKey={option.value}
                 active={visibility === option.value}
+                aria-selected={visibility === option.value}
               >
-                {option.icon} {option.label}
+                <span aria-hidden="true">{option.icon}</span> {option.label}
               </Dropdown.Item>
             ))}
           </Dropdown.Menu>
@@ -125,10 +169,14 @@ function NoteForm({
           variant="primary"
           onClick={onSubmit}
           disabled={!content?.trim() || loading}
+          aria-describedby="note-form-hint"
         >
-          <FaPaperPlane /> {loading ? loadingText : submitText}
+          <FaPaperPlane aria-hidden="true" /> {loading ? loadingText : submitText}
         </Button>
       </div>
+      <span id="note-form-hint" className="visually-hidden">
+        Press Enter to submit, Shift+Enter for new line, Escape to cancel
+      </span>
     </div>
   );
 }

@@ -6,7 +6,7 @@
  *
  * Features:
  * - Address validation and correction
- * - Address autocomplete suggestions
+ * - Address autocomplete suggestions (using Places JavaScript SDK)
  * - Geocoding (address to coordinates)
  * - Reverse geocoding (coordinates to address)
  * - Address component extraction (city, state, country, postal code)
@@ -15,6 +15,7 @@
  */
 
 import { logger } from './logger';
+import { getAutocompleteService, getPlacesService, loadPlacesLibrary } from './google-maps-loader';
 
 // Google Maps API key from environment variable (Vite)
 const DEFAULT_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -286,11 +287,10 @@ export async function validateAddress(address, options = {}) {
 
 /**
  * Get address suggestions for autocomplete
- * Uses Google Places Autocomplete API
+ * Uses Google Places JavaScript SDK (AutocompleteService) for CORS-safe browser requests
  *
  * @param {string} input - User input text
  * @param {Object} options - Options
- * @param {string} [options.apiKey] - Google Maps API key
  * @param {string} [options.types] - Place types filter (e.g., 'address', 'geocode', 'establishment')
  * @param {string} [options.country] - Country restriction (ISO 3166-1 Alpha-2 code)
  * @param {number} [options.limit=5] - Maximum number of suggestions
@@ -306,7 +306,6 @@ export async function validateAddress(address, options = {}) {
  */
 export async function getAddressSuggestions(input, options = {}) {
   const {
-    apiKey = DEFAULT_API_KEY,
     types = 'address',
     country = null,
     limit = 5
@@ -317,24 +316,37 @@ export async function getAddressSuggestions(input, options = {}) {
   }
 
   try {
-    const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
-    url.searchParams.set('input', input);
-    url.searchParams.set('key', apiKey);
-    url.searchParams.set('types', types);
+    const [autocompleteService, places] = await Promise.all([
+      getAutocompleteService(),
+      loadPlacesLibrary()
+    ]);
 
+    // Build request object
+    const request = {
+      input: input.trim(),
+      types: [types],
+    };
+
+    // Add country restriction if specified
     if (country) {
-      url.searchParams.set('components', `country:${country}`);
+      request.componentRestrictions = { country };
     }
 
-    const response = await fetch(url.toString());
-    const data = await response.json();
+    // Use Promise wrapper for callback-based API
+    const predictions = await new Promise((resolve, reject) => {
+      autocompleteService.getPlacePredictions(request, (results, status) => {
+        if (status === places.PlacesServiceStatus.OK && results) {
+          resolve(results);
+        } else if (status === places.PlacesServiceStatus.ZERO_RESULTS) {
+          resolve([]);
+        } else {
+          logger.debug('[address-utils] Autocomplete status', { status, input });
+          resolve([]);
+        }
+      });
+    });
 
-    if (data.status !== 'OK' || !data.predictions) {
-      logger.debug('[address-utils] No autocomplete predictions', { input, status: data.status });
-      return [];
-    }
-
-    return data.predictions.slice(0, limit).map(prediction => ({
+    return predictions.slice(0, limit).map(prediction => ({
       description: prediction.description,
       placeId: prediction.place_id,
       mainText: prediction.structured_formatting?.main_text,
@@ -349,43 +361,54 @@ export async function getAddressSuggestions(input, options = {}) {
 
 /**
  * Get place details from place ID
+ * Uses Google Places JavaScript SDK (PlacesService) for CORS-safe browser requests
  *
  * @param {string} placeId - Google Place ID
- * @param {Object} options - Options
- * @param {string} [options.apiKey] - Google Maps API key
+ * @param {Object} options - Options (reserved for future use)
  * @returns {Promise<Object|null>} Place details or null if not found
  */
 export async function getPlaceDetails(placeId, options = {}) {
-  const { apiKey = DEFAULT_API_KEY } = options;
-
   if (!placeId) {
     return null;
   }
 
   try {
-    const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-    url.searchParams.set('place_id', placeId);
-    url.searchParams.set('key', apiKey);
-    url.searchParams.set('fields', 'formatted_address,geometry,address_components,name,place_id');
+    const [placesService, places] = await Promise.all([
+      getPlacesService(),
+      loadPlacesLibrary()
+    ]);
 
-    const response = await fetch(url.toString());
-    const data = await response.json();
+    // Request specific fields to minimize billing
+    const request = {
+      placeId,
+      fields: ['formatted_address', 'geometry', 'address_components', 'name', 'place_id']
+    };
 
-    if (data.status !== 'OK' || !data.result) {
-      logger.debug('[address-utils] Place not found', { placeId, status: data.status });
+    // Use Promise wrapper for callback-based API
+    const place = await new Promise((resolve, reject) => {
+      placesService.getDetails(request, (result, status) => {
+        if (status === places.PlacesServiceStatus.OK && result) {
+          resolve(result);
+        } else {
+          logger.debug('[address-utils] Place not found', { placeId, status });
+          resolve(null);
+        }
+      });
+    });
+
+    if (!place) {
       return null;
     }
 
-    const result = data.result;
     return {
-      name: result.name,
-      formattedAddress: result.formatted_address,
+      name: place.name,
+      formattedAddress: place.formatted_address,
       location: {
-        lat: result.geometry?.location?.lat,
-        lng: result.geometry?.location?.lng
+        lat: place.geometry?.location?.lat(),
+        lng: place.geometry?.location?.lng()
       },
-      components: extractAddressComponents(result.address_components),
-      placeId: result.place_id
+      components: extractAddressComponents(place.address_components),
+      placeId: place.place_id
     };
   } catch (error) {
     logger.error('[address-utils] Place details error', { placeId, error: error.message });
