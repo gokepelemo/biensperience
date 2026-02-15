@@ -14,87 +14,85 @@ import { Button, FlexCenter, SpaceY, EmptyState, Alert } from "../../components/
 import { logger } from "../../utilities/logger";
 import styles from "./AppHome.module.scss";
 
+const INITIAL_DISPLAY_LIMITS = {
+  destinations: 10,
+  experiences: 12
+};
+
 export default function AppHome() {
   const { experiences, destinations, plans, loading, applyDestinationsFilter, applyExperiencesFilter } = useData();
   const { user } = useUser();
   const { openExperienceWizard } = useExperienceWizard();
   const navigate = useNavigate();
+
+  // UI state
   const [showAllDestinations, setShowAllDestinations] = useState(false);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Track whether initial data fetch has completed
-  // Use ref to track if we've already initiated a fetch to prevent double-fetching
-  const fetchInitiatedRef = useRef(false);
-  const hasExistingData = destinations.length > 0 || experiences.length > 0;
-  const [initialFetchComplete, setInitialFetchComplete] = useState(hasExistingData && !loading);
+  // Prevent double fetching
+  const hasFetchedRef = useRef(false);
 
-  const DESTINATIONS_INITIAL_DISPLAY = 10;
-  const EXPERIENCES_INITIAL_DISPLAY = 12;
-
-  // Fetch fresh, unfiltered data when AppHome mounts (only if no data exists)
-  // This ensures we show all destinations and experiences, not filtered data from other views
+  // Fetch fresh data when component mounts (only if no data exists)
   useEffect(() => {
-    // Skip fetch if data already exists (was cached) - mark as complete immediately
-    if (hasExistingData && !loading) {
-      setInitialFetchComplete(true);
+    // Skip if data already exists or we've already fetched
+    if (hasExistingData || hasFetchedRef.current) {
+      setIsDataLoaded(true);
       logger.debug('AppHome: Data already loaded, skipping fetch');
       return;
     }
 
-    // Skip if we've already initiated a fetch (prevents double-fetch from strict mode)
-    if (fetchInitiatedRef.current) {
-      return;
-    }
-
-    fetchInitiatedRef.current = true;
+    hasFetchedRef.current = true;
     let mounted = true;
 
     (async () => {
       try {
         logger.info('AppHome: Fetching fresh data on mount');
-        // Clear any filters and fetch all experiences (will filter locally)
         await Promise.all([
-          applyDestinationsFilter({}),
+          applyDestinationsFilter({}, { shuffle: true }),
           applyExperiencesFilter({})
         ]);
         if (mounted) {
-          setInitialFetchComplete(true);
+          setIsDataLoaded(true);
         }
       } catch (err) {
         logger.error('AppHome: Failed to fetch data on mount', { error: err.message });
         if (mounted) {
-          setInitialFetchComplete(true); // Still mark as complete so we show error state
+          setIsDataLoaded(true); // Still mark as complete so we show error state
         }
       }
     })();
-    return () => { mounted = false; };
-    // Run once on mount - dependencies are stable
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  // Shuffle destinations for randomized display (Fisher-Yates algorithm)
-  // Memoized to stay stable during component lifecycle, re-shuffles when destinations change
-  const shuffledDestinations = useMemo(() => {
-    if (!destinations || destinations.length === 0) return [];
-    const shuffled = [...destinations];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }, [destinations]);
+    return () => { mounted = false; };
+  }, [hasExistingData, applyDestinationsFilter, applyExperiencesFilter]);
 
   // Filter experiences to show only curated ones
-  const curatedExperiences = experiences.filter(exp => exp.isCurated);
+  const curatedExperiences = useMemo(
+    () => experiences.filter(exp => exp.isCurated),
+    [experiences]
+  );
 
-  // Determine loading states for each section
-  // Show skeleton only if: no data exists AND (loading OR initial fetch hasn't completed)
-  // This prevents flashing when data already exists but a background refresh is happening
-  const isDestinationsLoading = destinations.length === 0 && (loading || !initialFetchComplete);
-  const isExperiencesLoading = curatedExperiences.length === 0 && (loading || !initialFetchComplete);
+  // Determine loading states
+  const hasExistingData = destinations.length > 0 || experiences.length > 0;
+  const isDestinationsLoading = destinations.length === 0 && (loading || !isDataLoaded);
+  const isExperiencesLoading = curatedExperiences.length === 0 && (loading || !isDataLoaded);
 
-  // Check if this is a new user with no content (only after fetch completes)
-  const isEmptyState = initialFetchComplete && !loading && destinations.length === 0 && experiences.length === 0;
+  // Helper function to render show more/less button
+  const renderShowMoreButton = (isExpanded, onToggle, itemCount, limit) => {
+    if (itemCount <= limit) return null;
+
+    return (
+      <div className="col-12 text-center mt-4 mb-5">
+        <Button
+          variant="link"
+          size="sm"
+          onClick={onToggle}
+        >
+          {isExpanded ? lang.current.button.showLess : lang.current.button.showMore}
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <PageWrapper title={lang.current.viewMeta.defaultTitle}>
@@ -128,16 +126,12 @@ export default function AppHome() {
           {/* Popular Destinations Section */}
           <h2 className="my-4 animation-fade-in">{lang.current.heading.popularDestinations}</h2>
           {isDestinationsLoading ? (
-            // Skeleton loaders matching DestinationCard layout:
-            // - Wrapper with m-2 margin (matches DestinationCard.jsx line 111)
-            // - Centered blurred title overlay (like destinationCardTitle)
-            // - Count matches DESTINATIONS_INITIAL_DISPLAY
+            // Skeleton loaders matching DestinationCard layout
             <FlexCenter className="animation-fade-in">
               <div className={styles.destinationsList}>
-                {Array.from({ length: DESTINATIONS_INITIAL_DISPLAY }, (_, i) => (
+                {Array.from({ length: INITIAL_DISPLAY_LIMITS.destinations }, (_, i) => (
                   <div key={i} className={styles.destinationSkeletonWrapper}>
                     <div className={styles.destinationSkeleton}>
-                      {/* Centered title overlay with blur - mirrors destinationCardTitle */}
                       <div className={styles.destinationSkeletonOverlay}>
                         <SkeletonLoader variant="text" width={`${65 + (i % 4) * 8}%`} height={20} />
                       </div>
@@ -146,11 +140,11 @@ export default function AppHome() {
                 ))}
               </div>
             </FlexCenter>
-          ) : shuffledDestinations && shuffledDestinations.length > 0 ? (
+          ) : destinations && destinations.length > 0 ? (
             <>
               <FlexCenter className="animation-fade-in">
                 <div className={styles.destinationsList}>
-                  {(showAllDestinations ? shuffledDestinations : shuffledDestinations.slice(0, DESTINATIONS_INITIAL_DISPLAY))
+                  {(showAllDestinations ? destinations : destinations.slice(0, INITIAL_DISPLAY_LIMITS.destinations))
                     .map((destination, index) => (
                       <DestinationCard
                         key={destination._id || index}
@@ -160,17 +154,7 @@ export default function AppHome() {
                     ))}
                 </div>
               </FlexCenter>
-                  {shuffledDestinations.length > DESTINATIONS_INITIAL_DISPLAY && (
-                <div className="col-12 text-center mt-4 mb-5">
-                  <Button
-                    variant="link"
-                    size="sm"
-                        onClick={() => setShowAllDestinations(!showAllDestinations)}
-                      >
-                        {showAllDestinations ? lang.current.button.showLess : lang.current.button.showMore}
-                  </Button>
-                </div>
-              )}
+              {renderShowMoreButton(showAllDestinations, () => setShowAllDestinations(!showAllDestinations), destinations.length, INITIAL_DISPLAY_LIMITS.destinations)}
             </>
           ) : (
             <FlexCenter className="animation-fade-in">
@@ -199,7 +183,7 @@ export default function AppHome() {
             // Count matches EXPERIENCES_INITIAL_DISPLAY
             <FlexCenter className="animation-fade-in">
               <div className={styles.experiencesList}>
-                {Array.from({ length: EXPERIENCES_INITIAL_DISPLAY }, (_, i) => (
+                {Array.from({ length: INITIAL_DISPLAY_LIMITS.experiences }, (_, i) => (
                   <div key={i} className={styles.experienceSkeletonWrapper}>
                     <div className={styles.experienceSkeleton}>
                       {/* Title area - centered with blur overlay (mirrors experienceCardTitle) */}
@@ -222,7 +206,7 @@ export default function AppHome() {
             <>
               <FlexCenter className="animation-fade-in">
                 <div className={styles.experiencesList}>
-                  {(showAllExperiences ? curatedExperiences : curatedExperiences.slice(0, EXPERIENCES_INITIAL_DISPLAY))
+                  {(showAllExperiences ? curatedExperiences : curatedExperiences.slice(0, INITIAL_DISPLAY_LIMITS.experiences))
                     .map((experience, index) => (
                       <ExperienceCard
                         key={experience._id || index}
@@ -233,17 +217,7 @@ export default function AppHome() {
                     ))}
                 </div>
               </FlexCenter>
-              {curatedExperiences.length > EXPERIENCES_INITIAL_DISPLAY && (
-                <div className="col-12 text-center mt-4 mb-5">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => setShowAllExperiences(!showAllExperiences)}
-                  >
-                    {showAllExperiences ? lang.current.button.showLess : lang.current.button.showMore}
-                  </Button>
-                </div>
-              )}
+              {renderShowMoreButton(showAllExperiences, () => setShowAllExperiences(!showAllExperiences), curatedExperiences.length, INITIAL_DISPLAY_LIMITS.experiences)}
             </>
           ) : (
             <FlexCenter className="animation-fade-in">
