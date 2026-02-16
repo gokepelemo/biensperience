@@ -964,7 +964,7 @@ const en = {
   viewMeta: {
     defaultTitle: "Biensperience",
     defaultDescription:
-      "Plan and organize your travel experiences around the world",
+      "Plan amazing travel experiences with friends and share your adventures with fellow travelers worldwide.",
     defaultKeywords: "travel, experiences, destinations, planning, adventure",
     defaultOgImage: "/logo.png",
   },
@@ -2244,7 +2244,7 @@ const en = {
       destinationsIncluded: "🗺️ {count} favorite destination{plural} to explore",
       altLinkText: "If the button doesn't work, copy this link into your browser:",
       aboutAppTitle: "About {appName}",
-      aboutAppText: "{appName} helps you plan and organize your travel experiences around the world. Discover amazing destinations, create detailed travel plans, and share your adventures with others.",
+      aboutAppText: "{appName} helps you plan amazing travel experiences with friends and share your adventures with fellow travelers worldwide. Discover destinations, create detailed plans, and collaborate with your travel companions.",
       signature: "Best regards,<br>The {appName} Team",
       footer: "This is an automated email. Please do not reply to this message.",
     },

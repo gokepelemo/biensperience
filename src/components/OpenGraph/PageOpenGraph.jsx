@@ -37,7 +37,7 @@ export default function PageOpenGraph({
   // Use the OpenGraph hook for dynamic meta tag management (but not schema)
   useOpenGraph({
     title: title || 'Biensperience - Plan Your Next Adventure',
-    description: description || 'Discover and plan amazing travel experiences worldwide. Browse curated destinations, create your travel bucket list, and organize your adventures with Biensperience.',
+    description: description || 'Plan amazing travel experiences with friends and share your adventures with fellow travelers worldwide.',
     image: resolvedImage,
     noIndex
   });
@@ -62,6 +62,10 @@ export default function PageOpenGraph({
 
       {/* Render optional pre-built JSON-LD schema if provided */}
       {schema && <PageSchema schema={schema} />}
+    </>
+  );
+}
+    {schema && <PageSchema schema={schema} />}
     </>
   );
 }

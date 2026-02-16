@@ -179,7 +179,7 @@ function SignUpForm(props) {
           <BiensperienceLogo type="white" size="2xl" />
           <div className={styles.appDescription}>
             <p className={styles.appDescriptionText}>
-              Plan amazing travel experiences and share your adventures with fellow travelers worldwide.
+              Plan amazing travel experiences with friends and share your adventures with fellow travelers worldwide.
             </p>
           </div>
         </div>

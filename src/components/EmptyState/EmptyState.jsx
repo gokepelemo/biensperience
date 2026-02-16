@@ -25,14 +25,14 @@ const VARIANT_CONFIG = {
   plans: {
     icon: '📭',
     title: 'No Plans Yet',
-    description: 'Start planning your next adventure! Browse our curated experiences or create a new experience to plan.',
+    description: 'Start planning your next adventure with friends! Browse our curated experiences or create a new experience to plan together.',
     primaryAction: 'Browse Experiences',
     secondaryAction: 'Plan New Experience',
   },
   experiences: {
     icon: '🎯',
     title: 'No Experiences Found',
-    description: 'Discover amazing travel experiences or create your own to share with others.',
+    description: 'Discover amazing travel experiences or create your own to share with friends and fellow travelers.',
     primaryAction: 'Browse Experiences',
     secondaryAction: 'Create Experience',
   },
