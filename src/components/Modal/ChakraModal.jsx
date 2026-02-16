@@ -114,13 +114,11 @@ const ChakraModal = forwardRef(function ChakraModal({
       }}
       closeOnEscape={true}
       closeOnInteractOutside={true}
-      trapFocus={false}
+      trapFocus={true}
       preventScroll={!allowBodyScroll}
       lazyMount
       unmountOnExit
       motionPreset="none"
-      initialFocusEl={null}
-      finalFocusEl={null}
     >
       <Portal>
         {/* Backdrop - plain styling, not Chakra's default */}

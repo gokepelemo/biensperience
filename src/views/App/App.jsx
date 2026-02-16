@@ -37,6 +37,7 @@ import {
   setObfuscatedJson
 } from '../../utilities/secure-storage-lite';
 import { STORAGE_KEYS } from '../../utilities/storage-keys';
+import { useNavigationCleanup } from '../../hooks/useNavigationCleanup';
 
 // Lazy load components for better performance
 const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
@@ -154,6 +155,9 @@ function AppContent() {
   logger.debug('About to call useApp');
   useApp(); // Initializes app context (scroll tracking, etc.)
   logger.debug('useApp completed');
+
+  // Cancel stale queued requests when navigating between views
+  useNavigationCleanup();
 
   logger.debug('About to call useToast');
   const { success, error: showError, addToast } = useToast();

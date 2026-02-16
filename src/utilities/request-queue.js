@@ -620,6 +620,31 @@ class RequestQueue {
   }
 
   /**
+   * Cancel all queued requests below a priority threshold
+   * Used on navigation to discard stale low-priority fetches from the previous view.
+   * Only cancels queued (not executing) requests.
+   * @param {number} threshold - Priority threshold (requests with priority < threshold are cancelled)
+   * @returns {number} Number of cancelled requests
+   */
+  cancelBelowPriority(threshold) {
+    let cancelled = 0;
+
+    for (let i = this.queue.length - 1; i >= 0; i--) {
+      if (this.queue[i].priority < threshold) {
+        const request = this.queue.splice(i, 1)[0];
+        this.cleanupRequest(request, 'Cancelled on navigation');
+        cancelled++;
+      }
+    }
+
+    if (cancelled > 0) {
+      logger.debug('[RequestQueue] Cancelled requests below priority', { threshold, cancelled });
+      this.throttledNotifyStatusChange();
+    }
+    return cancelled;
+  }
+
+  /**
    * Pause the queue (stop processing)
    */
   pause() {

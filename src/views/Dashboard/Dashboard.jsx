@@ -8,6 +8,7 @@ import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text, Container } from '../../components/design-system';
 import { eventBus } from '../../utilities/event-bus';
+import { isNavigationCancelled } from '../../utilities/send-request';
 import { lang } from '../../lang.constants';
 import {
   StatsCard,
@@ -148,6 +149,8 @@ export default function Dashboard() {
         upcomingPlansCount: data.upcomingPlans?.length || 0,
       });
     } catch (err) {
+      // Silently ignore errors from navigation cancellation
+      if (isNavigationCancelled(err)) return;
       logger.error('[Dashboard] Failed to load dashboard data', err);
       const message = err?.message || lang.current.alert.failedToLoadDashboardData;
       try {
@@ -161,7 +164,7 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) return <DashboardSkeleton />;
+  if (loading && !dashboardData) return <DashboardSkeleton />;
 
   if (!dashboardData) {
     return (

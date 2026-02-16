@@ -191,9 +191,16 @@ export default function SingleExperience() {
   // COMPONENT STATE
   // ============================================================================
 
-  // Core experience data
-  const [experience, setExperience] = useState(null);
-  const [travelTips, setTravelTips] = useState([]);
+  // Core experience data — pre-populate from DataContext cache for instant display
+  const [experience, setExperience] = useState(() => {
+    if (!ctxExperiences || !ctxExperiences.length || !experienceId) return null;
+    return ctxExperiences.find((e) => idEquals(e._id, experienceId)) || null;
+  });
+  const [travelTips, setTravelTips] = useState(() => {
+    if (!ctxExperiences || !ctxExperiences.length || !experienceId) return [];
+    const cached = ctxExperiences.find((e) => idEquals(e._id, experienceId));
+    return cached?.travel_tips || [];
+  });
   const [loading, setLoading] = useState(false);
   const [experienceNotFound, setExperienceNotFound] = useState(false);
 

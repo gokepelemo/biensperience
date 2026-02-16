@@ -454,6 +454,21 @@ export async function sendQueuedRequest(url, method = "GET", payload = null, req
     );
 }
 
+/**
+ * Check if an error was caused by navigation cancellation.
+ * Use this in catch blocks to avoid showing error toasts for cancelled requests.
+ *
+ * @param {Error} error - The error to check
+ * @returns {boolean} True if the error is from a navigation cancellation
+ */
+export function isNavigationCancelled(error) {
+    if (!error) return false;
+    const msg = error.message || '';
+    return msg === 'Cancelled on navigation' ||
+           msg === 'Request cancelled' ||
+           msg === 'Queue cleared';
+}
+
 // Re-export PRIORITY for consumers
 export { PRIORITY };
 

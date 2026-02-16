@@ -48,6 +48,8 @@ export function DataProvider({ children }) {
   const experiencesRef = React.useRef(experiences);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Indicates a background refresh is in progress (cached data already shown)
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState({
     destinations: null,
     experiences: null,
@@ -516,6 +518,8 @@ export function DataProvider({ children }) {
     const hasExistingData = destinationsRef.current.length > 0 || experiencesRef.current.length > 0;
     if (!hasExistingData) {
       setLoading(true);
+    } else {
+      setIsRefreshing(true);
     }
 
     try {
@@ -541,10 +545,8 @@ export function DataProvider({ children }) {
     } catch (error) {
       logger.error('Failed to refresh data', { error: error.message });
     } finally {
-      // Only clear loading if we set it (when there was no existing data)
-      if (!hasExistingData) {
-        setLoading(false);
-      }
+      setLoading(false);
+      setIsRefreshing(false);
     }
   }, [user, fetchDestinations, fetchExperiences, fetchPlans]);
 
@@ -1189,6 +1191,7 @@ export function DataProvider({ children }) {
     experiences,
     plans,
     loading,
+    isRefreshing,
     lastUpdated,
 
     // Fetch functions
