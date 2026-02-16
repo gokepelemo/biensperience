@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasTriedLoad, setHasTriedLoad] = useState(false);
   const user = getUser();
   const toast = useToast();
 
@@ -161,12 +162,15 @@ export default function Dashboard() {
       setError(message);
     } finally {
       setLoading(false);
+      setHasTriedLoad(true);
     }
   }
 
+  // Always show skeleton loader first
   if (loading && !dashboardData) return <DashboardSkeleton />;
 
-  if (!dashboardData) {
+  // Only show dashboard unavailable if we've tried loading and failed
+  if (!dashboardData && hasTriedLoad && !loading) {
     return (
       <Container className={styles.errorContainer}>
         <Card
