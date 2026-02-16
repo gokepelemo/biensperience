@@ -67,15 +67,18 @@ app.use(cookieParser());
  * Falls back to memory store in development/test environments
  */
 const isProduction = process.env.NODE_ENV === 'production';
+const isRender = process.env.RENDER === 'true';
+const sessionCookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || process.env.SECRET,
   resave: false,
   saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
   cookie: {
-    secure: isProduction, // HTTPS only in production
+    secure: isProduction || isRender, // Always secure in production/Render
     httpOnly: true, // Prevents client-side JS from accessing the cookie
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: (isProduction || isRender) ? 'none' : 'lax',
+    domain: sessionCookieDomain,
   },
   name: 'biensperience.sid', // Custom session cookie name
 };
@@ -130,12 +133,13 @@ const {
   getSecret: () => process.env.CSRF_SECRET || process.env.SECRET,
   // Fixed identifier - security comes from cookie-header matching, not session binding
   getSessionIdentifier: () => 'biensperience-csrf-v1',
-  cookieName: isProduction ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
+  cookieName: (isProduction || isRender) ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
   cookieOptions: {
-    secure: isProduction,
+    secure: isProduction || isRender,
     httpOnly: true,
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: (isProduction || isRender) ? 'none' : 'lax',
     path: '/',
+    domain: sessionCookieDomain,
   },
   size: 64,
   ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],

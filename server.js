@@ -11,6 +11,11 @@
 
 const http = require('http');
 const app = require('./app');
+
+// Set trust proxy for Render/production (required for secure cookies and OAuth)
+if (process.env.NODE_ENV === 'production' || process.env.RENDER === 'true') {
+  app.set('trust proxy', 1);
+}
 const backendLogger = require('./utilities/backend-logger');
 const { updateExchangeRates } = require('./utilities/exchange-rate-updater');
 
