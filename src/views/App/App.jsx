@@ -534,7 +534,9 @@ function AppContent() {
         // Always remove oauth query param after processing (success or failure)
         const url = new URL(window.location);
         url.searchParams.delete('oauth');
-        window.history.replaceState({}, document.title, url.pathname + url.hash);
+        // Strip Facebook's #_=_ hash fragment that gets appended after OAuth
+        const hash = url.hash === '#_=_' ? '' : url.hash;
+        window.history.replaceState({}, document.title, url.pathname + hash);
         
         setIsProcessingOAuth(false);
       }
