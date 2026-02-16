@@ -7,39 +7,20 @@
 @use '../abstracts' as *;
 
 /* ============================================
-   MODAL ANIMATIONS
-   ============================================ */
-
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modalSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(50px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ============================================
    MODAL STRUCTURE
    ============================================ */
 
+/* Animations removed - using conditional rendering for instant mount/unmount.
+ * CSS animations caused flash on close because they restart during unmount.
+ * Modal visibility is now controlled entirely by React state. */
+
 .modal.fade.show {
-  animation: modalFadeIn 0.3s ease-out;
+  opacity: 1;
 }
 
 .modal-dialog-centered {
-  animation: modalSlideUp 0.3s ease-out;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .modal-content {

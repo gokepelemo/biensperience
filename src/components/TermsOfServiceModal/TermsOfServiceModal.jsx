@@ -51,12 +51,15 @@ export default function TermsOfServiceModal({
     </Button>
   );
 
+  // Don't render anything if modal should be hidden
+  if (!show) return null;
+
   return (
     <Modal
       show={show}
       onClose={onClose}
       title="Terms of Service"
-      size="lg"
+      size="sm"
       scrollable
       icon={<FaFileContract />}
       footer={customFooter}

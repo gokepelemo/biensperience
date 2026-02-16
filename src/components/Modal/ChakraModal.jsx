@@ -74,6 +74,7 @@ const ChakraModal = forwardRef(function ChakraModal({
 
   // Map size prop to CSS module classes
   const sizeClass = size === 'sm' ? styles.modalSm
+    : size === 'md' ? styles.modalMd
     : size === 'lg' ? styles.modalLg
     : size === 'xl' ? styles.modalXl
     : size === 'fullscreen' ? styles.modalFullscreen
@@ -112,8 +113,10 @@ const ChakraModal = forwardRef(function ChakraModal({
       trapFocus={false}
       preventScroll={!allowBodyScroll}
       lazyMount
-      unmountOnExit
+      unmountOnExit={false}
       motionPreset="none"
+      initialFocusEl={null}
+      finalFocusEl={null}
     >
       <Portal>
         {/* Backdrop - plain styling, not Chakra's default */}
@@ -128,6 +131,9 @@ const ChakraModal = forwardRef(function ChakraModal({
             zIndex: 1050,
             background: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'none',
+            // Disable all animations and transitions
+            transition: 'none !important',
+            animation: 'none !important',
           }}
         />
         <Dialog.Positioner
@@ -146,6 +152,9 @@ const ChakraModal = forwardRef(function ChakraModal({
             padding: 0,
             width: '100%',
             maxWidth: '100%',
+            // Disable all animations and transitions
+            transition: 'none !important',
+            animation: 'none !important',
             // Allow dropdowns to render outside modal bounds
             overflow: 'visible',
           }}
@@ -153,7 +162,7 @@ const ChakraModal = forwardRef(function ChakraModal({
           {/* Dialog.Content provides ARIA role="dialog" + aria-modal + focus trap anchor */}
           {/* Always include 'show' class since unmountOnExit ensures this only renders when open */}
           <Dialog.Content
-            className={`modal fade show ${modalDialogClasses}`}
+            className={`modal show ${modalDialogClasses}`}
             aria-labelledby={title ? titleId : undefined}
             style={{
               // Reset all Chakra Dialog.Content recipe styles
@@ -241,7 +250,7 @@ ChakraModal.propTypes = {
   showSubmitButton: PropTypes.bool,
   disableSubmit: PropTypes.bool,
   loading: PropTypes.bool,
-  size: PropTypes.oneOf(['sm', 'lg', 'xl', 'fullscreen']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', 'fullscreen']),
   scrollable: PropTypes.bool,
   centered: PropTypes.bool,
   footer: PropTypes.node,

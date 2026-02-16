@@ -119,34 +119,27 @@ export default function LegalModalsHandler() {
     clearHash();
   }, [clearHash]);
 
-  // Conditionally render modals to avoid Chakra Dialog close animation flash
-  // When state becomes false, the entire component unmounts immediately
+  // Always render modals but control visibility through show prop for instant unmounting
   return (
     <>
-      {showTerms && (
-        <TermsOfServiceModal
-          show={true}
-          onClose={handleTermsClose}
-          showBackButton={false}
-        />
-      )}
-      {showPrivacy && (
-        <PrivacyPolicyModal
-          show={true}
-          onClose={handlePrivacyClose}
-          showBackButton={false}
-        />
-      )}
-      {showCookies && (
-        <CookiePolicyModal
-          show={true}
-          onClose={handleCookiesClose}
-          showBackButton={false}
-          showConsentButtons={cookieConsentMode}
-          onAccept={setConsentGiven}
-          onDecline={setConsentDeclined}
-        />
-      )}
+      <TermsOfServiceModal
+        show={showTerms}
+        onClose={handleTermsClose}
+        showBackButton={false}
+      />
+      <PrivacyPolicyModal
+        show={showPrivacy}
+        onClose={handlePrivacyClose}
+        showBackButton={false}
+      />
+      <CookiePolicyModal
+        show={showCookies}
+        onClose={handleCookiesClose}
+        showBackButton={false}
+        showConsentButtons={cookieConsentMode}
+        onAccept={setConsentGiven}
+        onDecline={setConsentDeclined}
+      />
     </>
   );
 }

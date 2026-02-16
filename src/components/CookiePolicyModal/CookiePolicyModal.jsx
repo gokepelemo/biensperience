@@ -85,12 +85,15 @@ export default function CookiePolicyModal({
     </Button>
   );
 
+  // Don't render anything if modal should be hidden
+  if (!show) return null;
+
   return (
     <Modal
       show={show}
       onClose={onClose}
       title="Cookie Policy"
-      size="lg"
+      size="sm"
       scrollable
       icon={<FaCookieBite />}
       footer={customFooter}

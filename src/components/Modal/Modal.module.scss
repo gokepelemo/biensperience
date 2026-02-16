@@ -26,6 +26,10 @@
   overflow: visible !important; /* Allow tooltips and other overlays to show above modal */
   overscroll-behavior: contain; /* Prevent scroll chaining to parent */
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  /* Disable all animations and transitions for instant show/hide */
+  transition: none !important;
+  animation: none !important;
+  transform: none !important;
 }
 
 /* Document-scrolling modal mode
@@ -155,7 +159,7 @@
 
 /* Size Variants */
 .modalSm {
-  max-width: 400px; /* Small modal for simple dialogs */
+  max-width: 320px; /* Small modal for simple dialogs - reduced for legal docs */
   width: auto;
 
   .modalContent {
@@ -163,6 +167,18 @@
     height: auto;
     max-height: 90vh;
     pointer-events: auto; /* Enable clicks on content */
+  }
+}
+
+.modalMd {
+  max-width: 560px; /* Medium modal for legal docs, forms */
+  width: auto;
+  height: auto;
+  max-height: 90vh;
+
+  .modalContent {
+    height: auto;
+    max-height: 90vh;
   }
 }
 

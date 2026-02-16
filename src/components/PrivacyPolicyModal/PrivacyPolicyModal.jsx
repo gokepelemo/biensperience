@@ -51,12 +51,15 @@ export default function PrivacyPolicyModal({
     </Button>
   );
 
+  // Don't render anything if modal should be hidden
+  if (!show) return null;
+
   return (
     <Modal
       show={show}
       onClose={onClose}
       title="Privacy Policy"
-      size="lg"
+      size="sm"
       scrollable
       icon={<FaShieldAlt />}
       footer={customFooter}
