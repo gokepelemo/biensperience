@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TermsOfServiceModal from '../TermsOfServiceModal/TermsOfServiceModal';
 import PrivacyPolicyModal from '../PrivacyPolicyModal/PrivacyPolicyModal';
 import CookiePolicyModal from '../CookiePolicyModal/CookiePolicyModal';
 import { logger } from '../../utilities/logger';
+import { STORAGE_KEYS } from '../../utilities/storage-keys';
 import {
   setConsentGiven,
   setConsentDeclined
@@ -37,6 +38,7 @@ export default function LegalModalsHandler() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showCookies, setShowCookies] = useState(false);
   const [cookieConsentMode, setCookieConsentMode] = useState(false);
+  const closingRef = useRef(false);
 
   const isLegalHash = useCallback((hash) => {
     const h = (hash || '').toLowerCase();
@@ -52,6 +54,9 @@ export default function LegalModalsHandler() {
 
   // Handle hash changes to show/hide modals
   useEffect(() => {
+    // Skip if a close is in progress — the hash will be cleared momentarily
+    if (closingRef.current) return;
+
     const hash = location.hash.toLowerCase();
 
     if (hash === '#terms' || hash === '#terms-of-service') {
@@ -75,15 +80,12 @@ export default function LegalModalsHandler() {
       setShowPrivacy(false);
       setCookieConsentMode(isConsentMode);
     } else {
-      // Close modals if hash changes to something else
-      if (showTerms || showPrivacy || showCookies) {
-        setShowTerms(false);
-        setShowPrivacy(false);
-        setShowCookies(false);
-        setCookieConsentMode(false);
-      }
+      setShowTerms(false);
+      setShowPrivacy(false);
+      setShowCookies(false);
+      setCookieConsentMode(false);
     }
-  }, [location.hash, showTerms, showPrivacy, showCookies]);
+  }, [location.hash]);
 
   // Clear hash when modal is closed
   const clearHash = useCallback(() => {
@@ -99,24 +101,39 @@ export default function LegalModalsHandler() {
     // Remove hash from URL while preserving the current path and search params
     const newUrl = location.pathname + location.search;
     navigate(newUrl, { replace: true });
+
+    // Clear the pending hash from localStorage so the hash restoration effect
+    // in App.jsx does not re-apply it after login
+    try {
+      localStorage.removeItem(STORAGE_KEYS.pendingHash);
+    } catch (e) {
+      // Silently ignore storage errors
+    }
   }, [isLegalHash, location.hash, location.pathname, location.search, navigate]);
 
   const handleTermsClose = useCallback(() => {
     logger.debug('[LegalModalsHandler] Closing Terms of Service modal');
+    closingRef.current = true;
     setShowTerms(false);
     clearHash();
+    // Allow the hash effect to run again after navigate has settled
+    requestAnimationFrame(() => { closingRef.current = false; });
   }, [clearHash]);
 
   const handlePrivacyClose = useCallback(() => {
     logger.debug('[LegalModalsHandler] Closing Privacy Policy modal');
+    closingRef.current = true;
     setShowPrivacy(false);
     clearHash();
+    requestAnimationFrame(() => { closingRef.current = false; });
   }, [clearHash]);
 
   const handleCookiesClose = useCallback(() => {
     logger.debug('[LegalModalsHandler] Closing Cookie Policy modal');
+    closingRef.current = true;
     setShowCookies(false);
     clearHash();
+    requestAnimationFrame(() => { closingRef.current = false; });
   }, [clearHash]);
 
   // Always render modals but control visibility through show prop for instant unmounting

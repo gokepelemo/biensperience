@@ -804,8 +804,14 @@ export class HybridTransport extends EventTransport {
    * @returns {Promise<void>}
    */
   async setAuthToken(authToken) {
-    // Delegate to WebSocket transport
-    await this.webSocket.setAuthToken(authToken);
+    // Delegate to WebSocket transport; gracefully degrade if WebSocket is unavailable
+    try {
+      await this.webSocket.setAuthToken(authToken);
+    } catch (error) {
+      logger.warn('[HybridTransport] WebSocket auth token update failed, using localStorage only', {
+        error: error.message
+      });
+    }
   }
 
   /**

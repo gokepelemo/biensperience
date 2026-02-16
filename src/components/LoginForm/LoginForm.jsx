@@ -4,6 +4,7 @@ import { Form, InputGroup, Button, Card } from "react-bootstrap";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaInfoCircle, FaCopy, FaCheck } from "react-icons/fa";
 import { Fieldset } from "@chakra-ui/react";
 import * as usersService from "../../utilities/users-service";
+import { getObfuscatedJson, removeStorageKey } from "../../utilities/secure-storage-lite";
 import { lang } from "../../lang.constants";
 import SocialLoginButtons from "../SocialLoginButtons/SocialLoginButtons";
 import ForgotPasswordModal from "../ForgotPasswordModal/ForgotPasswordModal";
@@ -159,8 +160,8 @@ export default function LoginForm({ setUser }) {
             setUser(user);
 
             // Retrieve intended route for post-login redirect (deep linking support)
-            const intendedRoute = sessionStorage.getItem('bien:intendedRoute');
-            sessionStorage.removeItem('bien:intendedRoute'); // Clear after use
+            const intendedRoute = getObfuscatedJson(sessionStorage, 'bien:intendedRoute', null);
+            removeStorageKey(sessionStorage, 'bien:intendedRoute');
 
             // Navigate to intended route if exists, otherwise go home
             navigate(intendedRoute || "/");
