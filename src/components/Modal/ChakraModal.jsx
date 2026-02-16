@@ -46,6 +46,10 @@ const ChakraModal = forwardRef(function ChakraModal({
   showHeader = true,
   allowBodyScroll = false
 }, ref) {
+  // Early return - don't render anything if modal should be hidden
+  // This prevents any flash during unmount/close transitions
+  if (!show) return null;
+
   // Generate unique ID for accessibility
   const modalId = useId();
   const titleId = `modal-title-${modalId}`;
@@ -113,7 +117,7 @@ const ChakraModal = forwardRef(function ChakraModal({
       trapFocus={false}
       preventScroll={!allowBodyScroll}
       lazyMount
-      unmountOnExit={false}
+      unmountOnExit
       motionPreset="none"
       initialFocusEl={null}
       finalFocusEl={null}
@@ -176,6 +180,9 @@ const ChakraModal = forwardRef(function ChakraModal({
               position: 'relative',
               // Allow dropdowns to render outside content bounds
               overflow: 'visible',
+              // Disable all animations and transitions
+              transition: 'none',
+              animation: 'none',
             }}
           >
             {/* Plain HTML from here down — global _modal.scss targets these class names */}
@@ -263,3 +270,4 @@ ChakraModal.propTypes = {
 };
 
 export default ChakraModal;
+aModal;

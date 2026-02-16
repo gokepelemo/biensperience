@@ -104,23 +104,22 @@ export default defineConfig(({ mode }) => {
       output: {
         manualChunks: {
           // Split vendor chunks for better caching
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'bootstrap-vendor': ['react-bootstrap', 'bootstrap'],
-          'icons': ['react-icons'],
-          // Split large utility libraries
-          'utils-vendor': ['js-cookie', 'dompurify', 'store2'],
-          // AWS SDK is large, split it
-          'aws-vendor': ['@aws-sdk/client-s3'],
+          // Keys are internal identifiers only - filenames use hash
+          'v0': ['react', 'react-dom', 'react-router-dom'],
+          'v1': ['react-bootstrap', 'bootstrap'],
+          'v2': ['react-icons'],
+          'v3': ['js-cookie', 'dompurify', 'store2'],
+          'v4': ['@aws-sdk/client-s3'],
         },
-        // Optimize chunk file names for caching
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
+        // Obfuscated chunk file names - hash only for security
+        chunkFileNames: 'assets/[hash].js',
+        entryFileNames: 'assets/[hash].js',
         assetFileNames: (assetInfo) => {
           // Separate CSS files from other assets for better caching
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
-            return 'assets/[name]-[hash].css';
+            return 'assets/[hash].css';
           }
-          return 'assets/[name]-[hash].[ext]';
+          return 'assets/[hash].[ext]';
         }
       }
     }
@@ -238,6 +237,6 @@ export default defineConfig(({ mode }) => {
     // Exclude large dependencies from pre-bundling if they're not used immediately
     exclude: ['@aws-sdk/client-s3']
   },
-  
+
 };
 });

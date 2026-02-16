@@ -20,7 +20,8 @@ export default function SocialLoginButtons({
   actionType = 'signin',
   showDivider = true
 }) {
-  const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  // Use REACT_APP_API_URL if set, otherwise use current origin (works in production where API is same-origin)
+  const baseUrl = process.env.REACT_APP_API_URL || window.location.origin;
 
   // Determine button text based on action type
   const getButtonText = () => {

@@ -46,6 +46,12 @@ export async function handleOAuthCallback() {
       const user = data.data;
       console.log('[OAuth] Successfully fetched user:', user.email);
       
+      // Store the token in localStorage for WebSocket authentication
+      if (user.token) {
+        setStoredToken(user.token);
+        console.log('[OAuth] Token stored in localStorage for WebSocket auth');
+      }
+      
       return { user, provider };
     } catch (err) {
       console.error('[OAuth] Error during OAuth auth:', err);
@@ -103,6 +109,7 @@ export async function unlinkAccount(provider) {
  * @param {string} provider - Provider to link ('facebook', 'google', 'twitter')
  */
 export function linkAccount(provider) {
-  const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  // Use REACT_APP_API_URL if set, otherwise use current origin (works in production where API is same-origin)
+  const baseUrl = process.env.REACT_APP_API_URL || window.location.origin;
   window.location.href = `${baseUrl}/api/auth/link/${provider}`;
 }
