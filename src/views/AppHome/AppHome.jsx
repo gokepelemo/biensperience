@@ -79,9 +79,8 @@ export default function AppHome() {
   const isDestinationsLoading = destinations.length === 0 && (loading || !isDataLoaded);
   const isExperiencesLoading = curatedExperiences.length === 0 && (loading || !isDataLoaded);
 
-  // Determine if we should show empty state
-  // Only show empty state when data is loaded AND not currently loading
-  const isEmptyState = isDataLoaded && destinations.length === 0 && experiences.length === 0 && !isDestinationsLoading && !isExperiencesLoading;
+  // Only show empty state when data is loaded, not loading, and no data
+  const isEmptyState = !loading && isDataLoaded && destinations.length === 0 && experiences.length === 0 && !isDestinationsLoading && !isExperiencesLoading;
 
   // Helper function to render show more/less button
   const renderShowMoreButton = (isExpanded, onToggle, itemCount, limit) => {
