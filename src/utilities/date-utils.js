@@ -209,7 +209,7 @@ function getRelativeTime(date, now = new Date()) {
   } else if (days < 7) {
     unit = days === 1 ? 'day' : 'days';
     value = days;
-  } else if (weeks < 4) {
+  } else if (weeks < 8) {
     unit = weeks === 1 ? 'week' : 'weeks';
     value = weeks;
   } else if (months < 12) {
