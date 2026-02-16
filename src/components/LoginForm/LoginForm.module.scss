@@ -433,11 +433,12 @@
 }
 
 /* Submit Button */
+
 .submitBtn {
   width: 100%;
   background: var(--gradient-primary);
   border: none;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-full); /* Match social login buttons */
   padding: var(--space-3);
   min-height: 48px;
   font-size: var(--font-size-sm);
