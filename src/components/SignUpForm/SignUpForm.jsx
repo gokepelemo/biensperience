@@ -441,21 +441,25 @@ function SignUpForm(props) {
         </div>
       </div>
 
-      {/* Privacy Policy Modal */}
-      <PrivacyPolicyModal
-        show={showPrivacyModal}
-        onClose={() => setShowPrivacyModal(false)}
-        onBack={handleModalBack}
-        showBackButton={true}
-      />
+      {/* Privacy Policy Modal - Conditionally render to prevent close animation flash */}
+      {showPrivacyModal && (
+        <PrivacyPolicyModal
+          show={true}
+          onClose={() => setShowPrivacyModal(false)}
+          onBack={handleModalBack}
+          showBackButton={true}
+        />
+      )}
 
-      {/* Terms of Service Modal */}
-      <TermsOfServiceModal
-        show={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
-        onBack={handleModalBack}
-        showBackButton={true}
-      />
+      {/* Terms of Service Modal - Conditionally render to prevent close animation flash */}
+      {showTermsModal && (
+        <TermsOfServiceModal
+          show={true}
+          onClose={() => setShowTermsModal(false)}
+          onBack={handleModalBack}
+          showBackButton={true}
+        />
+      )}
     </div>
   );
 }
