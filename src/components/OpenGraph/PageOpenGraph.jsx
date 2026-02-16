@@ -65,7 +65,3 @@ export default function PageOpenGraph({
     </>
   );
 }
-    {schema && <PageSchema schema={schema} />}
-    </>
-  );
-}

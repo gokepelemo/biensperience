@@ -9,6 +9,9 @@ module.exports = function(req, res, next) {
     if (token) {
         token = token.replace("Bearer ", "");
 
+        // Store the token on the request for later use
+        req.token = token;
+
         // Check if this is an API token (64 hex characters)
         if (/^[a-f0-9]{64}$/i.test(token)) {
             // This is an API token

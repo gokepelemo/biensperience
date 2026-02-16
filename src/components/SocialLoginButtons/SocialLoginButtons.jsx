@@ -51,7 +51,10 @@ export default function SocialLoginButtons({
           aria-label={`${buttonPrefix} Facebook`}
         >
           <FaFacebook className={styles.socialIcon} />
-          <span>{buttonPrefix} Facebook</span>
+          <span className={styles.btnText}>
+            <span className={styles.btnPrefix}>{buttonPrefix} </span>
+            <span className={styles.btnProvider}>Facebook</span>
+          </span>
         </button>
 
         <button
@@ -61,7 +64,10 @@ export default function SocialLoginButtons({
           aria-label={`${buttonPrefix} Google`}
         >
           <FaGoogle className={styles.socialIcon} />
-          <span>{buttonPrefix} Google</span>
+          <span className={styles.btnText}>
+            <span className={styles.btnPrefix}>{buttonPrefix} </span>
+            <span className={styles.btnProvider}>Google</span>
+          </span>
         </button>
 
         <button
@@ -71,7 +77,10 @@ export default function SocialLoginButtons({
           aria-label={`${buttonPrefix} X`}
         >
           <FaXTwitter className={styles.socialIcon} />
-          <span>{buttonPrefix} X</span>
+          <span className={styles.btnText}>
+            <span className={styles.btnPrefix}>{buttonPrefix} </span>
+            <span className={styles.btnProvider}>X</span>
+          </span>
         </button>
       </div>
     </div>

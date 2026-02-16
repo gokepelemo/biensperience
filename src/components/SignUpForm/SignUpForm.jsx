@@ -195,7 +195,7 @@ function SignUpForm(props) {
           {/* Form */}
           <Form onSubmit={handleSubmit} autoComplete="off">
             {/* Name Field */}
-            <Fieldset.Root className="mb-4">
+            <Fieldset.Root className="mb-3">
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.name}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -217,7 +217,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Email Field */}
-            <Fieldset.Root className="mb-4">
+            <Fieldset.Root className="mb-3">
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.email}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -239,7 +239,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Password Field */}
-            <Fieldset.Root className="mb-4">
+            <Fieldset.Root className="mb-3">
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.password}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -268,7 +268,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Confirm Password Field */}
-            <Fieldset.Root className="mb-4">
+            <Fieldset.Root className="mb-3">
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.confirmPassword}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -297,7 +297,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Invite Code Field */}
-            <Fieldset.Root className="mb-4">
+            <Fieldset.Root className="mb-3">
               <Fieldset.Legend className={styles.formLabel}>{lang.current.invite.inviteCodeOptional}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>

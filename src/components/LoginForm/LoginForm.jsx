@@ -256,7 +256,7 @@ export default function LoginForm({ setUser }) {
                         aria-describedby={error ? "login-error" : undefined}
                     >
                         {/* Email Field */}
-                        <Fieldset.Root className="mb-4">
+                        <Fieldset.Root className="mb-3">
                             <Fieldset.Legend
                                 htmlFor="login-email"
                                 className={styles.formLabel}
@@ -291,7 +291,7 @@ export default function LoginForm({ setUser }) {
                         </Fieldset.Root>
 
                         {/* Password Field */}
-                        <Fieldset.Root className="mb-4">
+                        <Fieldset.Root className="mb-3">
                             <Fieldset.Legend
                                 htmlFor="login-password"
                                 className={styles.formLabel}

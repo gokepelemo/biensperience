@@ -270,4 +270,3 @@ ChakraModal.propTypes = {
 };
 
 export default ChakraModal;
-aModal;

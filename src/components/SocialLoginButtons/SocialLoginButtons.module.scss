@@ -8,13 +8,17 @@
   display: flex;
   align-items: center;
   text-align: center;
-  margin: var(--space-6) 0;
+  margin: var(--space-4) 0;
 
   &::before,
   &::after {
     content: '';
     flex: 1;
     border-bottom: 1px solid var(--color-border-light);
+  }
+
+  @media (min-width: 480px) {
+    margin: var(--space-5) 0;
   }
 }
 
@@ -27,26 +31,42 @@
 
 .socialButtons {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  flex-direction: row;
+  gap: var(--space-2);
   width: 100%;
+
+  @media (min-width: 480px) {
+    gap: var(--space-3);
+  }
 }
 
 .socialBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-6);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-2);
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border-medium);
-  font-size: var(--font-size-base);
+  font-size: 0.6875rem; /* 11px - compact for mobile */
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-base);
-  width: 100%;
+  flex: 1;
   box-shadow: var(--shadow-sm);
   background: var(--color-bg-secondary);
+  white-space: nowrap;
+
+  @media (min-width: 480px) {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+
+  @media (min-width: 768px) {
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-sm);
+  }
 
   &:hover {
     transform: translateY(-1px);
@@ -75,8 +95,30 @@
   }
 }
 
+/* Button text wrapper - always visible */
+.btnText {
+  display: inline;
+}
+
+/* Always hide prefix - show only provider name for cleaner layout */
+.btnPrefix {
+  display: none;
+}
+
+.btnProvider {
+  display: inline;
+}
+
 .socialIcon {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-base); /* 14px - compact for mobile */
+
+  @media (min-width: 480px) {
+    font-size: var(--font-size-lg);
+  }
+
+  @media (min-width: 768px) {
+    font-size: var(--font-size-xl);
+  }
 }
 
 /* Facebook Brand Colors */
@@ -118,14 +160,4 @@
   }
 }
 
-/* Responsive Design */
-@media (max-width: 640px) {
-  .socialBtn {
-    padding: var(--space-3) var(--space-5);
-    font-size: var(--font-size-sm);
-  }
-
-  .socialIcon {
-    font-size: var(--font-size-lg);
-  }
-}
+/* Small mobile - already compact in base styles */

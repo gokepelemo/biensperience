@@ -243,7 +243,13 @@ async function getProfile(req, res) {
       return errorResponse(res, null, 'User not found', 404);
     }
 
-    return successResponse(res, user, 'Profile retrieved successfully');
+    // Include the current token for WebSocket authentication
+    const responseData = {
+      ...user,
+      token: req.token
+    };
+
+    return successResponse(res, responseData, 'Profile retrieved successfully');
   } catch (err) {
     backendLogger.error('Error fetching user profile', { error: err.message, userId: req.user._id });
     return errorResponse(res, err, 'Failed to fetch user profile', 400);
