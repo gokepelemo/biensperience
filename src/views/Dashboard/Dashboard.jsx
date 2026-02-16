@@ -152,6 +152,7 @@ export default function Dashboard() {
     } catch (err) {
       // Silently ignore errors from navigation cancellation
       if (isNavigationCancelled(err)) return;
+      // Only log and show error if not navigation cancelled
       logger.error('[Dashboard] Failed to load dashboard data', err);
       const message = err?.message || lang.current.alert.failedToLoadDashboardData;
       try {
