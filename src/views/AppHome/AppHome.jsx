@@ -33,6 +33,12 @@ export default function AppHome() {
   // Prevent double fetching
   const hasFetchedRef = useRef(false);
 
+  // Keep stable refs for fetch functions to avoid re-triggering the effect
+  const applyDestinationsFilterRef = useRef(applyDestinationsFilter);
+  const applyExperiencesFilterRef = useRef(applyExperiencesFilter);
+  useEffect(() => { applyDestinationsFilterRef.current = applyDestinationsFilter; }, [applyDestinationsFilter]);
+  useEffect(() => { applyExperiencesFilterRef.current = applyExperiencesFilter; }, [applyExperiencesFilter]);
+
   // Determine if we have existing data
   const hasExistingData = destinations.length > 0 && experiences.length > 0;
 
@@ -52,8 +58,8 @@ export default function AppHome() {
       try {
         logger.info('AppHome: Fetching fresh data on mount');
         await Promise.all([
-          applyDestinationsFilter({}, { shuffle: true }),
-          applyExperiencesFilter({})
+          applyDestinationsFilterRef.current({}, { shuffle: true }),
+          applyExperiencesFilterRef.current({})
         ]);
         if (mounted) {
           setIsDataLoaded(true);
@@ -67,7 +73,7 @@ export default function AppHome() {
     })();
 
     return () => { mounted = false; };
-  }, [hasExistingData, applyDestinationsFilter, applyExperiencesFilter]);
+  }, [hasExistingData]);
 
   // Filter experiences to show only curated ones
   const curatedExperiences = useMemo(
