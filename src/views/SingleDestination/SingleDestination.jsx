@@ -665,7 +665,7 @@ export default function SingleDestination() {
             <div className={styles.heroOverlay}>
               <h2 className={styles.heroTitle}>{destinationTitle}</h2>
               <div className={styles.heroMeta}>
-                <span><FaMapMarkerAlt /> <Link to={`/countries/${encodeURIComponent(destination.country)}`} className={styles.heroCountryLink}>{destination.country}</Link></span>
+                <span><FaMapMarkerAlt /> <Link to={`/countries/${encodeURIComponent(destination.country)}`}>{destination.country}</Link></span>
               </div>
             </div>
             {/* Hero photo button - opens upload modal when no photos and user can edit */}

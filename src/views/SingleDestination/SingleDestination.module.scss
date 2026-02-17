@@ -180,15 +180,17 @@
     color: white;
     font-size: var(--font-size-base);
   }
-}
 
-.heroCountryLink {
-  color: white;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  a {
+    color: white !important;
+    text-decoration: none !important;
+    display: flex;
+    align-items: center;
 
-  &:hover {
-    color: var(--color-primary-light, #a5b4fc);
+    &:hover,
+    &:focus {
+      text-decoration: underline !important;
+    }
   }
 }
 
