@@ -31,14 +31,14 @@ export async function getExperiencesPage(page = 1, limit = 30, filters = {}) {
     if (k.startsWith('__')) return; // Skip client-only filters like __viewSpecific, __noApiParam
     if (v !== undefined && v !== null) params.append(k, v);
   });
-  return await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'experiences/page' });
+  return await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'experiences/page', priority: PRIORITY.HIGH });
 }
 
 export async function getExperienceTags(filters = {}) {
   const params = new URLSearchParams();
   if (filters.q) params.append('q', filters.q);
   const url = params.toString() ? `${BASE_URL}tags?${params.toString()}` : `${BASE_URL}tags`;
-  const resp = await sendQueuedRequest(url, "GET", null, { label: 'experiences/tags' });
+  const resp = await sendQueuedRequest(url, "GET", null, { label: 'experiences/tags', priority: PRIORITY.HIGH });
   // Return full response for consistency
   return resp;
 }

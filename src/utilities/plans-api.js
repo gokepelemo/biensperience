@@ -65,10 +65,10 @@ export function getUserPlans(options = {}) {
       page: String(page),
       limit: String(limit)
     });
-    return sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'plans/user' });
+    return sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'plans/user', priority: PRIORITY.HIGH });
   }
 
-  return sendQueuedRequest(BASE_URL, "GET", null, { label: 'plans/user' });
+  return sendQueuedRequest(BASE_URL, "GET", null, { label: 'plans/user', priority: PRIORITY.HIGH });
 }
 
 /**

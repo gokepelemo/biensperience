@@ -1,4 +1,4 @@
-import { sendQueuedRequest } from './send-request';
+import { sendQueuedRequest, PRIORITY } from './send-request';
 import { logger } from './logger';
 
 const BASE_URL = '/api/dashboard';
@@ -11,7 +11,7 @@ export async function getDashboardData() {
   try {
     // Add timestamp to prevent caching
     const url = `${BASE_URL}?_t=${Date.now()}`;
-    const result = await sendQueuedRequest(url, "GET", null, { label: 'dashboard' });
+    const result = await sendQueuedRequest(url, "GET", null, { label: 'dashboard', priority: PRIORITY.HIGH });
     // The API controllers use a standard success response wrapper:
     // { success: true, data: { stats, recentActivity, upcomingPlans } }
     // Unwrap `data` for callers so they receive { stats, recentActivity, upcomingPlans } directly.
@@ -54,7 +54,7 @@ export async function getActivityFeed(page = 1, limit = 20, options = {}) {
     }
 
     const url = `${BASE_URL}/activity-feed?${params.toString()}`;
-    const result = await sendQueuedRequest(url, "GET", null, { label: 'dashboard' });
+    const result = await sendQueuedRequest(url, "GET", null, { label: 'dashboard', priority: PRIORITY.HIGH });
     const payload = (result && result.data) ? result.data : result || {};
 
     logger.debug('[dashboard-api] Activity feed fetched', {
@@ -81,7 +81,7 @@ export async function getActivityFeed(page = 1, limit = 20, options = {}) {
 export async function getUpcomingPlans(page = 1, limit = 5) {
   try {
     const url = `${BASE_URL}/upcoming-plans?page=${page}&limit=${limit}`;
-    const result = await sendQueuedRequest(url, "GET", null, { label: 'dashboard' });
+    const result = await sendQueuedRequest(url, "GET", null, { label: 'dashboard', priority: PRIORITY.HIGH });
     const payload = (result && result.data) ? result.data : result || {};
 
     logger.debug('[dashboard-api] Upcoming plans fetched', {

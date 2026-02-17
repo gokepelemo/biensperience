@@ -39,7 +39,7 @@ export async function getDestinations (filters = {}, options = {}) {
     }
 
     // Use queued request for rate limiting and coalescing
-    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/list' });
+    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/list', priority: PRIORITY.HIGH });
     // Handle standardized response format { success, data, meta }
     // Return { data, meta } for pagination support
     if (resp && resp.success !== undefined) {
@@ -56,7 +56,7 @@ export async function getDestinations (filters = {}, options = {}) {
 export async function getFavorites(userId) {
     if (!userId) return [];
     const params = new URLSearchParams({ favorited_by: String(userId) });
-    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/favorites' });
+    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/favorites', priority: PRIORITY.HIGH });
 
     // Handle standardized response format { success, data }
     const data = extractData(resp);
@@ -69,7 +69,7 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
     Object.entries(filters || {}).forEach(([k, v]) => {
         if (v !== undefined && v !== null) params.append(k, v);
     });
-    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/page' });
+    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/page', priority: PRIORITY.HIGH });
     // Handle standardized response format { success, data, meta }
     if (resp && resp.success !== undefined) {
         return { data: resp.data, meta: resp.meta };
