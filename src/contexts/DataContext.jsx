@@ -480,7 +480,9 @@ export function DataProvider({ children }) {
   useEffect(() => {
     if (dataStale.destinations && user) {
       logger.debug('Lazy refresh: destinations marked as stale, refreshing...');
-      fetchDestinations();
+      fetchDestinations().then(result => {
+        if (result) setDestinations(result);
+      }).catch(() => {});
     }
   }, [dataStale.destinations, user, fetchDestinations]);
 
@@ -524,23 +526,38 @@ export function DataProvider({ children }) {
 
     try {
       const promises = [];
+      const promiseLabels = [];
 
       if (refreshDestinations) {
         logger.debug('Adding fetchDestinations to promises');
-        promises.push(fetchDestinations());
+        promises.push(fetchDestinations(options));
+        promiseLabels.push('destinations');
       }
       if (refreshExperiences) {
         logger.debug('Adding fetchExperiences to promises');
         promises.push(fetchExperiences());
+        promiseLabels.push('experiences');
       }
       if (refreshPlans) {
         logger.debug('Adding fetchPlans to promises');
         promises.push(fetchPlans());
+        promiseLabels.push('plans');
       }
 
       logger.debug('Executing fetch promises', { count: promises.length });
       const results = await Promise.all(promises);
       logger.debug('refreshAll completed', { results: results.map(r => r?.length || 0) });
+
+      // fetchDestinations no longer sets state internally — store result here
+      const destIndex = promiseLabels.indexOf('destinations');
+      if (destIndex !== -1 && results[destIndex]) {
+        const shuffle = options?.shuffle ?? false;
+        if (shuffle) {
+          setDestinationsShuffled(results[destIndex]);
+        } else {
+          setDestinations(results[destIndex]);
+        }
+      }
 
     } catch (error) {
       logger.error('Failed to refresh data', { error: error.message });
@@ -1038,7 +1055,9 @@ export function DataProvider({ children }) {
 
     // Destinations
     if (destinations.length > 0 && isStale(lastUpdated.destinations)) {
-      Promise.resolve(fetchDestinations()).catch(() => {});
+      Promise.resolve(fetchDestinations()).then(result => {
+        if (result) setDestinations(result);
+      }).catch(() => {});
     }
 
     // Experiences

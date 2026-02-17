@@ -5,7 +5,7 @@ import { broadcastEvent } from './event-bus';
 
 const BASE_URL = `/api/experiences/`
 
-export async function getExperiences(filters = {}) {
+export async function getExperiences(filters = {}, requestOptions = {}) {
   // Fetch first page of experiences (default limit=30)
   // Allow callers to override page/limit by passing them in `filters`.
   const pageParam = filters && filters.page ? String(filters.page) : '1';
@@ -20,7 +20,7 @@ export async function getExperiences(filters = {}) {
   const url = `${BASE_URL}?${params.toString()}`;
   logger.debug('getExperiences request', { url, filters });
   // Use queued request for rate limiting and coalescing
-  const resp = await sendQueuedRequest(url, "GET", null, { label: 'experiences/list' });
+  const resp = await sendQueuedRequest(url, "GET", null, { label: 'experiences/list', ...requestOptions });
   // Return full response with { data, meta } for pagination support
   return resp;
 }

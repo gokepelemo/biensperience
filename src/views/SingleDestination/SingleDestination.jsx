@@ -13,6 +13,7 @@ import TravelTipsList from "../../components/TravelTipsList/TravelTipsList";
 import { logger } from "../../utilities/logger";
 import { eventBus } from "../../utilities/event-bus";
 import { getExperiences } from "../../utilities/experiences-api";
+import { PRIORITY } from "../../utilities/send-request";
 import { lang } from "../../lang.constants";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
@@ -408,8 +409,9 @@ export default function SingleDestination() {
     try {
       // Fetch experiences directly for this view (server-side filter via query params)
       // Reset directDestinationExperiences and fetch
+      // Use HIGH priority so the request survives navigation cleanup
       setDirectDestinationExperiences(null);
-      getExperiences({ destination: destinationId }).then((resp) => {
+      getExperiences({ destination: destinationId }, { priority: PRIORITY.HIGH }).then((resp) => {
         const data = resp && resp.data ? resp.data : (Array.isArray(resp) ? resp : []);
 
         // Set local state immediately - DO NOT update DataContext
@@ -663,7 +665,7 @@ export default function SingleDestination() {
             <div className={styles.heroOverlay}>
               <h2 className={styles.heroTitle}>{destinationTitle}</h2>
               <div className={styles.heroMeta}>
-                <span><FaMapMarkerAlt /> {destination.country}</span>
+                <span><FaMapMarkerAlt /> <Link to={`/countries/${encodeURIComponent(destination.country)}`} className={styles.heroCountryLink}>{destination.country}</Link></span>
               </div>
             </div>
             {/* Hero photo button - opens upload modal when no photos and user can edit */}

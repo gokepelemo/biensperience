@@ -182,6 +182,16 @@
   }
 }
 
+.heroCountryLink {
+  color: white;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:hover {
+    color: var(--color-primary-light, #a5b4fc);
+  }
+}
+
 /* Content Section Card */
 .contentCard {
   background-color: var(--color-bg-primary);
