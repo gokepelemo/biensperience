@@ -1,6 +1,6 @@
 /**
  * PlanItemNotes Component
- * Displays and manages notes for a plan item in a chat-style interface
+ * Displays and manages notes for a plan item in a card-style interface
  * Features: search, endless scroll (newest at bottom), InteractiveTextArea with mentions support
  *
  * Notes are displayed in reverse chronological order - newest at the bottom.
@@ -185,6 +185,18 @@ function NoteForm({
  * NoteMessage Component
  * Individual note message with entity resolution for mentions and URL previews
  */
+/**
+ * NoteUserSkeleton - Skeleton loader for note author when user data is loading
+ */
+function NoteUserSkeleton() {
+  return (
+    <div className={styles.noteAuthorSkeleton}>
+      <div className={styles.skeletonAvatar} />
+      <div className={styles.skeletonName} />
+    </div>
+  );
+}
+
 function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true }) {
   // Resolve any missing entities in this note's content
   const { entityData: mergedEntityData, loadingEntityIds } = useEntityResolver(note.content, entityData);
@@ -195,42 +207,23 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
   // Check if this is a private note
   const isPrivate = note.visibility === 'private';
 
+  // Check if user data is still loading (no name resolved yet)
+  const isUserLoading = !note.user?.name && note.user?._id && note.user._id !== 'unknown';
+
   return (
-    <div
-      className={isAuthor ? 'note-bubble-author' : 'note-bubble-received'}
-      style={{
-        padding: 'var(--space-4) var(--space-5)',
-        backgroundColor: isAuthor ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
-        color: isAuthor ? 'white' : 'var(--color-text-primary)',
-        borderRadius: isAuthor
-          ? 'var(--radius-2xl) var(--radius-2xl) var(--radius-sm) var(--radius-2xl)'
-          : 'var(--radius-2xl) var(--radius-2xl) var(--radius-2xl) var(--radius-sm)',
-        boxShadow: 'var(--shadow-sm)',
-        fontSize: 'var(--font-size-base)',
-        lineHeight: 'var(--line-height-relaxed)',
-        wordWrap: 'break-word'
-      }}
-    >
+    <div className={styles.noteCard}>
       {/* Private note indicator */}
       {isPrivate && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-1)',
-            marginBottom: 'var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            opacity: 0.8
-          }}
-          title="This note is only visible to you"
-        >
+        <div className={styles.notePrivateBadge} title="This note is only visible to you">
           <span role="img" aria-label="Private note">🔒</span>
           <span>Private note</span>
         </div>
       )}
 
-      {/* Render text with mentions and clickable URLs */}
-      {renderTextWithMentionsAndUrls(note.content, mergedEntityData, onEntityClick, { loadingEntityIds })}
+      {/* Note content */}
+      <div className={styles.noteContent}>
+        {renderTextWithMentionsAndUrls(note.content, mergedEntityData, onEntityClick, { loadingEntityIds })}
+      </div>
 
       {/* Link previews/embeds for URLs found in the note */}
       {showLinkPreviews && urls.length > 0 && (
@@ -241,46 +234,33 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
         />
       )}
 
-      {/* Timestamp and actions */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 'var(--space-2)',
-        fontSize: 'var(--font-size-xs)',
-        opacity: 0.8
-      }}>
-        <span>{formatDate(note.createdAt || note.updatedAt)}</span>
+      {/* Note footer: author, timestamp, actions */}
+      <div className={styles.noteFooter}>
+        <div className={styles.noteAuthorTimestamp}>
+          {isUserLoading ? (
+            <div className={styles.skeletonName} />
+          ) : (
+            <span className={styles.noteAuthorName}>
+              {isAuthor ? 'You' : (note.user?.name || 'Unknown User')}
+            </span>
+          )}
+          <span className={styles.noteSeparator}>&middot;</span>
+          <span className={styles.noteTimestamp}>{formatDate(note.createdAt || note.updatedAt)}</span>
+        </div>
 
         {isAuthor && (
-          <div style={{ display: 'flex', gap: 'var(--space-2)', marginLeft: 'var(--space-3)' }}>
+          <div className={styles.noteActions}>
             <button
               onClick={() => onStartEdit(note)}
               type="button"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'inherit',
-                cursor: 'pointer',
-                padding: 0,
-                textDecoration: 'underline',
-                fontSize: 'inherit'
-              }}
+              className={styles.noteActionButton}
             >
               Edit
             </button>
             <button
               onClick={() => onDelete(note._id)}
               type="button"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'inherit',
-                cursor: 'pointer',
-                padding: 0,
-                textDecoration: 'underline',
-                fontSize: 'inherit'
-              }}
+              className={styles.noteActionButton}
             >
               Delete
             </button>
@@ -682,68 +662,56 @@ export default function PlanItemNotes({
             displayedNotes.map((note) => {
             const isAuthor = isNoteAuthor(note);
             const isEditing = editingNoteId === note._id;
+            const noteUser = isAuthor ? currentUser : note.user;
+            const isUserLoading = !noteUser?.name && noteUser?._id && noteUser._id !== 'unknown';
 
             return (
               <div
                 key={note._id}
-                className={`${styles.messageRow} ${isAuthor ? styles.messageRowAuthor : styles.messageRowReceived} ${note._optimistic ? styles.messageRowOptimistic : ''}`}
+                className={`${styles.noteRow} ${note._optimistic ? styles.noteRowOptimistic : ''}`}
               >
-                {/* Avatar for received messages */}
-                {!isAuthor && (
-                  <UserAvatar
-                    user={note.user}
-                    size="md"
-                    linkToProfile={true}
-                    showPresence={presenceConnected}
-                    isOnline={isUserOnline(note.user)}
-                  />
-                )}
-
-                {/* Message bubble */}
-                <div className={`${styles.messageBubble} ${isEditing ? styles.messageBubbleEdit : styles.messageBubbleView}`}>
-                  {/* User name header (for received messages) */}
-                  {!isAuthor && (
-                    <div className={styles.messageUserName}>
-                      {note.user?.name || 'Unknown User'}
-                    </div>
-                  )}
-
-                  {isEditing ? (
-                    // Edit mode with unified NoteForm
-                    <NoteForm
-                      mode="edit"
-                      content={editContent}
-                      onContentChange={setEditContent}
-                      visibility={editVisibility}
-                      onVisibilityChange={setEditVisibility}
-                      onSubmit={() => handleSaveEdit(note._id)}
-                      onCancel={handleCancelEdit}
-                      availableEntities={availableEntities}
-                      entityData={entityData}
-                      loading={isSaving}
-                    />
+                {/* Note author header */}
+                <div className={styles.noteAuthorHeader}>
+                  {isUserLoading ? (
+                    <NoteUserSkeleton />
                   ) : (
-                    // View mode with entity resolution
-                    <NoteMessage
-                      note={note}
-                      entityData={entityData}
-                      isAuthor={isAuthor}
-                      onStartEdit={handleStartEdit}
-                      onDelete={handleDeleteNote}
-                      formatDate={formatDate}
-                      onEntityClick={onEntityClick}
-                    />
+                    <>
+                      <UserAvatar
+                        user={noteUser}
+                        size="sm"
+                        linkToProfile={true}
+                        showPresence={presenceConnected}
+                        isOnline={isUserOnline(noteUser)}
+                      />
+                      <span className={styles.noteAuthorHeaderName}>
+                        {isAuthor ? 'You' : (noteUser?.name || 'Unknown User')}
+                      </span>
+                    </>
                   )}
                 </div>
 
-                {/* Avatar for sent messages */}
-                {isAuthor && (
-                  <UserAvatar
-                    user={currentUser}
-                    size="md"
-                    linkToProfile={true}
-                    showPresence={presenceConnected}
-                    isOnline={isUserOnline(currentUser)}
+                {isEditing ? (
+                  <NoteForm
+                    mode="edit"
+                    content={editContent}
+                    onContentChange={setEditContent}
+                    visibility={editVisibility}
+                    onVisibilityChange={setEditVisibility}
+                    onSubmit={() => handleSaveEdit(note._id)}
+                    onCancel={handleCancelEdit}
+                    availableEntities={availableEntities}
+                    entityData={entityData}
+                    loading={isSaving}
+                  />
+                ) : (
+                  <NoteMessage
+                    note={note}
+                    entityData={entityData}
+                    isAuthor={isAuthor}
+                    onStartEdit={handleStartEdit}
+                    onDelete={handleDeleteNote}
+                    formatDate={formatDate}
+                    onEntityClick={onEntityClick}
                   />
                 )}
               </div>

@@ -167,13 +167,14 @@ const ChakraModal = forwardRef(function ChakraModal({
             className={`modal show ${modalDialogClasses}`}
             aria-labelledby={title ? titleId : undefined}
             style={{
-              // Reset all Chakra Dialog.Content recipe styles
+              // Reset Chakra Dialog.Content recipe styles
+              // Do NOT set maxWidth here — CSS module size classes
+              // (.modalSm, .modalMd, etc.) control max-width on this element
               background: 'transparent',
               boxShadow: 'none',
               borderRadius: 0,
               padding: 0,
-              maxWidth: '100%',
-              width: size === 'fullscreen' ? '100%' : 'auto',
+              width: size === 'fullscreen' ? '100%' : undefined,
               maxHeight: 'none',
               position: 'relative',
               // Allow dropdowns to render outside content bounds

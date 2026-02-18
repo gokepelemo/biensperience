@@ -131,14 +131,21 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
       if (email) {
         user = await User.findOne({ email });
         if (user) {
+          // If user already has a different Facebook account linked, block
+          if (user.facebookId && user.facebookId !== profile.id) {
+            return done(null, false, { message: 'This email is already associated with another Facebook account' });
+          }
           // Link Facebook to existing account
           user.facebookId = profile.id;
           if (!user.linkedAccounts) user.linkedAccounts = [];
-          user.linkedAccounts.push({
-            provider: 'facebook',
-            providerId: profile.id,
-            linkedAt: new Date()
-          });
+          const existingLink = user.linkedAccounts.find(acc => acc.provider === 'facebook');
+          if (!existingLink) {
+            user.linkedAccounts.push({
+              provider: 'facebook',
+              providerId: profile.id,
+              linkedAt: new Date()
+            });
+          }
           if (profile.photos && profile.photos[0] && !user.oauthProfilePhoto) {
             user.oauthProfilePhoto = profile.photos[0].value;
           }
@@ -238,14 +245,21 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       if (email) {
         user = await User.findOne({ email });
         if (user) {
+          // If user already has a different Google account linked, block
+          if (user.googleId && user.googleId !== profile.id) {
+            return done(null, false, { message: 'This email is already associated with another Google account' });
+          }
           // Link Google to existing account
           user.googleId = profile.id;
           if (!user.linkedAccounts) user.linkedAccounts = [];
-          user.linkedAccounts.push({
-            provider: 'google',
-            providerId: profile.id,
-            linkedAt: new Date()
-          });
+          const existingLink = user.linkedAccounts.find(acc => acc.provider === 'google');
+          if (!existingLink) {
+            user.linkedAccounts.push({
+              provider: 'google',
+              providerId: profile.id,
+              linkedAt: new Date()
+            });
+          }
           if (profile.photos && profile.photos[0] && !user.oauthProfilePhoto) {
             user.oauthProfilePhoto = profile.photos[0].value;
           }
@@ -359,14 +373,21 @@ if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
       if (email) {
         user = await User.findOne({ email });
         if (user) {
+          // If user already has a different Twitter account linked, block
+          if (user.twitterId && user.twitterId !== profile.id) {
+            return done(null, false, { message: 'This email is already associated with another X account' });
+          }
           // Link Twitter to existing account
           user.twitterId = profile.id;
           if (!user.linkedAccounts) user.linkedAccounts = [];
-          user.linkedAccounts.push({
-            provider: 'twitter',
-            providerId: profile.id,
-            linkedAt: new Date()
-          });
+          const existingLink = user.linkedAccounts.find(acc => acc.provider === 'twitter');
+          if (!existingLink) {
+            user.linkedAccounts.push({
+              provider: 'twitter',
+              providerId: profile.id,
+              linkedAt: new Date()
+            });
+          }
           if (profile.photos && profile.photos[0] && !user.oauthProfilePhoto) {
             user.oauthProfilePhoto = profile.photos[0].value;
           }

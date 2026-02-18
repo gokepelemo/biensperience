@@ -509,20 +509,15 @@
   white-space: nowrap;
 }
 
-/* Message Row - chat message container */
-.messageRow {
+/* Note Row - note card container */
+.noteRow {
   display: flex;
+  flex-direction: column;
   margin-bottom: var(--space-4);
-  gap: var(--space-2);
   width: 100%;
 
-  &.messageRowAuthor,
-  &.messageRowReceived {
-    justify-content: flex-start;
-  }
-
   /* Optimistic notes (being processed) */
-  &.messageRowOptimistic {
+  &.noteRowOptimistic {
     opacity: 0.7;
     position: relative;
 
@@ -536,7 +531,7 @@
       background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
       animation: shimmer 1.5s infinite;
       pointer-events: none;
-      border-radius: var(--border-radius-md);
+      border-radius: var(--radius-lg);
     }
   }
 }
@@ -550,25 +545,134 @@
   }
 }
 
-/* Message Bubble - content container */
-.messageBubble {
-  min-width: 120px;
+/* Note author header above the card */
+.noteAuthorHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
 
-  &.messageBubbleView {
-    max-width: 100%;
-    width: 100%;
-  }
+.noteAuthorHeaderName {
+  font-size: var(--font-size-sm);
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+}
 
-  &.messageBubbleEdit {
-    flex: 1; /* Take remaining space in flex container */
-    max-width: 100%;
-    width: 100%;
+/* Note Card - replaces chat bubbles */
+.noteCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  word-wrap: break-word;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
   }
 }
 
-.messageUserName {
+.notePrivateBadge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-  padding-left: var(--space-3);
+}
+
+.noteContent {
+  color: var(--color-text-primary);
+}
+
+.noteFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-light);
+
+  @media (prefers-color-scheme: dark) {
+    border-top-color: var(--color-border-dark);
+  }
+}
+
+.noteAuthorTimestamp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.noteAuthorName {
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+}
+
+.noteSeparator {
+  color: var(--color-text-muted);
+}
+
+.noteTimestamp {
+  color: var(--color-text-muted);
+}
+
+.noteActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.noteActionButton {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--font-size-xs);
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+}
+
+/* Skeleton loaders for user data loading */
+.noteAuthorSkeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.skeletonAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-border-light) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.skeletonName {
+  width: 80px;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-border-light) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }

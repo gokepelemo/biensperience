@@ -17,11 +17,11 @@ export default function SingleExperienceSkeleton() {
         <Hide on="mobile">
           <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
             <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-              <SkeletonLoader variant="text" width="50px" height="var(--font-size-sm)" />
+              <SkeletonLoader variant="text" width="50px" height={14} />
               <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{'\u2002/\u2002'}</span>
-              <SkeletonLoader variant="text" width="90px" height="var(--font-size-sm)" />
+              <SkeletonLoader variant="text" width="90px" height={14} />
               <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{'\u2002/\u2002'}</span>
-              <SkeletonLoader variant="text" width="130px" height="var(--font-size-sm)" />
+              <SkeletonLoader variant="text" width="130px" height={14} />
             </div>
           </nav>
         </Hide>
@@ -30,8 +30,8 @@ export default function SingleExperienceSkeleton() {
         <Show on="mobile">
           <div className={styles.mobileBreadcrumb}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <SkeletonLoader variant="text" width="14px" height="14px" />
-              <SkeletonLoader variant="text" width="100px" height="var(--font-size-sm)" />
+              <SkeletonLoader variant="text" width={14} height={14} />
+              <SkeletonLoader variant="text" width="100px" height={14} />
             </div>
           </div>
         </Show>
