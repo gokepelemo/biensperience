@@ -64,17 +64,16 @@ export function useFeatureFlag(flagKey, options = {}) {
     const hasAccess = hasFeatureFlag(user, flagKey);
 
     if (!hasAccess) {
-      if (showToast && toast?.showToast) {
+      if (showToast && toast?.warning) {
         if (detailedToast) {
           const info = getDetailedDenialInfo(flagKey);
-          // Show detailed toast with title and message
-          toast.showToast(info.message, 'warning', {
-            title: info.title,
-            duration: 6000 // Show longer for detailed messages
+          toast.warning(info.message, {
+            header: info.title,
+            duration: 6000
           });
         } else {
           const message = getFeatureDenialMessage(flagKey);
-          toast.showToast(message, 'warning');
+          toast.warning(message);
         }
       }
 
@@ -233,14 +232,14 @@ export function useGatedAction(flagKey, action, options = {}) {
         tier: info.tier
       });
 
-      if (showToast && toast?.showToast) {
+      if (showToast && toast?.warning) {
         if (detailedToast) {
-          toast.showToast(info.message, 'warning', {
-            title: info.title,
+          toast.warning(info.message, {
+            header: info.title,
             duration: 6000
           });
         } else {
-          toast.showToast(getFeatureDenialMessage(flagKey), 'warning');
+          toast.warning(getFeatureDenialMessage(flagKey));
         }
       }
 

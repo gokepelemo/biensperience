@@ -1,13 +1,10 @@
 import styles from "./DestinationCard.module.scss";
 import { Link } from "react-router-dom";
-import { useMemo, memo, useRef, useEffect, useState } from "react";
+import { useMemo, memo, useRef, useEffect } from "react";
+import { useDataTransition } from "../../hooks/useDataTransition";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import EntitySchema from "../OpenGraph/EntitySchema";
-import imagePreloader from '../../utilities/image-preloader';
-
-// In-memory cache of URLs we've already successfully loaded during this session.
-// This prevents skeleton re-appearing and redundant preload work on remounts.
-const loadedImageUrls = new Set();
+import useImageFallback from '../../hooks/useImageFallback';
 
 /**
  * Destination card component that displays a destination with background image and title.
@@ -29,8 +26,6 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return encodeURIComponent(id || name || 'destination');
   }, [destination?._id, destination?.name]);
   const titleRef = useRef(null);
-  const containerRef = useRef(null);
-  const prevImageSrcRef = useRef(null);
 
   // Get background image URL from destination photos or fallback to placeholder
   const { imageSrc, backgroundImage } = useMemo(() => {
@@ -64,68 +59,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return { imageSrc: src, backgroundImage: `url(${src})` };
   }, [destination, placeholderSeed]);
 
-  // Check if image is already cached in browser to avoid skeleton flash on re-renders
-  // This runs synchronously during render to set correct initial state
-  const isImageCached = useMemo(() => {
-    if (!imageSrc) return true;
-    if (loadedImageUrls.has(imageSrc)) return true;
-    // Check if image is already in browser cache
-    const img = new Image();
-    img.src = imageSrc;
-    return img.complete && img.naturalHeight > 0;
-  }, [imageSrc]);
-
-  // Initialize from cache state so we don't render "no skeleton" and then flip it on.
-  const [imageLoaded, setImageLoaded] = useState(() => isImageCached);
-
-  // Use shared image preloader utility to ensure skeleton overlay exists and load image
-  // Only reset imageLoaded when the actual URL changes, not on every render
-  useEffect(() => {
-    // Only reset if image source actually changed to a different URL
-    const urlChanged = prevImageSrcRef.current !== imageSrc;
-    if (urlChanged) {
-      prevImageSrcRef.current = imageSrc;
-    }
-
-    if (!imageSrc) {
-      setImageLoaded(true);
-      return;
-    }
-
-    // If we've already loaded this URL in this session, don't re-run preload.
-    if (loadedImageUrls.has(imageSrc)) {
-      setImageLoaded(true);
-      return;
-    }
-
-    // Check cache status
-    const img = new Image();
-    img.src = imageSrc;
-    const isCached = img.complete && img.naturalHeight > 0;
-
-    if (isCached) {
-      // Image is already cached, no loading needed
-      setImageLoaded(true);
-      return;
-    }
-
-    // Not cached: show skeleton immediately and fade out on load.
-    setImageLoaded(false);
-    let cancelled = false;
-
-    // lazy preload with fallback to immediate load if requested
-    const cleanup = imagePreloader(containerRef, imageSrc, (err) => {
-      cancelled = true;
-      if (!err) loadedImageUrls.add(imageSrc);
-      // Small delay to ensure smooth transition
-      setTimeout(() => setImageLoaded(true), 30);
-    }, { forcePreload: forcePreload, rootMargin: '400px' });
-
-    return () => {
-      cancelled = true;
-      try { cleanup && cleanup(); } catch (e) {}
-    };
-  }, [imageSrc, forcePreload]);
+  const { containerRef, imageLoaded } = useImageFallback(imageSrc, { forcePreload });
 
   /**
    * Dynamically adjusts the font size of the destination title to fit within the card bounds.
@@ -158,8 +92,15 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
     return () => window.removeEventListener('resize', adjustFontSize);
   }, [destination]);
 
+  // Subtle animation when destination data changes
+  const { transitionClass } = useDataTransition(destination, {
+    animation: 'pulse',
+    enabled: !!destination?._id,
+    selectFields: (d) => ({ name: d?.name, photo: d?.default_photo_id }),
+  });
+
   // Build card class names based on props
-  const cardClasses = `${styles.destinationCard} ${fluid ? styles.destinationCardFluid : ''} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden`;
+  const cardClasses = `${styles.destinationCard} ${fluid ? styles.destinationCardFluid : ''} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden ${transitionClass}`;
 
   // Derive link and title from destination or use fallback
   const linkTo = destination ? `/destinations/${destination._id}` : '/';

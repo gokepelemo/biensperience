@@ -30,6 +30,7 @@ import { buildExperienceSchema } from '../../utilities/schema-utils';
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import RequestPlanAccessModal from "../../components/RequestPlanAccessModal/RequestPlanAccessModal";
+import PlanAccessDenied from "../../components/PlanAccessDenied/PlanAccessDenied";
 import CostEntry from "../../components/CostEntry";
 import UsersListDisplay from "../../components/UsersListDisplay/UsersListDisplay";
 import InfoCard from "../../components/InfoCard/InfoCard";
@@ -84,6 +85,8 @@ import {
   getUserPlans,
   getExperiencePlans,
   requestPlanAccess,
+  getPlanPreview,
+  getPlanById,
   updatePlanItem,
   addPlanItem as addPlanItemToInstance,
   deletePlanItem as deletePlanItemFromInstance,
@@ -111,7 +114,7 @@ export default function SingleExperience() {
     registerH1,
     updateShowH1InNavbar,
   } = useApp();
-  const { success, error: showError } = useToast();
+  const { success, error: showError, undoable } = useToast();
   const { experienceId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -244,6 +247,8 @@ export default function SingleExperience() {
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [requestAccessPlanId, setRequestAccessPlanId] = useState(null);
+  const [accessDeniedPlanId, setAccessDeniedPlanId] = useState(null);
+  const [accessRequestSent, setAccessRequestSent] = useState(false);
 
   // Incomplete children dialog state (blocks parent completion when children are incomplete)
   const [incompleteChildrenDialogData, setIncompleteChildrenDialogData] = useState(null);
@@ -1101,8 +1106,14 @@ export default function SingleExperience() {
     setActiveTab,
     setPendingUnplan,
     deletePlan,
+    setUserPlan,
+    setUserHasExperience,
+    setDisplayedPlannedDate,
+    setSharedPlans,
+    fetchPlans,
     success,
-    showError
+    showError,
+    undoable
   });
 
   // Plan item notes CRUD handlers
@@ -1119,7 +1130,8 @@ export default function SingleExperience() {
     userPlan,
     user,
     success,
-    showError
+    showError,
+    undoable
   });
 
   // ============================================================================
@@ -1204,6 +1216,8 @@ export default function SingleExperience() {
     setPlanItemToDelete(null);
     setPlanInstanceItemToDelete(null);
     setExperienceNotFound(false); // Reset 404 state
+    setAccessDeniedPlanId(null); // Reset access denied state
+    setAccessRequestSent(false);
     // Reset tab loading states
     setExperienceTabLoading(true);
     // Reset hash refs so URL hash can be processed for new experience
@@ -1368,7 +1382,13 @@ export default function SingleExperience() {
     }
 
     // Skip if plans haven't loaded
-    if (plansLoading || allAccessiblePlans.length === 0) {
+    if (plansLoading) {
+      return;
+    }
+
+    // If no accessible plans and no plan hash, nothing to do
+    const currentHash = window.location.hash || '';
+    if (allAccessiblePlans.length === 0 && !currentHash.startsWith('#plan-')) {
       return;
     }
 
@@ -1440,7 +1460,39 @@ export default function SingleExperience() {
 
     const targetPlan = findById(allAccessiblePlans, planId);
     if (!targetPlan) {
-      debug.warn('[Fallback Hash] Plan not found:', planId);
+      // Plan not in accessible list — verify with the server.
+      // Try getPlanById first: if it succeeds, user has access (race condition).
+      // If it returns 403, user genuinely lacks access — show access denied.
+      getPlanById(planId)
+        .then(plan => {
+          // User has access — race condition in local state. Select the plan.
+          debug.log('[Fallback Hash] Plan fetched successfully (race condition resolved):', planId);
+          setUserPlan(prev => prev || plan);
+          setSelectedPlanId(normalizeId(plan._id));
+          setActiveTab('myplan');
+        })
+        .catch(err => {
+          const status = err?.response?.status || err?.status;
+          if (status === 403) {
+            // User genuinely lacks access — show access denied UI
+            getPlanPreview(planId)
+              .then(preview => {
+                if (preview?.planId) {
+                  setAccessDeniedPlanId(planId);
+                  setAccessRequestSent(false);
+                  setActiveTab('myplan');
+                  debug.log('[Fallback Hash] Plan exists but access denied:', planId);
+                }
+              })
+              .catch(() => {
+                debug.warn('[Fallback Hash] Plan preview also failed:', planId);
+              });
+          } else {
+            debug.warn('[Fallback Hash] Plan not found or error:', planId, status);
+          }
+        });
+      processedHashRef.current = hash;
+      initialHashHandledRef.current = true;
       return;
     }
 
@@ -2639,35 +2691,30 @@ export default function SingleExperience() {
       if (!experience || !planItemId) return;
       const prevExperience = { ...experience, plan_items: [...(experience.plan_items || [])] };
 
-      const apply = () => {
-        const updated = { ...prevExperience, plan_items: filterOutById(prevExperience.plan_items, planItemId) };
-        setExperience(updated);
-        closeModal();
-      };
+      // Optimistic UI removal
+      const updated = { ...prevExperience, plan_items: filterOutById(prevExperience.plan_items, planItemId) };
+      setExperience(updated);
+      closeModal();
 
-      const apiCall = async () => {
-        await deletePlanItem(experience._id, planItemId);
-      };
-
-      const rollback = () => {
-        setExperience(prevExperience);
-      };
-
-      const onSuccess = async () => {
-        fetchAllData().catch(() => {});
-        fetchExperiences().catch(() => {});
-        success(lang.current.notification?.plan?.itemDeleted || 'Item removed from your plan');
-      };
-
-      const onError = (err, defaultMsg) => {
-        const errorMsg = handleError(err, { context: "Delete plan item" }) || defaultMsg;
-        showError(errorMsg);
-      };
-
-      const run = useOptimisticAction({ apply, apiCall, rollback, onSuccess, onError, context: 'Delete experience plan item' });
-      await run();
+      // Show undo toast with deferred API call
+      undoable(lang.current.notification?.plan?.itemDeletedUndo || 'Item removed. Tap Undo to restore it.', {
+        onUndo: () => {
+          setExperience(prevExperience);
+        },
+        onExpire: async () => {
+          try {
+            await deletePlanItem(experience._id, planItemId);
+            fetchAllData().catch(() => {});
+            fetchExperiences().catch(() => {});
+          } catch (err) {
+            setExperience(prevExperience);
+            const errorMsg = handleError(err, { context: "Delete plan item" }) || 'Failed to delete item. It has been restored.';
+            showError(errorMsg);
+          }
+        },
+      });
     },
-    [experience, fetchExperiences, fetchAllData, success, showError]
+    [experience, fetchExperiences, fetchAllData, undoable, showError]
   );
 
   const handlePlanItemToggleComplete = useCallback(
@@ -3321,8 +3368,23 @@ export default function SingleExperience() {
                       )
                     )}
 
+                    {/* Plan Access Denied (hash target inaccessible) */}
+                    {activeTab === "myplan" && accessDeniedPlanId && (
+                      <PlanAccessDenied
+                        planId={accessDeniedPlanId}
+                        requestSent={accessRequestSent}
+                        onRequestAccess={(planId) => {
+                          setRequestAccessPlanId(planId);
+                          openModal(MODAL_NAMES.REQUEST_PLAN_ACCESS);
+                        }}
+                        onSignIn={() => {
+                          navigate('/signup', { state: { from: location } });
+                        }}
+                      />
+                    )}
+
                     {/* My Plan Tab Content */}
-                    {activeTab === "myplan" && (selectedPlanId || userPlan?._id) && (
+                    {activeTab === "myplan" && !accessDeniedPlanId && (selectedPlanId || userPlan?._id) && (
                       <MyPlanTabContent
                         selectedPlanId={selectedPlanId || userPlan?._id}
                         user={user}
@@ -3575,7 +3637,11 @@ export default function SingleExperience() {
         onSubmitRequest={async ({ planId, message }) => {
           try {
             await requestPlanAccess(planId, message);
-            success('Request sent.', { duration: 3000 });
+            success(lang.current.planAccess.requestSent, { duration: 3000 });
+            // Update access-denied UI to show confirmation
+            if (planId === accessDeniedPlanId) {
+              setAccessRequestSent(true);
+            }
           } catch (err) {
             logger.error('[SingleExperience] Failed to request plan access', {
               planId,

@@ -124,7 +124,7 @@ export default function ConfirmModal({
       footer={footerContent}
       centered={true}
       showSubmitButton={false}
-      size="sm"
+      size="md"
     >
       {/* If blockerContent is provided and confirmDisabled, show blocker instead of normal content */}
       {blockerContent && confirmDisabled ? (

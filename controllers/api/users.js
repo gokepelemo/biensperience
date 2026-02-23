@@ -601,7 +601,7 @@ async function updateUser(req, res, next) {
         validatedUpdateData.feature_flags = [];
       } else {
         // Known valid flags
-        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'bootstrap_modal'];
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'bootstrap_modal', 'plan_access_requests'];
 
         const validatedFlags = updateData.feature_flags
           .filter(flag => {
@@ -773,7 +773,7 @@ async function updateUserAsAdmin(req, res) {
         validatedUpdateData.feature_flags = [];
       } else {
         // Known valid flags
-        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'bootstrap_modal'];
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'bootstrap_modal', 'plan_access_requests'];
 
         const validatedFlags = updateData.feature_flags
           .filter(flag => {

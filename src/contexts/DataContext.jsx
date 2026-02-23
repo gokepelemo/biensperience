@@ -1082,6 +1082,23 @@ export function DataProvider({ children }) {
     fetchPlans,
   ]);
 
+  // Background fetch: populate destinations when never fetched
+  // AppHome loads destinationsShuffled but not destinations — this ensures
+  // components like Profile that read from destinations get data too.
+  useEffect(() => {
+    if (!user) return;
+    if (destinations.length > 0) return;
+    if (lastUpdated.destinations) return;
+    if (loading) return;
+
+    logger.debug('DataContext: destinations empty and never fetched, triggering background load');
+    fetchDestinations().then(result => {
+      if (result && result.length > 0) {
+        setDestinations(result);
+      }
+    }).catch(() => {});
+  }, [user, destinations.length, lastUpdated.destinations, loading, fetchDestinations]);
+
   // Event bus listeners - update DataContext when events are broadcast
   // Note: eventBus.subscribe() receives event object with data at top level (e.g., event.destination)
   // while CustomEvent via window.dispatchEvent has data in event.detail (e.g., event.detail.destination)

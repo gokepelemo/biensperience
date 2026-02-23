@@ -98,11 +98,13 @@ export const Overview = {
           <TokenCard
             name="Primary Blue"
             value="var(--color-primary)"
+            contrast="4.35:1 AA"
             style={{ background: 'var(--color-primary)' }}
           />
           <TokenCard
             name="Primary Purple"
             value="var(--color-primary-dark)"
+            contrast="5.8:1 AA+"
             style={{ background: 'var(--color-primary-dark)' }}
           />
         </div>
@@ -122,10 +124,10 @@ export const Overview = {
           gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
           gap: 'var(--space-4)',
         }}>
-          <TokenCard name="Success" value="var(--color-success)" style={{ background: 'var(--color-success)' }} />
-          <TokenCard name="Warning" value="var(--color-warning)" style={{ background: 'var(--color-warning)' }} />
-          <TokenCard name="Danger" value="var(--color-danger)" style={{ background: 'var(--color-danger)' }} />
-          <TokenCard name="Info" value="var(--color-info)" style={{ background: 'var(--color-info)' }} />
+          <TokenCard name="Success" value="var(--color-success)" contrast="4.5:1 AA" style={{ background: 'var(--color-success)' }} />
+          <TokenCard name="Warning" value="var(--color-warning)" contrast="1.1:1 BG only" style={{ background: 'var(--color-warning)' }} />
+          <TokenCard name="Danger" value="var(--color-danger)" contrast="4.0:1 AA-LG" style={{ background: 'var(--color-danger)' }} />
+          <TokenCard name="Info" value="var(--color-info)" contrast="3.2:1 AA-LG" style={{ background: 'var(--color-info)' }} />
         </div>
       </section>
 
@@ -310,7 +312,7 @@ export const Overview = {
           gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
           gap: 'var(--space-6)',
         }}>
-          {['sm', 'md', 'lg'].map((size) => (
+          {['xs', 'sm', 'md', 'lg', 'xl'].map((size) => (
             <div key={size} style={{
               padding: 'var(--space-6)',
               background: 'var(--color-bg-primary)',
@@ -322,6 +324,99 @@ export const Overview = {
               <strong>Shadow {size.toUpperCase()}</strong>
               <br />
               <code style={{ fontSize: 'var(--font-size-xs)' }}>var(--shadow-{size})</code>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* BREAKPOINTS */}
+      <section style={{ marginBottom: 'var(--space-10)' }}>
+        <h2 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-4)' }}>
+          Breakpoints
+        </h2>
+        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-4)' }}>
+          Mobile-first responsive breakpoints. Use SCSS mixins: <code>@include breakpoint(md)</code> for min-width.
+        </p>
+
+        <div style={{
+          background: 'var(--color-bg-secondary)',
+          padding: 'var(--space-6)',
+          borderRadius: 'var(--radius-lg)',
+        }}>
+          {[
+            { name: 'xs', width: '320px', label: 'Small phones' },
+            { name: 'sm', width: '576px', label: 'Large phones' },
+            { name: 'md', width: '768px', label: 'Tablets' },
+            { name: 'lg', width: '992px', label: 'Small desktops' },
+            { name: 'xl', width: '1200px', label: 'Desktops' },
+            { name: 'xxl', width: '1400px', label: 'Large desktops' },
+          ].map(({ name, width, label }) => (
+            <div key={name} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-4)',
+              marginBottom: 'var(--space-3)',
+            }}>
+              <code style={{ width: '80px', fontSize: 'var(--font-size-sm)' }}>{name}</code>
+              <div style={{
+                height: 'var(--space-4)',
+                width: `calc(${parseInt(width)} / 1400 * 100%)`,
+                background: 'var(--gradient-primary)',
+                borderRadius: 'var(--radius-sm)',
+                minWidth: 'var(--space-4)',
+              }} />
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', whiteSpace: 'nowrap' }}>
+                {width} — {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* DARK MODE */}
+      <section style={{ marginBottom: 'var(--space-10)' }}>
+        <h2 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-4)' }}>
+          Dark Mode
+        </h2>
+        <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-4)' }}>
+          Toggle dark mode with the theme switcher in the toolbar. All tokens adapt automatically.
+        </p>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+          gap: 'var(--space-4)',
+        }}>
+          {[
+            { name: 'Background', token: '--color-bg-primary', light: '#ffffff', dark: '#121212' },
+            { name: 'Surface', token: '--color-bg-secondary', light: '#f8f9fa', dark: '#1e1e1e' },
+            { name: 'Text', token: '--color-text-primary', light: '#333333', dark: '#e0e0e0' },
+            { name: 'Border', token: '--color-border-medium', light: '#dee2e6', dark: '#444444' },
+          ].map(({ name, token, light, dark }) => (
+            <div key={token} style={{
+              padding: 'var(--space-3)',
+              background: 'var(--color-bg-secondary)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-light)',
+            }}>
+              <div style={{ fontWeight: 'var(--font-weight-semibold)', marginBottom: 'var(--space-2)', color: 'var(--color-text-primary)' }}>
+                {name}
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                <div style={{
+                  width: '32px', height: '32px',
+                  background: light,
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid #dee2e6',
+                }} title={`Light: ${light}`} />
+                <div style={{
+                  width: '32px', height: '32px',
+                  background: dark,
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid #444',
+                }} title={`Dark: ${dark}`} />
+              </div>
+              <code style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>{token}</code>
             </div>
           ))}
         </div>
@@ -721,15 +816,35 @@ export const QuickReference = {
 // HELPER COMPONENTS
 // ============================================================
 
-const TokenCard = ({ name, value, style }) => (
+const TokenCard = ({ name, value, contrast, style }) => (
   <div>
     <div style={{
       height: '80px',
       borderRadius: 'var(--radius-md)',
       marginBottom: 'var(--space-2)',
       boxShadow: 'var(--shadow-sm)',
+      position: 'relative',
       ...style,
-    }} />
+    }}>
+      {contrast && (
+        <span style={{
+          position: 'absolute',
+          top: 'var(--space-1)',
+          right: 'var(--space-1)',
+          fontSize: '10px',
+          fontWeight: 'var(--font-weight-bold)',
+          padding: '2px 6px',
+          borderRadius: 'var(--radius-pill)',
+          background: contrast.includes('AAA') || contrast.includes('AA+') ? '#28a745'
+            : contrast.includes('AA-LG') || contrast.includes('BG only') ? '#fd7e14'
+            : contrast.includes('AA') ? '#ffc107'
+            : '#dc3545',
+          color: contrast.includes('AA-LG') || contrast.includes('AAA') || contrast.includes('AA+') || contrast.includes('BG only') ? 'white' : '#333',
+        }}>
+          {contrast}
+        </span>
+      )}
+    </div>
     <div style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)' }}>{name}</div>
     <code style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>{value}</code>
   </div>

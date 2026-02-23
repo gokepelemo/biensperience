@@ -10,6 +10,16 @@
  * @returns {number} - The Levenshtein distance
  */
 function levenshteinDistance(str1, str2) {
+  if (typeof str1 !== 'string' || typeof str2 !== 'string') {
+    throw new Error('Inputs must be strings');
+  }
+
+  // Limit string length to prevent excessive computation (DoS protection)
+  const MAX_LENGTH = 1000;
+  if (str1.length > MAX_LENGTH || str2.length > MAX_LENGTH) {
+    return Math.abs(str1.length - str2.length) > 100 ? 100 : 50;
+  }
+
   const s1 = str1.toLowerCase().trim();
   const s2 = str2.toLowerCase().trim();
 

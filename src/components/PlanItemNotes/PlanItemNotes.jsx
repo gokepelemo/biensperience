@@ -185,19 +185,7 @@ function NoteForm({
  * NoteMessage Component
  * Individual note message with entity resolution for mentions and URL previews
  */
-/**
- * NoteUserSkeleton - Skeleton loader for note author when user data is loading
- */
-function NoteUserSkeleton() {
-  return (
-    <div className={styles.noteAuthorSkeleton}>
-      <div className={styles.skeletonAvatar} />
-      <div className={styles.skeletonName} />
-    </div>
-  );
-}
-
-function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true }) {
+function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true, noteUser, presenceConnected, isOnline }) {
   // Resolve any missing entities in this note's content
   const { entityData: mergedEntityData, loadingEntityIds } = useEntityResolver(note.content, entityData);
 
@@ -234,15 +222,24 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
         />
       )}
 
-      {/* Note footer: author, timestamp, actions */}
+      {/* Note footer: avatar, author, timestamp, actions */}
       <div className={styles.noteFooter}>
         <div className={styles.noteAuthorTimestamp}>
           {isUserLoading ? (
             <div className={styles.skeletonName} />
           ) : (
-            <span className={styles.noteAuthorName}>
-              {isAuthor ? 'You' : (note.user?.name || 'Unknown User')}
-            </span>
+            <>
+              <UserAvatar
+                user={noteUser}
+                size="xs"
+                linkToProfile={true}
+                showPresence={presenceConnected}
+                isOnline={isOnline}
+              />
+              <span className={styles.noteAuthorName}>
+                {isAuthor ? 'You' : (note.user?.name || 'Unknown User')}
+              </span>
+            </>
           )}
           <span className={styles.noteSeparator}>&middot;</span>
           <span className={styles.noteTimestamp}>{formatDate(note.createdAt || note.updatedAt)}</span>
@@ -663,34 +660,13 @@ export default function PlanItemNotes({
             const isAuthor = isNoteAuthor(note);
             const isEditing = editingNoteId === note._id;
             const noteUser = isAuthor ? currentUser : note.user;
-            const isUserLoading = !noteUser?.name && noteUser?._id && noteUser._id !== 'unknown';
 
             return (
               <div
                 key={note._id}
                 className={`${styles.noteRow} ${note._optimistic ? styles.noteRowOptimistic : ''}`}
               >
-                {/* Note author header */}
-                <div className={styles.noteAuthorHeader}>
-                  {isUserLoading ? (
-                    <NoteUserSkeleton />
-                  ) : (
-                    <>
-                      <UserAvatar
-                        user={noteUser}
-                        size="sm"
-                        linkToProfile={true}
-                        showPresence={presenceConnected}
-                        isOnline={isUserOnline(noteUser)}
-                      />
-                      <span className={styles.noteAuthorHeaderName}>
-                        {isAuthor ? 'You' : (noteUser?.name || 'Unknown User')}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {isEditing ? (
+                  {isEditing ? (
                   <NoteForm
                     mode="edit"
                     content={editContent}
@@ -712,6 +688,9 @@ export default function PlanItemNotes({
                     onDelete={handleDeleteNote}
                     formatDate={formatDate}
                     onEntityClick={onEntityClick}
+                    noteUser={noteUser}
+                    presenceConnected={presenceConnected}
+                    isOnline={isUserOnline(noteUser)}
                   />
                 )}
               </div>

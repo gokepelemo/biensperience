@@ -220,6 +220,8 @@ const en = {
       itemAdded: "New item added to your plan",
       itemUpdated: "Plan item updated",
       itemDeleted: "Item removed from your plan",
+      itemDeletedUndo: "Item removed. Tap Undo to restore it.",
+      removedUndo: "Removed from your plans. Tap Undo to restore.",
       itemCompleted: "Item marked as complete! Nice work!",
       itemUncompleted: "Item marked as incomplete",
       reordered: "Your plan order has been saved",
@@ -268,6 +270,7 @@ const en = {
       added: "Your note has been added and is visible to collaborators",
       updated: "Note updated. All collaborators can see your changes.",
       deleted: "Note deleted",
+      deletedUndo: "Note deleted. Tap Undo to restore it.",
     },
     photo: {
       uploaded: "Photo uploaded successfully",
@@ -420,6 +423,16 @@ const en = {
     noExperiencesFoundDescription: "No experiences match your current filters. Try adjusting your search criteria or browse all experiences.",
     noExperiencesInDestination: "No experiences in this destination yet",
     noExperiencesInDestinationDescription: "Be the first to add one and help others discover amazing activities here.",
+  },
+
+  planAccess: {
+    title: "Plan Access Required",
+    descriptionWithPreview: "You don't have access to {ownerName}'s plan for {experienceName}. Request access to view and collaborate.",
+    descriptionGeneric: "You don't have access to this plan. Request access to view and collaborate.",
+    requestAccessButton: "Request Access",
+    signInButton: "Sign in to Request Access",
+    requestSent: "Access request sent. The plan owner will be notified.",
+    alreadyRequested: "You have already requested access to this plan.",
   },
 
   page: {
@@ -1921,6 +1934,8 @@ const en = {
   // Toast component strings
   toast: {
     close: "Close",
+    undo: "Undo",
+    undone: "Action undone",
   },
 
   // Banner component strings

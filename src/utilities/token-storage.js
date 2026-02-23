@@ -12,53 +12,24 @@
  */
 
 import { logger } from './logger';
+import { toBytes, fromBytes, base64Encode, base64Decode, xorTransform } from './encoding-utils';
 
 const TOKEN_KEY = 'bien:token';
 const LEGACY_TOKEN_KEY = 'token';
 
 // Simple reversible transform key (not secret; intended to prevent plaintext storage).
 const SCRAMBLE_KEY = 'biensperience.token.v1';
-
-function toBytes(str) {
-  const bytes = new Uint8Array(str.length);
-  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
-  return bytes;
-}
-
-function fromBytes(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return s;
-}
-
-function base64Encode(bytes) {
-  // btoa expects a binary string
-  return btoa(fromBytes(bytes));
-}
-
-function base64Decode(b64) {
-  const binary = atob(b64);
-  return toBytes(binary);
-}
-
-function xorTransform(inputBytes) {
-  const keyBytes = toBytes(SCRAMBLE_KEY);
-  const out = new Uint8Array(inputBytes.length);
-  for (let i = 0; i < inputBytes.length; i++) {
-    out[i] = inputBytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-  return out;
-}
+const SCRAMBLE_KEY_BYTES = toBytes(SCRAMBLE_KEY);
 
 function encodeToken(token) {
   const bytes = toBytes(token);
-  const xored = xorTransform(bytes);
+  const xored = xorTransform(bytes, SCRAMBLE_KEY_BYTES);
   return base64Encode(xored);
 }
 
 function decodeToken(encoded) {
   const bytes = base64Decode(encoded);
-  const original = xorTransform(bytes);
+  const original = xorTransform(bytes, SCRAMBLE_KEY_BYTES);
   return fromBytes(original);
 }
 

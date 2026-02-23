@@ -603,6 +603,16 @@ const planSchema = new Schema(
         respondedBy: {
           type: Schema.Types.ObjectId,
           ref: 'User'
+        },
+        approvalToken: {
+          type: String
+        },
+        approvalTokenExpires: {
+          type: Date
+        },
+        approvalTokenUsed: {
+          type: Boolean,
+          default: false
         }
       }, { timestamps: true })],
       default: []

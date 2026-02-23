@@ -545,20 +545,6 @@
   }
 }
 
-/* Note author header above the card */
-.noteAuthorHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.noteAuthorHeaderName {
-  font-size: var(--font-size-sm);
-  font-weight: $font-weight-medium;
-  color: var(--color-text-secondary);
-}
-
 /* Note Card - replaces chat bubbles */
 .noteCard {
   background-color: var(--color-bg-primary);
@@ -643,22 +629,6 @@
 }
 
 /* Skeleton loaders for user data loading */
-.noteAuthorSkeleton {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.skeletonAvatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-border-light) 50%, var(--color-bg-tertiary) 75%);
-  background-size: 200% 100%;
-  animation: skeletonPulse 1.5s ease-in-out infinite;
-  flex-shrink: 0;
-}
-
 .skeletonName {
   width: 80px;
   height: 14px;

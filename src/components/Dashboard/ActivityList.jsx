@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import { Heading, HashLink, EmptyState } from '../design-system';
 import { getUser } from '../../utilities/users-service';
 import { getActivityFeed } from '../../utilities/dashboard-api';
+import { useDataTransition } from '../../hooks/useDataTransition';
 import { logger } from '../../utilities/logger';
 
 /**
@@ -140,6 +141,12 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
     }
   }, [initialActivities]);
 
+  // Subtle animation when activities list changes
+  const { transitionClass: activitiesTransitionClass } = useDataTransition(activities, {
+    animation: 'fade',
+    selectFields: (acts) => acts?.map(a => a.id),
+  });
+
   return (
     <Card style={{
       backgroundColor: 'var(--color-bg-primary)',
@@ -159,7 +166,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
       }}>
         {title}
       </Heading>
-      <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
+      <div ref={scrollRef} className={activitiesTransitionClass} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
         {activities.length > 0 ? activities.map((activity) => (
           <div
             key={activity.id}

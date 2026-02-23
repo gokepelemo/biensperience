@@ -21,6 +21,7 @@ const {
   syncChannelMembers
 } = require('../../utilities/stream-chat');
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
+const crypto = require('crypto');
 
 /**
  * Sanitize location data to prevent GeoJSON validation errors
@@ -651,6 +652,18 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
     return errorResponse(res, null, 'You already own this plan', 400);
   }
 
+  // Gate behind plan_access_requests feature flag on the plan owner
+  const flagAllowed = hasFeatureFlagInContext({
+    loggedInUser: req.user,
+    entityCreatorUser: plan.user,
+    flagKey: 'plan_access_requests',
+    context: FEATURE_FLAG_CONTEXT.ENTITY_CREATOR
+  });
+
+  if (!flagAllowed) {
+    return errorResponse(res, null, 'Plan access requests are not available for this plan', 403);
+  }
+
   // Check for existing access request in embedded array
   const existingRequest = plan.accessRequests?.find(
     r => r.requester?.toString() === req.user._id.toString()
@@ -669,11 +682,17 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
     return successResponse(res, existingRequest, 'Access request updated');
   }
 
-  // Create new embedded access request
+  // Create new embedded access request with approval token
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+
   const accessRequest = {
     requester: req.user._id,
     message: typeof message === 'string' ? message.trim() : '',
-    status: 'pending'
+    status: 'pending',
+    approvalToken: hashedToken,
+    approvalTokenExpires: new Date(Date.now() + 7 * 24 * 3600000), // 7 days
+    approvalTokenUsed: false
   };
 
   plan.accessRequests.push(accessRequest);
@@ -713,7 +732,8 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
             experienceName: plan.experience?.name || 'an experience',
             experienceId: plan.experience?._id?.toString(),
             planId: id,
-            requestMessage: newRequest.message
+            requestMessage: newRequest.message,
+            approvalToken: rawToken
           });
         }
       });
@@ -4854,6 +4874,168 @@ const unpinPlanItem = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Approve an access request via one-click token (no auth required)
+ * GET /api/plans/:id/access-requests/approve-by-token?token=xxx
+ *
+ * The token is sent in the plan owner's email. It acts as authentication.
+ * On success, redirects to the plan page. On failure, redirects with error param.
+ */
+const approveByToken = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { token } = req.query;
+  const frontendUrl = process.env.FRONTEND_URL || '';
+
+  if (!token || !mongoose.Types.ObjectId.isValid(id)) {
+    return res.redirect(`${frontendUrl}/?error=invalid_token`);
+  }
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const plan = await Plan.findById(id)
+    .select('user experience accessRequests permissions')
+    .populate({ path: 'experience', select: 'name' })
+    .populate({ path: 'user', select: 'name email' });
+
+  if (!plan) {
+    return res.redirect(`${frontendUrl}/?error=plan_not_found`);
+  }
+
+  const experienceId = plan.experience?._id?.toString();
+  const planUrl = `${frontendUrl}/experiences/${experienceId}#plan-${id}`;
+
+  // Find the access request by token hash
+  const accessRequest = plan.accessRequests?.find(
+    r => r.approvalToken === hashedToken
+  );
+
+  if (!accessRequest) {
+    return res.redirect(`${frontendUrl}/?error=invalid_token`);
+  }
+
+  // Already used — redirect to plan (idempotent)
+  if (accessRequest.approvalTokenUsed || accessRequest.status !== 'pending') {
+    return res.redirect(planUrl);
+  }
+
+  // Token expired
+  if (accessRequest.approvalTokenExpires && accessRequest.approvalTokenExpires < new Date()) {
+    return res.redirect(`${frontendUrl}/?error=token_expired`);
+  }
+
+  // Approve: update request status and add requester as collaborator
+  accessRequest.status = 'approved';
+  accessRequest.respondedAt = new Date();
+  accessRequest.respondedBy = plan.user?._id;
+  accessRequest.approvalTokenUsed = true;
+
+  const requesterId = accessRequest.requester;
+  const existingPerm = plan.permissions?.find(
+    p => p.entity === 'user' && p._id?.toString() === requesterId.toString()
+  );
+  if (!existingPerm) {
+    plan.permissions.push({
+      _id: requesterId,
+      entity: 'user',
+      type: 'collaborator',
+      granted_at: new Date(),
+      granted_by: plan.user?._id
+    });
+  }
+
+  await plan.save();
+
+  // Notify the requester of approval
+  try {
+    const requester = await User.findById(requesterId).select('name email preferences');
+    if (requester?.email) {
+      const ownerName = plan.user?.name || 'The plan owner';
+      const experienceName = plan.experience?.name || 'an experience';
+
+      await notifyUser({
+        user: requester,
+        channel: 'email',
+        type: 'activity',
+        message: `${ownerName} has approved your request to access their plan for ${experienceName}.`,
+        data: {
+          kind: 'plan_access_response',
+          planId: id,
+          experienceId,
+          status: 'approved'
+        },
+        logContext: {
+          feature: 'plan_access_response',
+          channel: 'email',
+          planId: id,
+          requesterId: requesterId.toString(),
+          responderId: plan.user?._id?.toString()
+        }
+      });
+
+      await notifyUser({
+        user: requester,
+        channel: 'bienbot',
+        type: 'activity',
+        message: `${ownerName} has approved your request to access their plan for ${experienceName}.`,
+        data: {
+          kind: 'plan_access_response',
+          planId: id,
+          experienceId,
+          status: 'approved'
+        },
+        logContext: {
+          feature: 'plan_access_response',
+          planId: id,
+          requesterId: requesterId.toString(),
+          responderId: plan.user?._id?.toString()
+        }
+      });
+    }
+  } catch (e) {
+    backendLogger.warn('Failed to notify requester of token-based approval', {
+      planId: id,
+      error: e?.message || String(e)
+    });
+  }
+
+  backendLogger.info('Access request approved via token', {
+    planId: id,
+    requesterId: requesterId.toString()
+  });
+
+  return res.redirect(planUrl);
+});
+
+/**
+ * Get minimal plan preview (no auth required)
+ * GET /api/plans/:id/preview
+ *
+ * Returns non-sensitive plan metadata for access-denied screens.
+ */
+const getPlanPreview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  const plan = await Plan.findById(id)
+    .select('experience user')
+    .populate({ path: 'experience', select: 'name' })
+    .populate({ path: 'user', select: 'name' });
+
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  return successResponse(res, {
+    planId: plan._id,
+    experienceName: plan.experience?.name || 'an experience',
+    ownerFirstName: plan.user?.name?.split(' ')[0] || 'Someone',
+    experienceId: plan.experience?._id
+  });
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -4888,5 +5070,8 @@ module.exports = {
   getCosts,
   updateCost,
   deleteCost,
-  getCostSummary
+  getCostSummary,
+  // Plan access request (token-based)
+  approveByToken,
+  getPlanPreview
 };

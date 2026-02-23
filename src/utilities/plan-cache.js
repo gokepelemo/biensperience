@@ -10,54 +10,26 @@
 
 import { logger } from './logger';
 import { STORAGE_KEYS } from './storage-keys';
+import { toBytes, fromBytes, base64Encode, base64Decode, xorTransform } from './encoding-utils';
 
 const PLAN_CACHE_KEY = STORAGE_KEYS.planCache;
 
 // Simple reversible transform key (not secret; intended to prevent plaintext storage).
 const SCRAMBLE_KEY = 'biensperience.plancache.v1';
+const SCRAMBLE_KEY_BYTES = toBytes(SCRAMBLE_KEY);
 
 let didMigrateSessionStorage = false;
-
-function toBytes(str) {
-  const bytes = new Uint8Array(str.length);
-  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
-  return bytes;
-}
-
-function fromBytes(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return s;
-}
-
-function base64Encode(bytes) {
-  return btoa(fromBytes(bytes));
-}
-
-function base64Decode(b64) {
-  const binary = atob(b64);
-  return toBytes(binary);
-}
-
-function xorTransform(inputBytes) {
-  const keyBytes = toBytes(SCRAMBLE_KEY);
-  const out = new Uint8Array(inputBytes.length);
-  for (let i = 0; i < inputBytes.length; i++) {
-    out[i] = inputBytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-  return out;
-}
 
 function encodeJson(obj) {
   const json = JSON.stringify(obj);
   const bytes = toBytes(json);
-  const xored = xorTransform(bytes);
+  const xored = xorTransform(bytes, SCRAMBLE_KEY_BYTES);
   return base64Encode(xored);
 }
 
 function decodeJson(encoded) {
   const bytes = base64Decode(encoded);
-  const original = xorTransform(bytes);
+  const original = xorTransform(bytes, SCRAMBLE_KEY_BYTES);
   return JSON.parse(fromBytes(original));
 }
 

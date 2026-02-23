@@ -67,6 +67,41 @@
   flex-wrap: nowrap;
 }
 
+/* Standardized close button */
+.toastCloseButton {
+  opacity: 0.8;
+  padding: var(--space-1);
+  min-width: auto;
+  height: auto;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+  align-self: center;
+
+  &:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* Undo toast countdown progress bar */
+.undoProgress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  animation: undoCountdown linear forwards;
+  transform-origin: left;
+}
+
+@keyframes undoCountdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 /* Responsive design */
 @include breakpoint-max(sm) {
   .biensperienceToast {
@@ -91,6 +126,10 @@
   }
 
   .toastSlide {
+    animation: none !important;
+  }
+
+  .undoProgress {
     animation: none !important;
   }
 }

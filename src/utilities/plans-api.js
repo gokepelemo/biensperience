@@ -103,6 +103,16 @@ export async function requestPlanAccess(planId, message = '') {
 }
 
 /**
+ * Get a minimal preview of a plan (no auth required)
+ * Used to show context on access-denied screens
+ * @param {string} planId - Plan ID
+ * @returns {Promise<Object>} Preview data: { planId, experienceName, ownerFirstName, experienceId }
+ */
+export function getPlanPreview(planId) {
+  return sendRequest(`${BASE_URL}/${planId}/preview`, 'GET').then(extractData);
+}
+
+/**
  * Create a new plan for an experience
  * @param {string} experienceId - Experience ID
  * @param {Date|string|null} plannedDate - Planned date for the experience

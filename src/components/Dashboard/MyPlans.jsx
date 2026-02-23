@@ -27,6 +27,7 @@ import { lang } from '../../lang.constants';
 import { getTotalCostTooltip } from '../../utilities/cost-utils';
 import { useViewModePreference } from '../../hooks/useUIPreference';
 import { useCurrencyConversion } from '../../hooks/useCurrencyConversion';
+import { useDataTransition } from '../../hooks/useDataTransition';
 import PlanCalendar from './PlanCalendar';
 import styles from './MyPlans.module.scss';
 
@@ -326,6 +327,17 @@ export default function MyPlans() {
     setExpandedPlanId(expandedPlanId === planId ? null : planId);
   };
 
+  // Subtle animation when plans data changes (new plans, completions, cost changes)
+  const { transitionClass: plansTransitionClass } = useDataTransition(displayedPlans, {
+    animation: 'highlight',
+    selectFields: (plans) => plans?.map(p => ({
+      id: p._id,
+      completed: (p.plan || []).filter(i => i.complete).length,
+      cost: p.total_cost,
+      date: p.planned_date,
+    })),
+  });
+
   const toggleCostAccordion = (planId) => {
     setExpandedCostAccordions(prev => {
       const newSet = new Set(prev);
@@ -435,7 +447,7 @@ export default function MyPlans() {
 
         {/* List View */}
         {!loading && displayedPlans.length > 0 && viewMode === VIEW_MODES.LIST && (
-          <Stack spacing="md">
+          <Stack spacing="md" className={plansTransitionClass}>
             {displayedPlans.map((plan) => {
               const isExpanded = expandedPlanId === plan._id;
               const itemCount = (plan.plan || []).length;

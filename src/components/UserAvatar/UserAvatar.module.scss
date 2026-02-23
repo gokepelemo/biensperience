@@ -41,6 +41,15 @@
 }
 
 /* Avatar Sizes */
+.userAvatarXs {
+  width: 24px;
+  height: 24px;
+
+  .avatarInitials {
+    font-size: 10px;
+  }
+}
+
 .userAvatarSm {
   width: 32px;
   height: 32px;

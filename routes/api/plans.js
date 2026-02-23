@@ -4,7 +4,11 @@ const plansCtrl = require("../../controllers/api/plans");
 const ensureLoggedIn = require("../../config/ensureLoggedIn");
 const { collaboratorLimiter, modificationLimiter } = require("../../config/rateLimiters");
 
-// All routes require authentication
+// Unauthenticated routes (token-based approval and plan preview)
+router.get("/:id/access-requests/approve-by-token", modificationLimiter, plansCtrl.approveByToken);
+router.get("/:id/preview", plansCtrl.getPlanPreview);
+
+// All routes below require authentication
 router.use(ensureLoggedIn);
 
 // Plan CRUD routes

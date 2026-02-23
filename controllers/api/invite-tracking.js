@@ -8,7 +8,7 @@
 const InviteCode = require('../../models/inviteCode');
 const User = require('../../models/user');
 const backendLogger = require('../../utilities/backend-logger');
-const { sendError } = require('../../utilities/controller-helpers');
+const { errorResponse } = require('../../utilities/controller-helpers');
 
 /**
  * Get all invite codes created by the current user
@@ -66,7 +66,7 @@ async function getMyInvites(req, res) {
     res.json({ invites, stats });
   } catch (error) {
     backendLogger.error('Error fetching user invites', { userId: req.user._id }, error);
-    sendError(res, 'Failed to fetch invite codes', error);
+    errorResponse(res, error, 'Failed to fetch invite codes', 500);
   }
 }
 
@@ -145,7 +145,7 @@ async function getInviteDetails(req, res) {
       code: req.params.code,
       userId: req.user._id
     }, error);
-    sendError(res, 'Failed to fetch invite details', error);
+    errorResponse(res, error, 'Failed to fetch invite details', 500);
   }
 }
 
@@ -207,7 +207,7 @@ async function getUsersByInvite(req, res) {
     backendLogger.error('Error fetching users by invite', {
       userId: req.user._id
     }, error);
-    sendError(res, 'Failed to fetch users by invite', error);
+    errorResponse(res, error, 'Failed to fetch users by invite', 500);
   }
 }
 
@@ -293,7 +293,7 @@ async function getInviteAnalytics(req, res) {
     backendLogger.error('Error fetching invite analytics', {
       userId: req.user._id
     }, error);
-    sendError(res, 'Failed to fetch analytics', error);
+    errorResponse(res, error, 'Failed to fetch analytics', 500);
   }
 }
 

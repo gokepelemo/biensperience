@@ -31,6 +31,7 @@ import {
  * @param {Function} options.success - Toast success function
  * @param {Object} options.user - Current authenticated user
  * @param {Function} options.showError - Toast error function
+ * @param {Function} options.undoable - Toast undoable function
  *
  * @returns {Object} Note CRUD handlers
  */
@@ -43,7 +44,8 @@ export function usePlanItemNotes({
   userPlan,
   user,
   success,
-  showError
+  showError,
+  undoable
 }) {
   // Use refs for values that change frequently but don't need to trigger re-renders
   // of the callbacks themselves
@@ -320,26 +322,8 @@ export function usePlanItemNotes({
       setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? applyOptimisticDelete(prev) : prev);
     }
 
-    try {
-      const updatedPlan = await deletePlanItemNote(planId, selectedItem._id, noteId);
-      updatePlanState(updatedPlan);
-      success(lang.current.notification?.note?.deleted || 'Note deleted');
-
-      // Publish event for cross-tab synchronization
-      try {
-        broadcastEvent('plan:item:note:deleted', {
-          planId,
-          itemId: selectedItem._id,
-          noteId,
-          version: Date.now()
-        });
-      } catch (eventError) {
-        logger.warn('[usePlanItemNotes] Failed to broadcast note deleted event', { eventError: eventError.message });
-      }
-    } catch (error) {
-      logger.error('[usePlanItemNotes] Failed to delete note', { error: error.message });
-
-      // Revert optimistic update on failure
+    // Helper to revert optimistic deletion
+    const rollback = () => {
       setSelectedDetailsItem(selectedItem);
 
       const revertDelete = (plan) => ({
@@ -356,10 +340,37 @@ export function usePlanItemNotes({
       if (setUserPlan) {
         setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? revertDelete(prev) : prev);
       }
+    };
 
-      showError(error.message || 'Failed to delete note');
-    }
-  }, [updatePlanState, success, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
+    // Show undo toast with deferred API call
+    undoable(lang.current.notification?.note?.deletedUndo || 'Note deleted. Tap Undo to restore it.', {
+      onUndo: () => {
+        rollback();
+      },
+      onExpire: async () => {
+        try {
+          const updatedPlan = await deletePlanItemNote(planId, selectedItem._id, noteId);
+          updatePlanState(updatedPlan);
+
+          // Publish event for cross-tab synchronization
+          try {
+            broadcastEvent('plan:item:note:deleted', {
+              planId,
+              itemId: selectedItem._id,
+              noteId,
+              version: Date.now()
+            });
+          } catch (eventError) {
+            logger.warn('[usePlanItemNotes] Failed to broadcast note deleted event', { eventError: eventError.message });
+          }
+        } catch (error) {
+          logger.error('[usePlanItemNotes] Failed to delete note', { error: error.message });
+          rollback();
+          showError(error.message || 'Failed to delete note. It has been restored.');
+        }
+      },
+    });
+  }, [updatePlanState, undoable, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
 
   return {
     handleAddNote,

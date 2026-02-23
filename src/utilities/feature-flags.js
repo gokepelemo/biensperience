@@ -143,6 +143,11 @@ export const FEATURE_FLAGS = {
     key: 'bootstrap_modal',
     description: 'Use legacy Bootstrap Modal instead of Chakra UI Dialog (escape hatch)',
     tier: 'beta'
+  },
+  PLAN_ACCESS_REQUESTS: {
+    key: 'plan_access_requests',
+    description: 'Token-based plan access request flow with one-click email approval',
+    tier: 'beta'
   }
 };
 

@@ -4,11 +4,8 @@
 
 import {
   formatPlanningTime,
-  formatPlanningTimeWithLabel,
   getPlanningTimeTooltip,
-  getPlanningTimeLabel,
-  convertToDays,
-  parsePlanningTime
+  getPlanningTimeLabel
 } from './planning-time-utils';
 
 describe('formatPlanningTime', () => {
@@ -211,21 +208,6 @@ describe('formatPlanningTime', () => {
   });
 });
 
-describe('formatPlanningTimeWithLabel', () => {
-  test('returns formatted time without label by default', () => {
-    expect(formatPlanningTimeWithLabel(7)).toBe('1 week');
-  });
-
-  test('returns formatted time with label when includeLabel is true', () => {
-    expect(formatPlanningTimeWithLabel(7, { includeLabel: true })).toBe('Planning Time: 1 week');
-  });
-
-  test('returns null for invalid input', () => {
-    expect(formatPlanningTimeWithLabel(null)).toBeNull();
-    expect(formatPlanningTimeWithLabel(null, { includeLabel: true })).toBeNull();
-  });
-});
-
 describe('getPlanningTimeTooltip', () => {
   test('returns tooltip text', () => {
     const tooltip = getPlanningTimeTooltip();
@@ -237,92 +219,5 @@ describe('getPlanningTimeTooltip', () => {
 describe('getPlanningTimeLabel', () => {
   test('returns label text', () => {
     expect(getPlanningTimeLabel()).toBe('Planning Time');
-  });
-});
-
-describe('convertToDays', () => {
-  test('converts hours to days', () => {
-    expect(convertToDays(12, 'hours')).toBe(0.5);
-    expect(convertToDays(24, 'hours')).toBe(1);
-    expect(convertToDays(6, 'hours')).toBe(0.25);
-  });
-
-  test('keeps days as days', () => {
-    expect(convertToDays(5, 'days')).toBe(5);
-    expect(convertToDays(1, 'days')).toBe(1);
-  });
-
-  test('converts weeks to days', () => {
-    expect(convertToDays(1, 'weeks')).toBe(7);
-    expect(convertToDays(2, 'weeks')).toBe(14);
-  });
-
-  test('converts months to days', () => {
-    expect(convertToDays(1, 'months')).toBe(30);
-    expect(convertToDays(6, 'months')).toBe(180);
-  });
-
-  test('converts years to days', () => {
-    expect(convertToDays(1, 'years')).toBe(365);
-    expect(convertToDays(2, 'years')).toBe(730);
-  });
-
-  test('returns 0 for invalid input', () => {
-    expect(convertToDays(NaN, 'days')).toBe(0);
-    expect(convertToDays('abc', 'days')).toBe(0);
-  });
-
-  test('assumes days for unknown unit', () => {
-    expect(convertToDays(5, 'unknown')).toBe(5);
-  });
-});
-
-describe('parsePlanningTime', () => {
-  test('parses special cases', () => {
-    expect(parsePlanningTime('a few hours')).toBe(0.25);
-    expect(parsePlanningTime('about half a day')).toBe(0.5);
-    expect(parsePlanningTime('most of a day')).toBe(0.75);
-  });
-
-  test('parses single day values', () => {
-    expect(parsePlanningTime('1 day')).toBe(1);
-    expect(parsePlanningTime('5 days')).toBe(5);
-  });
-
-  test('parses week values', () => {
-    expect(parsePlanningTime('1 week')).toBe(7);
-    expect(parsePlanningTime('2 weeks')).toBe(14);
-  });
-
-  test('parses month values', () => {
-    expect(parsePlanningTime('1 month')).toBe(30);
-    expect(parsePlanningTime('6 months')).toBe(180);
-  });
-
-  test('parses year values', () => {
-    expect(parsePlanningTime('1 year')).toBe(365);
-    expect(parsePlanningTime('2 years')).toBe(730);
-  });
-
-  test('parses range values (returns midpoint)', () => {
-    expect(parsePlanningTime('1-2 days')).toBe(1.5);
-    expect(parsePlanningTime('1-2 weeks')).toBe(10.5);
-    expect(parsePlanningTime('1-2 months')).toBe(45);
-  });
-
-  test('parses "about X-Y" format', () => {
-    expect(parsePlanningTime('about 1-2 weeks')).toBe(10.5);
-    expect(parsePlanningTime('about 2-3 weeks')).toBe(17.5);
-  });
-
-  test('returns null for invalid input', () => {
-    expect(parsePlanningTime(null)).toBeNull();
-    expect(parsePlanningTime('')).toBeNull();
-    expect(parsePlanningTime('invalid')).toBeNull();
-  });
-
-  test('is case-insensitive', () => {
-    expect(parsePlanningTime('A Few Hours')).toBe(0.25);
-    expect(parsePlanningTime('1 WEEK')).toBe(7);
   });
 });

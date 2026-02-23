@@ -49,7 +49,7 @@ import { SearchableSelect } from "../../components/FormField";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
-  const { destinations, plans } = useData();
+  const { destinations, plans, applyDestinationsFilter, loading: dataLoading } = useData();
   const { registerH1, clearActionButtons, updateShowH1InNavbar, setPageActionButtons } = useApp();
   const { openExperienceWizard } = useExperienceWizard();
   const navigate = useNavigate();
@@ -161,6 +161,13 @@ export default function Profile() {
     activeUserIdRef.current = userId;
   }, [userId]);
 
+  // Ensure destinations are loaded (DataContext skips them on initial auth)
+  useEffect(() => {
+    if (destinations.length === 0 && !dataLoading) {
+      applyDestinationsFilter({}, { shuffle: false });
+    }
+  }, [destinations.length, dataLoading, applyDestinationsFilter]);
+
   // Keep follow-event handler refs fresh without resubscribing
   useEffect(() => {
     followsFilterRef.current = followsFilter;
@@ -250,7 +257,7 @@ export default function Profile() {
   const [experiencesLoading, setExperiencesLoading] = useState(false);
   const [createdLoading, setCreatedLoading] = useState(false);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
-  const { success, error: showError } = useToast();
+  const { success, error: showError, undoable } = useToast();
   const [resendInProgress, setResendInProgress] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -1142,12 +1149,12 @@ export default function Profile() {
       if (result.isPending) {
         setIsPending(true);
         setIsFollowing(false);
-        success(`Follow request sent to ${profileName}`, { showCloseButton: false });
+        success(`Follow request sent to ${profileName}`);
       } else {
         setIsFollowing(true);
         setIsPending(false);
         // Follow count updates are handled via the `follow:created` event emitted by `followUser()`.
-        success(`Now following ${profileName}`, { showCloseButton: false });
+        success(`Now following ${profileName}`);
       }
 
       try {
@@ -1180,7 +1187,22 @@ export default function Profile() {
       setIsFollowing(false);
       // Follow count updates are handled via the `follow:deleted` event emitted by `unfollowUser()`.
       const profileName = currentProfile?.name ? getFirstName(currentProfile.name) : 'this user';
-      success(`Unfollowed ${profileName}`, { showCloseButton: false });
+
+      undoable(`Unfollowed ${profileName}`, {
+        onUndo: async () => {
+          try {
+            await followUser(userId, user._id);
+            setIsFollowing(true);
+            setIsPending(false);
+          } catch (err) {
+            showError('Failed to re-follow user');
+          }
+        },
+        onExpire: () => {
+          // Already unfollowed, nothing to do
+        },
+      });
+
       try {
         const rel = await getFollowRelationship(userId);
         setFollowRelationship(rel || null);
@@ -1193,7 +1215,7 @@ export default function Profile() {
     } finally {
       setFollowLoading(false);
     }
-  }, [userId, user._id, currentProfile, followLoading, success, showError]);
+  }, [userId, user._id, currentProfile, followLoading, undoable, showError]);
 
   // Track which follow actions are in progress (by user ID)
   const [followActionInProgress, setFollowActionInProgress] = useState({});

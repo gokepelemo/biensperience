@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { resendConfirmation } from '../utilities/users-api';
 import Toast from '../components/Toast/Toast';
 import { createToastConfig } from '../utilities/error-handler';
 import { eventBus } from '../utilities/event-bus';
+import { lang } from '../lang.constants';
 
 const ToastContext = createContext();
 
@@ -75,41 +76,33 @@ export function ToastProvider({ children }) {
     return addToast({ message, type: 'success', ...options });
   }, [addToast]);
 
+  const buildEmailVerificationActions = useCallback((email) => {
+    if (email) {
+      return [{
+        label: 'Resend verification',
+        variant: 'primary',
+        onClick: async () => {
+          try {
+            await resendConfirmation(email);
+            addToast({ message: 'Verification email sent. Please check your inbox.', type: 'success', duration: 5000 });
+          } catch (err) {
+            addToast({ message: err?.message || 'Failed to resend verification email.', type: 'danger' });
+          }
+        }
+      }];
+    }
+    return [{ label: 'Open profile', variant: 'primary', onClick: () => { window.location.href = '/profile'; } }];
+  }, [addToast]);
+
   const error = useCallback((message, options = {}) => {
     // If message is a structured EMAIL_NOT_VERIFIED payload, render a toast with a resend action
     if (message && typeof message === 'object' && message.__emailNotVerified) {
-      const email = message.email;
-      const actions = [];
-
-      if (email) {
-        actions.push({
-          label: 'Resend verification',
-          variant: 'primary',
-          onClick: async () => {
-            try {
-              await resendConfirmation(email);
-              // Show success feedback
-              addToast({ message: 'Verification email sent. Please check your inbox.', type: 'success', duration: 5000 });
-            } catch (err) {
-              addToast({ message: err?.message || 'Failed to resend verification email.', type: 'danger' });
-            }
-          }
-        });
-      } else {
-        // If we don't have an email, provide a way to open the Profile page
-        actions.push({
-          label: 'Open profile',
-          variant: 'primary',
-          onClick: () => { window.location.href = '/profile'; }
-        });
-      }
-
-      // Keep the toast visible until user dismisses (duration: 0)
+      const actions = buildEmailVerificationActions(message.email);
       return addToast({ message: message.message, type: 'danger', actions, duration: 0 });
     }
 
     return addToast({ message, type: 'danger', ...options });
-  }, [addToast]);
+  }, [addToast, buildEmailVerificationActions]);
 
   const warning = useCallback((message, options = {}) => {
     return addToast({ message, type: 'warning', ...options });
@@ -135,6 +128,59 @@ export function ToastProvider({ children }) {
     return addToast({ message, type: 'dark', ...options });
   }, [addToast]);
 
+  // Track deferred timers for undo toasts so they can be cleaned up
+  const undoTimersRef = useRef({});
+
+  /**
+   * Show an undoable toast with a deferred action
+   * Applies optimistic UI immediately, defers the API call until the undo window expires.
+   * @param {string} message - Message to display
+   * @param {Object} options - Configuration
+   * @param {Function} options.onUndo - Called when user clicks Undo (restore UI state)
+   * @param {Function} options.onExpire - Called when undo window expires (execute API call)
+   * @param {number} [options.duration=8000] - Undo window duration in ms
+   * @returns {string} Toast ID
+   */
+  const undoable = useCallback((message, { onUndo, onExpire, duration = 8000, ...options } = {}) => {
+    const undoLabel = lang.current.toast.undo || 'Undo';
+    const undoneMessage = lang.current.toast.undone || 'Action undone';
+    let undone = false;
+
+    const id = addToast({
+      message,
+      type: 'success',
+      duration,
+      showCloseButton: true,
+      ...options,
+      actions: [
+        {
+          label: undoLabel,
+          variant: 'primary',
+          onClick: () => {
+            undone = true;
+            // Cancel the deferred timer
+            if (undoTimersRef.current[id]) {
+              clearTimeout(undoTimersRef.current[id]);
+              delete undoTimersRef.current[id];
+            }
+            onUndo?.();
+            addToast({ message: undoneMessage, type: 'info', duration: 3000 });
+          }
+        }
+      ],
+    });
+
+    // Schedule the deferred action when undo window expires
+    undoTimersRef.current[id] = setTimeout(() => {
+      delete undoTimersRef.current[id];
+      if (!undone) {
+        onExpire?.();
+      }
+    }, duration);
+
+    return id;
+  }, [addToast]);
+
   const value = {
     addToast,
     removeToast,
@@ -146,34 +192,15 @@ export function ToastProvider({ children }) {
     secondary,
     light,
     dark,
+    undoable,
   };
 
   // Listen for global email-not-verified events emitted by send-request via eventBus
   useEffect(() => {
     const handler = (event) => {
-      // Event payload comes directly from broadcastEvent
       const data = event || {};
       const message = data.error || 'Please verify your email address before performing this action.';
-      const email = data.email || null;
-      const actions = [];
-
-      if (email) {
-        actions.push({
-          label: 'Resend verification',
-          variant: 'primary',
-          onClick: async () => {
-            try {
-              await resendConfirmation(email);
-              addToast({ message: 'Verification email sent. Please check your inbox.', type: 'success', duration: 5000 });
-            } catch (err) {
-              addToast({ message: err?.message || 'Failed to resend verification email.', type: 'danger' });
-            }
-          }
-        });
-      } else {
-        actions.push({ label: 'Open profile', variant: 'primary', onClick: () => { window.location.href = '/profile'; } });
-      }
-
+      const actions = buildEmailVerificationActions(data.email || null);
       addToast({ message, type: 'danger', actions, duration: 0 });
     };
 
@@ -182,7 +209,7 @@ export function ToastProvider({ children }) {
     return () => {
       unsubscribe();
     };
-  }, [addToast]);
+  }, [addToast, buildEmailVerificationActions]);
 
   // Listen for global API error events emitted by send-request via eventBus
   useEffect(() => {

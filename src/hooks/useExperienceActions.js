@@ -10,6 +10,7 @@
 import { useCallback } from 'react';
 import { lang } from '../lang.constants';
 import { handleError } from '../utilities/error-handler';
+import { deletePlan as deletePlanAPI } from '../utilities/plans-api';
 import debug from '../utilities/debug';
 
 /**
@@ -28,9 +29,15 @@ import debug from '../utilities/debug';
  * @param {Function} options.setIsEditingDate - Setter for date editing state
  * @param {Function} options.setActiveTab - Setter for active tab
  * @param {Function} options.setPendingUnplan - Setter for pending unplan state
- * @param {Function} options.deletePlan - Function to delete a plan
+ * @param {Function} options.deletePlan - Function to delete a plan (from usePlanManagement)
+ * @param {Function} options.setUserPlan - Setter for user plan state
+ * @param {Function} options.setUserHasExperience - Setter for userHasExperience state
+ * @param {Function} options.setDisplayedPlannedDate - Setter for displayed planned date
+ * @param {Function} options.setSharedPlans - Setter for shared plans state
+ * @param {Function} options.fetchPlans - Function to refetch all plans
  * @param {Function} options.success - Toast success function
  * @param {Function} options.showError - Toast error function
+ * @param {Function} options.undoable - Toast undoable function
  *
  * @returns {Object} Action handlers
  */
@@ -48,8 +55,14 @@ export function useExperienceActions({
   setActiveTab,
   setPendingUnplan,
   deletePlan,
+  setUserPlan,
+  setUserHasExperience,
+  setDisplayedPlannedDate,
+  setSharedPlans,
+  fetchPlans,
   success,
-  showError
+  showError,
+  undoable
 }) {
   /**
    * Toggle experience planned state
@@ -135,35 +148,60 @@ export function useExperienceActions({
       return;
     }
 
-    try {
-      // User confirmed deletion
-      setPendingUnplan(true);
-      closeModal(); // Close remove modal and date picker
-      setActiveTab("experience"); // Switch back to experience tab
+    // Save state for potential undo
+    const prevUserPlan = userPlan;
+    const planId = userPlan._id;
 
-      // Delete plan - hook handles ALL optimistic updates (userHasExperience, userPlan, etc.)
-      await deletePlan(userPlan._id);
-      debug.log("Plan deleted successfully");
-      success(lang.current.notification?.plan?.removed || "Removed from your plan. You can add it back anytime.");
+    // User confirmed deletion
+    setPendingUnplan(true);
+    closeModal(); // Close remove modal and date picker
+    setActiveTab("experience"); // Switch back to experience tab
 
-      setPendingUnplan(false);
-    } catch (err) {
-      // Hook's deletePlan already handles rollback on error
-      // Just show error to user and restore UI state
-      closeModal();
-      setPendingUnplan(false);
-      const errorMsg = handleError(err, { context: "Remove plan" });
-      showError(errorMsg || "Failed to remove plan. Please try again.");
-    }
+    // Optimistic UI removal
+    setUserPlan(null);
+    setUserHasExperience(false);
+    setDisplayedPlannedDate(null);
+    setSharedPlans(prev => prev.filter(p => p._id !== planId));
+    setPendingUnplan(false);
+
+    debug.log("Plan removed optimistically, deferring API call");
+
+    // Show undo toast with deferred API call
+    undoable(lang.current.notification?.plan?.removedUndo || 'Removed from your plans. Tap Undo to restore.', {
+      onUndo: () => {
+        setUserPlan(prevUserPlan);
+        setUserHasExperience(true);
+        setDisplayedPlannedDate(prevUserPlan.planned_date || null);
+        setSharedPlans(prev => [...prev, prevUserPlan]);
+      },
+      onExpire: async () => {
+        try {
+          await deletePlanAPI(planId);
+          debug.log("Plan deleted successfully via deferred API call");
+        } catch (err) {
+          // Rollback on error
+          setUserPlan(prevUserPlan);
+          setUserHasExperience(true);
+          setDisplayedPlannedDate(prevUserPlan.planned_date || null);
+          fetchPlans?.().catch(() => {});
+          const errorMsg = handleError(err, { context: "Remove plan" });
+          showError(errorMsg || "Failed to remove plan. It has been restored.");
+        }
+      },
+    });
   }, [
     experience,
     user,
     userPlan,
-    deletePlan,
     closeModal,
     setActiveTab,
     setPendingUnplan,
-    success,
+    setUserPlan,
+    setUserHasExperience,
+    setDisplayedPlannedDate,
+    setSharedPlans,
+    fetchPlans,
+    undoable,
     showError
   ]);
 

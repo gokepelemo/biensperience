@@ -180,6 +180,15 @@ const FEATURE_FLAGS = {
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'beta'
+  },
+
+  // Plan Access Requests - token-based one-click approval flow
+  PLAN_ACCESS_REQUESTS: {
+    key: 'plan_access_requests',
+    description: 'Token-based plan access request flow with one-click email approval',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'beta'
   }
 };
 

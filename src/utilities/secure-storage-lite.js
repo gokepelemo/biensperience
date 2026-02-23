@@ -10,6 +10,7 @@
  */
 
 import { logger } from './logger';
+import { toBytes, fromBytes, base64Encode, base64Decode, xorTransform } from './encoding-utils';
 
 const PREFIX = 'bien:';
 const DEFAULT_SCRAMBLE_KEY = 'biensperience.secure-storage-lite.v1';
@@ -64,65 +65,6 @@ function getFallbackKeyBytes() {
   if (_fallbackKeyBytes) return _fallbackKeyBytes;
   _fallbackKeyBytes = toBytes(FALLBACK_SCRAMBLE_KEY);
   return _fallbackKeyBytes;
-}
-
-function toBytes(str) {
-  const bytes = new Uint8Array(str.length);
-  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
-  return bytes;
-}
-
-function fromBytes(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return s;
-}
-
-function base64Encode(bytes) {
-  try {
-    if (typeof btoa === 'function') {
-      return btoa(fromBytes(bytes));
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    // Node/Jest fallback
-    // eslint-disable-next-line no-undef
-    return Buffer.from(bytes).toString('base64');
-  } catch {
-    return null;
-  }
-}
-
-function base64Decode(b64) {
-  try {
-    if (typeof atob === 'function') {
-      const binary = atob(b64);
-      return toBytes(binary);
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    // Node/Jest fallback
-    // eslint-disable-next-line no-undef
-    const buf = Buffer.from(b64, 'base64');
-    return new Uint8Array(buf);
-  } catch {
-    return null;
-  }
-}
-
-function xorTransform(inputBytes, keyBytes) {
-  if (!keyBytes?.length) return null;
-  const out = new Uint8Array(inputBytes.length);
-  for (let i = 0; i < inputBytes.length; i++) {
-    out[i] = inputBytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-  return out;
 }
 
 function isLikelyJsonString(str) {

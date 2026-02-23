@@ -664,11 +664,18 @@ async function sendPlanAccessRequestEmail(options) {
       experienceName,
       experienceId,
       planId,
-      requestMessage = ''
+      requestMessage = '',
+      approvalToken
     } = options;
 
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const apiBaseUrl = process.env.API_BASE_URL || baseUrl;
     const planUrl = `${baseUrl}/experiences/${experienceId}#plan-${planId}`;
+
+    // One-click approval URL — goes to backend, no auth required
+    const approveUrl = approvalToken
+      ? `${apiBaseUrl}/api/plans/${planId}/access-requests/approve-by-token?token=${approvalToken}`
+      : null;
 
     const additionalSections = [];
     if (requestMessage && requestMessage.trim()) {
@@ -680,12 +687,18 @@ async function sendPlanAccessRequestEmail(options) {
       `);
     }
 
+    if (approveUrl) {
+      additionalSections.push(`
+        <p style="margin-top: 10px; font-size: 13px; color: #666;">Or <a href="${planUrl}">open the plan</a> to review first. Ignoring this email will leave the request pending.</p>
+      `);
+    }
+
     const { html, text } = createEmailTemplate({
       heading: `${APP_NAME} — Plan Access Request`,
       greeting: `Hi ${ownerName || 'there'},`,
       body: `${requesterName} requested access to your plan for <strong>${experienceName}</strong>.`,
-      buttonText: 'Open Plan',
-      buttonUrl: planUrl,
+      buttonText: approveUrl ? 'Grant Access' : 'Open Plan',
+      buttonUrl: approveUrl || planUrl,
       additionalSections,
       signature: `— The ${APP_NAME} team`,
       footer: `Sent by ${APP_NAME} v${version}`

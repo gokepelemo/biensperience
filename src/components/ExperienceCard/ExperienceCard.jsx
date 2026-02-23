@@ -1,6 +1,6 @@
 import styles from "./ExperienceCard.module.scss";
 import { Link } from "react-router-dom";
-import { useState, useCallback, useMemo, memo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers, FaStar } from "react-icons/fa";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
@@ -15,13 +15,10 @@ import { useData } from "../../contexts/DataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useUser } from "../../contexts/UserContext";
 import { getCachedPlanState, setCachedPlanState } from "../../utilities/plan-cache";
+import { useDataTransition } from "../../hooks/useDataTransition";
 import EntitySchema from "../OpenGraph/EntitySchema";
-import imagePreloader from '../../utilities/image-preloader';
+import useImageFallback from '../../hooks/useImageFallback';
 import { Badge } from "react-bootstrap";
-
-// In-memory cache of URLs we've already successfully loaded during this session.
-// This prevents skeleton re-appearing and redundant preload work on remounts.
-const loadedImageUrls = new Set();
 
 function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false, showSharedIcon = false, planId }) {
   const { user } = useUser();
@@ -34,8 +31,6 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     return encodeURIComponent(id || name || 'experience');
   }, [experience?._id, experience?.name]);
   const [isLoading, setIsLoading] = useState(false);
-  const containerRef = useRef(null);
-  const prevImageSrcRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -310,66 +305,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     return { imageSrc: src, backgroundImage: `url(${src})` };
   }, [experience, placeholderSeed]);
 
-  // Check if image is already cached in browser to avoid skeleton flash on re-renders.
-  // This runs synchronously during render to set correct initial state.
-  const isImageCached = useMemo(() => {
-    if (!imageSrc) return true;
-    if (loadedImageUrls.has(imageSrc)) return true;
-    const img = new Image();
-    img.src = imageSrc;
-    return img.complete && img.naturalHeight > 0;
-  }, [imageSrc]);
-
-  // Initialize from cache state so we don't render "no skeleton" and then flip it on.
-  const [imageLoaded, setImageLoaded] = useState(() => isImageCached);
-
-  // Use shared image preloader utility to ensure skeleton overlay exists and load image
-  // Only reset imageLoaded when the actual URL changes, not on every render
-  useEffect(() => {
-    // Only reset if image source actually changed to a different URL
-    const urlChanged = prevImageSrcRef.current !== imageSrc;
-    if (urlChanged) {
-      prevImageSrcRef.current = imageSrc;
-    }
-
-    if (!imageSrc) {
-      setImageLoaded(true);
-      return;
-    }
-
-    // If we've already loaded this URL in this session, don't re-run preload.
-    if (loadedImageUrls.has(imageSrc)) {
-      setImageLoaded(true);
-      return;
-    }
-
-    // Check cache status
-    const img = new Image();
-    img.src = imageSrc;
-    const isCached = img.complete && img.naturalHeight > 0;
-
-    if (isCached) {
-      // Image is already cached, no loading needed
-      setImageLoaded(true);
-      return;
-    }
-
-    // Not cached: show skeleton immediately and fade out on load.
-    setImageLoaded(false);
-    let cancelled = false;
-
-    const cleanup = imagePreloader(containerRef, imageSrc, (err) => {
-      cancelled = true;
-      if (!err) loadedImageUrls.add(imageSrc);
-      // Small delay to ensure smooth transition
-      setTimeout(() => setImageLoaded(true), 30);
-    }, { forcePreload: forcePreload, rootMargin: '400px' });
-
-    return () => {
-      cancelled = true;
-      try { cleanup && cleanup(); } catch (e) {}
-    };
-  }, [imageSrc, forcePreload]);
+  const { containerRef, imageLoaded } = useImageFallback(imageSrc, { forcePreload });
 
   const handleExperienceAction = useCallback(async () => {
     if (isLoading) return;
@@ -531,8 +467,14 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     setIsExpanded(prev => !prev);
   }, [isMobile]);
 
+  // Subtle animation when plan state changes (added/removed)
+  const { transitionClass } = useDataTransition(
+    { added: experienceAdded, name: experience?.name },
+    { animation: 'pulse', enabled: !!experience?._id }
+  );
+
   // Build card class names based on props
-  const cardClasses = `${styles.experienceCard} ${fluid ? styles.experienceCardFluid : ''} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''}`;
+  const cardClasses = `${styles.experienceCard} ${fluid ? styles.experienceCardFluid : ''} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''} ${transitionClass}`;
 
   return (
     <div className={fluid ? '' : 'd-block m-2'} style={fluid ? undefined : { width: '20rem', verticalAlign: 'top' }}>

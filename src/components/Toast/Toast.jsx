@@ -88,6 +88,7 @@ export default function Toast({
   const IconComponent = getIcon(type);
   const backgroundColor = getBackgroundColor(type, bg);
   const textColor = getTextColor(type, bg);
+  const isUndoToast = Array.isArray(actions) && actions.some(a => a.label === (lang.current.toast.undo || 'Undo'));
 
   // Auto-hide logic
   useEffect(() => {
@@ -145,7 +146,7 @@ export default function Toast({
 
   return (
     <Box
-      className={`${styles.biensperienceToast} ${animation === 'slide' ? styles.toastSlide : ''}`}
+      className={`${styles.biensperienceToast} ${animation === 'slide' ? styles.toastSlide : ''}`.trim()}
       style={getPositionStyle()}
       bg={backgroundColor}
       color={textColor}
@@ -221,28 +222,26 @@ export default function Toast({
           {/* Close button - inside HStack for vertical alignment */}
           {showCloseButton && (
             <IconButton
+              className={styles.toastCloseButton}
               onClick={handleClose}
               aria-label={lang.current.toast.close}
               variant="ghost"
               size="xs"
               color={textColor}
-              opacity={0.8}
-              minW="auto"
-              h="auto"
-              p="1"
-              borderRadius="var(--radius-sm)"
-              _hover={{
-                opacity: 1,
-                bg: 'whiteAlpha.300',
-              }}
-              alignSelf="center"
-              flexShrink={0}
             >
               <FaTimes size={12} />
             </IconButton>
           )}
         </HStack>
       </Box>
+
+      {/* Undo countdown progress bar */}
+      {isUndoToast && duration > 0 && (
+        <Box
+          className={styles.undoProgress}
+          style={{ animationDuration: `${duration}ms` }}
+        />
+      )}
     </Box>
   );
 }

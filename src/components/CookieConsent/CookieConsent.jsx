@@ -62,7 +62,6 @@ export default function CookieConsent() {
         bg: 'primary',
         position: 'bottom-end', // Bottom-right position
         duration: 30000, // 30 seconds
-        showCloseButton: true,
         animation: 'slide',
         actions: [
           {

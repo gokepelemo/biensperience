@@ -676,6 +676,89 @@ import { Button } from '../components/design-system';
   },
 };
 
+// Focus States
+export const FocusStates = {
+  name: 'Focus States',
+  render: () => (
+    <div style={{ display: 'grid', gap: '2rem', maxWidth: '700px' }}>
+      <div>
+        <h3 style={{ marginBottom: '0.5rem', fontSize: '1.125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+          Keyboard Focus (Tab to see)
+        </h3>
+        <p style={{ marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          Press Tab to navigate. All buttons show a <code>2px solid var(--color-primary)</code> outline with <code>2px</code> offset on keyboard focus.
+          Mouse clicks do not trigger the outline.
+        </p>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <Button variant="gradient">Gradient</Button>
+          <Button variant="outline">Outline</Button>
+          <Button variant="tertiary">Tertiary</Button>
+          <Button variant="danger">Danger</Button>
+          <Button variant="success">Success</Button>
+          <Button variant="link">Link</Button>
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ marginBottom: '0.5rem', fontSize: '1.125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+          Bootstrap Buttons
+        </h3>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary">Primary</button>
+          <button className="btn btn-secondary">Secondary</button>
+          <button className="btn btn-outline-primary">Outline</button>
+          <button className="btn btn-danger">Danger</button>
+          <button className="btn btn-link">Link</button>
+        </div>
+      </div>
+
+      <div style={{
+        padding: '1.5rem',
+        background: 'var(--color-bg-secondary)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--color-border-light)',
+      }}>
+        <h4 style={{ marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600 }}>Implementation</h4>
+        <pre style={{
+          fontSize: '0.8125rem',
+          color: 'var(--color-text-secondary)',
+          margin: 0,
+          whiteSpace: 'pre-wrap',
+          fontFamily: 'monospace',
+        }}>{`/* Global rule in accessibility.scss */
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* No outline for mouse clicks */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}`}</pre>
+      </div>
+    </div>
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story: `
+**Focus States (WCAG 2.4.7)**
+
+All buttons show a visible focus indicator when navigated via keyboard (Tab key).
+The focus ring uses \`focus-visible\` so mouse users don't see outlines.
+
+- **Ring color**: \`var(--color-primary)\` — 2px solid
+- **Offset**: 2px from the element edge
+- **Shadow**: \`var(--shadow-sm)\` for additional visibility
+- **Mouse clicks**: No outline shown (\`:focus:not(:focus-visible)\`)
+        `,
+      },
+    },
+  },
+};
+
 // All Outline Variants
 export const OutlineVariants = {
   name: 'Outline Variants',

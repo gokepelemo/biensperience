@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { FaCalendar } from 'react-icons/fa';
 import PropTypes from 'prop-types';
 import { Heading } from '../design-system';
+import { useDataTransition } from '../../hooks/useDataTransition';
 
 /**
  * UpcomingPlans component for displaying user's upcoming travel plans
@@ -128,6 +129,12 @@ export default function UpcomingPlans({ plans = [], title = "Upcoming Plans", pa
     return formatExactDate(d);
   };
 
+  // Subtle animation when upcoming plans data changes
+  const { transitionClass: upcomingTransitionClass } = useDataTransition(serverPlans, {
+    animation: 'fade',
+    selectFields: (plans) => plans?.map(p => ({ id: p.id || p._id, date: p.date })),
+  });
+
   return (
     <Card style={{
       backgroundColor: 'var(--color-bg-primary)',
@@ -147,7 +154,7 @@ export default function UpcomingPlans({ plans = [], title = "Upcoming Plans", pa
         {title}
       </Heading>
 
-      <div ref={scrollRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
+      <div ref={scrollRef} className={upcomingTransitionClass} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-text-muted)' }}>Loading upcoming plans...</div>
         ) : (
