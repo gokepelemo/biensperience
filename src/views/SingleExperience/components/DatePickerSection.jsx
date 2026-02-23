@@ -87,7 +87,7 @@ export default function DatePickerSection({
         ? lang.current.heading.editPlannedDate
         : lang.current.heading.planYourExperience}
       icon={<FaCalendarAlt />}
-      size="sm"
+      size="md"
       footer={modalFooter}
     >
       {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
