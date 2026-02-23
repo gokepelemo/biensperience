@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button } from 'react-bootstrap';
-import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign } from 'react-icons/fa';
+import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign, FaUser, FaUsers } from 'react-icons/fa';
 import { getDashboardData } from '../../utilities/dashboard-api';
 import { getUser } from '../../utilities/users-service';
-import { formatCostEstimate, getDashboardCostTooltip } from '../../utilities/cost-utils';
+import { formatCostEstimate } from '../../utilities/cost-utils';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
 import { SkeletonLoader, Heading, Text, Container } from '../../components/design-system';
@@ -156,7 +156,7 @@ export default function Dashboard() {
       logger.error('[Dashboard] Failed to load dashboard data', err);
       const message = err?.message || lang.current.alert.failedToLoadDashboardData;
       try {
-        toast.error(message, { header: 'Dashboard Error', duration: 8000 });
+        toast.error(message, { duration: 8000 });
       } catch (e) {
         logger.debug('[Dashboard] Toast provider not available', e);
       }
@@ -252,10 +252,21 @@ export default function Dashboard() {
               <div className={styles.statsGrid}>
                 <ActivePlansCard stats={dashboardData.stats} loading={loading} />
                 <StatsCard
-                  label={experiencesValue === 1 ? 'Experience' : 'Experiences'}
-                  value={experiencesValue}
-                  color="var(--color-success)"
-                  icon={<FaStar />}
+                  label={lang.current.label.estimatedCosts}
+                  value={formatCostEstimate(totalSpentValue) || '$0'}
+                  color="var(--color-info)"
+                  icon={<FaDollarSign />}
+                  tooltip={lang.current.label.estimatedCostsExplanation}
+                  subMetrics={(() => {
+                    const tracked = stats.costBreakdown?.tracked || { total: 0, ownedPlans: 0, sharedPlans: 0 };
+                    const currency = stats.currency || 'USD';
+                    const fmt = (v) => formatCostEstimate(v, { currency, exact: true }) || '$0';
+                    return [
+                      { icon: <FaDollarSign size={12} />, label: `${fmt(tracked.total)} tracked` },
+                      { icon: <FaUser size={12} />, label: `${fmt(tracked.ownedPlans)} owned plans` },
+                      { icon: <FaUsers size={12} />, label: `${fmt(tracked.sharedPlans)} shared plans` },
+                    ];
+                  })()}
                 />
                 <StatsCard
                   label={destinationsValue === 1 ? 'Destination' : 'Destinations'}
@@ -264,19 +275,10 @@ export default function Dashboard() {
                   icon={<FaMapMarkerAlt />}
                 />
                 <StatsCard
-                  label={lang.current.label.estimatedCosts}
-                  value={formatCostEstimate(totalSpentValue)}
-                  color="var(--color-info)"
-                  icon={<FaDollarSign />}
-                  tooltip={getDashboardCostTooltip(stats.costBreakdown, {
-                    currency: stats.currency || 'USD',
-                    strings: {
-                      explanation: lang.current.label.estimatedCostsExplanation,
-                      myPlans: lang.current.label.trackedCostsMyPlans,
-                      sharedPlans: lang.current.label.trackedCostsSharedPlans,
-                      trackedTotal: lang.current.label.trackedCostsTotal
-                    }
-                  })}
+                  label={experiencesValue === 1 ? 'Experience' : 'Experiences'}
+                  value={experiencesValue}
+                  color="var(--color-success)"
+                  icon={<FaStar />}
                 />
               </div>
 

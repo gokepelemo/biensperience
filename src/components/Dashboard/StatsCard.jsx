@@ -8,7 +8,7 @@ import InfoTooltip from '../InfoTooltip/InfoTooltip';
  * Reusable component for stats like Active Plans, Experiences, etc.
  * Now uses CSS Grid layout (no Col wrapper needed)
  */
-export default function StatsCard({ label, value, color, icon, tooltip }) {
+export default function StatsCard({ label, value, color, icon, tooltip, subMetrics }) {
   return (
     <Card
       style={{
@@ -45,9 +45,26 @@ export default function StatsCard({ label, value, color, icon, tooltip }) {
           <div style={{
             fontSize: 'var(--font-size-sm)',
             color: 'var(--color-text-muted)',
+            marginBottom: subMetrics ? 'var(--space-3)' : undefined,
           }}>
             {label}
           </div>
+          {subMetrics && subMetrics.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {subMetrics.map((metric, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                  fontSize: 'var(--font-size-xs)',
+                  color: metric.color || 'var(--color-text-secondary)',
+                }}>
+                  {metric.icon}
+                  <span>{metric.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{
           width: '48px',
@@ -73,4 +90,9 @@ StatsCard.propTypes = {
   color: PropTypes.string.isRequired,
   icon: PropTypes.element.isRequired,
   tooltip: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  subMetrics: PropTypes.arrayOf(PropTypes.shape({
+    icon: PropTypes.element,
+    label: PropTypes.string.isRequired,
+    color: PropTypes.string,
+  })),
 };
