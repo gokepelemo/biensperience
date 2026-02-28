@@ -320,7 +320,10 @@ async function getAllActivities(req, res) {
     } = req.query;
 
     // Build query with input validation to prevent NoSQL injection
-    const query = {};
+    const query = {
+      // Exclude child activities from top-level listings (they belong to parent flows)
+      parentActivityId: null
+    };
 
     // Get user IDs with private profiles to exclude from activity feeds
     // Super admins can include private profiles by passing includePrivateProfiles=true
@@ -338,18 +341,20 @@ async function getAllActivities(req, res) {
 
     // Validate and sanitize string inputs - only allow alphanumeric, dash, underscore
     const SAFE_STRING_PATTERN = /^[a-zA-Z0-9_-]+$/;
-    const VALID_ACTIONS = ['create', 'update', 'delete', 'restore', 'permission_change', 'completion'];
     const VALID_RESOURCE_TYPES = ['Plan', 'Experience', 'Destination', 'User', 'Photo'];
-    const VALID_STATUSES = ['success', 'failure', 'pending'];
+    const VALID_STATUSES = ['success', 'failure', 'partial'];
 
     if (action) {
-      if (!VALID_ACTIONS.includes(action)) {
+      // Derive valid actions dynamically from the Activity model schema
+      const allowedActions = getAllowedActivityActionsSet();
+      const actionValue = String(action).trim();
+      if (allowedActions && !allowedActions.has(actionValue)) {
         return res.status(400).json({
           error: 'Invalid action parameter',
-          message: 'Action must be one of: ' + VALID_ACTIONS.join(', ')
+          message: 'Action must be a valid activity action type'
         });
       }
-      query.action = action;
+      query.action = actionValue;
     }
 
     if (resourceType) {
@@ -668,11 +673,87 @@ async function getCuratorPlanners(req, res) {
   }
 }
 
+/**
+ * Get the public activity feed for an experience
+ * Returns activities visible to any viewer: public plan creations, public plan item photos, etc.
+ * Only includes activities from users with public profile visibility.
+ *
+ * @route GET /api/activities/experience/:experienceId/feed
+ */
+async function getExperienceActivityFeed(req, res) {
+  try {
+    const { experienceId } = req.params;
+    const { limit, before } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(experienceId)) {
+      return res.status(400).json({ error: 'Invalid experience ID' });
+    }
+
+    // Exclude private-profile users at the database level for accurate pagination
+    const privateUsers = await User.find(
+      { 'preferences.profileVisibility': 'private' },
+      { _id: 1 }
+    ).lean();
+    const privateUserIds = privateUsers.map(u => u._id);
+
+    // Build query: activities tied to this experience via the resource or metadata
+    const query = {
+      action: { $in: ['experience_planned', 'plan_item_photo_added', 'plan_item_visibility_changed'] },
+      $or: [
+        { 'resource.id': new mongoose.Types.ObjectId(experienceId) },
+        { 'metadata.experienceId': experienceId }
+      ],
+      status: 'success',
+      // Exclude child activities (part of parent multi-step flows)
+      parentActivityId: null
+    };
+
+    // Exclude activities from users with private profiles
+    if (privateUserIds.length > 0) {
+      query['actor._id'] = { $nin: privateUserIds };
+    }
+
+    // Support cursor-based pagination
+    if (before) {
+      const beforeDate = new Date(before);
+      if (!isNaN(beforeDate.getTime())) {
+        query.timestamp = { $lt: beforeDate };
+      }
+    }
+
+    let limitNum = limit ? parseInt(limit, 10) : 30;
+    if (!Number.isFinite(limitNum) || isNaN(limitNum)) limitNum = 30;
+    limitNum = Math.max(1, Math.min(limitNum, 100));
+
+    const activities = await Activity.find(query)
+      .sort({ timestamp: -1 })
+      .limit(limitNum + 1) // fetch one extra to determine hasMore
+      .lean();
+
+    const hasMore = activities.length > limitNum;
+    const result = hasMore ? activities.slice(0, limitNum) : activities;
+
+    return res.json({
+      success: true,
+      count: result.length,
+      activities: result,
+      hasMore
+    });
+  } catch (error) {
+    backendLogger.error('Error fetching experience activity feed', {
+      error: error.message,
+      experienceId: req.params.experienceId
+    });
+    res.status(500).json({ error: 'Failed to fetch activity feed' });
+  }
+}
+
 module.exports = {
   getResourceHistory,
   getActorHistory,
   restoreResourceState,
   getAllActivities,
   getActivityStats,
-  getCuratorPlanners
+  getCuratorPlanners,
+  getExperienceActivityFeed
 };

@@ -330,7 +330,7 @@ async function trackPlanItemCompletion(options) {
   // Resolve planItem when only an ID is provided
   let resolvedPlanItem = planItem;
   try {
-    backendLogger.info('trackPlanItemCompletion called', {
+    backendLogger.debug('trackPlanItemCompletion called', {
       hasPlan: !!plan,
       hasPlanItem: !!planItem,
       planItemId,
@@ -344,10 +344,10 @@ async function trackPlanItemCompletion(options) {
       // plan could be a mongoose doc or a plain object
       if (typeof plan.plan.id === 'function') {
         // Mongoose subdocument accessor
-        backendLogger.info('Using Mongoose plan.id() method to find plan item');
+        backendLogger.debug('Using Mongoose plan.id() method to find plan item');
         resolvedPlanItem = plan.plan.id(planItemId);
       } else if (Array.isArray(plan.plan)) {
-        backendLogger.info('Using Array.find() to find plan item', {
+        backendLogger.debug('Using Array.find() to find plan item', {
           planItemId,
           planItemsCount: plan.plan.length
         });
@@ -355,11 +355,7 @@ async function trackPlanItemCompletion(options) {
       }
     }
 
-    backendLogger.info('Plan item resolution result', {
-      resolved: !!resolvedPlanItem,
-      planItemId: resolvedPlanItem?._id?.toString(),
-      planItemText: resolvedPlanItem?.text
-    });
+    backendLogger.debug('Plan item resolution result', {
 
     if (!resolvedPlanItem) {
       backendLogger.warn('trackPlanItemCompletion called without a valid planItem', {
@@ -427,22 +423,18 @@ async function trackPlanItemCompletion(options) {
       tags: ['plan', 'plan_item', completed ? 'completed' : 'uncompleted']
     };
 
-    backendLogger.info('Creating activity record', {
+    backendLogger.debug('Creating activity record', {
       action: activityData.action,
       actorId: activityData.actor._id?.toString(),
-      actorEmail: activityData.actor.email,
       resourceId: activityData.resource.id.toString(),
-      resourceName: activityData.resource.name,
-      targetId: activityData.target.id.toString(),
       targetName: activityData.target.name,
       completed
     });
 
     Activity.create(activityData).then(activity => {
-      backendLogger.info('Activity record created successfully', {
+      backendLogger.debug('Activity record created successfully', {
         activityId: activity._id.toString(),
-        action: activity.action,
-        actorId: activity.actor._id?.toString()
+        action: activity.action
       });
     }).catch(err => {
       backendLogger.error('Failed to track plan item completion', {

@@ -546,6 +546,7 @@ Universal audit log for all entity changes.
 | `metadata` | Object | IP address, user agent, request path/method |
 | `rollbackToken` | String | Unique token for state restoration |
 | `rollbackOf` | ObjectId | Reference to original activity if rollback |
+| `parentActivityId` | ObjectId | Parent activity for multi-step flows (child activities hidden from feeds) |
 | `tags` | [String] | Categorization tags |
 | `status` | String | `success`, `failure`, `partial` |
 | `error` | Object | Error details if failed |
@@ -559,7 +560,11 @@ Universal audit log for all entity changes.
 - Plan: `plan_created`, `plan_updated`, `plan_deleted`, `plan_item_completed`, `plan_item_uncompleted`, `plan_item_note_*`
 - Cost: `cost_added`, `cost_updated`, `cost_deleted`
 - Social: `favorite_added`, `favorite_removed`, `collaborator_added`, `collaborator_removed`, `follow_*`
+- Experience Feed: `experience_planned`, `plan_item_photo_added`, `plan_item_visibility_changed`
 - System: `data_imported`, `data_exported`, `backup_created`, `rollback_performed`
+
+**Experience Activity Feed:**
+The SingleExperience view includes an Activity tab that displays a public activity feed. This feed is filtered to only three action types (`experience_planned`, `plan_item_photo_added`, `plan_item_visibility_changed`) and excludes activities from users with private profile visibility. The feed uses cursor-based pagination and WebSocket-driven "New Updates" indicators. Child activities (those with a non-null `parentActivityId`) are excluded from all feed views.
 
 **Resource Types:** `User`, `Experience`, `Destination`, `Photo`, `Plan`, `PlanItem`, `Follow`
 
@@ -703,6 +708,13 @@ All API mutations emit events via `broadcastEvent()` which handles both same-tab
 | `photo:created` | `{ photo, photoId }` | photos-api.js | Components |
 | `photos:created` | `{ photos, photoIds }` | photos-api.js | Components |
 | `photo:deleted` | `{ photoId }` | photos-api.js | Components |
+
+#### Activity Feed Events
+
+| Event | Payload | Source | Consumers |
+|-------|---------|--------|-----------|
+| `experience:activity:new` | `{ experienceId }` | WebSocket | ActivityFeed (SingleExperience) |
+| `experience:activity:loaded` | `{ experienceId, count, version }` | activities-api.js | _(analytics only)_ |
 
 #### Experience Granular Events
 

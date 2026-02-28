@@ -4,6 +4,8 @@
  */
 
 import { sendRequest } from './send-request';
+import { broadcastEvent } from './event-bus';
+import { logger } from './logger';
 
 const BASE_URL = '/api/activities';
 
@@ -101,23 +103,6 @@ export async function getActorHistory(actorId, options = {}) {
 }
 
 /**
- * Create a new activity record.
- * Payload should be an object describing the activity. Example:
- * {
- *   action: 'marked complete',
- *   item: 'Pack hiking boots',
- *   targetItem: 'Everest trip',
- *   link: '/experiences/abc123#plan-xyz-item-123'
- * }
- *
- * @param {Object} payload - Activity payload
- * @returns {Promise<Object>} Created activity
- */
-export async function createActivity(payload = {}) {
-  return await sendRequest(BASE_URL, 'POST', payload);
-}
-
-/**
  * Restore resource state using rollback token
  * Super admin only
  *
@@ -151,4 +136,49 @@ export async function getCuratorPlanners(options = {}) {
     : `${BASE_URL}/curator/planners`;
 
   return await sendRequest(url);
+}
+
+/**
+ * Get the public activity feed for an experience
+ * Returns activities visible to any viewer: plan creations, photo uploads, visibility changes
+ * Only includes activities from users with public profile visibility.
+ *
+ * @param {string} experienceId - Experience ID
+ * @param {Object} options - Query options
+ * @param {number} options.limit - Max results (default: 30)
+ * @param {string} options.before - Cursor date for pagination (ISO string)
+ * @returns {Promise<Object>} Activity feed with activities array and hasMore flag
+ */
+export async function getExperienceActivityFeed(experienceId, options = {}) {
+  const queryString = new URLSearchParams();
+
+  Object.entries(options).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      queryString.append(key, value);
+    }
+  });
+
+  const url = queryString.toString()
+    ? `${BASE_URL}/experience/${experienceId}/feed?${queryString}`
+    : `${BASE_URL}/experience/${experienceId}/feed`;
+
+  try {
+    const result = await sendRequest(url);
+
+    try {
+      broadcastEvent('experience:activity:loaded', {
+        experienceId,
+        count: result?.count || result?.activities?.length || 0,
+        version: Date.now()
+      });
+      logger.debug('[activities-api] Experience activity feed loaded', { experienceId });
+    } catch (e) {
+      // Silently ignore event emission errors
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[activities-api] Failed to fetch experience activity feed', { experienceId, error: error.message });
+    throw error;
+  }
 }
