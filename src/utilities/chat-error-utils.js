@@ -41,7 +41,17 @@ export function getFriendlyChatErrorMessage(err, options = {}) {
     /not allowed to perform action\s+ReadChannel/i.test(message);
 
   if (looksLikeReadDenied) {
-    return "You don’t have access to this conversation. If this is a plan chat, ask the plan owner to add you as a collaborator.";
+    return "You don't have access to this conversation. If this is a plan chat, ask the plan owner to add you as a collaborator.";
+  }
+
+  // CSRF / session errors are technical -- show a friendlier message
+  const looksLikeCsrfOrSession =
+    /\bcsrf\b/i.test(message) ||
+    /\binvalid token\b/i.test(message) ||
+    /\bsession expired\b/i.test(message);
+
+  if (looksLikeCsrfOrSession) {
+    return 'Your session may have expired. Please refresh the page and try again.';
   }
 
   // For feature-flag denials and other API errors, the backend already returns a user-friendly message.

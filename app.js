@@ -126,6 +126,19 @@ app.use(session(sessionConfig));
  * - The security comes from the cookie-header comparison, not session binding
  * - JWT provides user authentication independently
  */
+// __Host- prefix cookies MUST NOT have a Domain attribute (RFC 6265bis §4.1.3).
+// Browsers silently reject __Host- cookies that include Domain, which breaks CSRF.
+// Only set domain for non-__Host- cookies (development mode).
+const csrfCookieOptions = {
+  secure: isProduction || isRender,
+  httpOnly: true,
+  sameSite: (isProduction || isRender) ? 'none' : 'lax',
+  path: '/',
+};
+if (!(isProduction || isRender) && sessionCookieDomain) {
+  csrfCookieOptions.domain = sessionCookieDomain;
+}
+
 const {
   generateCsrfToken, // Used to create a CSRF token pair (correct name from csrf-csrf v4)
   doubleCsrfProtection, // Middleware to validate CSRF tokens
@@ -134,13 +147,7 @@ const {
   // Fixed identifier - security comes from cookie-header matching, not session binding
   getSessionIdentifier: () => 'biensperience-csrf-v1',
   cookieName: (isProduction || isRender) ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
-  cookieOptions: {
-    secure: isProduction || isRender,
-    httpOnly: true,
-    sameSite: (isProduction || isRender) ? 'none' : 'lax',
-    path: '/',
-    domain: sessionCookieDomain,
-  },
+  cookieOptions: csrfCookieOptions,
   size: 64,
   ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
   getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'], // Get token from header (note: renamed in v4)
@@ -279,6 +286,12 @@ if (process.env.NODE_ENV !== 'test') {
   app.use('/api', apiLimiter);
 }
 
+// CSRF token endpoint must be registered BEFORE the auth rate limiter.
+// The CSRF token is needed by ALL users for ALL state-changing requests, so
+// it should not be subject to the strict auth rate limit (15 req/15 min)
+// which is designed for login/signup brute-force protection.
+app.get('/api/auth/csrf-token', require('./routes/api/auth-csrf-token'));
+
 // Register auth routes AFTER JWT/token middleware (so logout can access req.user)
 // Apply strict auth rate limiter to authentication endpoints (login, password)
 // to mitigate brute-force attacks. The authLimiter is configured in
@@ -310,6 +323,8 @@ app.use('/api', (req, res, next) => {
 
   // Debug logging for CSRF validation
   const csrfTokenFromHeader = req.headers['x-csrf-token'];
+  const csrfCookieName = (isProduction || isRender) ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token';
+  const csrfCookieValue = req.cookies?.[csrfCookieName];
   backendLogger.debug('CSRF check', {
     method: req.method,
     path: req.path,
@@ -317,6 +332,9 @@ app.use('/api', (req, res, next) => {
     hasSession: !!req.session,
     hasCsrfHeader: !!csrfTokenFromHeader,
     csrfHeaderPreview: csrfTokenFromHeader ? csrfTokenFromHeader.substring(0, 16) + '...' : 'none',
+    hasCsrfCookie: !!csrfCookieValue,
+    csrfCookiePreview: csrfCookieValue ? csrfCookieValue.substring(0, 16) + '...' : 'none',
+    cookieMatch: !!(csrfTokenFromHeader && csrfCookieValue && csrfTokenFromHeader === csrfCookieValue),
     user: req.user ? {
       id: req.user._id,
       isSuperAdmin: req.user.isSuperAdmin,
@@ -348,7 +366,9 @@ app.use('/api', (req, res, next) => {
         path: req.path,
         method: req.method,
         sessionId: req.session?.id ? req.session.id.substring(0, 8) + '...' : 'none',
-        hasCsrfHeader: !!csrfTokenFromHeader
+        hasCsrfHeader: !!csrfTokenFromHeader,
+        hasCsrfCookie: !!csrfCookieValue,
+        cookieMatch: !!(csrfTokenFromHeader && csrfCookieValue && csrfTokenFromHeader === csrfCookieValue)
       });
     }
     next(err);

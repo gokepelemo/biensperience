@@ -7,6 +7,7 @@ import { getUserPlans } from '../utilities/plans-api';
 import { useUser } from './UserContext';
 import { logger } from '../utilities/logger';
 import { eventBus } from '../utilities/event-bus';
+import { useRevalidation, REVALIDATION_CONFIG } from '../hooks/useRevalidation';
 
 logger.debug('DataContext module loaded');
 
@@ -55,20 +56,11 @@ export function DataProvider({ children }) {
     experiences: null,
     plans: null,
   });
-  // Stale flags for lazy refresh pattern - mark when data needs refresh on next user-initiated re-render
-  const [dataStale, setDataStale] = useState({
-    destinations: false,
-    experiences: false,
-    plans: false,
-  });
   // Track optimistic plan state per-experience so canonical updates can avoid
   // stomping freshly applied optimistic UI. Shape: { [experienceId]: { state: Object, at: number } }
   const [optimisticPlanState, setOptimisticPlanState] = useState({});
   // Track the most recent immediate-set of experiences (stale-while-revalidate)
   const [immediateExperiences, setImmediateExperiences] = useState(null);
-  // Background refresh threshold for cached/plausible data (stale-while-revalidate)
-  const STALE_AFTER_MS = 2 * 60 * 1000; // 2 minutes
-
   // Safe shallow merge helper: copy defined keys from incoming onto existing.
   // This avoids overwriting existing nested objects with `undefined` from
   // partial or inconsistent API payloads (observed with destination fields).
@@ -147,16 +139,12 @@ export function DataProvider({ children }) {
         // Don't set state here - let caller handle it based on shuffle option
         setDestinationsMeta(resp.meta);
         setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
-        // Clear stale flag after successful refresh
-        setDataStale(prev => ({ ...prev, destinations: false }));
         return resp.data || [];
       } else if (Array.isArray(resp)) {
         // Backwards compatibility: if API returns array, treat as single page
         // Don't set state here - let caller handle it based on shuffle option
         setDestinationsMeta({ page: 1, limit: resp.length, total: resp.length, totalPages: 1, hasMore: false });
         setLastUpdated(prev => ({ ...prev, destinations: new Date() }));
-        // Clear stale flag after successful refresh
-        setDataStale(prev => ({ ...prev, destinations: false }));
         return resp || [];
       } else {
         logger.warn('Unexpected destinations response format', { resp });
@@ -262,16 +250,12 @@ export function DataProvider({ children }) {
         setExperiences(resp.data || []);
         setExperiencesMeta(resp.meta);
         setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-        // Clear stale flag after successful refresh
-        setDataStale(prev => ({ ...prev, experiences: false }));
         return resp.data || [];
       } else if (Array.isArray(resp)) {
         // Backwards compatibility: if API returns array, treat as single page
         setExperiences(resp || []);
         setExperiencesMeta({ page: 1, limit: resp.length, total: resp.length, totalPages: 1, hasMore: false });
         setLastUpdated(prev => ({ ...prev, experiences: new Date() }));
-        // Clear stale flag after successful refresh
-        setDataStale(prev => ({ ...prev, experiences: false }));
         return resp || [];
       } else {
         logger.warn('Unexpected experiences response format', { resp });
@@ -460,38 +444,12 @@ export function DataProvider({ children }) {
       }
       setPlans(merged || []);
       setLastUpdated(prev => ({ ...prev, plans: new Date() }));
-      // Clear stale flag after successful refresh
-      setDataStale(prev => ({ ...prev, plans: false }));
       return data || [];
     } catch (error) {
       logger.error('Failed to fetch plans', { error: error.message });
       return [];
     }
   }, [user, optimisticPlanState]);
-
-  // Lazy refresh: Check for stale data and refresh when needed
-  useEffect(() => {
-    if (dataStale.experiences && user) {
-      logger.debug('Lazy refresh: experiences marked as stale, refreshing...');
-      fetchExperiences();
-    }
-  }, [dataStale.experiences, user, fetchExperiences]);
-
-  useEffect(() => {
-    if (dataStale.destinations && user) {
-      logger.debug('Lazy refresh: destinations marked as stale, refreshing...');
-      fetchDestinations().then(result => {
-        if (result) setDestinations(result);
-      }).catch(() => {});
-    }
-  }, [dataStale.destinations, user, fetchDestinations]);
-
-  useEffect(() => {
-    if (dataStale.plans && user) {
-      logger.debug('Lazy refresh: plans marked as stale, refreshing...');
-      fetchPlans();
-    }
-  }, [dataStale.plans, user, fetchPlans]);
 
   /**
    * Refresh all data (destinations, experiences, and plans)
@@ -1040,48 +998,6 @@ export function DataProvider({ children }) {
     };
   }, []);
 
-  // Background refresh when we detect potentially stale cached data in memory
-  // Triggers non-blocking refreshes while keeping current UI responsive
-  useEffect(() => {
-    if (!user) return;
-
-    const now = Date.now();
-
-    const isStale = (d) => {
-      if (!d) return true;
-      const t = typeof d === 'number' ? d : new Date(d).getTime();
-      return now - t > STALE_AFTER_MS;
-    };
-
-    // Destinations
-    if (destinations.length > 0 && isStale(lastUpdated.destinations)) {
-      Promise.resolve(fetchDestinations()).then(result => {
-        if (result) setDestinations(result);
-      }).catch(() => {});
-    }
-
-    // Experiences
-    if (experiences.length > 0 && isStale(lastUpdated.experiences)) {
-      Promise.resolve(fetchExperiences()).catch(() => {});
-    }
-
-    // Plans
-    if (plans.length > 0 && isStale(lastUpdated.plans)) {
-      Promise.resolve(fetchPlans()).catch(() => {});
-    }
-  }, [
-    user,
-    destinations.length,
-    experiences.length,
-    plans.length,
-    lastUpdated.destinations,
-    lastUpdated.experiences,
-    lastUpdated.plans,
-    fetchDestinations,
-    fetchExperiences,
-    fetchPlans,
-  ]);
-
   // Background fetch: populate destinations when never fetched
   // AppHome loads destinationsShuffled but not destinations — this ensures
   // components like Profile that read from destinations get data too.
@@ -1099,63 +1015,81 @@ export function DataProvider({ children }) {
     }).catch(() => {});
   }, [user, destinations.length, lastUpdated.destinations, loading, fetchDestinations]);
 
+  // Unified stale-while-revalidate: periodic checks, tab visibility, network reconnect
+  const { revalidationStatus, markStale, forceRevalidate } = useRevalidation(
+    REVALIDATION_CONFIG,
+    {
+      destinations: async () => {
+        const result = await fetchDestinations();
+        if (result) setDestinations(result);
+      },
+      experiences: fetchExperiences,
+      plans: fetchPlans,
+    },
+    {
+      user,
+      lastUpdated,
+      hasData: {
+        destinations: destinations.length > 0,
+        experiences: experiences.length > 0,
+        plans: plans.length > 0,
+      },
+    }
+  );
+
+  // Derive isRefreshing for backward compatibility
+  const isRevalidating = Object.values(revalidationStatus).some(s => s === 'revalidating');
+
   // Event bus listeners - update DataContext when events are broadcast
   // Note: eventBus.subscribe() receives event object with data at top level (e.g., event.destination)
   // while CustomEvent via window.dispatchEvent has data in event.detail (e.g., event.detail.destination)
   // We support both formats for compatibility
   useEffect(() => {
     const handleExperienceUpdated = (event) => {
-      // Support both eventBus format (event.experience) and CustomEvent format (event.detail.experience)
       const experience = event.experience || event.detail?.experience;
       if (experience && experience._id) {
-        logger.debug('[DataContext] experience:updated event received, marking experiences as stale', { id: experience._id });
-        // Mark experiences data as stale - will be refreshed on next user-initiated re-render
-        setDataStale(prev => ({ ...prev, experiences: true }));
+        logger.debug('[DataContext] experience:updated event received, marking stale', { id: experience._id });
+        markStale('experiences');
       }
     };
 
     const handleExperienceCreated = (event) => {
       const experience = event.experience || event.detail?.experience;
       if (experience && experience._id) {
-        logger.debug('[DataContext] experience:created event received, marking experiences as stale', { id: experience._id });
-        // Mark experiences data as stale - will be refreshed on next user-initiated re-render
-        setDataStale(prev => ({ ...prev, experiences: true }));
+        logger.debug('[DataContext] experience:created event received, marking stale', { id: experience._id });
+        markStale('experiences');
       }
     };
 
     const handleExperienceDeleted = (event) => {
       const experienceId = event.experienceId || event.detail?.experienceId;
       if (experienceId) {
-        logger.debug('[DataContext] experience:deleted event received, marking experiences as stale', { id: experienceId });
-        // Mark experiences data as stale - will be refreshed on next user-initiated re-render
-        setDataStale(prev => ({ ...prev, experiences: true }));
+        logger.debug('[DataContext] experience:deleted event received, marking stale', { id: experienceId });
+        markStale('experiences');
       }
     };
 
     const handleDestinationUpdated = (event) => {
       const destination = event.destination || event.detail?.destination;
       if (destination && destination._id) {
-        logger.debug('[DataContext] destination:updated event received, marking destinations as stale', { id: destination._id });
-        // Mark destinations data as stale - will be refreshed on next user-initiated re-render
-        setDataStale(prev => ({ ...prev, destinations: true }));
+        logger.debug('[DataContext] destination:updated event received, marking stale', { id: destination._id });
+        markStale('destinations');
       }
     };
 
     const handleDestinationCreated = (event) => {
       const destination = event.destination || event.detail?.destination;
       if (destination && destination._id) {
-        logger.debug('[DataContext] destination:created event received, marking destinations as stale', { id: destination._id });
-        // Mark destinations data as stale - will be refreshed on next user-initiated re-render
-        setDataStale(prev => ({ ...prev, destinations: true }));
+        logger.debug('[DataContext] destination:created event received, marking stale', { id: destination._id });
+        markStale('destinations');
       }
     };
 
     const handleDestinationDeleted = (event) => {
       const destinationId = event.destinationId || event.detail?.destinationId;
       if (destinationId) {
-        logger.debug('[DataContext] destination:deleted event received, marking destinations as stale', { id: destinationId });
-        // Mark destinations data as stale - will be refreshed on next user-initiated re-render
-        setDataStale(prev => ({ ...prev, destinations: true }));
+        logger.debug('[DataContext] destination:deleted event received, marking stale', { id: destinationId });
+        markStale('destinations');
       }
     };
 
@@ -1218,7 +1152,7 @@ export function DataProvider({ children }) {
       unsubscribePlanCreated();
       unsubscribePlanDeleted();
     };
-  }, [updateExperience, addExperience, removeExperience, updateDestination, addDestination, removeDestination, updatePlan, addPlan, removePlan, fetchPlans]);
+  }, [updateExperience, addExperience, removeExperience, updateDestination, addDestination, removeDestination, updatePlan, addPlan, removePlan, fetchPlans, markStale]);
 
   const value = {
     // State
@@ -1227,7 +1161,7 @@ export function DataProvider({ children }) {
     experiences,
     plans,
     loading,
-    isRefreshing,
+    isRefreshing: isRefreshing || isRevalidating,
     lastUpdated,
 
     // Fetch functions
@@ -1245,6 +1179,9 @@ export function DataProvider({ children }) {
   destinationsFilters,
   applyExperiencesFilter,
   experiencesFilters,
+  // Revalidation controls
+  revalidationStatus,
+  forceRevalidate,
   // Immediate-set helper (stale-while-revalidate)
   setExperiencesImmediate,
   // Marker for immediate-set (helpers can inspect to avoid overwrite races)

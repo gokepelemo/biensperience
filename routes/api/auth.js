@@ -45,44 +45,8 @@ function parseSignedRequest(signedRequest, appSecret) {
   }
 }
 
-/**
- * CSRF Token Endpoint
- * Returns a CSRF token for the client to use in subsequent requests
- * This is a GET request so it's not protected by CSRF itself
- *
- * The token is generated using a fixed session identifier for reliability
- * across server restarts and instances. Security is maintained via the
- * Double Submit Cookie pattern.
- */
-router.get('/csrf-token', (req, res) => {
-  try {
-    // Never cache CSRF tokens. Some browsers may otherwise revalidate and receive 304,
-    // which breaks clients expecting a JSON body.
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.set('Surrogate-Control', 'no-store');
-
-    const generateToken = req.app.get('csrfTokenGenerator');
-
-    if (!generateToken || typeof generateToken !== 'function') {
-      backendLogger.error('CSRF token generator not available');
-      return res.status(500).json({ error: 'CSRF configuration error' });
-    }
-
-    const csrfToken = generateToken(req, res);
-
-    backendLogger.debug('CSRF token generated', {
-      hasToken: !!csrfToken,
-      tokenPreview: csrfToken ? csrfToken.substring(0, 16) + '...' : 'none'
-    });
-
-    res.json({ csrfToken });
-  } catch (err) {
-    backendLogger.error('CSRF token generation error', { error: err.message });
-    res.status(500).json({ error: 'Failed to generate CSRF token' });
-  }
-});
+// CSRF token endpoint is now registered separately in app.js (routes/api/auth-csrf-token.js)
+// to avoid the strict auth rate limiter. See app.js for details.
 
 /**
  * Facebook OAuth Routes
