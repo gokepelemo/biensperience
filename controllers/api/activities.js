@@ -1,8 +1,4 @@
-/**
- * Activity Controller
- * Handles activity tracking, history retrieval, and state restoration
- * Super admin only operations
- */
+
 
 const Activity = require('../../models/activity');
 const Experience = require('../../models/experience');
@@ -81,10 +77,7 @@ async function getResourceHistory(req, res) {
       }
     }
 
-    // IMPORTANT PRIVACY RULE:
-    // Non-super-admin users should only see activities where they are the actor or target.
-    // Even if they own/collaborate on a resource, they should not see other users' activity
-    // unless it directly involves them.
+    // Only show activities where user is actor or target if not super admin
     const query = {
       'resource.id': new mongoose.Types.ObjectId(resourceId)
     };
@@ -134,11 +127,7 @@ async function getResourceHistory(req, res) {
   }
 }
 
-/**
- * Find a resource by ID across all resource types
- * @param {string} resourceId - The resource ID to find
- * @returns {Promise<Object|null>} - The resource with its type, or null if not found
- */
+// Find a resource by ID across all resource types
 async function findResourceById(resourceId) {
   // Try each resource type in order of likelihood
   const resourceTypes = [
@@ -162,12 +151,7 @@ async function findResourceById(resourceId) {
   return null;
 }
 
-/**
- * Check if user has access to view a resource's activity history
- * @param {Object} user - The requesting user
- * @param {Object} resourceData - Object with { resource, type }
- * @returns {Promise<boolean>} - True if user has access
- */
+// Check if user has access to view a resource's activity history
 async function checkResourceAccess(user, resourceData) {
   const { resource, type } = resourceData;
   const models = { Destination, Experience };

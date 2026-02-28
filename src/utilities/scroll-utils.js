@@ -1,14 +1,9 @@
-// Shared scrolling and element utilities used by SingleExperience and other views
-// Provides safe selector escaping, plan-item highlighting (shake), and a retrying
-// scroll-to-item helper that resolves when the element is found or falls back.
+
 
 import { logger } from './logger';
 import { scroller, animateScroll } from 'react-scroll';
 
-/**
- * Escape a string for use in querySelector.
- * Uses CSS.escape when available, with a conservative fallback.
- */
+// Escape a string for use in querySelector
 export function escapeSelector(s) {
   if (!s && s !== 0) return s;
   try {
@@ -19,14 +14,7 @@ export function escapeSelector(s) {
   return String(s).replace(/\\|"|'|`/g, (m) => `\\${m}`);
 }
 
-/**
- * Apply a transient shake animation to the closest `.plan-item-card` or `.compact-plan-item`
- * for the given plan item id. Looks for `[data-plan-item-id]` first, then falls back
- * to `document.getElementById`.
- * Returns the card/item element when successful, otherwise null.
- *
- * Supports both Card View (.plan-item-card) and Compact View (.compact-plan-item)
- */
+// Apply a transient shake animation to the closest plan item card or compact item
 export function highlightPlanItem(id) {
   if (!id || typeof window === 'undefined') return null;
   const escaped = escapeSelector(id);
@@ -41,8 +29,7 @@ export function highlightPlanItem(id) {
   }
   if (!el) return null;
 
-  // Support both Card View and Compact View
-  // Try .plan-item-card first (Card View), then .compact-plan-item (Compact View), fallback to element itself
+  // Try .plan-item-card first, then .compact-plan-item, fallback to element itself
   let targetEl = el;
   if (el.closest) {
     const cardView = el.closest('.plan-item-card');
@@ -61,18 +48,7 @@ export function highlightPlanItem(id) {
   return targetEl;
 }
 
-/**
- * Attempt to scroll to a plan item by its id. Retries up to `maxAttempts`
- * waiting `delayMs` between attempts. Resolves with the found element or
- * null if not found (after scrolling the plan section as a fallback).
- *
- * @param {string} itemId - The plan item ID to scroll to
- * @param {Object} options - Configuration options
- * @param {number} options.maxAttempts - Maximum retry attempts (default: 8)
- * @param {number} options.delayMs - Delay between retries in ms (default: 150)
- * @param {number} options.anticipationDelay - Delay before scroll starts (default: 0ms - immediate)
- * @param {boolean} options.shouldHighlight - Whether to apply shake animation (default: true for deep-links, false otherwise)
- */
+// Attempt to scroll to a plan item by its id, retrying if not found
 export function attemptScrollToItem(itemId, { maxAttempts = 8, delayMs = 150, anticipationDelay = 0, shouldHighlight = true } = {}) {
   // Helper to execute immediately or with delay
   const scheduleScroll = (fn) => {

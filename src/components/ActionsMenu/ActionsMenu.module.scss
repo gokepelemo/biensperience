@@ -18,12 +18,6 @@
     height: 32px;
     font-size: var(--font-size-sm);
   }
-
-  .item {
-    padding: $space-3 $space-4;
-    font-size: var(--font-size-sm);
-    min-height: 44px;
-  }
 }
 
 .size-md {
@@ -31,12 +25,6 @@
     width: var(--btn-height-md, 44px);
     height: var(--btn-height-md, 44px);
     font-size: var(--font-size-base);
-  }
-
-  .item {
-    padding: $space-3 $space-4;
-    font-size: var(--font-size-sm);
-    min-height: 48px;
   }
 }
 
@@ -123,33 +111,9 @@
   }
 }
 
-/* Menu item */
+/* Menu item – uses the design-system mixin for consistent padding/sizing */
 .item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3, 12px);
-  width: 100%;
-  background: transparent;
-  border: none;
-  /* Light mode: dark text on white background for legibility */
-  color: var(--color-text-primary, #1a202c);
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
-  font-family: inherit;
-  line-height: 1.4;
-  /* Default touch target; size variants can override */
-  min-height: 44px;
-  border-radius: var(--radius-md, #{$radius-md});
-
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
-  }
-
-  &:focus-visible {
-    outline: none;
-    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
-  }
+  @include menu-item;
 
   /* Danger variant - for delete actions */
   &.itemDanger {
@@ -208,10 +172,7 @@
     min-width: 220px;
   }
 
-  .item {
-    padding-top: var(--space-4, 16px);
-    padding-bottom: var(--space-4, 16px);
-  }
+  /* Mobile padding for .item is already handled by @include menu-item */
 }
 
 /* Label text */

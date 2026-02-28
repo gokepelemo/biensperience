@@ -11,7 +11,7 @@ const mongoose = require("mongoose");
 const Activity = require('../../models/activity');
 const { sendCollaboratorInviteEmail, sendPlanAccessRequestEmail } = require('../../utilities/email-service');
 const { sendIfAllowed, notifyUser } = require('../../utilities/notifications');
-// PlanAccessRequest is now embedded in Plan.accessRequests sub-document
+
 const { trackCreate, trackUpdate, trackDelete, trackPlanItemCompletion, trackCostAdded } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag, hasFeatureFlagInContext, FEATURE_FLAG_CONTEXT } = require('../../utilities/feature-flags');
 const { broadcastEvent, sendEventToUser } = require('../../utilities/websocket-server');
@@ -23,12 +23,7 @@ const {
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
 const crypto = require('crypto');
 
-/**
- * Sanitize location data to prevent GeoJSON validation errors
- * Ensures proper format or null if invalid
- * @param {Object} location - Location object from request
- * @returns {Object|null} Sanitized location or null
- */
+// Sanitize location data for GeoJSON
 function sanitizeLocation(location) {
   if (!location) return null;
 
@@ -63,15 +58,7 @@ function sanitizeLocation(location) {
   return sanitized;
 }
 
-/**
- * Filter plan notes based on visibility permissions
- * - 'contributors': Visible to all plan collaborators
- * - 'private': Only visible to the note creator
- *
- * @param {Object} plan - The plan document (will be modified in place)
- * @param {ObjectId|string} userId - Current user's ID
- * @returns {Object} The plan with filtered notes
- */
+// Filter plan notes by visibility
 function filterNotesByVisibility(plan, userId) {
   if (!plan || !plan.plan || !Array.isArray(plan.plan)) return plan;
 
@@ -99,13 +86,7 @@ function filterNotesByVisibility(plan, userId) {
   return plan;
 }
 
-/**
- * Check if a user is a valid member of a plan (owner or has permissions)
- * Uses permission inheritance to resolve all valid members including those from experience
- * @param {Object} plan - The plan document
- * @param {string} userId - User ID to check
- * @returns {Promise<boolean>} True if user is a plan member
- */
+// Check if a user is a valid member of a plan
 async function isPlanMember(plan, userId) {
   if (!plan || !userId) return false;
 
@@ -385,6 +366,57 @@ const createPlan = asyncHandler(async (req, res) => {
         req,
         reason: `Plan created for experience "${experience.name}"`
       });
+
+      // Log experience_planned activity for the experience activity feed
+      // Only if user's profile is public
+      try {
+        const planCreator = await User.findById(req.user._id).select('preferences.profileVisibility name email').lean();
+        if (planCreator?.preferences?.profileVisibility !== 'private') {
+          await Activity.log({
+            action: 'experience_planned',
+            actor: {
+              _id: req.user._id,
+              name: req.user.name,
+              email: req.user.email
+            },
+            resource: {
+              id: experience._id,
+              type: 'Experience',
+              name: experience.name
+            },
+            target: {
+              id: plan._id,
+              type: 'Plan',
+              name: `Plan for ${experience.name}`
+            },
+            reason: `${req.user.name} is planning this experience`,
+            metadata: {
+              ipAddress: req.ip,
+              userAgent: req.get('user-agent'),
+              requestPath: req.path,
+              requestMethod: req.method,
+              experienceId: experience._id.toString(),
+              planId: plan._id.toString()
+            },
+            tags: ['experience_feed', 'experience_planned']
+          });
+
+          // Broadcast to experience room so activity tab updates in real time
+          broadcastEvent('experience', experience._id.toString(), {
+            type: 'experience:activity:new',
+            payload: {
+              experienceId: experience._id.toString(),
+              action: 'experience_planned',
+              actorName: req.user.name
+            }
+          }, req.user._id.toString());
+        }
+      } catch (feedActivityErr) {
+        backendLogger.warn('Failed to log experience_planned activity', {
+          error: feedActivityErr.message,
+          experienceId: experience._id.toString()
+        });
+      }
 
       // If experience owner is a curator, log an activity for their dashboard
       // Find the owner from permissions and check if they have the curator flag
@@ -2060,7 +2092,7 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   const {
     complete, cost, planning_days, text, url, activity_type,
     location, lat, lng, address, scheduled_date, scheduled_time,
-    photos
+    photos, visibility
   } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(itemId)) {
@@ -2138,7 +2170,7 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   // positional update to avoid validating other unrelated nested fields
   // (such as optional GeoJSON coordinates) which can cause validation failures.
   const requestedKeys = Object.keys(req.body || {}).filter(k => k);
-  const allowedScalarKeys = ['complete', 'cost', 'planning_days', 'text', 'url', 'activity_type', 'scheduled_date', 'scheduled_time'];
+  const allowedScalarKeys = ['complete', 'cost', 'planning_days', 'text', 'url', 'activity_type', 'scheduled_date', 'scheduled_time', 'visibility'];
   const locationKeys = ['location', 'lat', 'lng', 'address'];
   const arrayKeys = ['photos'];
   const allAllowedKeys = [...allowedScalarKeys, ...locationKeys, ...arrayKeys];
@@ -2154,6 +2186,12 @@ const updatePlanItem = asyncHandler(async (req, res) => {
     if (url !== undefined) setObj['plan.$.url'] = url;
     if (scheduled_date !== undefined) setObj['plan.$.scheduled_date'] = scheduled_date;
     if (scheduled_time !== undefined) setObj['plan.$.scheduled_time'] = scheduled_time;
+
+    // Validate and set visibility
+    if (visibility !== undefined) {
+      const validVisibilities = ['public', 'plan_only'];
+      setObj['plan.$.visibility'] = validVisibilities.includes(visibility) ? visibility : 'plan_only';
+    }
 
     // Validate and set activity_type - use full list from model enum
     if (activity_type !== undefined) {
@@ -2270,6 +2308,46 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       backendLogger.warn('[WebSocket] Failed to broadcast plan item update', { error: wsErr.message });
     }
 
+    // Log visibility change activity for the experience feed
+    if (visibility !== undefined && visibility !== planItem.visibility) {
+      setImmediate(async () => {
+        try {
+          const experienceId = updatedPlan.experience?._id || updatedPlan.experience;
+          const updatedItem = updatedPlan.plan?.find(i => i._id?.toString() === itemId?.toString());
+          if (visibility === 'public') {
+            const itemUser = await User.findById(req.user._id).select('preferences.profileVisibility name email').lean();
+            if (itemUser?.preferences?.profileVisibility !== 'private') {
+              await Activity.log({
+                action: 'plan_item_visibility_changed',
+                actor: { _id: req.user._id, name: req.user.name, email: req.user.email },
+                resource: { id: experienceId, type: 'Experience', name: updatedPlan.experience?.name || 'Unknown' },
+                target: { id: itemId, type: 'PlanItem', name: updatedItem?.text || 'Unnamed item' },
+                reason: `${req.user.name} shared "${updatedItem?.text || 'a plan item'}" publicly`,
+                metadata: {
+                  experienceId: experienceId?.toString?.() || String(experienceId),
+                  planId: id.toString(),
+                  visibility: 'public'
+                },
+                tags: ['experience_feed', 'visibility_changed']
+              });
+
+              // Broadcast to experience room so activity tab updates in real time
+              broadcastEvent('experience', experienceId?.toString?.() || String(experienceId), {
+                type: 'experience:activity:new',
+                payload: {
+                  experienceId: experienceId?.toString?.() || String(experienceId),
+                  action: 'plan_item_visibility_changed',
+                  actorName: req.user.name
+                }
+              }, req.user._id.toString());
+            }
+          }
+        } catch (err) {
+          backendLogger.warn('Failed to log visibility change activity', { error: err.message });
+        }
+      });
+    }
+
     // Explicitly convert to JSON to ensure virtuals are included
     return res.json(updatedPlan.toJSON());
   }
@@ -2282,6 +2360,10 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   if (url !== undefined) planItem.url = url;
   if (scheduled_date !== undefined) planItem.scheduled_date = scheduled_date;
   if (scheduled_time !== undefined) planItem.scheduled_time = scheduled_time;
+  if (visibility !== undefined) {
+    const validVisibilities = ['public', 'plan_only'];
+    planItem.visibility = validVisibilities.includes(visibility) ? visibility : 'plan_only';
+  }
 
   // Validate and set activity_type - use full list from model enum
   if (activity_type !== undefined) {
@@ -3546,6 +3628,58 @@ const addPlanItemDetail = asyncHandler(async (req, res) => {
       detailType: type
     }
   });
+
+  // Log photo-specific activity for the experience activity feed
+  // Only if the plan item visibility is 'public' and user has a public profile
+  if (type === 'photos' && planItem.visibility === 'public') {
+    try {
+      const experienceId = plan.experience?._id || plan.experience;
+      const photoUploader = await User.findById(req.user._id).select('preferences.profileVisibility name email').lean();
+      if (photoUploader?.preferences?.profileVisibility !== 'private') {
+        await Activity.log({
+          action: 'plan_item_photo_added',
+          actor: {
+            _id: req.user._id,
+            name: req.user.name,
+            email: req.user.email
+          },
+          resource: {
+            id: experienceId,
+            type: 'Experience',
+            name: plan.experience?.name || 'Unknown Experience'
+          },
+          target: {
+            id: itemId,
+            type: 'PlanItem',
+            name: planItemName
+          },
+          reason: `${req.user.name} added a photo to "${planItemName}"`,
+          metadata: {
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+            requestPath: req.path,
+            requestMethod: req.method,
+            experienceId: experienceId?.toString ? experienceId.toString() : String(experienceId),
+            planId: plan._id.toString(),
+            photoId: data.photoId
+          },
+          tags: ['experience_feed', 'plan_item_photo']
+        });
+
+        // Broadcast to experience room so activity tab updates in real time
+        broadcastEvent('experience', experienceId?.toString ? experienceId.toString() : String(experienceId), {
+          type: 'experience:activity:new',
+          payload: {
+            experienceId: experienceId?.toString ? experienceId.toString() : String(experienceId),
+            action: 'plan_item_photo_added',
+            actorName: req.user.name
+          }
+        }, req.user._id.toString());
+      }
+    } catch (feedErr) {
+      backendLogger.warn('Failed to log plan_item_photo_added activity for feed', { error: feedErr.message });
+    }
+  }
 
   // Filter notes based on visibility before returning
   filterNotesByVisibility(plan, req.user._id);

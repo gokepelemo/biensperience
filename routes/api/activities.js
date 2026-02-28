@@ -11,7 +11,8 @@ const {
   restoreResourceState,
   getAllActivities,
   getActivityStats,
-  getCuratorPlanners
+  getCuratorPlanners,
+  getExperienceActivityFeed
 } = require('../../controllers/api/activities');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { apiLimiter } = require('../../config/rateLimiters');
@@ -27,6 +28,9 @@ router.get('/', getAllActivities);
 
 // Get activity statistics (super admin only)
 router.get('/stats', getActivityStats);
+
+// Get public activity feed for an experience (any authenticated user)
+router.get('/experience/:experienceId/feed', getExperienceActivityFeed);
 
 // Get activity history for a specific resource
 router.get('/resource/:resourceId', getResourceHistory);

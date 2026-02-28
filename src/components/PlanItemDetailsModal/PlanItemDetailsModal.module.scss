@@ -75,9 +75,13 @@
    * Uses 991px breakpoint to match tab dropdown visibility */
   @media (max-width: 991px) {
     height: auto;
-    /* Ensure modal card covers the full viewport even with short content */
-    min-height: 100vh;
-    min-height: 100dvh;
+    /* Let the parent .modalContent handle viewport min-height (100dvh).
+     * Removing min-height here allows the card to size to content
+     * when content is short (empty states) and grow past the viewport
+     * when content is long. The parent .modalContent already has
+     * min-height: 100dvh ensuring the modal card visually covers
+     * the viewport even with short content. */
+    min-height: 0;
     max-height: none;
     /* Use overflow: visible on both axes to avoid CSS spec trap where
      * split overflow axes (one hidden, one visible) forces the visible
@@ -146,13 +150,14 @@
     min-height: 400px;
   }
 
-  /* Common tab wrappers: size to content in document scroll mode */
+  /* Common tab wrappers: size to content in document scroll mode.
+   * overflow: visible !important ensures content flows into the page
+   * scroll instead of creating internal scroll containers. */
   .notesTabWrapper,
   .photosTabWrapper,
   .documentsTabWrapper,
   .detailsTabContent,
-  .locationTabContent,
-  .chatTabWrapper {
+  .locationTabContent {
     /* Flex container for proper child sizing (EmptyState, etc.) */
     display: flex !important;
     flex-direction: column !important;
@@ -162,7 +167,7 @@
     /* Use fixed minimum heights instead of percentage (parent has auto height) */
     min-height: 300px !important;
     /* Allow content to flow naturally with page scroll */
-    overflow: visible;
+    overflow: visible !important;
     overscroll-behavior: auto;
 
     /* Override tabWrapperActive constraints for document scroll mode */
@@ -172,6 +177,30 @@
       flex: 1 1 auto !important;
       height: auto !important;
       min-height: 300px !important;
+      overflow: visible !important;
+    }
+  }
+
+  /* Chat tab: Keep internal scrolling on mobile because chat UIs
+   * inherently require a scrollable message list. Give it a
+   * content-based height with a generous minimum. */
+  .chatTabWrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    /* Fixed height that provides a usable chat area within the page */
+    height: auto !important;
+    min-height: 500px !important;
+    /* Chat keeps internal scroll — do NOT set overflow: visible */
+    overflow: hidden !important;
+
+    &.tabWrapperActive {
+      display: flex !important;
+      flex-direction: column !important;
+      flex: 1 1 auto !important;
+      height: auto !important;
+      min-height: 500px !important;
+      overflow: hidden !important;
     }
   }
 
@@ -234,11 +263,7 @@
   border-bottom: 1px solid var(--color-border-light);
   box-sizing: border-box;
   max-width: 100%;
-  /* Allow dropdown to overflow - critical for visibility */
-  overflow: visible;
-  /* Establish stacking context for dropdown */
   position: relative;
-  z-index: 20;
 
   /* Mobile/Tablet: Stack layout to match document scroll mode */
   @media (max-width: 991px) {
@@ -246,8 +271,6 @@
     align-items: flex-start;
     padding: $space-4;
     width: 100%;
-    /* Keep overflow visible for dropdown */
-    overflow: visible;
   }
 
   @media (max-width: 768px) {
@@ -265,8 +288,6 @@
 .assignmentAutocompleteWrapper {
   flex: 1;
   position: relative;
-  /* Establish stacking context so dropdown appears above all modal content */
-  z-index: $z-index-modal-dropdown;
 }
 
 .assignmentLink {

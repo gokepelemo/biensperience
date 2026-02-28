@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { FaDollarSign, FaClock, FaStickyNote, FaUser, FaThumbtack } from 'react-icons/fa';
+import { FaDollarSign, FaClock, FaStickyNote, FaUser, FaThumbtack, FaGlobe } from 'react-icons/fa';
 import Checkbox from '../../../../components/Checkbox/Checkbox';
 import ActionsMenu from '../../../../components/ActionsMenu';
 import { sanitizeUrl, sanitizeText } from '../../../../utilities/sanitize';
@@ -179,8 +179,13 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
         </span>
       )}
 
-      {/* Meta info - cost and planning days */}
+      {/* Meta info - cost, planning days, and visibility */}
       <span className="timeline-item-meta">
+        {planItem.visibility === 'public' && (
+          <span className="timeline-meta-visibility text-success" title="Visible on experience feed">
+            <FaGlobe />
+          </span>
+        )}
         {Number(planItem.cost) > 0 && (
           <span className="timeline-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
             <FaDollarSign />
@@ -237,6 +242,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
     prevProps.planItem.isChild === nextProps.planItem.isChild &&
     prevProps.planItem.cost === nextProps.planItem.cost &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.planItem.visibility === nextProps.planItem.visibility &&
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
     prevProps.planItem.activity_type === nextProps.planItem.activity_type &&
     prevProps.planItem.scheduled_date === nextProps.planItem.scheduled_date &&

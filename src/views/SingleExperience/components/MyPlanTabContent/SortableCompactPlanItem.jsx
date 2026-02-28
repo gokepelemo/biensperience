@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FaDollarSign, FaClock, FaThumbtack } from 'react-icons/fa';
+import { FaDollarSign, FaClock, FaThumbtack, FaGlobe } from 'react-icons/fa';
 
 import ActionsMenu from '../../../../components/ActionsMenu';
 import DragHandle from '../../../../components/DragHandle/DragHandle';
@@ -229,8 +229,13 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
         })()}
       </span>
 
-      {/* Meta info - cost and planning days */}
+      {/* Meta info - cost, planning days, and visibility */}
       <span className="compact-item-meta">
+        {planItem.visibility === 'public' && (
+          <span className="compact-meta-visibility text-success" title="Visible on experience feed">
+            <FaGlobe />
+          </span>
+        )}
         {Number(planItem.cost) > 0 && (
           <span className="compact-meta-cost" title={`Cost estimate: $${planItem.cost}`}>
             <FaDollarSign />
@@ -261,6 +266,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
     prevProps.planItem.isChild === nextProps.planItem.isChild &&
     prevProps.planItem.cost === nextProps.planItem.cost &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.planItem.visibility === nextProps.planItem.visibility &&
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
     prevProps.planItem.activity_type === nextProps.planItem.activity_type &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&

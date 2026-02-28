@@ -8,7 +8,7 @@
  */
 
 import { memo, useState, useEffect, useRef } from 'react';
-import { FaListAlt, FaUser, FaChevronDown, FaChevronUp, FaCheck } from 'react-icons/fa';
+import { FaListAlt, FaUser, FaChevronDown, FaChevronUp, FaCheck, FaRss } from 'react-icons/fa';
 import Loading from '../../../components/Loading/Loading';
 import debug from '../../../utilities/debug';
 import { lang } from '../../../lang.constants';
@@ -70,6 +70,19 @@ function PlanTabsNavigation({
   }, [dropdownOpen]);
   return (
     <div className={styles.planTabsNav} role="tablist" aria-label={lang.current.aria.planTabs}>
+      {/* Activity Tab - Always visible, shows experience activity feed */}
+      <button
+        type="button"
+        className={`${styles.tabItem} ${activeTab === "activity" ? styles.tabItemActive : ""}`}
+        onClick={() => setActiveTab("activity")}
+        aria-selected={activeTab === "activity"}
+        role="tab"
+        tabIndex={activeTab === "activity" ? 0 : -1}
+      >
+        <span className={styles.tabIcon}><FaRss /></span>
+        <span className={styles.tabLabel}>Activity</span>
+      </button>
+
       {/* The Plan Tab - Always visible */}
       <button
         type="button"

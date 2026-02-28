@@ -1,16 +1,8 @@
-/**
- * SingleExperience View Styles (SCSS Module)
- * Migrated from SingleExperience.css to SingleExperience.module.scss
- * Uses SASS variables and mixins for better maintainability
- *
- * Note: Most classes use :global() to maintain compatibility with existing JSX
- */
+
 
 @use '../../styles/scss/abstracts' as *;
 
-/* ==============================================
-   TWO-COLUMN LAYOUT (Storybook ExperienceDetailView)
-   ============================================== */
+
 
 /* Breadcrumb Navigation */
 .breadcrumbNav {
@@ -1237,27 +1229,7 @@
   }
 
   :global(.plan-actions-item) {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: $space-3 $space-4;
-    border: none;
-    background: transparent;
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: background-color var(--transition-fast);
-    border-radius: $radius-md;
-
-    &:hover:not(:disabled) {
-      background: var(--color-bg-hover);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    @include menu-item;
 
     svg {
       font-size: 1.1em;

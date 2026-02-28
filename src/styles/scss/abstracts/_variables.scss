@@ -159,6 +159,14 @@ $color-border-primary: rgba(102, 126, 234, 0.2);
 $color-border-overlay: rgba(255, 255, 255, 0.25);
 
 // ============================================================================
+// MENU / DROPDOWN ITEMS
+// ============================================================================
+$menu-item-padding-y: $space-3;          // 12px – vertical padding for menu items
+$menu-item-padding-x: $space-4;          // 16px – horizontal padding for menu items
+$menu-item-min-height: 44px;             // WCAG 2.1 AA minimum touch target
+$menu-item-mobile-padding-y: $space-4;   // 16px – larger vertical padding on mobile
+
+// ============================================================================
 // SHADOWS
 // ============================================================================
 // Box Shadows

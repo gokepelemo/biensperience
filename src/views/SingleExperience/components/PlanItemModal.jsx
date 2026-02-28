@@ -1,17 +1,4 @@
-/**
- * PlanItemModal Component
- *
- * REFACTORED: Modal now owns its form state internally to prevent
- * parent re-renders on every field change. This fixes Chrome crashes
- * caused by rapid state updates propagating to the 3000+ line parent.
- *
- * State Flow:
- * 1. Parent opens modal with initialData
- * 2. Modal copies initialData to internal formState
- * 3. All field changes update internal formState only (no parent re-renders)
- * 4. On save, modal calls onSave(formState) to parent
- * 5. Parent handles API call and closes modal
- */
+
 
 import { useState, useEffect, useId, useRef, useCallback } from 'react';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
@@ -20,7 +7,7 @@ import { lang } from '../../../lang.constants';
 import { Modal, FormGroup, FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
 import styles from './PlanItemModal.module.scss';
 
-// Default empty form state
+// Default form state for a plan item
 const DEFAULT_FORM_STATE = {
   _id: null,
   plan_item_id: null,
@@ -30,7 +17,8 @@ const DEFAULT_FORM_STATE = {
   planning_days: 0,
   activity_type: null,
   location: null,
-  parent: null
+  parent: null,
+  visibility: 'plan_only'
 };
 
 export default function PlanItemModal({
@@ -49,6 +37,9 @@ export default function PlanItemModal({
 
   // UI state
   loading,
+
+  // Whether this is for a plan instance (shows visibility option)
+  isPlanInstance,
 
   // Language strings
   langStrings
@@ -78,7 +69,8 @@ export default function PlanItemModal({
         planning_days: initial.planning_days || 0,
         activity_type: initial.activity_type || null,
         location: initial.location || null,
-        parent: initial.parent || null
+        parent: initial.parent || null,
+        visibility: initial.visibility || 'plan_only'
       });
     } else if (!show && wasOpenRef.current) {
       // Modal just closed - reset tracking ref
@@ -228,6 +220,24 @@ export default function PlanItemModal({
             placeholder={l.current?.placeholder?.activityTypePlaceholder || "Select type..."}
           />
         </FormGroup>
+
+        {/* Visibility - Only for plan instance items */}
+        {isPlanInstance && (
+          <FormGroup>
+            <FormLabel htmlFor={`${formId}-visibility`}>
+              Visibility
+            </FormLabel>
+            <FormControl
+              as="select"
+              id={`${formId}-visibility`}
+              value={formState.visibility}
+              onChange={(e) => updateField('visibility', e.target.value)}
+            >
+              <option value="plan_only">Plan Only</option>
+              <option value="public">Public &mdash; visible on experience feed</option>
+            </FormControl>
+          </FormGroup>
+        )}
 
         {/* Address with Autocomplete - Full Width */}
         <FormGroup>

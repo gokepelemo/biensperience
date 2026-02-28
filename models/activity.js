@@ -64,6 +64,11 @@ const activitySchema = new mongoose.Schema({
       'follow_removed',
       'follow_blocked',
 
+      // Experience activity feed actions
+      'experience_planned',
+      'plan_item_photo_added',
+      'plan_item_visibility_changed',
+
       // System actions
       'data_imported',
       'data_exported',

@@ -7,6 +7,8 @@ import {
   BsPinAngle,
   BsPinAngleFill,
   BsTrash3,
+  BsGlobe,
+  BsLock,
 } from 'react-icons/bs';
 import { FaClipboardList, FaThumbtack } from 'react-icons/fa';
 
@@ -298,9 +300,14 @@ const SortablePlanItem = memo(function SortablePlanItem({
           />
         </div>
       </div>
-      {(Number(planItem.cost) > 0 || Number(planItem.planning_days) > 0) && (
+      {(Number(planItem.cost) > 0 || Number(planItem.planning_days) > 0 || planItem.visibility === 'public') && (
         <div className="plan-item-details p-2 p-md-3">
           <div className="plan-item-meta">
+            {planItem.visibility === 'public' && (
+              <span className="plan-item-visibility text-success" title="Visible on experience feed">
+                <BsGlobe /> <small>Public</small>
+              </span>
+            )}
             {Number(planItem.cost) > 0 && (
               <span className="plan-item-cost">
                 <CostEstimate
@@ -335,6 +342,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
     (prevProps.planItem.parent?.toString() || null) === (nextProps.planItem.parent?.toString() || null) &&
     prevProps.planItem.cost === nextProps.planItem.cost &&
     prevProps.planItem.planning_days === nextProps.planItem.planning_days &&
+    prevProps.planItem.visibility === nextProps.planItem.visibility &&
     prevProps.planItem.assignedTo === nextProps.planItem.assignedTo &&
     prevProps.planItem.details?.notes?.length === nextProps.planItem.details?.notes?.length &&
     prevProps.canEdit === nextProps.canEdit &&

@@ -475,6 +475,13 @@ const planItemSnapshotSchema = new Schema({
     }, { _id: false }),
     default: () => ({ notes: [], chat: [], photos: [], documents: [], transport: null, parking: null, discount: null, accommodation: null })
   },
+  // Visibility of this plan item in the experience activity feed
+  // 'public' = shown on the experience activity feed, 'plan_only' = only visible within the plan
+  visibility: {
+    type: String,
+    enum: ['public', 'plan_only'],
+    default: 'plan_only'
+  },
   // Assignment to collaborator or owner
   assignedTo: {
     type: Schema.Types.ObjectId,

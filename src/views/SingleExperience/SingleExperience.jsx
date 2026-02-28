@@ -1,4 +1,5 @@
 import ActionButtonsRow from './components/ActionButtonsRow';
+import ActivityFeed from './components/ActivityFeed';
 import DatePickerSection from './components/DatePickerSection';
 import ExperienceOverviewSection from './components/ExperienceOverviewSection';
 import PlanTabsNavigation from './components/PlanTabsNavigation';
@@ -3301,6 +3302,11 @@ export default function SingleExperience() {
                       handlePlanChange={handlePlanChange}
                     />
 
+                    {/* Activity Feed Tab Content */}
+                    {activeTab === "activity" && (
+                      <ActivityFeed experienceId={experienceId} />
+                    )}
+
                     {/* Experience Plan Items Tab Content */}
                     {activeTab === "experience" && (
                       experienceTabLoading ? (
@@ -3701,6 +3707,7 @@ export default function SingleExperience() {
         mode={planItemFormState === 1 ? 'add' : 'edit'}
         onSave={activeTab === "experience" ? handleSaveExperiencePlanItem : handleSavePlanInstanceItem}
         loading={loading}
+        isPlanInstance={activeTab !== "experience"}
         langStrings={lang}
       />
 

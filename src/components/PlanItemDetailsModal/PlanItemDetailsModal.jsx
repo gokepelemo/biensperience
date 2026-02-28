@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Dropdown } from 'react-bootstrap';
 import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown } from 'react-icons/fa';
 import {
@@ -1324,7 +1325,7 @@ export default function PlanItemDetailsModal({
                     onChange={(e) => setAssignmentSearch(e.target.value)}
                     onKeyDown={handleKeyDown}
                   />
-                  {(isEditingAssignment && (filteredCollaborators.length > 0 || assignmentSearch)) && (
+                  {(isEditingAssignment && (filteredCollaborators.length > 0 || assignmentSearch)) && createPortal(
                     <div ref={dropdownRef} className={styles.assignmentDropdown}>
                       <div
                         className={`${styles.assignmentOption} ${highlightedIndex === 0 ? styles.highlighted : ''}`}
@@ -1360,7 +1361,8 @@ export default function PlanItemDetailsModal({
                           <span className={styles.assignmentOptionText}>{lang.current.planItemDetailsModal.noCollaboratorsFound}</span>
                         </div>
                       )}
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </div>
               )}

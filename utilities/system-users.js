@@ -1,37 +1,24 @@
-/**
- * System Users for Biensperience application.
- * Defines special system users like Archive User for ownership transfer.
- *
- * @module system-users
- */
+
 
 const mongoose = require('mongoose');
 
-/**
- * Archive User - A blackhole user for experiences that have been archived
- * When an experience with plans cannot be deleted, ownership transfers to Archive User
- * The original owner's ID is stored in the experience's archived_owner field
- * Profile is private to hide the blackhole nature from public view
- */
+// Archive User for ownership transfer when experiences cannot be deleted
 const ARCHIVE_USER = {
-  // Fixed ObjectId for consistent reference across environments
-  // This ID is deterministic: ObjectId('000000000000000000000001')
+  // Fixed ObjectId for consistent reference
   _id: new mongoose.Types.ObjectId('000000000000000000000001'),
   name: 'Archived User',
   email: 'archived@biensperience.system',
-  // This user cannot login - no password, no OAuth
+  // This user cannot login
   provider: 'local',
   role: 'regular_user',
   emailConfirmed: true,
-  // Private visibility - blackhole profile should not be publicly accessible
+  // Private visibility
   visibility: 'private',
-  // Special flag to identify system users
+  // System user flag
   isSystemUser: true
 };
 
-/**
- * System User IDs for quick lookup
- */
+// System User IDs for quick lookup
 const SYSTEM_USER_IDS = {
   ARCHIVE_USER: ARCHIVE_USER._id.toString()
 };

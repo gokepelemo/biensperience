@@ -112,6 +112,10 @@
 
    /* Menus (dropdowns, actions menus) */
    --menu-padding: var(--space-2);
+   --menu-item-padding-y: #{$menu-item-padding-y};
+   --menu-item-padding-x: #{$menu-item-padding-x};
+   --menu-item-min-height: #{$menu-item-min-height};
+   --menu-item-mobile-padding-y: #{$menu-item-mobile-padding-y};
 
   /* ============================================
      COLORS

@@ -262,6 +262,52 @@
 }
 
 // ============================================================================
+// MENU / DROPDOWN ITEMS
+// ============================================================================
+
+/// Base styles for any interactive menu or dropdown item.
+/// Provides consistent padding, min-height (WCAG touch target),
+/// hover / focus feedback, and an enlarged tap area on mobile.
+@mixin menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, #{$space-3});
+  width: 100%;
+  padding: var(--menu-item-padding-y, #{$menu-item-padding-y})
+           var(--menu-item-padding-x, #{$menu-item-padding-x});
+  min-height: var(--menu-item-min-height, #{$menu-item-min-height});
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary, #1a202c);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  line-height: 1.4;
+  cursor: pointer;
+  border-radius: var(--radius-md, #{$radius-md});
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
+  }
+
+  &:focus-visible {
+    outline: none;
+    background: var(--color-bg-hover, rgba(0, 0, 0, 0.05));
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    padding-top: var(--menu-item-mobile-padding-y, #{$menu-item-mobile-padding-y});
+    padding-bottom: var(--menu-item-mobile-padding-y, #{$menu-item-mobile-padding-y});
+  }
+}
+
+// ============================================================================
 // UTILITIES
 // ============================================================================
 

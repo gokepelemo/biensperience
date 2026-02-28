@@ -23,6 +23,17 @@
   overflow: hidden;
   /* For absolute positioning of add note form overlay */
   position: relative;
+
+  /* Mobile/Tablet (≤991px): Switch to document-scroll mode.
+   * The PlanItemDetailsModal uses allowBodyScroll at this breakpoint,
+   * so content should flow naturally and the page itself scrolls. */
+  @media (max-width: 991px) {
+    overflow: visible;
+    height: auto;
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
 }
 
 /* Search and Add Note Header */
@@ -340,6 +351,16 @@
   /* Smooth scrolling on iOS */
   -webkit-overflow-scrolling: touch;
 
+  /* Mobile/Tablet (≤991px): Disable internal scrolling.
+   * Content extends naturally and the page itself scrolls. */
+  @media (max-width: 991px) {
+    overflow: visible;
+    height: auto;
+    flex: 0 0 auto;
+    min-height: 0;
+    overscroll-behavior: auto;
+  }
+
   @media (max-width: 768px) {
     padding: $space-4;
   }
@@ -376,6 +397,14 @@
   @include flex-center;
   height: 100%;
   min-height: 200px;
+
+  /* Mobile (≤991px): Use auto height so empty state sizes to content
+   * without creating an internal scroll container. flex: 1 1 auto
+   * lets it grow to fill the tab wrapper's remaining space. */
+  @media (max-width: 991px) {
+    height: auto;
+    flex: 1 1 auto;
+  }
 
   p {
     color: var(--color-text-muted);

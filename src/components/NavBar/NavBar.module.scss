@@ -362,7 +362,8 @@
 
   /* Mobile dropdown items need full width */
   :global(.dropdown-item) {
-    padding: $space-3 $space-4;
+    padding: var(--menu-item-padding-y, #{$menu-item-padding-y})
+             var(--menu-item-padding-x, #{$menu-item-padding-x});
     border-radius: $radius-md;
   }
 }
@@ -489,11 +490,12 @@
 }
 
 :global(.dropdown-item) {
-  padding: $space-3 $space-5;
+  padding: var(--menu-item-padding-y, #{$menu-item-padding-y})
+           var(--menu-item-padding-x, #{$menu-item-padding-x});
   @include transition-all(var(--btn-transition));
   font-weight: $font-weight-bold; /* All dropdown items bold */
   /* WCAG 2.1 Level AA minimum touch target */
-  min-height: var(--btn-height-md);
+  min-height: var(--menu-item-min-height, #{$menu-item-min-height});
   display: flex;
   align-items: center;
 

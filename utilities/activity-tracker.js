@@ -356,6 +356,8 @@ async function trackPlanItemCompletion(options) {
     }
 
     backendLogger.debug('Plan item resolution result', {
+      resolvedPlanItem: resolvedPlanItem ? String(resolvedPlanItem._id) : null
+    });
 
     if (!resolvedPlanItem) {
       backendLogger.warn('trackPlanItemCompletion called without a valid planItem', {

@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// Import Bootstrap CSS BEFORE our custom styles so our overrides work without !important
+// Import Bootstrap CSS before custom styles
 import './styles/bootstrap-custom.scss';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './index.scss';
@@ -18,12 +18,9 @@ import { migrateFormDraftsFromLegacyStorage } from './utilities/form-persistence
 import { migratePreferencesToBienNamespace } from './utilities/preferences-utils';
 import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from './utilities/storage-keys';
 
-// Initialize version display (shows in demo mode, always available via version.show())
 initVersion();
 
-// Preserve deep-link hashes across initial Router mount.
-// Some environments can lose the hash during early navigation; we stash it and
-// let the target view restore it once fully loaded.
+// Preserve deep-link hashes for Router
 try {
   const hash = window.location.hash || '';
   const key = STORAGE_KEYS.pendingHash;
@@ -41,21 +38,21 @@ try {
   // ignore
 }
 
-// Proactively migrate legacy plan_* sessionStorage keys to consolidated localStorage.
+// Migrate legacy plan cache keys
 try {
   migratePlanCacheFromSessionStorage();
 } catch (e) {
   // ignore
 }
 
-// Proactively migrate legacy __form* and per-user bien:formDrafts:* keys into consolidated bien:formDrafts.
+// Migrate legacy form draft keys
 try {
   migrateFormDraftsFromLegacyStorage().catch(() => {});
 } catch (e) {
   // ignore
 }
 
-// Proactively migrate legacy biensperience:* preference keys to bien:*.
+// Migrate legacy preference keys
 try {
   migratePreferencesToBienNamespace();
 } catch (e) {
