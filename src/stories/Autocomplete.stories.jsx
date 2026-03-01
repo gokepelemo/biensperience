@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Card } from 'react-bootstrap';
+import { Container, Row, Col, Card } from '../components/design-system';
 import Autocomplete from '../components/Autocomplete/Autocomplete';
 
 export default {

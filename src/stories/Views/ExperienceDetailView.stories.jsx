@@ -8,9 +8,8 @@
  */
 
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Breadcrumb, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Breadcrumb, Pill, Button, SkeletonLoader, EntityNotFound, EmptyState } from '../../components/design-system';
 import { FaMapMarkerAlt, FaHeart, FaShare, FaEdit, FaTrash, FaRegImage, FaStar, FaHome, FaCalendarAlt, FaDollarSign, FaClock, FaCheckCircle, FaUserPlus } from 'react-icons/fa';
-import { Button, SkeletonLoader, EntityNotFound, EmptyState } from '../../components/design-system';
 import PlanningTime from '../../components/PlanningTime/PlanningTime';
 import CostEstimate from '../../components/CostEstimate/CostEstimate';
 import { StarRating, DifficultyRating } from '../../components/RatingScale/RatingScale';
@@ -267,10 +266,10 @@ const ExperienceDetailPresentation = ({
                 <span className={styles.tag}>{experience.experience_type}</span>
               )}
               {effectiveDestination && (
-                <Badge bg="secondary" className={styles.tag}>
+                <Pill variant="secondary" className={styles.tag}>
                   <FaMapMarkerAlt size={10} style={{ marginRight: '4px' }} />
                   {effectiveDestination.name}
-                </Badge>
+                </Pill>
               )}
             </div>
 

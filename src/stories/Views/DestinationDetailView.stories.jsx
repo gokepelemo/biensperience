@@ -9,11 +9,10 @@
 
 import React, { useState } from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { Container, Row, Col, Card, Breadcrumb } from 'react-bootstrap';
+import { Container, Row, Col, Card, Breadcrumb, Button, SkeletonLoader, EntityNotFound, EmptyState } from '../../components/design-system';
 import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from 'react-icons/fa';
 import ExperienceCard from '../../components/ExperienceCard/ExperienceCard';
 import TravelTipsList from '../../components/TravelTipsList/TravelTipsList';
-import { Button, SkeletonLoader, EntityNotFound, EmptyState } from '../../components/design-system';
 import DestinationExperienceGrid from '../../views/SingleDestination/components/DestinationExperienceGrid';
 import styles from '../../views/SingleDestination/SingleDestination.module.scss';
 

@@ -1,4 +1,4 @@
-import { Container, Row, Col, Card } from 'react-bootstrap';
+import { Container, Row, Col, Card } from '../components/design-system';
 import SearchBar from '../components/SearchBar/SearchBar';
 
 export default {

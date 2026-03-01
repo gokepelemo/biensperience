@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Pill } from '../../components/design-system';
 import { FaPlane, FaMapMarkerAlt, FaSun, FaMoon, FaCheck, FaPalette } from 'react-icons/fa';
 
 export default {
@@ -612,7 +612,7 @@ export const MobileTravelDemo = {
           <FaPlane />
           <span style={{ fontWeight: 'var(--font-weight-bold)' }}>Biensperience</span>
         </div>
-        <Badge bg="light" text="dark" pill>3 trips</Badge>
+        <Pill variant="light">3 trips</Pill>
       </div>
 
       {/* Destination Card */}
@@ -664,22 +664,22 @@ export const MobileTravelDemo = {
             gap: 'var(--space-2)',
             flexWrap: 'wrap',
           }}>
-            <Badge style={{
+            <Pill style={{
               background: 'var(--color-success-bg)',
               color: 'var(--color-success)',
               padding: 'var(--space-1) var(--space-2)',
               borderRadius: 'var(--radius-full)',
             }}>
               Cultural
-            </Badge>
-            <Badge style={{
+            </Pill>
+            <Pill style={{
               background: 'var(--color-info-bg)',
               color: 'var(--color-info)',
               padding: 'var(--space-1) var(--space-2)',
               borderRadius: 'var(--radius-full)',
             }}>
               Spring
-            </Badge>
+            </Pill>
           </div>
         </Card.Body>
       </Card>

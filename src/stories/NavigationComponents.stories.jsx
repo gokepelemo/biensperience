@@ -1,5 +1,5 @@
 import React from 'react';
-import { Container, Badge } from 'react-bootstrap';
+import { Container, Pill } from '../components/design-system';
 import { FaHome, FaChevronRight } from 'react-icons/fa';
 
 export default {

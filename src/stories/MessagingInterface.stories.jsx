@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Form, InputGroup, Badge } from 'react-bootstrap';
+import { Container, Form, InputGroup, Pill } from '../components/design-system';
 import { FaSearch, FaPhone, FaEllipsisV, FaPaperPlane, FaSmile, FaMicrophone, FaPaperclip, FaBell, FaCog, FaQuestionCircle, FaUsers, FaRobot, FaInbox, FaPlus, FaPlay, FaUser, FaMapMarkedAlt, FaClipboardList } from 'react-icons/fa';
 import { BsCheckAll } from 'react-icons/bs';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
@@ -262,8 +262,8 @@ export const MessagingApp = {
           position: 'relative',
         }}>
           <FaUsers size={20} />
-          <Badge
-            bg="danger"
+          <Pill
+            variant="danger"
             style={{
               position: 'absolute',
               top: 8,
@@ -273,7 +273,7 @@ export const MessagingApp = {
             }}
           >
             2
-          </Badge>
+          </Pill>
         </button>
 
         <button style={{
@@ -388,8 +388,8 @@ export const MessagingApp = {
             }}>
               Messages
             </h2>
-            <Badge
-              bg="primary"
+            <Pill
+              variant="primary"
               style={{
                 fontSize: 'var(--font-size-sm)',
                 padding: 'var(--space-1) var(--space-3)',
@@ -397,7 +397,7 @@ export const MessagingApp = {
               }}
             >
               23
-            </Badge>
+            </Pill>
             <button style={{
               backgroundColor: 'transparent',
               border: 'none',

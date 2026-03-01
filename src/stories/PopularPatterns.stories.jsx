@@ -1,5 +1,5 @@
 import React from 'react';
-import { Container, Row, Col, Card, Button, Badge, Form, InputGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Pill, Form, InputGroup } from '../components/design-system';
 import { FaSearch, FaFilter, FaStar, FaHeart, FaMapMarkerAlt, FaClock, FaDollarSign, FaUser, FaCalendar, FaTh, FaList, FaChevronRight } from 'react-icons/fa';
 
 // Helper function for consistent placeholder images
@@ -318,18 +318,18 @@ export const SearchAndFilter = () => (
                   </div>
                   <Card.Body>
                     <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-                      <Badge bg="secondary" style={{
+                      <Pill variant="secondary" style={{
                         padding: 'var(--space-1) var(--space-2)',
                         fontSize: 'var(--font-size-xs)',
                       }}>
                         Culture
-                      </Badge>
-                      <Badge bg="secondary" style={{
+                      </Pill>
+                      <Pill variant="secondary" style={{
                         padding: 'var(--space-1) var(--space-2)',
                         fontSize: 'var(--font-size-xs)',
                       }}>
                         Nature
-                      </Badge>
+                      </Pill>
                     </div>
                     <h4 style={{
                       fontSize: 'var(--font-size-lg)',
@@ -741,8 +741,8 @@ export const CardVariations = () => (
             <Col md={8}>
               <Card.Body style={{ padding: 'var(--space-6)' }}>
                 <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                  <Badge bg="secondary">Culture</Badge>
-                  <Badge bg="secondary">Nature</Badge>
+                  <Pill variant="secondary">Culture</Pill>
+                  <Pill variant="secondary">Nature</Pill>
                 </div>
                 <h3 style={{
                   fontSize: 'var(--font-size-2xl)',
@@ -855,12 +855,12 @@ export const CardVariations = () => (
         }}>
           <Row className="g-0 align-items-center">
             <Col md={6} style={{ padding: 'var(--space-8)' }}>
-              <Badge bg="light" text="dark" style={{
+              <Pill variant="light" style={{
                 marginBottom: 'var(--space-3)',
                 padding: 'var(--space-2) var(--space-3)',
               }}>
                 ⭐ Featured Experience
-              </Badge>
+              </Pill>
               <h2 style={{
                 fontSize: 'var(--font-size-3xl)',
                 fontWeight: 'var(--font-weight-bold)',

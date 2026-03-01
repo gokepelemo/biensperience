@@ -7,12 +7,11 @@
 
 import React from 'react';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import { Container, Card, Row, Col } from 'react-bootstrap';
+import { Container, Card, Row, Col, EmptyState } from '../../components/design-system';
 import { FaUser, FaCheckCircle, FaMapMarkerAlt, FaCamera, FaStar } from 'react-icons/fa';
 import { ProfileSkeleton, ProfileHeaderSkeleton, ProfileContentGridSkeleton } from '../../views/Profile/components';
 import ExperienceCard from '../../components/ExperienceCard/ExperienceCard';
 import DestinationCard from '../../components/DestinationCard/DestinationCard';
-import { EmptyState } from '../../components/design-system';
 import styles from '../../views/Profile/Profile.module.scss';
 
 export default {

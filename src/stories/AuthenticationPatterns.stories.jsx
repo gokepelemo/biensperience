@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, InputGroup, Modal } from '../components/design-system';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaGoogle, FaFacebook, FaTwitter, FaUser, FaArrowRight, FaCheckCircle, FaArrowLeft } from 'react-icons/fa';
 import BiensperienceLogo from '../components/BiensperienceLogo/BiensperienceLogo';
 import Checkbox from '../components/Checkbox/Checkbox';
 import Divider from '../components/Divider/Divider';
 import DesignNotes from './helpers/DesignNotes';
-import { Modal } from '../components/design-system';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal/PrivacyPolicyModal';
 import TermsOfServiceModal from '../components/TermsOfServiceModal/TermsOfServiceModal';
 

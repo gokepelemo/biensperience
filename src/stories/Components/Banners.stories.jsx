@@ -10,8 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Badge } from 'react-bootstrap';
-import { Banner } from '../../components/design-system';
+import { Container, Button, Pill, Banner } from '../../components/design-system';
 import BannerDemo from '../../components/Banner/BannerDemo';
 import {
   FaInfoCircle,
@@ -431,7 +430,7 @@ export const MobileBanners = {
           <FaPlane />
           <span style={{ fontWeight: 'var(--font-weight-bold)' }}>Notifications</span>
         </div>
-        <Badge bg="light" text="dark" pill>4</Badge>
+        <Pill variant="light">4</Pill>
       </div>
 
       {/* Mobile Banners */}

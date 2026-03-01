@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import FormField from './FormField';
-import { Form } from 'react-bootstrap';
+import { Form } from '../design-system';
 
 export default {
   title: 'Components/FormField',

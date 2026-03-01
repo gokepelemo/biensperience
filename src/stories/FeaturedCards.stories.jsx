@@ -1,5 +1,5 @@
 import React from 'react';
-import { Container, Row, Col, Card, Button, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Pill } from '../components/design-system';
 import { FaMapMarkerAlt, FaHeart, FaStar, FaPlane, FaClock, FaDollarSign, FaUsers, FaCamera, FaArrowRight, FaFire } from 'react-icons/fa';
 
 // Helper function for consistent placeholder images

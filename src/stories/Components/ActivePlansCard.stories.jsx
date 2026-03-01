@@ -1,5 +1,5 @@
 import React from 'react';
-import { Row } from 'react-bootstrap';
+import { Row } from '../../components/design-system';
 import ActivePlansCard from '../../components/Dashboard/ActivePlansCard';
 
 export default {

@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import { Modal, Button, Form, Alert, ListGroup, Badge, Container } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, ListGroup, Pill, Container } from '../../components/design-system';
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -299,9 +299,9 @@ export const SelectionList = {
                         </div>
                       </div>
                     </div>
-                    <Badge bg="secondary" pill style={{ padding: 'var(--space-2) var(--space-3)' }}>
+                    <Pill variant="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>
                       {dest.experiences} experiences
-                    </Badge>
+                    </Pill>
                   </div>
                 </ListGroup.Item>
               ))}
@@ -496,9 +496,9 @@ export const ExperienceDetails = {
             </h3>
 
             <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
-              <Badge bg="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>Nature</Badge>
-              <Badge bg="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>Culture</Badge>
-              <Badge bg="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>Photography</Badge>
+              <Pill variant="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>Nature</Pill>
+              <Pill variant="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>Culture</Pill>
+              <Pill variant="secondary" style={{ padding: 'var(--space-2) var(--space-3)' }}>Photography</Pill>
             </div>
 
             <p style={modalTextStyle}>

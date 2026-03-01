@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Form, InputGroup, Button } from 'react-bootstrap';
+import { Container, Form, InputGroup, Button } from '../components/design-system';
 import { FaPaperPlane, FaSmile, FaMicrophone, FaPlus, FaEllipsisH, FaPlay, FaPaperclip, FaFile } from 'react-icons/fa';
 import { BsCheckAll } from 'react-icons/bs';
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Container, Row, Col, Card, Button, Badge, Image } from 'react-bootstrap';
+import { Image } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Pill } from '../components/design-system';
 import { FaMapMarkerAlt, FaHeart, FaShare, FaUser, FaEnvelope, FaGlobe, FaCamera, FaPlane, FaCheckCircle } from 'react-icons/fa';
 
 // Helper function for consistent placeholder images
@@ -301,13 +302,13 @@ export const ExperienceDetailView = () => (
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', flexWrap: 'wrap' }}>
               {sampleExperience.tags.map(tag => (
-                <Badge key={tag} bg="secondary" style={{
+                <Pill key={tag} variant="secondary" style={{
                   padding: 'var(--space-2) var(--space-4)',
                   borderRadius: 'var(--radius-full)',
                   fontSize: 'var(--font-size-sm)',
                 }}>
                   {tag}
-                </Badge>
+                </Pill>
               ))}
             </div>
             <h1 style={{
