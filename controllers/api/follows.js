@@ -86,6 +86,11 @@ function formatActivityAction(action, options = {}) {
     'follow_removed': 'Unfollowed',
     'follow_blocked': 'Blocked',
 
+    // Experience activity feed actions
+    'experience_planned': 'Planned',
+    'plan_item_photo_added': 'Added a photo to a plan item on',
+    'plan_item_visibility_changed': 'Shared a plan item publicly on',
+
     // System actions
     'data_imported': 'Imported data',
     'data_exported': 'Exported data',
