@@ -15,10 +15,9 @@ import Banner from "../Banner/Banner";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
-import { Modal, Alert } from '../design-system';
+import { Modal, Alert, Form } from '../design-system';
 import FormField from "../FormField/FormField";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
-import { Form } from "react-bootstrap";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 // Custom hooks

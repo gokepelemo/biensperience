@@ -16,7 +16,7 @@ import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { FaMapMarkerAlt, FaShare, FaRegImage, FaStar, FaHome } from "react-icons/fa";
-import { Row, Col, Badge } from "react-bootstrap";
+import { Row, Col, Pill } from "../../components/design-system";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -3206,8 +3206,8 @@ export default function SingleExperience() {
                           aria-label={`Curated by ${experienceOwner.name || 'Curator'}. Click for more info.`}
                           style={{ textDecoration: 'none', cursor: 'pointer' }}
                         >
-                          <Badge
-                            bg="secondary"
+                          <Pill
+                            variant="secondary"
                             className={styles.tag}
                             style={{
                               background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)',
@@ -3215,14 +3215,14 @@ export default function SingleExperience() {
                             }}
                           >
                             Curated Experience
-                          </Badge>
+                          </Pill>
                         </span>
                       </Tooltip>
                     )}
                     {/* Archived badge - shown when experience is owned by Archive User */}
                     {isExperienceArchived(experience) && (
-                      <Badge
-                        bg="secondary"
+                      <Pill
+                        variant="secondary"
                         className={styles.tag}
                         style={{
                           background: 'var(--color-text-muted)',
@@ -3230,32 +3230,32 @@ export default function SingleExperience() {
                         }}
                       >
                         Archived
-                      </Badge>
+                      </Pill>
                     )}
                     {experience.experience_type && (
                       Array.isArray(experience.experience_type)
                         ? experience.experience_type.map((type, index) => (
                             <Link key={index} to={`/experience-types/${type.toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
-                              <Badge bg="secondary" className={styles.tag}>
+                              <Pill variant="secondary" className={styles.tag}>
                                 {type}
-                              </Badge>
+                              </Pill>
                             </Link>
                           ))
                         : typeof experience.experience_type === 'string'
                           ? experience.experience_type.split(',').map((type, index) => (
                               <Link key={index} to={`/experience-types/${type.trim().toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
-                                <Badge bg="secondary" className={styles.tag}>
+                                <Pill variant="secondary" className={styles.tag}>
                                   {type.trim()}
-                                </Badge>
+                                </Pill>
                               </Link>
                             ))
                           : null
                     )}
                     {experience.destination && experience.destination.country && (
                       <Link to={`/countries/${createUrlSlug(experience.destination.country)}`} style={{ textDecoration: 'none' }}>
-                        <Badge bg="secondary" className={styles.tag}>
+                        <Pill variant="secondary" className={styles.tag}>
                           {experience.destination.country}
-                        </Badge>
+                        </Pill>
                       </Link>
                     )}
                   </div>

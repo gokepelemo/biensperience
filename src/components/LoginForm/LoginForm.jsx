@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Form, Button } from "react-bootstrap";
-import { Card, InputGroup } from "../design-system";
+import { Card, InputGroup, Form, Button } from "../design-system";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaInfoCircle, FaCopy, FaCheck } from "react-icons/fa";
 import { Fieldset } from "@chakra-ui/react";
 import * as usersService from "../../utilities/users-service";

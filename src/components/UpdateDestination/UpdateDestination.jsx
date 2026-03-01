@@ -10,10 +10,9 @@ import Banner from "../Banner/Banner";
 import Loading from "../Loading/Loading";
 import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
-import { Modal, Alert } from '../design-system';
+import { Modal, Alert, Form } from '../design-system';
 import FormField from "../FormField/FormField";
 import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
-import { Form } from "react-bootstrap";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
 
 // Custom hooks

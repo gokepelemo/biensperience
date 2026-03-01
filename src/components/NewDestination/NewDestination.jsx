@@ -11,12 +11,11 @@ import { useTravelTipsManager } from "../../hooks/useTravelTipsManager";
 import { useFormErrorHandling } from "../../hooks/useFormErrorHandling";
 import { formatRestorationMessage } from "../../utilities/time-utils";
 import PhotoUpload from "../PhotoUpload/PhotoUpload";
-import { Alert } from "../design-system";
+import { Alert, Form } from "../design-system";
 import ConfirmModal from "../ConfirmModal/ConfirmModal";
 import SuccessModal from "../SuccessModal/SuccessModal";
 import FormField from "../FormField/FormField";
 import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
-import { Form } from "react-bootstrap";
 
 export default function NewDestination() {
   const { destinations: destData, addDestination } = useData();
