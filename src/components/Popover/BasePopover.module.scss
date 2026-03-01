@@ -1,0 +1,84 @@
+/**
+ * BasePopover - Styling for CSS-based popover system
+ *
+ * Provides hover/focus-triggered popover positioning and visual styling.
+ * Matches Bootstrap Popover appearance for drop-in compatibility.
+ */
+
+.overlayTriggerContainer {
+  position: relative;
+  display: inline;
+}
+
+.overlayContent {
+  position: absolute;
+  z-index: 1070; /* Match Bootstrap popover z-index */
+  min-width: 200px;
+  max-width: 320px;
+  pointer-events: auto;
+}
+
+/* Placement variants */
+.placementTop {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.placementBottom {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.placementLeft {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.placementRight {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Popover container */
+.popover {
+  background: var(--color-bg-primary, #fff);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.175));
+  border-radius: var(--radius-md, 0.5rem);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  font-size: var(--font-size-sm, 0.875rem);
+  word-wrap: break-word;
+}
+
+.popoverHeader {
+  padding: 0.5rem 1rem;
+  margin: 0;
+  font-size: var(--font-size-base, 1rem);
+  font-weight: 600;
+  background-color: var(--color-bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.175));
+  border-radius: var(--radius-md, 0.5rem) var(--radius-md, 0.5rem) 0 0;
+}
+
+.popoverBody {
+  padding: 1rem;
+  color: var(--color-text-primary, #212529);
+}
+
+/* Dark mode support */
+:global([data-theme="dark"]) .popover {
+  background: var(--color-bg-primary, #1a1a2e);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
+}
+
+:global([data-theme="dark"]) .popoverHeader {
+  background-color: var(--color-bg-secondary, #16213e);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
+}
+
+:global([data-theme="dark"]) .popoverBody {
+  color: var(--color-text-primary, #e0e0e0);
+}

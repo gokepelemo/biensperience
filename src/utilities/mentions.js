@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { OverlayTrigger, Popover } from 'react-bootstrap';
+import { OverlayTrigger, Popover } from '../components/design-system';
 import { logger } from '../utilities/logger';
 import HashLink from '../components/HashLink/HashLink';
 

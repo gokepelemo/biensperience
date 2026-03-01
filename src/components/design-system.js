@@ -97,3 +97,8 @@ export { default as ListGroup, ListGroupItem } from './ListGroupWrapper';
 // IMPORTANT: All Row/Col consumers should import from here, NOT from react-bootstrap
 // This enables zero-regression migration between implementations
 export { Row, Col } from './GridWrapper';
+
+// Popover/OverlayTrigger Abstraction Layer
+// IMPORTANT: All popover consumers should import from here, NOT from react-bootstrap
+// This enables zero-regression migration between implementations
+export { OverlayTrigger, Popover } from './PopoverWrapper';
