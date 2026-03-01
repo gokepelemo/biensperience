@@ -10,6 +10,7 @@ import { Modal, Checkbox, Alert } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
+import styles from './SyncPlanModal.module.scss';
 
 export default function SyncPlanModal({
   // Modal state
@@ -50,15 +51,15 @@ export default function SyncPlanModal({
       }
     >
       <>
-        <p style={{ color: 'var(--bs-gray-600)' }} className="mb-3">
+        <p style={{ color: 'var(--color-text-muted)' }} className={styles.mb3}>
           {lang.current.alert.selectChangesToApply}
         </p>
 
         {/* Added Items */}
         {syncChanges.added.length > 0 && (
-          <div className="mb-4">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h6 style={{ color: 'var(--bs-success)' }} className="mb-0">
+          <div className={styles.sectionGroup}>
+            <div className={styles.sectionHeader}>
+              <h6 style={{ color: 'var(--color-success)' }} className={styles.noMarginBottom}>
                 <strong>
                   {lang.current.label.addedItems.replace(
                     "{count}",
@@ -89,11 +90,11 @@ export default function SyncPlanModal({
                   }}
                 />
             </div>
-            <div className="list-group">
+            <div className={styles.listGroup}>
               {syncChanges.added.map((item, idx) => (
-                <div key={idx} className="list-group-item">
-                  <div className="d-flex align-items-start">
-                    <div className="me-3 mt-1">
+                <div key={idx} className={styles.listGroupItem}>
+                  <div className={styles.itemRow}>
+                    <div className={styles.checkboxCell}>
                       <Checkbox
                         id={`add-${idx}`}
                         variant="outline"
@@ -114,13 +115,13 @@ export default function SyncPlanModal({
                         }}
                       />
                     </div>
-                    <div className="flex-grow-1">
+                    <div className={styles.contentCell}>
                       <strong>{item.text}</strong>
                       {item.url && (() => {
                         const safeUrl = sanitizeUrl(item.url);
                         const displayUrl = sanitizeText(item.url);
                         return safeUrl && displayUrl ? (
-                          <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
+                          <div className={styles.smallText} style={{ color: 'var(--color-text-muted)' }}>
                             URL:{" "}
                             <a
                               href={safeUrl}
@@ -133,9 +134,9 @@ export default function SyncPlanModal({
                         ) : null;
                       })()}
                     </div>
-                    <div className="ms-2" style={{ textAlign: 'end' }}>
+                    <div className={styles.badgeCell}>
                       {item.cost > 0 && (
-                        <div className="badge bg-secondary">
+                        <div className={styles.badgeSecondary}>
                           <CostEstimate
                             cost={item.cost}
                             showTooltip={false}
@@ -144,7 +145,7 @@ export default function SyncPlanModal({
                         </div>
                       )}
                       {item.planning_days > 0 && (
-                        <div className="badge bg-info ms-1">
+                        <div className={`${styles.badgeInfo} ${styles.badgeGapStart}`}>
                           <PlanningTime
                             days={item.planning_days}
                             showTooltip={false}
@@ -161,9 +162,9 @@ export default function SyncPlanModal({
 
         {/* Removed Items */}
         {syncChanges.removed.length > 0 && (
-          <div className="mb-4">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h6 style={{ color: 'var(--bs-danger)' }} className="mb-0">
+          <div className={styles.sectionGroup}>
+            <div className={styles.sectionHeader}>
+              <h6 style={{ color: 'var(--color-danger)' }} className={styles.noMarginBottom}>
                 <strong>
                   {lang.current.label.removedItems.replace(
                     "{count}",
@@ -194,14 +195,14 @@ export default function SyncPlanModal({
                   }}
                 />
             </div>
-            <div className="list-group">
+            <div className={styles.listGroup}>
               {syncChanges.removed.map((item, idx) => (
                 <div
                   key={idx}
-                  className="list-group-item list-group-item-danger"
+                  className={styles.listGroupItemDanger}
                 >
-                  <div className="d-flex align-items-start">
-                    <div className="me-3 mt-1">
+                  <div className={styles.itemRow}>
+                    <div className={styles.checkboxCell}>
                       <Checkbox
                         id={`remove-${idx}`}
                         variant="outline"
@@ -224,10 +225,10 @@ export default function SyncPlanModal({
                         }}
                       />
                     </div>
-                    <div className="flex-grow-1">
+                    <div className={styles.contentCell}>
                       <strong>{item.text}</strong>
                       {item.url && (
-                        <div className="small" style={{ color: 'var(--bs-gray-600)' }}>
+                        <div className={styles.smallText} style={{ color: 'var(--color-text-muted)' }}>
                           URL: {item.url}
                         </div>
                       )}
@@ -241,9 +242,9 @@ export default function SyncPlanModal({
 
         {/* Modified Items */}
         {syncChanges.modified.length > 0 && (
-          <div className="mb-4">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h6 style={{ color: 'var(--bs-warning)' }} className="mb-0">
+          <div className={styles.sectionGroup}>
+            <div className={styles.sectionHeader}>
+              <h6 style={{ color: 'var(--color-warning)' }} className={styles.noMarginBottom}>
                 <strong>
                   {lang.current.label.modifiedItems.replace(
                     "{count}",
@@ -274,11 +275,11 @@ export default function SyncPlanModal({
                   }}
                 />
             </div>
-            <div className="list-group">
+            <div className={styles.listGroup}>
               {syncChanges.modified.map((item, idx) => (
-                <div key={idx} className="list-group-item">
-                  <div className="d-flex align-items-start">
-                    <div className="me-3 mt-1">
+                <div key={idx} className={styles.listGroupItem}>
+                  <div className={styles.itemRow}>
+                    <div className={styles.checkboxCell}>
                       <Checkbox
                         id={`modify-${idx}`}
                         variant="outline"
@@ -301,14 +302,14 @@ export default function SyncPlanModal({
                         }}
                       />
                     </div>
-                    <div className="flex-grow-1">
-                      <strong className="d-block mb-2">{item.text}</strong>
+                    <div className={styles.contentCell}>
+                      <strong className={styles.itemTitle}>{item.text}</strong>
                       {item.modifications.map((mod, modIdx) => (
-                        <div key={modIdx} className="small mb-1">
-                          <span className="badge bg-warning me-2" style={{ color: 'var(--bs-dark)' }}>
+                        <div key={modIdx} className={`${styles.smallText} ${styles.modDetail}`}>
+                          <span className={`${styles.badgeWarning} ${styles.me2}`} style={{ color: 'var(--color-text-primary)' }}>
                             {mod.field}
                           </span>
-                          <span className="me-2" style={{ textDecoration: 'line-through', color: 'var(--bs-gray-600)' }}>
+                          <span className={styles.me2} style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)' }}>
                             {mod.field === "cost"
                               ? `$${(mod.old || 0).toLocaleString("en-US", {
                                   minimumFractionDigits: 2,
@@ -321,7 +322,7 @@ export default function SyncPlanModal({
                               : mod.old || "(empty)"}
                           </span>
                           →
-                          <span className="ms-2" style={{ color: 'var(--bs-success)' }}>
+                          <span className={styles.ms2} style={{ color: 'var(--color-success)' }}>
                             {mod.field === "cost"
                               ? `$${(mod.new || 0).toLocaleString("en-US", {
                                   minimumFractionDigits: 2,
@@ -355,7 +356,7 @@ export default function SyncPlanModal({
 
         <Alert
           type="warning"
-          className="mt-3"
+          className={styles.mt3}
           title={lang.current.label.note}
           message={lang.current.alert.syncPreserveNote}
         />

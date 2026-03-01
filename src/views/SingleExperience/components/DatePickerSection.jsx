@@ -7,6 +7,7 @@ import { Modal, FormGroup, FormLabel, FormControl, Alert } from '../../../compon
 import { getMinimumPlanningDate, isValidPlannedDate } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { FaCalendarAlt } from 'react-icons/fa';
+import styles from './DatePickerSection.module.scss';
 
 export default function DatePickerSection({
   // Visibility state
@@ -42,11 +43,10 @@ export default function DatePickerSection({
 
   // Custom footer with all action buttons
   const modalFooter = (
-    <div className="d-flex gap-2 w-100 justify-content-end flex-nowrap">
+    <div className={styles.footerActions}>
       {!isEditingDate && (
         <button
-          className="btn btn-outline-secondary"
-          style={{ borderRadius: 'var(--btn-radius-pill)' }}
+          className={styles.btnOutlineSecondary}
           onClick={() => handleAddExperience({})}
           aria-label={lang.current.button.skip}
         >
@@ -54,16 +54,14 @@ export default function DatePickerSection({
         </button>
       )}
       <button
-        className="btn btn-outline-secondary"
-        style={{ borderRadius: 'var(--btn-radius-pill)' }}
+        className={styles.btnOutlineSecondary}
         onClick={handleClose}
         aria-label={lang.current.button.cancel}
       >
         {lang.current.button.cancel}
       </button>
       <button
-        className="btn btn-primary"
-        style={{ borderRadius: 'var(--btn-radius-pill)' }}
+        className={styles.btnPrimary}
         onClick={handleSubmit}
         disabled={!plannedDate || loading}
         aria-label={
@@ -91,7 +89,7 @@ export default function DatePickerSection({
       footer={modalFooter}
     >
       {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
-        <p className="text-muted mb-3">
+        <p className={`${styles.textMuted} ${styles.mb3}`}>
           {lang.current.helper.requiresDaysToPlan.replace(
             "{days}",
             formatPlanningTime(experience.max_planning_days)
@@ -99,8 +97,8 @@ export default function DatePickerSection({
         </p>
       )}
 
-      <FormGroup className="mb-3">
-        <FormLabel htmlFor="plannedDate" className="fw-semibold">
+      <FormGroup className={styles.mb3}>
+        <FormLabel htmlFor="plannedDate" className={styles.fwSemibold}>
           {lang.current.label.whenDoYouWantExperience}
         </FormLabel>
         <FormControl

@@ -452,34 +452,43 @@
 }
 
 /* Dark Mode Support for New Layout */
-@media (prefers-color-scheme: dark) {
-  .heroSection {
+.heroSection {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
   }
+}
 
-  .tagsSection .tag {
+.tagsSection .tag {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     color: var(--color-text-primary);
   }
+}
 
-  .contentCard {
+.contentCard {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-medium);
   }
+}
 
-  .sidebarCard {
+.sidebarCard {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-medium);
   }
+}
 
-  .planItemChecklist {
+.planItemChecklist {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
-
+  
     &:hover {
       background: var(--color-bg-hover);
     }
   }
 }
+
 
 /* Modal Responsive Sizing */
 :global(.responsive-modal-dialog) {
@@ -919,9 +928,15 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: clamp(var(--space-2), 1.5vw, var(--space-3));
+  padding: $space-4;
   padding-bottom: clamp(var(--space-2), 1.5vw, var(--space-3));
   /* border-bottom removed - using border-top on plan-item-details instead to avoid double border */
   flex-wrap: wrap;
+
+  @include breakpoint-min(md) {
+    padding: $space-6;
+    padding-bottom: clamp(var(--space-2), 1.5vw, var(--space-3));
+  }
 }
 
 /* Keep the tree control and title aligned/wrapped together */
@@ -1154,6 +1169,17 @@
     padding: 0;
     border-radius: 50%;
     font-size: 1.25rem;
+    color: var(--color-bg-primary);
+    background: var(--gradient-primary, var(--color-primary));
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+
+    &:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
 
     svg {
       margin: 0;
@@ -1207,9 +1233,13 @@
 }
 
 :global(.plan-item-details) {
-  padding-top: var(--space-2);
+  padding: $space-2;
   margin-top: var(--space-2);
   background: var(--color-bg-primary);
+
+  @include breakpoint-min(md) {
+    padding: $space-4;
+  }
 }
 
 /* Tree Controls */
@@ -1969,148 +1999,189 @@
    DARK MODE SUPPORT
    ============================================== */
 
-@media (prefers-color-scheme: dark) {
   /* Plan Items Container */
-  :global(.plan-items-container) {
+:global(.plan-items-container) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
   }
+}
 
   /* Metric Cards */
-  :global(.metric-card) {
+:global(.metric-card) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
   }
+}
 
-  :global(.metric-title) {
+:global(.metric-title) {
+  @include dark-mode {
     color: var(--color-text-muted);
   }
+}
 
-  :global(.metric-value) {
+:global(.metric-value) {
+  @include dark-mode {
     color: var(--color-text-primary);
   }
+}
 
   /* Plan Item Cards */
-  :global(.plan-item-card) {
+:global(.plan-item-card) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border-light);
-
+  
     &:hover {
       box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
     }
   }
+}
 
-  :global(.plan-item-title) {
+:global(.plan-item-title) {
+  @include dark-mode {
     a {
       color: var(--color-text-primary);
-
+  
       &:hover {
         color: var(--color-primary);
       }
     }
   }
+}
 
-  :global(.plan-item-details) {
+:global(.plan-item-details) {
+  @include dark-mode {
     border-top: 1px solid var(--color-border-medium);
     background: var(--color-bg-secondary);
   }
+}
 
-  :global(.plan-item-meta) {
+:global(.plan-item-meta) {
+  @include dark-mode {
     color: var(--color-text-muted);
   }
+}
 
   /* Plan Item Indicators */
-  :global(.plan-item-assigned),
-  :global(.plan-item-notes-count) {
+:global(.plan-item-assigned),
+:global(.plan-item-notes-count) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     color: var(--color-text-primary);
   }
+}
 
-  :global(.plan-item-assigned) {
+:global(.plan-item-assigned) {
+  @include dark-mode {
     border-left-color: var(--color-primary);
   }
+}
 
-  :global(.plan-item-notes-count) {
+:global(.plan-item-notes-count) {
+  @include dark-mode {
     border-left-color: var(--color-success);
   }
+}
 
   /* Details Button - Dark Mode */
-  :global(.btn-view-details) {
+:global(.btn-view-details) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
     color: var(--color-text-primary);
-
+  
     &:hover {
       background: var(--color-primary);
       border-color: var(--color-primary);
       color: var(--color-text-on-primary, #ffffff);
     }
   }
+}
 
   /* Tree Controls */
-  :global(.expand-toggle) {
+:global(.expand-toggle) {
+  @include dark-mode {
     /* Inline styling maintained on mobile */
     color: var(--color-text-secondary);
-
+  
     &:hover {
       color: var(--color-primary);
     }
   }
+}
 
-  :global(.child-arrow) {
+:global(.child-arrow) {
+  @include dark-mode {
     color: var(--color-primary);
   }
+}
 
-  :global(.no-child-arrow) {
+:global(.no-child-arrow) {
+  @include dark-mode {
     color: var(--color-text-disabled);
   }
+}
 
   /* Travel Tips */
-  :global(.travel-tips-box) {
+:global(.travel-tips-box) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
   }
+}
 
-  :global(.travel-tip-card) {
+:global(.travel-tip-card) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     color: var(--color-text-primary);
-
+  
     &:hover {
       box-shadow: var(--shadow-md);
     }
   }
+}
 
   /* Experience Detail List */
-  :global(.experience-detail) {
+:global(.experience-detail) {
+  @include dark-mode {
     :global(.list-group-item:hover:not(.fw-bold)) {
       background: var(--color-bg-tertiary);
     }
   }
+}
 
   /* My Plan View */
-  :global(.my-plan-view) {
+:global(.my-plan-view) {
+  @include dark-mode {
     :global(.plan-item-card) {
       background: var(--color-bg-tertiary);
       border: 1px solid var(--color-border-medium);
-
+  
       &:hover {
         box-shadow: var(--shadow-md);
       }
     }
     /* Keep a single divider line via .plan-item-details { border-top: ... }.
        Removed border-bottom here to prevent a doubled divider in dark mode. */
-
+  
     :global(.plan-item-details) {
       background: var(--color-bg-secondary);
     }
   }
+}
 
   /* Cost Estimate Colors */
-  :global(.green) {
+:global(.green) {
+  @include dark-mode {
     color: var(--color-success);
   }
+}
 
-  :global(.grey) {
+:global(.grey) {
+  @include dark-mode {
     color: var(--color-text-muted);
   }
 }
+
 
 /* ==============================================
    COMPACT PLAN ITEMS VIEW
@@ -2119,6 +2190,8 @@
 /* View toggle select - positioned at top right */
 :global(.plan-view-toggle) {
   display: flex !important; /* Ensure visible on all screen sizes */
+  justify-content: flex-end;
+  margin-bottom: $space-4;
 
   .plan-view-select {
     min-width: 140px;
@@ -3108,5 +3181,18 @@
   :global(.timeline-activity-group) {
     margin-bottom: var(--space-2);
   }
+}
+
+/* ===== Flex utility replacements (used by child components) ===== */
+
+.flexColumnGap3 {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.flexRowGap2 {
+  display: flex;
+  gap: $space-2;
 }
 

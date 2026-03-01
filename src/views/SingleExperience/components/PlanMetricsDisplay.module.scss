@@ -1,0 +1,85 @@
+@use '../../../styles/scss/abstracts' as *;
+
+/* ===== PlanMetricsDisplay — Bootstrap utility replacements ===== */
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $space-4;
+  margin-top: $space-6;
+  margin-bottom: $space-6;
+
+  @include breakpoint-max(md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metricCol {
+  min-height: 0;
+}
+
+.fullHeight {
+  height: 100%;
+}
+
+/* ===== Progress bar (replaces Bootstrap .progress / .progress-bar) ===== */
+
+.progressTrack {
+  display: flex;
+  overflow: hidden;
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-pill);
+  margin-top: $space-2;
+}
+
+.progressFill {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+  transition: width 0.6s ease;
+  background: var(--gradient-primary, linear-gradient(135deg, var(--color-primary), var(--color-primary-light)));
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ===== Button (replaces Bootstrap btn btn-sm btn-outline-primary) ===== */
+
+.editDateBtn {
+  display: inline-block;
+  padding: $space-1 $space-3;
+  margin-top: $space-2;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  color: var(--color-primary);
+  background-color: transparent;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+
+  &:hover {
+    color: var(--color-bg-primary);
+    background-color: var(--color-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.mt2 {
+  margin-top: $space-2;
+}

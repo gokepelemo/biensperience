@@ -46,7 +46,7 @@ export default function ExperienceDetailsSkeleton() {
 
       {/* Action Buttons Skeleton */}
       <div className={styles.sidebarActions}>
-        <div className="d-flex flex-column gap-3">
+        <div className={styles.flexColumnGap3}>
           {/* Primary Button */}
           <SkeletonLoader
             variant="rectangle"
@@ -55,7 +55,7 @@ export default function ExperienceDetailsSkeleton() {
             style={{ borderRadius: 'var(--radius-full)' }}
           />
           {/* Secondary Buttons Row */}
-          <div className="d-flex gap-2">
+          <div className={styles.flexRowGap2}>
             <SkeletonLoader
               variant="rectangle"
               width="100%"

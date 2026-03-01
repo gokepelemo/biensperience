@@ -11,6 +11,7 @@ import TagPill from '../../../components/Pill/TagPill';
 import { formatDateMetricCard } from '../../../utilities/date-utils';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import { lang } from '../../../lang.constants';
+import styles from './PlanMetricsDisplay.module.scss';
 
 function PlanMetricsDisplay({
   plannedDate,
@@ -25,15 +26,15 @@ function PlanMetricsDisplay({
   const fullDateText = plannedDate ? formatDateMetricCard(plannedDate) : 'No date set';
 
   return (
-    <div className="plan-metrics row g-3 my-4">
+    <div className={`plan-metrics ${styles.metricsGrid}`}>
       {/* Completion Percentage */}
-      <div className="col-md-4">
-        <div className="metric-card h-100" title={`${completionPercentage}% of plan items completed`}>
+      <div className={styles.metricCol}>
+        <div className={`metric-card ${styles.fullHeight}`} title={`${completionPercentage}% of plan items completed`}>
           <div className="metric-label">Completion</div>
           <div className="metric-value">{completionPercentage}%</div>
-          <div className="progress mt-2" style={{ height: 'var(--progress-bar-height-sm)' }}>
+          <div className={styles.progressTrack} style={{ height: 'var(--progress-bar-height-sm)' }}>
             <div
-              className="progress-bar gradient-animated"
+              className={styles.progressFill}
               role="progressbar"
               style={{ width: `${completionPercentage}%` }}
               aria-valuenow={completionPercentage}
@@ -45,8 +46,8 @@ function PlanMetricsDisplay({
       </div>
 
       {/* Planned Date */}
-      <div className="col-md-4">
-        <div className="metric-card h-100" title={fullDateText}>
+      <div className={styles.metricCol}>
+        <div className={`metric-card ${styles.fullHeight}`} title={fullDateText}>
           <div className="metric-label">Planned Date</div>
           <div className="metric-value-container">
             {plannedDate ? (
@@ -71,7 +72,7 @@ function PlanMetricsDisplay({
           </div>
           {showEditButton && (
             <button
-              className="btn btn-sm btn-outline-primary mt-2"
+              className={styles.editDateBtn}
               onClick={onEditDate}
               title={plannedDate ? 'Edit planned date' : 'Set a planned date'}
             >
@@ -82,8 +83,8 @@ function PlanMetricsDisplay({
       </div>
 
       {/* Total Cost */}
-      <div className="col-md-4">
-        <div className="metric-card h-100" title={`Estimated cost: $${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+      <div className={styles.metricCol}>
+        <div className={`metric-card ${styles.fullHeight}`} title={`Estimated cost: $${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
           <div className="metric-label">Estimated Cost</div>
           <div className="metric-value metric-value-cost">
             <CostEstimate

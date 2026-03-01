@@ -38,6 +38,7 @@ import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { isOwner } from '../../../utilities/permissions';
 import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 import debug from '../../../utilities/debug';
+import styles from './ExperienceTabContent.module.scss';
 
 // View options for experience plan items display
 const VIEW_OPTIONS = [
@@ -138,9 +139,9 @@ function SortableExperiencePlanItem({
       ref={setNodeRef}
       style={style}
       data-plan-item-id={planItem._id}
-      className={`plan-item-card mb-3 overflow-hidden ${isDragging ? 'dragging' : ''} ${isChild ? 'is-child-item' : ''}`}
+      className={`plan-item-card ${isDragging ? 'dragging' : ''} ${isChild ? 'is-child-item' : ''}`}
     >
-      <div className="plan-item-header p-3 p-md-4">
+      <div className="plan-item-header">
         <div className="plan-item-title-row">
           <div className="plan-item-tree">
             {!isChild ? (
@@ -169,7 +170,7 @@ function SortableExperiencePlanItem({
             )}
           </div>
 
-          <div className="plan-item-title flex-grow-1 fw-semibold">
+          <div className="plan-item-title">
             {planItem.url ? (() => {
               const safeUrl = sanitizeUrl(planItem.url);
               return safeUrl ? (
@@ -212,7 +213,7 @@ function SortableExperiencePlanItem({
       </div>
       {(Number(planItem.cost_estimate) > 0 ||
         Number(planItem.planning_days) > 0) && (
-        <div className="plan-item-details p-2 p-md-3">
+        <div className="plan-item-details">
           <div className="plan-item-meta">
             {Number(planItem.cost_estimate) > 0 && (
               <span className="plan-item-cost">
@@ -263,7 +264,7 @@ function ExperiencePlanActionsDropdown({
   return (
     <div className="plan-actions-dropdown" ref={dropdownRef}>
       <button
-        className="btn btn-primary dropdown-toggle-btn"
+        className="dropdown-toggle-btn"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -280,7 +281,7 @@ function ExperiencePlanActionsDropdown({
               setIsOpen(false);
             }}
           >
-            <BsPlusCircle className="me-2" />
+            <BsPlusCircle className={styles.me2} />
             {lang.current.button.addPlanItem}
           </button>
           <button
@@ -290,7 +291,7 @@ function ExperiencePlanActionsDropdown({
               setIsOpen(false);
             }}
           >
-            <BsPersonPlus className="me-2" />
+            <BsPersonPlus className={styles.me2} />
             {lang.current.button.addCollaborators}
           </button>
         </div>
@@ -872,9 +873,9 @@ export default function ExperienceTabContent({
   const allItemIds = itemsToRender.map((item) => item._id.toString());
 
   return (
-    <div className="experience-plan-view mt-4">
+    <div className={`experience-plan-view ${styles.mt4}`}>
       {/* Collaborators and Action Buttons Row */}
-      <div className="plan-header-row mb-4">
+      <div className="plan-header-row">
         {/* Collaborators Display - Left Side */}
         <UsersListDisplay
           owner={experienceOwner}
@@ -900,7 +901,7 @@ export default function ExperienceTabContent({
       </div>
 
       {/* View Toggle - Right aligned */}
-      <div className="plan-view-toggle mb-3 d-flex justify-content-end">
+      <div className="plan-view-toggle">
         <SearchableSelect
           options={VIEW_OPTIONS}
           value={planItemsView}

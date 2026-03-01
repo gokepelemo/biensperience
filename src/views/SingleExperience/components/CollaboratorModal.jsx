@@ -295,7 +295,7 @@ export default function CollaboratorModal({
                 Current Collaborators
               </h5>
               {existingCollaborators.length === 0 ? (
-                <p className="text-muted font-size-adjust-sm">
+                <p className={styles.textMutedSm}>
                   No collaborators yet. Add some below!
                 </p>
               ) : (
@@ -397,8 +397,8 @@ export default function CollaboratorModal({
 
                 {/* Selected NEW Collaborators Only */}
                 {newlySelectedCollaborators.length > 0 && (
-                  <div className="mt-3">
-                    <strong className="d-block mb-2 text-secondary font-size-adjust-sm fw-semibold">
+                  <div className={styles.mt3}>
+                    <strong className={styles.sectionLabelSecondary}>
                       {lang.current.message.selected.replace('{count}', newlySelectedCollaborators.length)}
                     </strong>
                     <div
@@ -506,7 +506,7 @@ export default function CollaboratorModal({
             {/* Collaborators being added */}
             {newlySelectedCollaborators.length > 0 && (
               <div style={{ marginBottom: 'var(--space-3)' }}>
-                <strong className="d-block mb-2 text-success font-size-adjust-sm">
+                <strong className={styles.sectionLabelSuccess}>
                   Adding {newlySelectedCollaborators.length} collaborator{newlySelectedCollaborators.length > 1 ? 's' : ''}:
                 </strong>
                 <div
@@ -532,7 +532,7 @@ export default function CollaboratorModal({
             {/* Collaborators being removed */}
             {removedCollaborators.length > 0 && (
               <div style={{ marginBottom: 'var(--space-3)' }}>
-                <strong className="d-block mb-2 text-danger font-size-adjust-sm">
+                <strong className={styles.sectionLabelDanger}>
                   Removing {removedCollaborators.length} collaborator{removedCollaborators.length > 1 ? 's' : ''}:
                 </strong>
                 <div
@@ -558,7 +558,7 @@ export default function CollaboratorModal({
             )}
 
             {!hasChanges && (
-              <p className="text-muted font-size-adjust-sm">
+              <p className={styles.textMutedSm}>
                 No changes to apply.
               </p>
             )}

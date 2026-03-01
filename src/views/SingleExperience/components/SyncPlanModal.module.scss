@@ -1,0 +1,135 @@
+@use '../../../styles/scss/abstracts' as *;
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.mb3 {
+  margin-bottom: $space-4;
+}
+
+.mt3 {
+  margin-top: $space-4;
+}
+
+.sectionGroup {
+  margin-bottom: $space-6;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $space-2;
+}
+
+.noMarginBottom {
+  margin-bottom: 0;
+}
+
+.itemRow {
+  display: flex;
+  align-items: flex-start;
+}
+
+.checkboxCell {
+  margin-inline-end: $space-4;
+  margin-top: $space-1;
+}
+
+.contentCell {
+  flex-grow: 1;
+}
+
+.badgeCell {
+  margin-inline-start: $space-2;
+  text-align: end;
+}
+
+.itemTitle {
+  display: block;
+  margin-bottom: $space-2;
+}
+
+.modDetail {
+  margin-bottom: $space-1;
+}
+
+.me2 {
+  margin-inline-end: $space-2;
+}
+
+.ms2 {
+  margin-inline-start: $space-2;
+}
+
+.badgeGapStart {
+  margin-inline-start: $space-1;
+}
+
+/* ===== List Group (replaces Bootstrap list-group) ===== */
+
+.listGroup {
+  display: flex;
+  flex-direction: column;
+  padding-left: 0;
+  margin-bottom: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.listGroupItem {
+  position: relative;
+  display: block;
+  padding: $space-3 $space-4;
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.listGroupItemDanger {
+  composes: listGroupItem;
+  background-color: var(--color-danger-bg, rgba(220, 53, 69, 0.08));
+  border-color: var(--color-danger-border, rgba(220, 53, 69, 0.2));
+}
+
+/* ===== Badges (replaces Bootstrap badge bg-*) ===== */
+
+.badge {
+  display: inline-block;
+  padding: $space-1 $space-2;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: var(--radius-sm);
+}
+
+.badgeSecondary {
+  composes: badge;
+  background-color: var(--color-secondary-bg, #6c757d);
+  color: var(--color-bg-primary);
+}
+
+.badgeInfo {
+  composes: badge;
+  background-color: var(--color-info-bg, #0dcaf0);
+  color: var(--color-text-primary);
+}
+
+.badgeWarning {
+  composes: badge;
+  background-color: var(--color-warning-bg, #ffc107);
+  color: var(--color-text-primary);
+}
+
+/* ===== Small Text (replaces Bootstrap .small) ===== */
+
+.smallText {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
