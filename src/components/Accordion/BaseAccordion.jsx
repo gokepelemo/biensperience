@@ -34,24 +34,80 @@ const RESET_STYLES = {
 };
 
 /**
+ * Normalize an eventKey/activeKey value to Chakra v3 value format.
+ * Chakra v3 uses string[] for value; items use "item-{eventKey}" as their value.
+ * @param {string|number|null|undefined} key - The react-bootstrap style key
+ * @returns {string} The Chakra v3 item value string
+ */
+function toChakraValue(key) {
+  if (key === null || key === undefined) return null;
+  const str = String(key);
+  // If already prefixed, return as-is
+  return str.startsWith('item-') ? str : `item-${str}`;
+}
+
+/**
+ * Strip the "item-" prefix from a Chakra value to return the original eventKey.
+ * @param {string} value - The Chakra v3 item value string
+ * @returns {string} The original eventKey
+ */
+function fromChakraValue(value) {
+  if (!value) return null;
+  return value.startsWith('item-') ? value.slice(5) : value;
+}
+
+/**
  * BaseAccordion - Chakra UI Accordion.Root with custom styling
  *
  * Uses Chakra Accordion.Root for accessibility benefits,
  * with .ds-accordion class for visual styling.
+ *
+ * Translates react-bootstrap Accordion props to Chakra v3 API:
+ * - activeKey → value (controlled)
+ * - onSelect → onValueChange (controlled)
+ * - defaultActiveKey → defaultValue (uncontrolled)
+ * - defaultIndex → defaultValue (uncontrolled, numeric)
  */
-function BaseAccordion({ className = '', children, defaultIndex, ...props }) {
+function BaseAccordion({ className = '', children, defaultIndex, activeKey, onSelect, defaultActiveKey, ...props }) {
   // Convert defaultIndex to defaultValue format for Chakra v3
   // Chakra v3 uses string values like "item-0", "item-1"
-  const defaultValue = defaultIndex !== undefined
-    ? (Array.isArray(defaultIndex)
-        ? defaultIndex.map(i => `item-${i}`)
-        : [`item-${defaultIndex}`])
+  let defaultValue;
+  if (defaultIndex !== undefined) {
+    defaultValue = Array.isArray(defaultIndex)
+      ? defaultIndex.map(i => `item-${i}`)
+      : [`item-${defaultIndex}`];
+  } else if (defaultActiveKey !== undefined) {
+    defaultValue = Array.isArray(defaultActiveKey)
+      ? defaultActiveKey.map(k => toChakraValue(k))
+      : [toChakraValue(defaultActiveKey)];
+  }
+
+  // Convert activeKey to controlled value for Chakra v3
+  const controlledValue = activeKey !== undefined
+    ? (activeKey === null ? [] : [toChakraValue(activeKey)])
+    : undefined;
+
+  // Convert onSelect to onValueChange for Chakra v3
+  const handleValueChange = onSelect
+    ? (details) => {
+        const openValues = details.value || [];
+        if (openValues.length === 0) {
+          // All closed - pass null to match react-bootstrap behavior
+          onSelect(null);
+        } else {
+          // Pass the original eventKey (without item- prefix)
+          onSelect(fromChakraValue(openValues[openValues.length - 1]));
+        }
+      }
     : undefined;
 
   return (
     <AccordionPrimitive.Root
       className={`ds-accordion ${className}`}
       defaultValue={defaultValue}
+      value={controlledValue}
+      onValueChange={handleValueChange}
+      collapsible
       variant="plain"
       css={RESET_STYLES}
       {...props}
@@ -67,6 +123,13 @@ BaseAccordion.propTypes = {
   defaultIndex: PropTypes.oneOfType([
     PropTypes.number,
     PropTypes.arrayOf(PropTypes.number)
+  ]),
+  activeKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onSelect: PropTypes.func,
+  defaultActiveKey: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.number,
+    PropTypes.arrayOf(PropTypes.oneOfType([PropTypes.string, PropTypes.number]))
   ]),
 };
 
@@ -111,7 +174,6 @@ function BaseAccordionHeader({ children, ...props }) {
       {...props}
     >
       {children}
-      <AccordionPrimitive.ItemIndicator />
     </AccordionPrimitive.ItemTrigger>
   );
 }

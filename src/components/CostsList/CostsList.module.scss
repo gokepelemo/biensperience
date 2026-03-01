@@ -196,7 +196,8 @@
     gap: $space-2;
     border: none;
 
-    &:not(.collapsed) {
+    &:not(.collapsed),
+    &[data-state="open"] {
       background: var(--color-bg-secondary);
       box-shadow: none;
       border-bottom: 1px solid var(--color-border-light);
@@ -207,8 +208,13 @@
       z-index: 1;
     }
 
-    // Hide default Bootstrap arrow
+    // Hide default Bootstrap/Chakra arrow indicators
     &::after {
+      display: none;
+    }
+
+    // Hide Chakra ItemIndicator if present
+    :global([data-part="item-indicator"]) {
       display: none;
     }
   }
@@ -223,7 +229,8 @@
       background: var(--color-bg-secondary);
       color: var(--color-text-primary);
 
-      &:not(.collapsed) {
+      &:not(.collapsed),
+      &[data-state="open"] {
         background: var(--color-bg-tertiary);
       }
     }
