@@ -188,7 +188,8 @@
     border-left: 4px solid var(--color-success);
   }
 
-  :global(.accordion-button) {
+  :global(.accordion-button),
+  :global([data-part="item-trigger"]) {
     background: transparent;
     border-radius: 0 !important;
     font-weight: $font-weight-semibold;
@@ -197,7 +198,7 @@
     border: none;
 
     &:not(.collapsed),
-    &[data-state="open"] {
+    &:global([data-state="open"]) {
       background: var(--color-bg-secondary);
       box-shadow: none;
       border-bottom: 1px solid var(--color-border-light);
@@ -225,12 +226,13 @@
       background: var(--color-bg-secondary);
     }
 
-    :global(.accordion-button) {
+    :global(.accordion-button),
+    :global([data-part="item-trigger"]) {
       background: var(--color-bg-secondary);
       color: var(--color-text-primary);
 
       &:not(.collapsed),
-      &[data-state="open"] {
+      &:global([data-state="open"]) {
         background: var(--color-bg-tertiary);
       }
     }

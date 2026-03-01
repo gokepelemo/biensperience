@@ -103,7 +103,7 @@ function BaseAccordion({ className = '', children, defaultIndex, activeKey, onSe
 
   return (
     <AccordionPrimitive.Root
-      className={`ds-accordion ${className}`}
+      className={`ds-accordion${className ? ` ${className}` : ''}`}
       defaultValue={defaultValue}
       value={controlledValue}
       onValueChange={handleValueChange}
@@ -139,13 +139,17 @@ BaseAccordion.propTypes = {
  * Maps to Accordion.Item from react-bootstrap.
  * Requires a value prop for Chakra v3 - auto-generated if not provided.
  */
-function BaseAccordionItem({ eventKey, children, ...props }) {
+function BaseAccordionItem({ eventKey, children, className, ...props }) {
   // Convert eventKey to value for Chakra v3
   const value = eventKey !== undefined ? `item-${eventKey}` : undefined;
 
+  const mergedClassName = className
+    ? `accordion-item ${className}`
+    : 'accordion-item';
+
   return (
     <AccordionPrimitive.Item
-      className="accordion-item"
+      className={mergedClassName}
       value={value}
       css={RESET_STYLES}
       {...props}
@@ -158,6 +162,7 @@ function BaseAccordionItem({ eventKey, children, ...props }) {
 BaseAccordionItem.propTypes = {
   eventKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   children: PropTypes.node,
+  className: PropTypes.string,
 };
 
 /**
@@ -165,11 +170,22 @@ BaseAccordionItem.propTypes = {
  *
  * Maps to Accordion.Header from react-bootstrap.
  * Renders a button that toggles the accordion item.
+ *
+ * NOTE: The `as` prop from react-bootstrap (e.g., as="div") is intentionally
+ * ignored. In Chakra v3, `as` triggers a complex forwardAsChild composition
+ * chain that can break event handling in production builds. The ItemTrigger
+ * renders as a native <button> which provides better accessibility.
  */
-function BaseAccordionHeader({ children, ...props }) {
+function BaseAccordionHeader({ children, className, as: _as, ...props }) {
+  // Merge classNames: always include 'accordion-button' for SCSS targeting,
+  // plus any additional className from consumers
+  const mergedClassName = className
+    ? `accordion-button ${className}`
+    : 'accordion-button';
+
   return (
     <AccordionPrimitive.ItemTrigger
-      className="accordion-button"
+      className={mergedClassName}
       css={RESET_STYLES}
       {...props}
     >
@@ -180,6 +196,8 @@ function BaseAccordionHeader({ children, ...props }) {
 
 BaseAccordionHeader.propTypes = {
   children: PropTypes.node,
+  className: PropTypes.string,
+  as: PropTypes.any,
 };
 
 /**
@@ -188,10 +206,14 @@ BaseAccordionHeader.propTypes = {
  * Maps to Accordion.Body from react-bootstrap.
  * Contains the collapsible content.
  */
-function BaseAccordionBody({ children, ...props }) {
+function BaseAccordionBody({ children, className, ...props }) {
+  const mergedClassName = className
+    ? `accordion-body ${className}`
+    : 'accordion-body';
+
   return (
     <AccordionPrimitive.ItemContent
-      className="accordion-body"
+      className={mergedClassName}
       css={RESET_STYLES}
       {...props}
     >
@@ -202,6 +224,7 @@ function BaseAccordionBody({ children, ...props }) {
 
 BaseAccordionBody.propTypes = {
   children: PropTypes.node,
+  className: PropTypes.string,
 };
 
 // Attach subcomponents to main component for API parity with react-bootstrap

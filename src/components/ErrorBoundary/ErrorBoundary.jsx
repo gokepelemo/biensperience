@@ -99,10 +99,10 @@ class ErrorBoundary extends React.Component {
       // Default fallback UI
       return (
         <Container className={`${styles.errorBoundaryContainer} my-5`}>
-          <Alert variant="danger" className={styles.errorBoundaryAlert}>
-            <Alert.Heading>
+          <Alert type="danger" className={styles.errorBoundaryAlert}>
+            <h4 className="alert-heading">
               {this.props.title || 'Oops! Something went wrong'}
-            </Alert.Heading>
+            </h4>
             <p>
               {this.props.message ||
                 'We encountered an unexpected error. This has been logged and we\'ll look into it.'}
@@ -146,7 +146,7 @@ class ErrorBoundary extends React.Component {
 
           {/* Show error frequency warning if errors are recurring */}
           {this.state.errorCount > 2 && (
-            <Alert variant="warning" className="mt-3">
+            <Alert type="warning" className="mt-3">
               <strong>Recurring Error Detected</strong>
               <p className="mb-0">
                 This error has occurred {this.state.errorCount} times.

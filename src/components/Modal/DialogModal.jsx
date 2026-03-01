@@ -46,11 +46,7 @@ const DialogModal = forwardRef(function DialogModal({
   showHeader = true,
   allowBodyScroll = false
 }, ref) {
-  // Early return - don't render anything if modal should be hidden
-  // This prevents any flash during unmount/close transitions
-  if (!show) return null;
-
-  // Generate unique ID for accessibility
+  // Generate unique ID for accessibility (hooks must be called unconditionally)
   const modalId = useId();
   const titleId = `modal-title-${modalId}`;
 
