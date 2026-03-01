@@ -262,44 +262,8 @@
 // ============================================================================
 // DARK MODE OVERRIDES
 // ============================================================================
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Text Colors (Dark Mode) */
-    --color-text-primary: #f7fafc;
-    --color-text-secondary: #e2e8f0;
-    --color-text-muted: #a0aec0;
-    --color-text-inverse: #1a202c;
-
-    /* Background Colors (Dark Mode) */
-    --color-bg-primary: #1a202c;
-    --color-bg-secondary: #2d3748;
-    --color-bg-tertiary: #4a5568;
-    --color-bg-hover: #718096;
-
-    /* Border Colors (Dark Mode) */
-    --color-border-light: #4a5568;
-    --color-border-medium: #718096;
-    --color-border-dark: #a0aec0;
-  }
-}
-
-/* Manual dark mode toggle (data-theme attribute) */
-[data-theme="dark"] {
-  /* Text Colors (Dark Mode) */
-  --color-text-primary: #f7fafc;
-  --color-text-secondary: #e2e8f0;
-  --color-text-muted: #a0aec0;
-  --color-text-inverse: #1a202c;
-
-  /* Background Colors (Dark Mode) */
-  --color-bg-primary: #1a202c;
-  --color-bg-secondary: #2d3748;
-  --color-bg-tertiary: #4a5568;
-  --color-bg-hover: #718096;
-
-  /* Border Colors (Dark Mode) */
-  --color-border-light: #4a5568;
-  --color-border-medium: #718096;
-  --color-border-dark: #a0aec0;
-}
+// Dark mode tokens are defined exclusively in src/styles/design-tokens.scss
+// which is the single source of truth for dark theme values.
+// A single @mixin dark-mode-tokens is included in both [data-theme="dark"]
+// and @media (prefers-color-scheme: dark) selectors.
+// Do NOT add dark overrides here — they would conflict with design-tokens.scss.

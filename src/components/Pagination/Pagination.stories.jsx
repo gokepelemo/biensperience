@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Pagination from './Pagination';
 import styles from './Pagination.module.scss';
-import '../../styles/design-tokens.css';
+import '../../styles/design-tokens.scss';
 import '../../styles/utilities.scss';
 
 export default {

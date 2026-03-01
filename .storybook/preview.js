@@ -52,7 +52,7 @@ export const decorators = [
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../src/index.scss';
 import '../src/styles/theme.scss';
-import '../src/styles/design-tokens.css';
+import '../src/styles/design-tokens.scss';
 import '../src/styles/utilities.scss';
 import '../src/styles/accessibility.scss';
 import '../src/styles/alerts.scss';
@@ -126,11 +126,9 @@ const preview = {
 				if (theme === 'dark') {
 					root.style.colorScheme = 'dark';
 					root.setAttribute('data-theme', 'dark');
-					try { root.setAttribute('data-bs-theme', 'dark'); } catch (e) { /* ignore */ }
 				} else {
 					root.style.colorScheme = 'light';
 					root.setAttribute('data-theme', 'light');
-					try { root.setAttribute('data-bs-theme', 'light'); } catch (e) { /* ignore */ }
 				}
 			}
 

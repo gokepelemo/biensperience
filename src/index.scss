@@ -12,6 +12,11 @@
 /* 1. Design System Foundation - @use MUST be first */
 @use './styles/scss/abstracts' as *;
 
+/* 1b. Bootstrap Component Base Styles (migration bridge)
+   Provides structural CSS for Bootstrap classes still used in JSX.
+   Remove this file once all Bootstrap class names are replaced. */
+@use './styles/bootstrap-base-components.scss' as *;
+
 /* 2. Global Styles - Using @use for SCSS files */
 @use './styles/headings.scss' as *;
 @use './styles/utilities.scss' as *;
@@ -29,7 +34,7 @@
 @use './styles/scss/components/text-legibility' as *;
 
 /* 5. CSS Custom Properties (for runtime theming) - @import comes after @use */
-@import './styles/design-tokens.css';
+@import './styles/design-tokens.scss';
 
 /* ============================================
    GLOBAL BASE STYLES

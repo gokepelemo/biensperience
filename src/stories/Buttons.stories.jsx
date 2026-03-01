@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '../components/design-system';
 import '../styles/utilities.scss';
-import '../styles/design-tokens.css';
+import '../styles/design-tokens.scss';
 import '../views/SingleExperience/SingleExperience.module.scss'; // Plan button styles
 
 export default {

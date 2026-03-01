@@ -1,6 +1,6 @@
 import React from 'react';
 import '../styles/utilities.scss';
-import '../styles/design-tokens.css';
+import '../styles/design-tokens.scss';
 import TagPill from '../components/Pill/TagPill';
 
 export default {

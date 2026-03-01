@@ -8,7 +8,7 @@ import CostEstimate from '../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../components/PlanningTime/PlanningTime';
 
 import '../../styles/utilities.scss';
-import '../../styles/design-tokens.css';
+import '../../styles/design-tokens.scss';
 import '../../views/SingleExperience/SingleExperience.module.scss';
 
 export default {
