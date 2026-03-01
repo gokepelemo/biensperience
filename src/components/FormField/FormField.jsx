@@ -1,5 +1,5 @@
 import React from 'react';
-import { InputGroup, FormTooltip, Form } from '../design-system';
+import { InputGroup, FormTooltip, FormGroup, FormLabel, FormControl, FormText } from '../design-system';
 import PropTypes from 'prop-types';
 import styles from './FormField.module.scss';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -133,7 +133,7 @@ export default function FormField({
     );
   } else {
     formControl = (
-      <Form.Control
+      <FormControl
         id={name}
         name={name}
         type={type}
@@ -154,18 +154,18 @@ export default function FormField({
         {...rest}
       >
         {children}
-      </Form.Control>
+      </FormControl>
     );
   }
 
   return (
-    <Form.Group className="mb-3">
+    <FormGroup className="mb-3">
       {label && (
-        <Form.Label htmlFor={name}>
+        <FormLabel htmlFor={name}>
           {label}
           {required && <span className="text-danger ms-1">*</span>}
           {tooltip && <FormTooltip content={tooltip} placement={tooltipPlacement} />}
-        </Form.Label>
+        </FormLabel>
       )}
       
       {isSearchableSelect ? (
@@ -196,15 +196,15 @@ export default function FormField({
         ) : formControl
       )}
 
-      {validFeedback && <Form.Control.Feedback type="valid">{validFeedback}</Form.Control.Feedback>}
-      {invalidFeedback && <Form.Control.Feedback type="invalid">{invalidFeedback}</Form.Control.Feedback>}
+      {validFeedback && <div className="valid-feedback">{validFeedback}</div>}
+      {invalidFeedback && <div className="invalid-feedback">{invalidFeedback}</div>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {helpText ? <Form.Text className="text-muted">{helpText}</Form.Text> : <div />}
+        {helpText ? <FormText className="text-muted">{helpText}</FormText> : <div />}
         {isTextarea && showCounter && (
-          <Form.Text className="text-muted">{(value && value.length) || 0}/{rest.maxLength || ''}</Form.Text>
+          <FormText className="text-muted">{(value && value.length) || 0}/{rest.maxLength || ''}</FormText>
         )}
       </div>
-    </Form.Group>
+    </FormGroup>
   );
 }
 

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
 import UserAvatar from '../UserAvatar/UserAvatar';
-import { Pill, Dropdown, Form } from '../design-system';
+import { Pill, Dropdown, FormControl } from '../design-system';
 import { createFilter } from '../../utilities/trie';
 import { lang } from '../../lang.constants';
 import styles from './Autocomplete.module.scss';
@@ -389,7 +389,7 @@ export default function Autocomplete({
       {/* Search Input */}
       <div className={styles.autocompleteInputWrapper}>
         <FaSearch className={styles.autocompleteSearchIcon} />
-        <Form.Control
+        <FormControl
           ref={inputRef}
           id={inputId}
           type="text"

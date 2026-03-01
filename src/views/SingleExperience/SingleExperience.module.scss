@@ -4,54 +4,8 @@
 
 
 
-/* Breadcrumb Navigation */
-.breadcrumbNav {
-  margin-bottom: $space-4;
-
-  :global(.breadcrumb) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0;
-    list-style: none;
-    background: transparent;
-    padding: 0;
-    margin-bottom: 0;
-    font-size: var(--font-size-sm);
-  }
-
-  :global(.breadcrumb-item) {
-    display: flex;
-    align-items: center;
-    color: var(--color-text-muted);
-    padding: 0 !important;
-
-    a {
-      display: inline-flex;
-      align-items: center;
-      color: var(--color-text-secondary);
-      text-decoration: none;
-      transition: color var(--transition-fast);
-    }
-
-    &.active {
-      color: var(--color-text-primary);
-      font-weight: var(--font-weight-medium);
-    }
-
-    + :global(.breadcrumb-item)::before {
-      padding: 0 !important;
-      margin: 0;
-      color: var(--color-text-muted);
-      content: "\2002/\2002";
-    }
-  }
-}
-
-/* Mobile Breadcrumb (back arrow only - title rendered in view content) */
-.mobileBreadcrumb {
-  margin-bottom: $space-4;
-}
+/* Breadcrumb styles are fully owned by src/components/Breadcrumb/Breadcrumb.module.scss.
+ * View-level overrides removed — use the Breadcrumb component's className prop if needed. */
 
 /* Main container for the experience detail view */
 .experienceDetailContainer {

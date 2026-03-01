@@ -24,6 +24,7 @@
  * Related: biensperience-8dd6 (Phase 1), biensperience-6ba4 (umbrella)
  */
 
+import React from 'react';
 import PropTypes from 'prop-types';
 import Form, {
   FormGroup,
@@ -104,11 +105,11 @@ FormLabelWrapper.propTypes = {
 /**
  * FormControlWrapper - Design System Abstraction for FormControl
  */
-export function FormControlWrapper(props) {
+export const FormControlWrapper = React.forwardRef(function FormControlWrapper(props, ref) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
   const Component = useLegacy ? FormControl : BaseFormControl;
-  return <Component {...props} />;
-}
+  return <Component ref={ref} {...props} />;
+});
 
 FormControlWrapper.displayName = 'FormControl';
 
@@ -178,6 +179,14 @@ FormInputGroupWrapper.propTypes = {
   className: PropTypes.string,
   style: PropTypes.object,
 };
+
+// Attach sub-components to FormWrapper so Form.Group, Form.Label, etc. work
+FormWrapper.Group = FormGroupWrapper;
+FormWrapper.Label = FormLabelWrapper;
+FormWrapper.Control = FormControlWrapper;
+FormWrapper.Check = FormCheckWrapper;
+FormWrapper.Text = FormTextWrapper;
+FormWrapper.InputGroup = FormInputGroupWrapper;
 
 // Default export for Form
 export default FormWrapper;

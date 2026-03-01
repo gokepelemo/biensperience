@@ -98,24 +98,27 @@ FormLabel.propTypes = {
 /**
  * FormControl component for input, select, and textarea elements
  */
-export function FormControl({
+export const FormControl = React.forwardRef(function FormControl({
   as: Component = 'input',
   type = 'text',
   className = '',
   style = {},
   ...props
-}) {
+}, ref) {
   const classes = [styles.formControl, className].filter(Boolean).join(' ');
 
   return (
     <Component
+      ref={ref}
       type={type}
       className={classes}
       style={style}
       {...props}
     />
   );
-}
+});
+
+FormControl.displayName = 'FormControl';
 
 FormControl.propTypes = {
   as: PropTypes.oneOf(['input', 'select', 'textarea']),

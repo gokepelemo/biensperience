@@ -183,19 +183,22 @@ BaseFormLabel.propTypes = {
  * Uses Chakra Input primitive for accessibility benefits,
  * with reset styling to use CSS Modules.
  */
-export function BaseFormControl({
+export const BaseFormControl = React.forwardRef(function BaseFormControl({
   as: Component = 'input',
   type = 'text',
   className = '',
   style = {},
+  isValid,
+  isInvalid,
   ...props
-}) {
+}, ref) {
   const classes = [styles.formControl, className].filter(Boolean).join(' ');
 
   // For input elements, use Chakra Input primitive
   if (Component === 'input') {
     return (
       <Input
+        ref={ref}
         type={type}
         className={classes}
         style={style}
@@ -217,13 +220,16 @@ export function BaseFormControl({
   // For select and textarea, use native elements (no Chakra equivalent needed)
   return (
     <Component
+      ref={ref}
       type={type}
       className={classes}
       style={style}
       {...props}
     />
   );
-}
+});
+
+BaseFormControl.displayName = 'BaseFormControl';
 
 BaseFormControl.propTypes = {
   as: PropTypes.oneOf(['input', 'select', 'textarea']),
