@@ -1,0 +1,120 @@
+/**
+ * BaseGrid - CSS Grid 12-column layout system
+ *
+ * Drop-in replacement for react-bootstrap Row/Col components.
+ * Uses CSS Grid with responsive column spans matching Bootstrap breakpoints.
+ *
+ * Breakpoints match Bootstrap 5:
+ * - xs: 0     (default, mobile-first)
+ * - sm: 576px
+ * - md: 768px
+ * - lg: 992px
+ * - xl: 1200px
+ * - xxl: 1400px
+ */
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--bs-gutter-x, 1.5rem);
+  width: 100%;
+}
+
+.col {
+  grid-column: span 12; /* Default: full width (mobile-first) */
+  min-width: 0; /* Prevent content overflow */
+}
+
+/* XS breakpoint (no media query — always applies) */
+.colXs1  { grid-column: span 1; }
+.colXs2  { grid-column: span 2; }
+.colXs3  { grid-column: span 3; }
+.colXs4  { grid-column: span 4; }
+.colXs5  { grid-column: span 5; }
+.colXs6  { grid-column: span 6; }
+.colXs7  { grid-column: span 7; }
+.colXs8  { grid-column: span 8; }
+.colXs9  { grid-column: span 9; }
+.colXs10 { grid-column: span 10; }
+.colXs11 { grid-column: span 11; }
+.colXs12 { grid-column: span 12; }
+
+/* SM breakpoint (≥576px) */
+@media (min-width: 576px) {
+  .colSm1  { grid-column: span 1; }
+  .colSm2  { grid-column: span 2; }
+  .colSm3  { grid-column: span 3; }
+  .colSm4  { grid-column: span 4; }
+  .colSm5  { grid-column: span 5; }
+  .colSm6  { grid-column: span 6; }
+  .colSm7  { grid-column: span 7; }
+  .colSm8  { grid-column: span 8; }
+  .colSm9  { grid-column: span 9; }
+  .colSm10 { grid-column: span 10; }
+  .colSm11 { grid-column: span 11; }
+  .colSm12 { grid-column: span 12; }
+}
+
+/* MD breakpoint (≥768px) */
+@media (min-width: 768px) {
+  .colMd1  { grid-column: span 1; }
+  .colMd2  { grid-column: span 2; }
+  .colMd3  { grid-column: span 3; }
+  .colMd4  { grid-column: span 4; }
+  .colMd5  { grid-column: span 5; }
+  .colMd6  { grid-column: span 6; }
+  .colMd7  { grid-column: span 7; }
+  .colMd8  { grid-column: span 8; }
+  .colMd9  { grid-column: span 9; }
+  .colMd10 { grid-column: span 10; }
+  .colMd11 { grid-column: span 11; }
+  .colMd12 { grid-column: span 12; }
+}
+
+/* LG breakpoint (≥992px) */
+@media (min-width: 992px) {
+  .colLg1  { grid-column: span 1; }
+  .colLg2  { grid-column: span 2; }
+  .colLg3  { grid-column: span 3; }
+  .colLg4  { grid-column: span 4; }
+  .colLg5  { grid-column: span 5; }
+  .colLg6  { grid-column: span 6; }
+  .colLg7  { grid-column: span 7; }
+  .colLg8  { grid-column: span 8; }
+  .colLg9  { grid-column: span 9; }
+  .colLg10 { grid-column: span 10; }
+  .colLg11 { grid-column: span 11; }
+  .colLg12 { grid-column: span 12; }
+}
+
+/* XL breakpoint (≥1200px) */
+@media (min-width: 1200px) {
+  .colXl1  { grid-column: span 1; }
+  .colXl2  { grid-column: span 2; }
+  .colXl3  { grid-column: span 3; }
+  .colXl4  { grid-column: span 4; }
+  .colXl5  { grid-column: span 5; }
+  .colXl6  { grid-column: span 6; }
+  .colXl7  { grid-column: span 7; }
+  .colXl8  { grid-column: span 8; }
+  .colXl9  { grid-column: span 9; }
+  .colXl10 { grid-column: span 10; }
+  .colXl11 { grid-column: span 11; }
+  .colXl12 { grid-column: span 12; }
+}
+
+/* XXL breakpoint (≥1400px) */
+@media (min-width: 1400px) {
+  .colXxl1  { grid-column: span 1; }
+  .colXxl2  { grid-column: span 2; }
+  .colXxl3  { grid-column: span 3; }
+  .colXxl4  { grid-column: span 4; }
+  .colXxl5  { grid-column: span 5; }
+  .colXxl6  { grid-column: span 6; }
+  .colXxl7  { grid-column: span 7; }
+  .colXxl8  { grid-column: span 8; }
+  .colXxl9  { grid-column: span 9; }
+  .colXxl10 { grid-column: span 10; }
+  .colXxl11 { grid-column: span 11; }
+  .colXxl12 { grid-column: span 12; }
+}

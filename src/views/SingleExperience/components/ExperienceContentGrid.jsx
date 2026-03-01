@@ -6,9 +6,8 @@
  * Designed to match SingleDestination's grid pattern for consistency.
  */
 
-import { Row, Col } from 'react-bootstrap';
 import { FaRegImage, FaHeart, FaCalendarAlt, FaDollarSign, FaClock, FaStar } from 'react-icons/fa';
-import { SkeletonLoader, Breadcrumb } from '../../../components/design-system';
+import { SkeletonLoader, Breadcrumb, Row, Col } from '../../../components/design-system';
 import styles from '../SingleExperience.module.scss';
 
 /**

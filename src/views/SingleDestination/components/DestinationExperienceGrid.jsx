@@ -7,9 +7,8 @@
  */
 
 import { useRef, useEffect, useCallback } from 'react';
-import { Row, Col } from 'react-bootstrap';
 import ExperienceCard from '../../../components/ExperienceCard/ExperienceCard';
-import { SkeletonLoader, EmptyState } from '../../../components/design-system';
+import { SkeletonLoader, EmptyState, Row, Col } from '../../../components/design-system';
 import { lang } from '../../../lang.constants';
 import styles from './DestinationExperienceGrid.module.scss';
 

@@ -6,10 +6,9 @@
  * to prevent layout shifts during initial load.
  */
 
-import { Row, Col } from 'react-bootstrap';
 import ProfileHeaderSkeleton from './ProfileHeaderSkeleton';
 import { ProfileContentGridSkeleton, ProfileTabsSkeleton } from './ProfileContentGrid';
-import { SkeletonLoader } from '../../../components/design-system';
+import { SkeletonLoader, Row, Col } from '../../../components/design-system';
 import activityFeedStyles from '../../../components/ActivityFeed/ActivityFeed.module.scss';
 import styles from '../Profile.module.scss';
 

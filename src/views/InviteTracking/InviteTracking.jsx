@@ -10,8 +10,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Row, Col } from 'react-bootstrap';
-import { Card, Tabs, Tab } from '../../components/design-system';
+import { Card, Tabs, Tab, Row, Col } from '../../components/design-system';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus, FaCopy, FaSearch, FaFilter, FaTimes, FaBan, FaFileDownload, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';

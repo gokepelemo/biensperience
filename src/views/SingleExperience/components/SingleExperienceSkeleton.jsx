@@ -4,9 +4,8 @@
  * Matches the actual SingleExperience layout pixel-perfectly
  */
 
-import { Container, Row, Col } from 'react-bootstrap';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
-import { Breadcrumb } from '../../../components/design-system';
+import { Breadcrumb, Container, Row, Col } from '../../../components/design-system';
 import styles from '../SingleExperience.module.scss';
 
 export default function SingleExperienceSkeleton() {

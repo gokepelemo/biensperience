@@ -92,3 +92,8 @@ export { default as Tabs, Tab, TabList, TabTrigger, TabContent } from './TabsWra
 // ListGroup Abstraction Layer
 // IMPORTANT: All list group consumers should import from here, NOT from react-bootstrap
 export { default as ListGroup, ListGroupItem } from './ListGroupWrapper';
+
+// Grid Abstraction Layer (Row/Col)
+// IMPORTANT: All Row/Col consumers should import from here, NOT from react-bootstrap
+// This enables zero-regression migration between implementations
+export { Row, Col } from './GridWrapper';
