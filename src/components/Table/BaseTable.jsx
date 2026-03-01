@@ -1,52 +1,34 @@
 /**
- * ChakraTable - Chakra UI v3 Table Components Implementation
+ * BaseTable - Design System Table Components Implementation
  *
  * Drop-in replacements for the custom Table components.
- * Uses Chakra UI v3 Table primitives for built-in accessibility
+ * Uses Table primitives for built-in accessibility
  * while preserving the existing Table.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default styling
+ * IMPORTANT: This implementation completely resets default styling
  * and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original Table components.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes for table accessibility
  * - Semantic table structure
  * - Consistent focus management for interactive tables
  *
- * Task: biensperience-9bf2 - Migrate Table component to Chakra UI
+ * Task: biensperience-9bf2 - Migrate Table component
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Table as ChakraTablePrimitive } from '@chakra-ui/react';
+import { Table as TablePrimitive } from '@chakra-ui/react';
 import styles from './Table.module.scss';
 
 /**
- * Reset styles to completely override Chakra's default table styling.
- * This ensures the CSS Module classes from Table.module.scss are the
- * sole source of visual styling — pixel-perfect match with the original.
- */
-const CHAKRA_RESET_STYLES = {
-  bg: 'transparent',
-  color: 'inherit',
-  border: 'none',
-  borderRadius: 'unset',
-  fontWeight: 'unset',
-  fontSize: 'unset',
-  lineHeight: 'unset',
-  _hover: {
-    bg: 'transparent',
-  },
-};
-
-/**
- * ChakraTable - Chakra UI Table.Root with CSS Module styling
+ * BaseTable - Chakra UI Table.Root with CSS Module styling
  *
  * Uses Chakra Table.Root for accessibility benefits,
  * with reset styling to use CSS Modules.
  */
-export default function ChakraTable({
+export default function BaseTable({
   children,
   hover = true,
   striped = false,
@@ -70,29 +52,28 @@ export default function ChakraTable({
   ].filter(Boolean).join(' ');
 
   const tableElement = (
-    <ChakraTablePrimitive.Root
+    <TablePrimitive.Root
       className={classes}
       style={style}
-      variant="plain"
-      css={CHAKRA_RESET_STYLES}
+      unstyled
       {...props}
     >
       {children}
-    </ChakraTablePrimitive.Root>
+    </TablePrimitive.Root>
   );
 
   if (responsive) {
     return (
-      <ChakraTablePrimitive.ScrollArea className={styles.tableResponsive}>
+      <TablePrimitive.ScrollArea className={styles.tableResponsive}>
         {tableElement}
-      </ChakraTablePrimitive.ScrollArea>
+      </TablePrimitive.ScrollArea>
     );
   }
 
   return tableElement;
 }
 
-ChakraTable.propTypes = {
+BaseTable.propTypes = {
   children: PropTypes.node.isRequired,
   hover: PropTypes.bool,
   striped: PropTypes.bool,
@@ -104,83 +85,80 @@ ChakraTable.propTypes = {
 };
 
 /**
- * ChakraTableHead - Chakra Table.Header with CSS Module styling
+ * BaseTableHead - Chakra Table.Header with CSS Module styling
  */
-export function ChakraTableHead({ children, className = '', style = {}, ...props }) {
+export function BaseTableHead({ children, className = '', style = {}, ...props }) {
   const classes = [styles.tableHead, className].filter(Boolean).join(' ');
 
   return (
-    <ChakraTablePrimitive.Header
+    <TablePrimitive.Header
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraTablePrimitive.Header>
+    </TablePrimitive.Header>
   );
 }
 
-ChakraTableHead.propTypes = {
+BaseTableHead.propTypes = {
   children: PropTypes.node.isRequired,
   className: PropTypes.string,
   style: PropTypes.object
 };
 
 /**
- * ChakraTableBody - Chakra Table.Body with CSS Module styling
+ * BaseTableBody - Chakra Table.Body with CSS Module styling
  */
-export function ChakraTableBody({ children, className = '', style = {}, ...props }) {
+export function BaseTableBody({ children, className = '', style = {}, ...props }) {
   const classes = [styles.tableBody, className].filter(Boolean).join(' ');
 
   return (
-    <ChakraTablePrimitive.Body
+    <TablePrimitive.Body
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraTablePrimitive.Body>
+    </TablePrimitive.Body>
   );
 }
 
-ChakraTableBody.propTypes = {
+BaseTableBody.propTypes = {
   children: PropTypes.node.isRequired,
   className: PropTypes.string,
   style: PropTypes.object
 };
 
 /**
- * ChakraTableRow - Chakra Table.Row with CSS Module styling
+ * BaseTableRow - Chakra Table.Row with CSS Module styling
  */
-export function ChakraTableRow({ children, className = '', style = {}, ...props }) {
+export function BaseTableRow({ children, className = '', style = {}, ...props }) {
   const classes = [styles.tableRow, className].filter(Boolean).join(' ');
 
   return (
-    <ChakraTablePrimitive.Row
+    <TablePrimitive.Row
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraTablePrimitive.Row>
+    </TablePrimitive.Row>
   );
 }
 
-ChakraTableRow.propTypes = {
+BaseTableRow.propTypes = {
   children: PropTypes.node.isRequired,
   className: PropTypes.string,
   style: PropTypes.object
 };
 
 /**
- * ChakraTableCell - Chakra Table.Cell/Table.ColumnHeader with CSS Module styling
+ * BaseTableCell - Chakra Table.Cell/Table.ColumnHeader with CSS Module styling
  *
  * Uses Table.ColumnHeader for header cells, Table.Cell for data cells.
  */
-export function ChakraTableCell({
+export function BaseTableCell({
   children,
   header = false,
   className = '',
@@ -188,13 +166,12 @@ export function ChakraTableCell({
   ...props
 }) {
   const classes = [styles.tableCell, className].filter(Boolean).join(' ');
-  const Component = header ? ChakraTablePrimitive.ColumnHeader : ChakraTablePrimitive.Cell;
+  const Component = header ? TablePrimitive.ColumnHeader : TablePrimitive.Cell;
 
   return (
     <Component
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
       {...props}
     >
       {children}
@@ -202,7 +179,7 @@ export function ChakraTableCell({
   );
 }
 
-ChakraTableCell.propTypes = {
+BaseTableCell.propTypes = {
   children: PropTypes.node,
   header: PropTypes.bool,
   className: PropTypes.string,

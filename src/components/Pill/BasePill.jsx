@@ -1,21 +1,21 @@
 /**
- * ChakraPill - Chakra UI v3 Badge Implementation
+ * BasePill - Design System Badge Implementation
  *
  * Drop-in replacement for the custom Pill component.
- * Uses Chakra UI v3 Badge primitive for built-in accessibility
+ * Uses Badge primitive for built-in accessibility
  * and consistent ARIA semantics while preserving the existing
  * Pill.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default Badge
+ * IMPORTANT: This implementation completely resets default Badge
  * styling and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original Pill component.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Semantic role="status" for screen readers
  * - Consistent focus management
  * - Built-in theme integration
  *
- * Task: biensperience-bbd4 - Migrate Pill component to Chakra UI
+ * Task: biensperience-bbd4 - Migrate Pill component
  */
 
 import React from 'react';
@@ -23,29 +23,7 @@ import PropTypes from 'prop-types';
 import { Badge } from '@chakra-ui/react';
 import styles from './Pill.module.scss';
 
-/**
- * Reset styles to completely override Chakra's default Badge styling.
- * This ensures the CSS Module classes from Pill.module.scss are the
- * sole source of visual styling — pixel-perfect match with the original.
- */
-const CHAKRA_RESET_STYLES = {
-  bg: 'transparent',
-  color: 'inherit',
-  border: 'none',
-  borderRadius: 'unset',
-  fontWeight: 'unset',
-  fontSize: 'unset',
-  lineHeight: 'unset',
-  textTransform: 'none',
-  px: 'unset',
-  py: 'unset',
-  _hover: {
-    bg: 'transparent',
-    color: 'inherit',
-  },
-};
-
-export default function ChakraPill({
+export default function BasePill({
   children,
   variant = 'neutral',
   size = 'md',
@@ -72,10 +50,7 @@ export default function ChakraPill({
     <Badge
       className={classes}
       style={style}
-      // Use 'plain' variant to prevent Chakra recipe application
-      variant="plain"
-      // Reset all Chakra styling — CSS Modules handle everything
-      {...CHAKRA_RESET_STYLES}
+      unstyled
       {...props}
     >
       {children}
@@ -83,7 +58,7 @@ export default function ChakraPill({
   );
 }
 
-ChakraPill.propTypes = {
+BasePill.propTypes = {
   children: PropTypes.node.isRequired,
   variant: PropTypes.oneOf(['primary', 'success', 'warning', 'danger', 'info', 'neutral']),
   size: PropTypes.oneOf(['sm', 'md', 'lg']),

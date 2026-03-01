@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Form, InputGroup, Button, Card } from "react-bootstrap";
+import { Form, Button } from "react-bootstrap";
+import { Card, InputGroup } from "../design-system";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaInfoCircle, FaCopy, FaCheck } from "react-icons/fa";
 import { Fieldset } from "@chakra-ui/react";
 import * as usersService from "../../utilities/users-service";
@@ -259,7 +260,6 @@ export default function LoginForm({ setUser }) {
                         {/* Email Field */}
                         <Fieldset.Root className="mb-3">
                             <Fieldset.Legend
-                                htmlFor="login-email"
                                 className={styles.formLabel}
                             >
                                 {lang.current.label.email}
@@ -294,7 +294,6 @@ export default function LoginForm({ setUser }) {
                         {/* Password Field */}
                         <Fieldset.Root className="mb-3">
                             <Fieldset.Legend
-                                htmlFor="login-password"
                                 className={styles.formLabel}
                             >
                                 {lang.current.label.password}

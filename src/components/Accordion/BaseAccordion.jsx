@@ -1,32 +1,32 @@
 /**
- * ChakraAccordion - Chakra UI v3 Accordion Component Implementation
+ * BaseAccordion - Design System Accordion Component Implementation
  *
  * Drop-in replacement for the react-bootstrap Accordion wrapper.
- * Uses Chakra UI v3 Accordion primitives for built-in accessibility
+ * Uses Accordion primitives for built-in accessibility
  * while preserving the existing Accordion.scss styling.
  *
  * IMPORTANT: This implementation uses the existing SCSS styles (global, not module)
  * via the .ds-accordion class, ensuring pixel-perfect visual parity with the original.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes
  * - Keyboard navigation (arrow keys, home/end)
  * - Focus management
  * - Controlled/uncontrolled modes
  *
- * Task: biensperience-7d07 - Migrate Accordion component to Chakra UI
+ * Task: biensperience-7d07 - Migrate Accordion component
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Accordion as ChakraAccordionPrimitive } from '@chakra-ui/react';
+import { Accordion as AccordionPrimitive } from '@chakra-ui/react';
 import './Accordion.scss';
 
 /**
- * Reset styles to completely override Chakra's default accordion styling.
+ * Reset styles to completely override default accordion styling.
  * The .ds-accordion class in Accordion.scss handles all visual styling.
  */
-const CHAKRA_RESET_STYLES = {
+const RESET_STYLES = {
   bg: 'transparent',
   border: 'none',
   borderRadius: 'unset',
@@ -34,12 +34,12 @@ const CHAKRA_RESET_STYLES = {
 };
 
 /**
- * ChakraAccordion - Chakra UI Accordion.Root with custom styling
+ * BaseAccordion - Chakra UI Accordion.Root with custom styling
  *
  * Uses Chakra Accordion.Root for accessibility benefits,
  * with .ds-accordion class for visual styling.
  */
-function ChakraAccordion({ className = '', children, defaultIndex, ...props }) {
+function BaseAccordion({ className = '', children, defaultIndex, ...props }) {
   // Convert defaultIndex to defaultValue format for Chakra v3
   // Chakra v3 uses string values like "item-0", "item-1"
   const defaultValue = defaultIndex !== undefined
@@ -49,19 +49,19 @@ function ChakraAccordion({ className = '', children, defaultIndex, ...props }) {
     : undefined;
 
   return (
-    <ChakraAccordionPrimitive.Root
+    <AccordionPrimitive.Root
       className={`ds-accordion ${className}`}
       defaultValue={defaultValue}
       variant="plain"
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraAccordionPrimitive.Root>
+    </AccordionPrimitive.Root>
   );
 }
 
-ChakraAccordion.propTypes = {
+BaseAccordion.propTypes = {
   className: PropTypes.string,
   children: PropTypes.node,
   defaultIndex: PropTypes.oneOfType([
@@ -71,80 +71,80 @@ ChakraAccordion.propTypes = {
 };
 
 /**
- * ChakraAccordionItem - Chakra UI Accordion.Item wrapper
+ * BaseAccordionItem - Chakra UI Accordion.Item wrapper
  *
  * Maps to Accordion.Item from react-bootstrap.
  * Requires a value prop for Chakra v3 - auto-generated if not provided.
  */
-function ChakraAccordionItem({ eventKey, children, ...props }) {
+function BaseAccordionItem({ eventKey, children, ...props }) {
   // Convert eventKey to value for Chakra v3
   const value = eventKey !== undefined ? `item-${eventKey}` : undefined;
 
   return (
-    <ChakraAccordionPrimitive.Item
+    <AccordionPrimitive.Item
       className="accordion-item"
       value={value}
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraAccordionPrimitive.Item>
+    </AccordionPrimitive.Item>
   );
 }
 
-ChakraAccordionItem.propTypes = {
+BaseAccordionItem.propTypes = {
   eventKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   children: PropTypes.node,
 };
 
 /**
- * ChakraAccordionHeader - Chakra UI Accordion.ItemTrigger wrapper
+ * BaseAccordionHeader - Chakra UI Accordion.ItemTrigger wrapper
  *
  * Maps to Accordion.Header from react-bootstrap.
  * Renders a button that toggles the accordion item.
  */
-function ChakraAccordionHeader({ children, ...props }) {
+function BaseAccordionHeader({ children, ...props }) {
   return (
-    <ChakraAccordionPrimitive.ItemTrigger
+    <AccordionPrimitive.ItemTrigger
       className="accordion-button"
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
-      <ChakraAccordionPrimitive.ItemIndicator />
-    </ChakraAccordionPrimitive.ItemTrigger>
+      <AccordionPrimitive.ItemIndicator />
+    </AccordionPrimitive.ItemTrigger>
   );
 }
 
-ChakraAccordionHeader.propTypes = {
+BaseAccordionHeader.propTypes = {
   children: PropTypes.node,
 };
 
 /**
- * ChakraAccordionBody - Chakra UI Accordion.ItemContent wrapper
+ * BaseAccordionBody - Chakra UI Accordion.ItemContent wrapper
  *
  * Maps to Accordion.Body from react-bootstrap.
  * Contains the collapsible content.
  */
-function ChakraAccordionBody({ children, ...props }) {
+function BaseAccordionBody({ children, ...props }) {
   return (
-    <ChakraAccordionPrimitive.ItemContent
+    <AccordionPrimitive.ItemContent
       className="accordion-body"
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraAccordionPrimitive.ItemContent>
+    </AccordionPrimitive.ItemContent>
   );
 }
 
-ChakraAccordionBody.propTypes = {
+BaseAccordionBody.propTypes = {
   children: PropTypes.node,
 };
 
 // Attach subcomponents to main component for API parity with react-bootstrap
-ChakraAccordion.Item = ChakraAccordionItem;
-ChakraAccordion.Header = ChakraAccordionHeader;
-ChakraAccordion.Body = ChakraAccordionBody;
+BaseAccordion.Item = BaseAccordionItem;
+BaseAccordion.Header = BaseAccordionHeader;
+BaseAccordion.Body = BaseAccordionBody;
 
-export default ChakraAccordion;
+export default BaseAccordion;

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Form, Dropdown } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import { FaSearch, FaUser, FaMapMarkerAlt, FaStar, FaGlobe } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
-import { Pill } from '../design-system';
+import UserAvatar from '../UserAvatar/UserAvatar';
+import { Pill, Dropdown } from '../design-system';
 import { createFilter } from '../../utilities/trie';
 import { lang } from '../../lang.constants';
 import styles from './Autocomplete.module.scss';
@@ -581,13 +582,7 @@ function UserItem({ item, showAvatar, showStatus, showMeta }) {
     <div className={styles.autocompleteUser}>
       {showAvatar && (
         <div className={styles.userAvatarWrapper}>
-          {item.avatar ? (
-            <img src={item.avatar} alt={item.name} className={styles.userAvatar} />
-          ) : (
-            <div className={styles.userAvatarPlaceholder}>
-              <FaUser />
-            </div>
-          )}
+          <UserAvatar user={item} size="xs" linkToProfile={false} />
           {showStatus && item.isOnline && (
             <span className={`${styles.userStatusIndicator} ${styles.online}`} />
           )}

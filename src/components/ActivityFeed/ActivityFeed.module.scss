@@ -142,28 +142,53 @@
   gap: $space-3;
 }
 
-.activityItem {
-  display: flex;
-  align-items: flex-start;
-  gap: $space-3;
-  padding: $space-4;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-lg);
-  transition: all var(--transition-fast);
+/* Chakra Timeline wrapper
+ * Pin all Chakra-injected dimensions with !important to prevent layout shifts
+ * from Chakra's runtime CSS loading after our SCSS modules. */
+.timeline {
+  width: 100%;
 
-  &:hover {
-    border-color: var(--color-border-medium);
-    box-shadow: var(--shadow-sm);
+  :global(.chakra-timeline__item) {
+    align-items: flex-start !important;
   }
 
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-bg-tertiary);
-    border-color: var(--color-border-dark);
+  :global(.chakra-timeline__content) {
+    padding-top: 0 !important;
+    padding-bottom: $space-4 !important;
+  }
 
-    &:hover {
-      border-color: var(--color-border-medium);
+  :global(.chakra-timeline__indicator) {
+    overflow: hidden;
+    /* Match UserAvatar xs (24px) + 4px border = 28px */
+    width: 28px !important;
+    height: 28px !important;
+    /* Push indicator down so its center aligns with the first line of text */
+    margin-top: 2px !important;
+
+    /* When avatar is wrapped in a profile Link, constrain the link to indicator size */
+    > a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      line-height: 0;
     }
+  }
+
+  /* Lock avatar inside indicator to prevent Chakra --avatar-size overrides */
+  :global([data-scope="avatar"][data-part="root"]) {
+    --avatar-size: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-width: 2px !important;
+  }
+
+  :global(.chakra-timeline__title) {
+    /* Use block + line-height so text, links, and spans flow as natural inline content */
+    min-height: 28px !important;
+    display: block !important;
+    line-height: 28px !important;
   }
 }
 
@@ -172,38 +197,29 @@
   overflow: hidden;
 }
 
-.activityIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-full);
-  color: var(--color-primary);
-  font-size: 1rem;
-  flex-shrink: 0;
-
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-bg-secondary);
-  }
-}
-
-.activityContent {
-  flex: 1;
-  min-width: 0;
-}
-
 .activityText {
-  margin: 0 0 $space-1 0;
+  display: inline !important;
+  margin: 0;
   font-size: $font-size-sm;
   color: var(--color-text-primary);
-  line-height: 1.4;
+  line-height: 28px;
 }
 
 .activityAction {
   color: var(--color-text-secondary);
 }
+
+.activityActorLink {
+  color: var(--color-primary);
+  font-weight: $font-weight-semibold;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Inline styles for activity text elements */
 
 .activityLink {
   color: var(--color-primary);
@@ -222,24 +238,65 @@
 
 .activityTarget {
   color: var(--color-text-muted);
-  font-size: $font-size-xs;
 }
 
 .activityTime {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
   font-size: $font-size-xs;
   color: var(--color-text-muted);
 }
 
+/* Photo thumbnail for photo-related activity items */
+.activityPhotoThumb {
+  display: block;
+  width: 80px;
+  height: 80px;
+  margin: $space-2 0;
+  padding: 0;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--color-bg-tertiary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    border-color: var(--color-border-dark);
+    background: var(--color-bg-secondary);
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+  }
+}
+
 .activityArrow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 20px;
+  height: 20px;
   color: var(--color-text-muted);
   border-radius: var(--radius-full);
-  flex-shrink: 0;
-  align-self: center;
+  font-size: 0.6rem;
+  vertical-align: middle;
+  margin-left: $space-1;
+  line-height: 1;
   transition: all var(--transition-fast);
 
   &:hover {

@@ -1,50 +1,47 @@
 /**
- * ChakraText - Chakra UI v3 Text Components Implementation
+ * BaseText - Design System Text Components Implementation
  *
  * Drop-in replacements for the custom Text components.
- * Uses Chakra UI v3 Text and Heading primitives for built-in accessibility
+ * Uses Text and Heading primitives for built-in accessibility
  * while preserving the existing Text.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default styling
+ * IMPORTANT: This implementation completely resets default styling
  * and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original Text components.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in accessibility attributes
  * - Semantic heading structure
  * - Consistent typography handling
  *
- * Task: biensperience-445f - Migrate Text and Typography components to Chakra UI
+ * Task: biensperience-445f - Migrate Text and Typography components
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Text as ChakraTextPrimitive, Heading as ChakraHeadingPrimitive } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import styles from './Text.module.scss';
 
 /**
- * Reset styles to completely override Chakra's default text styling.
- * This ensures the CSS Module classes from Text.module.scss are the
- * sole source of visual styling — pixel-perfect match with the original.
+ * Using chakra() factory instead of the Text/Heading recipe components.
+ *
+ * The Text recipe component (import { Text } from '@chakra-ui/react') applies
+ * default font-size, line-height, and color styles that fight with our CSS Module
+ * classes. The chakra() factory creates bare styled elements with NO recipe styles —
+ * only Chakra's runtime (ref forwarding, css prop support).
+ * This means our CSS Module classes from Text.module.scss are the sole source of
+ * visual styling, with zero specificity conflicts.
  */
-const CHAKRA_RESET_STYLES = {
-  fontFamily: 'inherit',
-  fontSize: 'inherit',
-  fontWeight: 'inherit',
-  lineHeight: 'inherit',
-  color: 'inherit',
-  letterSpacing: 'inherit',
-  margin: 0,
-  padding: 0,
-};
+const StyledText = chakra('p');
+const StyledHeading = chakra('h1');
 
 /**
- * ChakraText - Chakra UI Text with CSS Module styling
+ * BaseText - Chakra UI Text with CSS Module styling
  *
  * Uses Chakra Text primitive for accessibility benefits,
  * with reset styling to use CSS Modules.
  */
-export default function ChakraText({
+export default function BaseText({
   children,
   as: Component = 'p',
   variant = 'body',
@@ -82,19 +79,18 @@ export default function ChakraText({
   ].filter(Boolean).join(' ');
 
   return (
-    <ChakraTextPrimitive
+    <StyledText
       as={Component}
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraTextPrimitive>
+    </StyledText>
   );
 }
 
-ChakraText.propTypes = {
+BaseText.propTypes = {
   children: PropTypes.node.isRequired,
   as: PropTypes.oneOf(['p', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']),
   variant: PropTypes.oneOf(['body', 'lead', 'caption', 'gradient', 'muted', 'heading']),
@@ -110,12 +106,12 @@ ChakraText.propTypes = {
 };
 
 /**
- * ChakraHeading - Chakra UI Heading with CSS Module styling
+ * BaseHeading - Chakra UI Heading with CSS Module styling
  *
  * Uses Chakra Heading primitive for semantic heading structure,
  * with reset styling to use CSS Modules.
  */
-export function ChakraHeading({
+export function BaseHeading({
   children,
   level = 1,
   variant = 'heading',
@@ -150,19 +146,18 @@ export function ChakraHeading({
   ].filter(Boolean).join(' ');
 
   return (
-    <ChakraHeadingPrimitive
+    <StyledHeading
       as={`h${level}`}
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
       {...props}
     >
       {children}
-    </ChakraHeadingPrimitive>
+    </StyledHeading>
   );
 }
 
-ChakraHeading.propTypes = {
+BaseHeading.propTypes = {
   children: PropTypes.node.isRequired,
   level: PropTypes.oneOf([1, 2, 3, 4, 5, 6]),
   variant: PropTypes.oneOf(['body', 'lead', 'caption', 'gradient', 'muted', 'heading']),
@@ -176,9 +171,9 @@ ChakraHeading.propTypes = {
 };
 
 /**
- * ChakraParagraph - Chakra UI Text as paragraph with CSS Module styling
+ * BaseParagraph - Chakra UI Text as paragraph with CSS Module styling
  */
-export function ChakraParagraph({
+export function BaseParagraph({
   children,
   variant = 'body',
   size = 'base',
@@ -192,7 +187,7 @@ export function ChakraParagraph({
   ...props
 }) {
   return (
-    <ChakraText
+    <BaseText
       as="p"
       variant={variant}
       size={size}
@@ -206,11 +201,11 @@ export function ChakraParagraph({
       {...props}
     >
       {children}
-    </ChakraText>
+    </BaseText>
   );
 }
 
-ChakraParagraph.propTypes = {
+BaseParagraph.propTypes = {
   children: PropTypes.node.isRequired,
   variant: PropTypes.oneOf(['body', 'lead', 'caption', 'gradient', 'muted']),
   size: PropTypes.oneOf(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl']),

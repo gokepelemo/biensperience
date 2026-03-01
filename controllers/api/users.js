@@ -11,6 +11,7 @@ const backendLogger = require("../../utilities/backend-logger");
 const { geocodeAddress } = require("../../utilities/geocoding-utils");
 const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/websocket-server");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
+const { getDefaultPhoto } = require("../../utilities/photo-utils");
 
 function isE164PhoneNumber(value) {
   if (typeof value !== 'string') return false;
@@ -222,7 +223,7 @@ async function getBulkUsers(req, res) {
     // Fetch all users in one query
     // Include feature_flags and bio for curator status detection
     const users = await User.find({ _id: { $in: validIds } })
-      .select('name email photos default_photo_id createdAt feature_flags bio')
+      .select('name email photos default_photo_id oauthProfilePhoto photo createdAt feature_flags bio')
       .populate("photos", "url caption")
       .lean();
 
@@ -1902,12 +1903,65 @@ async function deleteAccount(req, res) {
   }
 }
 
+/**
+ * GET /api/users/avatars?ids=id1,id2,...
+ * Lightweight endpoint that resolves avatar URLs for a list of user IDs.
+ * Returns only the URL (or null) per user — no full user object.
+ * Used by the frontend avatar cache to lazily fetch avatars in batch.
+ */
+async function getAvatars(req, res) {
+  try {
+    const { ids } = req.query;
+    if (!ids) {
+      return res.status(400).json({ error: 'ids query parameter required' });
+    }
+
+    const idArray = ids
+      .split(',')
+      .map(s => s.trim())
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .slice(0, 100); // cap at 100 to prevent abuse
+
+    if (idArray.length === 0) {
+      return res.json({ avatars: {} });
+    }
+
+    const users = await User.find({ _id: { $in: idArray } })
+      .select('photos default_photo_id oauthProfilePhoto photo')
+      .populate('photos', 'url')
+      .lean();
+
+    const avatars = {};
+    for (const u of users) {
+      const defaultPhoto = getDefaultPhoto(u);
+      avatars[u._id.toString()] =
+        (defaultPhoto && defaultPhoto.url) ||
+        u.oauthProfilePhoto ||
+        (typeof u.photo === 'string' ? u.photo : null) ||
+        null;
+    }
+
+    // Include null for any requested ID not found (deleted user, etc.)
+    for (const id of idArray) {
+      if (!(id in avatars)) {
+        avatars[id] = null;
+      }
+    }
+
+    return res.json({ avatars });
+  } catch (err) {
+    backendLogger.error('Error fetching avatars', { error: err.message });
+    return errorResponse(res, err, 'Failed to fetch avatars', 500);
+  }
+}
+
 module.exports = {
   create,
   login,
   checkToken,
   getUser,
   getBulkUsers,
+  getAvatars,
   getProfile,
   updateUser,
   updateUserAsAdmin,

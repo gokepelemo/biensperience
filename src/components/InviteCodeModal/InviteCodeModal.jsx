@@ -10,7 +10,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, Form, Button, Alert as BootstrapAlert, ListGroup, Badge, Tabs, Tab } from 'react-bootstrap';
+import { Modal, Form, Button, Alert as BootstrapAlert, Badge } from 'react-bootstrap';
+import { ListGroup, Tabs, Tab } from '../design-system';
 import { FaEnvelope, FaUsers, FaUpload, FaDownload } from 'react-icons/fa';
 import {
   getInviteCodes,

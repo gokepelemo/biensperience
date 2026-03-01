@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Container, Row, Col, Card, Alert } from 'react-bootstrap';
+import { Container, Row, Col } from 'react-bootstrap';
+import { Card, Alert } from '../design-system';
 import { logger } from '../../utilities/logger';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import MentionedText from '../MentionedText/MentionedText';

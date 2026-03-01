@@ -366,7 +366,7 @@ export default function MyPlans() {
       >
         <div className={styles.headerWrapper}>
           <FlexBetween className="mb-2">
-            <Heading level={4}>{lang.current.heading.plans}</Heading>
+            <Heading level={2}>{lang.current.heading.plans}</Heading>
             <div className={styles.headerControls}>
               {/* View mode toggle */}
               {plans.length > 0 && (

@@ -3,7 +3,9 @@
 /* Breadcrumb Navigation */
 .breadcrumbNav {
   margin-bottom: $space-4;
+  font-size: var(--font-size-sm);
 
+  /* Bootstrap breadcrumb classes (legacy) */
   :global(.breadcrumb) {
     display: flex;
     flex-wrap: wrap;
@@ -46,6 +48,86 @@
       content: "\2002/\2002";
     }
   }
+
+  /* Chakra UI Breadcrumb overrides */
+  :global([data-part="root"]) {
+    padding: 0;
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  :global([data-part="list"]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    list-style: none;
+    padding: 0 !important;
+    padding-left: 0 !important;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    /* Override Chakra fg.muted token with our design token */
+    color: var(--color-text-muted) !important;
+  }
+
+  :global([data-part="item"]) {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+  }
+
+  :global([data-part="link"]) {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    font-size: var(--font-size-sm);
+
+    &:hover {
+      color: var(--color-primary);
+    }
+  }
+
+  :global([data-part="current-link"]),
+  :global(.chakra-breadcrumb__currentLink) {
+    color: var(--color-text-primary) !important;
+    font-weight: var(--font-weight-medium) !important;
+    font-size: var(--font-size-sm) !important;
+  }
+
+  :global([data-part="separator"]) {
+    color: var(--color-text-muted);
+    padding: 0 0.33em;
+    margin: 0;
+    font-size: var(--font-size-sm);
+
+    // Hide the default Chakra chevron SVG icon
+    svg {
+      display: none;
+    }
+  }
+
+  // Reset any Chakra-injected <nav> or <ol> padding
+  nav, ol, ul {
+    padding: 0 !important;
+    padding-left: 0 !important;
+    margin: 0;
+  }
+}
+
+/* Skeleton breadcrumb row */
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+.skeletonSeparator {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
 /* Mobile breadcrumb styles (back arrow only) */

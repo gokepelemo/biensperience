@@ -10,7 +10,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Modal, Form, Button, Alert as BootstrapAlert, ListGroup, Badge } from 'react-bootstrap';
+import { Modal, Form, Button, Alert as BootstrapAlert, Badge } from 'react-bootstrap';
+import { ListGroup } from '../design-system';
 import { FaCopy, FaTrash, FaKey } from 'react-icons/fa';
 import { getApiTokens, createApiToken, deleteApiToken, toggleApiAccess } from '../../utilities/api-tokens-service';
 import { useToast } from '../../contexts/ToastContext';

@@ -2,17 +2,17 @@
  * Accordion Abstraction Layer
  *
  * This component provides a stable API for Accordion usage across the application.
- * It wraps either the react-bootstrap Accordion or the Chakra UI Accordion implementation,
- * controlled by the 'chakra_ui' feature flag.
+ * It wraps either the react-bootstrap Accordion or the modern Accordion implementation,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All accordion consumers should import from design-system, NOT directly from Accordion.
  *
  * Implementation Status:
  * - Phase 1: React-Bootstrap Accordion (completed)
- * - Phase 2: Feature-flagged Chakra UI (completed) Accordion
- * - Phase 3: Chakra UI Accordion validation (completed)
- * - Phase 4 (Current): Chakra UI Accordion is default; legacy available via 'bootstrap_accordion' flag
+ * - Phase 2: Feature-flagged modern (completed) Accordion
+ * - Phase 3: modern Accordion validation (completed)
+ * - Phase 4 (Current): modern Accordion is default; legacy available via 'bootstrap_accordion' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
@@ -26,18 +26,18 @@
 
 import PropTypes from 'prop-types';
 import Accordion from '../Accordion/Accordion';
-import ChakraAccordion from '../Accordion/ChakraAccordion';
+import BaseAccordion from '../Accordion/BaseAccordion';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * AccordionWrapper - Design System Abstraction for Accordion
  *
- * Uses Chakra UI v3 Accordion implementation when 'chakra_ui' feature flag
- * is enabled, otherwise falls back to the react-bootstrap Accordion.
+ * Uses the accessible Accordion implementation by default,
+ * falls back to the react-bootstrap Accordion when 'bootstrap_accordion' flag is enabled.
  */
 function AccordionWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_accordion');
-  const AccordionComponent = useLegacy ? Accordion : ChakraAccordion;
+  const AccordionComponent = useLegacy ? Accordion : BaseAccordion;
   return <AccordionComponent {...props} />;
 }
 
@@ -56,7 +56,7 @@ AccordionWrapper.propTypes = {
 // Wrapper components for subcomponents
 function AccordionItemWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_accordion');
-  const ItemComponent = useChakra ? ChakraAccordion.Item : Accordion.Item;
+  const ItemComponent = !useLegacy ? BaseAccordion.Item : Accordion.Item;
   return <ItemComponent {...props} />;
 }
 
@@ -64,7 +64,7 @@ AccordionItemWrapper.displayName = 'Accordion.Item';
 
 function AccordionHeaderWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_accordion');
-  const HeaderComponent = useChakra ? ChakraAccordion.Header : Accordion.Header;
+  const HeaderComponent = !useLegacy ? BaseAccordion.Header : Accordion.Header;
   return <HeaderComponent {...props} />;
 }
 
@@ -72,7 +72,7 @@ AccordionHeaderWrapper.displayName = 'Accordion.Header';
 
 function AccordionBodyWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_accordion');
-  const BodyComponent = useChakra ? ChakraAccordion.Body : Accordion.Body;
+  const BodyComponent = !useLegacy ? BaseAccordion.Body : Accordion.Body;
   return <BodyComponent {...props} />;
 }
 

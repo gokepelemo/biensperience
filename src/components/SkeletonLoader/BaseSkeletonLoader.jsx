@@ -1,37 +1,37 @@
 /**
- * ChakraSkeletonLoader - Chakra UI v3 Skeleton Implementation
+ * BaseSkeletonLoader - Design System Skeleton Implementation
  *
  * Drop-in replacement for the custom SkeletonLoader component.
- * Uses Chakra UI v3 Skeleton primitive for built-in accessibility
+ * Uses Skeleton primitive for built-in accessibility
  * and animation support while preserving the existing styling.
  *
- * IMPORTANT: This implementation resets Chakra's default skeleton
+ * IMPORTANT: This implementation resets default skeleton
  * styling and applies the existing CSS Module classes, ensuring
  * visual parity with the original SkeletonLoader component.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes (aria-busy, aria-live)
  * - Reduced-motion support (respects prefers-reduced-motion)
  * - Consistent animation across the design system
  *
- * Task: biensperience-20d0 - Create Chakra wrappers for SkeletonLoader
+ * Task: biensperience-20d0 - Create wrappers for SkeletonLoader
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Skeleton as ChakraSkeleton, Box } from '@chakra-ui/react';
+import { Skeleton as SkeletonPrimitive, Box } from '@chakra-ui/react';
 import styles from './SkeletonLoader.module.scss';
 
 /**
- * Reset styles to override Chakra's default skeleton styling.
+ * Reset styles to override default skeleton styling.
  */
-const CHAKRA_RESET_STYLES = {
+const RESET_STYLES = {
   bg: 'transparent',
   _dark: { bg: 'transparent' },
 };
 
 /**
- * ChakraSkeletonLoader - Chakra-backed skeleton with existing CSS Modules styling
+ * BaseSkeletonLoader - Accessible skeleton with existing CSS Modules styling
  *
  * @param {Object} props
  * @param {'text'|'circle'|'rectangle'} props.variant - Loading shape
@@ -43,7 +43,7 @@ const CHAKRA_RESET_STYLES = {
  * @param {string} props.className - Additional CSS classes
  * @param {Object} props.style - Inline styles
  */
-export default function ChakraSkeletonLoader({
+export default function BaseSkeletonLoader({
   variant = 'text',
   size = 'md',
   width,
@@ -69,7 +69,7 @@ export default function ChakraSkeletonLoader({
     className: classes,
     style: computedStyle,
     loading: animate,
-    ...CHAKRA_RESET_STYLES,
+    ...RESET_STYLES,
     ...props
   };
 
@@ -77,7 +77,7 @@ export default function ChakraSkeletonLoader({
     case 'circle': {
       const diameter = height || width;
       return (
-        <ChakraSkeleton
+        <SkeletonPrimitive
           {...commonProps}
           style={{
             ...computedStyle,
@@ -91,7 +91,7 @@ export default function ChakraSkeletonLoader({
 
     case 'rectangle':
       return (
-        <ChakraSkeleton
+        <SkeletonPrimitive
           {...commonProps}
           style={{
             ...computedStyle,
@@ -106,7 +106,7 @@ export default function ChakraSkeletonLoader({
         return (
           <Box className={styles.skeletonTextGroup} style={style}>
             {Array.from({ length: lines }, (_, index) => (
-              <ChakraSkeleton
+              <SkeletonPrimitive
                 key={index}
                 {...commonProps}
                 style={{
@@ -122,7 +122,7 @@ export default function ChakraSkeletonLoader({
       }
 
       return (
-        <ChakraSkeleton
+        <SkeletonPrimitive
           {...commonProps}
           style={{
             ...computedStyle,
@@ -133,7 +133,7 @@ export default function ChakraSkeletonLoader({
   }
 }
 
-ChakraSkeletonLoader.propTypes = {
+BaseSkeletonLoader.propTypes = {
   variant: PropTypes.oneOf(['text', 'circle', 'rectangle']),
   size: PropTypes.oneOf(['sm', 'md', 'lg']),
   width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

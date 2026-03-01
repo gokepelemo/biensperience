@@ -8,6 +8,7 @@ import { logger } from '../utilities/logger';
 import { eventBus } from '../utilities/event-bus';
 import { LOCAL_CHANGE_PROTECTION_MS } from '../utilities/event-bus';
 import { storePreferences } from '../utilities/preferences-utils';
+import { getDefaultPhoto } from '../utilities/photo-utils';
 // Intentionally do not clear plan cache on logout/user-switch.
 // The consolidated cache is user-scoped internally (by userId) and safe to keep
 // around so other users on the same device benefit from faster rendering.
@@ -255,19 +256,39 @@ export function UserProvider({ children }) {
 
   /**
    * Get user's avatar URL with fallback
+   * Resolution chain mirrors UserAvatar: photos + default_photo_id → first photo → oauthProfilePhoto → legacy photo
    * @returns {string} Avatar URL or default avatar
    */
   const getAvatarUrl = useCallback(() => {
-    if (profile?.profilePhoto) {
-      return profile.profilePhoto;
+    const source = profile || user;
+    if (!source) return getDefaultAvatar('User');
+
+    // Step 1: Check photos array with default_photo_id
+    const defaultPhoto = getDefaultPhoto(source);
+    if (defaultPhoto && typeof defaultPhoto === 'object' && defaultPhoto.url) {
+      return defaultPhoto.url;
     }
 
-    if (user?.profilePhoto) {
-      return user.profilePhoto;
+    // Step 2: First photo in photos array
+    if (source.photos && source.photos.length > 0) {
+      const firstPhoto = source.photos[0];
+      if (firstPhoto && typeof firstPhoto === 'object' && firstPhoto.url) {
+        return firstPhoto.url;
+      }
     }
 
-    // Default avatar (could be a placeholder image or initials-based avatar)
-    return getDefaultAvatar(user?.name || 'User');
+    // Step 3: OAuth profile photo
+    if (source.oauthProfilePhoto) {
+      return source.oauthProfilePhoto;
+    }
+
+    // Step 4: Legacy photo field
+    if (source.photo && typeof source.photo === 'string') {
+      return source.photo;
+    }
+
+    // Fallback to generated avatar
+    return getDefaultAvatar(source.name || 'User');
   }, [user, profile]);
 
   /**

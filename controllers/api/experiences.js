@@ -807,7 +807,7 @@ async function showExperienceWithContext(req, res) {
       .select('experience user planned_date plan permissions notes pinnedItemId createdAt updatedAt')
       .populate({
         path: 'user',
-        select: 'name email photos default_photo_id',
+        select: 'name email photos default_photo_id oauthProfilePhoto photo',
         populate: { path: 'photos', select: 'url caption' }
       })
       .lean()
@@ -844,7 +844,7 @@ async function showExperienceWithContext(req, res) {
       // Populate the plan owner user small profile so frontend can render owner names
       .populate({
         path: 'user',
-        select: 'name email photos default_photo_id',
+        select: 'name email photos default_photo_id oauthProfilePhoto photo',
         populate: { path: 'photos', select: 'url caption' }
       })
       .lean()
@@ -963,7 +963,7 @@ async function showExperienceWithContext(req, res) {
           ]
         })
           .select('experience user planned_date plan permissions notes createdAt updatedAt')
-          .populate({ path: 'user', select: 'name email photos default_photo_id', populate: { path: 'photos', select: 'url caption' } })
+          .populate({ path: 'user', select: 'name email photos default_photo_id oauthProfilePhoto photo', populate: { path: 'photos', select: 'url caption' } })
           .lean()
           .exec();
 

@@ -1,16 +1,16 @@
 /**
- * ChakraProgressBar - Chakra UI v3 Progress Implementation
+ * BaseProgressBar - Design System Progress Implementation
  *
  * Drop-in replacement for the custom ProgressBar component.
- * Uses Chakra UI v3 Progress primitive for built-in accessibility
+ * Uses Progress primitive for built-in accessibility
  * while preserving the existing CSS Modules styling.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes (role=progressbar, aria-valuenow, etc.)
  * - Reduced-motion support
  * - Consistent progress patterns across the design system
  *
- * Task: biensperience-20d0 - Create Chakra wrappers for ProgressBar
+ * Task: biensperience-20d0 - Create wrappers for ProgressBar
  */
 
 import React from 'react';
@@ -19,7 +19,7 @@ import { Progress } from '@chakra-ui/react';
 import styles from './ProgressBar.module.scss';
 
 /**
- * ChakraProgressBar - Chakra-backed progress bar with existing CSS Modules styling
+ * BaseProgressBar - Accessible progress bar with existing CSS Modules styling
  *
  * @param {Object} props
  * @param {number} props.value - Progress value (0-100)
@@ -28,7 +28,7 @@ import styles from './ProgressBar.module.scss';
  * @param {boolean} props.showPercentage - Show percentage label
  * @param {boolean} props.animated - Animate progress bar
  */
-export default function ChakraProgressBar({
+export default function BaseProgressBar({
   value,
   color = 'primary',
   size = 'md',
@@ -47,6 +47,7 @@ export default function ChakraProgressBar({
         value={clampedValue}
         max={100}
         min={0}
+        unstyled
       >
         <Progress.Track>
           <Progress.Range
@@ -63,7 +64,7 @@ export default function ChakraProgressBar({
   );
 }
 
-ChakraProgressBar.propTypes = {
+BaseProgressBar.propTypes = {
   value: PropTypes.number.isRequired,
   color: PropTypes.oneOf(['primary', 'success', 'danger', 'warning']),
   size: PropTypes.oneOf(['sm', 'md', 'lg']),

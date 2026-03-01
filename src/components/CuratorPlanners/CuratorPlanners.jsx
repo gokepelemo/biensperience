@@ -8,9 +8,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { FaEnvelope, FaUser, FaMapMarkerAlt, FaChevronRight } from 'react-icons/fa';
+import { FaEnvelope, FaMapMarkerAlt, FaChevronRight } from 'react-icons/fa';
 import { Button } from '../design-system';
 import Loading from '../Loading/Loading';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import MessagesModal from '../ChatModal/MessagesModal';
 import { getCuratorPlanners } from '../../utilities/activities-api';
 import { getOrCreateDmChannel } from '../../utilities/chat-api';
@@ -127,7 +128,18 @@ export default function CuratorPlanners({ user }) {
           <div key={planner.userId} className={styles.plannerItem}>
             <div className={styles.plannerInfo}>
               <div className={styles.avatar}>
-                <FaUser />
+                <UserAvatar
+                  user={{
+                    _id: planner.userId,
+                    name: planner.userName,
+                    photos: planner.userPhotos || [],
+                    default_photo_id: planner.userPhotoId,
+                    oauthProfilePhoto: planner.userOauthProfilePhoto,
+                    photo: planner.userPhoto
+                  }}
+                  size="sm"
+                  linkToProfile={false}
+                />
               </div>
               <div className={styles.details}>
                 <Link to={`/profile/${planner.userId}`} className={styles.name}>

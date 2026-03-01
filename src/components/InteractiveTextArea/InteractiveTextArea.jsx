@@ -12,7 +12,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Dropdown } from 'react-bootstrap';
+import { Dropdown } from '../design-system';
 import { RichTextarea, createRegexRenderer } from 'rich-textarea';
 import {
   createMention,

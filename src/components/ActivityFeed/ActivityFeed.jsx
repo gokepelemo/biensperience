@@ -18,9 +18,13 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { FaCalendarAlt, FaMapMarkerAlt, FaStar, FaUsers, FaFilter, FaChevronRight, FaRegClock } from 'react-icons/fa';
+import { Timeline } from '@chakra-ui/react';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import { getRelativeTime } from '../../utilities/date-utils';
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { getFollowFeed } from '../../utilities/follows-api';
+import { getPhotosByIds } from '../../utilities/photos-api';
+import PhotoModal from '../PhotoModal/PhotoModal';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { SkeletonLoader } from '../design-system';
@@ -53,6 +57,15 @@ function getActivityIcon(resourceType, actionType) {
   if (resourceType === 'Experience') return FaStar;
   if (resourceType === 'Destination') return FaMapMarkerAlt;
   return FaStar;
+}
+
+// Get timeline indicator color palette based on activity type
+function getTimelineColor(resourceType, actionType) {
+  if (actionType?.includes('plan') || actionType?.includes('cost')) return 'blue';
+  if (actionType?.includes('follow') || actionType?.includes('collaborator')) return 'purple';
+  if (resourceType === 'Experience') return 'yellow';
+  if (resourceType === 'Destination') return 'green';
+  return 'gray';
 }
 
 /**
@@ -150,6 +163,9 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
   const [activeFilter, setActiveFilter] = useState('all');
   // Filter application loading state (used to prevent flashes during filter transitions)
   const [filterApplying, setFilterApplying] = useState(false);
+  // Photo thumbnails for photo-related activities
+  const [photosMap, setPhotosMap] = useState({});
+  const [modalPhoto, setModalPhoto] = useState(null);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -370,6 +386,36 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
     fetchActivities(1, activeFilterRef.current, false);
   }, [userId, feedType, fetchActivities]);
 
+  /**
+   * Batch-fetch photos referenced by photo activities
+   * so we can display inline thumbnails in the feed.
+   */
+  useEffect(() => {
+    if (displayedActivities.length === 0) return;
+
+    const photoIds = displayedActivities
+      .filter(a => a.photoId && !photosMap[a.photoId])
+      .map(a => a.photoId);
+
+    if (photoIds.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const photos = await getPhotosByIds(photoIds);
+        if (cancelled) return;
+        setPhotosMap(prev => {
+          const next = { ...prev };
+          photos.forEach(p => { if (p?._id) next[p._id] = p; });
+          return next;
+        });
+      } catch (err) {
+        logger.debug('[ActivityFeed] Failed to fetch activity photos', { error: err.message });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [displayedActivities]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle filter change with instant client-side preview + background API refresh
   const handleFilterChange = useCallback((filterKey) => {
     setFilterApplying(true);
@@ -390,7 +436,7 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
     fetchActivities(1, filterKey, false, true);
   }, [allActivities, fetchActivities]);
 
-  // Handle load more
+  // Handle load more - appends next page to existing activities
   const handleLoadMore = useCallback(() => {
     if (!loadingMore && pagination.hasMore) {
       fetchActivities(pagination.page + 1, activeFilter, true);
@@ -460,7 +506,7 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
         <div className={styles.filterRight}>{rightControls}</div>
       </div>
 
-      {/* Activity List */}
+      {/* Activity Timeline */}
       <div className={styles.activityList}>
         {filterApplying ? (
           Array.from({ length: 5 }).map((_, i) => (
@@ -480,62 +526,106 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
           </div>
         ) : (
           <>
-            {displayedActivities.map((activity) => {
-              // Use actionType (raw) for icon selection, fall back to action text
-              const Icon = getActivityIcon(activity.resourceType, activity.actionType || activity.action);
-              // Format action text with "You" prefix for own activities
-              // When viewing own profile feed, always use "You" instead of actor name
-              const isOwnActivity = feedType === 'own' || activity.actorId === userId;
-              const actionText = isOwnActivity
-                ? `You ${activity.action.toLowerCase()}`
-                : `${activity.actorName || 'Someone'} ${activity.action.toLowerCase()}`;
-              return (
-                <div key={activity.id} className={styles.activityItem}>
-                  <div className={styles.activityIcon}>
-                    <Icon />
-                  </div>
-                  <div className={styles.activityContent}>
-                    <p className={styles.activityText}>
-                      <span className={styles.activityAction}>{actionText}</span>
-                      {activity.item && (
-                        <>
-                          {' '}
-                          {activity.link ? (
-                            <Link to={activity.link} className={styles.activityLink}>
-                              {activity.item}
+            <Timeline.Root size="md" variant="outline" className={styles.timeline}>
+              {displayedActivities.map((activity) => {
+                // Use actionType (raw) for icon selection, fall back to action text
+                const Icon = getActivityIcon(activity.resourceType, activity.actionType || activity.action);
+                // Determine color palette based on action type
+                const colorPalette = getTimelineColor(activity.resourceType, activity.actionType || activity.action);
+                // Format action text with "You" prefix for own activities
+                const isOwnActivity = feedType === 'own' || activity.actorId === userId;
+                const actorUser = activity.actorId ? {
+                  _id: activity.actorId,
+                  name: activity.actorName || 'User',
+                  oauthProfilePhoto: activity.actorPhoto || null,
+                } : null;
+                const actionVerb = activity.action.toLowerCase();
+                const activityPhoto = activity.photoId ? photosMap[activity.photoId] : null;
+                return (
+                  <Timeline.Item key={activity.id}>
+                    <Timeline.Connector>
+                      <Timeline.Separator />
+                      <Timeline.Indicator colorPalette={colorPalette}>
+                        {actorUser ? (
+                          <UserAvatar user={actorUser} size="xs" linkToProfile={!isOwnActivity} />
+                        ) : (
+                          <Icon />
+                        )}
+                      </Timeline.Indicator>
+                    </Timeline.Connector>
+                    <Timeline.Content>
+                      <Timeline.Title className={styles.activityText}>
+                        {isOwnActivity ? (
+                          `You ${actionVerb} `
+                        ) : (
+                          <>
+                            <Link to={`/profile/${activity.actorId}`} className={styles.activityActorLink}>
+                              {activity.actorName || 'Someone'}
                             </Link>
-                          ) : (
-                            <span className={styles.activityItemName}>{activity.item}</span>
-                          )}
-                        </>
+                            {` ${actionVerb} `}
+                          </>
+                        )}
+                        {activity.item && (
+                          <>
+                            {activity.link ? (
+                              <Link to={activity.link} className={styles.activityLink}>
+                                {activity.item}
+                              </Link>
+                            ) : (
+                              <span className={styles.activityItemName}>{activity.item}</span>
+                            )}
+                            {activity.targetItem && (
+                              <span className={styles.activityTarget}> - {activity.targetItem}</span>
+                            )}
+                            {activity.link && (
+                              <Link to={activity.link} className={styles.activityArrow} aria-label={`Go to ${activity.item}`}>
+                                <FaChevronRight />
+                              </Link>
+                            )}
+                          </>
+                        )}
+                      </Timeline.Title>
+                      {activityPhoto?.url && (
+                        <button
+                          type="button"
+                          className={styles.activityPhotoThumb}
+                          onClick={() => setModalPhoto(activityPhoto)}
+                          aria-label={`View photo for ${activity.item || 'activity'}`}
+                        >
+                          <img
+                            src={activityPhoto.url}
+                            alt={activityPhoto.photo_credit || 'Activity photo'}
+                            loading="lazy"
+                          />
+                        </button>
                       )}
-                      {activity.targetItem && (
-                        <span className={styles.activityTarget}> - {activity.targetItem}</span>
-                      )}
-                    </p>
-                    <span className={styles.activityTime} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5em' }}>
-                      <FaRegClock style={{ fontSize: '1em', marginRight: '0.2em', opacity: 0.7 }} />
-                      {getRelativeTime(new Date(activity.timestamp))}
-                    </span>
-                  </div>
-                  {activity.link && (
-                    <Link to={activity.link} className={styles.activityArrow}>
-                      <FaChevronRight />
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
+                      <Timeline.Description className={styles.activityTime}>
+                        <FaRegClock style={{ fontSize: '1em', marginRight: '0.25em', opacity: 0.7 }} />
+                        {getRelativeTime(new Date(activity.timestamp))}
+                      </Timeline.Description>
+                    </Timeline.Content>
+                  </Timeline.Item>
+                );
+              })}
+            </Timeline.Root>
 
-            {/* Load More Button */}
+            {/* Photo Modal */}
+            {modalPhoto && (
+              <PhotoModal
+                photo={modalPhoto}
+                onClose={() => setModalPhoto(null)}
+              />
+            )}
+
+            {/* Load More */}
             {pagination.hasMore && (
               <div className={styles.loadMore}>
                 <button
+                  className={styles.loadMoreButton}
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className={styles.loadMoreButton}
                 >
-                  {loadingMore ? lang.current.loading.default : lang.current.button.loadMore}
+                  {loadingMore ? 'Loading...' : 'Load more activities'}
                 </button>
               </div>
             )}

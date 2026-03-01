@@ -1,22 +1,22 @@
 /**
- * ChakraTagPill - Chakra UI v3 Tag Implementation
+ * BaseTagPill - Design System Tag Implementation
  *
  * Drop-in replacement for the custom TagPill component.
- * Uses Chakra UI v3 Tag primitive for built-in accessibility,
+ * Uses Tag primitive for built-in accessibility,
  * closable support, and ARIA semantics while preserving the existing
  * TagPill.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default Tag
+ * IMPORTANT: This implementation completely resets default Tag
  * styling and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original TagPill component.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Compound component pattern (Tag.Root, Tag.Label, Tag.CloseTrigger)
  * - Built-in closable/removable support
  * - Semantic ARIA attributes
  * - Consistent focus management
  *
- * Task: biensperience-bbd4 - Migrate Pill component to Chakra UI
+ * Task: biensperience-bbd4 - Migrate Pill component
  */
 
 import React from 'react';
@@ -27,30 +27,7 @@ import { Link } from 'react-router-dom';
 import { lang } from '../../lang.constants';
 import styles from './TagPill.module.scss';
 
-/**
- * Reset styles to completely override Chakra's default Tag styling.
- * This ensures the CSS Module classes from TagPill.module.scss are the
- * sole source of visual styling — pixel-perfect match with the original.
- */
-const CHAKRA_ROOT_RESET = {
-  bg: 'transparent',
-  color: 'inherit',
-  border: 'none',
-  borderRadius: 'unset',
-  fontWeight: 'unset',
-  fontSize: 'unset',
-  lineHeight: 'unset',
-  px: 'unset',
-  py: 'unset',
-  gap: 'unset',
-  minHeight: 'unset',
-  _hover: {
-    bg: 'transparent',
-    color: 'inherit',
-  },
-};
-
-export default function ChakraTagPill({
+export default function BaseTagPill({
   children,
   color = 'primary',
   gradient = true,
@@ -123,8 +100,7 @@ export default function ChakraTagPill({
   return (
     <Tag.Root
       className={classes}
-      variant="plain"
-      {...CHAKRA_ROOT_RESET}
+      unstyled
       {...props}
     >
       {content}
@@ -132,7 +108,7 @@ export default function ChakraTagPill({
   );
 }
 
-ChakraTagPill.propTypes = {
+BaseTagPill.propTypes = {
   children: PropTypes.node.isRequired,
   color: PropTypes.oneOf(['primary', 'success', 'warning', 'danger', 'info', 'neutral', 'light']),
   gradient: PropTypes.bool,

@@ -3,8 +3,10 @@ const Plan = require('../../models/plan');
 const Experience = require('../../models/experience');
 const Destination = require('../../models/destination');
 const Activity = require('../../models/activity');
+const User = require('../../models/user');
 const { successResponse, errorResponse } = require('../../utilities/controller-helpers');
 const backendLogger = require('../../utilities/backend-logger');
+const { getDefaultPhoto } = require('../../utilities/photo-utils');
 const { fetchRates, calculateTotal, convertCostsToTarget } = require('../../utilities/currency-utils');
 
 function isPlaceholderResourceName(name) {
@@ -336,6 +338,27 @@ async function getRecentActivity(userId, options = {}) {
       destinations.forEach(dest => destinationsMap.set(dest._id.toString(), dest));
     }
 
+    // Batch fetch actor user data for avatars
+    const actorIds = [...new Set(
+      activities
+        .filter(a => a.actor?._id)
+        .map(a => a.actor._id.toString())
+    )];
+
+    const actorsMap = new Map();
+    if (actorIds.length > 0) {
+      const actors = await User.find({ _id: { $in: actorIds } })
+        .select('name oauthProfilePhoto photos default_photo_id')
+        .populate('photos', 'url')
+        .lean();
+      actors.forEach(actor => {
+        const photo = getDefaultPhoto(actor);
+        actorsMap.set(actor._id.toString(), {
+          photo: photo?.url || actor.oauthProfilePhoto || null
+        });
+      });
+    }
+
     // Enrich activities synchronously using the pre-fetched plans map
     const enrichedActivities = activities.map((activity) => {
       let resourceName = activity.resource?.name || 'Unnamed';
@@ -471,7 +494,10 @@ async function getRecentActivity(userId, options = {}) {
         itemDisplay = null; // Action text is self-sufficient
       }
 
-      return {
+      // Resolve actor photo from batch-fetched user data
+      const actorData = activity.actor?._id ? actorsMap.get(activity.actor._id.toString()) : null;
+
+      const enriched = {
         id: activity._id.toString(),
         action: actionText,
         actionType: activity.action, // Raw action type for client-side filtering
@@ -484,8 +510,16 @@ async function getRecentActivity(userId, options = {}) {
         actorId: activity.actor?._id?.toString(),
         targetId: activity.target?.id?.toString(),
         actorName: activity.actor?.name || null,
+        actorPhoto: actorData?.photo || null,
         targetName: targetName || activity.target?.name || null
       };
+
+      // Include photoId for photo activity items so the frontend can display a thumbnail
+      if (activity.action === 'plan_item_photo_added' && activity.metadata?.photoId) {
+        enriched.photoId = activity.metadata.photoId;
+      }
+
+      return enriched;
     });
 
     return enrichedActivities;

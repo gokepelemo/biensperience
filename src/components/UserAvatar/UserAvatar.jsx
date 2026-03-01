@@ -1,9 +1,12 @@
+import { useState, useEffect } from "react";
 import styles from "./UserAvatar.module.scss";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import DOMPurify from "dompurify";
 import debug from "../../utilities/debug";
 import EntitySchema from "../OpenGraph/EntitySchema";
+import { resolveAvatarUrl, fetchAvatarUrl } from "../../utilities/avatar-cache";
+import AvatarRenderer from "./AvatarRenderer";
 
 /**
  * Ensure a string is safe for use in DOM attributes and text nodes
@@ -92,80 +95,56 @@ const UserAvatar = ({
   debug.log('UserAvatar - user.photos:', user.photos);
   debug.log('UserAvatar - user.default_photo_id:', user.default_photo_id);
 
-  // Helper function to get photo URL from user data
-  // Handles multiple cases:
-  // 1. photos array with populated photo objects containing url
-  // 2. default_photo_id pointing to a specific photo
-  // 3. oauthProfilePhoto for OAuth users
-  // 4. Legacy photo field (single URL string)
-  const getPhotoUrl = (user) => {
-    // Case 1: Check for populated photos array with default_photo_id
-    if (user.photos && user.photos.length > 0 && user.default_photo_id) {
-      // Find the photo matching default_photo_id
-      const defaultPhoto = user.photos.find(photo => {
-        const photoId = photo._id || photo;
-        const defaultId = user.default_photo_id._id || user.default_photo_id;
-        return photoId?.toString() === defaultId?.toString();
-      });
-      if (defaultPhoto && typeof defaultPhoto === 'object' && defaultPhoto.url) {
-        return defaultPhoto.url;
-      }
+  // Resolve avatar URL via the shared cache (O(1) Map lookup on re-renders).
+  // If the user object has photo data, the URL is resolved and cached immediately.
+  // If not, it returns null and the lazy fetch below handles it.
+  const resolvedUrl = resolveAvatarUrl(user);
+
+  // Lazy fetch: when the user object has an _id but no resolvable photo data,
+  // fetch the avatar URL from the lightweight /api/users/avatars endpoint.
+  // Multiple UserAvatar instances in the same render cycle are batched into
+  // a single API request via microtask batching in avatar-cache.js.
+  const [lazyUrl, setLazyUrl] = useState(null);
+
+  useEffect(() => {
+    if (resolvedUrl !== null || !user?._id) {
+      if (lazyUrl !== null) setLazyUrl(null);
+      return;
     }
 
-    // Case 2: Check for populated photos array without default_photo_id - use first photo
-    if (user.photos && user.photos.length > 0) {
-      const firstPhoto = user.photos[0];
-      if (firstPhoto && typeof firstPhoto === 'object' && firstPhoto.url) {
-        return firstPhoto.url;
-      }
-    }
+    let cancelled = false;
+    fetchAvatarUrl(user._id).then(url => {
+      if (!cancelled && url) setLazyUrl(url);
+    });
+    return () => { cancelled = true; };
+  }, [resolvedUrl, user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Case 3: OAuth profile photo
-    if (user.oauthProfilePhoto) {
-      return user.oauthProfilePhoto;
-    }
-
-    // Case 4: Legacy single photo field
-    if (user.photo && typeof user.photo === 'string') {
-      return user.photo;
-    }
-
-    return null;
-  };
-
-  const photoUrl = getPhotoUrl(user);
+  const photoUrl = resolvedUrl || lazyUrl;
   debug.log('UserAvatar - photoUrl:', photoUrl);
 
   const safePhotoUrl = sanitizeImageUrl(photoUrl);
   const sanitizedName = sanitizeText(user.name || '');
-
-  const avatarContent = (
-    <>
-      {safePhotoUrl ? (
-        <img src={safePhotoUrl} alt={sanitizedName || 'User avatar'} />
-      ) : (
-        <div className={styles.avatarInitials}>
-          {sanitizedName ? sanitizedName.charAt(0).toUpperCase() : ''}
-        </div>
-      )}
-    </>
-  );
-
-  const sizeClass = styles[`userAvatar${size.charAt(0).toUpperCase() + size.slice(1)}`];
-  const presenceClass = showPresence ? (isOnline ? styles.presenceOnline : styles.presenceOffline) : '';
-  const avatarClasses = `${styles.userAvatar} ${sizeClass} ${presenceClass} ${className}`.trim();
   const avatarTitle = sanitizeText(title || user.name || '');
+
+  const avatarProps = {
+    src: safePhotoUrl || undefined,
+    name: sanitizedName,
+    size,
+    showPresence,
+    isOnline,
+    title: avatarTitle,
+  };
 
   if (linkToProfile && user._id) {
     return (
       <>
         <Link
           to={`/profile/${user._id}`}
-          className={avatarClasses}
+          className={`${styles.avatarLink} ${className}`.trim()}
           title={avatarTitle}
           onClick={onClick}
         >
-          {avatarContent}
+          <AvatarRenderer {...avatarProps} />
         </Link>
         {includeSchema && user && (
           <EntitySchema entity={user} entityType="user" />
@@ -176,15 +155,7 @@ const UserAvatar = ({
 
   return (
     <>
-      <div
-        className={avatarClasses}
-        title={avatarTitle}
-        onClick={onClick}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
-      >
-        {avatarContent}
-      </div>
+      <AvatarRenderer {...avatarProps} className={className} onClick={onClick} />
       {includeSchema && user && (
         <EntitySchema entity={user} entityType="user" />
       )}
@@ -198,7 +169,7 @@ UserAvatar.propTypes = {
     name: PropTypes.string.isRequired,
     photo: PropTypes.string,
   }),
-  size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
+  size: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl']),
   linkToProfile: PropTypes.bool,
   className: PropTypes.string,
   onClick: PropTypes.func,

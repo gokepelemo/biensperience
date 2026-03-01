@@ -207,7 +207,7 @@ export default function AddDateModal({
       show={show}
       onClose={onClose}
       title={modalTitle}
-      size="sm"
+      size="md"
       footer={modalFooter}
       loading={loading}
     >

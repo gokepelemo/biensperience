@@ -17,6 +17,7 @@ const backendLogger = require('../../utilities/backend-logger');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { canView } = require('../../utilities/permissions');
 const { notifyUser } = require('../../utilities/notifications');
+const { getDefaultPhoto } = require('../../utilities/photo-utils');
 
 function isPlaceholderResourceName(name) {
   if (!name || typeof name !== 'string') return true;
@@ -843,6 +844,27 @@ async function getFeed(req, res) {
       destinationsForEnrichment.forEach(dest => destinationsMap.set(dest._id.toString(), dest));
     }
 
+    // Batch fetch actor user data for avatars
+    const actorIdsForEnrichment = [...new Set(
+      visibleFeed
+        .filter(a => a.actor?._id)
+        .map(a => a.actor._id.toString())
+    )];
+
+    const actorsMap = new Map();
+    if (actorIdsForEnrichment.length > 0) {
+      const actors = await User.find({ _id: { $in: actorIdsForEnrichment } })
+        .select('name oauthProfilePhoto photos default_photo_id')
+        .populate('photos', 'url')
+        .lean();
+      actors.forEach(actor => {
+        const photo = getDefaultPhoto(actor);
+        actorsMap.set(actor._id.toString(), {
+          photo: photo?.url || actor.oauthProfilePhoto || null
+        });
+      });
+    }
+
     const enrichedFeed = visibleFeed.map((activity) => {
       let resourceName = activity.resource?.name || 'Unnamed';
       let resourceLink = null;
@@ -963,6 +985,9 @@ async function getFeed(req, res) {
         itemDisplay = null; // Action text is self-sufficient
       }
 
+      // Resolve actor photo from batch-fetched user data
+      const actorData = activity.actor?._id ? actorsMap.get(activity.actor._id.toString()) : null;
+
       return {
         id: activity._id?.toString?.() || activity._id,
         action: actionText,
@@ -976,6 +1001,7 @@ async function getFeed(req, res) {
         actorId: activity.actor?._id?.toString?.(),
         targetId: activity.target?.id?.toString?.(),
         actorName: activity.actor?.name || null,
+        actorPhoto: actorData?.photo || null,
         targetName: targetName || activity.target?.name || null
       };
     });

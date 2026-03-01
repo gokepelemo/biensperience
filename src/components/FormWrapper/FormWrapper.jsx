@@ -2,17 +2,17 @@
  * Form Abstraction Layer
  *
  * This module provides stable APIs for Form component usage across the application.
- * It wraps either the current custom Form components or the Chakra UI Form implementations,
- * controlled by the 'chakra_ui' feature flag.
+ * It wraps either the current custom Form components or the modern Form implementations,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All form consumers should import from design-system, NOT directly from Form.
  *
  * Implementation Status:
  * - Phase 1: Custom Form with CSS Modules (completed)
- * - Phase 2: Feature-flagged Chakra UI (completed) Form
- * - Phase 3: Chakra UI Form validation (completed)
- * - Phase 4 (Current): Chakra UI Form is default; legacy available via 'bootstrap_form' flag
+ * - Phase 2: Feature-flagged modern (completed) Form
+ * - Phase 3: modern Form validation (completed)
+ * - Phase 4 (Current): modern Form is default; legacy available via 'bootstrap_form' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
@@ -33,25 +33,25 @@ import Form, {
   FormText,
   FormInputGroup
 } from '../Form/Form';
-import ChakraForm, {
-  ChakraFormGroup,
-  ChakraFormLabel,
-  ChakraFormControl,
-  ChakraFormCheck,
-  ChakraFormText,
-  ChakraFormInputGroup
-} from '../Form/ChakraForm';
+import BaseForm, {
+  BaseFormGroup,
+  BaseFormLabel,
+  BaseFormControl,
+  BaseFormCheck,
+  BaseFormText,
+  BaseFormInputGroup
+} from '../Form/BaseForm';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * FormWrapper - Design System Abstraction for Form
  *
- * Uses Chakra UI v3 Form implementation when 'chakra_ui' feature flag
- * is enabled, otherwise falls back to the custom CSS Modules Form.
+ * Uses modern Form implementation by default.
+ * Legacy Form available via feature flag.
  */
 export function FormWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const FormComponent = useLegacy ? Form : ChakraForm;
+  const FormComponent = useLegacy ? Form : BaseForm;
   return <FormComponent {...props} />;
 }
 
@@ -69,7 +69,7 @@ FormWrapper.propTypes = {
  */
 export function FormGroupWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormGroup : ChakraFormGroup;
+  const Component = useLegacy ? FormGroup : BaseFormGroup;
   return <Component {...props} />;
 }
 
@@ -87,7 +87,7 @@ FormGroupWrapper.propTypes = {
  */
 export function FormLabelWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormLabel : ChakraFormLabel;
+  const Component = useLegacy ? FormLabel : BaseFormLabel;
   return <Component {...props} />;
 }
 
@@ -106,7 +106,7 @@ FormLabelWrapper.propTypes = {
  */
 export function FormControlWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormControl : ChakraFormControl;
+  const Component = useLegacy ? FormControl : BaseFormControl;
   return <Component {...props} />;
 }
 
@@ -124,7 +124,7 @@ FormControlWrapper.propTypes = {
  */
 export function FormCheckWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormCheck : ChakraFormCheck;
+  const Component = useLegacy ? FormCheck : BaseFormCheck;
   return <Component {...props} />;
 }
 
@@ -147,7 +147,7 @@ FormCheckWrapper.propTypes = {
  */
 export function FormTextWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormText : ChakraFormText;
+  const Component = useLegacy ? FormText : BaseFormText;
   return <Component {...props} />;
 }
 
@@ -165,7 +165,7 @@ FormTextWrapper.propTypes = {
  */
 export function FormInputGroupWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormInputGroup : ChakraFormInputGroup;
+  const Component = useLegacy ? FormInputGroup : BaseFormInputGroup;
   return <Component {...props} />;
 }
 

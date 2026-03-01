@@ -1,8 +1,7 @@
 import React from 'react';
-import { Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
-import { Heading } from '../design-system';
+import { Heading, Card, Button } from '../design-system';
 import { useExperienceWizard } from '../../contexts/ExperienceWizardContext';
 import { useDestinationWizard } from '../../contexts/DestinationWizardContext';
 import { lang } from '../../lang.constants';

@@ -501,7 +501,11 @@ const getUserPlans = asyncHandler(async (req, res) => {
   let query = Plan.find(filter)
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id'
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
     })
     .populate({
       path: 'experience',
@@ -587,7 +591,7 @@ const getPlanById = asyncHandler(async (req, res) => {
   const plan = await Plan.findById(id)
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
       populate: {
         path: 'photos',
         select: 'url caption'
@@ -983,7 +987,11 @@ const getAccessRequests = asyncHandler(async (req, res) => {
     .select('user accessRequests')
     .populate({
       path: 'accessRequests.requester',
-      select: 'name email photos default_photo_id'
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
     });
 
   if (!plan) {
@@ -1037,7 +1045,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   })
   .populate({
     path: 'user',
-    select: 'name email photos default_photo_id',
+    select: 'name email photos default_photo_id oauthProfilePhoto photo',
     populate: {
       path: 'photos',
       select: 'url caption'
@@ -1074,7 +1082,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
 
   // Single batch query for all users with .lean() for performance
   const allUsers = await User.find({ _id: { $in: Array.from(allUserIds) } })
-    .select('name email photos default_photo_id')
+    .select('name email photos default_photo_id oauthProfilePhoto photo')
     .populate('photos', 'url caption')
     .populate('default_photo_id', 'url caption')
     .lean()
@@ -1270,7 +1278,7 @@ const updatePlan = asyncHandler(async (req, res) => {
     .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
       populate: { path: 'photos', select: 'url caption' }
     });
 
@@ -1335,7 +1343,7 @@ const updatePlan = asyncHandler(async (req, res) => {
     .populate('experience', 'name destination photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
       populate: {
         path: 'photos',
         select: 'url caption'
@@ -1942,7 +1950,7 @@ const addCollaborator = asyncHandler(async (req, res) => {
     .populate('experience', 'name photos default_photo_id')
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
       populate: {
         path: 'photos',
         select: 'url caption'
@@ -2549,7 +2557,9 @@ const getCollaborators = asyncHandler(async (req, res) => {
   // Fetch user details
   const collaborators = await User.find({ 
     _id: { $in: collaboratorIds } 
-  }).select('_id name email photo photos default_photo_id');
+  })
+    .select('_id name email photo photos default_photo_id oauthProfilePhoto')
+    .populate('photos', 'url caption');
 
   res.json(collaborators);
 });
@@ -4689,8 +4699,22 @@ const getCostSummary = asyncHandler(async (req, res) => {
   }
 
   const plan = await Plan.findById(id)
-    .populate('costs.collaborator', 'name email photos default_photo_id')
-    .populate('user', 'name email photos default_photo_id')
+    .populate({
+      path: 'costs.collaborator',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
+    })
+    .populate({
+      path: 'user',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
+    })
     .populate('experience', 'name');
 
   if (!plan) {
@@ -4728,7 +4752,8 @@ const getCostSummary = asyncHandler(async (req, res) => {
 
   // Fetch all users for display
   const allUsers = await User.find({ _id: { $in: collaboratorIds } })
-    .select('name email photos default_photo_id')
+    .select('name email photos default_photo_id oauthProfilePhoto photo')
+    .populate('photos', 'url caption')
     .lean();
 
   const userMap = {};

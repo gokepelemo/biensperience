@@ -2,8 +2,8 @@
  * Modal Abstraction Layer
  *
  * This component provides a stable API for Modal usage across the application.
- * It wraps either the current custom Modal or the Chakra UI Dialog implementation,
- * controlled by the 'chakra_ui' feature flag.
+ * It wraps either the current custom Modal or the modern Dialog implementation,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All modal consumers should import from design-system, NOT directly from Modal.
@@ -11,8 +11,8 @@
  * Implementation Status:
  * - Phase 1: Bootstrap Modal (completed)
  * - Phase 2: Feature flag toggle (completed)
- * - Phase 3: Feature-flagged Chakra UI Dialog (completed)
- * - Phase 4 (Current): Chakra UI Dialog is default; Bootstrap available via 'bootstrap_modal' flag
+ * - Phase 3: Feature-flagged modern Dialog (completed)
+ * - Phase 4 (Current): modern Dialog is default; Bootstrap available via 'bootstrap_modal' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
@@ -27,13 +27,13 @@
 import { forwardRef } from 'react';
 import PropTypes from 'prop-types';
 import Modal from '../Modal/Modal';
-import ChakraModal from '../Modal/ChakraModal';
+import DialogModal from '../Modal/DialogModal';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * Modal Component - Design System Abstraction
  *
- * Now uses Chakra UI v3 Modal implementation for improved accessibility,
+ * Now uses modern Modal implementation for improved accessibility,
  * consistent styling, and better integration with the design system.
  *
  * @param {Object} props - Modal properties
@@ -104,10 +104,10 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
  * </Modal>
  */
 const ModalWrapper = forwardRef((props, ref) => {
-  // Chakra UI Dialog is now the default implementation (Phase 4)
+  // modern Dialog is now the default implementation (Phase 4)
   // Users can opt into the legacy Bootstrap Modal via 'bootstrap_modal' flag
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_modal');
-  const ModalComponent = useLegacy ? Modal : ChakraModal;
+  const ModalComponent = useLegacy ? Modal : DialogModal;
   return <ModalComponent {...props} ref={ref} />;
 });
 

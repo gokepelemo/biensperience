@@ -2,17 +2,17 @@
  * Table Abstraction Layer
  *
  * This module provides stable APIs for Table component usage across the application.
- * It wraps either the current custom Table components or the Chakra UI Table implementations,
- * controlled by the 'chakra_ui' feature flag.
+ * It wraps either the current custom Table components or the modern Table implementations,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All table consumers should import from design-system, NOT directly from Table.
  *
  * Implementation Status:
  * - Phase 1: Custom Table with CSS Modules (completed)
- * - Phase 2: Feature-flagged Chakra UI (completed) Table
- * - Phase 3: Chakra UI Table validation (completed)
- * - Phase 4 (Current): Chakra UI Table is default; legacy available via 'bootstrap_table' flag
+ * - Phase 2: Feature-flagged modern (completed) Table
+ * - Phase 3: modern Table validation (completed)
+ * - Phase 4 (Current): modern Table is default; legacy available via 'bootstrap_table' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
@@ -26,23 +26,23 @@
 
 import PropTypes from 'prop-types';
 import Table, { TableHead, TableBody, TableRow, TableCell } from '../Table/Table';
-import ChakraTable, {
-  ChakraTableHead,
-  ChakraTableBody,
-  ChakraTableRow,
-  ChakraTableCell
-} from '../Table/ChakraTable';
+import BaseTable, {
+  BaseTableHead,
+  BaseTableBody,
+  BaseTableRow,
+  BaseTableCell
+} from '../Table/BaseTable';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * TableWrapper - Design System Abstraction for Table
  *
- * Uses Chakra UI v3 Table implementation when 'chakra_ui' feature flag
- * is enabled, otherwise falls back to the custom CSS Modules Table.
+ * Uses modern Table implementation by default.
+ * Legacy Table available via feature flag.
  */
 export function TableWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_table');
-  const TableComponent = useLegacy ? Table : ChakraTable;
+  const TableComponent = useLegacy ? Table : BaseTable;
   return <TableComponent {...props} />;
 }
 
@@ -64,7 +64,7 @@ TableWrapper.propTypes = {
  */
 export function TableHeadWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_table');
-  const Component = useLegacy ? TableHead : ChakraTableHead;
+  const Component = useLegacy ? TableHead : BaseTableHead;
   return <Component {...props} />;
 }
 
@@ -81,7 +81,7 @@ TableHeadWrapper.propTypes = {
  */
 export function TableBodyWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_table');
-  const Component = useLegacy ? TableBody : ChakraTableBody;
+  const Component = useLegacy ? TableBody : BaseTableBody;
   return <Component {...props} />;
 }
 
@@ -98,7 +98,7 @@ TableBodyWrapper.propTypes = {
  */
 export function TableRowWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_table');
-  const Component = useLegacy ? TableRow : ChakraTableRow;
+  const Component = useLegacy ? TableRow : BaseTableRow;
   return <Component {...props} />;
 }
 
@@ -115,7 +115,7 @@ TableRowWrapper.propTypes = {
  */
 export function TableCellWrapper(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_table');
-  const Component = useLegacy ? TableCell : ChakraTableCell;
+  const Component = useLegacy ? TableCell : BaseTableCell;
   return <Component {...props} />;
 }
 

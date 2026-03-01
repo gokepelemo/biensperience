@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button } from 'react-bootstrap';
 import { FaCalendar, FaStar, FaMapMarkerAlt, FaDollarSign, FaUser, FaUsers } from 'react-icons/fa';
 import { getDashboardData } from '../../utilities/dashboard-api';
 import { getUser } from '../../utilities/users-service';
 import { formatCostEstimate } from '../../utilities/cost-utils';
 import { logger } from '../../utilities/logger';
 import { useToast } from '../../contexts/ToastContext';
-import { SkeletonLoader, Heading, Text, Container } from '../../components/design-system';
+import { SkeletonLoader, Heading, Text, Container, Card, Button } from '../../components/design-system';
 import { eventBus } from '../../utilities/event-bus';
 import { isNavigationCancelled } from '../../utilities/send-request';
 import { lang } from '../../lang.constants';

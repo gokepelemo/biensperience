@@ -6,7 +6,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Form, Badge, Alert, InputGroup } from 'react-bootstrap';
+import { Button, Form, Badge, Alert } from 'react-bootstrap';
+import { InputGroup } from '../design-system';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
 import Pagination from '../Pagination/Pagination';

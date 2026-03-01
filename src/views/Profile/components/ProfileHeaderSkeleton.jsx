@@ -5,7 +5,7 @@
  * Matches the actual ProfileHeaderCard layout to prevent layout shifts.
  */
 
-import { Card } from 'react-bootstrap';
+import { Card } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import styles from '../Profile.module.scss';
 

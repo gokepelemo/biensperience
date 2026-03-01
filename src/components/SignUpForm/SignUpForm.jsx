@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Form, InputGroup, Button, Card } from "react-bootstrap";
+import { Form, Button } from "react-bootstrap";
+import { Card, InputGroup } from "../design-system";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUser, FaArrowRight, FaTicketAlt } from "react-icons/fa";
 import { Fieldset } from "@chakra-ui/react";
 import { signUp } from "../../utilities/users-service";

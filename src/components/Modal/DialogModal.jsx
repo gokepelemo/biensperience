@@ -1,19 +1,19 @@
 /**
- * ChakraModal - Chakra UI v3 Dialog Implementation
+ * DialogModal - Dialog-based Modal Implementation
  *
  * Drop-in replacement for the legacy Modal component.
- * Uses Chakra UI v3 Dialog.Root for built-in accessibility (focus trapping,
+ * Uses Dialog.Root for built-in accessibility (focus trapping,
  * ESC key handling, scroll locking, ARIA attributes) while rendering the
  * header, body, and footer as plain HTML elements so the global _modal.scss
  * styles (gradient header, white close button, footer buttons) apply without
  * specificity conflicts.
  *
  * IMPORTANT: Do NOT use Dialog.Header, Dialog.Title, Dialog.Body, or
- * Dialog.Footer — they inject Chakra recipe styles that override the global
+ * Dialog.Footer — they inject recipe styles that override the global
  * _modal.scss selectors. Use plain <div>/<h5>/<button> with Bootstrap-
  * compatible class names instead.
  *
- * Task: biensperience-277f - Chakra UI Modal wrapper (feature-flagged)
+ * Task: biensperience-277f - Dialog Modal wrapper (feature-flagged)
  */
 
 import { forwardRef, useRef, useEffect, useId } from 'react';
@@ -22,7 +22,7 @@ import styles from './Modal.module.scss';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
 
-const ChakraModal = forwardRef(function ChakraModal({
+const DialogModal = forwardRef(function DialogModal({
   show,
   onClose,
   onSubmit,
@@ -239,9 +239,9 @@ const ChakraModal = forwardRef(function ChakraModal({
   );
 });
 
-ChakraModal.displayName = 'ChakraModal';
+DialogModal.displayName = 'DialogModal';
 
-ChakraModal.propTypes = {
+DialogModal.propTypes = {
   show: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func,
@@ -268,4 +268,4 @@ ChakraModal.propTypes = {
   allowBodyScroll: PropTypes.bool,
 };
 
-export default ChakraModal;
+export default DialogModal;

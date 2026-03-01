@@ -18,7 +18,14 @@ function getDefaultPhoto(resource) {
 
   // Use ID-based selection
   if (resource.default_photo_id) {
-    const photo = resource.photos.find(p => p._id && p._id.toString() === resource.default_photo_id.toString());
+    const defaultIdStr = resource.default_photo_id._id
+      ? resource.default_photo_id._id.toString()
+      : resource.default_photo_id.toString();
+    const photo = resource.photos.find(p => {
+      // Handle populated photo objects (have ._id) and unpopulated ObjectId refs
+      const photoId = (p && p._id) ? p._id.toString() : (p ? p.toString() : null);
+      return photoId === defaultIdStr;
+    });
     if (photo) {
       return photo;
     }
@@ -44,7 +51,13 @@ function getDefaultPhotoIndex(resource) {
 
   // Use ID-based lookup
   if (resource.default_photo_id) {
-    const index = resource.photos.findIndex(p => p._id && p._id.toString() === resource.default_photo_id.toString());
+    const defaultIdStr = resource.default_photo_id._id
+      ? resource.default_photo_id._id.toString()
+      : resource.default_photo_id.toString();
+    const index = resource.photos.findIndex(p => {
+      const photoId = (p && p._id) ? p._id.toString() : (p ? p.toString() : null);
+      return photoId === defaultIdStr;
+    });
     if (index !== -1) {
       return index;
     }

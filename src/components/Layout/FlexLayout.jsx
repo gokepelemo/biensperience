@@ -1,21 +1,21 @@
 /**
- * ChakraLayout - Chakra UI v3 Layout Components Implementation
+ * FlexLayout - Design System Layout Components Implementation
  *
  * Drop-in replacements for custom Layout components (FlexBetween, FlexCenter, SpaceY, Container, Stack).
- * Uses Chakra UI v3 Flex/Box/Stack primitives for built-in accessibility
+ * Uses Flex/Box/Stack primitives for built-in accessibility
  * while preserving the existing CSS Modules styling.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Responsive prop arrays for breakpoint-based layout
  * - Built-in spacing/alignment utilities
  * - Consistent layout primitives across the design system
  *
- * Task: biensperience-20d0 - Create Chakra wrappers for Layout
+ * Task: biensperience-20d0 - Create wrappers for Layout
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Flex, Box, Stack as ChakraStack, Container as ChakraContainer } from '@chakra-ui/react';
+import { Flex, Box, Stack as StackPrimitive } from '@chakra-ui/react';
 import styles from './Layout.module.scss';
 
 const GAP_MAP = {
@@ -33,9 +33,9 @@ const ALIGN_MAP = {
 };
 
 /**
- * ChakraFlexBetween - Flex layout with space-between
+ * FlexBetweenImpl - Flex layout with space-between
  */
-export function ChakraFlexBetween({
+export function FlexBetweenImpl({
   children,
   align = 'center',
   gap = 'md',
@@ -67,7 +67,7 @@ export function ChakraFlexBetween({
   );
 }
 
-ChakraFlexBetween.propTypes = {
+FlexBetweenImpl.propTypes = {
   children: PropTypes.node.isRequired,
   align: PropTypes.oneOf(['start', 'center', 'end', 'stretch']),
   gap: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
@@ -77,9 +77,9 @@ ChakraFlexBetween.propTypes = {
 };
 
 /**
- * ChakraFlexCenter - Flex layout with centered items
+ * FlexCenterImpl - Flex layout with centered items
  */
-export function ChakraFlexCenter({
+export function FlexCenterImpl({
   children,
   direction = 'row',
   wrap = false,
@@ -109,7 +109,7 @@ export function ChakraFlexCenter({
   );
 }
 
-ChakraFlexCenter.propTypes = {
+FlexCenterImpl.propTypes = {
   children: PropTypes.node.isRequired,
   direction: PropTypes.oneOf(['row', 'column']),
   wrap: PropTypes.bool,
@@ -118,9 +118,9 @@ ChakraFlexCenter.propTypes = {
 };
 
 /**
- * ChakraSpaceY - Vertical spacing between children
+ * SpaceYImpl - Vertical spacing between children
  */
-export function ChakraSpaceY({
+export function SpaceYImpl({
   children,
   size = '4',
   className = '',
@@ -134,7 +134,7 @@ export function ChakraSpaceY({
   ].filter(Boolean).join(' ');
 
   return (
-    <ChakraStack
+    <StackPrimitive
       direction="column"
       gap={`var(--space-${size}, ${parseInt(size) * 0.25}rem)`}
       className={classes}
@@ -142,11 +142,11 @@ export function ChakraSpaceY({
       {...props}
     >
       {children}
-    </ChakraStack>
+    </StackPrimitive>
   );
 }
 
-ChakraSpaceY.propTypes = {
+SpaceYImpl.propTypes = {
   children: PropTypes.node.isRequired,
   size: PropTypes.oneOf(['1', '2', '3', '4', '5', '6']),
   className: PropTypes.string,
@@ -154,9 +154,9 @@ ChakraSpaceY.propTypes = {
 };
 
 /**
- * ChakraContainer - Max-width content container
+ * ContainerPrimitive - Max-width content container
  */
-export function ChakraContainerComponent({
+export function ContainerImpl({
   children,
   size = 'xl',
   center = false,
@@ -182,7 +182,7 @@ export function ChakraContainerComponent({
   );
 }
 
-ChakraContainerComponent.propTypes = {
+ContainerImpl.propTypes = {
   children: PropTypes.node.isRequired,
   size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', 'full']),
   center: PropTypes.bool,
@@ -191,9 +191,9 @@ ChakraContainerComponent.propTypes = {
 };
 
 /**
- * ChakraStackComponent - Vertical layout with consistent spacing
+ * StackImpl - Vertical layout with consistent spacing
  */
-export function ChakraStackComponent({
+export function StackImpl({
   children,
   spacing = 'md',
   align = 'start',
@@ -209,7 +209,7 @@ export function ChakraStackComponent({
   ].filter(Boolean).join(' ');
 
   return (
-    <ChakraStack
+    <StackPrimitive
       direction="column"
       gap={GAP_MAP[spacing] || spacing}
       align={ALIGN_MAP[align] || 'flex-start'}
@@ -218,11 +218,11 @@ export function ChakraStackComponent({
       {...props}
     >
       {children}
-    </ChakraStack>
+    </StackPrimitive>
   );
 }
 
-ChakraStackComponent.propTypes = {
+StackImpl.propTypes = {
   children: PropTypes.node.isRequired,
   spacing: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
   align: PropTypes.oneOf(['start', 'center', 'end']),

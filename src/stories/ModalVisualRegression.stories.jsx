@@ -1,13 +1,13 @@
 /**
  * Modal Visual Regression Stories
  *
- * These stories render both Bootstrap and Chakra modal implementations
+ * These stories render both Bootstrap and Dialog modal implementations
  * side-by-side for visual regression testing. Playwright captures
  * screenshots of each and compares them pixel-by-pixel.
  *
  * Story naming convention:
  *   Bootstrap__<Variant>  — Bootstrap (custom portal) implementation
- *   Chakra__<Variant>     — Chakra UI Dialog implementation
+ *   Dialog__<Variant>     — Dialog modal implementation
  *
  * Each pair should be visually identical. Any difference is a regression.
  *
@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import BootstrapModal from '../../components/Modal/Modal';
-import ChakraModal from '../../components/Modal/ChakraModal';
+import DialogModal from '../../components/Modal/DialogModal';
 
 export default {
   title: 'Visual Regression/Modal',
@@ -26,7 +26,7 @@ export default {
     docs: {
       description: {
         component:
-          'Visual regression test stories. Each variant is rendered with both Bootstrap and Chakra implementations. Screenshots should be pixel-identical.',
+          'Visual regression test stories. Each variant is rendered with both Bootstrap and Dialog implementations. Screenshots should be pixel-identical.',
       },
     },
   },
@@ -59,7 +59,7 @@ function AutoOpenModal({ ModalComponent, modalProps, children }) {
 // ---------------------------------------------------------------------------
 // VARIANT DEFINITIONS
 // Each variant is an object with { name, modalProps, children }
-// We generate a Bootstrap__ and Chakra__ story for each variant.
+// We generate a Bootstrap__ and Dialog__ story for each variant.
 // ---------------------------------------------------------------------------
 const MODAL_VARIANTS = [
   {
@@ -159,7 +159,7 @@ const MODAL_VARIANTS = [
     name: 'WithIcon',
     modalProps: {
       title: 'Success!',
-      icon: '✅',
+      icon: '\u2705',
       size: 'sm',
       showSubmitButton: false,
       cancelText: 'Close',
@@ -339,12 +339,12 @@ const MODAL_VARIANTS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Generate stories dynamically for each variant × implementation
+// Generate stories dynamically for each variant x implementation
 // ---------------------------------------------------------------------------
 
 // Bootstrap stories
 export const Bootstrap__Default = {
-  name: '🔵 Bootstrap — Default',
+  name: 'Bootstrap — Default',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[0].modalProps}>
       {MODAL_VARIANTS[0].children}
@@ -352,17 +352,17 @@ export const Bootstrap__Default = {
   ),
 };
 
-export const Chakra__Default = {
-  name: '🟣 Chakra — Default',
+export const Dialog__Default = {
+  name: 'Dialog — Default',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[0].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[0].modalProps}>
       {MODAL_VARIANTS[0].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__SmallSize = {
-  name: '🔵 Bootstrap — Small Size',
+  name: 'Bootstrap — Small Size',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[1].modalProps}>
       {MODAL_VARIANTS[1].children}
@@ -370,17 +370,17 @@ export const Bootstrap__SmallSize = {
   ),
 };
 
-export const Chakra__SmallSize = {
-  name: '🟣 Chakra — Small Size',
+export const Dialog__SmallSize = {
+  name: 'Dialog — Small Size',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[1].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[1].modalProps}>
       {MODAL_VARIANTS[1].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__LargeSize = {
-  name: '🔵 Bootstrap — Large Size',
+  name: 'Bootstrap — Large Size',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[2].modalProps}>
       {MODAL_VARIANTS[2].children}
@@ -388,17 +388,17 @@ export const Bootstrap__LargeSize = {
   ),
 };
 
-export const Chakra__LargeSize = {
-  name: '🟣 Chakra — Large Size',
+export const Dialog__LargeSize = {
+  name: 'Dialog — Large Size',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[2].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[2].modalProps}>
       {MODAL_VARIANTS[2].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__ExtraLargeSize = {
-  name: '🔵 Bootstrap — Extra Large Size',
+  name: 'Bootstrap — Extra Large Size',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[3].modalProps}>
       {MODAL_VARIANTS[3].children}
@@ -406,17 +406,17 @@ export const Bootstrap__ExtraLargeSize = {
   ),
 };
 
-export const Chakra__ExtraLargeSize = {
-  name: '🟣 Chakra — Extra Large Size',
+export const Dialog__ExtraLargeSize = {
+  name: 'Dialog — Extra Large Size',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[3].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[3].modalProps}>
       {MODAL_VARIANTS[3].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__Fullscreen = {
-  name: '🔵 Bootstrap — Fullscreen',
+  name: 'Bootstrap — Fullscreen',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[4].modalProps}>
       {MODAL_VARIANTS[4].children}
@@ -424,17 +424,17 @@ export const Bootstrap__Fullscreen = {
   ),
 };
 
-export const Chakra__Fullscreen = {
-  name: '🟣 Chakra — Fullscreen',
+export const Dialog__Fullscreen = {
+  name: 'Dialog — Fullscreen',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[4].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[4].modalProps}>
       {MODAL_VARIANTS[4].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__WithIcon = {
-  name: '🔵 Bootstrap — With Icon',
+  name: 'Bootstrap — With Icon',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[5].modalProps}>
       {MODAL_VARIANTS[5].children}
@@ -442,17 +442,17 @@ export const Bootstrap__WithIcon = {
   ),
 };
 
-export const Chakra__WithIcon = {
-  name: '🟣 Chakra — With Icon',
+export const Dialog__WithIcon = {
+  name: 'Dialog — With Icon',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[5].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[5].modalProps}>
       {MODAL_VARIANTS[5].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__DangerVariant = {
-  name: '🔵 Bootstrap — Danger Variant',
+  name: 'Bootstrap — Danger Variant',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[6].modalProps}>
       {MODAL_VARIANTS[6].children}
@@ -460,17 +460,17 @@ export const Bootstrap__DangerVariant = {
   ),
 };
 
-export const Chakra__DangerVariant = {
-  name: '🟣 Chakra — Danger Variant',
+export const Dialog__DangerVariant = {
+  name: 'Dialog — Danger Variant',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[6].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[6].modalProps}>
       {MODAL_VARIANTS[6].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__LoadingState = {
-  name: '🔵 Bootstrap — Loading State',
+  name: 'Bootstrap — Loading State',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[7].modalProps}>
       {MODAL_VARIANTS[7].children}
@@ -478,17 +478,17 @@ export const Bootstrap__LoadingState = {
   ),
 };
 
-export const Chakra__LoadingState = {
-  name: '🟣 Chakra — Loading State',
+export const Dialog__LoadingState = {
+  name: 'Dialog — Loading State',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[7].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[7].modalProps}>
       {MODAL_VARIANTS[7].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__DisabledSubmit = {
-  name: '🔵 Bootstrap — Disabled Submit',
+  name: 'Bootstrap — Disabled Submit',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[8].modalProps}>
       {MODAL_VARIANTS[8].children}
@@ -496,17 +496,17 @@ export const Bootstrap__DisabledSubmit = {
   ),
 };
 
-export const Chakra__DisabledSubmit = {
-  name: '🟣 Chakra — Disabled Submit',
+export const Dialog__DisabledSubmit = {
+  name: 'Dialog — Disabled Submit',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[8].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[8].modalProps}>
       {MODAL_VARIANTS[8].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__NoHeader = {
-  name: '🔵 Bootstrap — No Header',
+  name: 'Bootstrap — No Header',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[9].modalProps}>
       {MODAL_VARIANTS[9].children}
@@ -514,17 +514,17 @@ export const Bootstrap__NoHeader = {
   ),
 };
 
-export const Chakra__NoHeader = {
-  name: '🟣 Chakra — No Header',
+export const Dialog__NoHeader = {
+  name: 'Dialog — No Header',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[9].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[9].modalProps}>
       {MODAL_VARIANTS[9].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__CustomFooter = {
-  name: '🔵 Bootstrap — Custom Footer',
+  name: 'Bootstrap — Custom Footer',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[10].modalProps}>
       {MODAL_VARIANTS[10].children}
@@ -532,17 +532,17 @@ export const Bootstrap__CustomFooter = {
   ),
 };
 
-export const Chakra__CustomFooter = {
-  name: '🟣 Chakra — Custom Footer',
+export const Dialog__CustomFooter = {
+  name: 'Dialog — Custom Footer',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[10].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[10].modalProps}>
       {MODAL_VARIANTS[10].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__ScrollableContent = {
-  name: '🔵 Bootstrap — Scrollable Content',
+  name: 'Bootstrap — Scrollable Content',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[11].modalProps}>
       {MODAL_VARIANTS[11].children}
@@ -550,17 +550,17 @@ export const Bootstrap__ScrollableContent = {
   ),
 };
 
-export const Chakra__ScrollableContent = {
-  name: '🟣 Chakra — Scrollable Content',
+export const Dialog__ScrollableContent = {
+  name: 'Dialog — Scrollable Content',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[11].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[11].modalProps}>
       {MODAL_VARIANTS[11].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__NotCentered = {
-  name: '🔵 Bootstrap — Not Centered',
+  name: 'Bootstrap — Not Centered',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[12].modalProps}>
       {MODAL_VARIANTS[12].children}
@@ -568,17 +568,17 @@ export const Bootstrap__NotCentered = {
   ),
 };
 
-export const Chakra__NotCentered = {
-  name: '🟣 Chakra — Not Centered',
+export const Dialog__NotCentered = {
+  name: 'Dialog — Not Centered',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[12].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[12].modalProps}>
       {MODAL_VARIANTS[12].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__InfoVariant = {
-  name: '🔵 Bootstrap — Info Variant',
+  name: 'Bootstrap — Info Variant',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[13].modalProps}>
       {MODAL_VARIANTS[13].children}
@@ -586,17 +586,17 @@ export const Bootstrap__InfoVariant = {
   ),
 };
 
-export const Chakra__InfoVariant = {
-  name: '🟣 Chakra — Info Variant',
+export const Dialog__InfoVariant = {
+  name: 'Dialog — Info Variant',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[13].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[13].modalProps}>
       {MODAL_VARIANTS[13].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__WarningVariant = {
-  name: '🔵 Bootstrap — Warning Variant',
+  name: 'Bootstrap — Warning Variant',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[14].modalProps}>
       {MODAL_VARIANTS[14].children}
@@ -604,17 +604,17 @@ export const Bootstrap__WarningVariant = {
   ),
 };
 
-export const Chakra__WarningVariant = {
-  name: '🟣 Chakra — Warning Variant',
+export const Dialog__WarningVariant = {
+  name: 'Dialog — Warning Variant',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[14].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[14].modalProps}>
       {MODAL_VARIANTS[14].children}
     </AutoOpenModal>
   ),
 };
 
 export const Bootstrap__SuccessVariant = {
-  name: '🔵 Bootstrap — Success Variant',
+  name: 'Bootstrap — Success Variant',
   render: () => (
     <AutoOpenModal ModalComponent={BootstrapModal} modalProps={MODAL_VARIANTS[15].modalProps}>
       {MODAL_VARIANTS[15].children}
@@ -622,10 +622,10 @@ export const Bootstrap__SuccessVariant = {
   ),
 };
 
-export const Chakra__SuccessVariant = {
-  name: '🟣 Chakra — Success Variant',
+export const Dialog__SuccessVariant = {
+  name: 'Dialog — Success Variant',
   render: () => (
-    <AutoOpenModal ModalComponent={ChakraModal} modalProps={MODAL_VARIANTS[15].modalProps}>
+    <AutoOpenModal ModalComponent={DialogModal} modalProps={MODAL_VARIANTS[15].modalProps}>
       {MODAL_VARIANTS[15].children}
     </AutoOpenModal>
   ),

@@ -1,20 +1,20 @@
 /**
- * ChakraAlert - Chakra UI v3 Alert Component Implementation
+ * BaseAlert - Design System Alert Component Implementation
  *
  * Drop-in replacement for the custom Alert component.
- * Uses Chakra UI v3 Alert primitive for built-in accessibility
+ * Uses styled primitives for built-in accessibility
  * while preserving the existing Alert.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default styling
+ * IMPORTANT: This implementation completely resets default styling
  * and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original Alert component.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes (role="alert", aria-live)
  * - Consistent focus management for dismissible alerts
  * - Semantic alert structure
  *
- * Task: biensperience-f047 - Migrate Alert component to Chakra UI
+ * Task: biensperience-f047 - Migrate Alert component
  */
 
 import React, { useState } from 'react';
@@ -37,12 +37,12 @@ import styles from './Alert.module.scss';
 const StyledAlert = chakra('div');
 
 /**
- * ChakraAlert - Chakra UI Alert.Root with CSS Module styling
+ * BaseAlert - Chakra UI Alert.Root with CSS Module styling
  *
  * Uses Chakra Alert.Root for accessibility benefits,
  * with reset styling to use CSS Modules.
  */
-export default function ChakraAlert({
+export default function BaseAlert({
   type = 'info',
   dismissible = false,
   onDismiss,
@@ -131,7 +131,7 @@ export default function ChakraAlert({
   );
 }
 
-ChakraAlert.propTypes = {
+BaseAlert.propTypes = {
   /** Alert type/variant */
   type: PropTypes.oneOf(['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark']),
   /** Whether alert can be dismissed */

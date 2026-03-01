@@ -40,8 +40,9 @@
   }
 }
 
-/* Avatar Sizes */
+/* Avatar Sizes — --user-avatar-size drives both SCSS and Chakra css prop */
 .userAvatarXs {
+  --user-avatar-size: 24px;
   width: 24px;
   height: 24px;
 
@@ -51,6 +52,7 @@
 }
 
 .userAvatarSm {
+  --user-avatar-size: 32px;
   width: 32px;
   height: 32px;
 
@@ -60,6 +62,7 @@
 }
 
 .userAvatarMd {
+  --user-avatar-size: 40px;
   width: 40px;
   height: 40px;
 
@@ -69,6 +72,7 @@
 }
 
 .userAvatarLg {
+  --user-avatar-size: 48px;
   width: 48px;
   height: 48px;
 
@@ -78,6 +82,7 @@
 }
 
 .userAvatarXl {
+  --user-avatar-size: 64px;
   width: 64px;
   height: 64px;
 
@@ -96,4 +101,26 @@
 .presenceOffline {
   border-color: var(--color-text-muted, #9ca3af) !important;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Link wrapper — reset anchor styles so the avatar itself handles visuals */
+.avatarLink {
+  display: inline-flex;
+  text-decoration: none;
+  color: inherit;
+  line-height: 0;
+
+  &:hover {
+    text-decoration: none;
+  }
+}
+
+/* Chakra Avatar overrides — ensure SCSS stays in control of sizing/shape */
+.userAvatar {
+  &[data-scope="avatar"][data-part="root"] {
+    width: var(--user-avatar-size, 40px);
+    height: var(--user-avatar-size, 40px);
+    border-radius: $radius-full;
+    overflow: hidden;
+  }
 }

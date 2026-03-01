@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Button } from 'react-bootstrap';
 import { getUpcomingPlans } from '../../utilities/dashboard-api';
 import { Link } from 'react-router-dom';
 import { FaCalendar } from 'react-icons/fa';
 import PropTypes from 'prop-types';
-import { Heading } from '../design-system';
+import { Heading, Card, Button } from '../design-system';
 import { useDataTransition } from '../../hooks/useDataTransition';
 
 /**

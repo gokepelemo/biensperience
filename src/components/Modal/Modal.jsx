@@ -14,8 +14,8 @@ import { useModalEscape } from "../../hooks/useKeyboardNavigation";
  * via .modal-header/.btn-close selectors.
  *
  * This is the fallback implementation when the 'bootstrap_modal' feature
- * flag is enabled. The default implementation is ChakraModal.jsx which
- * adds Chakra UI v3 Dialog for focus trapping and ARIA support.
+ * flag is enabled. The default implementation is DialogModal.jsx which
+ * provides Dialog-based focus trapping and ARIA support.
  *
  * Task: biensperience-ce17 - Modal Migration
  */

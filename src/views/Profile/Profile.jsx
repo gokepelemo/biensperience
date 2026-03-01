@@ -27,8 +27,8 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, EmptyState, Container, EntityNotFound, Alert } from "../../components/design-system";
-import { Card, Row, Col } from "react-bootstrap";
+import { Button, EmptyState, Container, EntityNotFound, Alert, Card } from "../../components/design-system";
+import { Row, Col } from "react-bootstrap";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import { getFirstName } from "../../utilities/name-utils";
@@ -45,6 +45,7 @@ import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowRel
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
+import UserAvatar from "../../components/UserAvatar/UserAvatar";
 import { SearchableSelect } from "../../components/FormField";
 
 export default function Profile() {
@@ -1547,10 +1548,28 @@ export default function Profile() {
 
   // Numbered pagination is provided by shared <Pagination /> component
 
-  // Get user's avatar photo - MUST be before early returns to satisfy React hooks rules
-  const avatarPhoto = useMemo(() => {
-    if (!currentProfile?.photos?.length) return null;
-    return getDefaultPhoto(currentProfile);
+  // Get user's avatar photo URL - MUST be before early returns to satisfy React hooks rules
+  // Resolution chain mirrors UserAvatar: photos + default_photo_id → first photo → oauthProfilePhoto → legacy photo
+  const avatarPhotoUrl = useMemo(() => {
+    if (!currentProfile) return null;
+
+    // Try photos array (populated objects with .url)
+    if (currentProfile.photos?.length) {
+      const defaultPhoto = getDefaultPhoto(currentProfile);
+      if (defaultPhoto) {
+        // Populated photo object
+        if (typeof defaultPhoto === 'object' && defaultPhoto.url) return defaultPhoto.url;
+        // Unpopulated ObjectId — cannot use as URL, fall through
+      }
+    }
+
+    // Fallback: OAuth profile photo
+    if (currentProfile.oauthProfilePhoto) return currentProfile.oauthProfilePhoto;
+
+    // Fallback: legacy single photo field
+    if (currentProfile.photo && typeof currentProfile.photo === 'string') return currentProfile.photo;
+
+    return null;
   }, [currentProfile]);
 
   // Safe counts for arrays that may be null while loading - MUST be before early returns
@@ -1765,9 +1784,9 @@ export default function Profile() {
                   }}
                   aria-label={currentProfile?.photos?.length > 0 ? "View profile photos" : (isOwner ? "Manage profile photos" : undefined)}
                 >
-                  {avatarPhoto ? (
+                  {avatarPhotoUrl ? (
                     <img
-                      src={avatarPhoto.url || avatarPhoto}
+                      src={avatarPhotoUrl}
                       alt={currentProfile?.name}
                       className={styles.profileAvatar}
                     />
@@ -2145,9 +2164,10 @@ export default function Profile() {
                     // Loading skeleton
                     Array.from({ length: 6 }).map((_, i) => (
                       <div key={`skeleton-follow-${i}`} className={styles.followsItemSkeleton}>
-                        <SkeletonLoader variant="circle" width="48px" height="48px" />
-                        <div style={{ flex: 1 }}>
+                        <SkeletonLoader variant="circle" width="40px" height="40px" />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
                           <SkeletonLoader variant="text" width="160px" height="16px" />
+                          <SkeletonLoader variant="text" width="100px" height="14px" />
                         </div>
                       </div>
                     ))
@@ -2170,13 +2190,7 @@ export default function Profile() {
                             className={styles.followsItem}
                           >
                             <div className={styles.followsItemAvatar}>
-                              {followUserItem.photos?.[0]?.url ? (
-                                <img src={followUserItem.photos[0].url} alt={followUserItem.name} />
-                              ) : (
-                                <div className={styles.followsItemAvatarPlaceholder}>
-                                  <FaUser />
-                                </div>
-                              )}
+                              <UserAvatar user={followUserItem} size="md" linkToProfile={false} />
                             </div>
                             <div className={styles.followsItemInfo}>
                               <span className={styles.followsItemName}>{followUserItem.name}</span>
@@ -2286,12 +2300,8 @@ export default function Profile() {
                   // Initial load - show skeleton loaders
                   if (uniqueUserExperiences === null) {
                     return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
-                      <div key={`skeleton-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                        <div className="position-relative" style={{ minHeight: '12rem' }}>
-                          <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                          </div>
-                        </div>
+                      <div key={`skeleton-exp-${i}`} style={{ minHeight: '12rem', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
                       </div>
                     ));
                   }
@@ -2323,10 +2333,8 @@ export default function Profile() {
                       {/* Show placeholders on non-last pages to reserve space (own profile only) */}
                       {isOwnProfile && !showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
                         Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
-                          <div key={`placeholder-exp-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                            <div className="position-relative" style={{ minHeight: '12rem', borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
-                              <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                            </div>
+                          <div key={`placeholder-exp-${i}`} style={{ minHeight: '12rem', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                            <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
                           </div>
                         ))
                       )}
@@ -2355,12 +2363,8 @@ export default function Profile() {
                   // Initial load - show skeleton loaders
                   if (uniqueCreatedExperiences === null) {
                     return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
-                      <div key={`skeleton-created-${i}`} className="d-block m-2" style={{ width: '20rem' }}>
-                        <div className="position-relative" style={{ minHeight: '12rem' }}>
-                          <div aria-hidden="true" className="position-absolute w-100 h-100 start-0 top-0">
-                            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                          </div>
-                        </div>
+                      <div key={`skeleton-created-${i}`} style={{ minHeight: '12rem', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
                       </div>
                     ));
                   }

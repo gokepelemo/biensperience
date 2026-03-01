@@ -2,17 +2,17 @@
  * Layout Abstraction Layer
  *
  * Provides stable API for Layout components (FlexBetween, FlexCenter, SpaceY, Container, Stack).
- * Wraps either custom CSS Modules or Chakra UI implementations,
- * controlled by the 'chakra_ui' feature flag.
+ * Wraps either custom CSS Modules or modern implementations,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All layout consumers should import from design-system, NOT directly from Layout.
  *
  * Implementation Status:
  * - Phase 1: Custom Layout with CSS Modules (completed)
- * - Phase 2: Feature-flagged Chakra UI Layout (completed)
- * - Phase 3: Chakra UI Layout validation (completed)
- * - Phase 4 (Current): Chakra UI Layout is default; legacy available via 'bootstrap_layout' flag
+ * - Phase 2: Feature-flagged modern Layout (completed)
+ * - Phase 3: modern Layout validation (completed)
+ * - Phase 4 (Current): modern Layout is default; legacy available via 'bootstrap_layout' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * Task: biensperience-20d0
@@ -27,21 +27,21 @@ import {
   Stack as LegacyStack
 } from '../Layout/Layout';
 import {
-  ChakraFlexBetween,
-  ChakraFlexCenter,
-  ChakraSpaceY,
-  ChakraContainerComponent,
-  ChakraStackComponent
-} from '../Layout/ChakraLayout';
+  FlexBetweenImpl,
+  FlexCenterImpl,
+  SpaceYImpl,
+  ContainerImpl,
+  StackImpl
+} from '../Layout/FlexLayout';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * FlexBetween - Design System Abstraction
  */
 export function FlexBetween(props) {
-  // Chakra UI Layout is now the default (Phase 4)
+  // modern Layout is now the default (Phase 4)
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_layout');
-  const Component = useLegacy ? LegacyFlexBetween : ChakraFlexBetween;
+  const Component = useLegacy ? LegacyFlexBetween : FlexBetweenImpl;
   return <Component {...props} />;
 }
 FlexBetween.displayName = 'FlexBetween';
@@ -59,7 +59,7 @@ FlexBetween.propTypes = {
  */
 export function FlexCenter(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_layout');
-  const Component = useLegacy ? LegacyFlexCenter : ChakraFlexCenter;
+  const Component = useLegacy ? LegacyFlexCenter : FlexCenterImpl;
   return <Component {...props} />;
 }
 FlexCenter.displayName = 'FlexCenter';
@@ -76,7 +76,7 @@ FlexCenter.propTypes = {
  */
 export function SpaceY(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_layout');
-  const Component = useLegacy ? LegacySpaceY : ChakraSpaceY;
+  const Component = useLegacy ? LegacySpaceY : SpaceYImpl;
   return <Component {...props} />;
 }
 SpaceY.displayName = 'SpaceY';
@@ -92,7 +92,7 @@ SpaceY.propTypes = {
  */
 export function Container(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_layout');
-  const Component = useLegacy ? LegacyContainer : ChakraContainerComponent;
+  const Component = useLegacy ? LegacyContainer : ContainerImpl;
   return <Component {...props} />;
 }
 Container.displayName = 'Container';
@@ -109,7 +109,7 @@ Container.propTypes = {
  */
 export function Stack(props) {
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_layout');
-  const Component = useLegacy ? LegacyStack : ChakraStackComponent;
+  const Component = useLegacy ? LegacyStack : StackImpl;
   return <Component {...props} />;
 }
 Stack.displayName = 'Stack';

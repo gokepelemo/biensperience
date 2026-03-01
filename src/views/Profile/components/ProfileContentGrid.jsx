@@ -113,97 +113,33 @@ export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) 
   const isDestinations = type === 'destinations';
 
   if (isDestinations) {
-    // Destination cards are smaller (12rem x 8rem)
+    // Destination cards are 12rem x 8rem
     return Array.from({ length: count }).map((_, i) => (
       <div
         key={`skeleton-dest-${i}`}
-        className="d-block m-2"
-        style={{ width: '12rem', verticalAlign: 'top' }}
+        style={{
+          width: '12rem',
+          height: '8rem',
+          borderRadius: 'var(--radius-2xl)',
+          overflow: 'hidden'
+        }}
       >
-        <div
-          style={{
-            width: '12rem',
-            height: '8rem',
-            borderRadius: 'var(--radius-2xl)',
-            overflow: 'hidden'
-          }}
-        >
-          <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-        </div>
+        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
       </div>
     ));
   }
 
-  // Experience cards - match ExperienceCard structure (background image, title overlay, actions row)
+  // Experience cards - match ExperienceCard dimensions (fills grid cell, min-height 12rem)
   return Array.from({ length: count }).map((_, i) => (
     <div
       key={`skeleton-exp-${i}`}
-      className="d-block m-2"
-      style={{ width: '20rem', verticalAlign: 'top' }}
+      style={{
+        minHeight: '12rem',
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden'
+      }}
     >
-      <div
-        style={{
-          width: '20rem',
-          minHeight: '12rem',
-          borderRadius: 'var(--radius-md)',
-          overflow: 'hidden',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--space-3)'
-        }}
-      >
-        {/* Background image placeholder */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-        </div>
-
-        {/* Title overlay placeholder */}
-        <div style={{
-          zIndex: 1,
-          width: '100%',
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'var(--color-bg-overlay)',
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
-            borderRadius: 'var(--radius-md)',
-            padding: 'var(--space-3) var(--space-4)',
-            width: '100%',
-            maxWidth: '85%',
-            display: 'flex',
-            justifyContent: 'center'
-          }}>
-            <SkeletonLoader
-              variant="text"
-              width="70%"
-              height="calc(var(--font-size-lg) * 1.25)"
-              animate={false}
-              style={{ background: 'rgba(255, 255, 255, 0.25)' }}
-            />
-          </div>
-        </div>
-
-        {/* Actions row placeholder */}
-        <div style={{
-          zIndex: 1,
-          width: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 'var(--space-2)',
-          padding: 'var(--space-3)'
-        }}>
-          <SkeletonLoader variant="circle" width="var(--btn-height-md)" height="var(--btn-height-md)" />
-          <SkeletonLoader variant="circle" width="var(--btn-height-md)" height="var(--btn-height-md)" />
-          <SkeletonLoader variant="circle" width="var(--btn-height-md)" height="var(--btn-height-md)" />
-        </div>
-      </div>
+      <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
     </div>
   ));
 }

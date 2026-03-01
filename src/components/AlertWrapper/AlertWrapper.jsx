@@ -2,17 +2,17 @@
  * Alert Abstraction Layer
  *
  * This component provides a stable API for Alert usage across the application.
- * It wraps either the current custom Alert or the Chakra UI Alert implementation,
- * controlled by the 'chakra_ui' feature flag.
+ * It wraps either the current custom Alert or the modern Alert implementation,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All alert consumers should import from design-system, NOT directly from Alert.
  *
  * Implementation Status:
  * - Phase 1: Custom Alert with CSS Modules (completed)
- * - Phase 2: Feature-flagged Chakra UI Alert (completed)
- * - Phase 3: Chakra UI Alert validation (completed)
- * - Phase 4 (Current): Chakra UI Alert is default; legacy available via 'bootstrap_alert' flag
+ * - Phase 2: Feature-flagged modern Alert (completed)
+ * - Phase 3: modern Alert validation (completed)
+ * - Phase 4 (Current): modern Alert is default; legacy available via 'bootstrap_alert' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
@@ -26,20 +26,20 @@
 
 import PropTypes from 'prop-types';
 import Alert from '../Alert/Alert';
-import ChakraAlert from '../Alert/ChakraAlert';
+import BaseAlert from '../Alert/BaseAlert';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * AlertWrapper - Design System Abstraction for Alert
  *
- * Uses Chakra UI v3 Alert implementation when 'chakra_ui' feature flag
- * is enabled, otherwise falls back to the custom CSS Modules Alert.
+ * Uses modern Alert implementation by default.
+ * Legacy Alert available via feature flag.
  */
 export default function AlertWrapper(props) {
-  // Chakra UI Alert is now the default implementation (Phase 4)
+  // modern Alert is now the default implementation (Phase 4)
   // Users can opt into the legacy Alert via 'bootstrap_alert' flag
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_alert');
-  const AlertComponent = useLegacy ? Alert : ChakraAlert;
+  const AlertComponent = useLegacy ? Alert : BaseAlert;
   return <AlertComponent {...props} />;
 }
 

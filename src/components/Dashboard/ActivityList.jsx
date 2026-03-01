@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, Button } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { FaClock, FaStar, FaExternalLinkAlt } from 'react-icons/fa';
 import PropTypes from 'prop-types';
-import { Heading, HashLink, EmptyState } from '../design-system';
+import { Heading, HashLink, EmptyState, Card, Button } from '../design-system';
+import UserAvatar from '../UserAvatar/UserAvatar';
 import { getUser } from '../../utilities/users-service';
 import { getActivityFeed } from '../../utilities/dashboard-api';
 import { useDataTransition } from '../../hooks/useDataTransition';
@@ -167,12 +168,19 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
         {title}
       </Heading>
       <div ref={scrollRef} className={activitiesTransitionClass} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', flex: 1, overflow: 'auto' }}>
-        {activities.length > 0 ? activities.map((activity) => (
+        {activities.length > 0 ? activities.map((activity) => {
+          const actorUser = activity.actorId ? {
+            _id: activity.actorId,
+            name: activity.actorName || 'User',
+            oauthProfilePhoto: activity.actorPhoto || null,
+          } : null;
+
+          return (
           <div
             key={activity.id}
             style={{
               display: 'flex',
-              justifyContent: 'space-between',
+              gap: 'var(--space-3)',
               alignItems: 'center',
               padding: 'var(--space-4)',
               backgroundColor: 'var(--color-bg-secondary)',
@@ -192,6 +200,11 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
+            {actorUser && (
+              <div style={{ flexShrink: 0 }}>
+                <UserAvatar user={actorUser} size="sm" linkToProfile={true} />
+              </div>
+            )}
             <div style={{ flex: 1 }}>
               <div style={{
                 fontSize: 'var(--font-size-base)',
@@ -233,7 +246,7 @@ export default function ActivityList({ title = "Recent Activity", initialActivit
               </HashLink>
             )}
           </div>
-        )) : (
+        );}) : (
           <EmptyState
             variant="activity"
             size="sm"
@@ -331,6 +344,9 @@ ActivityList.propTypes = {
     time: PropTypes.string.isRequired,
     timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     resourceType: PropTypes.string,
+    actorId: PropTypes.string,
+    actorName: PropTypes.string,
+    actorPhoto: PropTypes.string,
   })),
   title: PropTypes.string,
 };

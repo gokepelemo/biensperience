@@ -596,6 +596,14 @@ async function getCuratorPlanners(req, res) {
       { $unwind: '$userDetails' },
       {
         $lookup: {
+          from: 'photos',
+          localField: 'userDetails.photos',
+          foreignField: '_id',
+          as: 'userPhotos'
+        }
+      },
+      {
+        $lookup: {
           from: 'experiences',
           localField: 'experiences',
           foreignField: '_id',
@@ -610,7 +618,16 @@ async function getCuratorPlanners(req, res) {
           user: {
             _id: '$userDetails._id',
             name: '$userDetails.name',
-            default_photo_id: '$userDetails.default_photo_id'
+            default_photo_id: '$userDetails.default_photo_id',
+            oauthProfilePhoto: '$userDetails.oauthProfilePhoto',
+            photo: '$userDetails.photo',
+            photos: {
+              $map: {
+                input: '$userPhotos',
+                as: 'photo',
+                in: { _id: '$$photo._id', url: '$$photo.url', caption: '$$photo.caption' }
+              }
+            }
           },
           experiences: {
             $map: {
@@ -641,6 +658,9 @@ async function getCuratorPlanners(req, res) {
         userId: p.user._id,
         userName: p.user.name,
         userPhotoId: p.user.default_photo_id,
+        userPhotos: p.user.photos || [],
+        userOauthProfilePhoto: p.user.oauthProfilePhoto || null,
+        userPhoto: p.user.photo || null,
         planCount: p.planCount,
         latestPlanDate: p.latestPlan,
         experiences: p.experiences

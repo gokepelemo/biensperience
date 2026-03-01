@@ -6,10 +6,9 @@
  * Designed to match SingleDestination's grid pattern for consistency.
  */
 
-import { Row, Col, Breadcrumb } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
-import { FaHome, FaRegImage, FaHeart, FaCalendarAlt, FaDollarSign, FaClock, FaStar } from 'react-icons/fa';
-import { SkeletonLoader } from '../../../components/design-system';
+import { Row, Col } from 'react-bootstrap';
+import { FaRegImage, FaHeart, FaCalendarAlt, FaDollarSign, FaClock, FaStar } from 'react-icons/fa';
+import { SkeletonLoader, Breadcrumb } from '../../../components/design-system';
 import styles from '../SingleExperience.module.scss';
 
 /**
@@ -47,25 +46,16 @@ export default function ExperienceContentGrid({
   return (
     <>
       {/* Breadcrumb Navigation */}
-      <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
-        <Breadcrumb>
-          <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
-            <FaHome size={12} style={{ marginRight: '4px' }} />
-            Home
-          </Breadcrumb.Item>
-          {experience.destination && (
-            <Breadcrumb.Item
-              linkAs={Link}
-              linkProps={{ to: `/destinations/${experience.destination._id}` }}
-            >
-              {experience.destination.name}
-            </Breadcrumb.Item>
-          )}
-          <Breadcrumb.Item active>
-            {experience.name}
-          </Breadcrumb.Item>
-        </Breadcrumb>
-      </nav>
+      <Breadcrumb
+        items={
+          experience.destination && experience.destination.name
+            ? [{ label: experience.destination.name, href: `/destinations/${experience.destination._id}` }]
+            : []
+        }
+        currentPage={experience.name}
+        backTo={experience.destination ? `/destinations/${experience.destination._id}` : "/"}
+        backLabel={experience.destination ? experience.destination.name : "Home"}
+      />
 
       <Row>
         {/* Main Content Column (8 cols on lg+) */}
@@ -123,15 +113,7 @@ export function ExperienceContentGridSkeleton() {
   return (
     <>
       {/* Breadcrumb Skeleton */}
-      <nav className={styles.breadcrumbNav} aria-label="breadcrumb">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <SkeletonLoader variant="text" width="50px" height="16px" />
-          <span style={{ color: 'var(--color-text-muted)' }}>/</span>
-          <SkeletonLoader variant="text" width="80px" height="16px" />
-          <span style={{ color: 'var(--color-text-muted)' }}>/</span>
-          <SkeletonLoader variant="text" width="120px" height="16px" />
-        </div>
-      </nav>
+      <Breadcrumb loading />
 
       <Row>
         {/* Main Content Column */}

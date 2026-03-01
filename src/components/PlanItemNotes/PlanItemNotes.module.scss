@@ -619,22 +619,45 @@
 .noteAuthorTimestamp {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  line-height: 1;
+
+  /* Lock avatar sizing to prevent Chakra runtime CSS from causing layout shifts.
+     Chakra's Avatar recipe injects --avatar-size (default 40px for md) after paint,
+     which overrides our SCSS module sizing. Pin dimensions with !important. */
+  :global([data-scope="avatar"][data-part="root"]) {
+    --avatar-size: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-width: 2px !important;
+    flex-shrink: 0;
+  }
+
+  /* Ensure the avatar link wrapper stays inline */
+  > a {
+    display: inline-flex !important;
+    align-items: center;
+    line-height: 0;
+    flex-shrink: 0;
+  }
 }
 
 .noteAuthorName {
   font-weight: $font-weight-medium;
   color: var(--color-text-secondary);
+  line-height: 1;
 }
 
 .noteSeparator {
   color: var(--color-text-muted);
+  line-height: 1;
 }
 
 .noteTimestamp {
   color: var(--color-text-muted);
+  line-height: 1;
 }
 
 .noteActions {

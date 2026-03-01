@@ -139,7 +139,14 @@ followSchema.statics.getFollowers = async function(userId, options = {}) {
     .sort({ createdAt: -1 })
     .skip(options.skip || 0)
     .limit(options.limit || 50)
-    .populate('follower', 'name email photos default_photo_id')
+    .populate({
+      path: 'follower',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
+    })
     .lean();
 };
 
@@ -151,7 +158,14 @@ followSchema.statics.getFollowing = async function(userId, options = {}) {
     .sort({ createdAt: -1 })
     .skip(options.skip || 0)
     .limit(options.limit || 50)
-    .populate('following', 'name email photos default_photo_id')
+    .populate({
+      path: 'following',
+      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      populate: {
+        path: 'photos',
+        select: 'url caption'
+      }
+    })
     .lean();
 };
 
@@ -220,7 +234,14 @@ followSchema.statics.getPendingRequests = async function(userId, options = {}) {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('follower', 'name email photos default_photo_id')
+      .populate({
+        path: 'follower',
+        select: 'name email photos default_photo_id oauthProfilePhoto photo',
+        populate: {
+          path: 'photos',
+          select: 'url caption'
+        }
+      })
       .lean(),
     this.countDocuments({ following: userId, status: 'pending' })
   ]);
@@ -246,7 +267,14 @@ followSchema.statics.acceptRequest = async function(userId, requesterId) {
     { follower: requesterId, following: userId, status: 'pending' },
     { status: 'active' },
     { new: true }
-  ).populate('follower', 'name email photos default_photo_id');
+  ).populate({
+    path: 'follower',
+    select: 'name email photos default_photo_id oauthProfilePhoto photo',
+    populate: {
+      path: 'photos',
+      select: 'url caption'
+    }
+  });
 
   if (!follow) {
     return { success: false, error: 'Follow request not found' };

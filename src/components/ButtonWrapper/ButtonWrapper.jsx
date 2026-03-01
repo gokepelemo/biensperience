@@ -2,17 +2,17 @@
  * Button Abstraction Layer
  *
  * This component provides a stable API for Button usage across the application.
- * It wraps either the current custom Button or the Chakra UI Button implementation,
- * controlled by the 'chakra_ui' feature flag.
+ * It wraps either the current custom Button or the modern Button implementation,
+ * controlled by component-specific feature flags.
  *
  * CRITICAL: This abstraction enables zero-regression migration between implementations.
  * All button consumers should import from design-system, NOT directly from Button.
  *
  * Implementation Status:
  * - Phase 1: Custom Button with CSS Modules (completed)
- * - Phase 2: Feature-flagged Chakra UI Button (completed)
- * - Phase 3: Chakra UI Button validation (completed)
- * - Phase 4 (Current): Chakra UI Button is default; legacy available via 'bootstrap_button' flag
+ * - Phase 2: Feature-flagged modern Button (completed)
+ * - Phase 3: modern Button validation (completed)
+ * - Phase 4 (Current): modern Button is default; legacy available via 'bootstrap_button' flag
  * - Phase 5: Remove legacy implementation (after validation period)
  *
  * API Stability Guarantee:
@@ -27,7 +27,7 @@
 import { forwardRef } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../Button/Button';
-import ChakraButton from '../Button/ChakraButton';
+import BaseButton from '../Button/BaseButton';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const BOOTSTRAP_VARIANTS = [
@@ -39,18 +39,18 @@ const BOOTSTRAP_VARIANTS = [
 /**
  * Button Component - Design System Abstraction
  *
- * Uses Chakra UI v3 Button implementation when 'chakra_ui' feature flag
- * is enabled, otherwise falls back to the custom CSS Modules Button.
+ * Uses modern Button implementation by default.
+ * Legacy Button available via feature flag.
  *
  * @param {Object} props - Button properties (see Button.jsx for full docs)
  * @param {React.Ref} ref - Forwarded ref to button element
  * @returns {React.ReactElement} Button component
  */
 const ButtonWrapper = forwardRef((props, ref) => {
-  // Chakra UI Button is now the default implementation (Phase 4)
+  // modern Button is now the default implementation (Phase 4)
   // Users can opt into the legacy Bootstrap Button via 'bootstrap_button' flag
   const { enabled: useLegacy } = useFeatureFlag('bootstrap_button');
-  const ButtonComponent = useLegacy ? Button : ChakraButton;
+  const ButtonComponent = useLegacy ? Button : BaseButton;
   return <ButtonComponent {...props} ref={ref} />;
 });
 

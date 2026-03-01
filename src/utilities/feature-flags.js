@@ -134,14 +134,14 @@ export const FEATURE_FLAGS = {
     description: 'In-app messaging (provider-agnostic)',
     tier: 'beta'
   },
-  CHAKRA_UI: {
-    key: 'chakra_ui',
-    description: 'Use Chakra UI primitives for modals, buttons, pills, and other components (accessibility & ARIA support)',
+  UI_PRIMITIVES: {
+    key: 'chakra_ui', // DB key retained for backward compatibility
+    description: 'Use modern UI primitives for modals, buttons, pills, and other components (accessibility & ARIA support)',
     tier: 'beta'
   },
   BOOTSTRAP_MODAL: {
     key: 'bootstrap_modal',
-    description: 'Use legacy Bootstrap Modal instead of Chakra UI Dialog (escape hatch)',
+    description: 'Use legacy Bootstrap Modal instead of Dialog implementation (escape hatch)',
     tier: 'beta'
   },
   PLAN_ACCESS_REQUESTS: {

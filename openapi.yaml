@@ -890,7 +890,32 @@ components:
           format: date-time
         action:
           type: string
-          enum: [created, updated, deleted, permission_added, permission_removed, collaborator_added, collaborator_removed, plan_item_completed, plan_item_note_added, plan_item_note_updated, plan_item_note_deleted]
+          enum:
+            - resource_created
+            - resource_updated
+            - resource_deleted
+            - permission_added
+            - permission_removed
+            - collaborator_added
+            - collaborator_removed
+            - plan_created
+            - plan_updated
+            - plan_deleted
+            - plan_item_completed
+            - plan_item_uncompleted
+            - plan_item_photo_added
+            - plan_item_visibility_changed
+            - plan_item_note_added
+            - plan_item_note_updated
+            - plan_item_note_deleted
+            - cost_added
+            - cost_updated
+            - cost_deleted
+            - follow_created
+            - follow_removed
+            - favorite_added
+            - favorite_removed
+            - experience_planned
         actor:
           type: object
           properties:
@@ -929,18 +954,143 @@ components:
           type: string
         metadata:
           type: object
+        parentActivityId:
+          type: string
+          nullable: true
+          description: Groups multi-step flows; child activities are hidden from feeds
         tags:
           type: array
           items:
             type: string
         status:
           type: string
-          enum: [success, error, pending]
+          enum: [success, failure, partial]
       required:
         - timestamp
         - action
         - actor
         - resource
+
+    AccessRequest:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Access request ID
+        requester:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+          description: Requester user ID or populated user object
+        message:
+          type: string
+          description: Optional message from the requester
+        status:
+          type: string
+          enum: [pending, approved, declined]
+        respondedAt:
+          type: string
+          format: date-time
+          description: When the request was responded to
+        respondedBy:
+          type: string
+          description: User ID of who responded
+        createdAt:
+          type: string
+          format: date-time
+
+    ChatChannel:
+      type: object
+      description: Chat channel information returned by channel creation endpoints
+      properties:
+        type:
+          type: string
+          example: messaging
+          description: Stream Chat channel type
+        id:
+          type: string
+          description: Channel ID (deterministic based on context)
+          examples:
+            - dm_user1_user2
+            - plan_abc123
+            - planItem_abc123_def456
+        members:
+          type: array
+          items:
+            type: string
+          description: User IDs of channel members
+
+    EnrichedActivityFeedItem:
+      type: object
+      description: Enriched activity item returned by dashboard and follow feed endpoints
+      properties:
+        id:
+          type: string
+          description: Activity ID
+        action:
+          type: string
+          description: Human-readable action text (e.g., "Created", "Planned")
+        actionType:
+          type: string
+          description: Raw action type for client-side filtering (e.g., "plan_created")
+        item:
+          type: string
+          nullable: true
+          description: Display name of the primary resource
+        targetItem:
+          type: string
+          nullable: true
+          description: Display name of the target (e.g., plan item name for completions)
+        link:
+          type: string
+          nullable: true
+          description: Deep link to the resource (may include hash fragments)
+        time:
+          type: string
+          description: Relative time string (e.g., "2 hours ago")
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp of the activity
+        resourceType:
+          type: string
+          description: Resource type (Experience, Plan, Destination, User)
+        actorId:
+          type: string
+          description: ID of the user who performed the action
+        targetId:
+          type: string
+          nullable: true
+          description: ID of the target entity
+        actorName:
+          type: string
+          nullable: true
+          description: Name of the user who performed the action
+        actorPhoto:
+          type: string
+          nullable: true
+          description: URL of the actor's profile photo for avatar display
+        targetName:
+          type: string
+          nullable: true
+          description: Name of the target entity
+        photoId:
+          type: string
+          nullable: true
+          description: Photo ID for plan_item_photo_added activities (for thumbnail display)
+      required:
+        - id
+        - action
+        - actionType
+        - time
+        - timestamp
 
     Document:
       type: object
@@ -3630,6 +3780,228 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /plans/{id}/preview:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    get:
+      summary: Get Plan Preview
+      description: |
+        Returns minimal, non-sensitive plan metadata for access-denied screens.
+        No authentication required. Used to display plan owner name and experience name
+        when a user encounters a plan they don't have access to.
+      responses:
+        '200':
+          description: Plan preview retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          planId:
+                            type: string
+                          experienceName:
+                            type: string
+                          ownerFirstName:
+                            type: string
+                          experienceId:
+                            type: string
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/access-requests:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    post:
+      summary: Request Plan Access
+      description: |
+        Submit an access request to the plan owner. Requires the plan owner to have the
+        `plan_access_requests` feature flag enabled. If the user already has access or
+        an existing pending request, appropriate errors are returned. An email notification
+        with an approval token link is sent to the plan owner.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Optional message to include with the access request
+      responses:
+        '200':
+          description: Access request submitted (or updated if a pending request already exists)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AccessRequest'
+        '400':
+          description: User already has access, or invalid plan ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Plan access requests not enabled for this plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Access request already exists and has been processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Get Access Requests
+      description: |
+        Retrieve access requests for a plan. Only the plan owner or super admin can view.
+        By default returns only pending requests. Pass `?all=true` to include all statuses.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: all
+          in: query
+          schema:
+            type: string
+            enum: ['true', 'false']
+          description: When 'true', returns all requests including approved/declined
+      responses:
+        '200':
+          description: Access requests retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AccessRequest'
+        '403':
+          description: Only plan owner can view access requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/access-requests/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+      - name: requestId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Access request ID
+    patch:
+      summary: Respond to Access Request
+      description: |
+        Approve or decline a pending access request. Only the plan owner or super admin
+        can respond. Approving adds the requester as a collaborator on the plan.
+        The requester is notified of the decision via email and BienBot.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [approve, decline]
+                  description: Whether to approve or decline the access request
+      responses:
+        '200':
+          description: Access request responded to
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AccessRequest'
+        '400':
+          description: Invalid action or request already processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Only plan owner can respond to access requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan or access request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plans/{id}/access-requests/approve-by-token:
+    parameters:
+      - $ref: '#/components/parameters/planId'
+    get:
+      summary: Approve Access Request via Token
+      description: |
+        Token-based one-click approval from email link. No authentication required.
+        Redirects to the plan URL on success, or the frontend with error query params
+        on failure. Token is single-use and expires after 7 days.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Approval token from the email notification
+      responses:
+        '302':
+          description: Redirects to plan URL (success) or frontend with error (failure)
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Redirect URL
+
   /photos:
     post:
       summary: Upload Photo
@@ -4042,21 +4414,55 @@ paths:
   /dashboard/activity-feed:
     get:
       summary: Get Activity Feed
-      description: Returns user's activity feed
+      description: |
+        Returns the authenticated user's enriched activity feed with pagination.
+        Activities include human-readable text, deep links, and actor photo URLs.
+        Supports filtering by action types and resource types.
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/page'
         - $ref: '#/components/parameters/limit'
+        - name: actions
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Filter by action types (e.g., plan_created, resource_updated)
+        - name: resourceTypes
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [Experience, Destination, Plan, User]
+          description: Filter by resource types
       responses:
         '200':
-          description: Activity feed
+          description: Enriched activity feed with pagination
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Activity'
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EnrichedActivityFeedItem'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      hasMore:
+                        type: boolean
 
   /dashboard/upcoming-plans:
     get:
@@ -4273,8 +4679,10 @@ paths:
 
   /activities:
     get:
-      summary: Get Activities
-      description: Returns activity feed with optional filtering
+      summary: Get All Activities (Admin)
+      description: Returns all activities with optional filtering. Requires super admin access.
+      tags:
+        - Activities
       security:
         - bearerAuth: []
       parameters:
@@ -4328,6 +4736,163 @@ paths:
                         type: integer
                       hasMore:
                         type: boolean
+        '403':
+          description: Requires super admin access
+
+  /activities/stats:
+    get:
+      summary: Get Activity Statistics (Admin)
+      description: Returns aggregated activity statistics. Requires super admin access.
+      tags:
+        - Activities
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Activity statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '403':
+          description: Requires super admin access
+
+  /activities/experience/{experienceId}/feed:
+    get:
+      summary: Get Experience Activity Feed
+      description: |
+        Returns the public activity feed for an experience.
+        Shows entries like planning activity, photo uploads, and visibility changes.
+        Uses cursor-based pagination.
+      tags:
+        - Activities
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: experienceId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Experience ID
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+          description: Number of activities to return
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Cursor-based pagination - return activities before this timestamp
+      responses:
+        '200':
+          description: Experience activity feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  activities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Activity'
+                  hasMore:
+                    type: boolean
+
+  /activities/resource/{resourceId}:
+    get:
+      summary: Get Resource History
+      description: Returns activity history for a specific resource. Requires owner, collaborator, or admin access.
+      tags:
+        - Activities
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Resource ID
+      responses:
+        '200':
+          description: Resource activity history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Activity'
+
+  /activities/actor/{actorId}:
+    get:
+      summary: Get Actor History
+      description: Returns activity history for a specific user. Requires self or admin access.
+      tags:
+        - Activities
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: actorId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: User activity history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Activity'
+
+  /activities/curator/planners:
+    get:
+      summary: Get Curator Planners
+      description: Returns users who have planned the curator's experiences. Requires curator feature flag.
+      tags:
+        - Activities
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users who planned curator's experiences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '403':
+          description: Requires curator feature flag
 
   # Document endpoints
   /documents/supported-types:
@@ -4581,31 +5146,82 @@ paths:
         '404':
           description: Document not found
 
-  /follows:
+  /follows/feed:
     get:
-      summary: Get Follows
-      description: Returns user's follows/followers
+      summary: Get Follow Feed
+      description: |
+        Returns enriched activity feed from users the authenticated user follows.
+        Activities include human-readable text, deep links, and actor photo URLs.
+        Supports filtering by action types and resource types.
+      tags:
+        - Follows
       security:
         - bearerAuth: []
       parameters:
-        - name: type
+        - name: limit
           in: query
-          required: true
+          schema:
+            type: integer
+            default: 20
+          description: Number of activities to return
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Number of activities to skip
+        - name: actions
+          in: query
           schema:
             type: string
-            enum: [following, followers]
-          description: Type of follows to retrieve
-        - $ref: '#/components/parameters/page'
-        - $ref: '#/components/parameters/limit'
+          description: Comma-separated list of action types to filter by
+        - name: resourceTypes
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of resource types to filter by
       responses:
         '200':
-          description: Follow relationships
+          description: Enriched follow activity feed
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
+                  success:
+                    type: boolean
+                  feed:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EnrichedActivityFeedItem'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  skip:
+                    type: integer
+                  followingCount:
+                    type: integer
+
+  /follows/requests:
+    get:
+      summary: Get Follow Requests
+      description: Returns pending follow requests for private profile users
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pending follow requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  requests:
                     type: array
                     items:
                       type: object
@@ -4614,50 +5230,104 @@ paths:
                           type: string
                         follower:
                           $ref: '#/components/schemas/User'
-                        following:
-                          $ref: '#/components/schemas/User'
+                        status:
+                          type: string
+                          enum: [pending, accepted, blocked]
                         createdAt:
                           type: string
                           format: date-time
-                  pagination:
-                    type: object
-                    properties:
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalCount:
-                        type: integer
-                      totalPages:
-                        type: integer
-                      hasMore:
-                        type: boolean
 
-    post:
-      summary: Follow User
-      description: Follows another user
+  /follows/requests/count:
+    get:
+      summary: Get Follow Request Count
+      description: Returns count of pending follow requests
+      tags:
+        - Follows
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userId:
-                  type: string
-              required:
-                - userId
+      responses:
+        '200':
+          description: Request count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+
+  /follows/requests/{followerId}/accept:
+    put:
+      summary: Accept Follow Request
+      description: Accepts a pending follow request
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: followerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Follower user ID
+      responses:
+        '200':
+          description: Follow request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /follows/requests/{followerId}:
+    delete:
+      summary: Reject Follow Request
+      description: Rejects a pending follow request
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: followerId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Follower user ID
+      responses:
+        '200':
+          description: Follow request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /follows/{userId}:
+    post:
+      summary: Follow User
+      description: Follows another user. For private profiles, creates a pending follow request.
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID to follow
       responses:
         '201':
-          description: User followed successfully
+          description: User followed successfully (or request sent for private profiles)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Success'
         '400':
-          description: Validation error
+          description: Validation error (cannot follow self)
           content:
             application/json:
               schema:
@@ -4672,11 +5342,13 @@ paths:
     delete:
       summary: Unfollow User
       description: Unfollows a user
+      tags:
+        - Follows
       security:
         - bearerAuth: []
       parameters:
         - name: userId
-          in: query
+          in: path
           required: true
           schema:
             type: string
@@ -4690,6 +5362,467 @@ paths:
                 $ref: '#/components/schemas/Success'
         '404':
           description: Follow relationship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /follows/{userId}/followers:
+    get:
+      summary: Get Followers
+      description: Returns list of users who follow the specified user
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Followers list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  followers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+
+  /follows/{userId}/following:
+    get:
+      summary: Get Following
+      description: Returns list of users the specified user follows
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Following list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  following:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+
+  /follows/{userId}/counts:
+    get:
+      summary: Get Follow Counts
+      description: Returns follower and following counts for a user
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Follow counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  followers:
+                    type: integer
+                  following:
+                    type: integer
+
+  /follows/{userId}/status:
+    get:
+      summary: Get Follow Status
+      description: Check whether the authenticated user follows the specified user
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Follow status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  isFollowing:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [following, pending, not_following]
+
+  /follows/{userId}/relationship:
+    get:
+      summary: Get Follow Relationship
+      description: Returns the mutual follow relationship between the authenticated user and the specified user
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: Mutual follow relationship
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  isFollowing:
+                    type: boolean
+                  isFollowedBy:
+                    type: boolean
+
+  /follows/{userId}/remove-follower:
+    delete:
+      summary: Remove Follower
+      description: Removes a user from the authenticated user's followers list
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Follower user ID to remove
+      responses:
+        '200':
+          description: Follower removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /follows/{userId}/block:
+    post:
+      summary: Block Follower
+      description: Blocks a user from following the authenticated user
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID to block
+      responses:
+        '200':
+          description: User blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+    delete:
+      summary: Unblock Follower
+      description: Unblocks a previously blocked user
+      tags:
+        - Follows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID to unblock
+      responses:
+        '200':
+          description: User unblocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  # Chat API Endpoints
+  # These endpoints require the 'chat' feature flag (evaluated on plan owner for plan/plan-item channels).
+  # Powered by Stream Chat. All endpoints require authentication.
+
+  /chat/token:
+    post:
+      summary: Get Chat Token
+      description: |
+        Generate a Stream Chat user token for the authenticated user.
+        Used to initialize the Stream Chat client on the frontend.
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token generated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                            description: Stream Chat JWT token
+                          user:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              name:
+                                type: string
+        '501':
+          description: Chat service not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat/channels/dm:
+    post:
+      summary: Create or Get DM Channel
+      description: |
+        Create or retrieve a direct message channel between the authenticated user and
+        another user. DM eligibility requires one of:
+        1. Actor is a super admin
+        2. Users mutually follow each other
+        3. Actor is a curator AND target has planned one of actor's experiences
+
+        Channel IDs are deterministic (sorted user IDs).
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - otherUserId
+              properties:
+                otherUserId:
+                  type: string
+                  description: User ID of the other participant
+      responses:
+        '200':
+          description: DM channel ready
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatChannel'
+        '403':
+          description: DM eligibility not met
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Chat service not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat/channels/plan:
+    post:
+      summary: Create or Get Plan Channel
+      description: |
+        Create or retrieve a group chat channel for a plan. Requires the plan owner
+        to have the `chat` feature flag enabled. Only users with plan access
+        (owner or collaborator) can join. Channel name format: "{Experience Name} - {Owner Name}".
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - planId
+              properties:
+                planId:
+                  type: string
+                  description: Plan ID
+      responses:
+        '200':
+          description: Plan channel ready
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatChannel'
+        '403':
+          description: Chat not enabled for this plan or user not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Chat service not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat/channels/plan-item:
+    post:
+      summary: Create or Get Plan Item Channel
+      description: |
+        Create or retrieve a group chat channel for a specific plan item.
+        Same access rules as plan channel. Channel name format: "{Experience Name} - {Plan Item Text}".
+        Channel ID format: `planItem_{planId}_{planItemId}`.
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - planId
+                - planItemId
+              properties:
+                planId:
+                  type: string
+                  description: Plan ID
+                planItemId:
+                  type: string
+                  description: Plan item ID
+      responses:
+        '200':
+          description: Plan item channel ready
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatChannel'
+        '403':
+          description: Chat not enabled or not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plan or plan item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '501':
+          description: Chat service not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat/channels/bienbot:
+    delete:
+      summary: Cancel BienBot Channel
+      description: |
+        Delete the BienBot (AI assistant) chat channel for the authenticated user.
+        Used when a user wants to dismiss or reset their BienBot conversation.
+      tags:
+        - Chat
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: BienBot channel cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '501':
+          description: Chat service not configured
           content:
             application/json:
               schema:

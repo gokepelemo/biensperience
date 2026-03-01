@@ -10,7 +10,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Tabs, Tab, Badge, Row, Col } from 'react-bootstrap';
+import { Badge, Row, Col } from 'react-bootstrap';
+import { Card, Tabs, Tab } from '../../components/design-system';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus, FaCopy, FaSearch, FaFilter, FaTimes, FaBan, FaFileDownload, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
@@ -19,8 +20,8 @@ import { eventBus } from '../../utilities/event-bus';
 import { useToast } from '../../contexts/ToastContext';
 import { useUser } from '../../contexts/UserContext';
 import { logger } from '../../utilities/logger';
-import { getDefaultPhoto } from '../../utilities/photo-utils';
 import { getFirstName } from '../../utilities/name-utils';
+import UserAvatar from '../../components/UserAvatar/UserAvatar';
 import { createFilter } from '../../utilities/trie';
 import { exportToCsv, formatDateForCsv } from '../../utilities/csv-utils';
 import Loading from '../../components/Loading/Loading';
@@ -915,20 +916,11 @@ export default function InviteTracking() {
                     </TableHead>
                     <TableBody>
                       {selectedInvite.redeemedBy.map((user) => {
-                        const defaultPhoto = getDefaultPhoto(user);
-                        const photoUrl = defaultPhoto?.url || user.oauthProfilePhoto;
-
                         return (
                           <TableRow key={user._id}>
                             <TableCell>
                               <div className="d-flex align-items-center">
-                                {photoUrl && (
-                                  <img
-                                    src={photoUrl}
-                                    alt={user.name}
-                                    className={`${styles.userAvatarSmall} me-2`}
-                                  />
-                                )}
+                                <UserAvatar user={user} size="sm" linkToProfile={false} className="me-2" />
                                 <span>{user.name}</span>
                               </div>
                             </TableCell>

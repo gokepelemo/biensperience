@@ -1,22 +1,22 @@
 /**
- * ChakraButton - Chakra UI v3 Button Implementation
+ * BaseButton - Design System Button Implementation
  *
  * Drop-in replacement for the custom Button component.
- * Uses Chakra UI v3 Button primitive for built-in accessibility,
+ * Uses styled primitives for built-in accessibility,
  * keyboard handling, and ARIA support while preserving the existing
  * Button.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default button
+ * IMPORTANT: This implementation completely resets default button
  * styling and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original Button component.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes (role, aria-disabled, aria-busy)
  * - Consistent focus management
  * - Loading state with spinner support
  * - Polymorphic `as` prop with proper type forwarding
  *
- * Task: biensperience-558b - Migrate Button component to Chakra UI
+ * Task: biensperience-558b - Migrate Button component
  */
 
 import React, { useMemo } from 'react';
@@ -43,7 +43,7 @@ const BOOTSTRAP_VARIANTS = [
  */
 const StyledButton = chakra('button');
 
-const ChakraButton = React.forwardRef(function ChakraButton({
+const BaseButton = React.forwardRef(function BaseButton({
   children,
   variant = 'gradient',
   bootstrapVariant = 'primary',
@@ -159,9 +159,9 @@ const ChakraButton = React.forwardRef(function ChakraButton({
   );
 });
 
-export default ChakraButton;
+export default BaseButton;
 
-ChakraButton.propTypes = {
+BaseButton.propTypes = {
   children: PropTypes.node.isRequired,
   variant: PropTypes.oneOf([
     'gradient',

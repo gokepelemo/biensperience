@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Badge, Card } from "react-bootstrap";
+import { Badge } from "react-bootstrap";
+import { Card } from "../../components/design-system";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaFilter, FaTimes, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";

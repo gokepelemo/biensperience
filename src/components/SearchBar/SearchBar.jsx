@@ -161,7 +161,10 @@ export default function SearchBar({
               name: result.name,
               username: result.username,
               email: result.email,
-              avatar: result.avatar || result.profilePhoto,
+              photos: result.photos,
+              default_photo_id: result.default_photo_id,
+              oauthProfilePhoto: result.oauthProfilePhoto,
+              photo: result.photo,
               isOnline: result.isOnline || false,
               role: result.role
             };

@@ -1,22 +1,22 @@
 /**
- * ChakraForm - Chakra UI v3 Form Components Implementation
+ * BaseForm - Design System Form Components Implementation
  *
  * Drop-in replacements for the custom Form components.
- * Uses Chakra UI v3 Field and Input primitives for built-in accessibility,
+ * Uses Field and Input primitives for built-in accessibility,
  * keyboard handling, and ARIA support while preserving the existing
  * Form.module.scss styling via CSS Module class names.
  *
- * IMPORTANT: This implementation completely resets Chakra's default styling
+ * IMPORTANT: This implementation completely resets default styling
  * and applies the existing CSS Module classes, ensuring pixel-perfect
  * visual parity with the original Form components.
  *
- * Chakra benefits gained:
+ * Benefits:
  * - Built-in ARIA attributes and field validation state management
  * - Consistent focus management
  * - Label association with inputs via Field context
  * - Error and helper text accessibility
  *
- * Task: biensperience-a8d1 - Migrate Form components to Chakra UI
+ * Task: biensperience-a8d1 - Migrate Form components
  */
 
 import React, { useId } from 'react';
@@ -31,7 +31,7 @@ import styles from './Form.module.scss';
  * This ensures the CSS Module classes from Form.module.scss are the
  * sole source of visual styling — pixel-perfect match with the original.
  */
-const CHAKRA_RESET_STYLES = {
+const RESET_STYLES = {
   bg: 'transparent',
   color: 'inherit',
   border: 'none',
@@ -54,12 +54,12 @@ const CHAKRA_RESET_STYLES = {
 };
 
 /**
- * ChakraForm component - wrapper for form elements with unified styling
+ * BaseForm component - wrapper for form elements with unified styling
  *
  * Uses native form element (no Chakra equivalent needed) but maintains
  * API parity with the original Form component.
  */
-export default function ChakraForm({
+export default function BaseForm({
   children,
   onSubmit,
   className = '',
@@ -87,7 +87,7 @@ export default function ChakraForm({
   );
 }
 
-ChakraForm.propTypes = {
+BaseForm.propTypes = {
   children: PropTypes.node.isRequired,
   onSubmit: PropTypes.func,
   className: PropTypes.string,
@@ -95,12 +95,12 @@ ChakraForm.propTypes = {
 };
 
 /**
- * ChakraFormGroup - Chakra Field.Root with CSS Module styling
+ * BaseFormGroup - Chakra Field.Root with CSS Module styling
  *
  * Uses Chakra Field.Root for form field context (validation, labels),
  * with reset styling to use CSS Modules.
  */
-export function ChakraFormGroup({
+export function BaseFormGroup({
   children,
   className = '',
   style = {},
@@ -114,7 +114,7 @@ export function ChakraFormGroup({
       className={classes}
       style={style}
       invalid={invalid}
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
@@ -122,7 +122,7 @@ export function ChakraFormGroup({
   );
 }
 
-ChakraFormGroup.propTypes = {
+BaseFormGroup.propTypes = {
   children: PropTypes.node.isRequired,
   className: PropTypes.string,
   style: PropTypes.object,
@@ -130,12 +130,12 @@ ChakraFormGroup.propTypes = {
 };
 
 /**
- * ChakraFormLabel - Chakra Field.Label with CSS Module styling
+ * BaseFormLabel - Chakra Field.Label with CSS Module styling
  *
  * Uses Chakra Field.Label for proper label-input association,
  * with optional required indicator.
  */
-export function ChakraFormLabel({
+export function BaseFormLabel({
   children,
   htmlFor,
   required = false,
@@ -150,7 +150,7 @@ export function ChakraFormLabel({
       className={classes}
       htmlFor={htmlFor}
       style={style}
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
@@ -169,7 +169,7 @@ export function ChakraFormLabel({
   );
 }
 
-ChakraFormLabel.propTypes = {
+BaseFormLabel.propTypes = {
   children: PropTypes.node.isRequired,
   htmlFor: PropTypes.string,
   required: PropTypes.bool,
@@ -178,12 +178,12 @@ ChakraFormLabel.propTypes = {
 };
 
 /**
- * ChakraFormControl - Chakra Input with CSS Module styling
+ * BaseFormControl - Chakra Input with CSS Module styling
  *
  * Uses Chakra Input primitive for accessibility benefits,
  * with reset styling to use CSS Modules.
  */
-export function ChakraFormControl({
+export function BaseFormControl({
   as: Component = 'input',
   type = 'text',
   className = '',
@@ -202,7 +202,7 @@ export function ChakraFormControl({
         variant="unstyled"
         css={{
           // Reset Chakra Input styles completely
-          ...CHAKRA_RESET_STYLES,
+          ...RESET_STYLES,
           // Ensure CSS Module styles take precedence
           '&': {
             bg: 'transparent',
@@ -225,7 +225,7 @@ export function ChakraFormControl({
   );
 }
 
-ChakraFormControl.propTypes = {
+BaseFormControl.propTypes = {
   as: PropTypes.oneOf(['input', 'select', 'textarea']),
   type: PropTypes.string,
   className: PropTypes.string,
@@ -233,12 +233,12 @@ ChakraFormControl.propTypes = {
 };
 
 /**
- * ChakraFormCheck - Checkbox/Radio with Chakra integration
+ * BaseFormCheck - Checkbox/Radio with Chakra integration
  *
  * For checkboxes, delegates to the design-system Checkbox.
  * For radios, uses native radio with CSS Module styling.
  */
-export function ChakraFormCheck({
+export function BaseFormCheck({
   children,
   label,
   type = 'checkbox',
@@ -286,7 +286,7 @@ export function ChakraFormCheck({
   );
 }
 
-ChakraFormCheck.propTypes = {
+BaseFormCheck.propTypes = {
   children: PropTypes.node,
   label: PropTypes.node,
   type: PropTypes.oneOf(['checkbox', 'radio']),
@@ -299,12 +299,12 @@ ChakraFormCheck.propTypes = {
 };
 
 /**
- * ChakraFormText - Chakra Field.HelperText with CSS Module styling
+ * BaseFormText - Chakra Field.HelperText with CSS Module styling
  *
  * Uses Chakra Field.HelperText for proper accessibility,
  * with CSS Module styling.
  */
-export function ChakraFormText({
+export function BaseFormText({
   children,
   muted = false,
   className = '',
@@ -321,7 +321,7 @@ export function ChakraFormText({
     <Field.HelperText
       className={classes}
       style={style}
-      css={CHAKRA_RESET_STYLES}
+      css={RESET_STYLES}
       {...props}
     >
       {children}
@@ -329,7 +329,7 @@ export function ChakraFormText({
   );
 }
 
-ChakraFormText.propTypes = {
+BaseFormText.propTypes = {
   children: PropTypes.node.isRequired,
   muted: PropTypes.bool,
   className: PropTypes.string,
@@ -337,12 +337,12 @@ ChakraFormText.propTypes = {
 };
 
 /**
- * ChakraFormInputGroup - Input group with prefix/suffix
+ * BaseFormInputGroup - Input group with prefix/suffix
  *
  * Uses native elements with CSS Module styling.
  * No Chakra equivalent needed as InputGroup in v3 works differently.
  */
-export function ChakraFormInputGroup({
+export function BaseFormInputGroup({
   children,
   prefix,
   suffix,
@@ -369,7 +369,7 @@ export function ChakraFormInputGroup({
   );
 }
 
-ChakraFormInputGroup.propTypes = {
+BaseFormInputGroup.propTypes = {
   children: PropTypes.node.isRequired,
   prefix: PropTypes.node,
   suffix: PropTypes.node,

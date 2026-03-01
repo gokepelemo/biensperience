@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from 'react-bootstrap';
+import { Card } from '../design-system';
 import PropTypes from 'prop-types';
 import { FaCalendar, FaUser, FaUsers, FaCheckCircle } from 'react-icons/fa';
 

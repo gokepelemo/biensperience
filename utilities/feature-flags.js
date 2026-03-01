@@ -164,10 +164,10 @@ const FEATURE_FLAGS = {
     tier: 'beta'
   },
 
-  // Chakra UI (all components: modals, buttons, pills, etc.)
-  CHAKRA_UI: {
-    key: 'chakra_ui',
-    description: 'Use Chakra UI primitives for modals, buttons, pills, and other components (accessibility & ARIA support)',
+  // Modern UI primitives (all components: modals, buttons, pills, etc.)
+  UI_PRIMITIVES: {
+    key: 'chakra_ui', // DB key retained for backward compatibility
+    description: 'Use modern UI primitives for modals, buttons, pills, and other components (accessibility & ARIA support)',
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'beta'
