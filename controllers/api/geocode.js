@@ -24,8 +24,9 @@ async function geocode(req, res, next) {
     const result = await geocodeAddress(address.trim());
 
     if (!result) {
-      return res.status(404).json({
+      return res.json({
         success: false,
+        data: null,
         message: 'Could not find location for this address'
       });
     }

@@ -106,6 +106,17 @@
   }
 }
 
+.pillVariantSecondary {
+  background: var(--color-bg-secondary, #6c757d);
+  color: var(--color-text-secondary, #fff);
+  border: var(--border-width-thin) solid var(--color-border-light);
+
+  &.pillOutline {
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-medium, var(--color-border-light));
+  }
+}
+
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
   .pillVariantWarning {

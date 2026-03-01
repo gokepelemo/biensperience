@@ -218,7 +218,7 @@ Modal.propTypes = {
   showSubmitButton: PropTypes.bool,
   disableSubmit: PropTypes.bool,
   loading: PropTypes.bool,
-  size: PropTypes.oneOf(['sm', 'lg', 'xl', 'fullscreen']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', 'fullscreen']),
   scrollable: PropTypes.bool,
   centered: PropTypes.bool,
   footer: PropTypes.node,

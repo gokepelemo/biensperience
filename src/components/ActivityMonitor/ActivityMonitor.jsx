@@ -250,7 +250,8 @@ export default function ActivityMonitor({ show, onHide }) {
                 {/* Action Filter */}
                 <div className={styles.filterField}>
                   <Form.Label>Action</Form.Label>
-                  <Form.Select
+                  <Form.Control
+                    as="select"
                     value={filters.action}
                     onChange={(e) => handleFilterChange('action', e.target.value)}
                   >
@@ -260,13 +261,14 @@ export default function ActivityMonitor({ show, onHide }) {
                         {action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </option>
                     ))}
-                  </Form.Select>
+                  </Form.Control>
                 </div>
 
                 {/* Resource Type Filter */}
                 <div className={styles.filterField}>
                   <Form.Label>Resource</Form.Label>
-                  <Form.Select
+                  <Form.Control
+                    as="select"
                     value={filters.resourceType}
                     onChange={(e) => handleFilterChange('resourceType', e.target.value)}
                   >
@@ -274,7 +276,7 @@ export default function ActivityMonitor({ show, onHide }) {
                     {RESOURCE_TYPES.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
-                  </Form.Select>
+                  </Form.Control>
                 </div>
 
                 {/* Start Date */}

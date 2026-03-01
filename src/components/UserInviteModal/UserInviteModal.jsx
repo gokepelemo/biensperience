@@ -113,131 +113,125 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
   return (
     <Modal
       show={show}
-      onHide={handleClose}
+      onClose={handleClose}
       centered
-      backdrop="static"
-      keyboard={!isCreating}
+      title={<><FaUserPlus className="me-2" />Invite a Friend</>}
+      icon={null}
+      showSubmitButton={false}
+      showCancelButton={false}
     >
-      <Modal.Header closeButton={!isCreating}>
-        <Modal.Title>
-          <FaUserPlus className="me-2" />
-          Invite a Friend
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {createdInvite ? (
-          // Success state - show created invite
-          <div className={styles.successState}>
-            <div className={styles.successIcon}>
-              <FaEnvelope />
-            </div>
-            <h5>Invite Created!</h5>
-            <p className="text-muted mb-3">
-              {formData.sendEmail && formData.email && createdInvite.emailSent
-                ? `An invite has been sent to ${formData.email}`
-                : 'Share this code with your friend to invite them'}
-            </p>
-
-            <div className={styles.codeDisplay}>
-              {createdInvite.code}
-            </div>
-
-            <div className={styles.inviteLink}>
-              <code>{window.location.origin}/signup?code={createdInvite.code}</code>
-            </div>
-
-            <div className="d-flex gap-2 justify-content-center mt-4">
-              <Button variant="primary" onClick={copyToClipboard}>
-                Copy Link
-              </Button>
-              <Button variant="outline" onClick={handleCreateAnother}>
-                Create Another
-              </Button>
-            </div>
-
-            {formData.mutualFollow && (
-              <p className={styles.mutualFollowNote}>
-                You'll automatically follow each other when they sign up!
-              </p>
-            )}
+      {createdInvite ? (
+        // Success state - show created invite
+        <div className={styles.successState}>
+          <div className={styles.successIcon}>
+            <FaEnvelope />
           </div>
-        ) : (
-          // Form state
-          <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label>Email Address</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder="friend@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                disabled={isCreating}
-                className={styles.formControl}
-              />
-              <Form.Text className="text-muted">
-                If provided, we can send them an invite email
-              </Form.Text>
-            </Form.Group>
+          <h5>Invite Created!</h5>
+          <p className="text-muted mb-3">
+            {formData.sendEmail && formData.email && createdInvite.emailSent
+              ? `An invite has been sent to ${formData.email}`
+              : 'Share this code with your friend to invite them'}
+          </p>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Their Name (optional)</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="John"
-                value={formData.inviteeName}
-                onChange={(e) => setFormData({ ...formData, inviteeName: e.target.value })}
-                disabled={isCreating}
-                className={styles.formControl}
-              />
-            </Form.Group>
+          <div className={styles.codeDisplay}>
+            {createdInvite.code}
+          </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Personal Message (optional)</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                placeholder="Hey! Join me on Biensperience..."
-                value={formData.customMessage}
-                onChange={(e) => setFormData({ ...formData, customMessage: e.target.value })}
-                disabled={isCreating}
-                className={styles.formControl}
-              />
-            </Form.Group>
+          <div className={styles.inviteLink}>
+            <code>{window.location.origin}/signup?code={createdInvite.code}</code>
+          </div>
 
-            <Form.Group className="mb-3">
-              <Checkbox
-                id="sendEmailCheckbox"
-                label="Send invite email"
-                checked={formData.sendEmail}
-                onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-                disabled={isCreating || !formData.email}
-              />
-            </Form.Group>
+          <div className="d-flex gap-2 justify-content-center mt-4">
+            <Button variant="primary" onClick={copyToClipboard}>
+              Copy Link
+            </Button>
+            <Button variant="outline" onClick={handleCreateAnother}>
+              Create Another
+            </Button>
+          </div>
 
-            <Form.Group className="mb-4">
-              <Checkbox
-                id="mutualFollowCheckbox"
-                label="Automatically follow each other"
-                checked={formData.mutualFollow}
-                onChange={(e) => setFormData({ ...formData, mutualFollow: e.target.checked })}
-                disabled={isCreating}
-              />
-              <Form.Text className="text-muted">
-                You'll both follow each other when they sign up
-              </Form.Text>
-            </Form.Group>
+          {formData.mutualFollow && (
+            <p className={styles.mutualFollowNote}>
+              You'll automatically follow each other when they sign up!
+            </p>
+          )}
+        </div>
+      ) : (
+        // Form state
+        <Form onSubmit={handleSubmit}>
+          <Form.Group className="mb-3">
+            <Form.Label>Email Address</Form.Label>
+            <Form.Control
+              type="email"
+              placeholder="friend@example.com"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              disabled={isCreating}
+              className={styles.formControl}
+            />
+            <Form.Text className="text-muted">
+              If provided, we can send them an invite email
+            </Form.Text>
+          </Form.Group>
 
-            <div className="d-flex gap-2 justify-content-end">
-              <Button variant="outline" onClick={handleClose} disabled={isCreating}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" disabled={isCreating}>
-                {isCreating ? 'Creating...' : 'Create Invite'}
-              </Button>
-            </div>
-          </Form>
-        )}
-      </Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Their Name (optional)</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="John"
+              value={formData.inviteeName}
+              onChange={(e) => setFormData({ ...formData, inviteeName: e.target.value })}
+              disabled={isCreating}
+              className={styles.formControl}
+            />
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Personal Message (optional)</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              placeholder="Hey! Join me on Biensperience..."
+              value={formData.customMessage}
+              onChange={(e) => setFormData({ ...formData, customMessage: e.target.value })}
+              disabled={isCreating}
+              className={styles.formControl}
+            />
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Checkbox
+              id="sendEmailCheckbox"
+              label="Send invite email"
+              checked={formData.sendEmail}
+              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+              disabled={isCreating || !formData.email}
+            />
+          </Form.Group>
+
+          <Form.Group className="mb-4">
+            <Checkbox
+              id="mutualFollowCheckbox"
+              label="Automatically follow each other"
+              checked={formData.mutualFollow}
+              onChange={(e) => setFormData({ ...formData, mutualFollow: e.target.checked })}
+              disabled={isCreating}
+            />
+            <Form.Text className="text-muted">
+              You'll both follow each other when they sign up
+            </Form.Text>
+          </Form.Group>
+
+          <div className="d-flex gap-2 justify-content-end">
+            <Button variant="outline" onClick={handleClose} disabled={isCreating}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={isCreating}>
+              {isCreating ? 'Creating...' : 'Create Invite'}
+            </Button>
+          </div>
+        </Form>
+      )}
     </Modal>
   );
 }

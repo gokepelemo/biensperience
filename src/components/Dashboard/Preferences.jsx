@@ -228,7 +228,8 @@ export default function Preferences() {
 
               <Form.Group className="mb-4">
                 <Form.Label htmlFor="theme-select">Theme</Form.Label>
-                <Form.Select
+                <Form.Control
+                  as="select"
                   id="theme-select"
                   value={form.theme}
                   onChange={e => handleChange('theme', e.target.value)}
@@ -236,12 +237,13 @@ export default function Preferences() {
                   <option value="system-default">System Default</option>
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
-                </Form.Select>
+                </Form.Control>
               </Form.Group>
 
               <Form.Group className="mb-4">
                 <Form.Label htmlFor="timezone-select">Timezone</Form.Label>
-                <Form.Select
+                <Form.Control
+                  as="select"
                   id="timezone-select"
                   value={form.timezone}
                   onChange={e => handleChange('timezone', e.target.value)}
@@ -249,12 +251,13 @@ export default function Preferences() {
                   {getTimezoneOptions().map(tz => (
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
                   ))}
-                </Form.Select>
+                </Form.Control>
               </Form.Group>
 
               <Form.Group className="mb-4">
                 <Form.Label htmlFor="language-select">Language</Form.Label>
-                <Form.Select
+                <Form.Control
+                  as="select"
                   id="language-select"
                   value={form.language}
                   onChange={e => handleChange('language', e.target.value)}
@@ -262,12 +265,13 @@ export default function Preferences() {
                   {getLanguageOptions().map(opt => (
                     <option key={opt.code} value={opt.code}>{opt.name}</option>
                   ))}
-                </Form.Select>
+                </Form.Control>
               </Form.Group>
 
               <Form.Group className="mb-4">
                 <Form.Label htmlFor="currency-select">Currency</Form.Label>
-                <Form.Select
+                <Form.Control
+                  as="select"
                   id="currency-select"
                   value={form.currency}
                   onChange={e => handleChange('currency', e.target.value)}
@@ -275,19 +279,20 @@ export default function Preferences() {
                   {getCurrencyDropdownOptions({ format: 'full' }).map(curr => (
                     <option key={curr.value} value={curr.value}>{curr.label}</option>
                   ))}
-                </Form.Select>
+                </Form.Control>
               </Form.Group>
 
               <Form.Group className="mb-0">
                 <Form.Label htmlFor="visibility-select">Profile Visibility</Form.Label>
-                <Form.Select
+                <Form.Control
+                  as="select"
                   id="visibility-select"
                   value={form.profileVisibility}
                   onChange={e => handleChange('profileVisibility', e.target.value)}
                 >
                   <option value="public">Public</option>
                   <option value="private">Private</option>
-                </Form.Select>
+                </Form.Control>
               </Form.Group>
             </div>
 

@@ -60,7 +60,7 @@ export default function BasePill({
 
 BasePill.propTypes = {
   children: PropTypes.node.isRequired,
-  variant: PropTypes.oneOf(['primary', 'success', 'warning', 'danger', 'info', 'neutral']),
+  variant: PropTypes.oneOf(['primary', 'secondary', 'success', 'warning', 'danger', 'info', 'neutral']),
   size: PropTypes.oneOf(['sm', 'md', 'lg']),
   rounded: PropTypes.bool,
   outline: PropTypes.bool,

@@ -306,29 +306,16 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
   return (
     <Modal
       show={show}
-      onHide={handleClose}
+      onClose={handleClose}
       size="xl"
-      centered
-      backdrop={true}
-      keyboard={true}
       scrollable={true}
-      key={show ? 'modal-open' : 'modal-closed'}
+      title={<><FaEnvelope className="me-2" />Invite Codes</>}
+      footer={
+        <Button variant="secondary" onClick={handleClose}>
+          Close
+        </Button>
+      }
     >
-      <Modal.Header>
-        <Modal.Title>
-          <FaEnvelope className="me-2" />
-          Invite Codes
-        </Modal.Title>
-        <button
-          type="button"
-          className="btn-close"
-          onClick={handleClose}
-          aria-label="Close"
-        >
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </Modal.Header>
-      <Modal.Body>
         <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
           {/* List Tab */}
           <Tab eventKey="list" title={`All Invites (${invites.length})`}>
@@ -351,7 +338,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                         {invite.isActive ? (
                           <Pill variant="success">Active</Pill>
                         ) : (
-                          <Pill variant="secondary">Inactive</Pill>
+                          <Pill variant="neutral">Inactive</Pill>
                         )}
                         {invite.usedCount > 0 && (
                           <Pill variant="info">Used {invite.usedCount}/{invite.maxUses || '∞'}</Pill>
@@ -547,7 +534,8 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
 
                 <Form.Group className="mb-3">
                   <Form.Label>Apply Experiences to All (optional)</Form.Label>
-                  <Form.Select
+                  <Form.Control
+                    as="select"
                     multiple
                     value={bulkExperiences}
                     onChange={(e) => {
@@ -562,12 +550,13 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                         {exp.name}
                       </option>
                     ))}
-                  </Form.Select>
+                  </Form.Control>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
                   <Form.Label>Apply Destinations to All (optional)</Form.Label>
-                  <Form.Select
+                  <Form.Control
+                    as="select"
                     multiple
                     value={bulkDestinations}
                     onChange={(e) => {
@@ -582,7 +571,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                         {dest.name}, {dest.country}
                       </option>
                     ))}
-                  </Form.Select>
+                  </Form.Control>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
@@ -644,12 +633,6 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
             )}
           </Tab>
         </Tabs>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose}>
-          Close
-        </Button>
-      </Modal.Footer>
     </Modal>
   );
 }

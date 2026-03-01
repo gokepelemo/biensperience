@@ -225,31 +225,18 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
   };
 
   return (
-    <Modal 
-      show={show} 
-      onHide={handleClose} 
-      size="xl" 
-      centered 
-      backdrop={true} 
-      keyboard={true}
+    <Modal
+      show={show}
+      onClose={handleClose}
+      size="xl"
       scrollable={true}
-      key={show ? 'modal-open' : 'modal-closed'}
+      title={<><FaKey className="me-2" />API Tokens</>}
+      footer={
+        <Button variant="secondary" onClick={handleClose}>
+          Close
+        </Button>
+      }
     >
-      <Modal.Header>
-        <Modal.Title>
-          <FaKey className="me-2" />
-          API Tokens
-        </Modal.Title>
-        <button
-          type="button"
-          className="btn-close"
-          onClick={handleClose}
-          aria-label="Close"
-        >
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </Modal.Header>
-      <Modal.Body>
         {/* API Access Toggle */}
         <div className={styles.apiAccessToggle}>
           <div className={styles.apiAccessToggleRow}>
@@ -350,7 +337,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                           {token.isActive ? (
                             <Pill variant="success">{lang.current.api.activeStatus}</Pill>
                           ) : (
-                            <Pill variant="secondary">{lang.current.api.revokedStatus}</Pill>
+                            <Pill variant="neutral">{lang.current.api.revokedStatus}</Pill>
                           )}
                         </div>
                         <div className="text-muted small">
@@ -411,12 +398,6 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
             </div>
           </>
         )}
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose}>
-          Close
-        </Button>
-      </Modal.Footer>
     </Modal>
   );
 }

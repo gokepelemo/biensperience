@@ -77,8 +77,8 @@ export async function geocodeAddressViaAPI(address, options = {}) {
   try {
     const result = await sendRequest(BASE_URL, 'POST', { address: address.trim() });
 
-    // Backend returns latitude/longitude directly, not in a location object
-    if (!result || (typeof result.latitude !== 'number' && !result.coordinates)) {
+    // Handle explicit "no results" response from backend
+    if (!result || result.success === false || (typeof result.latitude !== 'number' && !result.coordinates)) {
       logger.debug('[geocode-api] No geocoding results', { address });
       return null;
     }
