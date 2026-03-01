@@ -158,7 +158,6 @@ function paginatedResponse(res, data, meta, message = null, statusCode = 200) {
 }
 
 module.exports = {
-  isValidObjectId,
   validateObjectId,
   successResponse,
   errorResponse,

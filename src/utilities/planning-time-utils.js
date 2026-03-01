@@ -182,9 +182,3 @@ export function getPlanningTimeTooltip() {
 export function getPlanningTimeLabel() {
   return 'Planning Time';
 }
-
-export default {
-  formatPlanningTime,
-  getPlanningTimeTooltip,
-  getPlanningTimeLabel
-};

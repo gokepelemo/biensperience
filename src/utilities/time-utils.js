@@ -568,6 +568,3 @@ export function formatRestorationMessage(ageMs, context = 'create') {
   return `Your progress was restored from ${timeString}. You can continue ${action}.`;
 }
 
-// Re-export planning time utilities for convenience
-// These provide comprehensive formatting for planning time displays
-export { formatPlanningTime, getPlanningTimeTooltip, getPlanningTimeLabel } from './planning-time-utils';
