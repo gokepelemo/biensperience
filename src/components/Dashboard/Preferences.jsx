@@ -3,8 +3,8 @@ import {
   Button,
   Modal,
   Alert,
+  Form,
 } from '../design-system';
-import { Form } from 'react-bootstrap';
 import Checkbox from '../Checkbox/Checkbox';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';

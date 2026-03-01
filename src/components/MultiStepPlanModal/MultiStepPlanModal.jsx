@@ -12,13 +12,12 @@ import { isDuplicateName } from '../../utilities/deduplication';
 import { createFilter } from '../../utilities/trie';
 import { sanitizeUrl, sanitizeText } from '../../utilities/sanitize';
 import { lang } from '../../lang.constants';
-import { Button, Alert, FormTooltip } from '../design-system';
+import { Button, Alert, FormTooltip, Form } from '../design-system';
 import FormField from '../FormField/FormField';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
-import { Form } from 'react-bootstrap';
 import { saveFormData, loadFormData, clearFormData } from '../../utilities/form-persistence';
 import { logger } from '../../utilities/logger';
 import {

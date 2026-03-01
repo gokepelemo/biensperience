@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Row, Col } from 'react-bootstrap';
+import { Row, Col } from 'react-bootstrap';
 import { Card, Tabs, Tab } from '../../components/design-system';
 import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus, FaCopy, FaSearch, FaFilter, FaTimes, FaBan, FaFileDownload, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
@@ -634,9 +634,9 @@ export default function InviteTracking() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge className="badge badge-secondary">
+                          <Pill variant="secondary">
                             {invite.usedCount}/{invite.maxUses || '∞'}
-                          </Badge>
+                          </Pill>
                         </TableCell>
                         <TableCell>{formatDate(invite.createdAt)}</TableCell>
                         <TableCell>
@@ -714,9 +714,9 @@ export default function InviteTracking() {
                       <div className={styles.inviteCardRow}>
                         <span className={styles.inviteCardLabel}>{lang.current.tableHeaders.used}</span>
                         <span className={styles.inviteCardValue}>
-                          <Badge className="badge badge-secondary">
+                          <Pill variant="secondary">
                             {invite.usedCount}/{invite.maxUses || '∞'}
-                          </Badge>
+                          </Pill>
                         </span>
                       </div>
 

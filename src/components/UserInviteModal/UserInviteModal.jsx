@@ -6,14 +6,12 @@
  */
 
 import { useState } from 'react';
-import { Modal, Form } from 'react-bootstrap';
 import { FaUserPlus, FaEnvelope } from 'react-icons/fa';
 import { createInviteCode } from '../../utilities/invite-codes-service';
 import { useToast } from '../../contexts/ToastContext';
 import { useUser } from '../../contexts/UserContext';
 import { logger } from '../../utilities/logger';
-import { lang } from '../../lang.constants';
-import { Button } from '../design-system';
+import { Modal, Button, Form } from '../design-system';
 import Checkbox from '../Checkbox/Checkbox';
 import styles from './UserInviteModal.module.scss';
 

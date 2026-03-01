@@ -6,12 +6,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Form, Badge, Alert } from 'react-bootstrap';
-import { InputGroup } from '../design-system';
+import { Button, Form, Pill, Alert, InputGroup, Modal, Table, TableHead, TableBody, TableRow, TableCell } from '../../components/design-system';
 import { FaSearch, FaFilter, FaUndo, FaEye, FaTimes } from 'react-icons/fa';
 import Loading from '../Loading/Loading';
 import Pagination from '../Pagination/Pagination';
-import { Modal, Table, TableHead, TableBody, TableRow, TableCell } from '../../components/design-system';
 import { getAllActivities, restoreResourceState } from '../../utilities/activities-api';
 import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
@@ -213,7 +211,7 @@ export default function ActivityMonitor({ show, onHide }) {
           <span className={styles.modalTitle}>
             <FaEye className={styles.titleIcon} />
             <span>Activity Monitor</span>
-            <Badge className={styles.titleBadge}>Super Admin</Badge>
+            <Pill className={styles.titleBadge}>Super Admin</Pill>
           </span>
         }
         size="xl"
@@ -341,9 +339,9 @@ export default function ActivityMonitor({ show, onHide }) {
                         <small>{formatDateTime(activity.timestamp)}</small>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`badge ${getActionBadgeVariant(activity.action)}`}>
+                        <Pill className={`badge ${getActionBadgeVariant(activity.action)}`}>
                           {activity.action.replace(/_/g, ' ')}
-                        </Badge>
+                        </Pill>
                       </TableCell>
                       <TableCell>
                         <div>
@@ -354,7 +352,7 @@ export default function ActivityMonitor({ show, onHide }) {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <Badge className="badge badge-surface text-color-primary">{activity.resource.type}</Badge>
+                          <Pill className="badge badge-surface text-color-primary">{activity.resource.type}</Pill>
                           <br />
                           <small>{activity.resource.name || 'Unnamed'}</small>
                         </div>

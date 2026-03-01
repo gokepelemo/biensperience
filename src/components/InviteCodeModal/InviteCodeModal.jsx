@@ -10,8 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, Form, Button, Alert as BootstrapAlert, Badge } from 'react-bootstrap';
-import { ListGroup, Tabs, Tab } from '../design-system';
+import { Modal, Form, Button, Alert, Pill, ListGroup, Tabs, Tab } from '../design-system';
 import { FaEnvelope, FaUsers, FaUpload, FaDownload } from 'react-icons/fa';
 import {
   getInviteCodes,
@@ -336,9 +335,9 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
             {isLoading ? (
               <Loading variant="centered" size="md" message="Loading invite codes..." />
             ) : invites.length === 0 ? (
-              <BootstrapAlert variant="info">
+              <Alert variant="info">
                 No invite codes found. Create one in the "Create Single" or "Bulk Upload" tabs.
-              </BootstrapAlert>
+              </Alert>
             ) : (
               <ListGroup>
                 {invites.map((invite) => (
@@ -350,12 +349,12 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                       <div className="d-flex align-items-center gap-2 mb-1">
                         <strong className={styles.codeDisplay}>{invite.code}</strong>
                         {invite.isActive ? (
-                          <Badge className="badge badge-success">Active</Badge>
+                          <Pill variant="success">Active</Pill>
                         ) : (
-                          <Badge className="badge badge-secondary">Inactive</Badge>
+                          <Pill variant="secondary">Inactive</Pill>
                         )}
                         {invite.usedCount > 0 && (
-                          <Badge bg="info">Used {invite.usedCount}/{invite.maxUses || '∞'}</Badge>
+                          <Pill variant="info">Used {invite.usedCount}/{invite.maxUses || '∞'}</Pill>
                         )}
                       </div>
                       <div className="text-muted small">
@@ -542,9 +541,9 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
 
             {csvData && (
               <>
-                <BootstrapAlert variant="success">
+                <Alert variant="success">
                   Loaded {csvData.length} invites from CSV
-                </BootstrapAlert>
+                </Alert>
 
                 <Form.Group className="mb-3">
                   <Form.Label>Apply Experiences to All (optional)</Form.Label>
@@ -607,9 +606,9 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                     {isCreating ? 'Creating...' : `Create ${csvData.length} Invite Code${csvData.length > 1 ? 's' : ''}`}
                   </Button>
                   {sendBulkEmails && (
-                    <Badge bg="info">
+                    <Pill variant="info">
                       Will send {csvData.length} email{csvData.length > 1 ? 's' : ''}
-                    </Badge>
+                    </Pill>
                   )}
                 </div>
               </>
@@ -617,7 +616,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
 
             {bulkResult && (
               <div className="mt-3">
-                <BootstrapAlert variant="info">
+                <Alert variant="info">
                   <strong>Results:</strong> Created {bulkResult.created.length} invite{bulkResult.created.length > 1 ? 's' : ''}
                   {bulkResult.errors.length > 0 && `, ${bulkResult.errors.length} failed`}
                   {bulkResult.emailResults && (
@@ -627,7 +626,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                       {bulkResult.emailResults.failed > 0 && `, ${bulkResult.emailResults.failed} failed`}
                     </>
                   )}
-                </BootstrapAlert>
+                </Alert>
 
                 {bulkResult.errors.length > 0 && (
                   <div>

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Alert, Button, Container } from 'react-bootstrap';
+import { Alert, Button, Container } from '../design-system';
 import { logger } from '../../utilities/logger';
 import styles from './ErrorBoundary.module.scss';
 

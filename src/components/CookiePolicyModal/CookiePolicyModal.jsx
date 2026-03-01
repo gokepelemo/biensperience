@@ -1,8 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Modal } from '../design-system';
+import { Modal, Button } from '../design-system';
 import { FaArrowLeft, FaCookieBite } from 'react-icons/fa';
-import { Button } from 'react-bootstrap';
 import styles from './CookiePolicyModal.module.scss';
 import { lang } from '../../lang.constants';
 

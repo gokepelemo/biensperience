@@ -10,8 +10,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Modal, Form, Button, Alert as BootstrapAlert, Badge } from 'react-bootstrap';
-import { ListGroup } from '../design-system';
+import { Modal, Form, Button, Alert, Pill, ListGroup } from '../design-system';
 import { FaCopy, FaTrash, FaKey } from 'react-icons/fa';
 import { getApiTokens, createApiToken, deleteApiToken, toggleApiAccess } from '../../utilities/api-tokens-service';
 import { useToast } from '../../contexts/ToastContext';
@@ -270,16 +269,16 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
         </div>
 
         {!apiEnabled && (
-          <BootstrapAlert variant="info">
+          <Alert variant="info">
             {lang.current.api.accessDisabledMessage}
-          </BootstrapAlert>
+          </Alert>
         )}
 
         {apiEnabled && (
           <>
             {/* New Token Display (shown only once after creation) */}
             {newToken && (
-              <BootstrapAlert variant="success" className="mb-4">
+              <Alert variant="success" className="mb-4">
                 <h5>{lang.current.api.newTokenTitle}</h5>
                 <p className="mb-2">{lang.current.api.copyTokenMessage || lang.current.api.copyTokenMessage}</p>
                 <div className="d-flex align-items-center gap-2">
@@ -302,7 +301,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                 >
                   {lang.current.api.dismissMessage || lang.current.api.dismissMessage}
                 </Button>
-              </BootstrapAlert>
+              </Alert>
             )}
 
             {/* Create New Token Form */}
@@ -337,7 +336,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
               {isLoading ? (
                 <Loading size="md" message={lang.current.api.loadingTokens} />
               ) : tokens.length === 0 ? (
-                <BootstrapAlert variant="info">{lang.current.api.noTokensMessage}</BootstrapAlert>
+                <Alert variant="info">{lang.current.api.noTokensMessage}</Alert>
               ) : (
                 <ListGroup>
                   {tokens.map((token) => (
@@ -349,9 +348,9 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                         <div className="d-flex align-items-center gap-2 mb-1">
                           <strong>{token.name}</strong>
                           {token.isActive ? (
-                            <Badge bg="success">{lang.current.api.activeStatus}</Badge>
+                            <Pill variant="success">{lang.current.api.activeStatus}</Pill>
                           ) : (
-                            <Badge bg="secondary">{lang.current.api.revokedStatus}</Badge>
+                            <Pill variant="secondary">{lang.current.api.revokedStatus}</Pill>
                           )}
                         </div>
                         <div className="text-muted small">

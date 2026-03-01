@@ -7,7 +7,6 @@ import {
   FaArrowRight,
 } from 'react-icons/fa';
 import BiensperienceLogo from '../BiensperienceLogo/BiensperienceLogo';
-import { Form } from 'react-bootstrap';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -17,7 +16,7 @@ import { useTravelTipsManager } from '../../hooks/useTravelTipsManager';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { lang } from '../../lang.constants';
-import { Button, Alert } from '../design-system';
+import { Button, Alert, Form } from '../design-system';
 import FormField from '../FormField/FormField';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import TravelTipsManager from '../TravelTipsManager/TravelTipsManager';

@@ -18,7 +18,7 @@ import { getCachedPlanState, setCachedPlanState } from "../../utilities/plan-cac
 import { useDataTransition } from "../../hooks/useDataTransition";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import useImageFallback from '../../hooks/useImageFallback';
-import { Badge } from "react-bootstrap";
+import { Pill } from '../design-system';
 
 function ExperienceCard({ experience, updateData, userPlans, includeSchema = false, forcePreload = false, onOptimisticDelete, fluid = false, showSharedIcon = false, planId }) {
   const { user } = useUser();
@@ -514,7 +514,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               title="Curated Experience"
               aria-label="Curated Experience"
             >
-              <Badge
+              <Pill
                 bg="secondary"
                 className={styles.tag}
                 style={{
@@ -526,7 +526,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
                 }}
               >
                 <FaStar size={10} />
-              </Badge>
+              </Pill>
             </div>
           )}
           <Link to={planId ? `/experiences/${experience._id}#plan-${planId}` : `/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>

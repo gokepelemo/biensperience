@@ -12,7 +12,6 @@ import {
   FaEnvelope
 } from 'react-icons/fa';
 import BiensperienceLogo from '../BiensperienceLogo/BiensperienceLogo';
-import { Form } from 'react-bootstrap';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -24,7 +23,7 @@ import { createFilter } from '../../utilities/trie';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { lang } from '../../lang.constants';
-import { Button, Pill, Alert, FormTooltip } from '../design-system';
+import { Button, Pill, Alert, FormTooltip, Form } from '../design-system';
 import FormField from '../FormField/FormField';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';

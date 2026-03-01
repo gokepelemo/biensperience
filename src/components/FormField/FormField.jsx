@@ -1,6 +1,5 @@
 import React from 'react';
-import { Form } from 'react-bootstrap';
-import { InputGroup, FormTooltip } from '../design-system';
+import { InputGroup, FormTooltip, Form } from '../design-system';
 import PropTypes from 'prop-types';
 import styles from './FormField.module.scss';
 import TextareaAutosize from 'react-textarea-autosize';
