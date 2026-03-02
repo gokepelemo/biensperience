@@ -266,8 +266,8 @@
 /* ============================================
    DARK MODE ADJUSTMENTS
    ============================================ */
-@media (prefers-color-scheme: dark) {
-  .btnOutline {
+.btnOutline {
+  @include dark-mode {
     /* Lighter primary for better contrast on dark backgrounds (WCAG AA: 5.2:1) */
     --btn-secondary-color: #9f93f7;
     --btn-secondary-border: 2px solid #9f93f7;
@@ -275,12 +275,15 @@
     --btn-secondary-hover-color: #000000;
     --btn-secondary-hover-border: 2px solid #9f93f7;
   }
+}
 
-  .btnLink {
+.btnLink {
+  @include dark-mode {
     --btn-link-color: #9f93f7;
     --btn-link-hover-color: #b8aef9;
   }
 }
+
 
 /* Manual dark mode toggle */
 [data-theme="dark"] {

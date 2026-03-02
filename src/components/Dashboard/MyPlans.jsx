@@ -365,7 +365,7 @@ export default function MyPlans() {
         }}
       >
         <div className={styles.headerWrapper}>
-          <FlexBetween className="mb-2">
+          <FlexBetween className={styles.headerBottomSpacing}>
             <Heading level={2}>{lang.current.heading.plans}</Heading>
             <div className={styles.headerControls}>
               {/* View mode toggle */}
@@ -640,7 +640,7 @@ export default function MyPlans() {
                       {/* Additional Costs */}
                       {plan.costs && plan.costs.length > 0 && (
                         <div className={styles.additionalCosts}>
-                          <Heading level={6} className="mb-3">{lang.current.heading.actualCosts}</Heading>
+                          <Heading level={6} className={styles.costSectionHeading}>{lang.current.heading.actualCosts}</Heading>
                           
                           {/* Total Cost Accordion */}
                           <div className={styles.totalCostAccordion}>

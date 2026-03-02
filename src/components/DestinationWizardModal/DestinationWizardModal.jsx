@@ -558,7 +558,7 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
               disabled={loading}
             >
               {lang.current.destinationWizardModal.next}
-              <FaArrowRight size={12} className="ms-2" />
+              <FaArrowRight size={12} className={styles.iconAfter} />
             </Button>
           )}
           {currentStep === STEPS.PHOTOS && (
@@ -569,7 +569,7 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
               disabled={loading}
             >
               {lang.current.destinationWizardModal.next}
-              <FaArrowRight size={12} className="ms-2" />
+              <FaArrowRight size={12} className={styles.iconAfter} />
             </Button>
           )}
           {currentStep === STEPS.TRAVEL_TIPS && (
@@ -612,7 +612,7 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
           {/* Body */}
           <div className={styles.modalBody}>
             {error && (
-              <Alert type="danger" className="mb-4" dismissible onDismiss={() => setError('')}>
+              <Alert type="danger" className={styles.alertSpacing} dismissible onDismiss={() => setError('')}>
                 {error}
               </Alert>
             )}

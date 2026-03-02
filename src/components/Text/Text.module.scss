@@ -11,7 +11,7 @@
 .textBody {
   color: var(--color-text-primary);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-primary-dark);
   }
 }
@@ -21,7 +21,7 @@
   font-size: var(--font-size-lg);
   line-height: var(--line-height-relaxed);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-primary-dark);
   }
 }
@@ -30,7 +30,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-secondary-dark);
   }
 }
@@ -45,7 +45,7 @@
 .textMuted {
   color: var(--color-text-muted);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-muted-dark);
   }
 }
@@ -158,7 +158,7 @@
 
 /* Dark mode - textColorSecondary variant */
 .textColorSecondary {
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-secondary-dark) !important;
   }
 }

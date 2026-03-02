@@ -27,7 +27,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, EmptyState, Container, EntityNotFound, Alert, Card, Row, Col } from "../../components/design-system";
+import { Button, EmptyState, Container, EntityNotFound, Alert, Card, Row, Col, Dropdown, DropdownToggle, DropdownMenu, DropdownItem } from "../../components/design-system";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import { getFirstName } from "../../utilities/name-utils";
@@ -1547,29 +1547,8 @@ export default function Profile() {
 
   // Numbered pagination is provided by shared <Pagination /> component
 
-  // Get user's avatar photo URL - MUST be before early returns to satisfy React hooks rules
-  // Resolution chain mirrors UserAvatar: photos + default_photo_id → first photo → oauthProfilePhoto → legacy photo
-  const avatarPhotoUrl = useMemo(() => {
-    if (!currentProfile) return null;
-
-    // Try photos array (populated objects with .url)
-    if (currentProfile.photos?.length) {
-      const defaultPhoto = getDefaultPhoto(currentProfile);
-      if (defaultPhoto) {
-        // Populated photo object
-        if (typeof defaultPhoto === 'object' && defaultPhoto.url) return defaultPhoto.url;
-        // Unpopulated ObjectId — cannot use as URL, fall through
-      }
-    }
-
-    // Fallback: OAuth profile photo
-    if (currentProfile.oauthProfilePhoto) return currentProfile.oauthProfilePhoto;
-
-    // Fallback: legacy single photo field
-    if (currentProfile.photo && typeof currentProfile.photo === 'string') return currentProfile.photo;
-
-    return null;
-  }, [currentProfile]);
+  // Avatar rendering is now handled by UserAvatar with 'profile' size,
+  // which uses the shared avatar-cache for consistent resolution.
 
   // Safe counts for arrays that may be null while loading - MUST be before early returns
   const uniqueUserExperiencesCount = uniqueUserExperiences ? uniqueUserExperiences.length : 0;
@@ -1783,17 +1762,12 @@ export default function Profile() {
                   }}
                   aria-label={currentProfile?.photos?.length > 0 ? "View profile photos" : (isOwner ? "Manage profile photos" : undefined)}
                 >
-                  {avatarPhotoUrl ? (
-                    <img
-                      src={avatarPhotoUrl}
-                      alt={currentProfile?.name}
-                      className={styles.profileAvatar}
-                    />
-                  ) : (
-                    <div className={styles.profileAvatarPlaceholder}>
-                      <FaUser />
-                    </div>
-                  )}
+                  <UserAvatar
+                    user={currentProfile}
+                    size="profile"
+                    linkToProfile={false}
+                    className={styles.profileAvatar}
+                  />
                   {currentProfile?.photos?.length > 0 && (
                     <div className={styles.profileAvatarOverlay}>
                       <FaCamera />
@@ -1998,103 +1972,81 @@ export default function Profile() {
                     </>
                   )}
                   {isOwner && (
-                    <div className="dropdown">
-                      <Button
-                        variant="outline"
-                        type="button"
-                        data-bs-toggle="dropdown"
-                        aria-expanded="false"
+                    <Dropdown>
+                      <DropdownToggle
                         aria-label={lang.current.aria.profileActions}
                         style={{ borderRadius: 'var(--radius-full)' }}
                       >
                         ⋯
-                      </Button>
-                      <ul className="dropdown-menu dropdown-menu-end">
+                      </DropdownToggle>
+                      <DropdownMenu>
                         {isSuperAdmin(user) && (
                           <>
-                            <li>
-                              <button
-                                className={`dropdown-item ${styles.dropdownItem}`}
-                                onClick={handleOpenApiModal}
-                                type="button"
-                              >
-                                <FaKey className={styles.dropdownIcon} />
-                                <span>API Tokens</span>
-                              </button>
-                            </li>
-                            <li>
-                              <button
-                                className={`dropdown-item ${styles.dropdownItem}`}
-                                onClick={handleOpenActivityMonitor}
-                                type="button"
-                              >
-                                <FaEye className={styles.dropdownIcon} />
-                                <span>Activity Monitor</span>
-                              </button>
-                            </li>
+                            <DropdownItem
+                              className={styles.dropdownItem}
+                              onClick={handleOpenApiModal}
+                            >
+                              <FaKey className={styles.dropdownIcon} />
+                              <span>API Tokens</span>
+                            </DropdownItem>
+                            <DropdownItem
+                              className={styles.dropdownItem}
+                              onClick={handleOpenActivityMonitor}
+                            >
+                              <FaEye className={styles.dropdownIcon} />
+                              <span>Activity Monitor</span>
+                            </DropdownItem>
                           </>
                         )}
-                        <li>
-                          <button
-                            className={`dropdown-item ${styles.dropdownItem}`}
-                            type="button"
-                            onClick={() => setShowPhotoUploadModal(true)}
-                            title={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
-                            aria-label={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
-                          >
-                            <FaCamera className={styles.dropdownIcon} />
-                            <span>Manage Photos</span>
-                          </button>
-                        </li>
-                        <li>
-                          <Link
-                            to="/profile/update"
-                            className={`dropdown-item ${styles.dropdownItem}`}
-                          >
+                        <DropdownItem
+                          className={styles.dropdownItem}
+                          onClick={() => setShowPhotoUploadModal(true)}
+                          title={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
+                          aria-label={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
+                        >
+                          <FaCamera className={styles.dropdownIcon} />
+                          <span>Manage Photos</span>
+                        </DropdownItem>
+                        <DropdownItem asChild className={styles.dropdownItem}>
+                          <Link to="/profile/update">
                             <FaEdit className={styles.dropdownIcon} />
                             <span>Update Profile</span>
                           </Link>
-                        </li>
+                        </DropdownItem>
                         {currentProfile && !currentProfile.emailConfirmed && (
-                          <li>
-                            <button
-                              className={`dropdown-item ${styles.dropdownItem}`}
-                              type="button"
-                              onClick={async () => {
-                                if (!currentProfile || !currentProfile.email) return;
-                                if (resendInProgress || resendDisabled) return;
-                                try {
-                                  setResendInProgress(true);
-                                  await resendConfirmation(currentProfile.email);
-                                  startCooldown();
-                                  success(lang.current.success.resendConfirmation);
-                                } catch (err) {
-                                  const msg = handleError(err, { context: 'Resend verification' });
-                                  showError(msg || 'Failed to resend verification email');
-                                } finally {
-                                  setResendInProgress(false);
-                                }
-                              }}
-                              disabled={resendInProgress || resendDisabled}
-                            >
-                              <FaEnvelope className={styles.dropdownIcon} />
-                              <span>{lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}</span>
-                            </button>
-                          </li>
+                          <DropdownItem
+                            className={styles.dropdownItem}
+                            onClick={async () => {
+                              if (!currentProfile || !currentProfile.email) return;
+                              if (resendInProgress || resendDisabled) return;
+                              try {
+                                setResendInProgress(true);
+                                await resendConfirmation(currentProfile.email);
+                                startCooldown();
+                                success(lang.current.success.resendConfirmation);
+                              } catch (err) {
+                                const msg = handleError(err, { context: 'Resend verification' });
+                                showError(msg || 'Failed to resend verification email');
+                              } finally {
+                                setResendInProgress(false);
+                              }
+                            }}
+                            disabled={resendInProgress || resendDisabled}
+                          >
+                            <FaEnvelope className={styles.dropdownIcon} />
+                            <span>{lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}</span>
+                          </DropdownItem>
                         )}
                         {isSuperAdmin(user) && profileId && profileId !== user._id && (
-                          <li>
-                            <Link
-                              to={`/profile/${profileId}/update`}
-                              className={`dropdown-item ${styles.dropdownItem} ${styles.dropdownItemAdmin}`}
-                            >
+                          <DropdownItem asChild className={`${styles.dropdownItem} ${styles.dropdownItemAdmin}`}>
+                            <Link to={`/profile/${profileId}/update`}>
                               <FaUserShield className={styles.dropdownIcon} />
                               <span>Admin Update</span>
                             </Link>
-                          </li>
+                          </DropdownItem>
                         )}
-                      </ul>
-                    </div>
+                      </DropdownMenu>
+                    </Dropdown>
                   )}
                 </div>
               </div>

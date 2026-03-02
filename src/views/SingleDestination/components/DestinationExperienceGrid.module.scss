@@ -44,3 +44,14 @@
 .skeletonGrid {
   // Uses Bootstrap Row/Col via JSX, no custom grid needed
 }
+
+/* ===== Utility replacements ===== */
+
+.flexCenter {
+  display: flex;
+  justify-content: center;
+}
+
+.justifyCenter {
+  justify-content: center;
+}

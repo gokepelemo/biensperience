@@ -677,11 +677,11 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         tooltip={lang.current.helper.overviewOptional}
       />
 
-      <div className="mb-4">
+      <div className={styles.mb4}>
         <Form.Group>
           <Form.Label>
             {lang.current.experienceWizardModal.destination}
-            {' '}<span className="text-danger">*</span>{' '}
+            {' '}<span className={styles.textDanger}>*</span>{' '}
             <FormTooltip
               text={lang.current.helper.destinationRequired}
               placement="top"
@@ -719,7 +719,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
             emptyMessage={lang.current.placeholder.destination}
             disableFilter={true}
           />
-          <small className="form-text text-muted mt-2 d-block">
+          <small className={`form-text ${styles.formHelperText}`}>
             {lang.current.helper.destinationRequired}{' '}
             <a
               href="#"
@@ -750,7 +750,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         tooltip={lang.current.helper.addressOptional}
       />
 
-      <div className="mb-4">
+      <div className={styles.mb4}>
         <Form.Label htmlFor="experience_type">
           {lang.current.experienceWizardModal.experienceTypes}
           <FormTooltip content={lang.current.helper.experienceTypesOptional} placement="top" />
@@ -763,7 +763,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         />
       </div>
 
-      <div className="mb-4">
+      <div className={styles.mb4}>
         <Form.Label>
           {lang.current.experienceWizardModal.photos}
           <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
@@ -1011,7 +1011,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
               disabled={loading}
             >
               {lang.current.experienceWizardModal.next}
-              <FaArrowRight size={12} className="ms-2" />
+              <FaArrowRight size={12} className={styles.ms2} />
             </Button>
           )}
           {currentStep === STEPS.PLAN_ITEMS && (
@@ -1064,7 +1064,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           {/* Body */}
           <div className={styles.modalBody}>
             {error && (
-              <Alert type="danger" className="mb-4" dismissible onDismiss={() => setError('')}>
+              <Alert type="danger" className={styles.mb4} dismissible onDismiss={() => setError('')}>
                 {error}
               </Alert>
             )}

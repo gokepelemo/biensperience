@@ -166,7 +166,7 @@ export default function ExperiencesByTag() {
         <Container className={styles.headerContainer}>
           {/* Row 1: Title (full width) */}
           <div className={styles.titleRow}>
-            <h1 className="my-4">{lang.current.experiencesByTag.experiencesTagged.replace('{tagName}', displayTagName)}</h1>
+            <h1 className={styles.verticalSpacing}>{lang.current.experiencesByTag.experiencesTagged.replace('{tagName}', displayTagName)}</h1>
           </div>
           {/* Row 2: Actions (right-aligned) */}
           <div className={styles.actionsRow}>
@@ -219,7 +219,7 @@ export default function ExperiencesByTag() {
               >
                 <h5>{lang.current.experiencesByTag.noExperiencesFound.replace('{tagName}', displayTagName)}</h5>
                 <p>{lang.current.experiencesByTag.tryBrowsingAll}</p>
-                <Button as={Link} to="/experiences" variant="gradient" className="mt-2">
+                <Button as={Link} to="/experiences" variant="gradient" className={styles.topSpacing2}>
                   {lang.current.experiencesByTag.browseAll}
                 </Button>
               </Alert>

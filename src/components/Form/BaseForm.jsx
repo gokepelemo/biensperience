@@ -27,13 +27,13 @@ import { lang } from '../../lang.constants';
 import styles from './Form.module.scss';
 
 /**
- * Reset styles to completely override Chakra's default form styling.
- * This ensures the CSS Module classes from Form.module.scss are the
- * sole source of visual styling — pixel-perfect match with the original.
+ * Structural reset styles for Chakra form primitives.
+ * Strips layout/sizing defaults so CSS Module classes are the
+ * sole source of visual styling. Intentionally omits bg and color
+ * to avoid Emotion stylesheet-ordering issues where Chakra's
+ * generated CSS would override CSS Module background/color rules.
  */
 const RESET_STYLES = {
-  bg: 'transparent',
-  color: 'inherit',
   border: 'none',
   borderRadius: 'unset',
   fontWeight: 'unset',
@@ -44,7 +44,6 @@ const RESET_STYLES = {
   paddingInline: 'unset',
   paddingBlock: 'unset',
   _hover: {
-    bg: 'transparent',
     border: 'none',
   },
   _focusVisible: {
@@ -203,15 +202,7 @@ export const BaseFormControl = React.forwardRef(function BaseFormControl({
         className={classes}
         style={style}
         variant="unstyled"
-        css={{
-          // Reset Chakra Input styles completely
-          ...RESET_STYLES,
-          // Ensure CSS Module styles take precedence
-          '&': {
-            bg: 'transparent',
-            border: 'none',
-          },
-        }}
+        css={RESET_STYLES}
         {...props}
       />
     );

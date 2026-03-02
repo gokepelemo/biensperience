@@ -1,24 +1,10 @@
 /**
  * Form Abstraction Layer
  *
- * This module provides stable APIs for Form component usage across the application.
- * It wraps either the current custom Form components or the modern Form implementations,
- * controlled by component-specific feature flags.
- *
- * CRITICAL: This abstraction enables zero-regression migration between implementations.
+ * Provides stable APIs for Form component usage across the application.
  * All form consumers should import from design-system, NOT directly from Form.
  *
- * Implementation Status:
- * - Phase 1: Custom Form with CSS Modules (completed)
- * - Phase 2: Feature-flagged modern (completed) Form
- * - Phase 3: modern Form validation (completed)
- * - Phase 4 (Current): modern Form is default; legacy available via 'bootstrap_form' flag
- * - Phase 5: Remove legacy implementation (after validation period)
- *
- * API Stability Guarantee:
- * - Props interface is stable and will not change
- * - All consumers can import { Form, FormGroup, etc. } from 'design-system'
- * - Implementation swap is transparent to consumers
+ * Implementation: Chakra UI Form (BaseForm) — Phase 5 complete.
  *
  * Task: biensperience-a8d1
  * Related: biensperience-8dd6 (Phase 1), biensperience-6ba4 (umbrella)
@@ -26,14 +12,6 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import Form, {
-  FormGroup,
-  FormLabel,
-  FormControl,
-  FormCheck,
-  FormText,
-  FormInputGroup
-} from '../Form/Form';
 import BaseForm, {
   BaseFormGroup,
   BaseFormLabel,
@@ -42,18 +20,12 @@ import BaseForm, {
   BaseFormText,
   BaseFormInputGroup
 } from '../Form/BaseForm';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
- * FormWrapper - Design System Abstraction for Form
- *
- * Uses modern Form implementation by default.
- * Legacy Form available via feature flag.
+ * FormWrapper - Design System Form
  */
 export function FormWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const FormComponent = useLegacy ? Form : BaseForm;
-  return <FormComponent {...props} />;
+  return <BaseForm {...props} />;
 }
 
 FormWrapper.displayName = 'Form';
@@ -66,12 +38,10 @@ FormWrapper.propTypes = {
 };
 
 /**
- * FormGroupWrapper - Design System Abstraction for FormGroup
+ * FormGroupWrapper
  */
 export function FormGroupWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormGroup : BaseFormGroup;
-  return <Component {...props} />;
+  return <BaseFormGroup {...props} />;
 }
 
 FormGroupWrapper.displayName = 'FormGroup';
@@ -84,12 +54,10 @@ FormGroupWrapper.propTypes = {
 };
 
 /**
- * FormLabelWrapper - Design System Abstraction for FormLabel
+ * FormLabelWrapper
  */
 export function FormLabelWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormLabel : BaseFormLabel;
-  return <Component {...props} />;
+  return <BaseFormLabel {...props} />;
 }
 
 FormLabelWrapper.displayName = 'FormLabel';
@@ -103,12 +71,10 @@ FormLabelWrapper.propTypes = {
 };
 
 /**
- * FormControlWrapper - Design System Abstraction for FormControl
+ * FormControlWrapper
  */
 export const FormControlWrapper = React.forwardRef(function FormControlWrapper(props, ref) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormControl : BaseFormControl;
-  return <Component ref={ref} {...props} />;
+  return <BaseFormControl ref={ref} {...props} />;
 });
 
 FormControlWrapper.displayName = 'FormControl';
@@ -121,12 +87,10 @@ FormControlWrapper.propTypes = {
 };
 
 /**
- * FormCheckWrapper - Design System Abstraction for FormCheck
+ * FormCheckWrapper
  */
 export function FormCheckWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormCheck : BaseFormCheck;
-  return <Component {...props} />;
+  return <BaseFormCheck {...props} />;
 }
 
 FormCheckWrapper.displayName = 'FormCheck';
@@ -144,12 +108,10 @@ FormCheckWrapper.propTypes = {
 };
 
 /**
- * FormTextWrapper - Design System Abstraction for FormText
+ * FormTextWrapper
  */
 export function FormTextWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormText : BaseFormText;
-  return <Component {...props} />;
+  return <BaseFormText {...props} />;
 }
 
 FormTextWrapper.displayName = 'FormText';
@@ -162,12 +124,10 @@ FormTextWrapper.propTypes = {
 };
 
 /**
- * FormInputGroupWrapper - Design System Abstraction for FormInputGroup
+ * FormInputGroupWrapper
  */
 export function FormInputGroupWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_form');
-  const Component = useLegacy ? FormInputGroup : BaseFormInputGroup;
-  return <Component {...props} />;
+  return <BaseFormInputGroup {...props} />;
 }
 
 FormInputGroupWrapper.displayName = 'FormInputGroup';

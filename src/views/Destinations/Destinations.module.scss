@@ -19,3 +19,25 @@
     }
   }
 }
+
+/* Utility replacement classes */
+.my4 {
+  margin-top: $space-4;
+  margin-bottom: $space-4;
+}
+
+.halfCol {
+  width: 50%;
+
+  @include breakpoint-max(md) {
+    width: 100%;
+  }
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.textStart {
+  text-align: start;
+}

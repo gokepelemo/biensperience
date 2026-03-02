@@ -14,6 +14,7 @@ import themeManager from '../../utilities/theme-manager';
 import { lang, getLanguageOptions } from '../../lang.constants';
 import { getTimezoneOptions, detectUserTimezone, storePreferences } from '../../utilities/preferences-utils';
 import { getCurrencyDropdownOptions } from '../../utilities/currency-utils';
+import styles from './Preferences.module.scss';
 
 export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();
@@ -218,15 +219,15 @@ export default function Preferences() {
     <>
       <div className="animation-fade-in">
         <h1 className="form-title">Preferences</h1>
-        <p className="text-muted text-center mb-0">Platform preferences and notification settings</p>
+        <p className={styles.subtitle}>Platform preferences and notification settings</p>
       </div>
 
-      <div className="my-4 animation-fade-in">
+      <div className={`${styles.formContainer} animation-fade-in`}>
         <Form onSubmit={handleSave} className="form-unified" autoComplete="off">
             <div className="form-section">
               <div className="form-section-title">General</div>
 
-              <Form.Group className="mb-4">
+              <Form.Group className={styles.mb4}>
                 <Form.Label htmlFor="theme-select">Theme</Form.Label>
                 <Form.Control
                   as="select"
@@ -240,7 +241,7 @@ export default function Preferences() {
                 </Form.Control>
               </Form.Group>
 
-              <Form.Group className="mb-4">
+              <Form.Group className={styles.mb4}>
                 <Form.Label htmlFor="timezone-select">Timezone</Form.Label>
                 <Form.Control
                   as="select"
@@ -254,7 +255,7 @@ export default function Preferences() {
                 </Form.Control>
               </Form.Group>
 
-              <Form.Group className="mb-4">
+              <Form.Group className={styles.mb4}>
                 <Form.Label htmlFor="language-select">Language</Form.Label>
                 <Form.Control
                   as="select"
@@ -268,7 +269,7 @@ export default function Preferences() {
                 </Form.Control>
               </Form.Group>
 
-              <Form.Group className="mb-4">
+              <Form.Group className={styles.mb4}>
                 <Form.Label htmlFor="currency-select">Currency</Form.Label>
                 <Form.Control
                   as="select"
@@ -282,7 +283,7 @@ export default function Preferences() {
                 </Form.Control>
               </Form.Group>
 
-              <Form.Group className="mb-0">
+              <Form.Group className={styles.mb0}>
                 <Form.Label htmlFor="visibility-select">Profile Visibility</Form.Label>
                 <Form.Control
                   as="select"
@@ -299,7 +300,7 @@ export default function Preferences() {
             <div className="form-section">
               <div className="form-section-title">Notifications</div>
 
-              <div className="mb-4">
+              <div className={styles.mb4}>
                 <Checkbox
                   id="notifications-enabled"
                   checked={form.notificationsEnabled}
@@ -311,8 +312,10 @@ export default function Preferences() {
 
               {form.notificationsEnabled && (
                 <>
-                  <div className="mb-4">
-                    <Form.Label>Notification Channels</Form.Label>
+                  <div className={styles.mb4}>
+                    <Form.Group className={styles.mb0}>
+                      <Form.Label>Notification Channels</Form.Label>
+                    </Form.Group>
                     <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                       <Checkbox
                         id="channel-email"
@@ -353,13 +356,13 @@ export default function Preferences() {
                   </div>
 
                   {profile?.phone?.number && (
-                    <div className="form-text mb-4">
+                    <div className={`form-text ${styles.mb4}`}>
                       SMS number: {profile.phone.number} ({profile.phone.verified ? 'verified' : 'not verified'})
                     </div>
                   )}
 
                   {form.notificationChannels.includes('webhook') && (
-                    <Form.Group className="mb-4">
+                    <Form.Group className={styles.mb4}>
                       <Form.Label htmlFor="webhook-endpoints">Webhook Endpoints</Form.Label>
                       <Form.Control
                         as="textarea"
@@ -377,12 +380,14 @@ export default function Preferences() {
                         }}
                         placeholder="https://example.com/biensperience/webhook\nhttps://hooks.example.com/events"
                       />
-                      <div className="form-text mt-2">One HTTPS URL per line. Up to 10 endpoints.</div>
+                      <div className={`form-text ${styles.mt2}`}>One HTTPS URL per line. Up to 10 endpoints.</div>
                     </Form.Group>
                   )}
 
-                  <div className="mb-0">
-                    <Form.Label>Notification Types</Form.Label>
+                  <div className={styles.mb0}>
+                    <Form.Group className={styles.mb0}>
+                      <Form.Label>Notification Types</Form.Label>
+                    </Form.Group>
                     <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                       <Checkbox
                         id="type-activity"
@@ -480,14 +485,14 @@ export default function Preferences() {
               </div>
             }
           >
-            <div className="mb-3 text-muted">
+            <div className={styles.sectionSpacing}>
               Enter your mobile number to enable SMS notifications.
             </div>
 
             {smsError && <Alert type="danger" message={smsError} />}
 
             {smsStep === 'number' ? (
-              <Form.Group className="mb-0">
+              <Form.Group className={styles.mb0}>
                 <Form.Label htmlFor="sms-phone-number">Mobile number</Form.Label>
                 <Form.Control
                   id="sms-phone-number"
@@ -499,7 +504,7 @@ export default function Preferences() {
                 />
               </Form.Group>
             ) : (
-              <Form.Group className="mb-0">
+              <Form.Group className={styles.mb0}>
                 <Form.Label htmlFor="sms-code">Verification code</Form.Label>
                 <Form.Control
                   id="sms-code"

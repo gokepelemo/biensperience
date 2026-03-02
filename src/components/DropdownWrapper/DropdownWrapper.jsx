@@ -2,30 +2,25 @@
  * Dropdown Abstraction Layer
  *
  * Provides a stable API for Dropdown usage across the application.
- * Wraps either the react-bootstrap Dropdown or the modern BaseDropdown (Chakra Menu),
- * controlled by the 'bootstrap_dropdown' feature flag.
+ * Implementation: Chakra UI Menu (BaseDropdown) — Phase 5 complete.
  *
  * Task: biensperience-bb6a
  * Related: biensperience-e5c4 (epic)
  */
 
 import PropTypes from 'prop-types';
-import { Dropdown as RBDropdown } from 'react-bootstrap';
 import BaseDropdown, {
   BaseDropdownToggle,
   BaseDropdownMenu,
   BaseDropdownItem,
   BaseDropdownDivider
 } from '../Dropdown/BaseDropdown';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
- * DropdownWrapper - Design System Abstraction for Dropdown
+ * DropdownWrapper - Design System Dropdown
  */
 export function DropdownWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_dropdown');
-  const Component = useLegacy ? RBDropdown : BaseDropdown;
-  return <Component {...props} />;
+  return <BaseDropdown {...props} />;
 }
 
 DropdownWrapper.displayName = 'Dropdown';
@@ -40,9 +35,7 @@ DropdownWrapper.propTypes = {
  * DropdownToggleWrapper
  */
 export function DropdownToggleWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_dropdown');
-  const Component = useLegacy ? RBDropdown.Toggle : BaseDropdownToggle;
-  return <Component {...props} />;
+  return <BaseDropdownToggle {...props} />;
 }
 
 DropdownToggleWrapper.displayName = 'Dropdown.Toggle';
@@ -56,9 +49,7 @@ DropdownToggleWrapper.propTypes = {
  * DropdownMenuWrapper
  */
 export function DropdownMenuWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_dropdown');
-  const Component = useLegacy ? RBDropdown.Menu : BaseDropdownMenu;
-  return <Component {...props} />;
+  return <BaseDropdownMenu {...props} />;
 }
 
 DropdownMenuWrapper.displayName = 'Dropdown.Menu';
@@ -73,9 +64,7 @@ DropdownMenuWrapper.propTypes = {
  * DropdownItemWrapper
  */
 export function DropdownItemWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_dropdown');
-  const Component = useLegacy ? RBDropdown.Item : BaseDropdownItem;
-  return <Component {...props} />;
+  return <BaseDropdownItem {...props} />;
 }
 
 DropdownItemWrapper.displayName = 'Dropdown.Item';
@@ -92,9 +81,7 @@ DropdownItemWrapper.propTypes = {
  * DropdownDividerWrapper
  */
 export function DropdownDividerWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_dropdown');
-  const Component = useLegacy ? RBDropdown.Divider : BaseDropdownDivider;
-  return <Component {...props} />;
+  return <BaseDropdownDivider {...props} />;
 }
 
 DropdownDividerWrapper.displayName = 'Dropdown.Divider';

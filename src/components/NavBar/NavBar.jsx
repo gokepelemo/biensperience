@@ -336,12 +336,11 @@ export default function NavBar() {
   return (
     <nav
       ref={navbarRef}
-      className={`${styles.navbar} navbar navbar-expand-lg border-bottom border-body ${styles.sticky}`}
-      data-bs-theme="dark"
+      className={`${styles.navbar} navbar navbar-expand-lg ${styles.sticky}`}
       role="navigation"
       aria-label={lang.current.aria.mainNavigation}
     >
-      <div className="container-fluid">
+      <div className={styles.navbarContainer}>
         <div className={styles.navbarBrandWrapper}>
           {/* Logo - navigates to home */}
           <NavLink
@@ -400,7 +399,7 @@ export default function NavBar() {
               {h1Text}
             </button>
           )}
-          <ul className="navbar-nav me-auto mb-2 mb-lg-0 d-flex" role="menubar">
+          <ul className={`navbar-nav ${styles.navList}`} role="menubar">
             <li className="nav-item" role="none">
               <NavLink
                 to="/destinations"

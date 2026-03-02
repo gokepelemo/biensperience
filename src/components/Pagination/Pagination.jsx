@@ -274,7 +274,7 @@ export default function Pagination({
 
   return (
     <nav aria-label={lang.current.pagination.pageNavigation} className={`${styles.paginationWrap} ${disabled ? styles.disabled : ''} ${className}`}>
-      <ul className={`pagination justify-content-center ${styles.paginationList}`}>
+      <ul className={styles.paginationList}>
         <li className="page-item">
           <Button variant="link" size="sm" onClick={() => handlePage(1)} disabled={disabled || isFirst} aria-label={lang.current.pagination.firstPage}>{lang.current.pagination.first}</Button>
         </li>

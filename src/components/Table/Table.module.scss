@@ -88,37 +88,44 @@
 }
 
 /* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .tableUnified {
+.tableUnified {
+  @include dark-mode {
     th,
     td {
       border-bottom-color: var(--color-border-light-dark);
     }
-
+  
     th {
       color: var(--color-text-secondary-dark);
       background: var(--color-bg-secondary-dark);
       border-bottom-color: var(--color-border-medium-dark);
     }
   }
+}
 
-  .tableHover tbody tr:hover {
+.tableHover tbody tr:hover {
+  @include dark-mode {
     background: var(--color-bg-hover-dark);
   }
+}
 
-  .tableStriped tbody tr:nth-child(odd) {
+.tableStriped tbody tr:nth-child(odd) {
+  @include dark-mode {
     background: var(--color-bg-secondary-dark);
   }
+}
 
-  .tableBordered {
+.tableBordered {
+  @include dark-mode {
     border-color: var(--color-border-medium-dark);
-
+  
     th,
     td {
       border-right-color: var(--color-border-light-dark);
     }
   }
 }
+
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {

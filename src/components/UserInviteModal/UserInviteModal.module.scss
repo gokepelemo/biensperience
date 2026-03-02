@@ -75,15 +75,18 @@
 }
 
 /* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .successIcon {
+.successIcon {
+  @include dark-mode {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
+}
 
-  .codeDisplay {
+.codeDisplay {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
   }
 }
+
 
 /* Responsive adjustments */
 @media (max-width: 576px) {
@@ -95,4 +98,38 @@
   .inviteLink code {
     font-size: 0.75rem;
   }
+}
+
+.iconSpacer {
+  margin-right: $space-2;
+}
+
+.successDescription {
+  color: var(--color-text-muted);
+  margin-bottom: $space-4;
+}
+
+.successActions {
+  display: flex;
+  gap: $space-2;
+  justify-content: center;
+  margin-top: $space-6;
+}
+
+.formGroup {
+  margin-bottom: $space-4;
+}
+
+.formGroupLg {
+  margin-bottom: $space-6;
+}
+
+.helperText {
+  color: var(--color-text-muted);
+}
+
+.formActions {
+  display: flex;
+  gap: $space-2;
+  justify-content: flex-end;
 }

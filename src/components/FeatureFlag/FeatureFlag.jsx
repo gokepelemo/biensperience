@@ -10,6 +10,7 @@
 import React from 'react';
 import { useFeatureFlag, useFeatureFlags } from '../../hooks/useFeatureFlag';
 import { logger } from '../../utilities/logger';
+import styles from './FeatureFlag.module.scss';
 
 /**
  * Render children only if feature flag is enabled
@@ -155,12 +156,12 @@ export function FeatureLockedMessage({
   const { denialMessage } = useFeatureFlag(flag);
 
   return (
-    <div className="feature-locked-message text-center p-4">
-      <div className="feature-locked-icon mb-3">
+    <div className={`feature-locked-message ${styles.featureLockedContainer}`}>
+      <div className={`feature-locked-icon ${styles.featureLockedIconWrapper}`}>
         <span role="img" aria-label={lang.current.aria.locked} style={{ fontSize: '2rem' }}>🔒</span>
       </div>
-      <h5 className="mb-2">{title}</h5>
-      <p className="text-muted mb-3">
+      <h5 className={styles.featureLockedTitle}>{title}</h5>
+      <p className={styles.featureLockedMessage}>
         {message || denialMessage}
       </p>
       {onAction && (

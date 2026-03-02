@@ -2,33 +2,22 @@
  * Popover/OverlayTrigger Abstraction Layer
  *
  * Provides a stable API for OverlayTrigger + Popover usage across the application.
- * Wraps either react-bootstrap OverlayTrigger/Popover or the modern BasePopover
- * (CSS-based), controlled by the 'bootstrap_popover' feature flag.
+ * All consumers should import from design-system, NOT directly from BasePopover.
  *
- * CRITICAL: This abstraction enables zero-regression migration between implementations.
- * All OverlayTrigger/Popover consumers should import from design-system,
- * NOT directly from react-bootstrap.
- *
- * Implementation Status:
- * - Phase 4 (Current): modern Popover is default; legacy available via 'bootstrap_popover' flag
- * - Phase 5: Remove legacy implementation (after validation period)
+ * Implementation: CSS-based Popover (BasePopover) — Phase 5 complete.
  *
  * Task: biensperience-f51a
  * Related: biensperience-e5c4 (epic)
  */
 
 import PropTypes from 'prop-types';
-import { OverlayTrigger as RBOverlayTrigger, Popover as RBPopover } from 'react-bootstrap';
 import { BaseOverlayTrigger, BasePopover } from '../Popover/BasePopover';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
- * OverlayTriggerWrapper - Design System Abstraction for OverlayTrigger
+ * OverlayTriggerWrapper - Design System OverlayTrigger
  */
 export function OverlayTriggerWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_popover');
-  const Component = useLegacy ? RBOverlayTrigger : BaseOverlayTrigger;
-  return <Component {...props} />;
+  return <BaseOverlayTrigger {...props} />;
 }
 
 OverlayTriggerWrapper.displayName = 'OverlayTrigger';
@@ -44,12 +33,10 @@ OverlayTriggerWrapper.propTypes = {
 };
 
 /**
- * PopoverWrapper - Design System Abstraction for Popover
+ * PopoverWrapper - Design System Popover
  */
 export function PopoverWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_popover');
-  const PopoverComponent = useLegacy ? RBPopover : BasePopover;
-  return <PopoverComponent {...props} />;
+  return <BasePopover {...props} />;
 }
 
 PopoverWrapper.displayName = 'Popover';
@@ -64,9 +51,7 @@ PopoverWrapper.propTypes = {
  * PopoverHeaderWrapper
  */
 export function PopoverHeaderWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_popover');
-  const Component = useLegacy ? RBPopover.Header : BasePopover.Header;
-  return <Component {...props} />;
+  return <BasePopover.Header {...props} />;
 }
 
 PopoverHeaderWrapper.displayName = 'Popover.Header';
@@ -80,9 +65,7 @@ PopoverHeaderWrapper.propTypes = {
  * PopoverBodyWrapper
  */
 export function PopoverBodyWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_popover');
-  const Component = useLegacy ? RBPopover.Body : BasePopover.Body;
-  return <Component {...props} />;
+  return <BasePopover.Body {...props} />;
 }
 
 PopoverBodyWrapper.displayName = 'Popover.Body';

@@ -171,3 +171,10 @@
     gap: $space-1; /* Tighter gap on small screens */
   }
 }
+
+/* ===== Utility replacements ===== */
+
+.flexCenterWrap {
+  display: flex;
+  justify-content: center;
+}

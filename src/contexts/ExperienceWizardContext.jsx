@@ -2,7 +2,11 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import ExperienceWizardModal from '../components/ExperienceWizardModal';
 
-const ExperienceWizardContext = createContext(null);
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const ExperienceWizardContext = (import.meta.hot?.data?.ExperienceWizardContext) || createContext(null);
+if (import.meta.hot) {
+  import.meta.hot.data.ExperienceWizardContext = ExperienceWizardContext;
+}
 
 /**
  * ExperienceWizardProvider - Provides global access to the Experience Wizard Modal

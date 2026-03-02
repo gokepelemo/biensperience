@@ -222,11 +222,12 @@
 }
 
 /* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  .alertActions {
+.alertActions {
+  @include dark-mode {
     border-top-color: var(--color-border-dark);
   }
 }
+
 
 [data-theme="dark"] {
   .alertActions {

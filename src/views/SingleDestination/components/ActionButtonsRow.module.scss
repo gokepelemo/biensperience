@@ -1,0 +1,28 @@
+/**
+ * ActionButtonsRow Component Styles (SingleDestination)
+ */
+
+@use '../../../styles/scss/abstracts' as *;
+
+/* Container - flex layout with responsive alignment */
+.actionsContainer {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
+
+  @include breakpoint(md) {
+    width: 50%;
+    justify-content: flex-end;
+  }
+}
+
+/* Button spacing utilities */
+.buttonSpacing {
+  margin-block: $space-1;
+  margin-inline-start: $space-2;
+
+  @include breakpoint(sm) {
+    margin-block: $space-2;
+  }
+}

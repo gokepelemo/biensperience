@@ -489,234 +489,320 @@ a:not(.btn):not(.btn-custom):not(.nav-link):not(.dropdown-item):focus {
 /* ============================================
    DARK MODE - System preference and data-theme attribute
    ============================================ */
-@media (prefers-color-scheme: dark) {
     /* Buttons maintain same styles - design tokens handle colors */
-
     /* Dropdown toggle - ensure proper dark mode colors */
-    .dropdown-toggle {
+.dropdown-toggle {
+  @include dark-mode {
         color: var(--color-text-primary);
-    }
+  }
+}
 
     /* Override Bootstrap text color utilities for dark mode */
-    .text-dark,
-    strong.text-dark,
-    b.text-dark {
+.text-dark,
+strong.text-dark,
+b.text-dark {
+  @include dark-mode {
         color: var(--color-text-primary) !important;
-    }
+  }
+}
 
-    .text-muted {
+.text-muted {
+  @include dark-mode {
         color: var(--color-text-muted) !important;
-    }
+  }
+}
 
-    .text-secondary {
+.text-secondary {
+  @include dark-mode {
         color: var(--color-text-secondary) !important;
-    }
+  }
+}
 
-    .text-body {
+.text-body {
+  @include dark-mode {
         color: var(--color-text-primary) !important;
-    }
+  }
+}
 
     /* Bootstrap cards and backgrounds */
-    .card {
+.card {
+  @include dark-mode {
         border-color: var(--color-border-medium);
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .card-body {
+.card-body {
+  @include dark-mode {
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .card-header,
-    .card-footer {
+.card-header,
+.card-footer {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
         border-color: var(--color-border-medium);
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .list-group-item {
+.list-group-item {
+  @include dark-mode {
         background-color: var(--color-bg-secondary);
         border-color: var(--color-border-medium);
         color: var(--color-text-primary);
-    }
+  }
+}
 
     /* Form controls */
-    .form-control,
-    .form-select {
+.form-control,
+.form-select {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
         border-color: var(--color-border-medium);
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .form-control:focus,
-    .form-select:focus {
+.form-control:focus,
+.form-select:focus {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
         border-color: var(--color-primary);
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .form-control:disabled,
-    .form-select:disabled {
+.form-control:disabled,
+.form-select:disabled {
+  @include dark-mode {
         background-color: var(--color-bg-secondary);
         border-color: var(--color-border-light);
         color: var(--color-text-disabled);
         opacity: 0.6;
-    }
+  }
+}
 
-    .form-control[readonly] {
+.form-control[readonly] {
+  @include dark-mode {
         background-color: var(--color-bg-secondary);
         border-color: var(--color-border-light);
         color: var(--color-text-muted);
-    }
+  }
+}
 
-    .form-control::placeholder {
+.form-control::placeholder {
+  @include dark-mode {
         color: var(--color-text-disabled);
-    }
+  }
+}
 
-    .form-label {
+.form-label {
+  @include dark-mode {
         color: var(--color-text-secondary);
-    }
+  }
+}
 
     /* Form check elements (checkboxes and radios) */
-    .form-check-input {
+.form-check-input {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
         border-color: var(--color-border-medium);
-    }
+  }
+}
 
-    .form-check-input:checked {
+.form-check-input:checked {
+  @include dark-mode {
         background-color: var(--color-primary);
         border-color: var(--color-primary);
-    }
+  }
+}
 
-    .form-check-input:focus {
+.form-check-input:focus {
+  @include dark-mode {
         border-color: var(--color-primary);
         box-shadow: 0 0 0 0.25rem var(--color-primary-light);
-    }
+  }
+}
 
-    .form-check-label {
+.form-check-label {
+  @include dark-mode {
         color: var(--color-text-primary);
-    }
+  }
+}
 
     /* Form help text */
-    .form-text {
+.form-text {
+  @include dark-mode {
         color: var(--color-text-muted);
-    }
+  }
+}
 
     /* Form validation feedback */
-    .valid-feedback {
+.valid-feedback {
+  @include dark-mode {
         color: var(--color-success);
-    }
+  }
+}
 
-    .invalid-feedback {
+.invalid-feedback {
+  @include dark-mode {
         color: var(--color-danger);
-    }
+  }
+}
 
-    .was-validated .form-control:valid,
-    .form-control.is-valid {
+.was-validated .form-control:valid,
+.form-control.is-valid {
+  @include dark-mode {
         border-color: var(--color-success);
-    }
+  }
+}
 
-    .was-validated .form-control:invalid,
-    .form-control.is-invalid {
+.was-validated .form-control:invalid,
+.form-control.is-invalid {
+  @include dark-mode {
         border-color: var(--color-danger);
-    }
+  }
+}
 
     /* Form floating labels */
-    .form-floating > label {
+.form-floating > label {
+  @include dark-mode {
         color: var(--color-text-muted);
-    }
+  }
+}
 
-    .form-floating > .form-control:focus ~ label,
-    .form-floating > .form-control:not(:placeholder-shown) ~ label {
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+  @include dark-mode {
         color: var(--color-text-secondary);
-    }
+  }
+}
 
     /* Form range slider */
-    .form-range {
+.form-range {
+  @include dark-mode {
         background-color: transparent;
-    }
+  }
+}
 
-    .form-range::-webkit-slider-thumb {
+.form-range::-webkit-slider-thumb {
+  @include dark-mode {
         background-color: var(--color-primary);
-    }
+  }
+}
 
-    .form-range::-moz-range-thumb {
+.form-range::-moz-range-thumb {
+  @include dark-mode {
         background-color: var(--color-primary);
-    }
+  }
+}
 
-    .form-range::-webkit-slider-runnable-track {
+.form-range::-webkit-slider-runnable-track {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
-    }
+  }
+}
 
-    .form-range::-moz-range-track {
+.form-range::-moz-range-track {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
-    }
+  }
+}
 
     /* Form switch */
-    .form-switch .form-check-input {
+.form-switch .form-check-input {
+  @include dark-mode {
         background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
-    }
+  }
+}
 
-    .form-switch .form-check-input:checked {
+.form-switch .form-check-input:checked {
+  @include dark-mode {
         background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
-    }
+  }
+}
 
     /* Input groups */
-    .input-group-text {
+.input-group-text {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
         border-color: var(--color-border-medium);
         color: var(--color-text-secondary);
-    }
+  }
+}
 
     /* Tables */
-    .table {
+.table {
+  @include dark-mode {
         color: var(--color-text-primary);
         border-color: var(--color-border-medium);
-    }
+  }
+}
 
-    .table-striped > tbody > tr:nth-of-type(odd) > * {
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  @include dark-mode {
         background-color: var(--color-bg-secondary);
-    }
+  }
+}
 
-    .table-striped > tbody > tr:nth-of-type(even) > * {
+.table-striped > tbody > tr:nth-of-type(even) > * {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
-    }
+  }
+}
 
     /* Modals */
-    .modal-content {
+.modal-content {
+  @include dark-mode {
         background-color: var(--color-bg-secondary);
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .modal-header,
-    .modal-footer {
+.modal-header,
+.modal-footer {
+  @include dark-mode {
         border-color: var(--color-border-medium);
-    }
+  }
+}
 
     /* Dropdowns */
-    .dropdown-menu {
+.dropdown-menu {
+  @include dark-mode {
         background-color: var(--color-bg-secondary);
         border-color: var(--color-border-medium);
-    }
+  }
+}
 
-    .dropdown-item {
+.dropdown-item {
+  @include dark-mode {
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .dropdown-item:hover,
-    .dropdown-item:focus {
+.dropdown-item:hover,
+.dropdown-item:focus {
+  @include dark-mode {
         background-color: var(--color-bg-tertiary);
         color: var(--color-text-primary);
-    }
+  }
+}
 
-    .dropdown-item.active {
+.dropdown-item.active {
+  @include dark-mode {
         background: var(--gradient-primary);
         color: white;
-    }
-
-    .dropdown-divider {
-        border-color: var(--color-border-medium);
-    }
+  }
 }
+
+.dropdown-divider {
+  @include dark-mode {
+        border-color: var(--color-border-medium);
+  }
+}
+
 
 /* DARK MODE - data-theme attribute (for Storybook and manual toggle) */
 [data-theme="dark"] {

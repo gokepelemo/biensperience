@@ -159,11 +159,11 @@ export default function FormField({
   }
 
   return (
-    <FormGroup className="mb-3">
+    <FormGroup className={styles.formGroup}>
       {label && (
         <FormLabel htmlFor={name}>
           {label}
-          {required && <span className="text-danger ms-1">*</span>}
+          {required && <span className={styles.requiredIndicator}>*</span>}
           {tooltip && <FormTooltip content={tooltip} placement={tooltipPlacement} />}
         </FormLabel>
       )}
@@ -196,12 +196,12 @@ export default function FormField({
         ) : formControl
       )}
 
-      {validFeedback && <div className="valid-feedback">{validFeedback}</div>}
-      {invalidFeedback && <div className="invalid-feedback">{invalidFeedback}</div>}
+      {validFeedback && <div className={styles.validFeedback}>{validFeedback}</div>}
+      {invalidFeedback && <div className={styles.invalidFeedback}>{invalidFeedback}</div>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {helpText ? <FormText className="text-muted">{helpText}</FormText> : <div />}
+        {helpText ? <FormText className={styles.helpText}>{helpText}</FormText> : <div />}
         {isTextarea && showCounter && (
-          <FormText className="text-muted">{(value && value.length) || 0}/{rest.maxLength || ''}</FormText>
+          <FormText className={styles.helpText}>{(value && value.length) || 0}/{rest.maxLength || ''}</FormText>
         )}
       </div>
     </FormGroup>

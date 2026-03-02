@@ -164,7 +164,7 @@ export default function FollowerRequestsModal({ show, onClose, onRequestCountCha
   const renderEmptyState = () => (
     <div className={styles.emptyState}>
       <FaUserPlus className={styles.emptyIcon} aria-hidden="true" />
-      <Text weight="semibold" className="mb-2">No pending requests</Text>
+      <Text weight="semibold" className={styles.noRequestsText}>No pending requests</Text>
       <Text variant="muted" size="sm">
         When someone requests to follow you, they&apos;ll appear here.
       </Text>

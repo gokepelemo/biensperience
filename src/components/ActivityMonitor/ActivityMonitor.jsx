@@ -186,8 +186,8 @@ export default function ActivityMonitor({ show, onHide }) {
     if (pagination.totalPages <= 1) return null;
 
     return (
-      <div className="d-flex justify-content-between align-items-center mt-3">
-        <div className="text-muted">
+      <div className={styles.paginationWrapper}>
+        <div className={styles.paginationCount}>
           Showing {activities.length} of {pagination.totalCount} activities
         </div>
         <Pagination
@@ -227,7 +227,7 @@ export default function ActivityMonitor({ show, onHide }) {
       >
         <div className={styles.activityMonitor}>
           {/* Search and Filters */}
-          <div className={`${styles.filtersSection} mb-4`}>
+          <div className={styles.filtersSection}>
             <Form onSubmit={handleSearch}>
               {/* Search - Full Width Row */}
               <div className={styles.searchRow}>
@@ -303,11 +303,11 @@ export default function ActivityMonitor({ show, onHide }) {
               {/* Actions Row */}
               <div className={styles.actionsRow}>
                 <Button variant="primary" type="submit" disabled={loading}>
-                  <FaFilter className="me-1" />
+                  <FaFilter className={styles.buttonIcon} />
                   Apply Filters
                 </Button>
                 <Button variant="outline-secondary" onClick={clearFilters} disabled={loading}>
-                  <FaTimes className="me-1" />
+                  <FaTimes className={styles.buttonIcon} />
                   Clear
                 </Button>
               </div>
@@ -315,7 +315,7 @@ export default function ActivityMonitor({ show, onHide }) {
           </div>
 
           {/* Activities Table */}
-          <div className="table-responsive">
+          <div className={styles.tableWrapper}>
             {loading ? (
               <Loading variant="centered" size="md" message="Loading activities..." />
             ) : activities.length === 0 ? (
@@ -349,12 +349,12 @@ export default function ActivityMonitor({ show, onHide }) {
                         <div>
                           <strong>{activity.actor.name}</strong>
                           <br />
-                          <small className="text-muted">{activity.actor.email}</small>
+                          <small className={styles.mutedText}>{activity.actor.email}</small>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <Pill className="badge badge-surface text-color-primary">{activity.resource.type}</Pill>
+                          <Pill className={styles.badgeSurface}>{activity.resource.type}</Pill>
                           <br />
                           <small>{activity.resource.name || 'Unnamed'}</small>
                         </div>
@@ -363,7 +363,7 @@ export default function ActivityMonitor({ show, onHide }) {
                         <small>{activity.reason}</small>
                       </TableCell>
                       <TableCell>
-                        <div className="d-flex gap-1">
+                        <div className={styles.actionButtons}>
                           <Button
                             variant="outline-info"
                             size="sm"
@@ -418,8 +418,8 @@ export default function ActivityMonitor({ show, onHide }) {
       >
           {selectedActivity && (
             <div className={styles.activityDetails}>
-              <div className="row g-3">
-                <div className="col-12">
+              <div className={styles.detailsGrid}>
+                <div className={styles.detailsFullCol}>
                   <h6>Basic Information</h6>
                   <Table borderless size="sm">
                     <TableBody>
@@ -443,7 +443,7 @@ export default function ActivityMonitor({ show, onHide }) {
                   </Table>
                 </div>
 
-                <div className="col-md-6">
+                <div className={styles.detailsHalfCol}>
                   <h6>Actor</h6>
                   <Table borderless size="sm">
                     <TableBody>
@@ -463,7 +463,7 @@ export default function ActivityMonitor({ show, onHide }) {
                   </Table>
                 </div>
 
-                <div className="col-md-6">
+                <div className={styles.detailsHalfCol}>
                   <h6>Resource</h6>
                   <Table borderless size="sm">
                     <TableBody>
@@ -484,7 +484,7 @@ export default function ActivityMonitor({ show, onHide }) {
                 </div>
 
                 {selectedActivity.metadata && (
-                  <div className="col-12">
+                  <div className={styles.detailsFullCol}>
                     <h6>Request Metadata</h6>
                     <Table borderless size="sm">
                       <TableBody>
@@ -512,7 +512,7 @@ export default function ActivityMonitor({ show, onHide }) {
                 )}
 
                 {selectedActivity.changes && selectedActivity.changes.length > 0 && (
-                  <div className="col-12">
+                  <div className={styles.detailsFullCol}>
                     <h6>Changes</h6>
                     <Table striped size="sm">
                       <TableHead>
@@ -536,18 +536,18 @@ export default function ActivityMonitor({ show, onHide }) {
                 )}
 
                 {selectedActivity.rollbackToken && selectedActivity.previousState && (
-                  <div className="col-12">
+                  <div className={styles.detailsFullCol}>
                     <Alert variant="info">
                       <strong>Rollback Available:</strong> This activity has a previous state snapshot and can be reverted.
                       <br />
                       <Button
                         variant="warning"
                         size="sm"
-                        className="mt-2"
+                        className={styles.rollbackButton}
                         onClick={() => handleRollback(selectedActivity)}
                         disabled={rollbackLoading}
                       >
-                        <FaUndo className="me-1" />
+                        <FaUndo className={styles.buttonIcon} />
                         Rollback This Change
                       </Button>
                     </Alert>

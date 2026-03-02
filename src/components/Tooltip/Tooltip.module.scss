@@ -54,7 +54,7 @@ $tooltip-transition-duration: 0.15s;
   }
 
   // Dark mode support via media query
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     :root:not([data-theme="light"]) .chakra-tooltip {
       background: var(--color-bg-tertiary, #212529) !important;
 

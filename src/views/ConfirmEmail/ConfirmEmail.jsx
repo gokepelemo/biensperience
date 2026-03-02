@@ -75,23 +75,23 @@ export default function ConfirmEmail() {
       <div className={styles.confirmEmailWrapper}>
         <div className={`${styles.confirmEmailCard} card`}>
           <div className="card-body">
-            <h1 className="text-center mb-4">{pageStrings.heading}</h1>
+            <h1 className={`${styles.textCenter} ${styles.mb4}`}>{pageStrings.heading}</h1>
 
             {loading ? (
               <Loading variant="centered" size="lg" message={lang.current.alert.confirmingEmail} />
             ) : success ? (
               <Alert type="success">
                 <h5 className="alert-heading">{pageStrings.success}</h5>
-                <p className="mb-0">
+                <p className={styles.mb0}>
                   {pageStrings.successMessage} {redirectMessage}
                 </p>
               </Alert>
             ) : (
               <>
-                <Alert type="danger" message={error} className="mb-4" />
+                <Alert type="danger" message={error} className={styles.mb4} />
 
-                <div className="text-center mt-4">
-                  <p style={{ color: 'var(--color-text-muted)' }} className="mb-3">
+                <div className={`${styles.textCenter} ${styles.mt4}`}>
+                  <p style={{ color: 'var(--color-text-muted)' }} className={styles.mb3}>
                     {pageStrings.linkExpired}
                   </p>
                   <Button as={Link} to="/login" variant="primary">

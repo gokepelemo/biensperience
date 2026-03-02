@@ -1,6 +1,6 @@
 # Modal Abstraction Layer
 
-**Status:** Phase 4 Complete - Dialog Modal is default
+**Status:** Phase 5 Complete - Legacy Bootstrap Modal removed
 **Task:** biensperience-012c
 
 ---
@@ -9,8 +9,7 @@
 
 The Modal abstraction layer provides a stable API for modal usage across the Biensperience application. It wraps the underlying modal implementation to enable seamless UI framework transitions without breaking consumer code.
 
-**Default Implementation:** DialogModal (modern Dialog-based)
-**Legacy Implementation:** Bootstrap Modal (available via `bootstrap_modal` feature flag)
+**Implementation:** DialogModal (modern Dialog-based)
 
 ---
 
@@ -42,16 +41,13 @@ When swapping implementations:
 ```
 design-system.js
   └── ModalWrapper.jsx (abstraction layer)
-        ├── DialogModal.jsx (default — modern Dialog implementation)
-        └── Modal.jsx (legacy — Bootstrap portal, via 'bootstrap_modal' flag)
+        └── DialogModal.jsx (modern Dialog implementation)
 ```
 
 ```javascript
 // ModalWrapper.jsx
 const ModalWrapper = forwardRef((props, ref) => {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_modal');
-  const ModalComponent = useLegacy ? BootstrapModal : DialogModal;
-  return <ModalComponent {...props} ref={ref} />;
+  return <DialogModal {...props} ref={ref} />;
 });
 ```
 

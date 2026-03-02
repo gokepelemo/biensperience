@@ -27,7 +27,7 @@
   margin-bottom: $space-4;
   font-size: $font-size-sm;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(220, 38, 38, 0.15);
   }
 }

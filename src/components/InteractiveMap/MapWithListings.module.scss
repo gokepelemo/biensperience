@@ -27,7 +27,7 @@
     'map'
     'panel';
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   }
 

@@ -69,7 +69,7 @@
     cursor: not-allowed;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
 
@@ -91,7 +91,7 @@
     color: white;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--gradient-primary);
     border-color: transparent;
   }
@@ -179,5 +179,15 @@
 
   .sectionTitle {
     font-size: $font-size-xl;
+  }
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.errorContainer {
+  width: 100%;
+
+  @include breakpoint(md) {
+    width: 66.666667%;
   }
 }

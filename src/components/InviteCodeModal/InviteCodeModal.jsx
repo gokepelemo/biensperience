@@ -309,14 +309,14 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
       onClose={handleClose}
       size="xl"
       scrollable={true}
-      title={<><FaEnvelope className="me-2" />Invite Codes</>}
+      title={<><FaEnvelope className={styles.iconSpacerMd} />Invite Codes</>}
       footer={
         <Button variant="secondary" onClick={handleClose}>
           Close
         </Button>
       }
     >
-        <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
+        <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className={styles.tabsWrapper}>
           {/* List Tab */}
           <Tab eventKey="list" title={`All Invites (${invites.length})`}>
             {isLoading ? (
@@ -330,10 +330,10 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 {invites.map((invite) => (
                   <ListGroup.Item
                     key={invite._id}
-                    className="d-flex justify-content-between align-items-start"
+                    className={styles.inviteListItem}
                   >
-                    <div className="flex-grow-1">
-                      <div className="d-flex align-items-center gap-2 mb-1">
+                    <div className={styles.inviteContent}>
+                      <div className={styles.inviteHeader}>
                         <strong className={styles.codeDisplay}>{invite.code}</strong>
                         {invite.isActive ? (
                           <Pill variant="success">Active</Pill>
@@ -344,7 +344,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                           <Pill variant="info">Used {invite.usedCount}/{invite.maxUses || '∞'}</Pill>
                         )}
                       </div>
-                      <div className="text-muted small">
+                      <div className={styles.inviteMeta}>
                         {invite.email && <div>Email: {invite.email}</div>}
                         {invite.inviteeName && <div>Name: {invite.inviteeName}</div>}
                         <div>Created: {formatDate(invite.createdAt)}</div>
@@ -374,7 +374,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
           {/* Create Single Tab */}
           <Tab eventKey="create" title={lang.current.inviteTracking.tabCreateSingle}>
             <Form onSubmit={handleCreateSingle}>
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Form.Label>Email (optional)</Form.Label>
                 <Form.Control
                   type="email"
@@ -396,7 +396,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 <Form.Text>If provided, only this email can use the code</Form.Text>
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Form.Label>Name (optional)</Form.Label>
                 <Form.Control
                   type="text"
@@ -417,7 +417,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 />
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Form.Label>Experiences (optional)</Form.Label>
                 <SearchableSelect
                   multiple
@@ -428,7 +428,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 />
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Form.Label>Destinations (optional)</Form.Label>
                 <SearchableSelect
                   multiple
@@ -439,7 +439,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 />
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Form.Label>Max Uses</Form.Label>
                 <Form.Control
                   type="number"
@@ -460,7 +460,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 />
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Form.Label>Custom Message (optional)</Form.Label>
                 <Form.Control
                   as="textarea"
@@ -481,14 +481,14 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 />
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className={styles.formGroup}>
                 <Checkbox
                   id="sendEmailCheckbox"
                   label="Send invite email"
                   checked={singleForm.sendEmail}
                   onChange={(e) => setSingleForm({ ...singleForm, sendEmail: e.target.checked })}
                 />
-                <Form.Text className="text-muted">
+                <Form.Text className={styles.helpText}>
                   {singleForm.email
                     ? `Email will be sent to ${singleForm.email}`
                     : 'Email address required to send invite email'}
@@ -503,18 +503,18 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
 
           {/* Bulk Upload Tab */}
           <Tab eventKey="bulk" title={lang.current.inviteTracking.tabBulkUpload}>
-            <div className="mb-3">
+            <div className={styles.templateSection}>
               <Button
                 variant="outline-secondary"
                 size="sm"
                 onClick={downloadCsvTemplate}
-                className="mb-3"
+                className={styles.templateButton}
               >
-                <FaDownload className="me-1" /> Download CSV Template
+                <FaDownload className={styles.iconSpacerSm} /> Download CSV Template
               </Button>
             </div>
 
-            <Form.Group className="mb-3">
+            <Form.Group className={styles.formGroup}>
               <Form.Label>Upload CSV File</Form.Label>
               <Form.Control
                 type="file"
@@ -532,7 +532,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   Loaded {csvData.length} invites from CSV
                 </Alert>
 
-                <Form.Group className="mb-3">
+                <Form.Group className={styles.formGroup}>
                   <Form.Label>Apply Experiences to All (optional)</Form.Label>
                   <Form.Control
                     as="select"
@@ -553,7 +553,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   </Form.Control>
                 </Form.Group>
 
-                <Form.Group className="mb-3">
+                <Form.Group className={styles.formGroup}>
                   <Form.Label>Apply Destinations to All (optional)</Form.Label>
                   <Form.Control
                     as="select"
@@ -574,19 +574,19 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                   </Form.Control>
                 </Form.Group>
 
-                <Form.Group className="mb-3">
+                <Form.Group className={styles.formGroup}>
                   <Checkbox
                     id="send-bulk-emails"
                     label="Send email invitations to all recipients"
                     checked={sendBulkEmails}
                     onChange={(e) => setSendBulkEmails(e.target.checked)}
                   />
-                  <Form.Text className="text-muted">
+                  <Form.Text className={styles.helpText}>
                     If checked, each recipient will receive an email with their unique invite code and signup link
                   </Form.Text>
                 </Form.Group>
 
-                <div className="d-flex align-items-center gap-2">
+                <div className={styles.bulkActions}>
                   <Button
                     variant="primary"
                     onClick={handleBulkCreate}
@@ -604,7 +604,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
             )}
 
             {bulkResult && (
-              <div className="mt-3">
+              <div className={styles.bulkResults}>
                 <Alert variant="info">
                   <strong>Results:</strong> Created {bulkResult.created.length} invite{bulkResult.created.length > 1 ? 's' : ''}
                   {bulkResult.errors.length > 0 && `, ${bulkResult.errors.length} failed`}

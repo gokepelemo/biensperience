@@ -48,7 +48,7 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 
-    @media (prefers-color-scheme: dark) {
+    @include dark-mode {
       background: rgba(26, 32, 44, 0.85);
     }
   }

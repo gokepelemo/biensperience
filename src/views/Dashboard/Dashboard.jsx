@@ -249,7 +249,6 @@ export default function Dashboard() {
 
               {/* Stats Grid - 4 equal columns */}
               <div className={styles.statsGrid}>
-                <ActivePlansCard stats={dashboardData.stats} loading={loading} />
                 <StatsCard
                   label={lang.current.label.estimatedCosts}
                   value={formatCostEstimate(totalSpentValue) || '$0'}
@@ -262,22 +261,23 @@ export default function Dashboard() {
                     const fmt = (v) => formatCostEstimate(v, { currency, exact: true }) || '$0';
                     return [
                       { icon: <FaDollarSign size={12} />, label: `${fmt(tracked.total)} tracked` },
-                      { icon: <FaUser size={12} />, label: `${fmt(tracked.ownedPlans)} owned plans` },
-                      { icon: <FaUsers size={12} />, label: `${fmt(tracked.sharedPlans)} shared plans` },
+                      { icon: <FaUser size={12} />, label: `${fmt(tracked.ownedPlans)} owned` },
+                      { icon: <FaUsers size={12} />, label: `${fmt(tracked.sharedPlans)} shared` },
                     ];
                   })()}
+                />
+                <ActivePlansCard stats={dashboardData.stats} loading={loading} />
+                <StatsCard
+                  label={experiencesValue === 1 ? 'Experience' : 'Experiences'}
+                  value={experiencesValue}
+                  color="var(--color-success)"
+                  icon={<FaStar />}
                 />
                 <StatsCard
                   label={destinationsValue === 1 ? 'Destination' : 'Destinations'}
                   value={destinationsValue}
                   color="var(--color-warning)"
                   icon={<FaMapMarkerAlt />}
-                />
-                <StatsCard
-                  label={experiencesValue === 1 ? 'Experience' : 'Experiences'}
-                  value={experiencesValue}
-                  color="var(--color-success)"
-                  icon={<FaStar />}
                 />
               </div>
 
@@ -347,6 +347,30 @@ function DashboardSkeleton() {
 
           {/* Stats grid skeleton - 4 cards matching actual layout */}
           <div className={styles.skeletonStatsGrid}>
+            {/* Estimated Costs skeleton - taller due to sub-metrics */}
+            <div className={styles.skeletonStatCard}>
+              <div className={styles.skeletonStatContent}>
+                <SkeletonLoader variant="text" width="48px" height="var(--font-size-3xl)" style={{ marginBottom: 'var(--space-1)' }} />
+                <SkeletonLoader variant="text" width="110px" height="var(--font-size-sm)" style={{ marginBottom: 'var(--space-3)' }} />
+                {/* Cost sub-metrics */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <SkeletonLoader variant="circle" width={12} height={12} />
+                    <SkeletonLoader variant="text" width="70px" height="var(--font-size-xs)" />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <SkeletonLoader variant="circle" width={12} height={12} />
+                    <SkeletonLoader variant="text" width="55px" height="var(--font-size-xs)" />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <SkeletonLoader variant="circle" width={12} height={12} />
+                    <SkeletonLoader variant="text" width="55px" height="var(--font-size-xs)" />
+                  </div>
+                </div>
+              </div>
+              <SkeletonLoader variant="rectangle" width={48} height={48} style={{ borderRadius: 'var(--radius-lg)', flexShrink: 0 }} />
+            </div>
+
             {/* ActivePlansCard skeleton - taller due to breakdown */}
             <div className={styles.skeletonStatCard}>
               <div className={styles.skeletonStatContent}>
@@ -367,8 +391,8 @@ function DashboardSkeleton() {
               <SkeletonLoader variant="rectangle" width={48} height={48} style={{ borderRadius: 'var(--radius-lg)', flexShrink: 0 }} />
             </div>
 
-            {/* 3 StatsCard skeletons */}
-            {[85, 95, 115].map((labelWidth, i) => (
+            {/* 2 StatsCard skeletons (Experiences, Destinations) */}
+            {[115, 95].map((labelWidth, i) => (
               <div key={i} className={styles.skeletonStatCard}>
                 <div className={styles.skeletonStatContent}>
                   <SkeletonLoader variant="text" width="48px" height="var(--font-size-3xl)" style={{ marginBottom: 'var(--space-1)' }} />

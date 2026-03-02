@@ -83,3 +83,9 @@
 .fwSemibold {
   font-weight: var(--font-weight-semibold);
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.alertTopSpacing {
+  margin-top: $space-2;
+}

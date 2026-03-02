@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { BrowserRouter } from 'react-router-dom';
 import NewExperience from '../../src/components/NewExperience/NewExperience';
 import { createExperience } from '../../src/utilities/experiences-api';
@@ -27,6 +27,9 @@ jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn()
 }));
+
+// Mock BaseForm to avoid Chakra Field.Root context requirements in test env
+jest.mock('../../src/components/Form/BaseForm', () => require('../__mocks__/baseFormMock'));
 
 // Mock user and data contexts
 const mockUser = {

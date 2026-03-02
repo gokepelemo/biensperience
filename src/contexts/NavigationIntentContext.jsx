@@ -23,7 +23,11 @@ export const INTENT_TYPES = {
 // Intent expiration time (30 seconds)
 const INTENT_EXPIRATION_MS = 30000;
 
-const NavigationIntentContext = createContext(null);
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const NavigationIntentContext = (import.meta.hot?.data?.NavigationIntentContext) || createContext(null);
+if (import.meta.hot) {
+  import.meta.hot.data.NavigationIntentContext = NavigationIntentContext;
+}
 
 /**
  * Generate unique intent ID

@@ -179,53 +179,60 @@ select.formControl {
 }
 
 /* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  .formControl {
+.formControl {
+  @include dark-mode {
     background: var(--color-bg-primary-dark);
     border-color: var(--color-border-medium-dark);
     color: var(--color-text-primary-dark);
-
+  
     &:focus {
       border-color: var(--color-primary-dark);
       box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
     }
-
+  
     &::placeholder {
       color: var(--color-text-muted-dark);
     }
-
+  
     &:disabled {
       background: var(--color-bg-secondary-dark);
       color: var(--color-text-muted-dark);
     }
-
+  
     select {
       background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
     }
   }
+}
 
-  .formCheckInput {
+.formCheckInput {
+  @include dark-mode {
     background: var(--color-bg-primary-dark);
     border-color: var(--color-border-medium-dark);
-
+  
     &:checked {
       background: var(--color-primary-dark);
       border-color: var(--color-primary-dark);
     }
-
+  
     &:focus {
       box-shadow: 0 0 0 var(--space-0-75) var(--color-primary-shadow-light);
     }
   }
+}
 
-  .formLabel {
-    color: var(--color-text-primary-dark);
-  }
-
-  .formCheckLabel {
+.formLabel {
+  @include dark-mode {
     color: var(--color-text-primary-dark);
   }
 }
+
+.formCheckLabel {
+  @include dark-mode {
+    color: var(--color-text-primary-dark);
+  }
+}
+
 
 [data-theme="dark"] {
   .formControl {

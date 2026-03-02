@@ -230,7 +230,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
       onClose={handleClose}
       size="xl"
       scrollable={true}
-      title={<><FaKey className="me-2" />API Tokens</>}
+      title={<><FaKey className={styles.iconSpacer} />API Tokens</>}
       footer={
         <Button variant="secondary" onClick={handleClose}>
           Close
@@ -265,10 +265,10 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
           <>
             {/* New Token Display (shown only once after creation) */}
             {newToken && (
-              <Alert variant="success" className="mb-4">
+              <Alert variant="success" className={styles.mb4}>
                 <h5>{lang.current.api.newTokenTitle}</h5>
-                <p className="mb-2">{lang.current.api.copyTokenMessage || lang.current.api.copyTokenMessage}</p>
-                <div className="d-flex align-items-center gap-2">
+                <p className={styles.mb2}>{lang.current.api.copyTokenMessage || lang.current.api.copyTokenMessage}</p>
+                <div className={styles.tokenRow}>
                   <code className={`flex-grow-1 p-2 rounded border ${styles.userSelectAll} ${styles.tokenDisplay}`}>
                     {newToken}
                   </code>
@@ -284,7 +284,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   variant="link"
                   size="sm"
                   onClick={() => setNewToken(null)}
-                  className="mt-2 p-0"
+                  className={`${styles.mt2} ${styles.p0}`}
                 >
                   {lang.current.api.dismissMessage || lang.current.api.dismissMessage}
                 </Button>
@@ -312,7 +312,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   {isCreating ? lang.current.api.creatingToken : lang.current.api.generateToken}
                 </Button>
               </div>
-              <Form.Text className="text-muted">
+              <Form.Text className={styles.helperText}>
                 {lang.current.api.tokenNameHelp}
               </Form.Text>
             </Form>
@@ -329,10 +329,10 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                   {tokens.map((token) => (
                     <ListGroup.Item
                       key={token._id}
-                      className="d-flex justify-content-between align-items-start"
+                      className={styles.tokenListItem}
                     >
-                      <div className="flex-grow-1">
-                        <div className="d-flex align-items-center gap-2 mb-1">
+                      <div className={styles.tokenContent}>
+                        <div className={styles.tokenHeader}>
                           <strong>{token.name}</strong>
                           {token.isActive ? (
                             <Pill variant="success">{lang.current.api.activeStatus}</Pill>
@@ -340,7 +340,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                             <Pill variant="neutral">{lang.current.api.revokedStatus}</Pill>
                           )}
                         </div>
-                        <div className="text-muted small">
+                        <div className={styles.tokenMeta}>
                           <div>{lang.current.api.prefixLabel} <code>{token.tokenPrefix}...</code></div>
                           <div>{lang.current.api.createdLabel} {formatDate(token.createdAt)}</div>
                           {token.lastUsed && (
@@ -351,7 +351,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                           )}
                         </div>
                       </div>
-                      <div className="d-flex gap-2">
+                      <div className={styles.tokenActions}>
                         {token.isActive ? (
                           <>
                             <Button
@@ -370,7 +370,7 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
                             </Button>
                           </>
                         ) : (
-                          <div className="align-self-center text-muted small">{lang.current.api.revokedStatus}</div>
+                          <div className={styles.revokedLabel}>{lang.current.api.revokedStatus}</div>
                         )}
                       </div>
                     </ListGroup.Item>
@@ -381,13 +381,13 @@ export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
               {/* Usage Instructions */}
               <div className={styles.usageInstructions + ' mt-4'}>
                 <h6>{lang.current.api.usageTitle}</h6>
-                <ol className="mb-0 small">
+                <ol className={styles.instructionsList}>
                   <li>{lang.current.api.usageStep1}</li>
                   <li>{lang.current.api.usageStep2}</li>
                   <li>{lang.current.api.usageStep3}</li>
                   <li>{lang.current.api.usageStep4}</li>
                 </ol>
-                <div className="mt-2">
+                <div className={styles.mt2}>
                   <strong>{lang.current.api.exampleTitle}</strong>
                   <pre className={`p-2 rounded border mt-1 mb-0 ${styles.codeExample}`}>
 {`curl -H "Authorization: Bearer YOUR_TOKEN"

@@ -170,18 +170,21 @@
 }
 
 /* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  .travelTipsList {
+.travelTipsList {
+  @include dark-mode {
     background: transparent;
     border: none;
     color: var(--color-text-secondary);
   }
+}
 
-  .travelTipsHeading {
+.travelTipsHeading {
+  @include dark-mode {
     color: var(--color-text-secondary);
     border-bottom-color: var(--color-primary-light);
   }
 }
+
 
 /* Print Styles */
 @media print {

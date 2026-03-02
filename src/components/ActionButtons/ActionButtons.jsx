@@ -35,10 +35,10 @@ export default function ActionButtons({
   }
 
   const alignClass = {
-    left: 'justify-content-start',
-    center: 'justify-content-center',
-    right: 'justify-content-end',
-  }[align] || 'justify-content-end';
+    left: styles.alignStart,
+    center: styles.alignCenter,
+    right: styles.alignEnd,
+  }[align] || styles.alignEnd;
 
   return (
     <div className={`${styles.actionButtons} ${alignClass} ${compact ? styles.compact : ''} ${className}`}>

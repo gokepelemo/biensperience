@@ -117,3 +117,37 @@
   padding: $space-3;
   flex-shrink: 0;
 }
+
+/* Utility replacement classes */
+.showMoreWrapper {
+  flex: 0 0 100%;
+  max-width: 100%;
+  text-align: center;
+  margin-top: $space-4;
+  margin-bottom: $space-5;
+}
+
+.emptyStateCol {
+  flex: 0 0 100%;
+  max-width: 100%;
+  text-align: center;
+
+  @include breakpoint(md) {
+    flex: 0 0 66.67%;
+    max-width: 66.67%;
+  }
+
+  @include breakpoint(lg) {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+.sectionHeading {
+  margin-top: $space-4;
+  margin-bottom: $space-4;
+}
+
+.mt1 {
+  margin-top: $space-1;
+}

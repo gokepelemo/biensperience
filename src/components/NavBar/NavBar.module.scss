@@ -7,16 +7,17 @@
 @use '../../styles/scss/abstracts' as *;
 
 /* ============================================
-   NAVBAR BACKGROUND - Always Dark Exception
+   NAVBAR BACKGROUND - Theme-Responsive
    ============================================
-   The navbar is ALWAYS dark with light text, regardless of
-   light/dark mode. This is the only exception to the theme system.
+   The navbar follows the active theme:
+   Light mode: white background with dark text
+   Dark mode: dark background with light text
    ============================================ */
 
-/* Always dark navbar background (both light and dark mode) */
+/* Theme-responsive navbar background */
 .navbar {
-  background: #1e1e1e !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border-light);
   /* Base transition properties for smooth state changes */
   transition: box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -30,7 +31,12 @@
   }
 
   /* Align all navbar items by text baseline for consistent typography */
-  :global(.container-fluid) {
+  .navbarContainer {
+    width: 100%;
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+    margin-right: auto;
+    margin-left: auto;
     display: flex;
     align-items: baseline; /* Baseline alignment for mixed font sizes */
     height: 100%;
@@ -41,6 +47,8 @@
     display: flex;
     align-items: baseline;
     height: 100%;
+    flex-grow: 1;
+    flex-basis: auto;
   }
 
   /* Desktop: Ensure navbar-nav ul aligns items by baseline */
@@ -48,6 +56,17 @@
     display: flex;
     align-items: baseline;
     height: 100%;
+  }
+}
+
+/* Nav list: absorbs me-auto mb-2 mb-lg-0 d-flex utilities */
+.navList {
+  margin-right: auto;
+  margin-bottom: $space-2;
+  display: flex;
+
+  @include breakpoint-min(lg) {
+    margin-bottom: 0;
   }
 }
 
@@ -61,7 +80,7 @@
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    background: #1e1e1e !important;
+    background: var(--color-bg-primary) !important;
     z-index: 999 !important; /* Below navbar toggler (z-index: 20) but above content */
     box-shadow: none !important; /* Seamless flow from navbar */
     padding: $space-4 0 !important;
@@ -181,7 +200,7 @@
   @include transition-all($transition-normal);
   display: inline-flex;
   align-items: center;
-  color: white !important;
+  color: var(--color-text-primary);
   font-weight: $font-weight-bold;
   opacity: 1; /* Site title is always full opacity */
   /* Brand name should be larger than nav links for visual hierarchy */
@@ -213,10 +232,10 @@
   width: 100%;
   padding: $space-3 $space-4;
   margin-bottom: $space-2;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-bg-hover);
   border: none;
   border-radius: $radius-md;
-  color: white;
+  color: var(--color-text-primary);
   font-size: var(--font-size-base);
   font-weight: $font-weight-bold;
   text-align: left;
@@ -227,7 +246,7 @@
   @include transition-all($transition-normal);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-secondary);
   }
 
   @media (max-width: 991.98px) {
@@ -256,6 +275,10 @@
   }
 
   &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
     border-radius: $radius-sm;
@@ -269,7 +292,7 @@
 
 /* Mobile: Center brand, keep hamburger aligned right */
 @include breakpoint-max(lg) {
-  .navbar > :global(.container-fluid) {
+  .navbar > .navbarContainer {
     display: flex;
     flex-wrap: nowrap; /* Prevent hamburger from wrapping to new line */
     align-items: center; /* Center items vertically */
@@ -353,7 +376,7 @@
   .navbar :global(.dropdown-menu) {
     position: static !important;
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--color-bg-secondary);
     border: none;
     box-shadow: none;
     margin-top: $space-2;
@@ -372,9 +395,10 @@
 .navbar :global(.nav-link) {
   padding: $space-3 $space-4;
   margin: 0 $space-1;
+  cursor: pointer;
   @include transition-all(var(--btn-transition));
   position: relative;
-  color: white !important;
+  color: var(--color-text-primary);
   opacity: 0.75;
   font-weight: $font-weight-bold; /* All nav items bold */
   font-size: var(--font-size-sm); /* Smaller than brand text for visual hierarchy */
@@ -388,7 +412,7 @@
 
   &:hover,
   &:focus {
-    color: white !important; /* Same color as site title */
+    color: var(--color-text-primary); /* Same color as site title */
     background: transparent; /* No background change */
     opacity: 1;
   }
@@ -400,7 +424,7 @@
 
   /* Better touch feedback on mobile */
   &:active {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-hover);
   }
 }
 
@@ -408,7 +432,7 @@
 /* Separate rule for higher specificity with :global(.active) */
 .navbar :global(.nav-link.active) {
   opacity: 1 !important;
-  color: white !important;
+  color: var(--color-text-primary) !important;
 }
 
 /* Dropdown items */
@@ -426,7 +450,8 @@
 .navbar :global(.dropdown-toggle) {
   padding: $space-3 $space-4;
   margin: 0 $space-1;
-  color: white !important;
+  cursor: pointer;
+  color: var(--color-text-primary);
   opacity: 0.75;
   text-decoration: none !important;
   border: none;
@@ -469,7 +494,7 @@
   &:hover,
   &:focus,
   &[aria-expanded="true"] {
-    color: white !important; /* Same color as site title */
+    color: var(--color-text-primary); /* Same color as site title */
     background: transparent; /* No background change */
     opacity: 1;
     /* Override global hover transform from theme.scss */
@@ -485,13 +510,14 @@
 
   /* Better touch feedback on mobile */
   &:active {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-hover);
   }
 }
 
 :global(.dropdown-item) {
   padding: var(--menu-item-padding-y, #{$menu-item-padding-y})
            var(--menu-item-padding-x, #{$menu-item-padding-x});
+  cursor: pointer;
   @include transition-all(var(--btn-transition));
   font-weight: $font-weight-bold; /* All dropdown items bold */
   /* WCAG 2.1 Level AA minimum touch target */
@@ -514,7 +540,7 @@
   &:hover,
   &:focus {
     background: transparent; /* No background change */
-    color: white !important; /* Same color as site title */
+    color: var(--color-text-primary); /* Same color as site title */
     transform: translateY(-2px); /* Slightly raised effect */
   }
 
@@ -540,8 +566,8 @@
 
   /* Touch feedback on mobile */
   &:active {
-    background: rgba(255, 255, 255, 0.05) !important;
-    color: white !important;
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
     transform: scale(0.98);
   }
 
@@ -619,11 +645,11 @@
   gap: $space-2; /* Add gap between logo and text */
   padding: $space-2 $space-4;
   @include transition-all($transition-normal);
-  color: white !important;
+  color: var(--color-text-primary);
 
   &:hover,
   &:focus {
-    color: white !important;
+    color: var(--color-text-primary);
   }
 
   &:focus-visible {
@@ -721,7 +747,7 @@
 
 /* Mobile menu toggle button - always visible on dark navbar */
 :global(.navbar-toggler) {
-  border-color: rgba(255, 255, 255, 0.3) !important;
+  border-color: var(--color-border) !important;
   padding: $space-2;
   /* WCAG 2.1 Level AA minimum touch target */
   min-width: var(--btn-height-md);
@@ -736,13 +762,17 @@
 
   /* Better active/touch feedback for mobile - use box-shadow instead of scale to avoid layout shift */
   &:active {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--color-bg-hover);
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 }
 
 :global(.navbar-toggler-icon) {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(0, 0, 0, 0.55)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
   width: 24px;
   height: 24px;
+
+  @include dark-mode {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+  }
 }

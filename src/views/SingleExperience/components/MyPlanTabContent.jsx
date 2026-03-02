@@ -555,19 +555,19 @@ export default function MyPlanTabContent({
 
     if (isPlanLoading) {
       return (
-        <div className="my-plan-view mt-4">
+        <div className={`my-plan-view ${styles.planViewWrapper}`}>
           {hashSelecting && (
-            <div className="mb-3">
+            <div className={styles.loadingWrapper}>
               <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
             </div>
           )}
           {/* Skeleton for plan metrics */}
-          <div className="plan-metrics-container mb-4">
-            <div className="row g-3">
+          <div className={`plan-metrics-container ${styles.metricsContainer}`}>
+            <div className={styles.metricsGrid}>
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="col-md-3 col-sm-6">
+                <div key={i} className={styles.metricsColumn}>
                   <div className="metric-card">
-                    <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className="mb-2" />
+                    <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className={styles.skeletonSpacing} />
                     <SkeletonLoader variant="text" width={SKELETON_TEXT_LARGE_WIDTH_PX + 'px'} height={SKELETON_TEXT_LARGE_HEIGHT_PX + 'px'} />
                   </div>
                 </div>
@@ -575,10 +575,10 @@ export default function MyPlanTabContent({
             </div>
           </div>
           {/* Skeleton for plan items */}
-          <div className="plan-items-skeleton mt-4">
+          <div className={`plan-items-skeleton ${styles.skeletonSection}`}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
-                <div className="d-flex gap-3 mb-3">
+              <div key={i} className={`plan-item-card ${styles.skeletonCard}`}>
+                <div className={styles.skeletonCardInner}>
                   <SkeletonLoader variant="circle" width={SKELETON_CIRCLE_SIZE_PX} height={SKELETON_CIRCLE_SIZE_PX} />
                   <SkeletonLoader variant="text" width={SKELETON_TEXT_MEDIUM_WIDTH} height={SKELETON_TEXT_MEDIUM_HEIGHT_PX} />
                 </div>
@@ -592,7 +592,7 @@ export default function MyPlanTabContent({
 
     // Only show "Plan not found" when loading is complete and plan truly doesn't exist
     return (
-      <div className="my-plan-view mt-4">
+      <div className={`my-plan-view ${styles.planViewWrapper}`}>
         <p className={styles.centeredGrayText}>
           {lang.current.alert.planNotFound}
         </p>
@@ -665,13 +665,13 @@ export default function MyPlanTabContent({
 
   // Plan metadata using MetricsBar component
   const planMetadata = (
-    <div className="plan-metrics-container mb-4" ref={plannedDateRef}>
+    <div className={`plan-metrics-container ${styles.metricsContainer}`} ref={plannedDateRef}>
       {metricsLoading ? (
-        <div className="row g-3">
+        <div className={styles.metricsGrid}>
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="col-md-3 col-sm-6">
+            <div key={i} className={styles.metricsColumn}>
               <div className="metric-card">
-                <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className="mb-2" />
+                <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className={styles.skeletonSpacing} />
                 <SkeletonLoader variant="text" width="80px" height="24px" />
               </div>
             </div>
@@ -687,17 +687,17 @@ export default function MyPlanTabContent({
   if (!currentPlan.plan || currentPlan.plan.length === 0) {
     if (plansLoading) {
       return (
-        <div className="my-plan-view mt-4">
+        <div className={`my-plan-view ${styles.planViewWrapper}`}>
           {hashSelecting && (
-            <div className="mb-3">
+            <div className={styles.loadingWrapper}>
               <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
             </div>
           )}
           {planMetadata}
-          <div className="plan-items-skeleton mt-4">
+          <div className={`plan-items-skeleton ${styles.skeletonSection}`}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
-                <div className="d-flex gap-3 mb-3">
+              <div key={i} className={`plan-item-card ${styles.skeletonCard}`}>
+                <div className={styles.skeletonCardInner}>
                   <SkeletonLoader variant="circle" width={24} height={24} />
                   <SkeletonLoader variant="text" width="70%" height={20} />
                 </div>
@@ -711,9 +711,9 @@ export default function MyPlanTabContent({
 
     // Show "No Plan Items" message when plans loaded but empty
     return (
-      <div className="my-plan-view mt-4">
+      <div className={`my-plan-view ${styles.planViewWrapper}`}>
         {hashSelecting && (
-          <div className="mb-3">
+          <div className={styles.loadingWrapper}>
             <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
           </div>
         )}
@@ -729,10 +729,10 @@ export default function MyPlanTabContent({
               onClick: handleSyncPlan,
               disabled: loading
             }}
-            className="mb-4"
+            className={styles.bannerSpacing}
           />
         )}
-        <div className="plan-header-row mb-4">
+        <div className={`plan-header-row ${styles.planHeaderRow}`}>
           <UsersListDisplay
             owner={planOwner}
             users={planCollaborators}
@@ -768,10 +768,10 @@ export default function MyPlanTabContent({
         />
         {planMetadata}
         {planTabLoading ? (
-          <div className="plan-items-skeleton mt-4">
+          <div className={`plan-items-skeleton ${styles.skeletonSection}`}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
-                <div className="d-flex gap-3 mb-3">
+              <div key={i} className={`plan-item-card ${styles.skeletonCard}`}>
+                <div className={styles.skeletonCardInner}>
                   <SkeletonLoader variant="circle" width={24} height={24} />
                   <SkeletonLoader variant="text" width="70%" height={20} />
                 </div>
@@ -789,10 +789,10 @@ export default function MyPlanTabContent({
   }
 
   return (
-    <div className="my-plan-view mt-4">
+    <div className={`my-plan-view ${styles.planViewWrapper}`}>
       {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
       {hashSelecting && (
-        <div className="mb-3">
+        <div className={styles.loadingWrapper}>
           <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
         </div>
       )}
@@ -810,12 +810,12 @@ export default function MyPlanTabContent({
             onClick: handleSyncPlan,
             disabled: loading
           }}
-          className="mb-4"
+          className={styles.bannerSpacing}
         />
       )}
 
       {/* Collaborators and Action Buttons Row */}
-      <div className="plan-header-row mb-4">
+      <div className={`plan-header-row ${styles.planHeaderRow}`}>
         {/* Collaborators Display - Left Side */}
         <UsersListDisplay
           owner={planOwner}
@@ -859,7 +859,7 @@ export default function MyPlanTabContent({
       {planMetadata}
 
       {/* View Toggle - Right aligned */}
-      <div className="plan-view-toggle mb-3 d-flex justify-content-end">
+      <div className={`plan-view-toggle ${styles.viewToggle}`}>
         <SearchableSelect
           options={VIEW_OPTIONS}
           value={planItemsView}

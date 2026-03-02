@@ -1,3 +1,5 @@
+@use '../../styles/scss/abstracts' as *;
+
 /**
  * NewDestinationModal Component Styles (SCSS Module)
  * Migrated from NewDestinationModal.css to NewDestinationModal.module.scss
@@ -18,4 +20,14 @@
       }
     }
   }
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.resendLinkWrapper {
+  margin-top: $space-2;
+}
+
+.alertNoMargin {
+  margin-bottom: 0;
 }

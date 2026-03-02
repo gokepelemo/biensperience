@@ -170,7 +170,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
     <>
       <figure className="photoFrame" role="img" aria-label={imageAlt}>
       <div
-        className={`${styles.photoCard} d-flex align-items-center justify-content-center`}
+        className={styles.photoCard}
         onClick={() => setShowModal(true)}
         style={{ aspectRatio: containerAspectRatio }}
         role="button"
@@ -189,7 +189,7 @@ export default function PhotoCard({ photos, defaultPhotoId, altText, title, incl
         )}
         <img
           src={displayPhoto.url}
-          className={`img-fluid ${imageLoading ? 'loading' : 'loaded'}`}
+          className={`${styles.photoImage} ${imageLoading ? 'loading' : 'loaded'}`}
           alt={hasRealPhotos ? imageAlt : `${imageAlt} placeholder`}
           title={hasRealPhotos ? ((sanitizedCredit && sanitizedCredit.toLowerCase() !== 'biensperience') ? sanitizedCredit : title) : undefined}
           loading="lazy"

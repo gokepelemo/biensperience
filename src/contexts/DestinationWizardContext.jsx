@@ -2,7 +2,11 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import DestinationWizardModal from '../components/DestinationWizardModal';
 
-const DestinationWizardContext = createContext(null);
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const DestinationWizardContext = (import.meta.hot?.data?.DestinationWizardContext) || createContext(null);
+if (import.meta.hot) {
+  import.meta.hot.data.DestinationWizardContext = DestinationWizardContext;
+}
 
 /**
  * DestinationWizardProvider - Provides global access to the Destination Wizard Modal

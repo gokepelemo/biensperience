@@ -17,7 +17,6 @@ import Loading from "../../components/Loading/Loading";
 import ScrollToTop from "../../components/ScrollToTop/ScrollToTop";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import { logger } from "../../utilities/logger";
-import { getHydratedTheme } from '../../utilities/theme-manager';
 import { getCollaboratorNotifications } from '../../utilities/notifications-api';
 import { useNavigate } from 'react-router-dom';
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
@@ -444,46 +443,7 @@ function AppContent() {
     return () => { mounted = false; };
   }, [isAuthenticated, user?._id, addToast, navigate]);
 
-  // Effect: watch for OS theme changes and set bootstrap theme attribute
-  // Only attach a global OS listener when the user's preference is `system-default` or not set.
-  useEffect(() => {
-    const pref = getHydratedTheme();
 
-    const setBootstrapTheme = () => {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = prefersDark ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-bs-theme', theme);
-      logger.debug('Bootstrap theme updated to:', theme);
-    };
-
-    // If user has explicitly selected light/dark, respect it and don't attach OS listener here.
-    if (pref && pref !== 'system-default') {
-      try {
-        document.documentElement.setAttribute('data-bs-theme', pref);
-      } catch (e) {}
-      return undefined;
-    }
-
-    // Otherwise, follow OS and attach listener
-    setBootstrapTheme();
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => setBootstrapTheme();
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange);
-    } else if (mediaQuery.addListener) {
-      mediaQuery.addListener(handleChange);
-    }
-
-    return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', handleChange);
-      } else if (mediaQuery.removeListener) {
-        mediaQuery.removeListener(handleChange);
-      }
-    };
-  }, []);
 
   // Effect: handle OAuth callback once on mount
   useEffect(() => {

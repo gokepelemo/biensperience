@@ -83,7 +83,7 @@ export default function PlanItemDetailsModal({
   const [uiTheme, setUiTheme] = useState(() => {
     try {
       const root = document?.documentElement;
-      const theme = root?.getAttribute('data-theme') || root?.getAttribute('data-bs-theme');
+      const theme = root?.getAttribute('data-theme');
       return theme === 'dark' ? 'dark' : 'light';
     } catch (e) {
       return 'light';
@@ -100,7 +100,7 @@ export default function PlanItemDetailsModal({
 
       const updateTheme = () => {
         try {
-          const theme = root.getAttribute('data-theme') || root.getAttribute('data-bs-theme');
+          const theme = root.getAttribute('data-theme');
           setUiTheme(theme === 'dark' ? 'dark' : 'light');
         } catch (e) {
           // ignore
@@ -112,7 +112,7 @@ export default function PlanItemDetailsModal({
       const observer = new MutationObserver(updateTheme);
       observer.observe(root, {
         attributes: true,
-        attributeFilter: ['data-theme', 'data-bs-theme']
+        attributeFilter: ['data-theme']
       });
 
       return () => observer.disconnect();
@@ -155,8 +155,7 @@ export default function PlanItemDetailsModal({
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
 
-  // Mobile/Tablet: allow the details "modal" to extend beyond the viewport and use full-page scrolling.
-  // On close, the underlying SingleExperience scroll position is restored (handled by Modal).
+  // Mobile/Tablet: allow the details modal to scroll within its fixed overlay.
   // Uses 991px breakpoint to match tab dropdown visibility (same breakpoint as .detailsTabs display: none)
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   useEffect(() => {

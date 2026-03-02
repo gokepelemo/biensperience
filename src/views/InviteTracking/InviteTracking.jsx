@@ -444,41 +444,41 @@ export default function InviteTracking() {
     <div>
       {/* Statistics Cards */}
       {stats && (
-        <div className={`${styles.statsGrid} mb-4`}>
+        <div className={styles.statsGrid}>
           <Card className={styles.statCard}>
             <Card.Body>
               <div className="stat-icon">
                 <FaQrcode />
               </div>
               <h2 className={styles.statValue}>{stats.totalInvites}</h2>
-              <p style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.totalInvites}</p>
+              <p style={{ color: 'var(--color-text-muted)' }}>{lang.current.inviteTracking.totalInvites}</p>
             </Card.Body>
           </Card>
           <Card className={styles.statCard}>
             <Card.Body>
-              <div className="stat-icon text-success">
+              <div className={`stat-icon ${styles.statIconSuccess}`}>
                 <FaCheckCircle />
               </div>
               <h2 className={styles.statValue}>{stats.activeInvites}</h2>
-              <p className="text-muted">{lang.current.inviteTracking.active}</p>
+              <p className={styles.textMuted}>{lang.current.inviteTracking.active}</p>
             </Card.Body>
           </Card>
           <Card className={styles.statCard}>
             <Card.Body>
-              <div className="stat-icon text-info">
+              <div className={`stat-icon ${styles.statIconInfo}`}>
                 <FaUsers />
               </div>
               <h2 className={styles.statValue}>{stats.totalRedemptions}</h2>
-              <p style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.redemptions}</p>
+              <p style={{ color: 'var(--color-text-muted)' }}>{lang.current.inviteTracking.redemptions}</p>
             </Card.Body>
           </Card>
           <Card className={styles.statCard}>
             <Card.Body>
-              <div className="stat-icon text-danger">
+              <div className={`stat-icon ${styles.statIconDanger}`}>
                 <FaClock />
               </div>
               <h2 className={styles.statValue}>{stats.expiredInvites}</h2>
-              <p style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.expired}</p>
+              <p style={{ color: 'var(--color-text-muted)' }}>{lang.current.inviteTracking.expired}</p>
             </Card.Body>
           </Card>
         </div>
@@ -535,7 +535,7 @@ export default function InviteTracking() {
                 onClick={handleClearFilters}
                 aria-label="Clear all filters"
               >
-                <FaTimes className="me-1" />
+                <FaTimes className={styles.iconGapEnd} />
                 {lang.current.inviteTracking?.clearFilters || 'Clear'}
               </button>
             )}
@@ -547,7 +547,7 @@ export default function InviteTracking() {
               title={lang.current.inviteTracking?.exportCsv || 'Export CSV'}
               aria-label="Export invites to CSV"
             >
-              <FaFileDownload className="me-1" />
+              <FaFileDownload className={styles.iconGapEnd} />
               {lang.current.inviteTracking?.exportCsv || 'Export CSV'}
             </button>
           </div>
@@ -564,7 +564,7 @@ export default function InviteTracking() {
           </div>
         )}
 
-        <Card.Body className="p-0">
+        <Card.Body className={styles.noPadding}>
           {invites.length === 0 ? (
             <EmptyState
               variant="invites"
@@ -599,7 +599,7 @@ export default function InviteTracking() {
                       <TableCell header>{lang.current.tableHeaders.used}</TableCell>
                       <TableCell header>{lang.current.tableHeaders.created}</TableCell>
                       <TableCell header>{lang.current.tableHeaders.expires}</TableCell>
-                      <TableCell header className="text-end">{lang.current.tableHeaders.actions}</TableCell>
+                      <TableCell header className={styles.textEnd}>{lang.current.tableHeaders.actions}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -625,11 +625,11 @@ export default function InviteTracking() {
                         <TableCell>
                           {invite.email ? (
                             <span>
-                              <FaEnvelope className="me-1" />
+                              <FaEnvelope className={styles.iconGapEnd} />
                               {invite.email}
                             </span>
                           ) : (
-                            <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.any}</span>
+                            <span style={{ color: 'var(--color-text-muted)' }}>{lang.current.inviteTracking.any}</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -642,10 +642,10 @@ export default function InviteTracking() {
                           {invite.expiresAt ? (
                             formatDate(invite.expiresAt)
                           ) : (
-                            <span style={{ color: 'var(--bs-gray-600)' }}>{lang.current.inviteTracking.never}</span>
+                            <span style={{ color: 'var(--color-text-muted)' }}>{lang.current.inviteTracking.never}</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-end">
+                        <TableCell className={styles.textEnd}>
                           <div className={styles.actionButtons}>
                             <Button
                               variant="outline-primary"
@@ -701,7 +701,7 @@ export default function InviteTracking() {
                         <span className={styles.inviteCardValue}>
                           {invite.email ? (
                             <>
-                              <FaEnvelope className="me-1" />
+                              <FaEnvelope className={styles.iconGapEnd} />
                               {invite.email}
                             </>
                           ) : (
@@ -738,7 +738,7 @@ export default function InviteTracking() {
 
                     <div className={styles.inviteCardActions}>
                       <button
-                        className="btn btn-sm btn-outline-primary flex-grow-1"
+                        className={`btn btn-sm btn-outline-primary ${styles.mobileViewButton}`}
                         onClick={() => loadInviteDetails(invite.code)}
                       >
                         {lang.current.button.viewDetails}
@@ -761,7 +761,7 @@ export default function InviteTracking() {
           )}
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="d-flex justify-content-center mt-4 mb-3">
+            <div className={styles.paginationWrapper}>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -789,7 +789,7 @@ export default function InviteTracking() {
     return (
       <div>
         <button
-          className="btn btn-outline-secondary mb-3"
+          className={`btn btn-outline-secondary ${styles.backButton}`}
           onClick={() => setActiveTab('overview')}
         >
           {lang.current.button.backToOverview}
@@ -797,7 +797,7 @@ export default function InviteTracking() {
 
         <div className={styles.inviteDetailsGrid}>
           <div className={styles.inviteDetailsSidebar}>
-            <Card className="mb-3">
+            <Card className={styles.cardSpaced}>
               <Card.Header>
                 <h6><FaQrcode /> {lang.current.inviteTracking.inviteCodeDetails}</h6>
               </Card.Header>
@@ -817,7 +817,7 @@ export default function InviteTracking() {
                       {selectedInvite.usedCount}/{selectedInvite.maxUses || '∞'}
                     </Pill>
                     {selectedInvite.usagePercentage && (
-                      <span className="ms-2" style={{ color: 'var(--bs-gray-600)' }}>
+                      <span className={styles.marginStartSm} style={{ color: 'var(--color-text-muted)' }}>
                         ({selectedInvite.usagePercentage}%)
                       </span>
                     )}
@@ -827,7 +827,7 @@ export default function InviteTracking() {
                   <div className={styles.inviteDetailItem}>
                     <strong>{lang.current.inviteTracking.restrictedTo}:</strong>
                     <div>
-                      <FaEnvelope className="me-1" />
+                      <FaEnvelope className={styles.iconGapEnd} />
                       {selectedInvite.email}
                     </div>
                   </div>
@@ -835,7 +835,7 @@ export default function InviteTracking() {
                 <div className={styles.inviteDetailItem}>
                   <strong>{lang.current.inviteTracking.created}:</strong>
                   <div>
-                    <FaCalendar className="me-1" />
+                    <FaCalendar className={styles.iconGapEnd} />
                     {formatDate(selectedInvite.createdAt)}
                   </div>
                 </div>
@@ -843,7 +843,7 @@ export default function InviteTracking() {
                   <div className={styles.inviteDetailItem}>
                     <strong>{lang.current.inviteTracking.expires}:</strong>
                     <div>
-                      <FaClock className="me-1" />
+                      <FaClock className={styles.iconGapEnd} />
                       {formatDate(selectedInvite.expiresAt)}
                     </div>
                   </div>
@@ -859,7 +859,7 @@ export default function InviteTracking() {
                 </Card.Header>
                 <Card.Body>
                   {selectedInvite.experiences?.length > 0 && (
-                    <div className="mb-3">
+                    <div className={styles.sectionSpacing}>
                       <strong>{lang.current.inviteTracking.experiencesCount.replace('{count}', selectedInvite.experiences.length)}:</strong>
                       <ul className={styles.resourceList}>
                         {selectedInvite.experiences.map((exp) => (
@@ -894,7 +894,7 @@ export default function InviteTracking() {
               <Card.Header>
                 <h6><FaUsers /> {lang.current.inviteTracking.redeemedBy.replace('{count}', selectedInvite.redeemedBy?.length || 0)}</h6>
               </Card.Header>
-              <Card.Body className="p-0">
+              <Card.Body className={styles.noPadding}>
                 {!selectedInvite.redeemedBy || selectedInvite.redeemedBy.length === 0 ? (
                   <EmptyState
                     variant="users"
@@ -918,8 +918,8 @@ export default function InviteTracking() {
                         return (
                           <TableRow key={user._id}>
                             <TableCell>
-                              <div className="d-flex align-items-center">
-                                <UserAvatar user={user} size="sm" linkToProfile={false} className="me-2" />
+                              <div className={styles.userCell}>
+                                <UserAvatar user={user} size="sm" linkToProfile={false} className={styles.iconGapEndMd} />
                                 <span>{user.name}</span>
                               </div>
                             </TableCell>
@@ -946,13 +946,13 @@ export default function InviteTracking() {
 
     return (
       <div>
-        <Row className="mb-4">
+        <Row className={styles.analyticsHeader}>
           <Col md={12}>
             <h2><FaChartLine /> {lang.current.inviteTracking.inviteAnalytics}</h2>
           </Col>
         </Row>
 
-        <div className={`${styles.analyticsGrid} mb-4`}>
+        <div className={styles.analyticsGrid}>
           <Card className={styles.analyticsCard}>
             <Card.Body>
               <h6>{lang.current.inviteTracking.totalInvitesCreated}</h6>
@@ -990,7 +990,7 @@ export default function InviteTracking() {
             </Card.Body>
           </Card>
         </div>
-        <div className={`${styles.activityGrid} mt-4`}>
+        <div className={styles.activityGrid}>
           <Card>
             <Card.Header>
               <h6>{lang.current.inviteTracking.recentActivity}</h6>
@@ -998,18 +998,18 @@ export default function InviteTracking() {
             <Card.Body>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.last7Days}:</strong>
-                <span className="float-end">
+                <span className={styles.floatEnd}>
                   <Pill variant="info">{analytics.redemptionsLast7Days} {lang.current.inviteTracking.redemptionsSuffix}</Pill>
-                  <Pill variant="secondary" className="ms-2">
+                  <Pill variant="secondary" className={styles.marginStartSm}>
                     {analytics.invitesCreatedLast7Days} {lang.current.inviteTracking.createdSuffix}
                   </Pill>
                 </span>
               </div>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.last30Days}:</strong>
-                <span className="float-end">
+                <span className={styles.floatEnd}>
                   <Pill variant="info">{analytics.redemptionsLast30Days} {lang.current.inviteTracking.redemptionsSuffix}</Pill>
-                  <Pill variant="secondary" className="ms-2">
+                  <Pill variant="secondary" className={styles.marginStartSm}>
                     {analytics.invitesCreatedLast30Days} {lang.current.inviteTracking.createdSuffix}
                   </Pill>
                 </span>
@@ -1023,15 +1023,15 @@ export default function InviteTracking() {
             <Card.Body>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.expired}:</strong>
-                <Pill variant="danger" className="float-end">{analytics.expiredInvites}</Pill>
+                <Pill variant="danger" className={styles.floatEnd}>{analytics.expiredInvites}</Pill>
               </div>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.fullyUsed}:</strong>
-                <Pill variant="warning" className="float-end">{analytics.fullyUsedInvites}</Pill>
+                <Pill variant="warning" className={styles.floatEnd}>{analytics.fullyUsedInvites}</Pill>
               </div>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.emailRestricted}:</strong>
-                <Pill variant="secondary" className="float-end">
+                <Pill variant="secondary" className={styles.floatEnd}>
                   {analytics.emailRestrictedInvites}
                 </Pill>
               </div>
@@ -1044,13 +1044,13 @@ export default function InviteTracking() {
             <Card.Body>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.withExperiences}:</strong>
-                <Pill variant="info" className="float-end">
+                <Pill variant="info" className={styles.floatEnd}>
                   {analytics.invitesWithExperiences}
                 </Pill>
               </div>
               <div className={styles.analyticsItem}>
                 <strong>{lang.current.inviteTracking.withDestinations}:</strong>
-                <Pill variant="success" className="float-end">
+                <Pill variant="success" className={styles.floatEnd}>
                   {analytics.invitesWithDestinations}
                 </Pill>
               </div>
@@ -1071,17 +1071,17 @@ export default function InviteTracking() {
         ogDescription={lang.current.inviteTracking.ogDescription}
       />
       <div className="profile-dropdown-view">
-        <div className="container-fluid">
+        <div className={styles.containerFluid}>
           <div className="view-header">
-            <div className="row">
-              <div className="col-12">
-                <FlexBetween className="mb-2">
-                  <h1 className="mb-0"><FaQrcode /> {lang.current.inviteTracking.heading}</h1>
+            <div className={styles.row}>
+              <div className={styles.col12}>
+                <FlexBetween className={styles.headerFlex}>
+                  <h1 className={styles.headingNoMargin}><FaQrcode /> {lang.current.inviteTracking.heading}</h1>
                   <Button
                     variant="primary"
                     onClick={() => setShowInviteModal(true)}
                   >
-                    <FaUserPlus className="me-2" />
+                    <FaUserPlus className={styles.iconGapEndMd} />
                     {lang.current.invite?.heading || 'Invite Users'}
                   </Button>
                 </FlexBetween>
@@ -1100,7 +1100,7 @@ export default function InviteTracking() {
           <Tabs
             activeKey={activeTab}
             onSelect={(k) => setActiveTab(k)}
-            className="mb-3"
+            className={styles.tabsSpacing}
           >
             <Tab eventKey="overview" title={lang.current.inviteTracking.tabOverview}>
               {renderOverview()}

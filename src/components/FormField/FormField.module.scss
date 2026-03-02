@@ -1,3 +1,5 @@
+@use '../../styles/scss/abstracts' as *;
+
 /* Styles for enhanced textarea variant matching design mock */
 .textareaWrapper {
   position: relative;
@@ -138,4 +140,35 @@
 
 @media (max-width: 767px) {
   .textControl { min-height: 40px; }
+}
+
+/* Utility replacement classes */
+.formGroup {
+  margin-bottom: $space-3;
+}
+
+.requiredIndicator {
+  color: var(--color-danger, #dc3545);
+  margin-inline-start: $space-1;
+}
+
+.helpText {
+  color: var(--color-text-muted);
+}
+
+.validationFeedback {
+  display: none;
+  width: 100%;
+  margin-top: $space-1;
+  font-size: $font-size-sm;
+}
+
+.validFeedback {
+  composes: validationFeedback;
+  color: var(--color-success, #198754);
+}
+
+.invalidFeedback {
+  composes: validationFeedback;
+  color: var(--color-danger, #dc3545);
 }

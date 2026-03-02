@@ -133,7 +133,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
           <div className="alert alert-danger" role="alert">
             {error}
             {error.includes('verify your email') && (
-              <div className="mt-2">
+              <div className={styles.resendLinkWrapper}>
                 <a href="/resend-confirmation" className="btn btn-sm btn-outline-primary">
                   Resend Verification Email
                 </a>
@@ -178,7 +178,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
           tooltipPlacement="top"
         />
 
-        <div className="alert alert-info mb-0">
+        <div className={`alert alert-info ${styles.alertNoMargin}`}>
           <small>
             <strong>Quick Create:</strong> {lang.current.message.quickCreateNote}{' '}
             <a href="/destinations" target="_blank" rel="noopener noreferrer">{lang.current.message.destinationsPage}</a> {lang.current.message.later}

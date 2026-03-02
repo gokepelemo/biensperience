@@ -623,7 +623,7 @@ export default function SingleDestination() {
       />
 
       {/* Hidden h1 for screen readers */}
-      <h1 ref={h1Ref} className="visually-hidden">{destinationTitle}</h1>
+      <h1 ref={h1Ref} className={styles.visuallyHidden}>{destinationTitle}</h1>
 
       <div className={styles.destinationContainer}>
         <Container>

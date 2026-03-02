@@ -127,15 +127,16 @@
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .typeCard {
+.typeCard {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
-
+  
     &:hover {
       background: rgba(var(--color-primary-rgb), 0.15);
     }
   }
 }
+
 
 /* Explicit dark mode class support */
 :global(.dark) {

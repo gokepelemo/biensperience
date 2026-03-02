@@ -1491,6 +1491,15 @@ $_bs-breakpoints: (sm: 576px, md: 768px, lg: 992px, xl: 1200px, xxl: 1400px);
   }
 }
 
+/* ── Grid Gutters (Bootstrap 5 compatible) ── */
+@each $i, $v in $_bs-spacers {
+  .g-#{$i}  { --bs-gutter-x: #{$v}; --bs-gutter-y: #{$v}; }
+  .gx-#{$i} { --bs-gutter-x: #{$v}; }
+  .gy-#{$i} { --bs-gutter-y: #{$v}; }
+}
+.row { margin-top: calc(-1 * var(--bs-gutter-y, 0)); }
+.row > * { padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5); padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5); margin-top: var(--bs-gutter-y, 0); }
+
 /* ── Form Controls (Bootstrap 5 compatible) ── */
 .form-check {
   display: block; min-height: 1.5rem; padding-inline-start: 1.5em; margin-bottom: 0.125rem;

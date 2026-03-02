@@ -3,6 +3,7 @@ import { Heading, Text, Button } from '../design-system';
 import { Stack, FlexBetween } from '../Layout/Layout';
 import { showUserCreatedExperiences } from '../../utilities/experiences-api';
 import { Link } from 'react-router-dom';
+import styles from './MyExperiences.module.scss';
 
 export default function MyExperiences({ userId }) {
   const [experiences, setExperiences] = useState([]);
@@ -29,7 +30,7 @@ export default function MyExperiences({ userId }) {
   return (
     <div style={{ height: '100%', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-light)' }}>
       <Heading level={4}>My Experiences</Heading>
-      <Text size="sm" className="mb-3">Experiences you've created and shared</Text>
+      <Text size="sm" className={styles.subtitle}>Experiences you've created and shared</Text>
 
       <div style={{ overflow: 'auto', maxHeight: '40vh' }}>
         {loading && <Text size="sm">Loading...</Text>}

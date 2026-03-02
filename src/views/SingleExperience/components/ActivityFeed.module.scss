@@ -45,7 +45,7 @@
     transform: translateY(-1px);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(var(--color-primary-rgb, 59, 130, 246), 0.15);
     border-color: var(--color-primary);
 
@@ -128,7 +128,7 @@
     display: block;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-color: var(--color-border-dark);
     background: var(--color-bg-secondary);
 
@@ -205,7 +205,7 @@
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--color-border-light);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-bottom-color: var(--color-border-dark);
   }
 }

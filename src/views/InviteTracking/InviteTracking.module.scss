@@ -621,3 +621,106 @@
     gap: var(--space-1);
   }
 }
+
+/* ===== Utility Replacements ===== */
+
+.iconGapEnd {
+  margin-inline-end: $space-1;
+}
+
+.iconGapEndMd {
+  margin-inline-end: $space-2;
+}
+
+.marginStartSm {
+  margin-inline-start: $space-2;
+}
+
+.textMuted {
+  color: var(--color-text-secondary);
+}
+
+.textEnd {
+  text-align: end;
+}
+
+.noPadding {
+  padding: 0;
+}
+
+.floatEnd {
+  float: right;
+}
+
+.paginationWrapper {
+  @include flex-center;
+  margin-top: $space-6;
+  margin-bottom: $space-4;
+}
+
+.userCell {
+  @include flex-center-vertical;
+}
+
+.statIconSuccess {
+  color: var(--color-success, #198754);
+}
+
+.statIconInfo {
+  color: var(--color-info, #0dcaf0);
+}
+
+.statIconDanger {
+  color: var(--color-error, #dc3545);
+}
+
+.headerFlex {
+  margin-bottom: $space-2;
+}
+
+.headingNoMargin {
+  margin-bottom: 0;
+}
+
+.tabsSpacing {
+  margin-bottom: $space-4;
+}
+
+.backButton {
+  margin-bottom: $space-4;
+}
+
+.cardSpaced {
+  margin-bottom: $space-4;
+}
+
+.sectionSpacing {
+  margin-bottom: $space-4;
+}
+
+.analyticsHeader {
+  margin-bottom: $space-6;
+}
+
+.mobileViewButton {
+  flex-grow: 1;
+}
+
+/* Utility replacement classes */
+.containerFluid {
+  width: 100%;
+  padding-inline: $space-3;
+  margin-inline: auto;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-inline: calc(-1 * $space-3);
+}
+
+.col12 {
+  flex: 0 0 100%;
+  max-width: 100%;
+  padding-inline: $space-3;
+}

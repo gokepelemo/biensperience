@@ -78,7 +78,7 @@ export const Confirmation = {
           show={show}
           onHide={() => setShow(false)}
           centered
-          style={{ '--bs-modal-bg': 'var(--color-bg-primary)' }}
+          style={{ backgroundColor: 'var(--color-bg-primary)' }}
         >
           <Modal.Header closeButton style={modalHeaderStyle}>
             <Modal.Title style={modalTitleStyle}>
@@ -768,7 +768,7 @@ export const MobileQuickActions = {
           Quick Actions (Mobile)
         </Button>
 
-        <Modal show={show} onHide={() => setShow(false)} centered style={{ '--bs-modal-margin': '1rem' }}>
+        <Modal show={show} onHide={() => setShow(false)} centered style={{ margin: '1rem' }}>
           <Modal.Body style={{ padding: 'var(--space-4)' }}>
             <h3 style={{
               fontSize: 'var(--font-size-lg)',

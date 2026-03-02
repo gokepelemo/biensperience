@@ -49,7 +49,7 @@ export const Light = {
 export const Dark = {
   name: 'Dark Mode',
   render: () => (
-    <div data-bs-theme="dark" style={{ padding: 20, background: 'var(--color-bg-default, #0b1220)' }}>
+    <div data-theme="dark" style={{ padding: 20, background: 'var(--color-bg-default, #0b1220)' }}>
       <ProfileCard>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12, alignItems: 'center' }}>
           <TagPill color="light" size="md" as={Link} to="/destinations/1">

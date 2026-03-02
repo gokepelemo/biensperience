@@ -72,7 +72,7 @@ export default function CookiePolicyModal({
         onClick={handleBack}
         className={styles.backButton}
       >
-        <FaArrowLeft className="me-2" /> Back
+        <FaArrowLeft className={styles.iconBefore} /> Back
       </Button>
       <Button variant="primary" onClick={onClose}>
         I Understand

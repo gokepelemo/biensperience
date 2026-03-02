@@ -50,8 +50,6 @@
             } catch (e) { applied = 'light'; }
           }
           document.documentElement.setAttribute('data-theme', applied);
-          // Set bootstrap theme attribute for components
-          try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) {}
         } catch (err) {
           // ignore
         }

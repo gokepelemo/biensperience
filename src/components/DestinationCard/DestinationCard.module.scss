@@ -6,6 +6,22 @@
 
 @use '../../styles/scss/abstracts' as *;
 
+/* Card wrapper (replaces d-block m-2) */
+.wrapper {
+  display: block;
+  margin: $space-2;
+  vertical-align: top;
+}
+
+/* Skeleton overlay (replaces position-absolute w-100 h-100 start-0 top-0) */
+.skeletonOverlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset-inline-start: 0;
+  top: 0;
+}
+
 /* Destination Card Layout */
 .destinationCard {
   width: 12rem;
@@ -14,6 +30,7 @@
   background-position: center;
   border-radius: $radius-2xl;
   position: relative;
+  overflow: hidden; /* replaces overflow-hidden */
   transition: transform $transition-normal, box-shadow $transition-normal;
 
   /* Subtle hover lift */
@@ -33,7 +50,14 @@
 }
 
 .destinationCardLink {
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-3;
+  text-decoration: none; /* replaces text-decoration-none */
 }
 
 .destinationCardTitle {
@@ -41,7 +65,7 @@
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-radius: $radius-md;
-  padding: $space-2;
+  padding: $space-3; /* replaces p-3 */
   overflow: hidden;
   word-break: normal;
   overflow-wrap: normal;
@@ -49,6 +73,8 @@
   max-height: 100%;
   line-height: $line-height-snug;
   font-size: $font-size-lg;
+  font-weight: $font-weight-bold; /* replaces fw-bold */
+  text-align: center; /* replaces text-center */
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;

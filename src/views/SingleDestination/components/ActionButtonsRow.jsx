@@ -10,6 +10,7 @@ import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { calculateGroupButtonWidth } from '../../../utilities/button-utils';
+import styles from './ActionButtonsRow.module.scss';
 
 export default function ActionButtonsRow({
   // User & Destination data
@@ -56,11 +57,11 @@ export default function ActionButtonsRow({
   };
 
   return (
-    <div className="d-flex col-md-6 justify-content-center justify-content-md-end align-items-center flex-row destination-actions">
+    <div className={`${styles.actionsContainer} destination-actions`}>
       {/* Favorite Button */}
       <FadeIn>
         <button
-          className={`btn btn-sm btn-icon my-1 my-sm-2 ${
+          className={`btn btn-sm btn-icon ${styles.buttonSpacing} ${
             isUserFavorite ? "btn-favorite-remove" : "btn-favorite-add"
           } ${loading ? "loading" : ""}`}
           style={buttonStyle}
@@ -93,7 +94,7 @@ export default function ActionButtonsRow({
         <>
           <FadeIn>
             <button
-              className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+              className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
               style={buttonStyle}
               onClick={() => navigate(`/destinations/${destinationId}/update`)}
               aria-label={lang.current.aria.editDestination}
@@ -104,7 +105,7 @@ export default function ActionButtonsRow({
           </FadeIn>
           <FadeIn>
             <button
-              className="btn btn-sm btn-icon my-1 my-sm-2 ms-2"
+              className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
               style={buttonStyle}
               onClick={() => setShowDeleteModal(true)}
               aria-label={lang.current.aria.deleteDestination}

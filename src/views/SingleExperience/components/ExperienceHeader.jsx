@@ -9,6 +9,7 @@ import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
+import styles from './ExperienceHeader.module.scss';
 
 export default function ExperienceHeader({
   experience,
@@ -40,7 +41,7 @@ export default function ExperienceHeader({
           {displayedPlannedDate ? (
             <TagPill
               color="primary"
-              className="cursor-pointer mb-2 planned-date-badge"
+              className={`cursor-pointer ${styles.plannedDateBadge} planned-date-badge`}
               onClick={() => {
                 if (showDatePicker) {
                   setShowDatePicker(false);
@@ -57,7 +58,7 @@ export default function ExperienceHeader({
           ) : (
             <TagPill
               color="primary"
-              className="cursor-pointer mb-2 planned-date-badge"
+              className={`cursor-pointer ${styles.plannedDateBadge} planned-date-badge`}
               onClick={() => {
                 if (showDatePicker) {
                   setShowDatePicker(false);
@@ -77,8 +78,8 @@ export default function ExperienceHeader({
 
       {/* Photos */}
       {experience.photos && experience.photos.length > 0 && (
-        <div id="photos" className="row mb-4">
-          <div className="col-12">
+        <div id="photos" className={`row ${styles.photosRow}`}>
+          <div className={styles.fullWidth}>
             <PhotoCard
               photos={experience.photos}
               defaultPhotoId={experience.default_photo_id}
@@ -90,7 +91,7 @@ export default function ExperienceHeader({
 
       {/* Destination Link */}
       {experience.destination && (
-        <div className="mb-3">
+        <div className={styles.destinationSection}>
           <strong>Destination: </strong>
           <Link to={`/destinations/${experience.destination._id}`}>
             {experience.destination.name}, {experience.destination.country}
@@ -100,7 +101,7 @@ export default function ExperienceHeader({
 
       {/* Description */}
       {experience.description && (
-        <div className="mb-4">
+        <div className={styles.aboutSection}>
           <h3>About</h3>
           <p className="experience-description">{experience.description}</p>
         </div>
@@ -108,7 +109,7 @@ export default function ExperienceHeader({
 
       {/* Cost Estimate */}
       {experience.cost_estimate > 0 && (
-        <div className="mb-3">
+        <div className={styles.costSection}>
           <strong>Estimated Cost: </strong>
           <CostEstimate
             cost={experience.cost_estimate}
@@ -120,7 +121,7 @@ export default function ExperienceHeader({
 
       {/* Experience Type Tags */}
       {experience.experience_type && experience.experience_type.length > 0 && (
-        <div className="mb-3">
+        <div className={styles.typeSection}>
           <strong>Type: </strong>
           {experience.experience_type.join(', ')}
         </div>
@@ -128,7 +129,7 @@ export default function ExperienceHeader({
 
       {/* Travel Tips */}
       {travelTips && travelTips.length > 0 && (
-        <div id="travel-tips" className="mb-4">
+        <div id="travel-tips" className={styles.travelTipsSection}>
           <h3>Travel Tips</h3>
           <ul className="travel-tips-list">
             {travelTips.map((tip, index) => (
@@ -140,7 +141,7 @@ export default function ExperienceHeader({
 
       {/* Edit Button */}
       {canEdit && (
-        <div className="mb-4">
+        <div className={styles.editSection}>
           <Link
             to={`/experiences/${experience._id}/update`}
             className="btn btn-primary"

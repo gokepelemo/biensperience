@@ -547,12 +547,12 @@ export default function Experiences() {
       <Container className={styles.experiencesHeader}>
         <Mobile>
           <div style={{ textAlign: 'center' }}>
-            <h1 className="my-4">Experiences</h1>
+            <h1 className={styles.my4}>Experiences</h1>
           </div>
         </Mobile>
         <Desktop>
           <div style={{ textAlign: 'start' }}>
-            <h1 className="my-4">Experiences</h1>
+            <h1 className={styles.my4}>Experiences</h1>
           </div>
         </Desktop>
       </Container>
@@ -761,7 +761,7 @@ export default function Experiences() {
             </div>
 
             {!initialLoading && !loading && !directFilterLoading && displayedExperiences.length > 0 && experiencesMeta?.hasMore && (
-              <div className="col-12 text-center mt-4 mb-5">
+              <div className={styles.showMoreWrapper}>
                 <Button
                   variant="outline"
                   size="md"

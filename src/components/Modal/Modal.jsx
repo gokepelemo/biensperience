@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, useId } from "react";
+import { useEffect, forwardRef, useId } from "react";
 import { createPortal } from "react-dom";
 import styles from "./Modal.module.scss";
 import PropTypes from "prop-types";
@@ -13,8 +13,8 @@ import { useModalEscape } from "../../hooks/useKeyboardNavigation";
  * _modal.scss applies gradient header, white title/close button styling
  * via .modal-header/.btn-close selectors.
  *
- * This is the fallback implementation when the 'bootstrap_modal' feature
- * flag is enabled. The default implementation is DialogModal.jsx which
+ * This is a legacy implementation preserved for reference.
+ * The default implementation is DialogModal.jsx which
  * provides Dialog-based focus trapping and ARIA support.
  *
  * Task: biensperience-ce17 - Modal Migration
@@ -52,30 +52,14 @@ const Modal = forwardRef(function Modal({
   // ESC key closes modal
   useModalEscape(onClose, show);
 
-  // Track scroll position for simple overflow hidden approach
-  const scrollYRef = useRef(0);
-
-  // Simplified scroll lock - just overflow:hidden, no position:fixed
-  // This avoids the Chrome compositor issues with position:fixed on body
+  // Scroll lock via CSS overflow:hidden on body (non-allowBodyScroll mode only).
+  // allowBodyScroll mode uses a fixed overlay with internal scrolling — no
+  // scroll position manipulation needed.
   useEffect(() => {
-    if (show) {
-      scrollYRef.current = window.scrollY;
-      if (allowBodyScroll) {
-        // Scroll to top so the modal header is visible, but remember where we were.
-        document.body.style.overflow = '';
-        window.scrollTo(0, 0);
-      } else {
-        document.body.style.overflow = 'hidden';
-      }
-
+    if (show && !allowBodyScroll) {
+      document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = '';
-
-        // If the user scrolled while the modal was open (document-scroll mode),
-        // restore the original scroll position so the underlying page doesn't jump.
-        if (allowBodyScroll) {
-          window.scrollTo(0, scrollYRef.current || 0);
-        }
       };
     }
   }, [show, allowBodyScroll]);
@@ -130,17 +114,20 @@ const Modal = forwardRef(function Modal({
   const modalContent = (
     <div
       ref={ref}
-      className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''} modal show d-block`}
+      className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''} modal show`}
       tabIndex="-1"
       onClick={handleBackdropClick}
       style={{
-        position: allowBodyScroll ? 'absolute' : 'fixed',
+        position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
-        ...(allowBodyScroll ? {} : { bottom: 0 }),
+        bottom: 0,
         zIndex: 1050,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)'
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        overflowY: allowBodyScroll ? 'auto' : 'visible',
+        overflowX: allowBodyScroll ? 'hidden' : 'visible',
+        WebkitOverflowScrolling: 'touch',
       }}
       role="dialog"
       aria-modal="true"
@@ -152,7 +139,7 @@ const Modal = forwardRef(function Modal({
           {showHeader && (
             <div className="modal-header">
               <h5 id={titleId} className="modal-title">
-                {icon && <span className="me-2">{icon}</span>}
+                {icon && <span className={styles.iconSpacing}>{icon}</span>}
                 {title}
               </h5>
               <button

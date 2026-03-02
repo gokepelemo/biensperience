@@ -114,7 +114,7 @@ export default function TwoFactorAuthModal({
         disabled={resendCooldown > 0 || loading}
         className={styles.resendButton}
       >
-        <FaRedo className="me-2" />
+        <FaRedo className={styles.iconBefore} />
         {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
       </Button>
       <Button
@@ -150,7 +150,7 @@ export default function TwoFactorAuthModal({
         </p>
 
         {error && (
-          <Alert type="danger" message={error} className="mb-4" />
+          <Alert type="danger" message={error} className={styles.alertSpacing} />
         )}
 
         <div className={styles.codeInputContainer}>

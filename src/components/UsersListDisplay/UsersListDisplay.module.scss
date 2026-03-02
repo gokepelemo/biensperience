@@ -18,6 +18,35 @@
   }
 }
 
+/* Section heading (replaces mb-2) */
+.sectionHeading {
+  margin-bottom: $space-2;
+}
+
+/* Loading/users row (replaces d-flex align-items-center) */
+.usersRow {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Muted text (replaces mb-0 text-muted small) */
+.mutedSmallText {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+}
+
+/* Screen reader only (replaces visually-hidden) */
+.srOnly {
+  @include visually-hidden;
+}
+
+/* Count message wrapper (replaces ms-3) */
+.countMessageWrapper {
+  margin-inline-start: $space-4;
+}
+
 /* Single user display (no stack) */
 .usersListSingle :global(.user-avatar) {
   margin-left: 0 !important;
@@ -48,6 +77,29 @@
     color: var(--color-text-muted);
     font-weight: 400;
   }
+}
+
+/* +N overflow badge — replaces legacy global .avatar-more */
+.overflowBadge {
+  border-radius: $radius-full;
+  background: var(--color-bg-secondary, #e5e7eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid var(--color-bg-primary, #fff);
+  cursor: default;
+
+  &.overflowSm  { width: 32px; height: 32px; font-size: $font-size-xs; }
+  &.overflowMd  { width: 40px; height: 40px; font-size: $font-size-sm; }
+  &.overflowLg  { width: 48px; height: 48px; font-size: $font-size-base; }
+  &.overflowXl  { width: 64px; height: 64px; font-size: $font-size-lg; }
+}
+
+.overflowInitials {
+  color: var(--color-text-secondary, #6b7280);
+  font-weight: $font-weight-semibold;
+  user-select: none;
 }
 
 /* Pulse animation for loading placeholders */

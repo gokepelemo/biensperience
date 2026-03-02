@@ -133,7 +133,7 @@ export default function Countries() {
         {error && (
           <FadeIn>
             <FlexCenter>
-              <div className="col-12 col-md-8">
+              <div className={styles.errorContainer}>
                 <SpaceY size="4">
                   <Alert type="danger" dismissible={false}>
                     {error}

@@ -54,7 +54,7 @@ const UsersListDisplay = ({
     return (
       <div className={`${styles.usersListDisplay} ${className}`} style={{ minHeight: '40px', minWidth: '200px' }}>
         {/* Always show heading to prevent layout shift */}
-        <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
+        <h6 className={styles.sectionHeading}>{heading || lang.current.heading.collaborators}</h6>
       </div>
     );
   }
@@ -69,7 +69,7 @@ const UsersListDisplay = ({
     return (
       <div className={`${styles.usersListDisplay} ${styles.usersListSingle} ${className}`}>
         {showHeading && (
-          <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
+          <h6 className={styles.sectionHeading}>{heading || lang.current.heading.collaborators}</h6>
         )}
         <UserAvatar
           user={owner}
@@ -100,24 +100,24 @@ const UsersListDisplay = ({
   return (
     <div className={`${styles.usersListDisplay} ${className}`}>
       {showHeading && (
-        <h6 className="mb-2">{heading || lang.current.heading.collaborators}</h6>
+        <h6 className={styles.sectionHeading}>{heading || lang.current.heading.collaborators}</h6>
       )}
 
       {/* Loading State: Show only "Loading..." text with animated dots */}
       {loading ? (
-        <div className="d-flex align-items-center" style={{ minHeight: '44px' }}>
-          <p className="mb-0 text-muted small">
+        <div className={styles.usersRow}>
+          <p className={styles.mutedSmallText}>
             Loading
             <span className={styles.animatedDots} aria-hidden="true">
               <span className={styles.dot} />
               <span className={styles.dot} />
               <span className={styles.dot} />
             </span>
-            <span className="visually-hidden"> Loading</span>
+            <span className={styles.srOnly}> Loading</span>
           </p>
         </div>
       ) : (
-        <div className="d-flex align-items-center">
+        <div className={styles.usersRow}>
           <div className={styles.usersAvatarStack}>
             {/* Owner Avatar */}
             {owner && (
@@ -145,18 +145,18 @@ const UsersListDisplay = ({
             {/* +N Badge */}
             {remainingCount > 0 && (
               <div
-                className={`user-avatar user-avatar-${size} avatar-more stacked-avatar`}
+                className={`${styles.overflowBadge} ${styles[`overflow${size.charAt(0).toUpperCase() + size.slice(1)}`] || styles.overflowMd} stacked-avatar`}
                 title={`${remainingCount} more`}
               >
-                <div className="avatar-initials">+{remainingCount}</div>
+                <div className={styles.overflowInitials}>+{remainingCount}</div>
               </div>
             )}
           </div>
 
           {/* Count Message */}
           {showMessage && message && (
-            <div className="ms-3">
-              <p className="mb-0 text-muted small">{message}</p>
+            <div className={styles.countMessageWrapper}>
+              <p className={styles.mutedSmallText}>{message}</p>
             </div>
           )}
         </div>

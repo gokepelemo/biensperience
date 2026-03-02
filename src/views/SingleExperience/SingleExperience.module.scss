@@ -3196,3 +3196,43 @@
   gap: $space-2;
 }
 
+/* ===== Skeleton loading utility replacements ===== */
+
+.noImagePlaceholder {
+  @include flex-center;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
+.skeletonPlanView {
+  margin-top: $space-4;
+}
+
+.skeletonHeaderRow {
+  margin-bottom: $space-4;
+}
+
+.skeletonFlexEnd {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.skeletonItemsSpacer {
+  margin-top: $space-4;
+}
+
+.skeletonItemCard {
+  margin-bottom: $space-3;
+  padding: $space-3;
+
+  @include breakpoint(md) {
+    padding: $space-4;
+  }
+}
+
+.skeletonItemHeader {
+  display: flex;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+

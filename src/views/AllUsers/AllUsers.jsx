@@ -211,10 +211,10 @@ export default function AllUsers() {
   };
 
   const getSortIcon = (field) => {
-    if (sortField !== field) return <FaSort className="ms-1" style={{ color: 'var(--bs-gray-600)' }} />;
+    if (sortField !== field) return <FaSort className={styles.sortIconMuted} />;
     return sortDirection === 'asc' ?
-      <FaSortUp className="ms-1" /> :
-      <FaSortDown className="ms-1" />;
+      <FaSortUp className={styles.sortIcon} /> :
+      <FaSortDown className={styles.sortIcon} />;
   };
 
   const handleRoleUpdate = async (userId, newRole) => {
@@ -270,7 +270,7 @@ export default function AllUsers() {
           title={lang.current.modal.accessDenied}
           description={lang.current.admin.accessDenied}
         />
-        <div className="container mt-5">
+        <div className={`container ${styles.accessDeniedWrapper}`}>
           <Alert type="danger" message={lang.current.admin.accessDenied} />
         </div>
       </>
@@ -289,10 +289,10 @@ export default function AllUsers() {
 
       <div className="profile-dropdown-view">
         <Container className="view-header">
-          <FlexBetween className="mb-4">
+          <FlexBetween className={styles.headerRow}>
             <div>
-              <h1 className="mb-2">
-                <FaUserShield className="me-2 text-success" />
+              <h1 className={styles.pageTitle}>
+                <FaUserShield className={styles.titleIcon} />
                 {lang.current.admin.userManagement}
               </h1>
               <p className="header-description">{lang.current.admin.superAdminPanel}</p>
@@ -301,9 +301,9 @@ export default function AllUsers() {
               <Button
                 variant="primary"
                 onClick={() => setShowInviteModal(true)}
-                className="me-2"
+                className={styles.inviteButton}
               >
-                <FaUserPlus className="me-2" />
+                <FaUserPlus className={styles.iconGapSm} />
                 {lang.current.invite.heading}
               </Button>
               <Button as={Link} to="/" variant="outline-secondary">
@@ -314,9 +314,9 @@ export default function AllUsers() {
         </Container>
 
         {/* Stats Cards */}
-        <Container className="mb-4">
-          <div className="row mb-4">
-            <div className="col-md-4 mb-3 mb-md-0">
+        <Container className={styles.statsSection}>
+          <div className={styles.statsGrid}>
+            <div>
               <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
                 <div className={styles.statCardIcon}>
                   <FaUser />
@@ -327,7 +327,7 @@ export default function AllUsers() {
                 </div>
               </div>
             </div>
-            <div className="col-md-4 mb-3 mb-md-0">
+            <div>
               <div className={`${styles.statCard} ${styles.statCardSuccess}`}>
                 <div className={styles.statCardIcon}>
                   <FaUserShield />
@@ -338,7 +338,7 @@ export default function AllUsers() {
                 </div>
               </div>
             </div>
-            <div className="col-md-4">
+            <div>
               <div className={`${styles.statCard} ${styles.statCardInfo}`}>
                 <div className={styles.statCardIcon}>
                   <FaUser />
@@ -353,12 +353,12 @@ export default function AllUsers() {
         </Container>
 
           {/* Alerts */}
-          {error && <Alert type="danger" message={error} dismissible className="mb-4" />}
+          {error && <Alert type="danger" message={error} dismissible className={styles.alertSpacing} />}
 
           {/* Users Table */}
           {loading ? (
             <Card>
-              <Card.Body className="p-0">
+              <Card.Body className={styles.cardBodyFlush}>
                 <Table hover striped responsive>
                   <TableHead>
                     <TableRow>
@@ -366,7 +366,7 @@ export default function AllUsers() {
                       <TableCell header>Email</TableCell>
                       <TableCell header>Role</TableCell>
                       <TableCell header>Joined</TableCell>
-                      <TableCell header className="text-end">Actions</TableCell>
+                      <TableCell header className={styles.textEnd}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -385,8 +385,8 @@ export default function AllUsers() {
                         <TableCell>
                           <SkeletonLoader variant="text" width="80px" height="16px" />
                         </TableCell>
-                        <TableCell className="text-end">
-                          <div className="d-flex justify-content-end gap-2">
+                        <TableCell className={styles.textEnd}>
+                          <div className={styles.actionsCell}>
                             <SkeletonLoader variant="rectangle" width="80px" height="32px" />
                             <SkeletonLoader variant="rectangle" width="80px" height="32px" />
                           </div>
@@ -443,12 +443,12 @@ export default function AllUsers() {
                     onClick={handleClearFilters}
                     aria-label="Clear all filters"
                   >
-                    <FaTimes className="me-1" />
+                    <FaTimes />
                     Clear
                   </button>
                 )}
               </div>
-              <Card.Body className="p-0">
+              <Card.Body className={styles.cardBodyFlush}>
                 {filteredUsers.length === 0 ? (
                   <EmptyState
                     variant="users"
@@ -477,7 +477,7 @@ export default function AllUsers() {
                         <TableCell header onClick={() => handleSort('createdAt')} className="sortable">
                           Joined {getSortIcon('createdAt')}
                         </TableCell>
-                        <TableCell header className="text-end">Actions</TableCell>
+                        <TableCell header className={styles.textEnd}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -486,7 +486,7 @@ export default function AllUsers() {
                         return (
                           <TableRow key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
                             <TableCell>
-                              <div className="d-flex align-items-center gap-2">
+                              <div className={styles.userNameCell}>
                                 <Link
                                   to={`/profile/${userData._id}`}
                                   className={styles.userNameLink}
@@ -499,8 +499,8 @@ export default function AllUsers() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="d-flex align-items-center" style={{ color: 'var(--bs-gray-600)' }}>
-                                <FaEnvelope className="me-2" size={14} />
+                              <div className={styles.mutedInfoCell}>
+                                <FaEnvelope size={14} />
                                 {userData.email}
                               </div>
                             </TableCell>
@@ -511,15 +511,15 @@ export default function AllUsers() {
                                   : styles.roleBadgeUser
                               }`}>
                                 {userData.role === USER_ROLES.SUPER_ADMIN ? (
-                                  <><FaUserShield className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                  <><FaUserShield /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
                                 ) : (
-                                  <><FaUser className="me-1" /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                  <><FaUser /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
                                 )}
                               </span>
                             </TableCell>
                             <TableCell>
-                              <div className="d-flex align-items-center" style={{ color: 'var(--bs-gray-600)' }}>
-                                <FaCalendarAlt className="me-2" size={14} />
+                              <div className={styles.mutedInfoCell}>
+                                <FaCalendarAlt size={14} />
                                 {userData.createdAt
                                   ? new Date(userData.createdAt).toLocaleDateString('en-US', {
                                       year: 'numeric',
@@ -531,7 +531,7 @@ export default function AllUsers() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="d-flex justify-content-end gap-2">
+                              <div className={styles.actionsCell}>
                                 <Button
                                   variant={userData.role === USER_ROLES.SUPER_ADMIN ? "success" : "outline-success"}
                                   size="sm"
@@ -547,9 +547,9 @@ export default function AllUsers() {
                                     <SkeletonLoader variant="rectangle" width="80px" height="32px" />
                                   ) : (
                                     <>
-                                      <FaUserShield className="me-1" />
-                                      <span className="d-none d-md-inline">Super Admin</span>
-                                      <span className="d-inline d-md-none">SA</span>
+                                      <FaUserShield className={styles.iconGapSm} />
+                                      <span className={styles.desktopOnly}>Super Admin</span>
+                                      <span className={styles.mobileOnly}>SA</span>
                                     </>
                                   )}
                                 </Button>
@@ -568,9 +568,9 @@ export default function AllUsers() {
                                     <SkeletonLoader variant="rectangle" width="80px" height="32px" />
                                   ) : (
                                     <>
-                                      <FaUser className="me-1" />
-                                      <span className="d-none d-md-inline">Regular User</span>
-                                      <span className="d-inline d-md-none">RU</span>
+                                      <FaUser className={styles.iconGapSm} />
+                                      <span className={styles.desktopOnly}>Regular User</span>
+                                      <span className={styles.mobileOnly}>RU</span>
                                     </>
                                   )}
                                 </Button>
@@ -584,7 +584,7 @@ export default function AllUsers() {
                 )}
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="d-flex justify-content-center mt-4 mb-3">
+                  <div className={styles.paginationWrapper}>
                     <Pagination
                       currentPage={currentPage}
                       totalPages={totalPages}

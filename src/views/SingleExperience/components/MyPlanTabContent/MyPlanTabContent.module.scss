@@ -32,3 +32,29 @@
 .grabbing {
   cursor: grabbing;
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.textWarning {
+  color: var(--color-warning);
+}
+
+.textSuccess {
+  color: var(--color-success);
+}
+
+.planItemHeaderPadding {
+  padding: $space-4;
+
+  @include breakpoint(md) {
+    padding: $space-6;
+  }
+}
+
+.planItemDetailsPadding {
+  padding: $space-2;
+
+  @include breakpoint(md) {
+    padding: $space-4;
+  }
+}

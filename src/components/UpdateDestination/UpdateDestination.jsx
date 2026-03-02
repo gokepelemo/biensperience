@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import styles from "./UpdateDestination.module.scss";
 import { updateDestination as updateDestAPI, showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
@@ -309,7 +310,7 @@ export default function UpdateDestination() {
 
   if (loading) {
     return (
-      <div className="container my-5">
+      <div className={`container ${styles.loadingContainer}`}>
         <Loading size="lg" message="Loading destination..." />
       </div>
     );
@@ -317,7 +318,7 @@ export default function UpdateDestination() {
 
   if (error && !destination) {
     return (
-      <div className="container my-5">
+      <div className={`container ${styles.loadingContainer}`}>
         <Alert
           type="danger"
           message={error}
@@ -328,8 +329,8 @@ export default function UpdateDestination() {
 
   return (
     <>
-      <div className="row animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.row} animation-fade-in`}>
+        <div className={styles.col12}>
           <h1 className="form-title">{lang.current.heading.updateDestination || 'Update Destination'}</h1>
         </div>
       </div>
@@ -338,7 +339,7 @@ export default function UpdateDestination() {
         <Alert
           type="danger"
           message={error}
-          className="mb-4"
+          className={styles.mb4}
         />
       )}
 
@@ -347,10 +348,10 @@ export default function UpdateDestination() {
           type="info"
           variant="bordered"
            title={lang.current.alert.changesDetected}
-          className="mb-4"
+          className={styles.mb4}
           showIcon={true}
         >
-          <ul className="mb-0 mt-2" style={{ paddingLeft: '1.5rem' }}>
+          <ul className={styles.changesList} style={{ paddingLeft: '1.5rem' }}>
             {Object.keys(changes).map((field, idx) => (
               <li key={idx} style={{ whiteSpace: 'pre-line' }}>
                 {formatChanges(field, changes[field], 'destination')}
@@ -360,8 +361,8 @@ export default function UpdateDestination() {
         </Banner>
       )}
 
-      <div className="row my-4 animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.row} ${styles.my4} animation-fade-in`}>
+        <div className={styles.col12}>
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
@@ -373,8 +374,8 @@ export default function UpdateDestination() {
               required
             />
 
-            <div className="row mb-4">
-              <div className="col-md-6 mb-3 mb-md-0">
+            <div className={`${styles.row} ${styles.formRow}`}>
+              <div className={`${styles.colMd6} ${styles.formColSpacing}`}>
                 <FormField
                   name="state"
                   label="State / Province"
@@ -385,7 +386,7 @@ export default function UpdateDestination() {
                 />
               </div>
 
-              <div className="col-md-6">
+              <div className={styles.colMd6}>
                 <FormField
                   name="country"
                   label="Country"
@@ -412,12 +413,12 @@ export default function UpdateDestination() {
               maxLength={300}
             />
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Label>
                 Photos
               </Form.Label>
               <PhotoUpload data={destination} setData={setDestination} />
-              <small className="form-text text-muted">
+              <small className={`form-text ${styles.helperText}`}>
                 Upload photo(s) to this destination (optional)
               </small>
             </div>
@@ -443,7 +444,7 @@ export default function UpdateDestination() {
               onAddStructuredTip={addStructuredTip}
             />
 
-            <div className="d-flex justify-content-between mt-4">
+            <div className={styles.formActions}>
               <Link
                 to={`/destinations/${destination._id}`}
                 className="btn btn-secondary btn-lg"

@@ -78,7 +78,7 @@
     }
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background-color: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
@@ -222,36 +222,45 @@
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .mentionsSuggestions {
+.mentionsSuggestions {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
   }
+}
 
-  .mentionSuggestionItem {
+.mentionSuggestionItem {
+  @include dark-mode {
     &:hover {
       background-color: rgba(var(--color-primary-rgb), 0.12);
     }
   }
+}
 
-  .mentionSuggestionIcon {
+.mentionSuggestionIcon {
+  @include dark-mode {
     background: rgba(var(--color-primary-rgb), 0.12);
   }
+}
 
-  .interactiveTextareaFooter {
+.interactiveTextareaFooter {
+  @include dark-mode {
     border-top-color: var(--color-border-dark);
   }
+}
 
   /* Mention links in dark mode - use lighter primary color for better contrast */
-  .mentionLink:not([data-on-dark]) {
+.mentionLink:not([data-on-dark]) {
+  @include dark-mode {
     color: var(--color-primary-hover); /* Lighter purple (#7c8ff0) in dark mode */
-
+  
     &:hover {
       color: #8c9ff5; /* Even lighter on hover */
       text-decoration-thickness: 2px;
     }
   }
 }
+
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

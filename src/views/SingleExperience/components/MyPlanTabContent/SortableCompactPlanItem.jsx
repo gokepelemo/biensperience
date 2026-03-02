@@ -129,7 +129,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
               aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
               title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
-              <FaThumbtack className="text-warning pinned-pin-icon" />
+              <FaThumbtack className={`${styles.textWarning} pinned-pin-icon`} />
               <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
             </button>
           ) : (
@@ -144,7 +144,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
             </button>
           )
         ) : isPinned ? (
-          <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
+          <FaThumbtack className={styles.textWarning} aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} />
         ) : (
           '•'
         )}
@@ -162,7 +162,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
 
       {/* Item text */}
       <span
-        className={`compact-item-text ${planItem.complete ? 'text-decoration-line-through text-muted' : ''} ${isPinned ? 'is-pinned' : ''}`}
+        className={`compact-item-text ${planItem.complete ? styles.completedText : ''} ${isPinned ? 'is-pinned' : ''}`}
       >
         {planItem.url ? (() => {
           const safeUrl = sanitizeUrl(planItem.url);
@@ -232,7 +232,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       {/* Meta info - cost, planning days, and visibility */}
       <span className="compact-item-meta">
         {planItem.visibility === 'public' && (
-          <span className="compact-meta-visibility text-success" title="Visible on experience feed">
+          <span className={`compact-meta-visibility ${styles.textSuccess}`} title="Visible on experience feed">
             <FaGlobe />
           </span>
         )}

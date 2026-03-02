@@ -122,7 +122,7 @@ export default function DatePickerSection({
           ) && (
             <Alert
               type="warning"
-              className="mt-2"
+              className={styles.alertTopSpacing}
               message={lang.current.alert.notEnoughTimeWarning}
             />
           )}

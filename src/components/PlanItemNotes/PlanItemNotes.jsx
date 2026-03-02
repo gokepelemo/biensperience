@@ -173,7 +173,7 @@ function NoteForm({
           <FaPaperPlane aria-hidden="true" /> {loading ? loadingText : submitText}
         </Button>
       </div>
-      <span id="note-form-hint" className="visually-hidden">
+      <span id="note-form-hint" className={styles.visuallyHidden}>
         Press Enter to submit, Shift+Enter for new line, Escape to cancel
       </span>
     </div>

@@ -20,7 +20,7 @@
   margin-bottom: $space-4;
   border-bottom: 1px solid var(--color-border-light);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-bottom-color: var(--color-border-dark);
   }
 
@@ -112,7 +112,7 @@
     min-height: 32px;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
 
@@ -275,7 +275,7 @@
     display: block;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-color: var(--color-border-dark);
     background: var(--color-bg-secondary);
 
@@ -395,7 +395,7 @@
     cursor: not-allowed;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
   }

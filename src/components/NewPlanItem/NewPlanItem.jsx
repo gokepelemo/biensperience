@@ -152,7 +152,7 @@ export default function NewPlanItem({
       </button>
       {formVisible ? (
         <>
-          <h5 className="lead mt-3">
+          <h5 className={styles.sectionHeading}>
             {formState ? (newPlanItem.parent ? lang.current.button.addChild : lang.current.button.add) : (newPlanItem.parent ? lang.current.button.updateChild : lang.current.button.update)} {lang.current.label.title}
           </h5>
           <form onSubmit={handleSubmit} className={styles.newPlanItem}>

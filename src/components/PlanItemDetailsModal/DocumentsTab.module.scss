@@ -640,3 +640,9 @@
     flex-wrap: wrap;
   }
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.visuallyHidden {
+  @include visually-hidden;
+}

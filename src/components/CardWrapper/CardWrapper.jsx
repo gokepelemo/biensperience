@@ -2,22 +2,15 @@
  * Card Abstraction Layer
  *
  * Provides a stable API for Card usage across the application.
- * Wraps either the react-bootstrap Card or the modern BaseCard (Chakra),
- * controlled by the 'bootstrap_card' feature flag.
+ * All card consumers should import from design-system, NOT directly from BaseCard.
  *
- * CRITICAL: This abstraction enables zero-regression migration between implementations.
- * All card consumers should import from design-system, NOT directly from react-bootstrap.
- *
- * Implementation Status:
- * - Phase 4 (Current): modern Card is default; legacy available via 'bootstrap_card' flag
- * - Phase 5: Remove legacy implementation (after validation period)
+ * Implementation: Chakra UI Card (BaseCard) — Phase 5 complete.
  *
  * Task: biensperience-9abe
  * Related: biensperience-e5c4 (epic)
  */
 
 import PropTypes from 'prop-types';
-import { Card as RBCard } from 'react-bootstrap';
 import BaseCard, {
   BaseCardHeader,
   BaseCardBody,
@@ -25,18 +18,12 @@ import BaseCard, {
   BaseCardTitle,
   BaseCardDescription
 } from '../Card/BaseCard';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
- * CardWrapper - Design System Abstraction for Card
- *
- * Uses modern Card (Chakra) implementation by default.
- * Legacy react-bootstrap Card available via feature flag.
+ * CardWrapper - Design System Card
  */
 export function CardWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_card');
-  const CardComponent = useLegacy ? RBCard : BaseCard;
-  return <CardComponent {...props} />;
+  return <BaseCard {...props} />;
 }
 
 CardWrapper.displayName = 'Card';
@@ -51,9 +38,7 @@ CardWrapper.propTypes = {
  * CardHeaderWrapper
  */
 export function CardHeaderWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_card');
-  const Component = useLegacy ? RBCard.Header : BaseCardHeader;
-  return <Component {...props} />;
+  return <BaseCardHeader {...props} />;
 }
 
 CardHeaderWrapper.displayName = 'Card.Header';
@@ -63,9 +48,7 @@ CardHeaderWrapper.propTypes = { children: PropTypes.node, className: PropTypes.s
  * CardBodyWrapper
  */
 export function CardBodyWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_card');
-  const Component = useLegacy ? RBCard.Body : BaseCardBody;
-  return <Component {...props} />;
+  return <BaseCardBody {...props} />;
 }
 
 CardBodyWrapper.displayName = 'Card.Body';
@@ -75,9 +58,7 @@ CardBodyWrapper.propTypes = { children: PropTypes.node, className: PropTypes.str
  * CardFooterWrapper
  */
 export function CardFooterWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_card');
-  const Component = useLegacy ? RBCard.Footer : BaseCardFooter;
-  return <Component {...props} />;
+  return <BaseCardFooter {...props} />;
 }
 
 CardFooterWrapper.displayName = 'Card.Footer';
@@ -87,21 +68,17 @@ CardFooterWrapper.propTypes = { children: PropTypes.node, className: PropTypes.s
  * CardTitleWrapper
  */
 export function CardTitleWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_card');
-  const Component = useLegacy ? RBCard.Title : BaseCardTitle;
-  return <Component {...props} />;
+  return <BaseCardTitle {...props} />;
 }
 
 CardTitleWrapper.displayName = 'Card.Title';
 CardTitleWrapper.propTypes = { children: PropTypes.node, className: PropTypes.string };
 
 /**
- * CardTextWrapper (maps to Card.Text in react-bootstrap)
+ * CardTextWrapper
  */
 export function CardTextWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_card');
-  const Component = useLegacy ? RBCard.Text : BaseCardDescription;
-  return <Component {...props} />;
+  return <BaseCardDescription {...props} />;
 }
 
 CardTextWrapper.displayName = 'Card.Text';

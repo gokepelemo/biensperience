@@ -1,3 +1,5 @@
+@use '../../styles/scss/abstracts' as *;
+
 /**
  * CuratorPlanners Component Styles
  */
@@ -201,15 +203,18 @@
 }
 
 // Dark mode support
-@media (prefers-color-scheme: dark) {
-  .curatorPlanners {
+.curatorPlanners {
+  @include dark-mode {
     background: var(--color-bg-surface-dark, var(--color-bg-surface));
   }
+}
 
-  .plannerItem {
+.plannerItem {
+  @include dark-mode {
     background: var(--color-bg-elevated-dark, var(--color-bg-elevated));
   }
 }
+
 
 // Responsive
 @media (max-width: 576px) {
@@ -223,4 +228,10 @@
     width: 100%;
     justify-content: flex-end;
   }
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.iconBefore {
+  margin-right: $space-1;
 }

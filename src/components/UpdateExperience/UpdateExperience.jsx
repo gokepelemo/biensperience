@@ -388,7 +388,7 @@ export default function UpdateExperience() {
 
   if (loading) {
     return (
-      <div className="container mt-5">
+      <div className={styles.loadingContainer}>
         <Loading variant="centered" size="lg" message="Loading experience..." />
       </div>
     );
@@ -396,20 +396,20 @@ export default function UpdateExperience() {
 
   if (error || !experience) {
     return (
-      <div className="container mt-5">
-        <div className="row justify-content-center">
-          <div className="col-md-8">
+      <div className={styles.loadingContainer}>
+        <div className={styles.errorRow}>
+          <div className={styles.errorCol}>
             <Alert
               type="danger"
               title={lang.current.modal.unableToUpdateExperience}
             >
               <p>{error || lang.current.modal.experienceNotFoundOrNoPermission}</p>
               <hr />
-              <p className="mb-0">Please check that you have the correct permissions and try again.</p>
+              <p className={styles.noMarginBottom}>Please check that you have the correct permissions and try again.</p>
             </Alert>
-            <div className="text-center mt-3">
+            <div className={styles.errorActions}>
               {experienceId && !error.includes('not authorized') && (
-                <Link to={`/experiences/${experienceId}`} className="btn btn-primary me-2">
+                <Link to={`/experiences/${experienceId}`} className={`btn btn-primary ${styles.backButton}`}>
                   {lang.current.button.backToExperience}
                 </Link>
               )}
@@ -425,8 +425,8 @@ export default function UpdateExperience() {
 
   return (
     <>
-      <div className="row animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.headerRow} animation-fade-in`}>
+        <div className={styles.fullCol}>
           <h1 className="form-title">{lang.current.heading.updateExperience}</h1>
         </div>
       </div>
@@ -436,10 +436,10 @@ export default function UpdateExperience() {
           type="info"
           variant="bordered"
           title={lang.current.alert.changesDetected}
-          className="mb-4"
+          className={styles.mb4}
           showIcon={true}
         >
-          <ul className="mb-0 mt-2" style={{ paddingLeft: '1.5rem' }}>
+          <ul className={styles.changesList} style={{ paddingLeft: '1.5rem' }}>
             {Object.keys(changes).map((field, idx) => (
               <li key={idx} style={{ whiteSpace: 'pre-line' }}>
                 {formatChanges(field, changes[field], 'experience')}
@@ -449,8 +449,8 @@ export default function UpdateExperience() {
         </Banner>
       )}
 
-      <div className="row my-4 animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.formRow} animation-fade-in`}>
+        <div className={styles.fullCol}>
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
                 name="name"
@@ -464,7 +464,7 @@ export default function UpdateExperience() {
                 tooltipPlacement="top"
               />
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Group>
                 <Form.Label>
                   {lang.current.label.overview}
@@ -481,18 +481,18 @@ export default function UpdateExperience() {
                   showCounter
                   maxLength={300}
                 />
-                <small className="form-text text-muted">
+                <small className={`form-text ${styles.helperText}`}>
                   {lang.current.helper.overviewOptional}
                 </small>
               </Form.Group>
             </div>
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Group>
                 <Form.Label htmlFor="destination-autocomplete">
                   {lang.current.label.destinationLabel}
                   {' '}
-                  <span className="text-danger">*</span>
+                  <span className={styles.requiredIndicator}>*</span>
                   {' '}
                   <FormTooltip
                     content={lang.current.tooltip.destination}
@@ -592,12 +592,12 @@ export default function UpdateExperience() {
                   emptyMessage="Type to search for destinations..."
                   disableFilter={true}
                 />
-                <small className="form-text text-muted mt-2 d-block">
+                <small className={`form-text ${styles.destinationHelper}`}>
                   {lang.current.helper.destinationRequired}
                   <button
                     type="button"
                     onClick={handleCreateDestinationClick}
-                    className="btn btn-link p-0 ms-1 align-baseline"
+                    className={`btn btn-link ${styles.inlineLink}`}
                     style={{ textDecoration: 'none' }}
                   >
                     {lang.current.helper.createNewDestination}
@@ -606,7 +606,7 @@ export default function UpdateExperience() {
               </Form.Group>
             </div>
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Label htmlFor="experience_type">
                 {lang.current.label.experienceTypes}
                 {' '}
@@ -622,7 +622,7 @@ export default function UpdateExperience() {
                 placeholder={lang.current.placeholder.experienceType}
                 maxTags={4}
               />
-              <small className="form-text text-muted">
+              <small className={`form-text ${styles.helperText}`}>
                 {lang.current.helper.experienceTypesOptional}
               </small>
             </div>
@@ -640,7 +640,7 @@ export default function UpdateExperience() {
 
             {/* Planning days and cost estimate removed from update form — computed from plan items (virtuals). */}
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Label>
                 Photos
                 {' '}
@@ -653,7 +653,7 @@ export default function UpdateExperience() {
                 data={experience}
                 setData={setExperience}
               />
-              <small className="form-text text-muted">
+              <small className={`form-text ${styles.helperText}`}>
                 Upload multiple photos for this experience (optional)
               </small>
             </div>
@@ -662,11 +662,11 @@ export default function UpdateExperience() {
               <Alert
                 type="danger"
                 message={error}
-                className="mb-4"
+                className={styles.mb4}
               />
             )}
 
-            <div className="d-flex justify-content-between mt-4">
+            <div className={styles.formActions}>
               <Link
                 to={`/experiences/${experienceId}`}
                 className="btn btn-secondary btn-lg"

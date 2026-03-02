@@ -1,5 +1,4 @@
 import React from 'react';
-import { Image } from 'react-bootstrap';
 import { Container, Row, Col, Card, Button, Pill } from '../components/design-system';
 import { FaMapMarkerAlt, FaHeart, FaShare, FaUser, FaEnvelope, FaGlobe, FaCamera, FaPlane, FaCheckCircle } from 'react-icons/fa';
 

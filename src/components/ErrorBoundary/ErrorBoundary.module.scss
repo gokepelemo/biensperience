@@ -4,17 +4,25 @@
 
 .errorBoundaryContainer {
   max-width: 800px;
+  margin-block: $space-8; /* replaces my-5 */
 }
 
 .errorBoundaryAlert {
   box-shadow: var(--shadow-sm);
 }
 
+.alertHeading {
+  color: inherit;
+  font-weight: $font-weight-semibold;
+}
+
 .errorDetails {
+  margin-top: $space-4; /* replaces mt-3 */
+
   summary {
     cursor: pointer;
     user-select: none;
-    color: var(--bs-danger);
+    color: var(--color-danger);
     font-weight: $font-weight-semibold;
 
     &:hover {
@@ -28,6 +36,30 @@
     max-height: 300px;
     overflow-y: auto;
   }
+}
+
+.errorContent {
+  margin-top: $space-2; /* replaces mt-2 */
+}
+
+.codeBlock {
+  background-color: var(--color-bg-secondary);
+  padding: $space-2; /* replaces p-2 */
+  border-radius: $radius-md; /* replaces rounded */
+}
+
+.actionButtons {
+  margin-top: $space-5; /* replaces mt-4 */
+  display: flex; /* replaces d-flex */
+  gap: $space-2; /* replaces gap-2 */
+}
+
+.recurringWarning {
+  margin-top: $space-4; /* replaces mt-3 */
+}
+
+.warningText {
+  margin-bottom: 0; /* replaces mb-0 */
 }
 
 .cursorPointer {

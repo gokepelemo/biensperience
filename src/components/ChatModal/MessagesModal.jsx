@@ -85,7 +85,7 @@ export default function MessagesModal({
     try {
       const root = document?.documentElement;
       const theme =
-        root?.getAttribute('data-theme') || root?.getAttribute('data-bs-theme');
+        root?.getAttribute('data-theme');
       return theme === 'dark' ? 'dark' : 'light';
     } catch (e) {
       return 'light';
@@ -438,7 +438,7 @@ export default function MessagesModal({
       const observer = new MutationObserver(() => {
         try {
           const theme =
-            root.getAttribute('data-theme') || root.getAttribute('data-bs-theme');
+            root.getAttribute('data-theme');
           setUiTheme(theme === 'dark' ? 'dark' : 'light');
         } catch (e) {
           // ignore
@@ -447,7 +447,7 @@ export default function MessagesModal({
 
       observer.observe(root, {
         attributes: true,
-        attributeFilter: ['data-theme', 'data-bs-theme']
+        attributeFilter: ['data-theme']
       });
 
       return () => observer.disconnect();

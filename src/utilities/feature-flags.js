@@ -139,11 +139,6 @@ export const FEATURE_FLAGS = {
     description: 'Use modern UI primitives for modals, buttons, pills, and other components (accessibility & ARIA support)',
     tier: 'beta'
   },
-  BOOTSTRAP_MODAL: {
-    key: 'bootstrap_modal',
-    description: 'Use legacy Bootstrap Modal instead of Dialog implementation (escape hatch)',
-    tier: 'beta'
-  },
   PLAN_ACCESS_REQUESTS: {
     key: 'plan_access_requests',
     description: 'Token-based plan access request flow with one-click email approval',

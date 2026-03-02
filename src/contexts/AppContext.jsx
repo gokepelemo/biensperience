@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
-const AppContext = createContext();
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const AppContext = (import.meta.hot?.data?.AppContext) || createContext();
+if (import.meta.hot) {
+  import.meta.hot.data.AppContext = AppContext;
+}
 
 /**
  * Hook to access app-level state (scroll, navbar, page context)

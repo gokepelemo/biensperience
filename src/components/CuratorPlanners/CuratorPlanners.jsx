@@ -177,7 +177,7 @@ export default function CuratorPlanners({ user }) {
                   'Opening...'
                 ) : (
                   <>
-                    <FaEnvelope className="me-1" />
+                    <FaEnvelope className={styles.iconBefore} />
                     Message
                   </>
                 )}

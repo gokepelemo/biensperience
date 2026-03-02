@@ -26,7 +26,7 @@
   color: var(--color-text-secondary);
   gap: $space-3;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
   }
@@ -40,7 +40,7 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-color: var(--color-border-dark);
     border-top-color: var(--color-primary);
   }
@@ -74,7 +74,7 @@
   font-size: $font-size-sm;
   z-index: 1;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(30, 30, 30, 0.95);
   }
 

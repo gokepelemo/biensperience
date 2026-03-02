@@ -19,7 +19,7 @@
     flex-wrap: wrap; /* Allow tabs to wrap on mobile instead of scrolling */
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-bottom-color: var(--color-border-dark);
   }
 }
@@ -61,7 +61,7 @@
     font-size: var(--font-size-base);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     &:hover:not(:disabled) {
       border-bottom-color: var(--color-border-light);
     }
@@ -76,7 +76,7 @@
     border-bottom-color: var(--color-primary);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-primary);
     border-bottom-color: var(--color-primary);
 
@@ -150,7 +150,7 @@
     height: 0.75rem;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     &:hover {
       border-bottom-color: var(--color-border-light);
     }
@@ -176,7 +176,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
   }

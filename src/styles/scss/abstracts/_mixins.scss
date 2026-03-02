@@ -673,3 +673,36 @@
     }
   }
 }
+
+// ============================================================================
+// DARK MODE
+// ============================================================================
+
+/// Apply styles for dark mode, respecting both explicit `data-theme="dark"`
+/// attribute AND OS-level `prefers-color-scheme: dark` (with a guard against
+/// the user having explicitly chosen light mode).
+///
+/// Usage:
+///   .myComponent {
+///     background: white;
+///     @include dark-mode {
+///       background: #121212;
+///     }
+///   }
+///
+/// Outputs:
+///   :root[data-theme="dark"] .myComponent { background: #121212; }
+///   @media (prefers-color-scheme: dark) {
+///     :root:not([data-theme="light"]) .myComponent { background: #121212; }
+///   }
+@mixin dark-mode {
+  :root[data-theme="dark"] & {
+    @content;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      @content;
+    }
+  }
+}

@@ -117,7 +117,7 @@ function ActionButtonsRow({
         {/* Planned Date Badge - Only shown when My Plan tab is active (hidden on The Plan/experience tab) */}
         {selectedPlan?.planned_date && activeTab === "myplan" && (
           <FadeIn>
-            <div className="d-flex justify-content-center">
+            <div className={styles.flexCenterWrap}>
               <div
                 className={`${styles.datePickerBadge} ${!userOwnsSelectedPlan ? styles.viewOnly : ''}`}
                 onClick={() => {

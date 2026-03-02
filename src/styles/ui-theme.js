@@ -26,6 +26,12 @@ import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react';
  * Uses CSS custom properties from the Biensperience design system
  */
 const config = defineConfig({
+  // Override Chakra's default dark/light conditions to match
+  // Biensperience's data-theme attribute system (not .dark class)
+  conditions: {
+    dark: '[data-theme="dark"] &',
+    light: ':root &, [data-theme="light"] &',
+  },
   // Theme configuration
   theme: {
     // Extend tokens with a brand color palette

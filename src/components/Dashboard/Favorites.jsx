@@ -2,6 +2,7 @@ import React from 'react';
 import { Heading, Text } from '../design-system';
 import { useUser } from '../../contexts/UserContext';
 import DestinationCard from '../DestinationCard/DestinationCard';
+import styles from './Favorites.module.scss';
 
 export default function Favorites() {
   const { favoriteDestinations = [] } = useUser();
@@ -9,7 +10,7 @@ export default function Favorites() {
   return (
     <div style={{ height: '100%', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border-light)' }}>
       <Heading level={4}>Favorites</Heading>
-      <Text size="sm" className="mb-3">Your favorite destinations</Text>
+      <Text size="sm" className={styles.subtitle}>Your favorite destinations</Text>
 
       {favoriteDestinations.length === 0 ? (
         <div style={{ paddingTop: 'var(--space-3)' }}>

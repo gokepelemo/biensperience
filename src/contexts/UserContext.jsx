@@ -8,12 +8,16 @@ import { logger } from '../utilities/logger';
 import { eventBus } from '../utilities/event-bus';
 import { LOCAL_CHANGE_PROTECTION_MS } from '../utilities/event-bus';
 import { storePreferences } from '../utilities/preferences-utils';
-import { getDefaultPhoto } from '../utilities/photo-utils';
+import { resolveAvatarUrl, resolveUrlFromUser, setCachedAvatarUrl } from '../utilities/avatar-cache';
 // Intentionally do not clear plan cache on logout/user-switch.
 // The consolidated cache is user-scoped internally (by userId) and safe to keep
 // around so other users on the same device benefit from faster rendering.
 
-const UserContext = createContext();
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const UserContext = (import.meta.hot?.data?.UserContext) || createContext();
+if (import.meta.hot) {
+  import.meta.hot.data.UserContext = UserContext;
+}
 
 /**
  * Hook to access user state and authentication
@@ -255,40 +259,17 @@ export function UserProvider({ children }) {
   }, [isPlannedExperience, addPlannedExperience, removePlannedExperience]);
 
   /**
-   * Get user's avatar URL with fallback
-   * Resolution chain mirrors UserAvatar: photos + default_photo_id → first photo → oauthProfilePhoto → legacy photo
-   * @returns {string} Avatar URL or default avatar
+   * Get user's avatar URL with fallback.
+   * Delegates to the shared avatar-cache so every rendering path uses
+   * the same resolution chain and benefits from caching.
+   * @returns {string|null} Avatar URL or null
+   * @deprecated Prefer using <UserAvatar user={user} /> component directly,
+   *   which handles resolution, caching, lazy-fetch, and fallback rendering.
    */
   const getAvatarUrl = useCallback(() => {
     const source = profile || user;
-    if (!source) return getDefaultAvatar('User');
-
-    // Step 1: Check photos array with default_photo_id
-    const defaultPhoto = getDefaultPhoto(source);
-    if (defaultPhoto && typeof defaultPhoto === 'object' && defaultPhoto.url) {
-      return defaultPhoto.url;
-    }
-
-    // Step 2: First photo in photos array
-    if (source.photos && source.photos.length > 0) {
-      const firstPhoto = source.photos[0];
-      if (firstPhoto && typeof firstPhoto === 'object' && firstPhoto.url) {
-        return firstPhoto.url;
-      }
-    }
-
-    // Step 3: OAuth profile photo
-    if (source.oauthProfilePhoto) {
-      return source.oauthProfilePhoto;
-    }
-
-    // Step 4: Legacy photo field
-    if (source.photo && typeof source.photo === 'string') {
-      return source.photo;
-    }
-
-    // Fallback to generated avatar
-    return getDefaultAvatar(source.name || 'User');
+    if (!source) return null;
+    return resolveAvatarUrl(source);
   }, [user, profile]);
 
   /**
@@ -445,6 +426,23 @@ export function UserProvider({ children }) {
             return prev;
           }
         });
+
+        // Re-populate the avatar cache with the merged profile data.
+        // The profile state setter above is async, so we resolve from
+        // the merged user object (which includes populated photos from
+        // the existing profile) to keep the cache warm and avoid the
+        // brief flash of initials that happens on invalidation.
+        try {
+          const mergedForCache = { ...(profile || user), ...updatedUser };
+          // Prefer existing populated photos over incoming unpopulated ones
+          if (profile?.photos?.length > 0 && typeof profile.photos[0] === 'object') {
+            mergedForCache.photos = profile.photos;
+          }
+          const freshUrl = resolveUrlFromUser(mergedForCache);
+          setCachedAvatarUrl(updatedUser._id, freshUrl);
+        } catch (e) {
+          // ignore — avatar cache will self-heal via lazy fetch
+        }
 
         // Re-apply theme if preferences changed
         if (updatedUser.preferences?.theme) {

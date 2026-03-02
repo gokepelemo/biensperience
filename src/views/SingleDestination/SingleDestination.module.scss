@@ -290,3 +290,9 @@
     text-align: center;
   }
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.visuallyHidden {
+  @include visually-hidden;
+}

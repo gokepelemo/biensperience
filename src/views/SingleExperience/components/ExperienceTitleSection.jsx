@@ -18,7 +18,7 @@ export default function ExperienceTitleSection({
 
   return (
     <div className={styles.experienceTitleSection}>
-      <h1 ref={h1Ref} className="mt-4 h fade-in">{experience.name}</h1>
+      <h1 ref={h1Ref} className={`${styles.pageTitle} h fade-in`}>{experience.name}</h1>
 
       {/* Cost Estimate & Planning Days Grid */}
       <div className={styles.headerGrid}>

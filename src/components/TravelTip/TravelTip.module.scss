@@ -49,7 +49,7 @@
     padding: var(--space-4);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
     box-shadow: var(--shadow-sm);
@@ -93,7 +93,7 @@
     text-align: center;
     padding: var(--space-2);
 
-    @media (prefers-color-scheme: dark) {
+    @include dark-mode {
       color: rgba(255, 255, 255, 0.95);
     }
   }
@@ -242,7 +242,7 @@
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-light);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     /* Keep previous light-on-dark appearance in dark mode */
     background: var(--color-badge-bg-dark, rgba(255, 255, 255, 0.08));
     color: var(--color-text-on-surface, #fff);
@@ -268,7 +268,7 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-travel-tip-text-light);
   }
 }
@@ -282,7 +282,7 @@
   overflow-wrap: break-word;
   font-style: italic;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-travel-tip-text-muted);
   }
 }
@@ -345,7 +345,7 @@
   }
 
   /* Dark mode adjustments - ensure button remains visible */
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     box-shadow: var(--shadow-md);
 
     &:hover {
@@ -435,4 +435,14 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.exchangeRateText {
+  color: var(--color-text-muted);
+}
+
+.exchangeRateIcon {
+  margin-right: $space-1;
 }

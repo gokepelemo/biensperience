@@ -602,7 +602,7 @@ async function updateUser(req, res, next) {
         validatedUpdateData.feature_flags = [];
       } else {
         // Known valid flags
-        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'bootstrap_modal', 'plan_access_requests'];
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'plan_access_requests'];
 
         const validatedFlags = updateData.feature_flags
           .filter(flag => {
@@ -652,6 +652,8 @@ async function updateUser(req, res, next) {
             email: user.email,
             photos: user.photos,
             default_photo_id: user.default_photo_id,
+            oauthProfilePhoto: user.oauthProfilePhoto,
+            photo: user.photo,
             preferences: user.preferences,
             location: user.location,
             bio: user.bio,
@@ -774,7 +776,7 @@ async function updateUserAsAdmin(req, res) {
         validatedUpdateData.feature_flags = [];
       } else {
         // Known valid flags
-        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'bootstrap_modal', 'plan_access_requests'];
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'plan_access_requests'];
 
         const validatedFlags = updateData.feature_flags
           .filter(flag => {
@@ -962,6 +964,30 @@ async function updateUserAsAdmin(req, res) {
       targetUserEmail: user.email,
       changes: Object.keys(validatedUpdateData)
     });
+
+    // Broadcast user:updated event to user's profile room
+    try {
+      broadcastEvent('user', user._id.toString(), {
+        type: 'user:updated',
+        payload: {
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            photos: user.photos,
+            default_photo_id: user.default_photo_id,
+            oauthProfilePhoto: user.oauthProfilePhoto,
+            photo: user.photo,
+            preferences: user.preferences,
+            location: user.location,
+            bio: user.bio,
+            links: user.links
+          }
+        }
+      });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast user:updated (admin) event', { error: err.message, userId: user._id.toString() });
+    }
 
     return successResponse(res, { user }, 'User updated by admin successfully');
   } catch (err) {

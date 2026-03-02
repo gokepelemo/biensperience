@@ -297,3 +297,71 @@
     margin: $space-3;
   }
 }
+
+.iconSpacer {
+  margin-right: $space-2;
+}
+
+.mb4 {
+  margin-bottom: $space-6;
+}
+
+.mb2 {
+  margin-bottom: $space-2;
+}
+
+.tokenRow {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.mt2 {
+  margin-top: $space-2;
+}
+
+.p0 {
+  padding: 0;
+}
+
+.helperText {
+  color: var(--color-text-muted);
+}
+
+.tokenListItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.tokenContent {
+  flex-grow: 1;
+}
+
+.tokenHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-1;
+}
+
+.tokenMeta {
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+}
+
+.tokenActions {
+  display: flex;
+  gap: $space-2;
+}
+
+.revokedLabel {
+  align-self: center;
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+}
+
+.instructionsList {
+  margin-bottom: 0;
+  font-size: $font-size-sm;
+}

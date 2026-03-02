@@ -16,7 +16,7 @@
  * Task: biensperience-277f - Dialog Modal wrapper (feature-flagged)
  */
 
-import { forwardRef, useRef, useEffect, useId } from 'react';
+import { forwardRef, useId } from 'react';
 import { Dialog, Portal } from '@chakra-ui/react';
 import styles from './Modal.module.scss';
 import PropTypes from 'prop-types';
@@ -50,20 +50,9 @@ const DialogModal = forwardRef(function DialogModal({
   const modalId = useId();
   const titleId = `modal-title-${modalId}`;
 
-  // Track scroll position for allowBodyScroll mode
-  const scrollYRef = useRef(0);
-
-  // Handle allowBodyScroll mode (Chakra handles normal scroll lock natively)
-  useEffect(() => {
-    if (show && allowBodyScroll) {
-      scrollYRef.current = window.scrollY;
-      window.scrollTo(0, 0);
-
-      return () => {
-        window.scrollTo(0, scrollYRef.current || 0);
-      };
-    }
-  }, [show, allowBodyScroll]);
+  // allowBodyScroll mode uses a fixed overlay with overflow-y: auto on the
+  // positioner, so the modal content scrolls within the viewport without
+  // moving the underlying page. No scroll manipulation needed.
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -111,7 +100,7 @@ const DialogModal = forwardRef(function DialogModal({
       closeOnEscape={true}
       closeOnInteractOutside={true}
       trapFocus={true}
-      preventScroll={!allowBodyScroll}
+      preventScroll={false}
       lazyMount
       unmountOnExit
       motionPreset="none"
@@ -121,11 +110,11 @@ const DialogModal = forwardRef(function DialogModal({
         <Dialog.Backdrop
           className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''}`}
           style={{
-            position: allowBodyScroll ? 'absolute' : 'fixed',
+            position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
-            ...(allowBodyScroll ? {} : { bottom: 0 }),
+            bottom: 0,
             zIndex: 1050,
             background: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'none',
@@ -138,11 +127,11 @@ const DialogModal = forwardRef(function DialogModal({
           ref={ref}
           className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''}`}
           style={{
-            position: allowBodyScroll ? 'absolute' : 'fixed',
+            position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
-            ...(allowBodyScroll ? {} : { bottom: 0 }),
+            bottom: 0,
             zIndex: 1050,
             display: 'flex',
             alignItems: allowBodyScroll ? 'flex-start' : 'center',
@@ -153,8 +142,11 @@ const DialogModal = forwardRef(function DialogModal({
             // Disable all animations and transitions
             transition: 'none !important',
             animation: 'none !important',
-            // Allow dropdowns to render outside modal bounds
-            overflow: 'visible',
+            // allowBodyScroll: scroll within the fixed overlay
+            // normal: allow dropdowns to render outside modal bounds
+            overflowY: allowBodyScroll ? 'auto' : 'visible',
+            overflowX: allowBodyScroll ? 'hidden' : 'visible',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           {/* Dialog.Content provides ARIA role="dialog" + aria-modal + focus trap anchor */}
@@ -186,7 +178,7 @@ const DialogModal = forwardRef(function DialogModal({
               {showHeader && (
                 <div className="modal-header">
                   <h5 id={titleId} className="modal-title">
-                    {icon && <span className="me-2">{icon}</span>}
+                    {icon && <span className={styles.iconSpacing}>{icon}</span>}
                     {title}
                   </h5>
                   <button

@@ -525,8 +525,8 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
       <div className={styles.uploadFormSection}>
         {showCreditFields ? (
           <>
-            <div className="mb-3">
-              <label htmlFor="photo_credit" className="visually-hidden">
+            <div className={styles.formGroup}>
+              <label htmlFor="photo_credit" className={styles.srOnly}>
                 {lang.current.photo.creditName}
               </label>
               <FormControl
@@ -540,8 +540,8 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
               />
             </div>
 
-            <div className="mb-3">
-              <label htmlFor="photo_credit_url" className="visually-hidden">
+            <div className={styles.formGroup}>
+              <label htmlFor="photo_credit_url" className={styles.srOnly}>
                 {lang.current.photo.creditUrl}
               </label>
               <FormControl
@@ -556,10 +556,10 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             </div>
           </>
         ) : (
-          <div className="mb-3">
+          <div className={styles.formGroup}>
             <button
               type="button"
-              className="btn btn-link p-0 text-decoration-none"
+              className={`btn btn-link ${styles.creditToggleBtn}`}
               onClick={() => setShowCreditFields(true)}
               aria-expanded={showCreditFields}
             >
@@ -570,7 +570,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
 
         {!useUrl ? (
           <>
-            <label htmlFor="image" className="visually-hidden">
+            <label htmlFor="image" className={styles.srOnly}>
               {lang.current.photo.chooseFile}
             </label>
             <FormControl
@@ -586,13 +586,13 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             <div className={styles.fileSizeHint}>
               Max file size: {getPhotoSizeLimit()} per image
             </div>
-            <span id="image-upload-help" className="visually-hidden">
+            <span id="image-upload-help" className={styles.srOnly}>
               {lang.current.photo.acceptedFormats}
             </span>
 
             {/* Upload progress indicator for file mode */}
             {uploadProgress && (
-              <div className={`${styles.uploadProgressContainer} mt-3`} aria-busy="true">
+              <div className={`${styles.uploadProgressContainer} ${styles.spaced}`} aria-busy="true">
                 <div className={styles.uploadProgressInfo}>
                   <span className={styles.uploadFileName}>{uploadProgress.fileName}</span>
                   <span className={styles.uploadSize}>
@@ -611,10 +611,10 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
           </>
         ) : (
           <>
-            <label htmlFor="photo_url" className="visually-hidden">
+            <label htmlFor="photo_url" className={styles.srOnly}>
               {lang.current.photo.photoUrl}
             </label>
-            <div className="input-group mb-3">
+            <div className={`input-group ${styles.formGroup}`}>
               <input
                 type="url"
                 name="photo_url"
@@ -643,9 +643,9 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             </div>
 
             {/* Upload button - always visible in URL mode */}
-            <div className="mb-3">
+            <div className={styles.formGroup}>
               <button
-                className={`btn btn-primary w-100 ${styles.uploadBtn}`}
+                className={`btn btn-primary ${styles.uploadBtn}`}
                 onClick={urlQueue.length > 0 ? handleUploadAllUrls : handlePhotoAdd}
                 disabled={uploading || (!uploadForm.photo_url && urlQueue.length === 0)}
                 type="button"
@@ -678,9 +678,9 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             )}
 
             {urlQueue.length > 0 && (
-              <div className="url-queue mb-3">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <small className="text-muted">
+              <div className={styles.urlQueueContainer}>
+                <div className={styles.urlQueueHeader}>
+                  <small className={styles.textMuted}>
                     {lang.current.photo.urlsInQueue.replace('{count}', urlQueue.length)}
                   </small>
                 </div>
@@ -688,7 +688,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
                   {urlQueue.map((item, index) => (
                     <div
                       key={index}
-                      className={`url-queue-item ${editingUrlIndex === index ? 'editing' : ''}`}
+                      className={`${styles.urlQueueItem} ${editingUrlIndex === index ? styles.urlQueueItemEditing : ''}`}
                       onClick={() => handleEditUrlInQueue(index)}
                       role="button"
                       tabIndex={0}
@@ -703,13 +703,13 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
                       <div className={styles.urlQueueItemContent}>
                         <div className={styles.urlQueueItemUrl}>{item.url}</div>
                         <div className={styles.urlQueueItemCredit}>
-                          <small className="text-muted">
+                          <small className={styles.textMuted}>
                             {item.photo_credit} {item.photo_credit_url && `• ${item.photo_credit_url}`}
                           </small>
                         </div>
                       </div>
                       <button
-                        className="btn btn-sm btn-outline-danger url-queue-item-remove"
+                        className={`btn btn-sm btn-outline-danger ${styles.urlQueueItemRemove}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveUrlFromQueue(index);
@@ -727,9 +727,9 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
           </>
         )}
 
-        <div className="d-flex gap-2 align-items-center">
+        <div className={styles.toggleRow}>
           <button
-            className="btn btn-light btn-sm upload-toggle-btn"
+            className="btn btn-light btn-sm"
             onClick={() => {
               setUseUrl(!useUrl);
               setUploadForm({ photo_credit: "", photo_credit_url: "", photo_url: "" });
@@ -761,7 +761,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
           </div>
 
           {disabledPhotos.size > 0 && (
-            <Alert type="info" className="mb-3">
+            <Alert type="info" className={styles.formGroup}>
               <small>
                 <strong>{lang.current.photo.tipLabel}</strong> {lang.current.photo.tipDisabledPhotos}{' '}
                 <span dangerouslySetInnerHTML={{ __html: lang.current.photo.tipEnablePhotos }} />
@@ -953,7 +953,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          className="visually-hidden"
+          className={styles.srOnly}
         >
           {uploadProgress && uploadProgress.percent < 100 && (
             `Uploading ${uploadProgress.fileName}: ${uploadProgress.percent}% complete`

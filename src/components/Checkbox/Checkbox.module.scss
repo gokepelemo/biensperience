@@ -174,22 +174,22 @@
    ═══════════════════════════════════════════ */
 .colorSuccess {
   &.variantOutline .hiddenInput:checked ~ .control {
-    background: var(--bs-success, #198754);
+    background: var(--color-success);
   }
   &.variantSubtle .control {
     background: rgba(25, 135, 84, 0.12);
   }
   &.variantSubtle .hiddenInput:checked ~ .control {
     background: rgba(25, 135, 84, 0.2);
-    .indicator { stroke: var(--bs-success, #198754); }
+    .indicator { stroke: var(--color-success); }
   }
   &.variantSolid .control {
-    background: var(--bs-success, #198754);
+    background: var(--color-success);
   }
 
   &.variantOutline:hover:not(.isDisabled) .control,
   &.variantSubtle:hover:not(.isDisabled) .control {
-    border-color: var(--bs-success, #198754);
+    border-color: var(--color-success);
   }
   .hiddenInput:focus-visible ~ .control {
     box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.35);
@@ -198,22 +198,22 @@
 
 .colorDanger {
   &.variantOutline .hiddenInput:checked ~ .control {
-    background: var(--bs-danger, #dc3545);
+    background: var(--color-danger);
   }
   &.variantSubtle .control {
     background: rgba(220, 53, 69, 0.12);
   }
   &.variantSubtle .hiddenInput:checked ~ .control {
     background: rgba(220, 53, 69, 0.2);
-    .indicator { stroke: var(--bs-danger, #dc3545); }
+    .indicator { stroke: var(--color-danger); }
   }
   &.variantSolid .control {
-    background: var(--bs-danger, #dc3545);
+    background: var(--color-danger);
   }
 
   &.variantOutline:hover:not(.isDisabled) .control,
   &.variantSubtle:hover:not(.isDisabled) .control {
-    border-color: var(--bs-danger, #dc3545);
+    border-color: var(--color-danger);
   }
   .hiddenInput:focus-visible ~ .control {
     box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.35);
@@ -222,22 +222,22 @@
 
 .colorWarning {
   &.variantOutline .hiddenInput:checked ~ .control {
-    background: var(--bs-warning, #ffc107);
+    background: var(--color-warning);
   }
   &.variantSubtle .control {
     background: rgba(255, 193, 7, 0.12);
   }
   &.variantSubtle .hiddenInput:checked ~ .control {
     background: rgba(255, 193, 7, 0.2);
-    .indicator { stroke: var(--bs-warning, #ffc107); }
+    .indicator { stroke: var(--color-warning); }
   }
   &.variantSolid .control {
-    background: var(--bs-warning, #ffc107);
+    background: var(--color-warning);
   }
 
   &.variantOutline:hover:not(.isDisabled) .control,
   &.variantSubtle:hover:not(.isDisabled) .control {
-    border-color: var(--bs-warning, #ffc107);
+    border-color: var(--color-warning);
   }
   .hiddenInput:focus-visible ~ .control {
     box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.35);

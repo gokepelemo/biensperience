@@ -28,8 +28,22 @@
     width: auto; /* Don't force full width - let buttons size naturally */
     margin: 0 auto; /* Center the container */
   }
+}
 
-  /* Navbar integration - fade in animation */
+.alignStart {
+  justify-content: flex-start;
+}
+
+.alignCenter {
+  justify-content: center;
+}
+
+.alignEnd {
+  justify-content: flex-end;
+}
+
+/* Navbar integration - fade in animation */
+.actionButtons {
   &.fadeIn {
     animation: fadeInSlide 0.3s ease-out;
   }

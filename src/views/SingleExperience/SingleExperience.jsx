@@ -3124,7 +3124,7 @@ export default function SingleExperience() {
                       alt={experience.destination.name}
                     />
                   ) : (
-                    <div className="d-flex align-items-center justify-content-center h-100 text-muted">
+                    <div className={styles.noImagePlaceholder}>
                       No image available
                     </div>
                   )}
@@ -3310,9 +3310,9 @@ export default function SingleExperience() {
                     {/* Experience Plan Items Tab Content */}
                     {activeTab === "experience" && (
                       experienceTabLoading ? (
-                        <div className="experience-plan-view mt-4">
+                        <div className={`experience-plan-view ${styles.skeletonPlanView}`}>
                           {/* Skeleton for collaborators */}
-                          <div className="plan-header-row mb-4">
+                          <div className={`plan-header-row ${styles.skeletonHeaderRow}`}>
                             <UsersListDisplay
                               loading={true}
                               owner={null}
@@ -3321,15 +3321,15 @@ export default function SingleExperience() {
                               reserveSpace={true}
                             />
                             {/* Action button skeleton */}
-                            <div className="d-flex justify-content-end">
+                            <div className={styles.skeletonFlexEnd}>
                               <SkeletonLoader variant="rectangle" width="120px" height="40px" />
                             </div>
                           </div>
                           {/* Skeleton for plan items */}
-                          <div className="plan-items-skeleton mt-4">
+                          <div className={`plan-items-skeleton ${styles.skeletonItemsSpacer}`}>
                             {[1, 2, 3].map((i) => (
-                              <div key={i} className="plan-item-card mb-3 p-3 p-md-4">
-                                <div className="d-flex gap-3 mb-3">
+                              <div key={i} className={`plan-item-card ${styles.skeletonItemCard}`}>
+                                <div className={styles.skeletonItemHeader}>
                                   <SkeletonLoader variant="circle" width={24} height={24} />
                                   <SkeletonLoader variant="text" width="70%" height={20} />
                                 </div>

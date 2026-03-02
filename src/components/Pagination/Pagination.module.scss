@@ -40,14 +40,15 @@
 }
 
 /* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  :root {
+:root {
+  @include dark-mode {
     --pagination-bg: var(--color-bg-secondary);
     --pagination-bg-hover: var(--color-bg-tertiary);
     --pagination-border: var(--color-border-light);
     --pagination-border-hover: var(--color-border-medium);
   }
 }
+
 
 :root[data-theme="dark"] {
   --pagination-bg: var(--color-bg-secondary);
@@ -292,6 +293,8 @@
     align-items: center;
     flex-wrap: wrap;
     justify-content: center;
+    padding-left: 0;
+    list-style: none;
   }
 
   :global(.page-item.active) {

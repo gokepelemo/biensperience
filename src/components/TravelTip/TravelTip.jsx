@@ -198,8 +198,8 @@ export default function TravelTip({ tip, index, onDelete, editable = false, incl
 
           {exchangeRate && type === 'Currency' && (
             <div className={styles.travelTipExchangeRate}>
-              <small className="text-muted">
-                <FaMoneyBillWave className="me-1" />
+              <small className={styles.exchangeRateText}>
+                <FaMoneyBillWave className={styles.exchangeRateIcon} />
                 {exchangeRate}
               </small>
             </div>

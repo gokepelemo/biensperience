@@ -45,7 +45,7 @@ export default function AlertModal({
       centered={true}
       contentClassName={styles.alertModal}
     >
-      <div className={`alert ${variantClass} mb-0`}>
+      <div className={`alert ${variantClass} ${styles.mb0}`}>
         {message}
       </div>
     </Modal>

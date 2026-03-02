@@ -105,16 +105,21 @@ const UserAvatar = ({
   // Multiple UserAvatar instances in the same render cycle are batched into
   // a single API request via microtask batching in avatar-cache.js.
   const [lazyUrl, setLazyUrl] = useState(null);
+  const [fetchDone, setFetchDone] = useState(false);
 
   useEffect(() => {
     if (resolvedUrl !== null || !user?._id) {
       if (lazyUrl !== null) setLazyUrl(null);
+      setFetchDone(false);
       return;
     }
 
     let cancelled = false;
     fetchAvatarUrl(user._id).then(url => {
-      if (!cancelled && url) setLazyUrl(url);
+      if (!cancelled) {
+        if (url) setLazyUrl(url);
+        setFetchDone(true);
+      }
     });
     return () => { cancelled = true; };
   }, [resolvedUrl, user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -126,6 +131,9 @@ const UserAvatar = ({
   const sanitizedName = sanitizeText(user.name || '');
   const avatarTitle = sanitizeText(title || user.name || '');
 
+  // Still resolving the avatar URL (cache miss + lazy fetch in flight)
+  const isResolving = resolvedUrl === null && lazyUrl === null && !fetchDone && !!user?._id;
+
   const avatarProps = {
     src: safePhotoUrl || undefined,
     name: sanitizedName,
@@ -133,6 +141,7 @@ const UserAvatar = ({
     showPresence,
     isOnline,
     title: avatarTitle,
+    loading: isResolving,
   };
 
   if (linkToProfile && user._id) {
@@ -169,7 +178,7 @@ UserAvatar.propTypes = {
     name: PropTypes.string.isRequired,
     photo: PropTypes.string,
   }),
-  size: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl']),
+  size: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl', 'profile']),
   linkToProfile: PropTypes.bool,
   className: PropTypes.string,
   onClick: PropTypes.func,

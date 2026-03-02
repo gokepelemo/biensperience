@@ -10,7 +10,7 @@ import DestinationCard from '../../components/DestinationCard/DestinationCard';
 import ExperienceCard from '../../components/ExperienceCard/ExperienceCard';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import Loading from '../../components/Loading/Loading';
-import { Button, Container, Heading, EmptyState, Alert } from '../../components/design-system';
+import { Button, Container, Heading, EmptyState, Alert, Dropdown, DropdownToggle, DropdownMenu, DropdownItem } from '../../components/design-system';
 import TagPill from '../../components/Pill/TagPill';
 import Pagination from '../../components/Pagination/Pagination';
 import ViewNav from '../../components/ViewNav/ViewNav';
@@ -114,29 +114,22 @@ const ProfileHeader = ({ user, isOwner = true, isLoading = false, onEditProfile,
       <div className="col-md-6">
         <div className="header-actions">
           {!isLoading && (
-            <div className="dropdown">
-              <Button
-                variant="bootstrap"
-                bootstrapVariant="outline-secondary"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
+            <Dropdown>
+              <DropdownToggle
                 aria-label="Profile actions"
                 onClick={onMoreOptions}
               >
                 ⋯
-              </Button>
-              <ul className="dropdown-menu dropdown-menu-end">
+              </DropdownToggle>
+              <DropdownMenu>
                 {isOwner && (
-                  <li>
-                    <button className={`dropdown-item ${styles.dropdownItem}`} onClick={onEditProfile}>
-                      <FaEdit className={styles.dropdownIcon} />
-                      <span>Update Profile</span>
-                    </button>
-                  </li>
+                  <DropdownItem className={styles.dropdownItem} onClick={onEditProfile}>
+                    <FaEdit className={styles.dropdownIcon} />
+                    <span>Update Profile</span>
+                  </DropdownItem>
                 )}
-              </ul>
-            </div>
+              </DropdownMenu>
+            </Dropdown>
           )}
         </div>
       </div>
@@ -545,7 +538,7 @@ export const ProfileSuperAdminView = {
                     <p className="mb-2">
                       <strong>Current Role:</strong> Regular User
                     </p>
-                    <p className="small mb-0" style={{ color: 'var(--bs-gray-600)' }}>
+                    <p className="small mb-0" style={{ color: 'var(--color-text-muted)' }}>
                       Change this user's role. Super admins have full access to all resources and user management.
                     </p>
                   </div>
@@ -580,7 +573,7 @@ export const ProfileSuperAdminView = {
                         Confirmed
                       </span>
                     </p>
-                    <p className="small mb-0" style={{ color: 'var(--bs-gray-600)' }}>
+                    <p className="small mb-0" style={{ color: 'var(--color-text-muted)' }}>
                       Manually confirm or unconfirm this user's email address.
                     </p>
                   </div>

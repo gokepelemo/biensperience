@@ -4,7 +4,11 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
  * Context for managing the Plan New Experience multi-step modal.
  * Allows any component in the app to trigger the modal flow.
  */
-const PlanExperienceContext = createContext(null);
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const PlanExperienceContext = (import.meta.hot?.data?.PlanExperienceContext) || createContext(null);
+if (import.meta.hot) {
+  import.meta.hot.data.PlanExperienceContext = PlanExperienceContext;
+}
 
 export function PlanExperienceProvider({ children }) {
   const [isModalOpen, setIsModalOpen] = useState(false);

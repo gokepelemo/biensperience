@@ -38,7 +38,7 @@ export default function SocialLoginButtons({
   return (
     <div className={styles.socialLoginContainer}>
       {showDivider && (
-        <div className={`${styles.divider} my-3`}>
+        <div className={styles.divider}>
           <span className={styles.dividerText}>OR</span>
         </div>
       )}

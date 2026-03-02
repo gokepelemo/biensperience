@@ -14,6 +14,7 @@ import GoogleMap from '../../../components/GoogleMap/GoogleMap';
 import TagPill from '../../../components/Pill/TagPill';
 import { createUrlSlug } from '../../../utilities/url-utils';
 import styles from '../SingleExperience.module.scss';
+import overviewStyles from './ExperienceOverviewSection.module.scss';
 
 function ExperienceOverviewSection({
   // Experience data
@@ -23,10 +24,10 @@ function ExperienceOverviewSection({
   lang
 }) {
   return (
-    <div className="row my-4 fade-in">
+    <div className={`${overviewStyles.overviewRow} fade-in`}>
       {/* Photo Section - Left Column */}
-      <div className="col-md-6 p-3 fade-in">
-        <div className="mb-4">
+      <div className={`${overviewStyles.photoColumn} fade-in`}>
+        <div className={overviewStyles.photoWrapper}>
           <PhotoCard
             photos={experience.photos}
             photo={experience.photo}
@@ -42,8 +43,8 @@ function ExperienceOverviewSection({
       </div>
 
       {/* Info Card Section - Right Column */}
-      <div className="col-md-6 p-3 fade-in">
-        <div className="col-md-12 fade-in">
+      <div className={`${overviewStyles.infoColumn} fade-in`}>
+        <div className={`${overviewStyles.infoInner} fade-in`}>
           <InfoCard
             title={
               !experience.destination || !experience.destination.name ? (

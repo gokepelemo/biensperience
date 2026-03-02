@@ -32,33 +32,23 @@
   transform: none !important;
 }
 
-/* Document-scrolling modal mode
- * - Lets the modal content extend beyond the viewport
- * - Uses page scrolling instead of internal modal scrolling
+/* Fixed-overlay scrollable modal mode
+ * - Uses a fixed overlay that scrolls internally (overflow-y: auto on positioner)
+ * - No scroll manipulation on the underlying page
  * - Used for mobile full-screen detail views (e.g., PlanItemDetailsModal)
  */
 .modalAllowBodyScroll {
-  position: absolute !important;
-  /* Critical: unset bottom so the element can grow beyond the viewport */
-  bottom: auto !important;
-  height: auto !important;
-  min-height: 100% !important;
-  /* Both overflow axes must be 'visible' — setting only overflow-x to 'hidden'
-   * triggers the CSS spec rule that computes overflow-y to 'auto', creating an
-   * implicit scroll container that clips content to the element's height. */
-  overflow: visible !important;
+  /* Inline styles handle position: fixed + overflow-y: auto on the positioner.
+   * This class applies structural overrides for content sizing. */
   align-items: flex-start !important;
   justify-content: flex-start !important;
-  overscroll-behavior: auto;
-  width: 100% !important;
-  max-width: 100% !important;
+  overscroll-behavior: contain;
 
   :global(.modal-dialog) {
     margin: 0 auto;
     padding: $space-3;
     height: auto;
     max-height: none;
-    /* Prevent horizontal overflow on mobile */
     max-width: 100%;
     box-sizing: border-box;
 
@@ -77,14 +67,13 @@
     overflow: visible;
   }
 
-  /* Fullscreen variant must stop forcing 100vh/dvh so content can grow */
+  /* Fullscreen variant sizes to content within the scrollable overlay */
   .modalFullscreen {
     height: auto;
-    min-height: auto; /* Changed from 0 - allow content to determine height */
+    min-height: auto;
     max-height: none;
     overflow: visible;
     flex: 0 0 auto;
-    /* Reset fullscreen-specific properties that interfere with document scroll */
     align-self: auto;
 
     .modalContent {
@@ -93,17 +82,14 @@
       overflow: visible;
       min-height: 100vh;
       min-height: 100dvh;
-      /* Flex column so .modalBody can grow to fill */
       display: flex;
       flex-direction: column;
       flex: 0 0 auto;
-      /* Reset padding that might cause visual issues */
       padding-top: 0;
       padding-bottom: 0;
     }
 
     .modalBody {
-      /* Flex grower: fill remaining space in min-height: 100dvh parent */
       flex: 1 1 auto;
       min-height: 0;
       height: auto;
@@ -268,6 +254,11 @@
       overflow-y: auto; /* Allow scrolling on mobile */
     }
   }
+}
+
+/* Utility replacement classes */
+.iconSpacing {
+  margin-inline-end: $space-2;
 }
 
 /* Responsive Modal Sizing */

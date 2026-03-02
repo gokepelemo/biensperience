@@ -19,7 +19,7 @@
  * - Link-to-profile wrapping (handled by parent UserAvatar)
  */
 
-import { forwardRef } from 'react';
+import { forwardRef, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Avatar } from '@chakra-ui/react';
 import styles from './UserAvatar.module.scss';
@@ -39,6 +39,7 @@ import styles from './UserAvatar.module.scss';
  * @param {string}  [props.className]     – Extra CSS class names
  * @param {string}  [props.title]         – Tooltip / title text
  * @param {Function} [props.onClick]      – Click handler
+ * @param {boolean} [props.loading]       – Whether the avatar URL is still being resolved
  */
 const AvatarRenderer = forwardRef(function AvatarRenderer(
   {
@@ -50,10 +51,27 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
     className = '',
     title,
     onClick,
+    loading = false,
     ...rest
   },
   ref,
 ) {
+  // Track whether the <img> has finished loading to avoid showing
+  // initials while the browser fetches the image.
+  const [imgLoaded, setImgLoaded] = useState(false);
+  // Track image load failures so we can immediately fall back to initials
+  const [imgError, setImgError] = useState(false);
+
+  // Reset loaded/error state when src changes
+  useEffect(() => {
+    setImgLoaded(false);
+    setImgError(false);
+  }, [src]);
+
+  // Show skeleton when: URL is still being resolved OR image is in flight (not loaded and not errored)
+  const showSkeleton = loading || (src && !imgLoaded && !imgError);
+  // Show initials fallback when not loading and either no src or the image failed
+  const showFallback = !showSkeleton && (!src || imgError);
   const sizeClass =
     styles[`userAvatar${size.charAt(0).toUpperCase() + size.slice(1)}`] || '';
   const presenceClass = showPresence
@@ -104,10 +122,35 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
       }}
       {...rest}
     >
-      <Avatar.Fallback name={name}>
-        {/* Chakra auto-generates initials from name */}
-      </Avatar.Fallback>
-      <Avatar.Image src={src} alt={name || 'User avatar'} />
+      {/* Skeleton: shown while URL is resolving or image is loading */}
+      {showSkeleton && (
+        <span className={styles.avatarSkeleton} aria-hidden="true" />
+      )}
+      {/* Initials fallback: shown when no image is available or image failed to load */}
+      {showFallback && (
+        <Avatar.Fallback name={name}>
+          {/* Chakra auto-generates initials from name */}
+        </Avatar.Fallback>
+      )}
+      {/* Use a plain <img> to avoid Chakra's internal state machine
+          which can briefly flash initials before the image loads.
+          The img is hidden until onLoad fires, while the skeleton covers it. */}
+      {src && !imgError && (
+        <img
+          src={src}
+          alt={name || 'User avatar'}
+          onLoad={() => setImgLoaded(true)}
+          onError={() => setImgError(true)}
+          style={{
+            position: imgLoaded ? 'static' : 'absolute',
+            opacity: imgLoaded ? 1 : 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            borderRadius: '50%',
+          }}
+        />
+      )}
     </Avatar.Root>
   );
 });
@@ -117,12 +160,13 @@ AvatarRenderer.displayName = 'AvatarRenderer';
 AvatarRenderer.propTypes = {
   src: PropTypes.string,
   name: PropTypes.string,
-  size: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl']),
+  size: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl', 'profile']),
   showPresence: PropTypes.bool,
   isOnline: PropTypes.bool,
   className: PropTypes.string,
   title: PropTypes.string,
   onClick: PropTypes.func,
+  loading: PropTypes.bool,
 };
 
 export default AvatarRenderer;

@@ -74,17 +74,19 @@
 }
 
 /* Avatar */
+/* Avatar — wraps the UserAvatar component; sizing is handled by
+   the 'profile' size variant in UserAvatar.module.scss.
+   This class adds the border, shadow, and block display. */
 .profileAvatar {
-  width: 150px;
-  height: 150px;
-  border-radius: var(--radius-full);
   border: 5px solid var(--color-bg-primary);
   box-shadow: var(--shadow-lg);
-  object-fit: cover;
+  border-radius: var(--radius-full);
   display: block;
 }
 
-/* Avatar placeholder for users without photo */
+/* Avatar placeholder is no longer rendered directly (handled by
+   AvatarRenderer initials fallback), but keep the class for
+   backwards compatibility with ProfileSkeleton. */
 .profileAvatarPlaceholder {
   width: 150px;
   height: 150px;
@@ -500,7 +502,8 @@
     padding: var(--space-4);
   }
 
-  .profileAvatar,
+  /* Avatar sizing is handled by UserAvatar 'profile' size variant;
+     keep placeholder sizing for skeleton fallback */
   .profileAvatarPlaceholder {
     width: 120px;
     height: 120px;
@@ -1342,7 +1345,7 @@
   margin-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border-light);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-bottom-color: var(--color-border-dark);
   }
 
@@ -1400,7 +1403,7 @@
     font-size: var(--font-size-xs);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
 
@@ -1421,7 +1424,7 @@
     border-color: transparent;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--gradient-primary);
     border-color: transparent;
   }
@@ -1465,7 +1468,7 @@
     padding: var(--space-3);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
@@ -1512,7 +1515,7 @@
     min-width: 44px;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
@@ -1548,7 +1551,7 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
   }
@@ -1578,7 +1581,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-lg);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
   }
 }
@@ -1672,7 +1675,7 @@
     text-align: center;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
@@ -1862,4 +1865,98 @@
   &.noPassword svg {
     color: var(--color-warning);
   }
+}
+
+/* ===== UpdateProfile Utility Replacements ===== */
+
+.mb4 {
+  margin-bottom: $space-6;
+}
+
+.mb3 {
+  margin-bottom: $space-4;
+}
+
+.mt4 {
+  margin-top: $space-6;
+}
+
+.mt2 {
+  margin-top: $space-2;
+}
+
+.my4 {
+  margin-top: $space-6;
+  margin-bottom: $space-6;
+}
+
+.me2 {
+  margin-inline-end: $space-2;
+}
+
+.p0 {
+  padding: 0;
+}
+
+.noTextDecoration {
+  text-decoration: none;
+}
+
+.flexGrow1 {
+  flex-grow: 1;
+}
+
+.justifyCenter {
+  justify-content: center;
+}
+
+.formActions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: $space-6;
+  gap: $space-4;
+}
+
+.curatorLinksLabel {
+  @include flex-center-vertical;
+  gap: $space-2;
+}
+
+.locationHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-top: calc($space-2 * -1);
+  margin-bottom: $space-4;
+}
+
+.linkedAccountsLoading {
+  text-align: center;
+  padding-top: $space-6;
+  padding-bottom: $space-6;
+}
+
+.linkedAccountsDesc {
+  color: var(--color-text-muted);
+  margin-bottom: $space-6;
+}
+
+.changesList {
+  margin-bottom: 0;
+  margin-top: $space-2;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.col12 {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+.profileContainer {
+  max-width: $breakpoint-lg;
+  margin-inline: auto;
+  padding-inline: $space-3;
 }

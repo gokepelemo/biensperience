@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import styles from "./NewDestination.module.scss";
 import { lang } from "../../lang.constants";
 import { createDestination } from "../../utilities/destinations-api";
 import { useData } from "../../contexts/DataContext";
@@ -145,18 +146,18 @@ export default function NewDestination() {
 
   return (
     <>
-      <div className="row animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.row} animation-fade-in`}>
+        <div className={styles.col12}>
           <h1 className="form-title">{lang.current.heading.createDestination}</h1>
         </div>
       </div>
 
       {error && (
-        <Alert type="danger" className="mb-4">
+        <Alert type="danger" className={styles.mb4}>
           <div>
             {error}
             {error.includes('verify your email') && (
-              <div className="mt-2">
+              <div className={styles.mt2}>
                 <a href="/resend-confirmation" className="btn btn-sm btn-outline-primary">
                   {lang.current.alert.emailNotVerifiedAction}
                 </a>
@@ -166,8 +167,8 @@ export default function NewDestination() {
         </Alert>
       )}
 
-      <div className="row my-4 animation-fade-in justify-content-center">
-        <div className="col-12">
+      <div className={`${styles.row} ${styles.my4} animation-fade-in justify-content-center`}>
+        <div className={styles.col12}>
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
@@ -181,8 +182,8 @@ export default function NewDestination() {
               tooltipPlacement="top"
             />
 
-            <div className="row mb-4">
-              <div className="col-md-6 mb-3 mb-md-0">
+            <div className={`${styles.row} ${styles.formRow}`}>
+              <div className={`${styles.colMd6} ${styles.formColSpacing}`}>
                 <FormField
                   name="state"
                   label={lang.current.formLabel.stateProvince}
@@ -192,11 +193,11 @@ export default function NewDestination() {
                   placeholder={lang.current.placeholder.stateProvince}
                   tooltip={lang.current.helper.stateProvinceRequired}
                   tooltipPlacement="top"
-                  className="mb-0"
+                  className={styles.mb0}
                 />
               </div>
 
-              <div className="col-md-6">
+              <div className={styles.colMd6}>
                 <FormField
                   name="country"
                   label={lang.current.formLabel.country}
@@ -207,7 +208,7 @@ export default function NewDestination() {
                   required
                   tooltip={lang.current.helper.countryRequired}
                   tooltipPlacement="top"
-                  className="mb-0"
+                  className={styles.mb0}
                 />
               </div>
             </div>
@@ -226,7 +227,7 @@ export default function NewDestination() {
               maxLength={300}
             />
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Label>
                 {lang.current.heading.photos}
               </Form.Label>
@@ -253,7 +254,7 @@ export default function NewDestination() {
               onAddStructuredTip={addStructuredTip}
             />
 
-            <div className="d-flex justify-content-end mt-4">
+            <div className={styles.formActions}>
               <button
                 type="submit"
                 className="btn btn-primary btn-lg"

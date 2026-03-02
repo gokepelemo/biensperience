@@ -96,12 +96,12 @@ export default function Destinations() {
       />
 
       <Container className={styles.destinationsHeader}>
-        <div className="col-md-6">
+        <div className={styles.halfCol}>
           <Mobile>
-            <h1 className="my-4" style={{ textAlign: 'center' }}>{lang.current.destinationsView.pageTitle}</h1>
+            <h1 className={`${styles.my4} ${styles.textCenter}`}>{lang.current.destinationsView.pageTitle}</h1>
           </Mobile>
           <Desktop>
-            <h1 className="my-4" style={{ textAlign: 'start' }}>{lang.current.destinationsView.pageTitle}</h1>
+            <h1 className={`${styles.my4} ${styles.textStart}`}>{lang.current.destinationsView.pageTitle}</h1>
           </Desktop>
         </div>
       </Container>
@@ -120,13 +120,13 @@ export default function Destinations() {
       />
 
       {(loading || !initialLoadComplete) ? (
-        <Container className="my-4">
+        <Container className={styles.my4}>
           <div className={styles.destinationsList}>
             <DestinationCardSkeleton count={destinationsMeta.limit} />
           </div>
         </Container>
       ) : (
-        <Container className="my-4">
+        <Container className={styles.my4}>
           <div className={styles.destinationsList}>
             {processedDestinations.length > 0 ? (
               processedDestinations.map((destination, index) => (

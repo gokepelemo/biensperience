@@ -146,6 +146,7 @@
   padding: $space-5;
   border: 1px solid var(--color-border-medium);
   box-shadow: var(--shadow-sm);
+  margin-bottom: $space-5;
 
   @media (max-width: 768px) {
     padding: $space-4;
@@ -382,4 +383,62 @@
 .activityBadgeSecondary {
   background-color: var(--color-secondary);
   color: var(--color-white);
+}
+
+/* Pagination wrapper */
+.paginationWrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: $space-3;
+}
+
+.paginationCount {
+  color: var(--color-text-muted);
+}
+
+/* Shared button icon spacing */
+.buttonIcon {
+  margin-right: $space-1;
+}
+
+/* Table container */
+.tableWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Muted text */
+.mutedText {
+  color: var(--color-text-muted);
+}
+
+/* Action buttons in table rows */
+.actionButtons {
+  display: flex;
+  gap: $space-1;
+}
+
+/* Details modal grid */
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-3;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detailsFullCol {
+  grid-column: 1 / -1;
+}
+
+.detailsHalfCol {
+  /* Uses single grid column; becomes full-width at mobile via parent grid */
+}
+
+/* Rollback button spacing */
+.rollbackButton {
+  margin-top: $space-2;
 }

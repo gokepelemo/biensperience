@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { Alert } from '../design-system';
 import { getFormDataAge } from '../../utilities/form-persistence';
 import { logger } from '../../utilities/logger';
+import styles from './RestoreFormDataAlert.module.scss';
 
 /**
  * Format time duration in human-readable format
@@ -80,7 +81,7 @@ export default function RestoreFormDataAlert({ formId, userId = null, onRestore,
     <Alert
       type="info"
       dismissible={false}
-      className="mb-3"
+      className={styles.alertWrapper}
       actions={
         <>
           <button
@@ -102,7 +103,7 @@ export default function RestoreFormDataAlert({ formId, userId = null, onRestore,
     >
       <div>
         <strong>Unsaved changes found</strong>
-        <p className="mb-0">
+        <p className={styles.noMargin}>
           You have unsaved form data from {formatDuration(age)}. Would you like to restore it?
         </p>
       </div>

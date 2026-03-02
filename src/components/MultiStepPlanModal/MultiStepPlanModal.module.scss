@@ -368,3 +368,72 @@
     }
   }
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.parentHint {
+  color: var(--color-text-muted);
+  margin-inline-start: $space-2;
+}
+
+.mb4 {
+  margin-bottom: $space-6;
+}
+
+.formSection {
+  margin-bottom: $space-6;
+}
+
+.formGroup {
+  margin-bottom: $space-4;
+}
+
+.destinationHelper {
+  color: var(--color-text-muted);
+  margin-top: $space-2;
+  display: block;
+}
+
+.inlineLink {
+  padding: 0;
+  margin-inline-start: $space-1;
+  vertical-align: baseline;
+}
+
+.requiredIndicator {
+  color: var(--color-danger);
+}
+
+.mt2 {
+  margin-top: $space-2;
+}
+
+.me2 {
+  margin-inline-end: $space-2;
+}
+
+/* ===== Utility replacements ===== */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-inline: calc($space-3 * -1);
+}
+
+.colMd6 {
+  width: 100%;
+  padding-inline: $space-3;
+
+  @include breakpoint(md) {
+    width: 50%;
+  }
+}
+
+.colMd3 {
+  width: 100%;
+  padding-inline: $space-3;
+
+  @include breakpoint(md) {
+    width: 25%;
+  }
+}

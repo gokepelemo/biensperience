@@ -1,0 +1,9 @@
+@use '../../styles/scss/abstracts' as *;
+
+.alertWrapper {
+  margin-bottom: $space-3;
+}
+
+.noMargin {
+  margin-bottom: 0;
+}

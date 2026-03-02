@@ -509,23 +509,28 @@
    DARK MODE SUPPORT
    ============================================ */
 
-@media (prefers-color-scheme: dark) {
-  .loadingSvg {
+.loadingSvg {
+  @include dark-mode {
     filter: drop-shadow(0 4px 12px var(--shadow-color-dark, rgba(0, 0, 0, 0.4)));
   }
+}
 
-  .loadingMessage {
+.loadingMessage {
+  @include dark-mode {
     color: var(--color-text-secondary);
   }
+}
 
-  .loadingOverlayLight {
+.loadingOverlayLight {
+  @include dark-mode {
     background-color: var(--color-overlay-dark-strong, rgba(26, 32, 44, 0.95));
-
+  
     .loadingMessage {
       color: var(--color-on-dark, #ffffff);
     }
   }
 }
+
 
 /* ============================================
    ACCESSIBILITY

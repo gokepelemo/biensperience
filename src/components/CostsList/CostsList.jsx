@@ -3,9 +3,12 @@
  *
  * Displays a list of costs for a plan with add/edit/delete functionality.
  * Includes inline cost summary.
+ *
+ * Uses Chakra UI layout primitives + design-system Accordion/Pill/EmptyState.
  */
 
 import { useState, useMemo, useId } from 'react';
+import { Box, Flex, HStack, VStack, Text, Icon, Badge, IconButton } from '@chakra-ui/react';
 import { FaDollarSign, FaPlus, FaEdit, FaTrash, FaUser, FaListUl, FaChevronDown } from 'react-icons/fa';
 import { formatTrackedCost } from '../../utilities/cost-utils';
 import { lang } from '../../lang.constants';
@@ -13,7 +16,7 @@ import CostEntry from '../CostEntry';
 import CostSummary from '../CostSummary';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import Pagination from '../Pagination/Pagination';
-import { EmptyState, Pill, Accordion } from '../design-system';
+import { EmptyState, Pill, Accordion, Button } from '../design-system';
 import styles from './CostsList.module.scss';
 
 const COSTS_PER_PAGE = 10;
@@ -188,7 +191,7 @@ export default function CostsList({
   // No early return - always show collapsible Tracked Costs section
 
   return (
-    <div className={styles.costsSection}>
+    <Box className={styles.costsSection}>
       {/* Tracked Costs Accordion - collapsed by default */}
       {/* Contains: Cost Summary (Total/Export/Per Person) + Costs List */}
       <Accordion
@@ -197,18 +200,29 @@ export default function CostsList({
         className={styles.trackedCostsAccordion}
       >
         <Accordion.Item eventKey={accordionId}>
-          <Accordion.Header className={styles.accordionHeader} as="div">
-            <div className={styles.accordionHeaderLeft}>
-              <FaChevronDown className={`${styles.accordionIcon} ${isAccordionOpen ? styles.accordionIconOpen : ''}`} />
-              <FaDollarSign className={styles.sectionIcon} />
-              <span className={styles.accordionTitle}>{costStrings.trackedCosts || 'Tracked Costs'}</span>
+          <Accordion.Header className={styles.accordionHeader}>
+            <HStack gap="var(--space-2)" flex="0 1 auto">
+              <Icon
+                as={FaChevronDown}
+                className={`${styles.accordionIcon} ${isAccordionOpen ? styles.accordionIconOpen : ''}`}
+                color="var(--color-text-muted)"
+                fontSize="var(--font-size-sm)"
+              />
+              <Icon as={FaDollarSign} color="var(--color-primary)" />
+              <Text
+                as="span"
+                fontWeight="var(--font-weight-semibold)"
+                fontSize="var(--font-size-lg)"
+                color="var(--color-text-primary)"
+              >
+                {costStrings.trackedCosts || 'Tracked Costs'}
+              </Text>
               <Pill variant="neutral" size="sm">{costs.length}</Pill>
-            </div>
+            </HStack>
             {canEdit && (
-              <span
-                className="btn btn-outline-primary btn-sm"
-                role="button"
-                tabIndex={0}
+              <Button
+                variant="outline-primary"
+                size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAddCost();
@@ -221,15 +235,15 @@ export default function CostsList({
                   }
                 }}
               >
-                <FaPlus className="me-1" />
+                <Icon as={FaPlus} marginRight="var(--space-1)" />
                 {costStrings.addCost}
-              </span>
+              </Button>
             )}
           </Accordion.Header>
           <Accordion.Body className={styles.accordionBody}>
             {/* Cost Summary - Total/Export CSV/Per Person Share */}
             {showSummary && costs.length > 0 && (
-              <div className={styles.summaryWrapper}>
+              <Box marginBottom="var(--space-4)">
                 <CostSummary
                   summary={costSummary}
                   costs={costs}
@@ -241,7 +255,7 @@ export default function CostsList({
                   presenceConnected={presenceConnected}
                   onlineUserIds={onlineUserIds}
                 />
-              </div>
+              </Box>
             )}
             {costs.length === 0 ? (
               /* Empty State */
@@ -258,72 +272,126 @@ export default function CostsList({
             ) : (
               /* Costs List */
               <>
-                <div className={styles.costsList} id={listId}>
+                <VStack gap="var(--space-3)" align="stretch" id={listId}>
                   {paginatedCosts.map((cost) => {
-                const collaboratorName = getCollaboratorName(cost.collaborator);
-                const planItemText = getPlanItemText(cost.plan_item);
+                    const collaboratorName = getCollaboratorName(cost.collaborator);
+                    const planItemText = getPlanItemText(cost.plan_item);
 
-                return (
-                  <div key={cost._id} className={styles.costItem}>
-                    <div className={styles.costItemContent}>
-                      <div className={styles.costItemTitle}>{cost.title}</div>
-                      {cost.description && (
-                        <div className={styles.costItemDescription}>
-                          {cost.description}
-                        </div>
-                      )}
-                      <div className={styles.costItemMeta}>
-                        {collaboratorName && (
-                          <span className={styles.metaBadge}>
-                            <FaUser className={styles.metaIcon} />
-                            {collaboratorName}
-                          </span>
-                        )}
-                        {planItemText && (
-                          <span className={styles.metaBadge}>
-                            <FaListUl className={styles.metaIcon} />
-                            {planItemText}
-                          </span>
-                        )}
-                        {!collaboratorName && (
-                          <span className={styles.sharedBadge}>
-                            {costStrings.sharedCost}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={styles.costItemRight}>
-                      <div className={styles.costItemAmount}>
-                        {/* Display individual costs in their original tracked currency with disambiguated symbol */}
-                        {formatTrackedCost(cost.cost, { currency: cost.currency || 'USD' })}
-                      </div>
-
-                      {canEdit && (
-                        <div className={styles.costItemActions}>
-                          <button
-                            className="btn btn-outline-secondary btn-sm"
-                            onClick={() => handleEditCost(cost)}
-                            type="button"
-                            title={lang.current.tooltip.edit}
+                    return (
+                      <Flex
+                        key={cost._id}
+                        className={styles.costItem}
+                        justify="space-between"
+                        align="flex-start"
+                        padding="var(--space-3)"
+                        bg="var(--color-bg-primary)"
+                        borderRadius="var(--radius-md)"
+                        border="1px solid"
+                        borderColor="var(--color-border-light)"
+                        transition="var(--transition-fast)"
+                        _hover={{
+                          borderColor: 'var(--color-border-medium)',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                        direction={{ base: 'column', sm: 'row' }}
+                        gap={{ base: 'var(--space-3)', sm: '0' }}
+                      >
+                        <Box flex="1" minWidth="0">
+                          <Text
+                            fontWeight="var(--font-weight-semibold)"
+                            color="var(--color-text-primary)"
+                            marginBottom="var(--space-1)"
                           >
-                            <FaEdit />
-                          </button>
-                          <button
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => handleDeleteClick(cost)}
-                            type="button"
-                            title={lang.current.tooltip.delete}
+                            {cost.title}
+                          </Text>
+                          {cost.description && (
+                            <Text
+                              fontSize="var(--font-size-sm)"
+                              color="var(--color-text-secondary)"
+                              marginBottom="var(--space-2)"
+                              lineClamp={2}
+                            >
+                              {cost.description}
+                            </Text>
+                          )}
+                          <HStack gap="var(--space-2)" flexWrap="wrap">
+                            {collaboratorName && (
+                              <Badge
+                                className={styles.metaBadge}
+                                variant="subtle"
+                                fontSize="var(--font-size-xs)"
+                              >
+                                <Icon as={FaUser} fontSize="0.7rem" opacity={0.7} />
+                                {collaboratorName}
+                              </Badge>
+                            )}
+                            {planItemText && (
+                              <Badge
+                                className={styles.metaBadge}
+                                variant="subtle"
+                                fontSize="var(--font-size-xs)"
+                              >
+                                <Icon as={FaListUl} fontSize="0.7rem" opacity={0.7} />
+                                {planItemText}
+                              </Badge>
+                            )}
+                            {!collaboratorName && (
+                              <Badge
+                                className={styles.sharedBadge}
+                                colorPalette="blue"
+                                variant="subtle"
+                                fontSize="var(--font-size-xs)"
+                              >
+                                {costStrings.sharedCost}
+                              </Badge>
+                            )}
+                          </HStack>
+                        </Box>
+
+                        <HStack
+                          gap="var(--space-3)"
+                          flexShrink={0}
+                          width={{ base: '100%', sm: 'auto' }}
+                          justify={{ base: 'space-between', sm: 'flex-end' }}
+                        >
+                          <Text
+                            fontSize="var(--font-size-lg)"
+                            fontWeight="var(--font-weight-bold)"
+                            color="var(--color-primary)"
+                            whiteSpace="nowrap"
                           >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-                </div>
+                            {/* Display individual costs in their original tracked currency with disambiguated symbol */}
+                            {formatTrackedCost(cost.cost, { currency: cost.currency || 'USD' })}
+                          </Text>
+
+                          {canEdit && (
+                            <HStack gap="var(--space-1)" className={styles.costItemActions}>
+                              <IconButton
+                                aria-label={lang.current.tooltip.edit}
+                                title={lang.current.tooltip.edit}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditCost(cost)}
+                              >
+                                <Icon as={FaEdit} />
+                              </IconButton>
+                              <IconButton
+                                aria-label={lang.current.tooltip.delete}
+                                title={lang.current.tooltip.delete}
+                                variant="outline"
+                                colorPalette="red"
+                                size="sm"
+                                onClick={() => handleDeleteClick(cost)}
+                              >
+                                <Icon as={FaTrash} />
+                              </IconButton>
+                            </HStack>
+                          )}
+                        </HStack>
+                      </Flex>
+                    );
+                  })}
+                </VStack>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -366,6 +434,6 @@ export default function CostsList({
         confirmVariant="danger"
         loading={modalLoading}
       />
-    </div>
+    </Box>
   );
 }

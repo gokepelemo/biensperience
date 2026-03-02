@@ -606,41 +606,52 @@
 /* ============================================
    DARK MODE SUPPORT
    ============================================ */
-@media (prefers-color-scheme: dark) {
-  .authContainer {
+.authContainer {
+  @include dark-mode {
     background-color: var(--color-bg-primary);
   }
+}
 
-  .authCard {
+.authCard {
+  @include dark-mode {
     background-color: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
   }
+}
 
-  .inputGroup {
+.inputGroup {
+  @include dark-mode {
     border-color: var(--color-border-dark);
-
+  
     &:focus-within {
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
     }
   }
+}
 
-  .inputIcon,
-  .passwordToggle {
+.inputIcon,
+.passwordToggle {
+  @include dark-mode {
     background-color: var(--color-bg-tertiary);
   }
+}
 
-  .formInput {
+.formInput {
+  @include dark-mode {
     background-color: var(--color-bg-secondary);
   }
+}
 
-  .submitBtn {
+.submitBtn {
+  @include dark-mode {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-
+  
     &:hover:not(:disabled) {
       box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
     }
   }
 }
+
 
 /* ============================================
    HIGH CONTRAST MODE SUPPORT
@@ -688,4 +699,13 @@
   .switchLink {
     transition: none;
   }
+}
+
+/* Utility replacement classes */
+.fieldsetSpacing {
+  margin-bottom: $space-3;
+}
+
+.visuallyHidden {
+  @include visually-hidden;
 }

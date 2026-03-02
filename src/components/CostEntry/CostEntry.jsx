@@ -242,7 +242,7 @@ export default function CostEntry({
       show={show}
       onClose={onHide}
       title={modalTitle}
-      dialogClassName="responsive-modal-dialog"
+      size="lg"
       footer={modalFooter}
       showSubmitButton={false}
       loading={loading}
@@ -392,7 +392,7 @@ export default function CostEntry({
               onChange={handleChange('collaborator')}
               className={styles.selectControl}
             >
-              <option value="">{costStrings.selectCollaboratorOptional || 'Select Collaborator (optional)'}</option>
+              <option value="">{costStrings.selectCollaboratorOptional || 'Select Collaborator'}</option>
               {collaborators.map(collab => (
                 <option key={collab._id} value={collab._id}>
                   {collab.name || collab.email}

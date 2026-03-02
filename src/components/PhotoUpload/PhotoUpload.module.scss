@@ -148,6 +148,7 @@
   background: var(--btn-gradient-bg);
   color: var(--btn-gradient-color);
   border-color: var(--color-primary);
+  width: 100%;
 
   &:hover:not(:disabled) {
     filter: brightness(1.1);
@@ -186,6 +187,10 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
+
+  &.spaced {
+    margin-top: $space-3;
+  }
 }
 
 .uploadProgressInfo {
@@ -423,7 +428,7 @@
     transform: translateY(-2px) !important;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
 
     &:hover {
@@ -567,7 +572,7 @@
     opacity: var(--opacity-disabled);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
 
     &:hover {
@@ -717,7 +722,7 @@
   padding: $space-4;
   background: var(--color-bg-secondary);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
   }
 }
@@ -748,16 +753,16 @@
     box-shadow: var(--shadow-sm);
   }
 
-  &.editing {
+  &.urlQueueItemEditing {
     border-color: var(--color-primary);
     background: var(--color-primary-alpha);
     box-shadow: var(--shadow-md);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
 
-    &.editing {
+    &.urlQueueItemEditing {
       background: var(--color-primary-alpha);
     }
   }
@@ -850,11 +855,43 @@
   }
 }
 
-:global(.d-flex.gap-2) {
+/* Toggle row: replaces d-flex gap-2 align-items-center */
+.toggleRow {
   display: flex;
   gap: $space-2;
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* URL queue container: replaces url-queue mb-3 */
+.urlQueueContainer {
+  margin-bottom: $space-3;
+}
+
+/* URL queue header: replaces d-flex justify-content-between align-items-center mb-2 */
+.urlQueueHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $space-2;
+}
+
+/* Utility replacement classes */
+.srOnly {
+  @include visually-hidden;
+}
+
+.formGroup {
+  margin-bottom: $space-3;
+}
+
+.textMuted {
+  color: var(--color-text-muted);
+}
+
+.creditToggleBtn {
+  padding: 0;
+  text-decoration: none;
 }
 
 @media (max-width: 768px) {
@@ -892,7 +929,7 @@
     width: 100%;
   }
 
-  :global(.d-flex.gap-2) {
+  .toggleRow {
     flex-direction: column;
     width: 100%;
   }

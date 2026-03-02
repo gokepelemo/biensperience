@@ -2,25 +2,20 @@
  * ListGroup Abstraction Layer
  *
  * Provides a stable API for ListGroup usage across the application.
- * Wraps either the react-bootstrap ListGroup or the modern BaseListGroup (Chakra),
- * controlled by the 'bootstrap_listgroup' feature flag.
+ * Implementation: Chakra UI ListGroup (BaseListGroup) — Phase 5 complete.
  *
  * Task: biensperience-d847
  * Related: biensperience-e5c4 (epic)
  */
 
 import PropTypes from 'prop-types';
-import { ListGroup as RBListGroup } from 'react-bootstrap';
 import BaseListGroup, { BaseListGroupItem } from '../ListGroup/BaseListGroup';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
- * ListGroupWrapper - Design System Abstraction for ListGroup
+ * ListGroupWrapper - Design System ListGroup
  */
 export function ListGroupWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_listgroup');
-  const Component = useLegacy ? RBListGroup : BaseListGroup;
-  return <Component {...props} />;
+  return <BaseListGroup {...props} />;
 }
 
 ListGroupWrapper.displayName = 'ListGroup';
@@ -35,9 +30,7 @@ ListGroupWrapper.propTypes = {
  * ListGroupItemWrapper
  */
 export function ListGroupItemWrapper(props) {
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_listgroup');
-  const Component = useLegacy ? RBListGroup.Item : BaseListGroupItem;
-  return <Component {...props} />;
+  return <BaseListGroupItem {...props} />;
 }
 
 ListGroupItemWrapper.displayName = 'ListGroup.Item';

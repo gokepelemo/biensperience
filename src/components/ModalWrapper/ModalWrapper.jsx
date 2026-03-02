@@ -12,8 +12,8 @@
  * - Phase 1: Bootstrap Modal (completed)
  * - Phase 2: Feature flag toggle (completed)
  * - Phase 3: Feature-flagged modern Dialog (completed)
- * - Phase 4 (Current): modern Dialog is default; Bootstrap available via 'bootstrap_modal' flag
- * - Phase 5: Remove legacy implementation (after validation period)
+ * - Phase 4: modern Dialog is default (completed)
+ * - Phase 5 (Current): Legacy Bootstrap Modal removed; Dialog is the sole implementation
  *
  * API Stability Guarantee:
  * - Props interface is stable and will not change
@@ -26,9 +26,7 @@
 
 import { forwardRef } from 'react';
 import PropTypes from 'prop-types';
-import Modal from '../Modal/Modal';
 import DialogModal from '../Modal/DialogModal';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 /**
  * Modal Component - Design System Abstraction
@@ -104,11 +102,7 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
  * </Modal>
  */
 const ModalWrapper = forwardRef((props, ref) => {
-  // modern Dialog is now the default implementation (Phase 4)
-  // Users can opt into the legacy Bootstrap Modal via 'bootstrap_modal' flag
-  const { enabled: useLegacy } = useFeatureFlag('bootstrap_modal');
-  const ModalComponent = useLegacy ? Modal : DialogModal;
-  return <ModalComponent {...props} ref={ref} />;
+  return <DialogModal {...props} ref={ref} />;
 });
 
 // Display name for React DevTools

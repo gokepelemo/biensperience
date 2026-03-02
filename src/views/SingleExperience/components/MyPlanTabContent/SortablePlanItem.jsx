@@ -131,11 +131,11 @@ const SortablePlanItem = memo(function SortablePlanItem({
       ref={setNodeRef}
       style={style}
       data-plan-item-id={planItem._id}
-      className={`plan-item-card mb-3 overflow-hidden ${
+      className={`plan-item-card ${styles.mb3} ${styles.overflowHidden} ${
         planItem.isVisible ? "" : "collapsed"
       } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
     >
-      <div className="plan-item-header p-3 p-md-4">
+      <div className={`plan-item-header ${styles.planItemHeaderPadding}`}>
         <div className="plan-item-title-row">
           <div className="plan-item-tree">
             {!planItem.isChild ? (
@@ -154,7 +154,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                         aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
                         title={lang.current.tooltip.pinnedToTopExpandCollapse}
                       >
-                        <FaThumbtack className="text-warning pinned-pin-icon" />
+                        <FaThumbtack className={`${styles.textWarning} pinned-pin-icon`} />
                         <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
                       </span>
                     );
@@ -176,7 +176,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   // For items without children: show pin instead of bullet when pinned
                   return (
                     <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
-                      {isPinned ? <FaThumbtack className="text-warning" aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
+                      {isPinned ? <FaThumbtack className={styles.textWarning} aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
                     </span>
                   );
                 }
@@ -186,7 +186,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
             )}
           </div>
 
-          <div className="plan-item-title flex-grow-1 fw-semibold">
+          <div className={`plan-item-title ${styles.flexGrow1} ${styles.fwSemibold}`}>
             {planItem.url ? (() => {
               const safeUrl = sanitizeUrl(planItem.url);
               return safeUrl ? (
@@ -301,10 +301,10 @@ const SortablePlanItem = memo(function SortablePlanItem({
         </div>
       </div>
       {(Number(planItem.cost) > 0 || Number(planItem.planning_days) > 0 || planItem.visibility === 'public') && (
-        <div className="plan-item-details p-2 p-md-3">
+        <div className={`plan-item-details ${styles.planItemDetailsPadding}`}>
           <div className="plan-item-meta">
             {planItem.visibility === 'public' && (
-              <span className="plan-item-visibility text-success" title="Visible on experience feed">
+              <span className={`plan-item-visibility ${styles.textSuccess}`} title="Visible on experience feed">
                 <BsGlobe /> <small>Public</small>
               </span>
             )}

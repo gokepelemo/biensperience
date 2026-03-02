@@ -164,13 +164,30 @@ async function token(req, res) {
 
     const tokenValue = createUserToken(userId);
 
+    // Resolve user's avatar URL using the standard fallback chain
+    let avatarUrl = null;
+    try {
+      const { getDefaultPhoto } = require('../../utilities/photo-utils');
+      const fullUser = await User.findById(userId)
+        .select('name photos default_photo_id oauthProfilePhoto')
+        .populate('photos', 'url')
+        .lean();
+      if (fullUser) {
+        const defaultPhoto = getDefaultPhoto(fullUser);
+        avatarUrl = (defaultPhoto && defaultPhoto.url) || fullUser.oauthProfilePhoto || null;
+      }
+    } catch (photoErr) {
+      backendLogger.warn('Failed to resolve avatar for chat token (continuing)', { error: photoErr.message });
+    }
+
     return successResponse(
       res,
       {
         token: tokenValue,
         user: {
           id: userId.toString(),
-          name: req.user?.name || 'User'
+          name: req.user?.name || 'User',
+          ...(avatarUrl ? { image: avatarUrl } : {})
         }
       },
       'Chat token created'

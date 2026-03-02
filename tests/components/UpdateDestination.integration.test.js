@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '../test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import UpdateDestination from '../../src/components/UpdateDestination/UpdateDestination';
 import { useUser } from '../../src/contexts/UserContext';
@@ -26,6 +26,9 @@ jest.mock('../../src/contexts/DataContext', () => ({
 jest.mock('../../src/contexts/ToastContext', () => ({
   useToast: jest.fn()
 }));
+// Mock BaseForm to avoid Chakra Field.Root context requirements in test env
+jest.mock('../../src/components/Form/BaseForm', () => require('../__mocks__/baseFormMock'));
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),

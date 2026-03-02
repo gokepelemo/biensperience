@@ -28,3 +28,96 @@
     transform: translateY(0);
   }
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.loadingContainer {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 $space-4;
+  margin-top: $space-12;
+}
+
+.errorRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.errorCol {
+  width: 100%;
+
+  @include breakpoint-min(md) {
+    flex: 0 0 66.6667%;
+    max-width: 66.6667%;
+  }
+}
+
+.noMarginBottom {
+  margin-bottom: 0;
+}
+
+.errorActions {
+  text-align: center;
+  margin-top: $space-4;
+}
+
+.backButton {
+  margin-inline-end: $space-2;
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.fullCol {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+.changesList {
+  margin-bottom: 0;
+  margin-top: $space-2;
+}
+
+.formRow {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: $space-6;
+  margin-bottom: $space-6;
+}
+
+.formSection {
+  margin-bottom: $space-6;
+}
+
+.helperText {
+  color: var(--color-text-muted);
+}
+
+.requiredIndicator {
+  color: var(--color-danger);
+}
+
+.destinationHelper {
+  color: var(--color-text-muted);
+  margin-top: $space-2;
+  display: block;
+}
+
+.inlineLink {
+  padding: 0;
+  margin-inline-start: $space-1;
+  vertical-align: baseline;
+}
+
+.formActions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: $space-6;
+}
+
+.mb4 {
+  margin-bottom: $space-6;
+}

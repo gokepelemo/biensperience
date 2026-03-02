@@ -1,0 +1,21 @@
+@use '../../styles/scss/abstracts' as *;
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.featureLockedContainer {
+  text-align: center;
+  padding: $space-6;
+}
+
+.featureLockedIconWrapper {
+  margin-bottom: $space-4;
+}
+
+.featureLockedTitle {
+  margin-bottom: $space-2;
+}
+
+.featureLockedMessage {
+  color: var(--color-text-muted);
+  margin-bottom: $space-4;
+}

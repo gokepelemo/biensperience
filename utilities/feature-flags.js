@@ -173,15 +173,6 @@ const FEATURE_FLAGS = {
     tier: 'beta'
   },
 
-  // Bootstrap Modal (legacy escape hatch)
-  BOOTSTRAP_MODAL: {
-    key: 'bootstrap_modal',
-    description: 'Use legacy Bootstrap Modal instead of Chakra UI Dialog (escape hatch)',
-    defaultEnabled: false,
-    requiresAuth: true,
-    tier: 'beta'
-  },
-
   // Plan Access Requests - token-based one-click approval flow
   PLAN_ACCESS_REQUESTS: {
     key: 'plan_access_requests',

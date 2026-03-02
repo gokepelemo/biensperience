@@ -474,10 +474,10 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
   );
 
   // Build card class names based on props
-  const cardClasses = `${styles.experienceCard} ${fluid ? styles.experienceCardFluid : ''} d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''} ${transitionClass}`;
+  const cardClasses = `${styles.experienceCard} ${fluid ? styles.experienceCardFluid : ''} ${isMobile ? 'mobile' : ''} ${isExpanded ? 'expanded' : ''} ${transitionClass}`;
 
   return (
-    <div className={fluid ? '' : 'd-block m-2'} style={fluid ? undefined : { width: '20rem', verticalAlign: 'top' }}>
+    <div className={fluid ? '' : styles.cardWrapper} style={fluid ? undefined : { width: '20rem', verticalAlign: 'top' }}>
       {experience && !isDeleted ? (
         <div
           ref={containerRef}
@@ -487,7 +487,7 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
         >
           <div
             aria-hidden="true"
-            className="position-absolute w-100 h-100 start-0 top-0"
+            className={styles.skeletonOverlay}
             style={{
               zIndex: 5,
               pointerEvents: 'none',
@@ -529,13 +529,13 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               </Pill>
             </div>
           )}
-          <Link to={planId ? `/experiences/${experience._id}#plan-${planId}` : `/experiences/${experience._id}`} className={`${styles.experienceCardLink} flex-grow-1 d-flex align-items-center justify-content-center w-100`} style={{ textDecoration: 'none' }}>
-            <span className={`h4 fw-bold ${styles.experienceCardTitle} d-flex align-items-center justify-content-center p-3 w-100`} style={{ textAlign: 'center' }}>
+          <Link to={planId ? `/experiences/${experience._id}#plan-${planId}` : `/experiences/${experience._id}`} className={styles.experienceCardLink} style={{ textDecoration: 'none' }}>
+            <span className={styles.experienceCardTitle} style={{ textAlign: 'center' }}>
               {experience.name}
             </span>
           </Link>
           {/* tags intentionally omitted for ExperienceCard per design */}
-          <div className={`${styles.experienceCardActions} d-flex gap-2 flex-shrink-0`}>
+          <div className={styles.experienceCardActions}>
             <button
               className={`btn btn-icon ${experienceAdded ? 'btn-card-remove' : 'btn-card-add'} ${isLoading ? 'loading' : ''}`}
               type="button"
@@ -552,14 +552,14 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               <>
                 <Link
                   to={`/experiences/${experience._id}/update`}
-                  className="btn btn-light btn-icon ms-2"
+                  className={`btn btn-light btn-icon ${styles.btnSpacing}`}
                   aria-label={lang.current.button.updateExperience}
                   title={lang.current.button.updateExperience}
                 >
                   <FaEdit />
                 </Link>
                 <button
-                  className="btn btn-light btn-icon ms-2"
+                  className={`btn btn-light btn-icon ${styles.btnSpacing}`}
                   onClick={() => setShowDeleteModal(true)}
                   aria-label={lang.current.button.delete}
                   title={lang.current.button.delete}

@@ -57,3 +57,65 @@
     height: 80px !important;
   }
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.iconSpacerSm {
+  margin-inline-end: $space-1;
+}
+
+.iconSpacerMd {
+  margin-inline-end: $space-2;
+}
+
+.tabsWrapper {
+  margin-bottom: $space-4;
+}
+
+.formGroup {
+  margin-bottom: $space-4;
+}
+
+.templateSection {
+  margin-bottom: $space-4;
+}
+
+.templateButton {
+  margin-bottom: $space-4;
+}
+
+.bulkResults {
+  margin-top: $space-4;
+}
+
+.inviteListItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.inviteContent {
+  flex-grow: 1;
+}
+
+.inviteHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-1;
+}
+
+.bulkActions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.inviteMeta {
+  color: var(--color-text-muted);
+  font-size: $font-size-sm;
+}
+
+.helpText {
+  color: var(--color-text-muted);
+}

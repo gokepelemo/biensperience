@@ -241,22 +241,27 @@
 }
 
 /* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-  .documentViewerHtml,
-  .documentViewerText,
-  .documentIframe {
+.documentViewerHtml,
+.documentViewerText,
+.documentIframe {
+  @include dark-mode {
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
   }
+}
 
-  .documentContent {
-    color: var(--color-text-primary);
-  }
-
-  .documentTextContent {
+.documentContent {
+  @include dark-mode {
     color: var(--color-text-primary);
   }
 }
+
+.documentTextContent {
+  @include dark-mode {
+    color: var(--color-text-primary);
+  }
+}
+
 
 /* Print Styles */
 @media print {
@@ -269,4 +274,10 @@
   .documentTextContent {
     padding: 0;
   }
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.iconBefore {
+  margin-right: $space-2;
 }

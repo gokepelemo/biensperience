@@ -31,3 +31,11 @@
 .planItemVisibility {
   width: fit-content;
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.sectionHeading {
+  font-size: 1.25rem;
+  font-weight: 300;
+  margin-top: $space-4;
+}

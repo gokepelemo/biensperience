@@ -639,8 +639,8 @@ export default function UpdateProfile() {
         ogDescription={isAdminMode ? lang.current.profile.adminOgDescription : lang.current.profile.selfOgDescription}
       />
 
-      <div className="row animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.row} animation-fade-in`}>
+        <div className={styles.col12}>
           <h1 className="form-title">
             {isAdminMode ?
               lang.current.profile.editUserProfile.replace('{name}', currentUser?.name).replace('{email}', currentUser?.email) :
@@ -654,17 +654,17 @@ export default function UpdateProfile() {
         <Alert
           type="danger"
           message={error}
-          className="mb-4"
+          className={styles.mb4}
         />
       )}
 
       {!loading && !isInitialLoad && Object.keys(changes).length > 0 && (
         <Alert
           type="info"
-          className="mb-4"
+          className={styles.mb4}
         >
           <strong>{lang.current.profile.changesDetected}</strong>
-          <ul className="mb-0 mt-2">
+          <ul className={styles.changesList}>
             {Object.keys(changes).map((field, idx) => (
               <li key={idx} className="whitespace-pre-line">
                 {formatChanges(field, changes[field], 'profile')}
@@ -675,14 +675,14 @@ export default function UpdateProfile() {
       )}
 
       {isAdminMode && !isSuperAdmin(user) ? (
-        <div className="container mt-4">
+        <div className={`${styles.profileContainer} ${styles.mt4}`}>
           <Alert type="danger" message={lang.current.alert.accessDeniedAction} />
         </div>
       ) : loading ? (
         <Loading variant="centered" size="lg" message={lang.current.alert.loadingProfile} />
       ) : (
-        <div className="row my-4 animation-fade-in justify-content-center">
-          <div className="col-12">
+        <div className={`row ${styles.my4} animation-fade-in ${styles.justifyCenter}`}>
+          <div className={styles.col12}>
             <Form className="form-unified" autoComplete="off" onSubmit={handleSubmit}>
 
               {/* ============================================
@@ -782,7 +782,7 @@ export default function UpdateProfile() {
                     </Button>
                   </div>
                   {formData.location?.city && formData.location?.country && !formData.locationQuery && (
-                    <p className="text-muted small mt-n2 mb-3">
+                    <p className={styles.locationHint}>
                       {lang.current.profile.currentLocation.replace('{location}', `${formData.location.city}${formData.location.state ? `, ${formData.location.state}` : ''}, ${formData.location.country}`)}
                     </p>
                   )}
@@ -790,7 +790,7 @@ export default function UpdateProfile() {
                   {/* Collapsible Change Password Section */}
                   {showPasswordFields ? (
                     <>
-                      <h5 className="form-section-header mt-4">{lang.current.profile.changePassword}</h5>
+                      <h5 className={`form-section-header ${styles.mt4}`}>{lang.current.profile.changePassword}</h5>
                       {passwordError && (
                         <Alert
                           type="danger"
@@ -809,7 +809,7 @@ export default function UpdateProfile() {
                           autoComplete="current-password"
                           tooltip={lang.current.helper.currentPassword}
                           tooltipPlacement="top"
-                          className="mb-3"
+                          className={styles.mb3}
                         />
                       )}
 
@@ -824,7 +824,7 @@ export default function UpdateProfile() {
                         minLength={3}
                         tooltip={isEditingSelf ? lang.current.helper.newPassword : lang.current.profile.setPasswordTooltip}
                         tooltipPlacement="top"
-                        className="mb-3"
+                        className={styles.mb3}
                       />
 
                       <FormField
@@ -837,13 +837,13 @@ export default function UpdateProfile() {
                         autoComplete="new-password"
                         tooltip={lang.current.helper.confirmPassword}
                         tooltipPlacement="top"
-                        className="mb-3"
+                        className={styles.mb3}
                       />
                     </>
                   ) : (
-                    <div className="mt-4">
+                    <div className={styles.mt4}>
                       <button
-                        className="btn btn-link p-0 text-decoration-none"
+                        className={`btn btn-link ${styles.p0} ${styles.noTextDecoration}`}
                         onClick={() => setShowPasswordFields(true)}
                         type="button"
                         aria-expanded={showPasswordFields}
@@ -876,10 +876,10 @@ export default function UpdateProfile() {
                     <h3><FaLink /> {lang.current.profile.linkedAccounts}</h3>
                   </div>
                   <div className={styles.sectionCardBody}>
-                    <p className="text-muted mb-4">{lang.current.profile.linkedAccountsDescription}</p>
+                    <p className={styles.linkedAccountsDesc}>{lang.current.profile.linkedAccountsDescription}</p>
 
                     {linkedAccountsLoading ? (
-                      <div className="text-center py-4">
+                      <div className={styles.linkedAccountsLoading}>
                         <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
                       </div>
                     ) : linkedAccounts ? (
@@ -1065,11 +1065,11 @@ export default function UpdateProfile() {
                       maxLength={500}
                       tooltip={lang.current.profile.curatorBioTooltip}
                       tooltipPlacement="top"
-                      className="mb-3"
+                      className={styles.mb3}
                     />
 
-                    <div className="mb-3">
-                      <label className="form-label d-flex align-items-center gap-2">
+                    <div className={styles.mb3}>
+                      <label className={`form-label ${styles.curatorLinksLabel}`}>
                         <FaLink />
                         {lang.current.profile.curatorLinks}
                         <FormTooltip
@@ -1165,7 +1165,7 @@ export default function UpdateProfile() {
                               />
                               <input
                                 type="url"
-                                className="form-control flex-grow-1"
+                                className={`form-control ${styles.flexGrow1}`}
                                 placeholder={network?.placeholder || lang.current.profile.linkUrl}
                                 value={link.url || ''}
                                 onChange={(e) => {
@@ -1189,7 +1189,7 @@ export default function UpdateProfile() {
                             // Social network: username only
                             <input
                               type="text"
-                              className="form-control flex-grow-1"
+                              className={`form-control ${styles.flexGrow1}`}
                               placeholder={network?.placeholder || lang.current.profile.linkUsername}
                               value={link.username || ''}
                               onChange={(e) => {
@@ -1255,9 +1255,9 @@ export default function UpdateProfile() {
                       const newLinks = [...(formData.links || []), { type: 'custom', title: '', url: '', username: '', meta: {} }];
                       setFormData(prev => ({ ...prev, links: newLinks }));
                     }}
-                    className="mt-2"
+                    className={styles.mt2}
                   >
-                    <FaPlus className="me-2" />
+                    <FaPlus className={styles.me2} />
                     {lang.current.profile.addLink}
                   </Button>
                     </div>
@@ -1436,7 +1436,7 @@ export default function UpdateProfile() {
                         </div>
                       )}
 
-                      <Form.Text style={{ color: 'var(--bs-gray-600)' }}>
+                      <Form.Text style={{ color: 'var(--color-text-muted)' }}>
                         {getAvailableFlags().length === 0
                           ? lang.current.profile.allFlagsAddedHelp
                           : lang.current.profile.flagSelectHelp}
@@ -1474,7 +1474,7 @@ export default function UpdateProfile() {
                           disabled
                           title={lang.current.profile.demoCannotDelete}
                         >
-                          <FaTrash className="me-2" />
+                          <FaTrash className={styles.me2} />
                           {lang.current.profile.deleteAccount}
                         </Button>
                       ) : (
@@ -1484,7 +1484,7 @@ export default function UpdateProfile() {
                           size="md"
                           onClick={() => setShowDeleteAccountModal(true)}
                         >
-                          <FaTrash className="me-2" />
+                          <FaTrash className={styles.me2} />
                           {lang.current.profile.deleteAccount}
                         </Button>
                       )}
@@ -1494,7 +1494,7 @@ export default function UpdateProfile() {
               )}
 
               {/* Form Actions */}
-              <div className="d-flex justify-content-between mt-4 gap-3">
+              <div className={styles.formActions}>
               <Link
                 to={isAdminMode ? `/profile/${userId}` : "/profile"}
                 className="btn btn-secondary btn-lg"

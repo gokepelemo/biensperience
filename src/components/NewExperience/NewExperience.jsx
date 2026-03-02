@@ -1,4 +1,4 @@
-import "./NewExperience.module.scss";
+import styles from "./NewExperience.module.scss";
 import { useState, useEffect, useMemo, useId } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";
@@ -186,8 +186,8 @@ export default function NewExperience() {
 
   return (
     <>
-      <div className="row animation-fade-in">
-        <div className="col-12">
+      <div className={`${styles.row} animation-fade-in`}>
+        <div className={styles.col12}>
           <h1 className="form-title">{lang.current.heading.createExperience}</h1>
         </div>
       </div>
@@ -195,12 +195,12 @@ export default function NewExperience() {
       {error && (
         <Alert
           type="danger"
-          className="mb-4"
+          className={styles.mb4}
         >
           <div>
             {error}
             {error.includes('verify your email') && (
-              <div className="mt-2">
+              <div className={styles.mt2}>
                 <a href="/resend-confirmation" className="btn btn-sm btn-outline-primary">
                   Resend Verification Email
                 </a>
@@ -210,8 +210,8 @@ export default function NewExperience() {
         </Alert>
       )}
 
-      <div className="row my-4 animation-fade-in justify-content-center">
-        <div className="col-12">
+      <div className={`${styles.row} ${styles.my4} animation-fade-in justify-content-center`}>
+        <div className={styles.col12}>
           <Form onSubmit={handleSubmit} className="form-unified">
             <FormField
               name="name"
@@ -225,7 +225,7 @@ export default function NewExperience() {
               tooltipPlacement="top"
             />
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Group>
                 <FormField
                   name="overview"
@@ -243,12 +243,12 @@ export default function NewExperience() {
               </Form.Group>
             </div>
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Group>
                 <Form.Label htmlFor={destinationAutocompleteId}>
                   {lang.current.label.destinationLabel}
                   {' '}
-                  <span className="text-danger">*</span>
+                  <span className={styles.requiredIndicator}>*</span>
                   {' '}
                   <FormTooltip
                     content={lang.current.tooltip.destination}
@@ -331,12 +331,12 @@ export default function NewExperience() {
                   emptyMessage="Type to search for destinations..."
                   disableFilter={true}
                 />
-                <small className="form-text text-muted mt-2 d-block">
+                <small className={`form-text ${styles.destinationHelper}`}>
                   {lang.current.helper.destinationRequired}
                   <button
                     type="button"
                     onClick={handleCreateDestinationClick}
-                    className="btn btn-link p-0 ms-1 align-baseline"
+                    className={`btn btn-link ${styles.inlineLink}`}
                     style={{ textDecoration: 'none' }}
                   >
                     {lang.current.helper.createNewDestination}
@@ -356,7 +356,7 @@ export default function NewExperience() {
               tooltipPlacement="top"
             />
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
                 <Form.Label htmlFor="experience_type">
                 {lang.current.label.experienceTypes}
                 <FormTooltip
@@ -372,7 +372,7 @@ export default function NewExperience() {
               />
             </div>
 
-            <div className="mb-4">
+            <div className={styles.formSection}>
               <Form.Label>
                 Photos
                 <FormTooltip
@@ -385,7 +385,7 @@ export default function NewExperience() {
 
             {/* Planning days and cost estimate are computed from plan items (virtuals). Removed from creation form. */}
 
-            <div className="d-flex justify-content-end mt-4">
+            <div className={styles.formActions}>
               <button
                 type="submit"
                 className="btn btn-primary btn-lg"

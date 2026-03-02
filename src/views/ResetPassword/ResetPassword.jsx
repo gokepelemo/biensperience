@@ -79,22 +79,22 @@ export default function ResetPassword() {
       <div className={styles.resetPasswordWrapper}>
         <div className={`${styles.resetPasswordCard} card`}>
           <div className="card-body">
-                <h1 className="mb-4" style={{ textAlign: 'center' }}>{pageStrings.heading}</h1>
+                <h1 className={`${styles.mb4} ${styles.textCenter}`}>{pageStrings.heading}</h1>
 
                 {success ? (
                   <Alert type="success">
                     <h5 className="alert-heading">{pageStrings.success}</h5>
-                    <p className="mb-0">
+                    <p className={styles.mb0}>
                       {pageStrings.successMessage}
                     </p>
                   </Alert>
                 ) : (
                   <form onSubmit={handleSubmit}>
                     {error && (
-                      <Alert type="danger" message={error} className="mb-4" />
+                      <Alert type="danger" message={error} className={styles.mb4} />
                     )}
 
-                    <p className="text-muted mb-4">
+                    <p className={`${styles.textMuted} ${styles.mb4}`}>
                       {pageStrings.instruction}
                     </p>
 
@@ -128,14 +128,14 @@ export default function ResetPassword() {
                       type="submit"
                       variant="primary"
                       size="lg"
-                      className="w-100 mt-4"
+                      className={`${styles.fullWidth} ${styles.mt4}`}
                       disabled={loading || !formData.password || !formData.confirmPassword}
                     >
                       {loading ? lang.current.alert.resettingPassword : lang.current.button.resetPassword}
                     </Button>
 
-                    <div className="mt-4" style={{ textAlign: 'center' }}>
-                      <Link to="/login" className="text-muted">
+                    <div className={`${styles.mt4} ${styles.textCenter}`}>
+                      <Link to="/login" className={styles.textMuted}>
                         {lang.current.button.backToLogin}
                       </Link>
                     </div>

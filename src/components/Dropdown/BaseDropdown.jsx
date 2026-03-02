@@ -14,16 +14,15 @@
  * Maps react-bootstrap patterns:
  * - Dropdown → Menu.Root
  * - Dropdown.Toggle → Menu.Trigger (wraps a button)
- * - Dropdown.Menu → Menu.Content (via Portal)
+ * - Dropdown.Menu → Menu.Positioner + Menu.Content
  * - Dropdown.Item → Menu.Item
  * - Dropdown.Divider → Menu.Separator
  *
  * Task: biensperience-bb6a
  */
 
-import React from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Portal, chakra } from '@chakra-ui/react';
+import { Menu, chakra } from '@chakra-ui/react';
 
 const StyledButton = chakra('button');
 
@@ -74,19 +73,22 @@ BaseDropdownToggle.propTypes = {
 };
 
 /**
- * BaseDropdownMenu - Chakra Menu.Content via Portal
+ * BaseDropdownMenu - Chakra Menu.Positioner + Menu.Content
  *
  * Maps to react-bootstrap `<Dropdown.Menu>`.
- * Renders in a Portal for proper z-index stacking.
+ * Uses Menu.Positioner for proper floating-ui positioning relative to the trigger.
+ * Stays within the parent DOM tree so it works correctly inside Dialog focus traps.
+ * The `usePortal` prop is kept for backward compatibility but defaults to false
+ * since Menu.Positioner handles z-index stacking via inline styles.
  */
-function BaseDropdownMenu({ children, className = '', usePortal = true, ...props }) {
-  const content = (
-    <Menu.Content className={className} {...props}>
-      {children}
-    </Menu.Content>
+function BaseDropdownMenu({ children, className = '', usePortal = false, ...props }) {
+  return (
+    <Menu.Positioner>
+      <Menu.Content className={className} {...props}>
+        {children}
+      </Menu.Content>
+    </Menu.Positioner>
   );
-
-  return usePortal ? <Portal>{content}</Portal> : content;
 }
 
 BaseDropdownMenu.propTypes = {

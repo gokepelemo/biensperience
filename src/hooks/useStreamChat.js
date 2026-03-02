@@ -143,7 +143,8 @@ export default function useStreamChat({
           await streamClient.connectUser(
             {
               id: user.id,
-              name: user.name
+              name: user.name,
+              ...(user.image ? { image: user.image } : {})
             },
             token
           );

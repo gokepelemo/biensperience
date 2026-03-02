@@ -75,7 +75,17 @@ async function ensureStreamUsersExist(userIds) {
     if (mongoIds.length > 0) {
       // eslint-disable-next-line global-require
       const User = require('../models/user');
-      const users = await User.find({ _id: { $in: mongoIds } }).select('name').lean();
+      // eslint-disable-next-line global-require
+      const { getDefaultPhoto } = require('./photo-utils');
+      const users = await User.find({ _id: { $in: mongoIds } })
+        .select('name photos default_photo_id oauthProfilePhoto')
+        .populate('photos', 'url')
+        .lean();
+      // Resolve avatar URL for each user using the standard fallback chain
+      for (const u of users) {
+        const defaultPhoto = getDefaultPhoto(u);
+        u._resolvedAvatar = (defaultPhoto && defaultPhoto.url) || u.oauthProfilePhoto || null;
+      }
       usersById = new Map(users.map((u) => [u._id.toString(), u]));
     }
   } catch (err) {
@@ -88,7 +98,8 @@ async function ensureStreamUsersExist(userIds) {
     const u = usersById.get(id);
     return {
       id,
-      ...(u?.name ? { name: u.name } : {})
+      ...(u?.name ? { name: u.name } : {}),
+      ...(u?._resolvedAvatar ? { image: u._resolvedAvatar } : {})
     };
   });
 

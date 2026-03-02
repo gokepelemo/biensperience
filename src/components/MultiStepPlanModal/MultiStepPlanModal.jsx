@@ -474,7 +474,7 @@ export default function MultiStepPlanModal() {
           <div className={styles.planItemText}>
             {item.text}
             {parentItem && (
-              <small className="text-muted ms-2">
+              <small className={styles.parentHint}>
                 (under: {parentItem.text})
               </small>
             )}
@@ -621,7 +621,7 @@ export default function MultiStepPlanModal() {
           {/* Body */}
           <div className="modal-body" style={{ padding: 'var(--space-5)' }}>
             {error && (
-              <Alert type="danger" className="mb-4" dismissible onDismiss={() => setError('')}>
+              <Alert type="danger" className={styles.mb4} dismissible onDismiss={() => setError('')}>
                 {error}
               </Alert>
             )}
@@ -640,11 +640,11 @@ export default function MultiStepPlanModal() {
                     tooltip={lang.current.helper.nameRequired}
                   />
 
-                  <div className="mb-4">
+                  <div className={styles.formSection}>
                     <Form.Group>
                       <Form.Label>
                         {lang.current.label.destinationLabel}
-                        {' '}<span className="text-danger">*</span>{' '}
+                        {' '}<span className={styles.requiredIndicator}>*</span>{' '}
                         <FormTooltip
                           text={`${lang.current.helper.destinationRequired} ${lang.current.helper.createNewDestination}`}
                           placement="top"
@@ -674,12 +674,12 @@ export default function MultiStepPlanModal() {
                         emptyMessage="Type to search destinations..."
                         disableFilter={true}
                       />
-                      <small className="form-text text-muted mt-2 d-block">
+                      <small className={`form-text ${styles.destinationHelper}`}>
                         {lang.current.helper.destinationRequired}
                         <button
                           type="button"
                           onClick={handleCreateDestinationClick}
-                          className="btn btn-link p-0 ms-1 align-baseline"
+                          className={`btn btn-link ${styles.inlineLink}`}
                           style={{ textDecoration: 'none' }}
                         >
                           {lang.current.helper.createNewDestination}
@@ -698,7 +698,7 @@ export default function MultiStepPlanModal() {
                     tooltip={lang.current.helper.addressOptional}
                   />
 
-                  <div className="mb-4">
+                  <div className={styles.formSection}>
                     <Form.Label htmlFor="experience_type">
                       {lang.current.label.experienceTypes}
                         <FormTooltip content={lang.current.helper.experienceTypesOptional} placement="top" />
@@ -710,7 +710,7 @@ export default function MultiStepPlanModal() {
                     />
                   </div>
 
-                  <div className="mb-4">
+                  <div className={styles.formSection}>
                       <Form.Label>
                       {lang.current.label.photos}
                       <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
@@ -751,9 +751,9 @@ export default function MultiStepPlanModal() {
                         required
                       />
 
-                      <div className="row">
-                        <div className="col-md-6">
-                          <Form.Group className="mb-3">
+                      <div className={styles.row}>
+                        <div className={styles.colMd6}>
+                          <Form.Group className={styles.formGroup}>
                             <Form.Label>Parent Item (Optional)</Form.Label>
                             <Form.Select
                               value={newPlanItem.parent_id || ''}
@@ -771,7 +771,7 @@ export default function MultiStepPlanModal() {
                             </Form.Select>
                           </Form.Group>
                         </div>
-                        <div className="col-md-3">
+                        <div className={styles.colMd3}>
                           <FormField
                             name="cost_estimate"
                             label="Cost ($)"
@@ -781,7 +781,7 @@ export default function MultiStepPlanModal() {
                             placeholder="0"
                           />
                         </div>
-                        <div className="col-md-3">
+                        <div className={styles.colMd3}>
                           <FormField
                             name="planning_days"
                             label="Days"
@@ -807,9 +807,9 @@ export default function MultiStepPlanModal() {
                         size="sm"
                         onClick={handleAddPlanItem}
                         disabled={!newPlanItem.text.trim()}
-                        className="mt-2"
+                        className={styles.mt2}
                       >
-                        <FaPlus className="me-2" />
+                        <FaPlus className={styles.me2} />
                         {lang.current.multiStepPlanModal.addItem}
                       </Button>
                     </div>
@@ -888,7 +888,7 @@ export default function MultiStepPlanModal() {
             <div className={styles.footerLeft}>
               {(currentStep === STEPS.ADD_PLAN_ITEMS || currentStep === STEPS.SELECT_DATE) && (
                 <button type="button" className={styles.backButton} onClick={handleBack}>
-                  <FaArrowLeft size={12} className="me-2" />
+                  <FaArrowLeft size={12} className={styles.me2} />
                   {lang.current.multiStepPlanModal.back}
                 </button>
               )}

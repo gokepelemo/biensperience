@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '../test-utils';
 import { BrowserRouter } from 'react-router-dom';
 import NewDestination from '../../src/components/NewDestination/NewDestination';
 import { createDestination } from '../../src/utilities/destinations-api';
@@ -34,6 +34,22 @@ jest.mock('../../src/contexts/DataContext', () => ({
 jest.mock('../../src/contexts/ToastContext', () => ({
   useToast: () => mockToastContext
 }));
+
+// Mock BaseForm to avoid Chakra Field.Root context requirements in test env
+jest.mock('../../src/components/Form/BaseForm', () => require('../__mocks__/baseFormMock'));
+
+// Mock ConfirmModal — Chakra Dialog renders in a portal that testing-library can't query
+jest.mock('../../src/components/ConfirmModal/ConfirmModal', () => {
+  const React = require('react');
+  return ({ show, onClose, onConfirm, title, confirmText = 'Delete Permanently' }) => {
+    if (!show) return null;
+    return React.createElement('div', { 'data-testid': 'confirm-modal', role: 'dialog' },
+      React.createElement('p', null, title),
+      React.createElement('button', { onClick: onClose }, 'Cancel'),
+      React.createElement('button', { onClick: onConfirm }, confirmText)
+    );
+  };
+});
 
 // Mock user and data contexts
 const mockUser = {

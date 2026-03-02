@@ -124,7 +124,7 @@ export default function PlanItemModal({
         <FormGroup>
           <FormLabel htmlFor={`${formId}-text`}>
             {l.current?.label?.itemDescription || "Item Description"}{" "}
-            <span style={{ color: 'var(--bs-danger)' }}>*</span>
+            <span style={{ color: 'var(--color-danger)' }}>*</span>
           </FormLabel>
           <FormControl
             type="text"

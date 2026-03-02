@@ -739,32 +739,37 @@
 /* ============================================
    DARK MODE SUPPORT
    ============================================ */
-@media (prefers-color-scheme: dark) {
-  .typeCard {
+.typeCard {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
-
+  
     &:hover {
       background: rgba(var(--color-primary-rgb), 0.15);
     }
-
+  
     &.selected {
       background: rgba(var(--color-primary-rgb), 0.2);
     }
   }
+}
 
-  .dropZone {
+.dropZone {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
-
+  
     &:hover,
     &.dragActive {
       background: rgba(var(--color-primary-rgb), 0.1);
     }
   }
+}
 
-  .aiInfoBox {
+.aiInfoBox {
+  @include dark-mode {
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
   }
 }
+
 
 /* ============================================
    REDUCED MOTION SUPPORT

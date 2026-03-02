@@ -100,7 +100,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
   });
 
   // Build card class names based on props
-  const cardClasses = `${styles.destinationCard} ${fluid ? styles.destinationCardFluid : ''} d-flex flex-column align-items-center justify-content-center p-3 position-relative overflow-hidden ${transitionClass}`;
+  const cardClasses = `${styles.destinationCard} ${fluid ? styles.destinationCardFluid : ''} ${transitionClass}`;
 
   // Derive link and title from destination or use fallback
   const linkTo = destination ? `/destinations/${destination._id}` : '/';
@@ -111,7 +111,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
       {includeSchema && destination && (
         <EntitySchema entity={destination} entityType="destination" />
       )}
-      <div className={fluid ? '' : 'd-block m-2'} style={fluid ? undefined : { verticalAlign: 'top' }}>
+      <div className={fluid ? '' : styles.wrapper} style={fluid ? undefined : { verticalAlign: 'top' }}>
         <div
           ref={containerRef}
           className={cardClasses}
@@ -119,7 +119,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
         >
           <div
             aria-hidden="true"
-            className="position-absolute w-100 h-100 start-0 top-0"
+            className={styles.skeletonOverlay}
             style={{
               zIndex: 5,
               pointerEvents: 'none',
@@ -130,8 +130,8 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
           >
             <SkeletonLoader variant="rectangle" width="100%" height="100%" />
           </div>
-          <Link to={linkTo} className={`${styles.destinationCardLink} d-flex align-items-center justify-content-center w-100 h-100 text-decoration-none`}>
-            <span ref={titleRef} className={`h3 fw-bold ${styles.destinationCardTitle} d-flex align-items-center justify-content-center text-center p-3 w-100`}>
+          <Link to={linkTo} className={styles.destinationCardLink}>
+            <span ref={titleRef} className={styles.destinationCardTitle}>
               {title}
             </span>
           </Link>

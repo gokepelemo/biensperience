@@ -634,7 +634,7 @@ export default function DocumentsTab({
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        className="visually-hidden"
+        className={styles.visuallyHidden}
       >
         {uploading && uploadProgress && uploadProgress.percent < 100 && (
           `Uploading ${uploadProgress.fileName}: ${uploadProgress.percent}% complete`

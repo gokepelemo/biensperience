@@ -223,8 +223,9 @@ summary {
 }
 
 // Remove outline for mouse users
+// !important ensures component-level :focus rules can't override this
 :focus:not(:focus-visible) {
-  outline: none;
+  outline: none !important;
 }
 
 // =============================================================================

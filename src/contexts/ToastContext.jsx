@@ -5,7 +5,11 @@ import { createToastConfig } from '../utilities/error-handler';
 import { eventBus } from '../utilities/event-bus';
 import { lang } from '../lang.constants';
 
-const ToastContext = createContext();
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const ToastContext = (import.meta.hot?.data?.ToastContext) || createContext();
+if (import.meta.hot) {
+  import.meta.hot.data.ToastContext = ToastContext;
+}
 
 /**
  * Hook to access toast notifications

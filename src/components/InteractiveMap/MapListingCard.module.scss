@@ -37,7 +37,7 @@
     background: rgba(var(--color-primary-rgb), 0.02);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     &:hover {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
@@ -64,7 +64,7 @@
     height: 70px;
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
   }
 }
@@ -89,7 +89,7 @@
   color: #adb5bd;
   font-size: 1.5rem;
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: #4a5568;
   }
 }

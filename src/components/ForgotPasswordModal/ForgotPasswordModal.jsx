@@ -54,9 +54,9 @@ export default function ForgotPasswordModal({ show, onClose }) {
       loading={loading}
     >
       {success ? (
-        <Alert type="success" className="mb-0">
+        <Alert type="success" className={styles.mb0}>
           <strong>Email Sent!</strong>
-          <p className="mb-0 mt-2">
+          <p className={`${styles.mb0} ${styles.mt2}`}>
             If an account exists with this email address, you will receive a password reset link shortly.
             Please check your inbox (and spam folder).
           </p>
@@ -64,10 +64,10 @@ export default function ForgotPasswordModal({ show, onClose }) {
       ) : (
         <form className={styles.forgotPasswordForm}>
           {error && (
-            <Alert type="danger" message={error} className="mb-3" />
+            <Alert type="danger" message={error} className={styles.mb3} />
           )}
 
-          <p className="text-muted mb-4">
+          <p className={`${styles.textMuted} ${styles.mb4}`}>
             Enter your email address and we'll send you a link to reset your password.
           </p>
 

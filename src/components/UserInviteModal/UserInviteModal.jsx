@@ -115,7 +115,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
       show={show}
       onClose={handleClose}
       centered
-      title={<><FaUserPlus className="me-2" />Invite a Friend</>}
+      title={<><FaUserPlus className={styles.iconSpacer} />Invite a Friend</>}
       icon={null}
       showSubmitButton={false}
       showCancelButton={false}
@@ -127,7 +127,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             <FaEnvelope />
           </div>
           <h5>Invite Created!</h5>
-          <p className="text-muted mb-3">
+          <p className={styles.successDescription}>
             {formData.sendEmail && formData.email && createdInvite.emailSent
               ? `An invite has been sent to ${formData.email}`
               : 'Share this code with your friend to invite them'}
@@ -141,7 +141,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             <code>{window.location.origin}/signup?code={createdInvite.code}</code>
           </div>
 
-          <div className="d-flex gap-2 justify-content-center mt-4">
+          <div className={styles.successActions}>
             <Button variant="primary" onClick={copyToClipboard}>
               Copy Link
             </Button>
@@ -159,7 +159,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
       ) : (
         // Form state
         <Form onSubmit={handleSubmit}>
-          <Form.Group className="mb-3">
+          <Form.Group className={styles.formGroup}>
             <Form.Label>Email Address</Form.Label>
             <Form.Control
               type="email"
@@ -169,12 +169,12 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
               disabled={isCreating}
               className={styles.formControl}
             />
-            <Form.Text className="text-muted">
+            <Form.Text className={styles.helperText}>
               If provided, we can send them an invite email
             </Form.Text>
           </Form.Group>
 
-          <Form.Group className="mb-3">
+          <Form.Group className={styles.formGroup}>
             <Form.Label>Their Name (optional)</Form.Label>
             <Form.Control
               type="text"
@@ -186,7 +186,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             />
           </Form.Group>
 
-          <Form.Group className="mb-3">
+          <Form.Group className={styles.formGroup}>
             <Form.Label>Personal Message (optional)</Form.Label>
             <Form.Control
               as="textarea"
@@ -199,7 +199,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             />
           </Form.Group>
 
-          <Form.Group className="mb-3">
+          <Form.Group className={styles.formGroup}>
             <Checkbox
               id="sendEmailCheckbox"
               label="Send invite email"
@@ -209,7 +209,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
             />
           </Form.Group>
 
-          <Form.Group className="mb-4">
+          <Form.Group className={styles.formGroupLg}>
             <Checkbox
               id="mutualFollowCheckbox"
               label="Automatically follow each other"
@@ -217,12 +217,12 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
               onChange={(e) => setFormData({ ...formData, mutualFollow: e.target.checked })}
               disabled={isCreating}
             />
-            <Form.Text className="text-muted">
+            <Form.Text className={styles.helperText}>
               You'll both follow each other when they sign up
             </Form.Text>
           </Form.Group>
 
-          <div className="d-flex gap-2 justify-content-end">
+          <div className={styles.formActions}>
             <Button variant="outline" onClick={handleClose} disabled={isCreating}>
               Cancel
             </Button>

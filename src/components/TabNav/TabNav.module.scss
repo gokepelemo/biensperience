@@ -62,7 +62,7 @@
     box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.15);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
 
@@ -102,7 +102,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
   }
@@ -130,7 +130,7 @@
     color: var(--color-text-primary);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     &:hover:not(:disabled) {
       background: var(--color-bg-secondary);
     }
@@ -146,7 +146,7 @@
     color: var(--color-primary);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(var(--color-primary-rgb), 0.15);
 
     &:hover:not(:disabled) {
@@ -164,7 +164,7 @@
 .tabNavBordered {
   border-bottom: 1px solid var(--color-border-light);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     border-bottom-color: var(--color-border-dark);
   }
 }
@@ -201,7 +201,7 @@
     font-size: var(--font-size-xs);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     &:hover:not(:disabled) {
       border-bottom-color: var(--color-border-light);
     }
@@ -216,7 +216,7 @@
     border-bottom-color: var(--color-primary);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     color: var(--color-text-primary);
     border-bottom-color: var(--color-primary);
 
@@ -274,7 +274,7 @@
     padding: 0 var(--space-1);
   }
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: var(--color-bg-secondary);
     color: var(--color-text-secondary);
   }
@@ -285,7 +285,7 @@
   background: rgba(var(--color-primary-rgb), 0.15);
   color: var(--color-primary);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(var(--color-primary-rgb), 0.2);
     color: var(--color-primary-light, var(--color-primary));
   }
@@ -296,7 +296,7 @@
   background: rgba(var(--color-warning-rgb, 255, 193, 7), 0.15);
   color: var(--color-warning-dark, #856404);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(var(--color-warning-rgb, 255, 193, 7), 0.2);
     color: var(--color-warning, #ffc107);
   }
@@ -306,7 +306,7 @@
   background: rgba(var(--color-danger-rgb, 220, 53, 69), 0.15);
   color: var(--color-danger, #dc3545);
 
-  @media (prefers-color-scheme: dark) {
+  @include dark-mode {
     background: rgba(var(--color-danger-rgb, 220, 53, 69), 0.2);
   }
 }

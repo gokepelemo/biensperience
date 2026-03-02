@@ -181,46 +181,50 @@
 }
 
 /* Dark mode overrides */
-@media (prefers-color-scheme: dark) {
-  .trigger {
+.trigger {
+  @include dark-mode {
     background: var(--color-bg-secondary, #1e1e1e);
     border-color: var(--color-border-light, rgba(255, 255, 255, 0.1));
     color: var(--color-text-secondary, #adb5bd);
-
+  
     &:hover:not(:disabled) {
       background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
       color: var(--color-text-primary, #f8f9fa);
       border-color: var(--color-border-medium, rgba(255, 255, 255, 0.2));
     }
   }
+}
 
-  .menu {
+.menu {
+  @include dark-mode {
     background: var(--color-bg-primary, #2d2d2d);
     border-color: var(--color-border-light, rgba(255, 255, 255, 0.1));
     box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2));
     color: var(--color-text-primary, #f8f9fa);
   }
+}
 
-  .item {
+.item {
+  @include dark-mode {
     color: var(--color-text-primary, #f8f9fa);
-
+  
     &:hover:not(:disabled),
     &:focus-visible {
       background: var(--color-bg-hover, rgba(255, 255, 255, 0.1));
     }
-
+  
     &.itemDanger {
       color: var(--color-danger, #ff6b6b);
-
+  
       &:hover:not(:disabled),
       &:focus-visible {
         background: rgba(255, 107, 107, 0.15);
       }
     }
-
+  
     &.itemActive {
       color: var(--color-warning, #ffd93d);
-
+  
       &:hover:not(:disabled),
       &:focus-visible {
         background: rgba(255, 217, 61, 0.15);
@@ -228,6 +232,7 @@
     }
   }
 }
+
 
 /* .dark class override (for explicit dark mode) */
 :global(.dark) {

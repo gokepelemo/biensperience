@@ -329,7 +329,7 @@ export default function DocumentViewerModal({
           onClick={handleDownload}
           disabled={loading}
         >
-          <FaDownload className="me-2" />
+          <FaDownload className={styles.iconBefore} />
           Download
         </Button>
         <Button

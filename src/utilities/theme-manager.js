@@ -89,61 +89,21 @@ function _resolveEffective(theme) {
   return theme;
 }
 
-// Core token sets to apply as inline styles when user explicitly chooses a theme.
-const LIGHT_TOKENS = {
-  '--color-text-primary': '#1a202c',
-  '--color-text-secondary': '#2d3748',
-  '--color-text-tertiary': '#4a5568',
-  '--color-text-muted': '#5a6370',
-  '--color-bg-primary': '#ffffff',
-  '--color-bg-secondary': '#f8f9fa',
-  '--color-bg-tertiary': '#e9ecef',
-  '--color-bg-hover': 'rgba(102, 126, 234, 0.05)',
-  '--color-bg-overlay': 'rgba(0, 0, 0, 0.75)',
-  '--color-bg-input': '#ffffff',
-  '--color-border-light': 'rgba(0, 0, 0, 0.05)',
-  '--color-border-medium': 'rgba(0, 0, 0, 0.1)',
-  '--color-border-dark': 'rgba(0, 0, 0, 0.2)',
-  '--color-primary': '#667eea',
-  '--color-primary-dark': '#764ba2',
-};
-
-const DARK_TOKENS = {
-  '--color-text-primary': '#E6EEF8',
-  '--color-text-secondary': '#CBD5E1',
-  '--color-text-tertiary': '#94A3B8',
-  '--color-text-muted': '#94A3B8',
-  '--color-bg-primary': '#071024',
-  '--color-bg-secondary': '#0B1220',
-  '--color-bg-tertiary': '#0F1724',
-  '--color-bg-hover': 'rgba(255,255,255,0.04)',
-  '--color-bg-overlay': 'rgba(0, 0, 0, 0.75)',
-  '--color-bg-input': '#071024',
-  '--color-border-light': 'rgba(255,255,255,0.04)',
-  '--color-border-medium': 'rgba(255,255,255,0.06)',
-  '--color-border-dark': 'rgba(255,255,255,0.10)',
-  '--color-primary': '#7c5cff',
-  '--color-primary-dark': '#6b47ff',
-};
-
-function _applyInlineTokens(applied) {
-  try {
-    const rootStyle = document.documentElement.style;
-    if (applied === 'dark') {
-      Object.entries(DARK_TOKENS).forEach(([k, v]) => rootStyle.setProperty(k, v));
-    } else if (applied === 'light') {
-      Object.entries(LIGHT_TOKENS).forEach(([k, v]) => rootStyle.setProperty(k, v));
-    }
-  } catch (e) {
-    // ignore
-  }
-}
+// Legacy inline token keys — kept only for cleanup of any leftover inline styles
+// from previous versions. Dark/light token VALUES are defined exclusively in
+// src/styles/design-tokens.css and applied via CSS [data-theme] selectors.
+const _LEGACY_TOKEN_KEYS = [
+  '--color-text-primary', '--color-text-secondary', '--color-text-tertiary',
+  '--color-text-muted', '--color-bg-primary', '--color-bg-secondary',
+  '--color-bg-tertiary', '--color-bg-hover', '--color-bg-overlay',
+  '--color-bg-input', '--color-border-light', '--color-border-medium',
+  '--color-border-dark', '--color-primary', '--color-primary-dark',
+];
 
 function _removeInlineTokens() {
   try {
     const rootStyle = document.documentElement.style;
-    Object.keys(LIGHT_TOKENS).forEach(k => rootStyle.removeProperty(k));
-    Object.keys(DARK_TOKENS).forEach(k => rootStyle.removeProperty(k));
+    _LEGACY_TOKEN_KEYS.forEach(k => rootStyle.removeProperty(k));
   } catch (e) {
     // ignore
   }
@@ -175,7 +135,6 @@ function _ensureMediaListener(theme) {
       const applied = _mediaQuery.matches ? 'dark' : 'light';
       try {
         document.documentElement.setAttribute('data-theme', applied);
-        try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) { /* ignore */ }
       } catch (e) { /* ignore */ }
 
       // Touch preferences blob to notify other tabs that effective theme changed
@@ -200,20 +159,13 @@ export function applyTheme(theme) {
     const applied = _resolveEffective(theme);
 
     document.documentElement.setAttribute('data-theme', applied);
-    try { document.documentElement.setAttribute('data-bs-theme', applied); } catch (e) { /* ignore */ }
 
     // Manage media listener based on preference
     try { _ensureMediaListener(theme); } catch (e) { /* ignore */ }
 
-    // If the user explicitly chose light/dark (not system-default) apply inline tokens
-    try {
-      if (theme === 'system-default') {
-        // For system-default, remove inline tokens so media queries and data-theme take effect
-        _removeInlineTokens();
-      } else {
-        _applyInlineTokens(applied);
-      }
-    } catch (e) { /* ignore */ }
+    // Remove any legacy inline token overrides so CSS [data-theme] selectors
+    // from design-tokens.css are the sole source of truth.
+    try { _removeInlineTokens(); } catch (e) { /* ignore */ }
 
     // Persist to localStorage so other tabs can pick it up. Store the user's preference
     // (e.g., 'system-default') so other tabs will resolve the effective theme themselves.

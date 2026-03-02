@@ -296,6 +296,7 @@
 .clearFiltersButton {
   display: flex;
   align-items: center;
+  gap: $space-1;
   padding: var(--space-2) var(--space-3);
   font-size: $font-size-sm;
   border: 1px solid var(--color-border-medium);
@@ -334,6 +335,7 @@
 .roleBadge {
   display: inline-flex;
   align-items: center;
+  gap: $space-1;
   padding: $space-1 $space-3;
   border-radius: $radius-sm;
   font-size: $font-size-xs;
@@ -412,4 +414,105 @@
   width: $space-4;
   height: $space-4;
   border-width: 0.15em;
+}
+
+/* ================================================================
+   Bootstrap utility → SCSS module migration
+   ================================================================ */
+
+.accessDeniedWrapper {
+  margin-top: $space-12;
+}
+
+.headerRow {
+  margin-bottom: $space-6;
+}
+
+.pageTitle {
+  margin-bottom: $space-2;
+}
+
+.titleIcon {
+  margin-right: $space-2;
+  color: var(--color-success);
+}
+
+.sortIcon {
+  margin-left: $space-1;
+}
+
+.sortIconMuted {
+  margin-left: $space-1;
+  color: var(--color-text-muted);
+}
+
+.inviteButton {
+  margin-right: $space-2;
+}
+
+.statsSection {
+  margin-bottom: $space-6;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $space-4;
+  margin-bottom: $space-6;
+
+  @include breakpoint-max(md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.alertSpacing {
+  margin-bottom: $space-6;
+}
+
+.cardBodyFlush {
+  padding: 0;
+}
+
+.textEnd {
+  text-align: end;
+}
+
+.actionsCell {
+  @include flex-end;
+  gap: $space-2;
+}
+
+.userNameCell {
+  @include inline-stack($space-2);
+}
+
+.mutedInfoCell {
+  @include inline-stack($space-2);
+  color: var(--color-text-muted);
+}
+
+.iconGapSm {
+  margin-right: $space-1;
+}
+
+.desktopOnly {
+  display: none;
+
+  @include breakpoint-min(md) {
+    display: inline;
+  }
+}
+
+.mobileOnly {
+  display: inline;
+
+  @include breakpoint-min(md) {
+    display: none;
+  }
+}
+
+.paginationWrapper {
+  @include flex-center;
+  margin-top: $space-6;
+  margin-bottom: $space-4;
 }

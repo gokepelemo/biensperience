@@ -195,7 +195,7 @@ function SignUpForm(props) {
           {/* Form */}
           <Form onSubmit={handleSubmit} autoComplete="off">
             {/* Name Field */}
-            <Fieldset.Root className="mb-3">
+            <Fieldset.Root className={styles.fieldGroup}>
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.name}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -217,7 +217,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Email Field */}
-            <Fieldset.Root className="mb-3">
+            <Fieldset.Root className={styles.fieldGroup}>
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.email}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -239,7 +239,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Password Field */}
-            <Fieldset.Root className="mb-3">
+            <Fieldset.Root className={styles.fieldGroup}>
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.password}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -268,7 +268,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Confirm Password Field */}
-            <Fieldset.Root className="mb-3">
+            <Fieldset.Root className={styles.fieldGroup}>
               <Fieldset.Legend className={styles.formLabel}>{lang.current.label.confirmPassword}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -297,7 +297,7 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Invite Code Field */}
-            <Fieldset.Root className="mb-3">
+            <Fieldset.Root className={styles.fieldGroup}>
               <Fieldset.Legend className={styles.formLabel}>{lang.current.invite.inviteCodeOptional}</Fieldset.Legend>
               <Fieldset.Content>
                 <InputGroup className={styles.inputGroup}>
@@ -316,17 +316,17 @@ function SignUpForm(props) {
                   />
                 </InputGroup>
                 {inviteValidation.isValidating && (
-                  <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  <small className={styles.helperText} style={{ display: 'block', marginTop: '0.5rem' }}>
                     {lang.current.invite.validatingCode}
                   </small>
                 )}
                 {inviteValidation.isValid && inviteValidation.details && (
                   <div className={styles.inviteDetails}>
-                    <small className="text-success" style={{ display: 'block' }}>
+                    <small className={styles.successText} style={{ display: 'block' }}>
                       ✓ {lang.current.invite.validCode}
                     </small>
                     {inviteValidation.details.requiresEmail && (
-                      <small className="text-muted" style={{ display: 'block', marginTop: '0.25rem' }}>
+                      <small className={styles.helperText} style={{ display: 'block', marginTop: '0.25rem' }}>
                         {inviteValidation.details.message || lang.current.invite.enterEmailForDetails}
                       </small>
                     )}
@@ -342,7 +342,7 @@ function SignUpForm(props) {
                     )}
                     {!inviteValidation.details.requiresEmail && inviteValidation.details.experienceNames?.length > 0 && (
                       <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                        <small className="text-muted">{lang.current.invite.experiencesIncluded}:</small>
+                        <small className={styles.helperText}>{lang.current.invite.experiencesIncluded}:</small>
                         <ul className={styles.resourceList}>
                           {inviteValidation.details.experienceNames.map((name, idx) => (
                             <li key={idx}><small>{name}</small></li>
@@ -352,7 +352,7 @@ function SignUpForm(props) {
                     )}
                     {!inviteValidation.details.requiresEmail && inviteValidation.details.destinationNames?.length > 0 && (
                       <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                        <small className="text-muted">{lang.current.invite.destinationsIncluded}:</small>
+                        <small className={styles.helperText}>{lang.current.invite.destinationsIncluded}:</small>
                         <ul className={styles.resourceList}>
                           {inviteValidation.details.destinationNames.map((name, idx) => (
                             <li key={idx}><small>{name}</small></li>
@@ -363,12 +363,12 @@ function SignUpForm(props) {
                   </div>
                 )}
                 {inviteValidation.error && (
-                  <small className="text-danger" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  <small className={styles.errorText} style={{ display: 'block', marginTop: '0.5rem' }}>
                     {inviteValidation.error}
                   </small>
                 )}
                 {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
-                  <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  <small className={styles.helperText} style={{ display: 'block', marginTop: '0.5rem' }}>
                     {lang.current.invite.inviteCodeHelp}
                   </small>
                 )}

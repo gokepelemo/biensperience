@@ -9,14 +9,15 @@
 }
 
 /* Dark Mode Overrides */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+:root:not([data-theme="light"]) {
+  @include dark-mode {
     --pill-bg: #2d2d2d; /* Dark gray background */
     --pill-color: #f8f9fa; /* Light text */
     --color-neutral: #4a5568; /* Medium dark gray */
     --color-on-neutral: #f8f9fa; /* Light text */
   }
 }
+
 
 [data-theme="dark"] {
   --pill-bg: #2d2d2d; /* Dark gray background */

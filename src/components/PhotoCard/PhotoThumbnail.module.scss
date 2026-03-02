@@ -60,6 +60,12 @@
   min-height: clamp(4.5rem, 6vw, 5rem); /* Match thumbnail size */
 }
 
+/* Thumbnail image (replaces img-fluid) */
+.thumbnailImage {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Loading animation for thumbnails */
 .photoThumbnailLoader {
   position: absolute;

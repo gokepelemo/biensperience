@@ -11,7 +11,11 @@ import { useRevalidation, REVALIDATION_CONFIG } from '../hooks/useRevalidation';
 
 logger.debug('DataContext module loaded');
 
-const DataContext = createContext();
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const DataContext = (import.meta.hot?.data?.DataContext) || createContext();
+if (import.meta.hot) {
+  import.meta.hot.data.DataContext = DataContext;
+}
 
 /**
  * Hook to access global data state

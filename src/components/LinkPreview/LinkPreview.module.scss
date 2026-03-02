@@ -245,8 +245,8 @@
 }
 
 // Dark mode support
-@media (prefers-color-scheme: dark) {
-  .linkPreview {
+.linkPreview {
+  @include dark-mode {
     &.card {
       .thumbnail {
         background: var(--color-bg-primary);
@@ -254,6 +254,7 @@
     }
   }
 }
+
 
 [data-theme="dark"] {
   .linkPreview {

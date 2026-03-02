@@ -7,33 +7,43 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '../test-utils';
 import { Modal } from '../../src/components/design-system';
 
-// Mock the underlying Bootstrap Modal
+// Mock both Modal implementations — ModalWrapper selects one based on feature flag
 jest.mock('../../src/components/Modal/Modal', () => {
-  return function MockBootstrapModal({ show, onClose, title, children, submitText, onSubmit, footer, ...props }) {
+  const React = require('react');
+  return ({ show, onClose, title, children, submitText, onSubmit, footer }) => {
     if (!show) return null;
-
-    return (
-      <div data-testid="bootstrap-modal" role="dialog">
-        <div data-testid="modal-header">
-          {title && <h5>{title}</h5>}
-          <button data-testid="close-button" onClick={onClose}>×</button>
-        </div>
-        <div data-testid="modal-body">{children}</div>
-        {footer ? (
-          <div data-testid="modal-footer">{footer}</div>
-        ) : (
-          onSubmit && (
-            <div data-testid="modal-footer">
-              <button data-testid="submit-button" onClick={onSubmit}>
-                {submitText || 'Submit'}
-              </button>
-            </div>
+    return React.createElement('div', { 'data-testid': 'bootstrap-modal', role: 'dialog' },
+      React.createElement('div', { 'data-testid': 'modal-header' },
+        title && React.createElement('h5', null, title),
+        React.createElement('button', { 'data-testid': 'close-button', onClick: onClose }, '×')
+      ),
+      React.createElement('div', { 'data-testid': 'modal-body' }, children),
+      footer
+        ? React.createElement('div', { 'data-testid': 'modal-footer' }, footer)
+        : onSubmit && React.createElement('div', { 'data-testid': 'modal-footer' },
+            React.createElement('button', { 'data-testid': 'submit-button', onClick: onSubmit }, submitText || 'Submit')
           )
-        )}
-      </div>
+    );
+  };
+});
+jest.mock('../../src/components/Modal/DialogModal', () => {
+  const React = require('react');
+  return ({ show, onClose, title, children, submitText, onSubmit, footer }) => {
+    if (!show) return null;
+    return React.createElement('div', { 'data-testid': 'bootstrap-modal', role: 'dialog' },
+      React.createElement('div', { 'data-testid': 'modal-header' },
+        title && React.createElement('h5', null, title),
+        React.createElement('button', { 'data-testid': 'close-button', onClick: onClose }, '×')
+      ),
+      React.createElement('div', { 'data-testid': 'modal-body' }, children),
+      footer
+        ? React.createElement('div', { 'data-testid': 'modal-footer' }, footer)
+        : onSubmit && React.createElement('div', { 'data-testid': 'modal-footer' },
+            React.createElement('button', { 'data-testid': 'submit-button', onClick: onSubmit }, submitText || 'Submit')
+          )
     );
   };
 });

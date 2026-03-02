@@ -238,7 +238,7 @@ export default function TransferOwnershipModal({
       return (
         <div className={styles.loadingState}>
           <Loading size="md" />
-          <Text variant="muted" className="mt-3">{t().checkingStatus || 'Checking experience status...'}</Text>
+          <Text variant="muted" className={styles.mt3}>{t().checkingStatus || 'Checking experience status...'}</Text>
         </div>
       );
     }
@@ -267,7 +267,7 @@ export default function TransferOwnershipModal({
                 </div>
               </div>
 
-              <Text className="mb-4">
+              <Text className={styles.mb4}>
                 {t().cannotDeleteDirectly || "Since other users are planning this experience, you cannot delete it directly. Choose how you'd like to proceed:"}
               </Text>
 
@@ -310,7 +310,7 @@ export default function TransferOwnershipModal({
           ) : (
             <div className={styles.deleteConfirm}>
               <FaTrash className={styles.deleteIcon} aria-hidden="true" />
-              <Text weight="semibold" className="mb-2">{t().titleDeleteExperience || 'Delete Experience'}?</Text>
+              <Text weight="semibold" className={styles.mb2}>{t().titleDeleteExperience || 'Delete Experience'}?</Text>
               <Text variant="muted">
                 {t().noPlansExist || 'No users have created plans for this experience. You can safely delete it.'}
               </Text>
@@ -323,7 +323,7 @@ export default function TransferOwnershipModal({
     if (currentStep === STEPS.SELECT_USER) {
       return (
         <div className={styles.stepContent}>
-          <Text className="mb-4">
+          <Text className={styles.mb4}>
             {t().searchUserPrompt?.replace('{name}', experience?.name) || `Search for a user to transfer ownership of "${experience?.name}" to:`}
           </Text>
 
@@ -343,7 +343,7 @@ export default function TransferOwnershipModal({
 
           {selectedUser && (
             <div className={styles.selectedUserPreview}>
-              <Text size="sm" weight="semibold" className="mb-2">
+              <Text size="sm" weight="semibold" className={styles.mb2}>
                 {t().selectedUser || 'Selected user:'}
               </Text>
               <div className={styles.userCard}>
@@ -365,7 +365,7 @@ export default function TransferOwnershipModal({
             {selectedAction === ACTIONS.DELETE && (
               <>
                 <FaTrash className={styles.confirmIcon} style={{ color: 'var(--color-danger)' }} aria-hidden="true" />
-                <Text weight="semibold" size="lg" className="mb-2">
+                <Text weight="semibold" size="lg" className={styles.mb2}>
                   {t().confirmDelete?.replace('{name}', experience?.name) || `Delete "${experience?.name}"?`}
                 </Text>
                 <Text variant="muted">
@@ -377,7 +377,7 @@ export default function TransferOwnershipModal({
             {selectedAction === ACTIONS.TRANSFER && selectedUser && (
               <>
                 <FaUserFriends className={styles.confirmIcon} style={{ color: 'var(--color-primary)' }} aria-hidden="true" />
-                <Text weight="semibold" size="lg" className="mb-2">
+                <Text weight="semibold" size="lg" className={styles.mb2}>
                   {t().confirmTransfer?.replace('{name}', selectedUser.name) || `Transfer to ${selectedUser.name}?`}
                 </Text>
                 <Text variant="muted">
@@ -390,7 +390,7 @@ export default function TransferOwnershipModal({
             {selectedAction === ACTIONS.ARCHIVE && (
               <>
                 <FaArchive className={styles.confirmIcon} style={{ color: 'var(--color-warning)' }} aria-hidden="true" />
-                <Text weight="semibold" size="lg" className="mb-2">
+                <Text weight="semibold" size="lg" className={styles.mb2}>
                   {t().confirmArchive?.replace('{name}', experience?.name) || `Archive "${experience?.name}"?`}
                 </Text>
                 <Text variant="muted">
@@ -433,7 +433,7 @@ export default function TransferOwnershipModal({
             disabled={loading}
             aria-label={t().buttonBackToPrevious || 'Go back to previous step'}
           >
-            <FaArrowLeft size={12} className="me-2" aria-hidden="true" />
+            <FaArrowLeft size={12} className={styles.me2} aria-hidden="true" />
             {t().buttonBack || 'Back'}
           </button>
         )}
@@ -441,7 +441,7 @@ export default function TransferOwnershipModal({
       <div className={styles.footerRight}>
         <button
           type="button"
-          className="btn btn-outline-secondary me-2"
+          className={`btn btn-outline-secondary ${styles.cancelButton}`}
           onClick={onClose}
           disabled={loading}
         >
@@ -530,7 +530,7 @@ export default function TransferOwnershipModal({
             message={error}
             dismissible
             onDismiss={() => setError('')}
-            className="mb-4"
+            className={styles.mb4}
           />
         )}
       </div>

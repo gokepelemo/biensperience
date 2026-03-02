@@ -576,14 +576,25 @@
 }
 
 /* Dark Mode Adjustments */
-@media (prefers-color-scheme: dark) {
-  .planCard {
+.planCard {
+  @include dark-mode {
     &:hover {
       border-color: var(--color-border-dark);
     }
-
+  
     &.expanded {
       border-color: var(--color-primary-400);
     }
   }
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.headerBottomSpacing {
+  margin-bottom: $space-2;
+}
+
+.costSectionHeading {
+  margin-bottom: $space-4;
+}
+

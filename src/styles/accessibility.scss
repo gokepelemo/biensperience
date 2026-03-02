@@ -67,8 +67,9 @@ textarea {
 }
 
 /* Remove default focus for mouse users */
+/* !important on outline ensures component-level :focus rules can't override this */
 *:focus:not(:focus-visible) {
-  outline: none;
+  outline: none !important;
   box-shadow: none;
 }
 

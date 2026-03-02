@@ -256,13 +256,28 @@ export function getAvatarCacheStats() {
 }
 
 // -------------------------------------------------------------------
-// Auto-invalidation via event bus
+// Auto-invalidation and re-population via event bus
 // -------------------------------------------------------------------
 
 try {
   eventBus.subscribe('user:updated', (event) => {
     const userId = event?.userId || event?.user?._id;
-    if (userId) invalidateAvatar(userId);
+    if (!userId) return;
+
+    // If the event payload includes user data with photo fields,
+    // resolve and re-populate the cache immediately instead of just
+    // invalidating. This avoids a stale cache → null → lazy fetch
+    // round-trip that can briefly flash initials.
+    const userData = event?.user;
+    if (userData && (userData.photos || userData.oauthProfilePhoto || userData.photo)) {
+      const freshUrl = resolveUrlFromUser(userData);
+      setCachedAvatarUrl(userId, freshUrl);
+      logger.debug('[avatar-cache] Re-populated cache from user:updated event', { userId, hasUrl: !!freshUrl });
+    } else {
+      // No photo data in the payload — just invalidate so the next
+      // render triggers a lazy fetch with fresh data.
+      invalidateAvatar(userId);
+    }
   });
 
   eventBus.subscribe('photo:created', (event) => {

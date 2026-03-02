@@ -309,7 +309,7 @@ export function renderMention(mention, entity, onEntityClick, options = {}) {
         ) : (
           <div>
             <p><em>This {entityType} was mentioned but is no longer available. It may have been deleted or moved.</em></p>
-            <p className="text-muted small">ID: {entityId}</p>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>ID: {entityId}</p>
           </div>
         )}
       </Popover.Body>

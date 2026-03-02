@@ -82,3 +82,14 @@
   display: flex;
   justify-content: center;
 }
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.verticalSpacing {
+  margin-top: $space-6;
+  margin-bottom: $space-6;
+}
+
+.topSpacing2 {
+  margin-top: $space-2;
+}

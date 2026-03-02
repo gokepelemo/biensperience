@@ -38,7 +38,7 @@ export default function PrivacyPolicyModal({
         onClick={handleBack}
         className={styles.backButton}
       >
-        <FaArrowLeft className="me-2" /> Back to Sign Up
+        <FaArrowLeft className={styles.iconBefore} /> Back to Sign Up
       </Button>
       <Button variant="primary" onClick={onClose}>
         I Understand

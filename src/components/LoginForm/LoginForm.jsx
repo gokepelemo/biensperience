@@ -257,7 +257,7 @@ export default function LoginForm({ setUser }) {
                         aria-describedby={error ? "login-error" : undefined}
                     >
                         {/* Email Field */}
-                        <Fieldset.Root className="mb-3">
+                        <Fieldset.Root className={styles.fieldsetSpacing}>
                             <Fieldset.Legend
                                 className={styles.formLabel}
                             >
@@ -291,7 +291,7 @@ export default function LoginForm({ setUser }) {
                         </Fieldset.Root>
 
                         {/* Password Field */}
-                        <Fieldset.Root className="mb-3">
+                        <Fieldset.Root className={styles.fieldsetSpacing}>
                             <Fieldset.Legend
                                 className={styles.formLabel}
                             >
@@ -423,7 +423,7 @@ export default function LoginForm({ setUser }) {
             </div>
 
             {/* Screen reader only status announcements */}
-            <div className="visually-hidden" aria-live="polite" aria-atomic="true">
+            <div className={styles.visuallyHidden} aria-live="polite" aria-atomic="true">
                 {isLoading && "Signing you in, please wait..."}
             </div>
 

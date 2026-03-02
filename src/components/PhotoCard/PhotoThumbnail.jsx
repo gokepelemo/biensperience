@@ -123,7 +123,7 @@ export default function PhotoThumbnail({
       aria-label={`${lang.current.photoThumbnail.viewPhoto.replace('{index}', photoIndex + 1)}${showDefaultBadge ? ` (${lang.current.photoThumbnail.defaultPhoto.toLowerCase()})` : ''}`}
     >
       <div
-        className={`${styles.photoThumbnailContainer} d-flex align-items-center justify-content-center`}
+        className={styles.photoThumbnailContainer}
         style={{
           cursor: 'pointer',
           aspectRatio: aspectRatio
@@ -136,7 +136,7 @@ export default function PhotoThumbnail({
         )}
         <img
           src={displayPhoto.url}
-          className="img-fluid"
+          className={styles.thumbnailImage}
           alt={hasRealPhotos ? `${imageAlt} thumbnail ${photoIndex + 1}` : `${imageAlt} placeholder thumbnail`}
           title={hasRealPhotos ? ((sanitizedCredit && sanitizedCredit.toLowerCase() !== 'biensperience') ? sanitizedCredit : `${imageAlt} ${photoIndex + 1}`) : undefined}
           loading="lazy"

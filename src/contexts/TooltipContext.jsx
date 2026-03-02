@@ -8,7 +8,11 @@
 
 import { createContext, useContext, useState, useCallback } from 'react';
 
-const TooltipContext = createContext(null);
+// Preserve context reference across HMR to prevent "must be used within Provider" errors
+const TooltipContext = (import.meta.hot?.data?.TooltipContext) || createContext(null);
+if (import.meta.hot) {
+  import.meta.hot.data.TooltipContext = TooltipContext;
+}
 
 export function TooltipProvider({ children }) {
   const [activeTooltipId, setActiveTooltipId] = useState(null);

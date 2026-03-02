@@ -317,9 +317,9 @@
 .hoverTooltip {
   position: fixed;
   z-index: 10000;
-  background: var(--color-text-primary);
-  color: var(--color-bg-primary);
-  padding: $space-2 $space-4 $space-2 $space-3;
+  background-color: var(--color-bg-overlay, rgba(0, 0, 0, 0.9));
+  color: white;
+  padding: $space-2-5 $space-3;
   border-radius: $radius-md;
   font-size: $font-size-sm;
   font-weight: $font-weight-medium;
@@ -353,5 +353,5 @@
   height: 0;
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 6px solid var(--color-text-primary);
+  border-top: 6px solid var(--color-bg-overlay, rgba(0, 0, 0, 0.9));
 }

@@ -98,9 +98,9 @@ class ErrorBoundary extends React.Component {
 
       // Default fallback UI
       return (
-        <Container className={`${styles.errorBoundaryContainer} my-5`}>
+        <Container className={styles.errorBoundaryContainer}>
           <Alert type="danger" className={styles.errorBoundaryAlert}>
-            <h4 className="alert-heading">
+            <h4 className={styles.alertHeading}>
               {this.props.title || 'Oops! Something went wrong'}
             </h4>
             <p>
@@ -110,17 +110,17 @@ class ErrorBoundary extends React.Component {
 
             {/* Show error details in development */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <details className={`${styles.errorDetails} mt-3`}>
+              <details className={styles.errorDetails}>
                 <summary className={styles.cursorPointer}>Error Details (Development Only)</summary>
-                <div className="mt-2">
+                <div className={styles.errorContent}>
                   <strong>Error:</strong>
-                  <pre className="bg-color-secondary p-2 rounded">
+                  <pre className={styles.codeBlock}>
                     {this.state.error.toString()}
                   </pre>
                   {this.state.errorInfo && (
                     <>
                       <strong>Component Stack:</strong>
-                      <pre className="bg-color-secondary p-2 rounded" style={{ fontSize: '0.85rem' }}>
+                      <pre className={styles.codeBlock} style={{ fontSize: '0.85rem' }}>
                         {this.state.errorInfo.componentStack}
                       </pre>
                     </>
@@ -129,7 +129,7 @@ class ErrorBoundary extends React.Component {
               </details>
             )}
 
-            <div className="mt-4 d-flex gap-2">
+            <div className={styles.actionButtons}>
               <Button variant="primary" onClick={this.handleReset}>
                 Try Again
               </Button>
@@ -146,9 +146,9 @@ class ErrorBoundary extends React.Component {
 
           {/* Show error frequency warning if errors are recurring */}
           {this.state.errorCount > 2 && (
-            <Alert type="warning" className="mt-3">
+            <Alert type="warning" className={styles.recurringWarning}>
               <strong>Recurring Error Detected</strong>
-              <p className="mb-0">
+              <p className={styles.warningText}>
                 This error has occurred {this.state.errorCount} times.
                 You may want to reload the page or contact support if the issue persists.
               </p>

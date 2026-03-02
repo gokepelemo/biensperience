@@ -715,3 +715,23 @@
     }
   }
 }
+
+/* ===== Utility replacements ===== */
+
+.mb4 {
+  margin-bottom: $space-4;
+}
+
+.textDanger {
+  color: var(--color-danger);
+}
+
+.formHelperText {
+  color: var(--color-text-muted);
+  margin-top: $space-2;
+  display: block;
+}
+
+.ms2 {
+  margin-inline-start: $space-2;
+}

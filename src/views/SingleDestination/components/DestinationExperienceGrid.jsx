@@ -72,12 +72,12 @@ export default function DestinationExperienceGrid({
         <h3 className={styles.sectionTitle}>
           {lang.current.heading.experiencesIn.replace('{destinationName}', destinationName)}
         </h3>
-        <Row className="justify-content-center">
+        <Row className={styles.justifyCenter}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Col
               md={6}
               key={`skeleton-${i}`}
-              className="d-flex justify-content-center"
+              className={styles.flexCenter}
               style={{ marginBottom: 'var(--space-4)' }}
             >
               <SkeletonLoader variant="rectangle" width="100%" height="280px" />
@@ -99,13 +99,13 @@ export default function DestinationExperienceGrid({
 
       {displayedExperiences.length > 0 ? (
         <>
-          <Row className="justify-content-center">
+          <Row className={styles.justifyCenter}>
             {displayedExperiences.map((experience, index) => (
               experience ? (
                 <Col
                   md={6}
                   key={experience._id || index}
-                  className="d-flex justify-content-center"
+                  className={styles.flexCenter}
                   style={{ marginBottom: 'var(--space-4)' }}
                 >
                   <ExperienceCard
@@ -119,7 +119,7 @@ export default function DestinationExperienceGrid({
                 <Col
                   md={6}
                   key={`placeholder-${index}`}
-                  className="d-flex justify-content-center"
+                  className={styles.flexCenter}
                   style={{ marginBottom: 'var(--space-4)' }}
                 >
                   <SkeletonLoader variant="rectangle" width="100%" height="280px" />

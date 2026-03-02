@@ -80,3 +80,24 @@
     }
   }
 }
+
+/* Utility replacement classes */
+.textCenter {
+  text-align: center;
+}
+
+.mb4 {
+  margin-bottom: $space-4;
+}
+
+.mb3 {
+  margin-bottom: $space-3;
+}
+
+.mb0 {
+  margin-bottom: 0;
+}
+
+.mt4 {
+  margin-top: $space-4;
+}
