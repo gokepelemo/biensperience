@@ -24,6 +24,26 @@ import PropTypes from 'prop-types';
 import { Avatar } from '@chakra-ui/react';
 import styles from './UserAvatar.module.scss';
 
+// ── Image-load cache ──────────────────────────────────────────────
+// Module-level Set of image URLs that have successfully loaded in this
+// session. Persists across component mounts so re-rendered avatars
+// whose images are already in the browser cache skip the skeleton.
+const loadedImages = new Set();
+const MAX_LOADED_CACHE = 500;
+
+function markImageLoaded(url) {
+  if (!url) return;
+  if (loadedImages.size >= MAX_LOADED_CACHE) {
+    const first = loadedImages.values().next().value;
+    loadedImages.delete(first);
+  }
+  loadedImages.add(url);
+}
+
+function isImageLoaded(url) {
+  return !!url && loadedImages.has(url);
+}
+
 /**
  * AvatarRenderer – renders the visual avatar element using Avatar primitives.
  *
@@ -58,13 +78,15 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
 ) {
   // Track whether the <img> has finished loading to avoid showing
   // initials while the browser fetches the image.
-  const [imgLoaded, setImgLoaded] = useState(false);
+  // Initialise to true when the URL is already in our loaded-images cache.
+  const [imgLoaded, setImgLoaded] = useState(() => isImageLoaded(src));
   // Track image load failures so we can immediately fall back to initials
   const [imgError, setImgError] = useState(false);
 
-  // Reset loaded/error state when src changes
+  // Reset loaded/error state when src changes, but skip the skeleton
+  // if we've already loaded this URL before.
   useEffect(() => {
-    setImgLoaded(false);
+    setImgLoaded(isImageLoaded(src));
     setImgError(false);
   }, [src]);
 
@@ -139,8 +161,8 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
         <img
           src={src}
           alt={name || 'User avatar'}
-          onLoad={() => setImgLoaded(true)}
-          onError={() => setImgError(true)}
+          onLoad={() => { markImageLoaded(src); setImgLoaded(true); }}
+          onError={() => { loadedImages.delete(src); setImgError(true); }}
           style={{
             position: imgLoaded ? 'static' : 'absolute',
             opacity: imgLoaded ? 1 : 0,

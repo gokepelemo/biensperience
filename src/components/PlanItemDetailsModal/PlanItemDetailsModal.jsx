@@ -40,6 +40,7 @@ import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
 import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
+import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 
 export default function PlanItemDetailsModal({
@@ -2084,7 +2085,7 @@ export default function PlanItemDetailsModal({
                     client={chatClient}
                     theme={uiTheme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}
                   >
-                    <Channel channel={chatChannel}>
+                    <Channel channel={chatChannel} Avatar={StreamChatAvatar}>
                       <Window>
                         {/* No ChannelHeader - chat is already in plan item context (modal title) */}
                         <MessageList />

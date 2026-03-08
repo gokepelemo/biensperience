@@ -13,6 +13,7 @@ import 'stream-chat-react/dist/css/v2/index.css';
 
 import { Modal, Alert } from '../design-system';
 import styles from './ChatModal.module.scss';
+import StreamChatAvatar from './StreamChatAvatar';
 
 import { logger } from '../../utilities/logger';
 import useStreamChat from '../../hooks/useStreamChat';
@@ -105,7 +106,7 @@ export default function ChatModal({ show, onClose, title, channelType = 'messagi
       {!loading && client && channel && (
         <div className={styles.chatContainer}>
           <Chat client={client} theme="str-chat__theme-light">
-            <Channel channel={channel}>
+            <Channel channel={channel} Avatar={StreamChatAvatar}>
               <Window>
                 <ChannelHeader />
                 <MessageList />

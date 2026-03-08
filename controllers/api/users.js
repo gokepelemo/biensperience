@@ -1953,7 +1953,7 @@ async function getAvatars(req, res) {
     }
 
     const users = await User.find({ _id: { $in: idArray } })
-      .select('photos default_photo_id oauthProfilePhoto photo')
+      .select('photos default_photo_id oauthProfilePhoto')
       .populate('photos', 'url')
       .lean();
 
@@ -1963,7 +1963,6 @@ async function getAvatars(req, res) {
       avatars[u._id.toString()] =
         (defaultPhoto && defaultPhoto.url) ||
         u.oauthProfilePhoto ||
-        (typeof u.photo === 'string' ? u.photo : null) ||
         null;
     }
 

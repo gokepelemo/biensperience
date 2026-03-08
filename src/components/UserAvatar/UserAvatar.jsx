@@ -6,6 +6,7 @@ import DOMPurify from "dompurify";
 import debug from "../../utilities/debug";
 import EntitySchema from "../OpenGraph/EntitySchema";
 import { resolveAvatarUrl, fetchAvatarUrl } from "../../utilities/avatar-cache";
+import { eventBus } from "../../utilities/event-bus";
 import AvatarRenderer from "./AvatarRenderer";
 
 /**
@@ -52,11 +53,24 @@ function sanitizeImageUrl(url) {
     return null;
   }
 
-  // Use DOMPurify to sanitize the URL
-  const sanitized = DOMPurify.sanitize(trimmedUrl, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  // Use DOMPurify to sanitize the URL.
+  // RETURN_DOM_FRAGMENT avoids DOMPurify treating the string as HTML
+  // (which would encode & as &amp; in query params, breaking S3 URLs).
+  // With ALLOWED_TAGS:[] it strips any HTML — a plain URL string passes
+  // through unchanged.
+  const sanitized = DOMPurify.sanitize(trimmedUrl, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+  });
 
-  // Return null if DOMPurify removed content (indicates malicious URL)
-  if (!sanitized || sanitized !== trimmedUrl) {
+  // DOMPurify may entity-encode ampersands in URLs (& → &amp;).
+  // Decode entities before comparing so valid URLs with query params
+  // are not rejected.
+  const decoded = sanitized.replace(/&amp;/g, '&');
+
+  // Return null if DOMPurify removed meaningful content
+  if (!decoded || decoded !== trimmedUrl) {
     return null;
   }
 
@@ -107,6 +121,26 @@ const UserAvatar = ({
   const [lazyUrl, setLazyUrl] = useState(null);
   const [fetchDone, setFetchDone] = useState(false);
 
+  // Version counter bumped when the avatar cache is invalidated for this user.
+  // Adding it to the fetch effect deps forces a re-fetch even when the other
+  // deps (resolvedUrl, user._id) haven't changed.
+  const [fetchVersion, setFetchVersion] = useState(0);
+
+  // Subscribe to avatar:changed events so already-mounted components
+  // re-fetch when a photo is uploaded/deleted or the user record changes.
+  useEffect(() => {
+    if (!user?._id) return;
+    const userId = user._id.toString();
+    const unsub = eventBus.subscribe('avatar:changed', (event) => {
+      if (event?.userId?.toString() === userId) {
+        setLazyUrl(null);
+        setFetchDone(false);
+        setFetchVersion(v => v + 1);
+      }
+    });
+    return unsub;
+  }, [user?._id]);
+
   useEffect(() => {
     if (resolvedUrl !== null || !user?._id) {
       if (lazyUrl !== null) setLazyUrl(null);
@@ -122,7 +156,7 @@ const UserAvatar = ({
       }
     });
     return () => { cancelled = true; };
-  }, [resolvedUrl, user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resolvedUrl, user?._id, fetchVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const photoUrl = resolvedUrl || lazyUrl;
   debug.log('UserAvatar - photoUrl:', photoUrl);

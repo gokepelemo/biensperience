@@ -63,11 +63,14 @@ export function resolveUrlFromUser(user) {
     if (first && typeof first === 'object' && first.url) return first.url;
   }
 
-  // 3. OAuth profile photo
-  if (user.oauthProfilePhoto) return user.oauthProfilePhoto;
+  // If photos exist but none could be resolved (unpopulated ObjectIds),
+  // return null to force a lazy fetch from the backend which will
+  // .populate() them properly. Never fall through to OAuth/legacy —
+  // uploaded photos must always take precedence.
+  if (user.photos?.length > 0) return null;
 
-  // 4. Legacy photo field
-  if (user.photo && typeof user.photo === 'string') return user.photo;
+  // 3. OAuth profile photo (only when no uploaded photos exist)
+  if (user.oauthProfilePhoto) return user.oauthProfilePhoto;
 
   return null;
 }
@@ -174,20 +177,13 @@ async function flushBatch() {
         }
       }
 
-      // Cache null for any requested ID not in the response
-      for (const id of idsToFetch) {
-        if (getCachedAvatarUrl(id) === undefined) {
-          setCachedAvatarUrl(id, null);
-        }
-      }
+      // Do NOT cache null for missing IDs — the next mount will retry,
+      // ensuring we pick up avatars that weren't available yet (upload
+      // in progress, race condition, etc.).
     } catch (err) {
       logger.error('[avatar-cache] Batch fetch failed', { error: err.message });
-      // Mark all as null so callers don't hang
-      for (const id of idsToFetch) {
-        if (getCachedAvatarUrl(id) === undefined) {
-          setCachedAvatarUrl(id, null);
-        }
-      }
+      // Do NOT cache null on errors — a transient network failure
+      // should not poison the cache for 10 minutes.
     }
   }
 
@@ -269,25 +265,42 @@ try {
     // invalidating. This avoids a stale cache → null → lazy fetch
     // round-trip that can briefly flash initials.
     const userData = event?.user;
-    if (userData && (userData.photos || userData.oauthProfilePhoto || userData.photo)) {
+    if (userData && (userData.photos || userData.oauthProfilePhoto)) {
       const freshUrl = resolveUrlFromUser(userData);
-      setCachedAvatarUrl(userId, freshUrl);
-      logger.debug('[avatar-cache] Re-populated cache from user:updated event', { userId, hasUrl: !!freshUrl });
+      if (freshUrl) {
+        // Only re-populate when we actually resolved a URL.
+        // The payload may contain unpopulated photo ObjectIds that
+        // resolveUrlFromUser can't extract a URL from — caching null
+        // here would block the lazy fetch from hitting the API.
+        setCachedAvatarUrl(userId, freshUrl);
+        logger.debug('[avatar-cache] Re-populated cache from user:updated event', { userId });
+      } else {
+        // Photo fields present but URL unresolvable (unpopulated refs,
+        // empty array, etc.) — invalidate so the lazy fetch retries.
+        invalidateAvatar(userId);
+      }
     } else {
       // No photo data in the payload — just invalidate so the next
       // render triggers a lazy fetch with fresh data.
       invalidateAvatar(userId);
     }
+    eventBus.emit('avatar:changed', { userId });
   });
 
   eventBus.subscribe('photo:created', (event) => {
     const userId = event?.photo?.user || event?.userId;
-    if (userId) invalidateAvatar(userId);
+    if (userId) {
+      invalidateAvatar(userId);
+      eventBus.emit('avatar:changed', { userId });
+    }
   });
 
   eventBus.subscribe('photo:deleted', (event) => {
     const userId = event?.photo?.user || event?.userId;
-    if (userId) invalidateAvatar(userId);
+    if (userId) {
+      invalidateAvatar(userId);
+      eventBus.emit('avatar:changed', { userId });
+    }
   });
 } catch (_e) {
   // Silent — eventBus may not be initialised in all contexts

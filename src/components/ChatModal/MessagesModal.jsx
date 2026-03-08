@@ -18,6 +18,7 @@ import { Alert } from '../design-system';
 import styles from './MessagesModal.module.scss';
 import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';
+import StreamChatAvatar from './StreamChatAvatar';
 
 import { cancelBienBotChannel, getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
 import { getPlanById } from '../../utilities/plans-api';
@@ -1275,7 +1276,7 @@ export default function MessagesModal({
 
                     <section className={`${styles.pane} ${channelSwitching ? styles.switching : ''}`} aria-label="Messages">
                       {activeChannel ? (
-                        <Channel channel={activeChannel}>
+                        <Channel channel={activeChannel} Avatar={StreamChatAvatar}>
                           <Window>
                             <ChannelHeader />
                             <MessageList />
