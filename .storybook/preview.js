@@ -49,7 +49,6 @@ export const decorators = [
 ];
 
 // Optional parameters or global decorators can be added below.
-import 'bootstrap/dist/css/bootstrap.min.css';
 import '../src/index.scss';
 import '../src/styles/theme.scss';
 import '../src/styles/design-tokens.scss';
