@@ -335,7 +335,6 @@
 // Smooth scrolling
 @mixin smooth-scroll {
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
 }
 
 // GPU acceleration
@@ -346,11 +345,10 @@
 
 // Hide scrollbar
 @mixin hide-scrollbar {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Standard (Firefox 64+, Chrome 121+) */
 
   &::-webkit-scrollbar {
-    display: none; /* Chrome/Safari/Opera */
+    display: none; /* WebKit (Chrome <121, Safari, Opera) */
   }
 }
 
@@ -463,8 +461,9 @@
   line-height: $line-height-normal;
   transition: all $transition-normal $easing-ease;
 
-  &:focus {
-    outline: none;
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
     border-color: $color-primary;
     box-shadow: 0 0 0 3px rgba($color-primary, 0.1);
   }
@@ -608,20 +607,26 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%); // Modern standard
+  clip: rect(0, 0, 0, 0); // Deprecated fallback for older browsers
   white-space: nowrap;
   border-width: 0;
 }
 
 // Aspect ratio container
+// Uses native aspect-ratio property (Baseline 2021) with padding-bottom fallback
 @mixin aspect-ratio($width, $height) {
   position: relative;
   width: 100%;
+  aspect-ratio: #{$width} / #{$height};
 
-  &::before {
-    content: '';
-    display: block;
-    padding-bottom: percentage($height / $width);
+  // Fallback for browsers without aspect-ratio support
+  @supports not (aspect-ratio: 1) {
+    &::before {
+      content: '';
+      display: block;
+      padding-bottom: percentage($height / $width);
+    }
   }
 
   & > * {

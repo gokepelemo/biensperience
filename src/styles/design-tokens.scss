@@ -20,6 +20,14 @@
 
 :root {
   /* ============================================
+     COLOR SCHEME - Informs the browser about
+     supported themes for form controls, scrollbars,
+     and other UA-styled elements.
+     ============================================ */
+
+  color-scheme: light dark;
+
+  /* ============================================
      BASE COLORS - Fundamental color constants
      ============================================ */
 

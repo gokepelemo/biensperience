@@ -18,7 +18,8 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%); // Modern standard
+  clip: rect(0, 0, 0, 0); // Deprecated fallback
   white-space: nowrap;
   border: 0;
 
@@ -34,6 +35,7 @@
     padding: $space-3 $space-6;
     margin: 0;
     overflow: visible;
+    clip-path: none;
     clip: auto;
     background: var(--gradient-primary);
     color: white !important;
@@ -126,7 +128,11 @@ button[aria-disabled="true"] {
   cursor: not-allowed;
 }
 
-/* Interactive Element Minimum Size (WCAG 2.5.5) */
+/* Interactive Element Minimum Size
+ * WCAG 2.2 SC 2.5.8 Target Size (Minimum) - Level AA: 24x24px
+ * WCAG 2.1 SC 2.5.5 Target Size - Level AAA: 44x44px
+ * We enforce 44px to meet the AAA standard.
+ */
 button,
 a,
 input[type="checkbox"],
