@@ -1,7 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// Import Bootstrap CSS before custom styles
-// import './styles/bootstrap-custom.scss'; // REMOVED: Replaced by utilities.scss
 import './index.scss';
 // Initialize cross-tab event bridge
 import './utilities/event-bus';

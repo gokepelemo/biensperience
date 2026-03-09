@@ -106,7 +106,6 @@ export default defineConfig(({ mode }) => {
           // Split vendor chunks for better caching
           // Keys are internal identifiers only - filenames use hash
           'v0': ['react', 'react-dom', 'react-router-dom'],
-          'v1': ['react-bootstrap', 'bootstrap'],
           'v2': ['react-icons'],
           'v3': ['js-cookie', 'dompurify', 'store2'],
           'v4': ['@aws-sdk/client-s3'],
@@ -215,8 +214,6 @@ export default defineConfig(({ mode }) => {
       'react',
       'react-dom',
       'react-router-dom',
-      'react-bootstrap',
-      'bootstrap',
       'react-icons',
       'js-cookie',
       'dompurify',

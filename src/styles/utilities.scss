@@ -713,12 +713,6 @@
    ============================================ */
 
 .table-unified {
-  --bs-table-bg: transparent !important;
-  --bs-table-hover-bg: var(--color-bg-hover) !important;
-  --bs-table-hover-color: var(--color-text-primary) !important;
-  --bs-table-striped-bg: transparent !important;
-  --bs-table-active-bg: transparent !important;
-  --bs-table-border-color: var(--color-border-light) !important;
   color: var(--color-text-primary) !important;
   background-color: transparent !important;
   margin-bottom: 0;
@@ -1491,16 +1485,16 @@ $_bs-breakpoints: (sm: 576px, md: 768px, lg: 992px, xl: 1200px, xxl: 1400px);
   }
 }
 
-/* ── Grid Gutters (Bootstrap 5 compatible) ── */
+/* ── Grid Gutters ── */
 @each $i, $v in $_bs-spacers {
-  .g-#{$i}  { --bs-gutter-x: #{$v}; --bs-gutter-y: #{$v}; }
-  .gx-#{$i} { --bs-gutter-x: #{$v}; }
-  .gy-#{$i} { --bs-gutter-y: #{$v}; }
+  .g-#{$i}  { --row-gutter-x: #{$v}; --row-gutter-y: #{$v}; }
+  .gx-#{$i} { --row-gutter-x: #{$v}; }
+  .gy-#{$i} { --row-gutter-y: #{$v}; }
 }
-.row { margin-top: calc(-1 * var(--bs-gutter-y, 0)); }
-.row > * { padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5); padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5); margin-top: var(--bs-gutter-y, 0); }
+.row { margin-top: calc(-1 * var(--row-gutter-y, 0)); }
+.row > * { padding-right: calc(var(--row-gutter-x, 1.5rem) * 0.5); padding-left: calc(var(--row-gutter-x, 1.5rem) * 0.5); margin-top: var(--row-gutter-y, 0); }
 
-/* ── Form Controls (Bootstrap 5 compatible) ── */
+/* ── Form Controls ── */
 .form-check {
   display: block; min-height: 1.5rem; padding-inline-start: 1.5em; margin-bottom: 0.125rem;
 }
@@ -1515,7 +1509,7 @@ $_bs-breakpoints: (sm: 576px, md: 768px, lg: 992px, xl: 1200px, xxl: 1400px);
 }
 .form-check-label { cursor: pointer; }
 
-/* ── Button Variants (Bootstrap 5 compatible) ─ */
+/* ── Button Variants ─ */
 .btn-primary {
   color: #fff; background-color: var(--color-primary, #0d6efd); border-color: var(--color-primary, #0d6efd);
   &:hover { filter: brightness(0.9); }
@@ -1571,7 +1565,7 @@ $_bs-breakpoints: (sm: 576px, md: 768px, lg: 992px, xl: 1200px, xxl: 1400px);
   &:focus { opacity: 1; outline: 0; box-shadow: 0 0 0 0.25rem var(--color-primary-alpha-20, rgba(13,110,253,0.25)); }
 }
 
-/* ── Alerts (Bootstrap 5 compatible) ────────── */
+/* ── Alerts ────────── */
 .alert-primary { color: var(--color-primary, #084298); background-color: var(--color-primary-alpha-10, #cfe2ff); border-color: var(--color-primary-alpha-20, #b6d4fe); }
 .alert-success { color: var(--color-success-text); background-color: var(--color-success-bg); border-color: var(--color-success-border); }
 .alert-danger  { color: var(--color-danger-text);  background-color: var(--color-danger-bg);  border-color: var(--color-danger-border); }
@@ -1580,7 +1574,7 @@ $_bs-breakpoints: (sm: 576px, md: 768px, lg: 992px, xl: 1200px, xxl: 1400px);
 .alert-heading { color: inherit; font-weight: 600; }
 .alert-link    { font-weight: 700; color: inherit; text-decoration: underline; }
 
-/* ── Badge (Bootstrap 5 compatible) ────────── */
+/* ── Badge ────────── */
 .badge {
   display: inline-block; padding: 0.35em 0.65em; font-size: 0.75em; font-weight: 700;
   line-height: 1; color: #fff; text-align: center; white-space: nowrap;
@@ -1588,10 +1582,10 @@ $_bs-breakpoints: (sm: 576px, md: 768px, lg: 992px, xl: 1200px, xxl: 1400px);
   &.badge-info { background-color: var(--color-info-text, #0dcaf0); color: #000; }
 }
 
-/* ── Table (Bootstrap 5 compatible) ────────── */
+/* ── Table ────────── */
 .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.table-striped > tbody > tr:nth-of-type(odd) > * { --bs-table-accent-bg: rgba(0,0,0,0.05); }
-.table-hover > tbody > tr:hover > * { --bs-table-accent-bg: rgba(0,0,0,0.075); }
+.table-striped > tbody > tr:nth-of-type(odd) > * { --table-accent-bg: rgba(0,0,0,0.05); }
+.table-hover > tbody > tr:hover > * { --table-accent-bg: rgba(0,0,0,0.075); }
 
 /* ── Modal backdrop ────────────────────────── */
 .modal-backdrop { position: fixed; top: 0; left: 0; z-index: 1050; width: 100vw; height: 100vh; background-color: #000; &.show { opacity: 0.5; } }

@@ -722,10 +722,10 @@
   margin-bottom: $space-6;
 }
 
-/* Plan Metrics Row - Bootstrap grid adjustment for narrower containers */
+/* Plan Metrics Row - narrower gutters for constrained containers */
 :global(.plan-metrics-container .row) {
-  --bs-gutter-x: 0.75rem;
-  --bs-gutter-y: 0.75rem;
+  --row-gutter-x: 0.75rem;
+  --row-gutter-y: 0.75rem;
 }
 
 :global(.plan-metrics-container .col-md-3) {

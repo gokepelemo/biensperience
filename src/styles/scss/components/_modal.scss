@@ -78,7 +78,6 @@
   line-height: 1;
   color: white;
   opacity: 0.9;
-  /* Override Bootstrap's --bs-btn-close-opacity */
   filter: none;
   /* Smooth transitions */
   transition: opacity $transition-normal, background-color $transition-normal, transform $transition-normal;
