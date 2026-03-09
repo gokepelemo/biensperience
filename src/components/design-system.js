@@ -93,6 +93,10 @@ export { default as Tabs, Tab, TabList, TabTrigger, TabContent } from './TabsWra
 // IMPORTANT: All list group consumers should import from here, NOT from react-bootstrap
 export { default as ListGroup, ListGroupItem } from './ListGroupWrapper';
 
+// SearchInput - Design System search input with start/end element pattern
+// IMPORTANT: All search input consumers should import from here
+export { default as SearchInput } from './SearchInput';
+
 // Grid Abstraction Layer (Row/Col)
 // IMPORTANT: All Row/Col consumers should import from here, NOT from react-bootstrap
 // This enables zero-regression migration between implementations

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import SearchInput from '../SearchInput/SearchInput';
 import { lang } from '../../lang.constants';
 import styles from './Dropdown.module.scss';
 
@@ -97,13 +98,12 @@ export default function Dropdown({
         <div className={styles.popup} role="listbox" aria-labelledby={id}>
           {searchable && (
             <div className={styles.searchRow}>
-              <input
-                type="search"
-                placeholder={lang.current.dropdown.searchPlaceholder}
+              <SearchInput
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className={styles.searchInput}
-                aria-label={lang.current.dropdown.searchOptionsAria}
+                placeholder={lang.current.dropdown.searchPlaceholder}
+                ariaLabel={lang.current.dropdown.searchOptionsAria}
+                size="sm"
               />
             </div>
           )}

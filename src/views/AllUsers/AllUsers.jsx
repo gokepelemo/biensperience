@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Card, Pill } from "../../components/design-system";
-import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaSearch, FaFilter, FaTimes, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
+import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -9,7 +9,7 @@ import { useToast } from "../../contexts/ToastContext";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
 import Pagination from "../../components/Pagination/Pagination";
-import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, EmptyState, Alert } from "../../components/design-system";
+import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, EmptyState, Alert, SearchInput } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
@@ -400,27 +400,14 @@ export default function AllUsers() {
           ) : (
             <Card>
               <div className={styles.searchFilterBar}>
-                <div className={styles.searchInputWrapper}>
-                  <FaSearch className={styles.searchIcon} />
-                  <input
-                    type="text"
-                    className={styles.searchInput}
-                    placeholder={lang.current.admin.searchPlaceholder}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    aria-label={lang.current.admin.searchPlaceholder}
-                  />
-                  {searchTerm && (
-                    <button
-                      type="button"
-                      className={styles.clearSearchButton}
-                      onClick={() => setSearchTerm('')}
-                      aria-label="Clear search"
-                    >
-                      <FaTimes />
-                    </button>
-                  )}
-                </div>
+                <SearchInput
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onClear={() => setSearchTerm('')}
+                  placeholder={lang.current.admin.searchPlaceholder}
+                  size="sm"
+                  className={styles.searchInputWrapper}
+                />
 
                 <div className={styles.filterWrapper}>
                   <FaFilter className={styles.filterIcon} />

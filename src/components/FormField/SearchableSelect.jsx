@@ -20,7 +20,8 @@
 import React, { useState, useRef, useEffect, useCallback, useId, useMemo } from 'react';
 import { Portal } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
-import { FaSearch, FaChevronDown, FaCheck } from 'react-icons/fa';
+import { FaChevronDown, FaCheck } from 'react-icons/fa';
+import { SearchInput } from '../design-system';
 import { createFilter } from '../../utilities/trie';
 import { lang } from '../../lang.constants';
 import styles from './SearchableSelect.module.scss';
@@ -376,15 +377,13 @@ export default function SearchableSelect({
             {/* Search input */}
             {searchable && (
               <div className={styles.searchWrapper}>
-                <FaSearch className={styles.searchIcon} aria-hidden="true" />
-                <input
+                <SearchInput
                   ref={searchInputRef}
-                  type="text"
-                  className={styles.searchInput}
-                  placeholder={searchPlaceholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  aria-label={lang.current.searchableSelect.searchOptionsAria}
+                  placeholder={searchPlaceholder}
+                  ariaLabel={lang.current.searchableSelect.searchOptionsAria}
+                  size="sm"
                 />
               </div>
             )}

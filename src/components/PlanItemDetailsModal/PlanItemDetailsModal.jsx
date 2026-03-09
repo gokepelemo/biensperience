@@ -140,6 +140,7 @@ export default function PlanItemDetailsModal({
   const [showDetailTypeSelectorModal, setShowDetailTypeSelectorModal] = useState(false);
   const [locationSaving, setLocationSaving] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
+  const [pdfExportBlocked, setPdfExportBlocked] = useState(false);
   // Local state for immediate UI feedback on scheduled date/time changes
   const [localScheduledDate, setLocalScheduledDate] = useState(null);
   const [localScheduledTime, setLocalScheduledTime] = useState(null);
@@ -352,6 +353,23 @@ export default function PlanItemDetailsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, initialTab]);
 
+  // Re-sync localScheduledDate/Time when the prop changes externally
+  // (e.g. a collaborator updates via WebSocket or parent re-fetches)
+  useEffect(() => {
+    if (!show) return;
+    const propDate = planItem?.scheduled_date || null;
+    const propTime = planItem?.scheduled_time || null;
+    // Only update if the prop has actually changed from what we last set locally
+    // This avoids overwriting optimistic local updates before the parent re-renders
+    if (propDate !== localScheduledDate) {
+      setLocalScheduledDate(propDate);
+    }
+    if (propTime !== localScheduledTime) {
+      setLocalScheduledTime(propTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show, planItem?.scheduled_date, planItem?.scheduled_time]);
+
   // Handle click outside for add dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -486,11 +504,20 @@ export default function PlanItemDetailsModal({
     if (isEditingAssignment && assignmentInputRef.current) {
       assignmentInputRef.current.focus();
 
-      // Position the fixed dropdown relative to the input
+      // Position the fixed dropdown relative to the input, respecting viewport bounds
       const positionDropdown = () => {
         if (dropdownRef.current && assignmentInputRef.current) {
           const inputRect = assignmentInputRef.current.getBoundingClientRect();
-          dropdownRef.current.style.top = `${inputRect.bottom + 4}px`;
+          const dropdownHeight = dropdownRef.current.offsetHeight || 200;
+          const spaceBelow = window.innerHeight - inputRect.bottom - 4;
+          const spaceAbove = inputRect.top - 4;
+
+          // Position above input if not enough space below, and enough space above
+          if (spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
+            dropdownRef.current.style.top = `${inputRect.top - dropdownHeight - 4}px`;
+          } else {
+            dropdownRef.current.style.top = `${inputRect.bottom + 4}px`;
+          }
           dropdownRef.current.style.left = `${inputRect.left}px`;
           dropdownRef.current.style.width = `${inputRect.width}px`;
         }
@@ -995,6 +1022,10 @@ export default function PlanItemDetailsModal({
       printWindow.document.close();
       printWindow.print();
       printWindow.close();
+    } else {
+      // Popup was blocked by the browser
+      logger.warn('[PlanItemDetailsModal] PDF export popup blocked by browser');
+      setPdfExportBlocked(true);
     }
   }, [planItem?.text, experienceName, groupedDetails, targetCurrency, getConvertedAmount, collaborators]);
 
@@ -1577,10 +1608,14 @@ export default function PlanItemDetailsModal({
           return (
             <>
               {/* Desktop: Traditional tab buttons */}
-              <div className={styles.detailsTabs}>
+              <div className={styles.detailsTabs} role="tablist" aria-label="Plan item details tabs">
                 {tabOptions.map(opt => (
                   <button
                     key={opt.key}
+                    id={`tab-${opt.key}`}
+                    role="tab"
+                    aria-selected={activeTab === opt.key}
+                    aria-controls={`tabpanel-${opt.key}`}
                     className={`${styles.detailsTab} ${activeTab === opt.key ? styles.active : ''}`}
                     onClick={() => setActiveTab(opt.key)}
                     type="button"
@@ -1632,9 +1667,23 @@ export default function PlanItemDetailsModal({
         })()}
 
         {/* Tab content - height calculated dynamically via JavaScript */}
-        <div className={styles.detailsContent}>
+        <div
+          className={styles.detailsContent}
+          id={`tabpanel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${activeTab}`}
+        >
           {activeTab === 'details' && (
             <div className={styles.detailsTabContent}>
+              {/* Popup blocked warning */}
+              {pdfExportBlocked && (
+                <Alert
+                  type="warning"
+                  message="Your browser blocked the PDF export popup. Please allow popups for this site and try again."
+                  dismissible
+                  onClose={() => setPdfExportBlocked(false)}
+                />
+              )}
               {/* Export PDF button */}
               {totalDetailsCount > 0 && (
                 <div className={styles.detailsExportBar}>
@@ -1971,27 +2020,31 @@ export default function PlanItemDetailsModal({
             </div>
           )}
 
-          {activeTab === 'notes' && (
-            <div className={styles.notesTabWrapper}>
-              <PlanItemNotes
-                notes={notes}
-                currentUser={currentUser}
-                onAddNote={onAddNote}
-                onUpdateNote={onUpdateNote}
-                onDeleteNote={onDeleteNote}
-                disabled={!canEdit}
-                availableEntities={availableEntities}
-                entityData={entityData}
-                onEntityClick={handleEntityClick}
-                presenceConnected={presenceConnected}
-                onlineUserIds={onlineUserIds}
-                collaborators={collaborators}
-              />
-            </div>
-          )}
+          {/* NotesTab - keep mounted but hidden to preserve form state during tab switches */}
+          <div
+            className={`${styles.notesTabWrapper} ${activeTab === 'notes' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
+          >
+            <PlanItemNotes
+              planItemId={planItemIdStr}
+              notes={notes}
+              currentUser={currentUser}
+              onAddNote={onAddNote}
+              onUpdateNote={onUpdateNote}
+              onDeleteNote={onDeleteNote}
+              disabled={!canEdit}
+              availableEntities={availableEntities}
+              entityData={entityData}
+              onEntityClick={handleEntityClick}
+              presenceConnected={presenceConnected}
+              onlineUserIds={onlineUserIds}
+              collaborators={collaborators}
+            />
+          </div>
 
-          {activeTab === 'location' && (
-            <div className={styles.locationTabContent}>
+          {/* LocationTab - keep mounted but hidden to preserve map state during tab switches */}
+          <div
+            className={`${styles.locationTabContent} ${activeTab === 'location' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
+          >
               {getLocationForMap() ? (
                 <>
                   {/* Location details */}
@@ -2062,7 +2115,6 @@ export default function PlanItemDetailsModal({
                 />
               )}
             </div>
-          )}
 
           {activeTab === 'chat' && (
             <div className={styles.chatTabWrapper}>

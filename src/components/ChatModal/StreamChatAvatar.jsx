@@ -5,9 +5,12 @@
  * This wrapper ensures chat avatars look identical to the rest of the application
  * (same skeleton shimmer, same initials fallback, same sizing).
  *
+ * Avatars link to the user's profile page when a user object with an id is available.
+ *
  * Stream Chat passes: { image, name, size (px number), user, onClick, onMouseOver }
  */
 
+import { Link } from 'react-router-dom';
 import AvatarRenderer from '../UserAvatar/AvatarRenderer';
 
 /**
@@ -22,8 +25,8 @@ function toSizeToken(px) {
   return 'xl';
 }
 
-export default function StreamChatAvatar({ image, name, size, onClick, onMouseOver }) {
-  return (
+export default function StreamChatAvatar({ image, name, size, user, onClick, onMouseOver }) {
+  const avatar = (
     <AvatarRenderer
       src={image || undefined}
       name={name || ''}
@@ -32,4 +35,14 @@ export default function StreamChatAvatar({ image, name, size, onClick, onMouseOv
       onMouseOver={onMouseOver}
     />
   );
+
+  if (user?.id) {
+    return (
+      <Link to={`/profile/${user.id}`} title={name || 'View profile'} style={{ lineHeight: 0 }}>
+        {avatar}
+      </Link>
+    );
+  }
+
+  return avatar;
 }

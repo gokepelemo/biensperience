@@ -8,8 +8,8 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Button, Dropdown } from '../../components/design-system';
-import { FaPaperPlane, FaSearch, FaPlus, FaTimes } from 'react-icons/fa';
+import { Button, Dropdown, SearchInput } from '../../components/design-system';
+import { FaPaperPlane, FaPlus, FaTimes } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
@@ -580,20 +580,18 @@ export default function PlanItemNotes({
       {!isDefaultEmptyState && (
         <div className={styles.notesHeader}>
           <div className={styles.headerControls}>
-            <div className={styles.searchPill}>
-              <FaSearch className={styles.searchIcon} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setDisplayedCount(10); // Reset to initial display count on search
-                }}
-                placeholder="Search notes..."
-                disabled={disabled}
-                className={styles.searchInput}
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setDisplayedCount(10);
+              }}
+              onClear={() => setSearchQuery('')}
+              placeholder="Search notes..."
+              disabled={disabled}
+              size="sm"
+              className={styles.searchPill}
+            />
 
             <button
               type="button"

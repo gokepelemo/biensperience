@@ -5,10 +5,11 @@
 
 import React, { memo, useMemo, useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { FaSearch, FaStar, FaMapMarkerAlt, FaTimes } from 'react-icons/fa';
+import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
 import MapListingCard from './MapListingCard';
 import MapListingCardSkeleton from './MapListingCardSkeleton';
 import EmptyState from '../EmptyState/EmptyState';
+import { SearchInput } from '../design-system';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useGridNavigation } from '../../hooks/useKeyboardNavigation';
 import styles from './MapListingsPanel.module.scss';
@@ -96,26 +97,13 @@ function MapListingsPanel({
       {/* Search */}
       {showSearch && (
         <div className={styles.searchContainer}>
-          <div className={styles.searchInput}>
-            <FaSearch className={styles.searchIcon} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search locations..."
-              className={styles.input}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                className={styles.clearButton}
-                onClick={clearSearch}
-                aria-label="Clear search"
-              >
-                <FaTimes />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onClear={clearSearch}
+            placeholder="Search locations..."
+            size="md"
+          />
         </div>
       )}
 

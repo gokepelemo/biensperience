@@ -11,7 +11,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Tabs, Tab, Row, Col } from '../../components/design-system';
-import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus, FaCopy, FaSearch, FaFilter, FaTimes, FaBan, FaFileDownload, FaExclamationTriangle } from 'react-icons/fa';
+import { FaQrcode, FaCheckCircle, FaTimesCircle, FaClock, FaUsers, FaChartLine, FaEnvelope, FaMapMarkerAlt, FaCalendar, FaUserPlus, FaCopy, FaFilter, FaBan, FaFileDownload, FaExclamationTriangle } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
 import { getMyInvites, getInviteDetails, getInviteAnalytics } from '../../utilities/invite-tracking-service';
 import { deactivateInvite } from '../../utilities/invites-api';
@@ -27,7 +27,7 @@ import Loading from '../../components/Loading/Loading';
 import Pagination from '../../components/Pagination/Pagination';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import UserInviteModal from '../../components/UserInviteModal/UserInviteModal';
-import { Modal, Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState, Alert } from '../../components/design-system';
+import { Modal, Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState, Alert, SearchInput } from '../../components/design-system';
 import styles from './InviteTracking.module.scss';
 
 // Status filter options
@@ -489,26 +489,15 @@ export default function InviteTracking() {
         {/* Search and Filter Bar */}
         {invites.length > 0 && (
           <div className={styles.searchFilterBar}>
-            <div className={styles.searchInputWrapper}>
-              <FaSearch className={styles.searchIcon} />
-              <input
-                type="text"
-                className={styles.searchInput}
-                placeholder={lang.current.inviteTracking?.searchPlaceholder || 'Search by code or email...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search invites"
-              />
-              {searchQuery && (
-                <button
-                  className={styles.clearSearchButton}
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Clear search"
-                >
-                  <FaTimes />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery('')}
+              placeholder={lang.current.inviteTracking?.searchPlaceholder || 'Search by code or email...'}
+              size="sm"
+              ariaLabel="Search invites"
+              className={styles.searchInputWrapper}
+            />
 
             <div className={styles.filterWrapper}>
               <FaFilter className={styles.filterIcon} />

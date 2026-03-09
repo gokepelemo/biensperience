@@ -1,0 +1,218 @@
+@use '../../styles/scss/abstracts' as *;
+
+/**
+ * SearchInput Component Styles
+ *
+ * Design-system-level search input with consistent icon positioning,
+ * following the Chakra UI InputGroup pattern (startElement/endElement).
+ * Uses CSS custom properties for theming and SASS tokens for static values.
+ */
+
+/* ============================================
+   WRAPPER
+   ============================================ */
+
+.searchInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   START / END ELEMENTS
+   ============================================ */
+
+.startElement {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--color-text-muted);
+  z-index: 1;
+}
+
+.endElement {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+/* ============================================
+   INPUT
+   ============================================ */
+
+.input {
+  width: 100%;
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: $radius-md;
+  color: var(--color-text-primary);
+  transition: all $transition-normal $easing-ease;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-color: var(--color-primary);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-muted);
+  }
+}
+
+/* ============================================
+   CLEAR BUTTON (default endElement)
+   ============================================ */
+
+.clearButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: $radius-sm;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all $transition-fast $easing-ease;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* ============================================
+   SIZE: SM (36px height)
+   ============================================ */
+
+.sizeSm {
+  .startElement {
+    left: $space-3; // 12px
+    font-size: $font-size-xs;
+  }
+
+  .endElement {
+    right: $space-2; // 8px
+  }
+
+  .input {
+    height: 36px;
+    min-height: 36px;
+    padding: $space-2 $space-3;
+    font-size: $font-size-sm;
+  }
+
+  /* Adjust input padding when start/end elements are present */
+  &.hasStart .input {
+    padding-left: $space-8; // 32px — icon left (12px) + icon (~12px) + gap (8px)
+  }
+
+  &.hasEnd .input {
+    padding-right: $space-8; // 32px
+  }
+
+  .clearButton {
+    width: 24px;
+    height: 24px;
+    font-size: $font-size-xs;
+  }
+}
+
+/* ============================================
+   SIZE: MD (44px height, default)
+   ============================================ */
+
+.sizeMd {
+  .startElement {
+    left: $space-3; // 12px
+    font-size: $font-size-sm;
+  }
+
+  .endElement {
+    right: $space-3; // 12px
+  }
+
+  .input {
+    height: 44px;
+    min-height: 44px; // WCAG touch target
+    padding: $space-3 $space-4;
+    font-size: $font-size-base;
+  }
+
+  &.hasStart .input {
+    padding-left: $space-10; // 40px — icon left (12px) + icon (~16px) + gap (12px)
+  }
+
+  &.hasEnd .input {
+    padding-right: $space-10; // 40px
+  }
+
+  .clearButton {
+    width: 28px;
+    height: 28px;
+    font-size: $font-size-sm;
+  }
+}
+
+/* ============================================
+   SIZE: LG (52px height)
+   ============================================ */
+
+.sizeLg {
+  .startElement {
+    left: $space-4; // 16px
+    font-size: $font-size-base;
+  }
+
+  .endElement {
+    right: $space-3; // 12px
+  }
+
+  .input {
+    height: 52px;
+    min-height: 52px;
+    padding: $space-4 $space-5;
+    font-size: $font-size-lg;
+  }
+
+  &.hasStart .input {
+    padding-left: $space-12; // 48px — icon left (16px) + icon (~18px) + gap (14px)
+  }
+
+  &.hasEnd .input {
+    padding-right: $space-12; // 48px
+  }
+
+  .clearButton {
+    width: 32px;
+    height: 32px;
+    font-size: $font-size-base;
+  }
+}
