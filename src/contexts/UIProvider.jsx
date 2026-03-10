@@ -1,24 +1,26 @@
 /**
  * UI Provider Context
- * Wraps the application with the UI component library provider
+ * Wraps the application with Chakra UI v3 provider configured to the
+ * Biensperience design system.
  *
- * Note: Dark mode is handled by the existing Biensperience theme system
- * via CSS custom properties and data-theme attribute. UI components
- * inherit these styles through CSS custom property references.
+ * Color mode is managed by theme-manager.js which sets both:
+ *   - .dark/.light class on <html> (Chakra v3 native)
+ *   - data-theme attribute (SCSS backward compat)
+ *
+ * Convenience re-exports: useColorMode, useColorModeValue
  */
 
 import React from 'react';
 import { ChakraProvider } from '@chakra-ui/react';
 import uiThemeSystem from '../styles/ui-theme';
 
+// Re-export color mode hooks for consumers
+export { useColorMode, useColorModeValue } from '../hooks/useColorMode';
+
 /**
  * UI Provider
- * Wraps children with the UI component library provider configured for the Biensperience design system
- *
- * Dark mode compatibility is maintained through:
- * 1. CSS custom properties (--color-*, --bg-*, etc.) that change based on data-theme
- * 2. UI components referencing these CSS custom properties
- * 3. Global styles in design-tokens.css handling dark mode overrides
+ * Wraps children with Chakra UI v3 provider using the Biensperience
+ * design system (tokens, recipes, slotRecipes, conditions, globalCss).
  *
  * @param {Object} props
  * @param {React.ReactNode} props.children - Child components

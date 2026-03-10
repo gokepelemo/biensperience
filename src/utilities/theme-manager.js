@@ -135,6 +135,9 @@ function _ensureMediaListener(theme) {
       const applied = _mediaQuery.matches ? 'dark' : 'light';
       try {
         document.documentElement.setAttribute('data-theme', applied);
+        document.documentElement.classList.remove('dark', 'light');
+        document.documentElement.classList.add(applied);
+        document.documentElement.style.colorScheme = applied;
       } catch (e) { /* ignore */ }
 
       // Touch preferences blob to notify other tabs that effective theme changed
@@ -158,7 +161,15 @@ export function applyTheme(theme) {
     // Resolve system-default to actual preference (light/dark)
     const applied = _resolveEffective(theme);
 
+    // Set data-theme attribute (backward compat for SCSS selectors)
     document.documentElement.setAttribute('data-theme', applied);
+
+    // Set .dark/.light class (Chakra v3 native color mode)
+    document.documentElement.classList.remove('dark', 'light');
+    document.documentElement.classList.add(applied);
+
+    // Also set color-scheme CSS property for browser-native dark mode
+    document.documentElement.style.colorScheme = applied;
 
     // Manage media listener based on preference
     try { _ensureMediaListener(theme); } catch (e) { /* ignore */ }
