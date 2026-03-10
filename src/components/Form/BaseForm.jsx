@@ -1,62 +1,56 @@
 /**
- * BaseForm - Design System Form Components Implementation
+ * BaseForm — Native Chakra UI v3 Form components
  *
- * Drop-in replacements for the custom Form components.
- * Uses Field and Input primitives for built-in accessibility,
- * keyboard handling, and ARIA support while preserving the existing
- * Form.module.scss styling via CSS Module class names.
+ * Uses Chakra Field/Input components with native theme tokens.
+ * No CSS Modules — pure Chakra tokens via input recipe and css prop.
  *
- * IMPORTANT: This implementation completely resets default styling
- * and applies the existing CSS Module classes, ensuring pixel-perfect
- * visual parity with the original Form components.
+ * Components:
+ *   BaseForm → native <form> with flex layout
+ *   BaseFormGroup → Field.Root with native gap
+ *   BaseFormLabel → Field.Label with native typography
+ *   BaseFormControl → Input (input recipe) / Textarea / NativeSelect
+ *   BaseFormCheck → Checkbox + native radio
+ *   BaseFormText → Field.HelperText with native color
+ *   BaseFormInputGroup → Flex row with grouped styling
  *
- * Benefits:
- * - Built-in ARIA attributes and field validation state management
- * - Consistent focus management
- * - Label association with inputs via Field context
- * - Error and helper text accessibility
- *
- * Task: biensperience-a8d1 - Migrate Form components
+ * Task: biensperience-77cb — P2.5 Form → Chakra Field/Input
  */
 
 import React, { useId } from 'react';
 import PropTypes from 'prop-types';
-import { Field, Input } from '@chakra-ui/react';
+import { Field, Input, Box, Textarea } from '@chakra-ui/react';
 import Checkbox from '../Checkbox/Checkbox';
 import { lang } from '../../lang.constants';
-import styles from './Form.module.scss';
 
 /**
- * Structural reset styles for Chakra form primitives.
- * Strips layout/sizing defaults so CSS Module classes are the
- * sole source of visual styling. Intentionally omits bg and color
- * to avoid Emotion stylesheet-ordering issues where Chakra's
- * generated CSS would override CSS Module background/color rules.
+ * Shared input styles for select and textarea (matching input recipe tokens)
  */
-const RESET_STYLES = {
-  border: 'none',
-  borderRadius: 'unset',
-  fontWeight: 'unset',
-  fontSize: 'unset',
-  lineHeight: 'unset',
-  height: 'auto',
-  minHeight: 'unset',
-  paddingInline: 'unset',
-  paddingBlock: 'unset',
-  _hover: {
-    border: 'none',
+const SHARED_INPUT_CSS = {
+  width: '100%',
+  minHeight: '44px',
+  padding: '{spacing.3} {spacing.4}',
+  border: '1px solid',
+  borderColor: { _light: 'rgba(0, 0, 0, 0.1)', _dark: 'rgba(255, 255, 255, 0.2)' },
+  borderRadius: '{radii.md}',
+  fontSize: '{fontSizes.md}',
+  lineHeight: '{lineHeights.normal}',
+  color: 'fg',
+  background: { _light: '#ffffff', _dark: '#2d2d2d' },
+  transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+  _placeholder: { color: 'fg.muted' },
+  _focus: {
+    outline: '2px solid',
+    outlineColor: '{colors.brand.500}',
+    outlineOffset: '2px',
   },
-  _focusVisible: {
-    boxShadow: 'none',
-    outline: 'none',
+  _disabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
   },
 };
 
 /**
- * BaseForm component - wrapper for form elements with unified styling
- *
- * Uses native form element (no Chakra equivalent needed) but maintains
- * API parity with the original Form component.
+ * BaseForm — native <form> with flex column layout
  */
 export default function BaseForm({
   children,
@@ -72,17 +66,19 @@ export default function BaseForm({
     }
   };
 
-  const classes = [styles.formUnified, className].filter(Boolean).join(' ');
-
   return (
-    <form
-      className={classes}
-      style={style}
+    <Box
+      as="form"
+      display="flex"
+      flexDirection="column"
+      gap="4"
       onSubmit={handleSubmit}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
-    </form>
+    </Box>
   );
 }
 
@@ -94,10 +90,7 @@ BaseForm.propTypes = {
 };
 
 /**
- * BaseFormGroup - Chakra Field.Root with CSS Module styling
- *
- * Uses Chakra Field.Root for form field context (validation, labels),
- * with reset styling to use CSS Modules.
+ * BaseFormGroup — Chakra Field.Root with native gap
  */
 export function BaseFormGroup({
   children,
@@ -106,14 +99,14 @@ export function BaseFormGroup({
   invalid = false,
   ...props
 }) {
-  const classes = [styles.formGroup, className].filter(Boolean).join(' ');
-
   return (
     <Field.Root
-      className={classes}
-      style={style}
+      display="flex"
+      flexDirection="column"
+      gap="2"
       invalid={invalid}
-      css={RESET_STYLES}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
@@ -129,10 +122,7 @@ BaseFormGroup.propTypes = {
 };
 
 /**
- * BaseFormLabel - Chakra Field.Label with CSS Module styling
- *
- * Uses Chakra Field.Label for proper label-input association,
- * with optional required indicator.
+ * BaseFormLabel — Chakra Field.Label with native typography
  */
 export function BaseFormLabel({
   children,
@@ -142,26 +132,23 @@ export function BaseFormLabel({
   style = {},
   ...props
 }) {
-  const classes = [styles.formLabel, className].filter(Boolean).join(' ');
-
   return (
     <Field.Label
-      className={classes}
       htmlFor={htmlFor}
-      style={style}
-      css={RESET_STYLES}
+      fontSize="sm"
+      fontWeight="medium"
+      color="fg"
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
       {required && (
         <Field.RequiredIndicator
-          className={styles.formRequired}
           aria-label={lang.current.aria.required}
           fallback="*"
-          css={{
-            color: 'var(--color-danger)',
-            marginLeft: 'var(--space-1)',
-          }}
+          color="fg.error"
+          marginLeft="1"
         />
       )}
     </Field.Label>
@@ -177,10 +164,8 @@ BaseFormLabel.propTypes = {
 };
 
 /**
- * BaseFormControl - Chakra Input with CSS Module styling
- *
- * Uses Chakra Input primitive for accessibility benefits,
- * with reset styling to use CSS Modules.
+ * BaseFormControl — Chakra Input (uses input recipe) for inputs,
+ * native select/textarea with shared token-based styling
  */
 export const BaseFormControl = React.forwardRef(function BaseFormControl({
   as: Component = 'input',
@@ -191,30 +176,52 @@ export const BaseFormControl = React.forwardRef(function BaseFormControl({
   isInvalid,
   ...props
 }, ref) {
-  const classes = [styles.formControl, className].filter(Boolean).join(' ');
-
-  // For input elements, use Chakra Input primitive
+  // For input elements, use Chakra Input which picks up the input recipe
   if (Component === 'input') {
     return (
       <Input
         ref={ref}
         type={type}
-        className={classes}
-        style={style}
-        variant="unstyled"
-        css={RESET_STYLES}
+        className={className || undefined}
+        style={Object.keys(style).length ? style : undefined}
         {...props}
       />
     );
   }
 
-  // For select and textarea, use native elements (no Chakra equivalent needed)
+  // For textarea, use Chakra Textarea
+  if (Component === 'textarea') {
+    return (
+      <Textarea
+        ref={ref}
+        className={className || undefined}
+        style={Object.keys(style).length ? style : undefined}
+        css={{
+          ...SHARED_INPUT_CSS,
+          minHeight: 'unset',
+          resize: 'vertical',
+        }}
+        {...props}
+      />
+    );
+  }
+
+  // For select, use native <select> with Chakra-compatible styling
   return (
-    <Component
+    <Box
+      as="select"
       ref={ref}
-      type={type}
-      className={classes}
-      style={style}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
+      css={{
+        ...SHARED_INPUT_CSS,
+        appearance: 'none',
+        paddingRight: '{spacing.10}',
+        backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%236c757d\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right {spacing.3} center',
+        backgroundSize: '12px',
+      }}
       {...props}
     />
   );
@@ -230,10 +237,7 @@ BaseFormControl.propTypes = {
 };
 
 /**
- * BaseFormCheck - Checkbox/Radio with Chakra integration
- *
- * For checkboxes, delegates to the design-system Checkbox.
- * For radios, uses native radio with CSS Module styling.
+ * BaseFormCheck — Checkbox/Radio with Chakra integration
  */
 export function BaseFormCheck({
   children,
@@ -251,21 +255,37 @@ export function BaseFormCheck({
   const resolvedId = id || autoId;
   const resolvedLabel = children || label || undefined;
 
-  // Radio inputs still use the legacy FormCheck markup
+  // Radio inputs use native styling with Chakra tokens
   if (type === 'radio') {
-    const classes = [styles.formCheck, className].filter(Boolean).join(' ');
     return (
-      <div className={classes} style={style}>
-        <input
+      <Box
+        display="flex"
+        alignItems="center"
+        gap="2"
+        className={className || undefined}
+        style={Object.keys(style).length ? style : undefined}
+      >
+        <Box
+          as="input"
           type="radio"
-          className={styles.formCheckInput}
           id={resolvedId}
+          css={{
+            width: '18px',
+            height: '18px',
+            cursor: 'pointer',
+            accentColor: '{colors.brand.500}',
+          }}
           {...props}
         />
-        <label className={styles.formCheckLabel} htmlFor={resolvedId}>
+        <Box
+          as="label"
+          htmlFor={resolvedId}
+          fontSize="md"
+          cursor="pointer"
+        >
           {resolvedLabel}
-        </label>
-      </div>
+        </Box>
+      </Box>
     );
   }
 
@@ -296,10 +316,7 @@ BaseFormCheck.propTypes = {
 };
 
 /**
- * BaseFormText - Chakra Field.HelperText with CSS Module styling
- *
- * Uses Chakra Field.HelperText for proper accessibility,
- * with CSS Module styling.
+ * BaseFormText — Chakra Field.HelperText with native styling
  */
 export function BaseFormText({
   children,
@@ -308,17 +325,12 @@ export function BaseFormText({
   style = {},
   ...props
 }) {
-  const classes = [
-    styles.formText,
-    muted && styles.formTextMuted,
-    className
-  ].filter(Boolean).join(' ');
-
   return (
     <Field.HelperText
-      className={classes}
-      style={style}
-      css={RESET_STYLES}
+      fontSize="sm"
+      color={muted ? 'fg.muted' : 'fg.subtle'}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
@@ -334,10 +346,7 @@ BaseFormText.propTypes = {
 };
 
 /**
- * BaseFormInputGroup - Input group with prefix/suffix
- *
- * Uses native elements with CSS Module styling.
- * No Chakra equivalent needed as InputGroup in v3 works differently.
+ * BaseFormInputGroup — Flex row with grouped input styling
  */
 export function BaseFormInputGroup({
   children,
@@ -347,22 +356,65 @@ export function BaseFormInputGroup({
   style = {},
   ...props
 }) {
-  const classes = [styles.inputGroup, className].filter(Boolean).join(' ');
-
   return (
-    <div className={classes} style={style} {...props}>
+    <Box
+      display="flex"
+      alignItems="stretch"
+      borderRadius="md"
+      border="1px solid"
+      borderColor={{ _light: 'rgba(0, 0, 0, 0.1)', _dark: 'rgba(255, 255, 255, 0.2)' }}
+      overflow="hidden"
+      css={{
+        _focusWithin: {
+          borderColor: '{colors.brand.500}',
+          boxShadow: '0 0 0 1px {colors.brand.500}',
+        },
+        '& input, & select, & textarea': {
+          border: 'none',
+          borderRadius: 0,
+          _focus: { outline: 'none', boxShadow: 'none' },
+        },
+      }}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
+      {...props}
+    >
       {prefix !== undefined && prefix !== null && (
-        <span className={styles.inputGroupAddon} aria-hidden>
+        <Box
+          display="inline-flex"
+          alignItems="center"
+          px="3"
+          bg={{ _light: '{colors.gray.100}', _dark: '{colors.gray.700}' }}
+          color="fg.muted"
+          fontSize="sm"
+          fontWeight="medium"
+          borderRight="1px solid"
+          borderColor={{ _light: 'rgba(0, 0, 0, 0.1)', _dark: 'rgba(255, 255, 255, 0.2)' }}
+          flexShrink={0}
+          aria-hidden
+        >
           {prefix}
-        </span>
+        </Box>
       )}
       {children}
       {suffix !== undefined && suffix !== null && (
-        <span className={styles.inputGroupAddon} aria-hidden>
+        <Box
+          display="inline-flex"
+          alignItems="center"
+          px="3"
+          bg={{ _light: '{colors.gray.100}', _dark: '{colors.gray.700}' }}
+          color="fg.muted"
+          fontSize="sm"
+          fontWeight="medium"
+          borderLeft="1px solid"
+          borderColor={{ _light: 'rgba(0, 0, 0, 0.1)', _dark: 'rgba(255, 255, 255, 0.2)' }}
+          flexShrink={0}
+          aria-hidden
+        >
           {suffix}
-        </span>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 

@@ -1,32 +1,19 @@
 /**
- * BaseTable - Design System Table Components Implementation
+ * BaseTable — Native Chakra UI v3 Table compound component
  *
- * Drop-in replacements for the custom Table components.
- * Uses Table primitives for built-in accessibility
- * while preserving the existing Table.module.scss styling via CSS Module class names.
+ * Uses Chakra's Table.Root/Header/Body/Row/ColumnHeader/Cell
+ * with the table slotRecipe from ui-theme.js.
+ * No CSS Modules — pure Chakra tokens.
  *
- * IMPORTANT: This implementation completely resets default styling
- * and applies the existing CSS Module classes, ensuring pixel-perfect
- * visual parity with the original Table components.
- *
- * Benefits:
- * - Built-in ARIA attributes for table accessibility
- * - Semantic table structure
- * - Consistent focus management for interactive tables
- *
- * Task: biensperience-9bf2 - Migrate Table component
+ * Task: biensperience-6995 — P2.6 Table → Chakra Table
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Table as TablePrimitive } from '@chakra-ui/react';
-import styles from './Table.module.scss';
 
 /**
- * BaseTable - Chakra UI Table.Root with CSS Module styling
- *
- * Uses Chakra Table.Root for accessibility benefits,
- * with reset styling to use CSS Modules.
+ * BaseTable — Chakra Table.Root with slotRecipe variants
  */
 export default function BaseTable({
   children,
@@ -39,23 +26,15 @@ export default function BaseTable({
   style = {},
   ...props
 }) {
-  // Build className string with dynamic size classes
-  const sizeClass = size !== 'md' ? styles[`table${size.charAt(0).toUpperCase() + size.slice(1)}`] : '';
-
-  const classes = [
-    styles.tableUnified,
-    hover && styles.tableHover,
-    striped && styles.tableStriped,
-    bordered && styles.tableBordered,
-    sizeClass,
-    className
-  ].filter(Boolean).join(' ');
-
   const tableElement = (
     <TablePrimitive.Root
-      className={classes}
-      style={style}
-      unstyled
+      variant={bordered ? 'outline' : 'line'}
+      size={size}
+      interactive={hover || undefined}
+      striped={striped || undefined}
+      stickyHeader
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
@@ -64,7 +43,7 @@ export default function BaseTable({
 
   if (responsive) {
     return (
-      <TablePrimitive.ScrollArea className={styles.tableResponsive}>
+      <TablePrimitive.ScrollArea>
         {tableElement}
       </TablePrimitive.ScrollArea>
     );
@@ -85,15 +64,13 @@ BaseTable.propTypes = {
 };
 
 /**
- * BaseTableHead - Chakra Table.Header with CSS Module styling
+ * BaseTableHead — Chakra Table.Header
  */
 export function BaseTableHead({ children, className = '', style = {}, ...props }) {
-  const classes = [styles.tableHead, className].filter(Boolean).join(' ');
-
   return (
     <TablePrimitive.Header
-      className={classes}
-      style={style}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
@@ -108,15 +85,13 @@ BaseTableHead.propTypes = {
 };
 
 /**
- * BaseTableBody - Chakra Table.Body with CSS Module styling
+ * BaseTableBody — Chakra Table.Body
  */
 export function BaseTableBody({ children, className = '', style = {}, ...props }) {
-  const classes = [styles.tableBody, className].filter(Boolean).join(' ');
-
   return (
     <TablePrimitive.Body
-      className={classes}
-      style={style}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
@@ -131,15 +106,13 @@ BaseTableBody.propTypes = {
 };
 
 /**
- * BaseTableRow - Chakra Table.Row with CSS Module styling
+ * BaseTableRow — Chakra Table.Row
  */
 export function BaseTableRow({ children, className = '', style = {}, ...props }) {
-  const classes = [styles.tableRow, className].filter(Boolean).join(' ');
-
   return (
     <TablePrimitive.Row
-      className={classes}
-      style={style}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}
@@ -154,9 +127,7 @@ BaseTableRow.propTypes = {
 };
 
 /**
- * BaseTableCell - Chakra Table.Cell/Table.ColumnHeader with CSS Module styling
- *
- * Uses Table.ColumnHeader for header cells, Table.Cell for data cells.
+ * BaseTableCell — Chakra Table.Cell / Table.ColumnHeader
  */
 export function BaseTableCell({
   children,
@@ -165,13 +136,12 @@ export function BaseTableCell({
   style = {},
   ...props
 }) {
-  const classes = [styles.tableCell, className].filter(Boolean).join(' ');
   const Component = header ? TablePrimitive.ColumnHeader : TablePrimitive.Cell;
 
   return (
     <Component
-      className={classes}
-      style={style}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
       {...props}
     >
       {children}

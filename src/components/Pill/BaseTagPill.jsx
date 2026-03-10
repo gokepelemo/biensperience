@@ -1,31 +1,48 @@
 /**
- * BaseTagPill - Design System Tag Implementation
+ * BaseTagPill — Native Chakra UI Tag with token-based styling
  *
- * Drop-in replacement for the custom TagPill component.
- * Uses Tag primitive for built-in accessibility,
- * closable support, and ARIA semantics while preserving the existing
- * TagPill.module.scss styling via CSS Module class names.
+ * Uses Chakra's Tag.Root component with native colorPalette tokens.
+ * Supports polymorphic rendering (Link, anchor, custom component).
+ * No CSS Modules — pure Chakra tokens and css prop.
  *
- * IMPORTANT: This implementation completely resets default Tag
- * styling and applies the existing CSS Module classes, ensuring pixel-perfect
- * visual parity with the original TagPill component.
- *
- * Benefits:
- * - Compound component pattern (Tag.Root, Tag.Label, Tag.CloseTrigger)
- * - Built-in closable/removable support
- * - Semantic ARIA attributes
- * - Consistent focus management
- *
- * Task: biensperience-bbd4 - Migrate Pill component
+ * Task: biensperience-5c80 — P2.3 Pill/Badge → Chakra Badge/Tag
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Tag } from '@chakra-ui/react';
+import { Tag, Box } from '@chakra-ui/react';
 import { FaTimes } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { lang } from '../../lang.constants';
-import styles from './TagPill.module.scss';
+
+// Map TagPill color names to Chakra colorPalette tokens
+const COLOR_PALETTE_MAP = {
+  primary: 'brand',
+  success: 'green',
+  warning: 'yellow',
+  danger: 'red',
+  info: 'blue',
+  neutral: 'gray',
+  light: 'gray',
+};
+
+// Size → padding/fontSize maps
+const SIZE_STYLES = {
+  sm: { fontSize: 'xs', px: '2', py: '0.5', gap: '1' },
+  md: { fontSize: 'sm', px: '3', py: '1', gap: '1.5' },
+  lg: { fontSize: 'md', px: '4', py: '1.5', gap: '2' },
+};
+
+// Gradient background per color
+const GRADIENT_MAP = {
+  primary: 'linear-gradient(135deg, {colors.brand.500} 0%, {colors.accent.500} 100%)',
+  success: 'linear-gradient(135deg, {colors.green.500} 0%, {colors.green.400} 100%)',
+  warning: 'linear-gradient(135deg, {colors.yellow.500} 0%, {colors.yellow.400} 100%)',
+  danger: 'linear-gradient(135deg, {colors.red.500} 0%, {colors.red.400} 100%)',
+  info: 'linear-gradient(135deg, {colors.blue.500} 0%, {colors.blue.400} 100%)',
+  neutral: 'linear-gradient(135deg, {colors.gray.500} 0%, {colors.gray.400} 100%)',
+  light: 'linear-gradient(135deg, {colors.gray.200} 0%, {colors.gray.100} 100%)',
+};
 
 export default function BaseTagPill({
   children,
@@ -37,70 +54,114 @@ export default function BaseTagPill({
   size = 'md',
   className = '',
   to,
-  as = null,
+  as: asProp = null,
   href,
   ...props
 }) {
-  const colorClass = styles[`tagPill${color.charAt(0).toUpperCase() + color.slice(1)}`];
-  const sizeClass = styles[`tagPill${size.charAt(0).toUpperCase() + size.slice(1)}`];
+  const sizeTokens = SIZE_STYLES[size] || SIZE_STYLES.md;
+  const colorPalette = COLOR_PALETTE_MAP[color] || 'brand';
 
-  const classes = [
-    styles.tagPill,
-    colorClass,
-    gradient && styles.tagPillGradient,
-    rounded && styles.tagPillRounded,
-    sizeClass,
-    className
-  ].filter(Boolean).join(' ');
+  // Build shared css prop
+  const sharedCss = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: `{spacing.${sizeTokens.gap}}`,
+    px: `{spacing.${sizeTokens.px}}`,
+    py: `{spacing.${sizeTokens.py}}`,
+    fontSize: `{fontSizes.${sizeTokens.fontSize}}`,
+    fontWeight: '{fontWeights.medium}',
+    lineHeight: '{lineHeights.tight}',
+    borderRadius: rounded ? '{radii.full}' : '{radii.md}',
+    color: gradient || color === 'light'
+      ? (color === 'light' ? '{colors.gray.700}' : 'white')
+      : `{colors.${colorPalette}.700}`,
+    background: gradient
+      ? GRADIENT_MAP[color] || GRADIENT_MAP.primary
+      : `{colors.${colorPalette}.100}`,
+    whiteSpace: 'nowrap',
+    cursor: (to || href || asProp) ? 'pointer' : 'default',
+    textDecoration: 'none',
+    transition: 'all {durations.fast}',
+    _hover: {
+      transform: 'translateY(-1px)',
+      boxShadow: '{shadows.sm}',
+      opacity: 0.9,
+      textDecoration: 'none',
+    },
+    _dark: {
+      color: gradient ? 'white' : `{colors.${colorPalette}.200}`,
+      background: gradient
+        ? GRADIENT_MAP[color] || GRADIENT_MAP.primary
+        : `{colors.${colorPalette}.900}`,
+    },
+  };
 
   const content = (
     <>
-      <span className={styles.tagPillContent}>{children}</span>
+      <span>{children}</span>
       {removable && (
-        <button
+        <Box
+          as="button"
           type="button"
           aria-label={lang.current.aria.remove}
-          className={styles.tagPillRemove}
           onClick={(e) => { e.stopPropagation(); onRemove && onRemove(e); }}
+          css={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            color: 'inherit',
+            opacity: 0.7,
+            transition: 'opacity {durations.fast}',
+            _hover: { opacity: 1 },
+            '& svg': {
+              width: size === 'sm' ? '0.6em' : size === 'lg' ? '0.8em' : '0.7em',
+              height: size === 'sm' ? '0.6em' : size === 'lg' ? '0.8em' : '0.7em',
+            },
+          }}
         >
           <FaTimes />
-        </button>
+        </Box>
       )}
     </>
   );
 
-  // If `to` is provided, prefer react-router Link
+  // React Router link
   if (to) {
     return (
-      <Link to={to} className={classes} {...props}>
+      <Box as={Link} to={to} css={sharedCss} className={className || undefined} {...props}>
         {content}
-      </Link>
+      </Box>
     );
   }
 
-  // If `as` is provided and is a string 'a', render anchor
-  if (as === 'a') {
+  // Anchor tag
+  if (asProp === 'a') {
     return (
-      <a href={href} className={classes} {...props}>
+      <Box as="a" href={href} css={sharedCss} className={className || undefined} {...props}>
         {content}
-      </a>
+      </Box>
     );
   }
 
-  // If `as` is a component (elementType), render it and forward common props
-  if (as && typeof as !== 'string') {
-    const AsComponent = as;
-    const forwarded = { className: classes, href, to, ...props };
+  // Custom component
+  if (asProp && typeof asProp !== 'string') {
     return (
-      <AsComponent {...forwarded}>{content}</AsComponent>
+      <Box as={asProp} href={href} to={to} css={sharedCss} className={className || undefined} {...props}>
+        {content}
+      </Box>
     );
   }
 
-  // Default: Chakra Tag.Root as the base element (renders as span)
+  // Default: Chakra Tag.Root
   return (
     <Tag.Root
-      className={classes}
-      unstyled
+      colorPalette={colorPalette}
+      css={sharedCss}
+      className={className || undefined}
       {...props}
     >
       {content}
@@ -118,6 +179,6 @@ BaseTagPill.propTypes = {
   size: PropTypes.oneOf(['sm', 'md', 'lg']),
   className: PropTypes.string,
   to: PropTypes.string,
-  as: PropTypes.string,
+  as: PropTypes.oneOfType([PropTypes.string, PropTypes.elementType]),
   href: PropTypes.string,
 };

@@ -1,19 +1,43 @@
+/**
+ * Layout – Native Chakra UI v3 layout primitives
+ *
+ * Replaces CSS-Module-based Layout components with native Chakra Flex, Box,
+ * Stack and Container primitives.  All spacing / alignment is expressed via
+ * Chakra token props so no SCSS module is imported.
+ *
+ * Migrated: P2.7 — biensperience-b918
+ */
+
 import React from 'react';
 import PropTypes from 'prop-types';
-import styles from './Layout.module.scss';
+import {
+  Flex,
+  Box,
+  Stack as ChakraStack,
+  Container as ChakraContainer,
+} from '@chakra-ui/react';
 
-/**
- * FlexBetween component for flexbox with space-between alignment
- *
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Layout content
- * @param {string} props.align - Vertical alignment: 'start', 'center', 'end', 'stretch'
- * @param {string} props.gap - Gap between items: 'sm', 'md', 'lg', 'xl'
- * @param {boolean} props.wrap - Whether items should wrap
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- * @param {Object} props... - Other props passed to div element
- */
+/* ── token maps ─────────────────────────────────────────────────────── */
+
+const GAP_MAP = { sm: '2', md: '4', lg: '6', xl: '8' };
+
+const ALIGN_MAP = {
+  start: 'flex-start',
+  center: 'center',
+  end: 'flex-end',
+  stretch: 'stretch',
+};
+
+const CONTAINER_MAX_W = {
+  sm: '640px',
+  md: '768px',
+  lg: '1024px',
+  xl: '1280px',
+  full: 'none',
+};
+
+/* ── FlexBetween ────────────────────────────────────────────────────── */
+
 export function FlexBetween({
   children,
   align = 'center',
@@ -23,18 +47,25 @@ export function FlexBetween({
   style = {},
   ...props
 }) {
-  const classes = [
-    styles.flexBetween,
-    styles[`align${align.charAt(0).toUpperCase() + align.slice(1)}`],
-    styles[`gap${gap.charAt(0).toUpperCase() + gap.slice(1)}`],
-    wrap && styles.flexWrap,
-    className
-  ].filter(Boolean).join(' ');
-
   return (
-    <div className={classes} style={style} {...props}>
+    <Flex
+      justify="space-between"
+      align={ALIGN_MAP[align] || 'center'}
+      gap={GAP_MAP[gap] || gap}
+      wrap={wrap ? 'wrap' : 'nowrap'}
+      className={className || undefined}
+      style={style}
+      css={{
+        '@media (max-width: 640px)': {
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          gap: 'var(--chakra-spacing-3)',
+        },
+      }}
+      {...props}
+    >
       {children}
-    </div>
+    </Flex>
   );
 }
 
@@ -44,20 +75,11 @@ FlexBetween.propTypes = {
   gap: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
   wrap: PropTypes.bool,
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
 };
 
-/**
- * FlexCenter component for flexbox with center alignment
- *
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Layout content
- * @param {string} props.direction - Flex direction: 'row', 'column'
- * @param {boolean} props.wrap - Whether items should wrap
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- * @param {Object} props... - Other props passed to div element
- */
+/* ── FlexCenter ─────────────────────────────────────────────────────── */
+
 export function FlexCenter({
   children,
   direction = 'row',
@@ -66,17 +88,18 @@ export function FlexCenter({
   style = {},
   ...props
 }) {
-  const classes = [
-    styles.flexCenter,
-    styles[`direction${direction.charAt(0).toUpperCase() + direction.slice(1)}`],
-    wrap && styles.flexWrap,
-    className
-  ].filter(Boolean).join(' ');
-
   return (
-    <div className={classes} style={style} {...props}>
+    <Flex
+      justify="center"
+      align="center"
+      direction={direction}
+      wrap={wrap ? 'wrap' : 'nowrap'}
+      className={className || undefined}
+      style={style}
+      {...props}
+    >
       {children}
-    </div>
+    </Flex>
   );
 }
 
@@ -85,19 +108,11 @@ FlexCenter.propTypes = {
   direction: PropTypes.oneOf(['row', 'column']),
   wrap: PropTypes.bool,
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
 };
 
-/**
- * SpaceY component for vertical spacing between child elements
- *
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Layout content
- * @param {string} props.size - Spacing size: '1', '2', '3', '4', '5', '6'
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- * @param {Object} props... - Other props passed to div element
- */
+/* ── SpaceY ─────────────────────────────────────────────────────────── */
+
 export function SpaceY({
   children,
   size = '4',
@@ -105,16 +120,16 @@ export function SpaceY({
   style = {},
   ...props
 }) {
-  const classes = [
-    'space-y',
-    `space-y-${size}`,
-    className
-  ].filter(Boolean).join(' ');
-
   return (
-    <div className={classes} style={style} {...props}>
+    <ChakraStack
+      direction="column"
+      gap={size}
+      className={className || undefined}
+      style={style}
+      {...props}
+    >
       {children}
-    </div>
+    </ChakraStack>
   );
 }
 
@@ -122,20 +137,11 @@ SpaceY.propTypes = {
   children: PropTypes.node.isRequired,
   size: PropTypes.oneOf(['1', '2', '3', '4', '5', '6']),
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
 };
 
-/**
- * Container component for max-width content wrapper
- *
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Layout content
- * @param {string} props.size - Container max-width: 'sm', 'md', 'lg', 'xl', 'full'
- * @param {boolean} props.center - Whether to center the container
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- * @param {Object} props... - Other props passed to div element
- */
+/* ── Container ──────────────────────────────────────────────────────── */
+
 export function Container({
   children,
   size = 'xl',
@@ -144,17 +150,18 @@ export function Container({
   style = {},
   ...props
 }) {
-  const classes = [
-    styles.container,
-    styles[`container${size.charAt(0).toUpperCase() + size.slice(1)}`],
-    center && styles.containerCenter,
-    className
-  ].filter(Boolean).join(' ');
-
   return (
-    <div className={classes} style={style} {...props}>
+    <Box
+      width="100%"
+      maxW={CONTAINER_MAX_W[size] || '1280px'}
+      mx={center ? 'auto' : undefined}
+      px={{ base: '3', sm: '4' }}
+      className={className || undefined}
+      style={style}
+      {...props}
+    >
       {children}
-    </div>
+    </Box>
   );
 }
 
@@ -163,20 +170,11 @@ Container.propTypes = {
   size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', 'full']),
   center: PropTypes.bool,
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
 };
 
-/**
- * Stack component for vertical layout with consistent spacing
- *
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Layout content
- * @param {string} props.spacing - Spacing between items: 'sm', 'md', 'lg', 'xl'
- * @param {string} props.align - Horizontal alignment: 'start', 'center', 'end'
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- * @param {Object} props... - Other props passed to div element
- */
+/* ── Stack ──────────────────────────────────────────────────────────── */
+
 export function Stack({
   children,
   spacing = 'md',
@@ -185,17 +183,17 @@ export function Stack({
   style = {},
   ...props
 }) {
-  const classes = [
-    styles.stack,
-    styles[`stackSpacing${spacing.charAt(0).toUpperCase() + spacing.slice(1)}`],
-    styles[`stackAlign${align.charAt(0).toUpperCase() + align.slice(1)}`],
-    className
-  ].filter(Boolean).join(' ');
-
   return (
-    <div className={classes} style={style} {...props}>
+    <ChakraStack
+      direction="column"
+      gap={GAP_MAP[spacing] || spacing}
+      align={ALIGN_MAP[align] || 'flex-start'}
+      className={className || undefined}
+      style={style}
+      {...props}
+    >
       {children}
-    </div>
+    </ChakraStack>
   );
 }
 
@@ -204,5 +202,5 @@ Stack.propTypes = {
   spacing: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
   align: PropTypes.oneOf(['start', 'center', 'end']),
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
 };

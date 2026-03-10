@@ -1,52 +1,64 @@
 /**
- * BaseButton - Design System Button Implementation
+ * BaseButton — Native Chakra UI v3 Button
  *
- * Drop-in replacement for the custom Button component.
- * Uses styled primitives for built-in accessibility,
- * keyboard handling, and ARIA support while preserving the existing
- * Button.module.scss styling via CSS Module class names.
+ * Uses the Chakra `Button` recipe component (defined in ui-theme.js recipes.button)
+ * for ALL styling. No CSS Modules — pure Chakra recipe tokens.
  *
- * IMPORTANT: This implementation completely resets default button
- * styling and applies the existing CSS Module classes, ensuring pixel-perfect
- * visual parity with the original Button component.
+ * Variant mapping (legacy → recipe):
+ *   primary → gradient, light → secondary, outline-secondary → outline,
+ *   outline-primary → outline, bootstrap variants → mapped to closest recipe variant
  *
  * Benefits:
- * - Built-in ARIA attributes (role, aria-disabled, aria-busy)
- * - Consistent focus management
- * - Loading state with spinner support
- * - Polymorphic `as` prop with proper type forwarding
+ *   - Zero CSS Module dependency — styling 100% from Chakra recipe
+ *   - Dark mode via semantic tokens (automatic)
+ *   - Type-safe variant/size from theme recipe
+ *   - Built-in ARIA, focus ring, keyboard handling
+ *   - Polymorphic `as` prop
  *
- * Task: biensperience-558b - Migrate Button component
+ * Task: biensperience-1c90 — P2.1 Button → Chakra Button
  */
 
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { chakra } from '@chakra-ui/react';
-import styles from './Button.module.scss';
+import { Button as ChakraButton } from '@chakra-ui/react';
 import { calculateButtonWidth } from '../../utilities/button-utils';
 
-const BOOTSTRAP_VARIANTS = [
-  'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark',
-  'outline-primary', 'outline-secondary', 'outline-success', 'outline-danger',
-  'outline-warning', 'outline-info', 'outline-light', 'outline-dark'
-];
+// Map legacy / Bootstrap variant names → Chakra recipe variants
+const VARIANT_MAP = {
+  // Direct recipe variants (pass through)
+  gradient: 'gradient',
+  secondary: 'secondary',
+  tertiary: 'tertiary',
+  danger: 'danger',
+  success: 'success',
+  link: 'link',
+  outline: 'outline',
+  ghost: 'ghost',
 
-/**
- * Using chakra.button (the styled factory) instead of the Button recipe component.
- *
- * The Button recipe component (import { Button } from '@chakra-ui/react') applies
- * a full set of recipe base + variant + size styles that fight with our CSS Module
- * classes. The chakra.button factory creates a bare styled <button> element with
- * NO recipe styles — only Chakra's runtime (ARIA, ref forwarding, css prop support).
- * This means our CSS Module classes from Button.module.scss are the sole source of
- * visual styling, with zero specificity conflicts.
- */
-const StyledButton = chakra('button');
+  // Legacy aliases
+  primary: 'gradient',
+  light: 'secondary',
+
+  // Bootstrap → recipe
+  'outline-primary': 'outline',
+  'outline-secondary': 'outline',
+  'outline-success': 'outline',
+  'outline-danger': 'outline',
+  'outline-warning': 'outline',
+  'outline-info': 'outline',
+  'outline-light': 'outline',
+  'outline-dark': 'outline',
+  warning: 'secondary',
+  info: 'secondary',
+  dark: 'ghost',
+};
+
+const ALL_VARIANT_KEYS = Object.keys(VARIANT_MAP);
 
 const BaseButton = React.forwardRef(function BaseButton({
   children,
   variant = 'gradient',
-  bootstrapVariant = 'primary',
+  bootstrapVariant,
   rounded = false,
   shadow = false,
   disabled = false,
@@ -62,90 +74,68 @@ const BaseButton = React.forwardRef(function BaseButton({
   fullWidth = false,
   leftIcon = null,
   rightIcon = null,
-  ...props
+  ...rest
 }, ref) {
-  // Normalize legacy variant names: 'primary' -> 'gradient'
-  let normalizedVariant = variant;
-  let effectiveBootstrapVariant = bootstrapVariant;
+  // Resolve variant: use bootstrapVariant if variant is 'bootstrap'
+  const effectiveVariant = variant === 'bootstrap'
+    ? (bootstrapVariant || 'primary')
+    : variant;
 
-  if (variant === 'primary') normalizedVariant = 'gradient';
+  // Map to Chakra recipe variant
+  const recipeVariant = VARIANT_MAP[effectiveVariant] || 'gradient';
 
-  // Backward-compat: allow callers to pass bootstrap variants directly via `variant`
-  if (typeof variant === 'string' && BOOTSTRAP_VARIANTS.includes(variant)) {
-    normalizedVariant = 'bootstrap';
-    effectiveBootstrapVariant = variant;
-  }
+  // Map size — Chakra recipe supports xs / sm / md / lg; xl → lg
+  const recipeSize = size === 'xl' ? 'lg' : size;
 
-  // Build className string with CSS Modules (identical to original Button)
-  const variantClass = {
-    gradient: styles.btnGradient,
-    outline: styles.btnOutline,
-    light: styles.btnLight,
-    tertiary: styles.btnTertiary,
-    link: styles.btnLink,
-    danger: styles.btnDanger,
-    success: styles.btnSuccess,
-  }[normalizedVariant] || '';
-
-  const sizeClass = {
-    xs: styles.btnXs,
-    sm: styles.btnSm,
-    lg: styles.btnLg,
-    xl: styles.btnXl,
-  }[size] || '';
-
-  const classes = [
-    styles.btnCustom,
-    variantClass,
-    rounded && styles.btnRounded,
-    shadow && styles.btnShadow,
-    sizeClass,
-    normalizedVariant === 'bootstrap' && `btn btn-${effectiveBootstrapVariant}`,
-    className
-  ].filter(Boolean).join(' ');
-
-  // Calculate width based on matchWidth prop (identical to original Button)
-  const calculatedStyle = useMemo(() => {
-    const baseStyle = { ...style };
+  // Extra style props for rounded, shadow, fullWidth, matchWidth
+  const extraStyles = useMemo(() => {
+    const s = { ...style };
 
     if (fullWidth) {
-      baseStyle.width = '100%';
-      return baseStyle;
-    }
-
-    if (matchWidth) {
+      s.width = '100%';
+    } else if (matchWidth) {
       const texts = Array.isArray(matchWidth) ? matchWidth : [matchWidth];
       const maxWidth = Math.max(
         ...texts.map(text => calculateButtonWidth(text, { size }))
       );
-      baseStyle.minWidth = `${maxWidth}px`;
-      baseStyle.width = `${maxWidth}px`;
+      s.minWidth = `${maxWidth}px`;
+      s.width = `${maxWidth}px`;
     }
 
-    return baseStyle;
+    return s;
   }, [matchWidth, fullWidth, size, style]);
 
-  // Render content with optional icons (identical to original Button)
-  const buttonContent = (
+  // Compose CSS overrides for rounded / shadow
+  const cssOverrides = useMemo(() => {
+    const css = {};
+    if (rounded) css.borderRadius = 'full';
+    if (shadow) css.boxShadow = 'lg';
+    return Object.keys(css).length ? css : undefined;
+  }, [rounded, shadow]);
+
+  // Content with optional icons
+  const content = (
     <>
-      {leftIcon && <span className={styles.btnIcon}>{leftIcon}</span>}
+      {leftIcon && <span style={{ display: 'inline-flex', marginRight: '0.35em' }}>{leftIcon}</span>}
       {children}
-      {rightIcon && <span className={styles.btnIcon}>{rightIcon}</span>}
+      {rightIcon && <span style={{ display: 'inline-flex', marginLeft: '0.35em' }}>{rightIcon}</span>}
     </>
   );
 
-  // Build the props for the styled button
   const buttonProps = {
     ref,
-    className: classes,
-    onClick,
-    disabled,
+    variant: recipeVariant,
+    size: recipeSize,
     type,
-    style: calculatedStyle,
-    ...props,
+    disabled,
+    onClick,
+    className: className || undefined,
+    style: Object.keys(extraStyles).length ? extraStyles : undefined,
+    css: cssOverrides,
+    ...rest,
   };
 
-  // If caller requested a custom element via `as`, pass it through
+  // Polymorphic rendering
   if (as) {
     buttonProps.as = as;
     if (href) buttonProps.href = href;
@@ -153,9 +143,9 @@ const BaseButton = React.forwardRef(function BaseButton({
   }
 
   return (
-    <StyledButton {...buttonProps}>
-      {buttonContent}
-    </StyledButton>
+    <ChakraButton {...buttonProps}>
+      {content}
+    </ChakraButton>
   );
 });
 
@@ -164,18 +154,12 @@ export default BaseButton;
 BaseButton.propTypes = {
   children: PropTypes.node.isRequired,
   variant: PropTypes.oneOf([
-    'gradient',
-    'outline',
-    'light',
-    'tertiary',
-    'link',
-    'danger',
-    'success',
-    'bootstrap',
-    'primary',    // Legacy alias for 'gradient'
-    ...BOOTSTRAP_VARIANTS,
+    'gradient', 'outline', 'secondary', 'tertiary', 'link',
+    'danger', 'success', 'ghost', 'bootstrap',
+    'primary', 'light',   // Legacy aliases
+    ...ALL_VARIANT_KEYS.filter(k => k.includes('-')),
   ]),
-  bootstrapVariant: PropTypes.oneOf(BOOTSTRAP_VARIANTS),
+  bootstrapVariant: PropTypes.string,
   rounded: PropTypes.bool,
   shadow: PropTypes.bool,
   disabled: PropTypes.bool,
@@ -195,3 +179,4 @@ BaseButton.propTypes = {
   leftIcon: PropTypes.node,
   rightIcon: PropTypes.node,
 };
+

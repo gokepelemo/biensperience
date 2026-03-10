@@ -1,48 +1,21 @@
 /**
- * BaseSkeletonLoader - Design System Skeleton Implementation
+ * BaseSkeletonLoader – Native Chakra UI v3 Skeleton
  *
- * Drop-in replacement for the custom SkeletonLoader component.
- * Uses Skeleton primitive for built-in accessibility
- * and animation support while preserving the existing styling.
- *
- * IMPORTANT: This implementation resets default skeleton
- * styling and applies the existing CSS Module classes, ensuring
- * visual parity with the original SkeletonLoader component.
+ * Drop-in replacement using Chakra Skeleton with native tokens.
+ * No CSS Module import — all styling via Chakra style props / css prop.
  *
  * Benefits:
- * - Built-in ARIA attributes (aria-busy, aria-live)
- * - Reduced-motion support (respects prefers-reduced-motion)
- * - Consistent animation across the design system
+ * - Built-in ARIA (aria-busy, aria-live)
+ * - Reduced-motion support
+ * - variant="pulse" (default) and variant="shine"
  *
- * Task: biensperience-20d0 - Create wrappers for SkeletonLoader
+ * Migrated: P2.8 — biensperience-0777
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Skeleton as SkeletonPrimitive, Box } from '@chakra-ui/react';
-import styles from './SkeletonLoader.module.scss';
+import { Skeleton, Stack } from '@chakra-ui/react';
 
-/**
- * Reset styles to override default skeleton styling.
- */
-const RESET_STYLES = {
-  bg: 'transparent',
-  _dark: { bg: 'transparent' },
-};
-
-/**
- * BaseSkeletonLoader - Accessible skeleton with existing CSS Modules styling
- *
- * @param {Object} props
- * @param {'text'|'circle'|'rectangle'} props.variant - Loading shape
- * @param {'sm'|'md'|'lg'} props.size - Size variant for text
- * @param {string|number} props.width - Width (CSS value or px number)
- * @param {string|number} props.height - Height (CSS value or px number)
- * @param {number} props.lines - Number of text lines (text variant only)
- * @param {boolean} props.animate - Whether to show animation
- * @param {string} props.className - Additional CSS classes
- * @param {Object} props.style - Inline styles
- */
 export default function BaseSkeletonLoader({
   variant = 'text',
   size = 'md',
@@ -54,49 +27,38 @@ export default function BaseSkeletonLoader({
   style = {},
   ...props
 }) {
-  const classes = [
-    styles.skeletonLoader,
-    className
-  ].filter(Boolean).join(' ');
+  const w = width != null ? (typeof width === 'number' ? `${width}px` : width) : undefined;
+  const h = height != null ? (typeof height === 'number' ? `${height}px` : height) : undefined;
 
-  const computedStyle = {
-    ...style,
-    ...(width && { width: typeof width === 'number' ? `${width}px` : width }),
-    ...(height && { height: typeof height === 'number' ? `${height}px` : height })
-  };
-
-  const commonProps = {
-    className: classes,
-    style: computedStyle,
+  const common = {
     loading: animate,
-    ...RESET_STYLES,
-    ...props
+    variant: 'pulse',
+    className: className || undefined,
+    ...props,
   };
 
   switch (variant) {
     case 'circle': {
-      const diameter = height || width;
+      const diameter = h || w;
       return (
-        <SkeletonPrimitive
-          {...commonProps}
-          style={{
-            ...computedStyle,
-            width: typeof diameter === 'number' ? `${diameter}px` : diameter,
-            height: typeof diameter === 'number' ? `${diameter}px` : diameter,
-            borderRadius: '50%',
-          }}
+        <Skeleton
+          {...common}
+          width={diameter}
+          height={diameter}
+          borderRadius="full"
+          style={style}
         />
       );
     }
 
     case 'rectangle':
       return (
-        <SkeletonPrimitive
-          {...commonProps}
-          style={{
-            ...computedStyle,
-            borderRadius: '8px',
-          }}
+        <Skeleton
+          {...common}
+          width={w || '100%'}
+          height={h || '100px'}
+          borderRadius="md"
+          style={style}
         />
       );
 
@@ -104,30 +66,27 @@ export default function BaseSkeletonLoader({
     default:
       if (lines > 1) {
         return (
-          <Box className={styles.skeletonTextGroup} style={style}>
-            {Array.from({ length: lines }, (_, index) => (
-              <SkeletonPrimitive
-                key={index}
-                {...commonProps}
-                style={{
-                  ...computedStyle,
-                  width: index === lines - 1 ? '70%' : '100%',
-                  marginBottom: index < lines - 1 ? 'var(--space-2)' : 0,
-                  borderRadius: '4px',
-                }}
+          <Stack gap="2" style={style} width={w || '100%'}>
+            {Array.from({ length: lines }, (_, i) => (
+              <Skeleton
+                key={i}
+                {...common}
+                height={h || '4'}
+                width={i === lines - 1 ? '70%' : '100%'}
+                borderRadius="sm"
               />
             ))}
-          </Box>
+          </Stack>
         );
       }
 
       return (
-        <SkeletonPrimitive
-          {...commonProps}
-          style={{
-            ...computedStyle,
-            borderRadius: '4px',
-          }}
+        <Skeleton
+          {...common}
+          width={w || '100%'}
+          height={h || '4'}
+          borderRadius="sm"
+          style={style}
         />
       );
   }
@@ -141,5 +100,5 @@ BaseSkeletonLoader.propTypes = {
   lines: PropTypes.number,
   animate: PropTypes.bool,
   className: PropTypes.string,
-  style: PropTypes.object
+  style: PropTypes.object,
 };

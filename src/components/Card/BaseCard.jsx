@@ -1,40 +1,36 @@
 /**
- * BaseCard - Design System Card Implementation
+ * BaseCard – Native Chakra UI v3 Card compound component
  *
- * Drop-in replacement for react-bootstrap Card component.
- * Uses Chakra Card compound component for built-in accessibility
- * while preserving existing CSS Module styling via className props.
+ * Uses the `card` slotRecipe from ui-theme.js (elevated/outline/subtle/unstyled,
+ * sm/md/lg).  No `unstyled` prop — the recipe owns all visual styling.
  *
- * IMPORTANT: Uses `unstyled` prop to completely reset Chakra default
- * styling, allowing CSS Modules to be the sole source of visual styling.
+ * Sub-components:
+ *   BaseCard (Root), BaseCardHeader, BaseCardBody, BaseCardFooter,
+ *   BaseCardTitle, BaseCardDescription
  *
- * Sub-components: BaseCard (Root), BaseCardHeader, BaseCardBody, BaseCardFooter,
- *                 BaseCardTitle, BaseCardDescription
- *
- * Benefits:
- * - Semantic HTML structure
- * - Built-in ARIA attributes
- * - Consistent focus management
- * - Polymorphic `as` prop
- *
- * Task: biensperience-9abe
+ * Migrated: P2.10 — biensperience-44ac
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Card as CardPrimitive } from '@chakra-ui/react';
 
-/**
- * BaseCard - Chakra Card.Root with unstyled reset
- *
- * Maps to react-bootstrap `<Card>`. Accepts className and style for CSS Module styling.
- */
-function BaseCard({ children, className = '', style = {}, ...props }) {
+/* ── Root ───────────────────────────────────────────────────────────── */
+
+function BaseCard({
+  children,
+  variant = 'elevated',
+  size = 'md',
+  className = '',
+  style = {},
+  ...props
+}) {
   return (
     <CardPrimitive.Root
-      className={className}
+      variant={variant}
+      size={size}
+      className={className || undefined}
       style={style}
-      unstyled
       {...props}
     >
       {children}
@@ -44,18 +40,17 @@ function BaseCard({ children, className = '', style = {}, ...props }) {
 
 BaseCard.propTypes = {
   children: PropTypes.node,
+  variant: PropTypes.oneOf(['elevated', 'outline', 'subtle', 'unstyled']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
   className: PropTypes.string,
   style: PropTypes.object,
 };
 
-/**
- * BaseCardHeader - Chakra Card.Header
- *
- * Maps to react-bootstrap `<Card.Header>`.
- */
+/* ── Header ─────────────────────────────────────────────────────────── */
+
 function BaseCardHeader({ children, className = '', ...props }) {
   return (
-    <CardPrimitive.Header className={className} {...props}>
+    <CardPrimitive.Header className={className || undefined} {...props}>
       {children}
     </CardPrimitive.Header>
   );
@@ -66,14 +61,11 @@ BaseCardHeader.propTypes = {
   className: PropTypes.string,
 };
 
-/**
- * BaseCardBody - Chakra Card.Body
- *
- * Maps to react-bootstrap `<Card.Body>`.
- */
+/* ── Body ───────────────────────────────────────────────────────────── */
+
 function BaseCardBody({ children, className = '', ...props }) {
   return (
-    <CardPrimitive.Body className={className} {...props}>
+    <CardPrimitive.Body className={className || undefined} {...props}>
       {children}
     </CardPrimitive.Body>
   );
@@ -84,14 +76,11 @@ BaseCardBody.propTypes = {
   className: PropTypes.string,
 };
 
-/**
- * BaseCardFooter - Chakra Card.Footer
- *
- * Maps to react-bootstrap `<Card.Footer>`.
- */
+/* ── Footer ─────────────────────────────────────────────────────────── */
+
 function BaseCardFooter({ children, className = '', ...props }) {
   return (
-    <CardPrimitive.Footer className={className} {...props}>
+    <CardPrimitive.Footer className={className || undefined} {...props}>
       {children}
     </CardPrimitive.Footer>
   );
@@ -102,14 +91,11 @@ BaseCardFooter.propTypes = {
   className: PropTypes.string,
 };
 
-/**
- * BaseCardTitle - Chakra Card.Title
- *
- * Maps to react-bootstrap `<Card.Title>`.
- */
+/* ── Title ──────────────────────────────────────────────────────────── */
+
 function BaseCardTitle({ children, className = '', ...props }) {
   return (
-    <CardPrimitive.Title className={className} {...props}>
+    <CardPrimitive.Title className={className || undefined} {...props}>
       {children}
     </CardPrimitive.Title>
   );
@@ -120,14 +106,11 @@ BaseCardTitle.propTypes = {
   className: PropTypes.string,
 };
 
-/**
- * BaseCardDescription - Chakra Card.Description
- *
- * Maps to react-bootstrap `<Card.Text>`.
- */
+/* ── Description ────────────────────────────────────────────────────── */
+
 function BaseCardDescription({ children, className = '', ...props }) {
   return (
-    <CardPrimitive.Description className={className} {...props}>
+    <CardPrimitive.Description className={className || undefined} {...props}>
       {children}
     </CardPrimitive.Description>
   );
@@ -138,14 +121,14 @@ BaseCardDescription.propTypes = {
   className: PropTypes.string,
 };
 
-// Attach sub-components for compound component pattern
-// Allows both: <Card.Body> and <CardBody> usage
+/* ── Compound pattern ───────────────────────────────────────────────── */
+
 BaseCard.Header = BaseCardHeader;
 BaseCard.Body = BaseCardBody;
 BaseCard.Footer = BaseCardFooter;
 BaseCard.Title = BaseCardTitle;
 BaseCard.Description = BaseCardDescription;
-BaseCard.Text = BaseCardDescription; // Alias for react-bootstrap compat
+BaseCard.Text = BaseCardDescription; // react-bootstrap compat alias
 
 export default BaseCard;
 export {
@@ -154,5 +137,5 @@ export {
   BaseCardBody,
   BaseCardFooter,
   BaseCardTitle,
-  BaseCardDescription
+  BaseCardDescription,
 };

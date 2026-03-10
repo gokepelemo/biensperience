@@ -1,38 +1,32 @@
 /**
- * BaseGrid - CSS Grid 12-column layout system
+ * BaseGrid – Native Chakra UI v3 Grid / GridItem
  *
- * Drop-in replacement for react-bootstrap Row/Col components.
- * Uses native CSS Grid with responsive column spans via CSS Modules.
- * Breakpoints match Bootstrap 5 (576, 768, 992, 1200, 1400px).
+ * 12-column responsive grid via Chakra Grid + GridItem.
+ * No CSS Module import — responsive column spans expressed with
+ * Chakra responsive object syntax (`base`, `sm`, `md`, `lg`, `xl`).
  *
- * Usage:
- *   <BaseRow>
- *     <BaseCol lg={8}>Main content</BaseCol>
- *     <BaseCol lg={4}>Sidebar</BaseCol>
- *   </BaseRow>
+ * Breakpoints match the theme: xs 320, sm 480, md 768, lg 992, xl 1200, 2xl 1400.
  *
- * Task: biensperience-552d
- * Related: biensperience-e5c4 (epic)
+ * Migrated: P2.11 — biensperience-3aaa
  */
 
 import PropTypes from 'prop-types';
-import styles from './BaseGrid.module.scss';
+import { Grid, GridItem } from '@chakra-ui/react';
 
-/**
- * BaseRow - 12-column CSS Grid container
- *
- * Maps to react-bootstrap `<Row>`.
- * Accepts className for additional styling (Bootstrap utilities still work).
- */
+/* ── BaseRow ────────────────────────────────────────────────────────── */
+
 export function BaseRow({ children, className = '', style, ...props }) {
   return (
-    <div
-      className={`${styles.row} ${className}`.trim()}
+    <Grid
+      templateColumns="repeat(12, 1fr)"
+      gap="6"
+      width="100%"
+      className={className || undefined}
       style={style}
       {...props}
     >
       {children}
-    </div>
+    </Grid>
   );
 }
 
@@ -44,38 +38,36 @@ BaseRow.propTypes = {
   style: PropTypes.object,
 };
 
+/* ── BaseCol ────────────────────────────────────────────────────────── */
+
 /**
- * BaseCol - Responsive grid column with breakpoint-based spans
+ * Responsive grid column.  Accepts xs/sm/md/lg/xl/xxl (1-12).
+ * Default: full width (colSpan 12) on all breakpoints.
  *
- * Maps to react-bootstrap `<Col>`.
- * Accepts xs/sm/md/lg/xl/xxl props (number 1-12) for responsive column spans.
- * Default: full width (12 columns) on all breakpoints.
- *
- * @param {number} xs - Column span for xs+ (≥0)
- * @param {number} sm - Column span for sm+ (≥576px)
- * @param {number} md - Column span for md+ (≥768px)
- * @param {number} lg - Column span for lg+ (≥992px)
- * @param {number} xl - Column span for xl+ (≥1200px)
- * @param {number} xxl - Column span for xxl+ (≥1400px)
+ * Converts to Chakra responsive object: { base, sm, md, lg, xl, "2xl" }.
  */
 export function BaseCol({ children, className = '', xs, sm, md, lg, xl, xxl, style, ...props }) {
-  const colClasses = [styles.col];
+  // Build responsive colSpan — only include set breakpoints
+  const colSpan = {};
+  if (xs)  colSpan.base = xs;
+  if (sm)  colSpan.sm   = sm;
+  if (md)  colSpan.md   = md;
+  if (lg)  colSpan.lg   = lg;
+  if (xl)  colSpan.xl   = xl;
+  if (xxl) colSpan['2xl'] = xxl;
 
-  if (xs) colClasses.push(styles[`colXs${xs}`]);
-  if (sm) colClasses.push(styles[`colSm${sm}`]);
-  if (md) colClasses.push(styles[`colMd${md}`]);
-  if (lg) colClasses.push(styles[`colLg${lg}`]);
-  if (xl) colClasses.push(styles[`colXl${xl}`]);
-  if (xxl) colClasses.push(styles[`colXxl${xxl}`]);
+  const hasResponsive = Object.keys(colSpan).length > 0;
 
   return (
-    <div
-      className={`${colClasses.filter(Boolean).join(' ')} ${className}`.trim()}
+    <GridItem
+      colSpan={hasResponsive ? colSpan : 12}
+      minW="0"
+      className={className || undefined}
       style={style}
       {...props}
     >
       {children}
-    </div>
+    </GridItem>
   );
 }
 

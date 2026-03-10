@@ -1,45 +1,67 @@
 /**
- * BaseText - Design System Text Components Implementation
+ * BaseText — Native Chakra UI v3 Text / Heading components
  *
- * Drop-in replacements for the custom Text components.
- * Uses Text and Heading primitives for built-in accessibility
- * while preserving the existing Text.module.scss styling via CSS Module class names.
+ * Uses Chakra's native Text and Heading components with recipe-based styling
+ * from ui-theme.js. No CSS Modules — pure Chakra tokens and textStyles.
  *
- * IMPORTANT: This implementation completely resets default styling
- * and applies the existing CSS Module classes, ensuring pixel-perfect
- * visual parity with the original Text components.
+ * Prop mapping:
+ *   size → Chakra fontSize token
+ *   weight → Chakra fontWeight token
+ *   variant → color/gradient mapping
+ *   gradient → backgroundClip text + gradient
+ *   truncate → Chakra lineClamp
+ *   level → Heading as={`h${level}`} + recipe size
  *
- * Benefits:
- * - Built-in accessibility attributes
- * - Semantic heading structure
- * - Consistent typography handling
- *
- * Task: biensperience-445f - Migrate Text and Typography components
+ * Task: biensperience-6614 — P2.2 Text/Heading → Chakra
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { chakra } from '@chakra-ui/react';
-import styles from './Text.module.scss';
+import {
+  Text as ChakraText,
+  Heading as ChakraHeading,
+} from '@chakra-ui/react';
+
+// Map size prop to Chakra fontSize tokens
+const SIZE_MAP = {
+  xs: 'xs',
+  sm: 'sm',
+  base: 'md',
+  lg: 'lg',
+  xl: 'xl',
+  '2xl': '2xl',
+  '3xl': '3xl',
+};
+
+// Map heading levels to Chakra Heading recipe sizes
+const HEADING_LEVEL_TO_SIZE = {
+  1: '2xl',
+  2: 'xl',
+  3: 'lg',
+  4: 'md',
+  5: 'sm',
+  6: 'xs',
+};
+
+// Map weight prop to Chakra fontWeight tokens
+const WEIGHT_MAP = {
+  light: 'light',
+  normal: 'normal',
+  medium: 'medium',
+  semibold: 'semibold',
+  bold: 'bold',
+};
+
+// Gradient styles for text
+const GRADIENT_STYLES = {
+  backgroundImage: 'linear-gradient(135deg, {colors.brand.500} 0%, {colors.accent.500} 100%)',
+  backgroundClip: 'text',
+  WebkitBackgroundClip: 'text',
+  color: 'transparent',
+};
 
 /**
- * Using chakra() factory instead of the Text/Heading recipe components.
- *
- * The Text recipe component (import { Text } from '@chakra-ui/react') applies
- * default font-size, line-height, and color styles that fight with our CSS Module
- * classes. The chakra() factory creates bare styled elements with NO recipe styles —
- * only Chakra's runtime (ref forwarding, css prop support).
- * This means our CSS Module classes from Text.module.scss are the sole source of
- * visual styling, with zero specificity conflicts.
- */
-const StyledText = chakra('p');
-const StyledHeading = chakra('h1');
-
-/**
- * BaseText - Chakra UI Text with CSS Module styling
- *
- * Uses Chakra Text primitive for accessibility benefits,
- * with reset styling to use CSS Modules.
+ * BaseText — Native Chakra Text component
  */
 export default function BaseText({
   children,
@@ -56,37 +78,46 @@ export default function BaseText({
   style = {},
   ...props
 }) {
-  // Build className string
-  const variantClass = styles[`text${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
-  const sizeClass = size.includes('-')
-    ? styles[`text${size.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`]
-    : styles[`text${size.charAt(0).toUpperCase() + size.slice(1)}`];
-  const weightClass = styles[`weight${weight.charAt(0).toUpperCase() + weight.slice(1)}`];
-  const alignClass = align !== 'left' ? styles[`text${align.charAt(0).toUpperCase() + align.slice(1)}`] : '';
-  const colorClass = color ? styles[`textColor${color.charAt(0).toUpperCase() + color.slice(1)}`] : '';
+  // Resolve variant to color
+  const variantColor = {
+    body: 'fg',
+    lead: 'fg',
+    caption: 'fg.muted',
+    muted: 'fg.muted',
+    gradient: undefined,  // handled by gradient prop
+    heading: 'fg',
+  }[variant] || 'fg';
 
-  const classes = [
-    styles.textComponent,
-    variantClass,
-    sizeClass,
-    weightClass,
-    gradient && 'text-gradient-primary', // From utilities.css
-    shadow && 'text-shadow-md', // From utilities.css
-    truncate > 0 && `text-truncate-${truncate}`, // From utilities.css
-    alignClass,
-    colorClass,
-    className
-  ].filter(Boolean).join(' ');
+  // Resolve fontSize
+  const sizeKey = size.startsWith('heading-')
+    ? HEADING_LEVEL_TO_SIZE[parseInt(size.split('-')[1])]
+    : SIZE_MAP[size] || 'md';
+
+  // Build css prop for gradient/shadow
+  const cssOverrides = {};
+  if (gradient || variant === 'gradient') {
+    Object.assign(cssOverrides, GRADIENT_STYLES);
+  }
+  if (shadow) {
+    cssOverrides.textShadow = 'text';
+  }
 
   return (
-    <StyledText
+    <ChakraText
       as={Component}
-      className={classes}
-      style={style}
+      fontSize={sizeKey}
+      fontWeight={WEIGHT_MAP[weight] || 'normal'}
+      lineHeight={variant === 'lead' ? 'relaxed' : 'normal'}
+      color={color || (gradient || variant === 'gradient' ? undefined : variantColor)}
+      textAlign={align !== 'left' ? align : undefined}
+      lineClamp={truncate > 0 ? truncate : undefined}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
+      css={Object.keys(cssOverrides).length ? cssOverrides : undefined}
       {...props}
     >
       {children}
-    </StyledText>
+    </ChakraText>
   );
 }
 
@@ -106,10 +137,7 @@ BaseText.propTypes = {
 };
 
 /**
- * BaseHeading - Chakra UI Heading with CSS Module styling
- *
- * Uses Chakra Heading primitive for semantic heading structure,
- * with reset styling to use CSS Modules.
+ * BaseHeading — Native Chakra Heading with recipe sizing
  */
 export function BaseHeading({
   children,
@@ -124,36 +152,34 @@ export function BaseHeading({
   style = {},
   ...props
 }) {
-  const headingSize = size || `heading-${level}`;
+  // Resolve recipe size from level or explicit size
+  const recipeSize = size
+    ? (SIZE_MAP[size] || HEADING_LEVEL_TO_SIZE[level] || 'lg')
+    : (HEADING_LEVEL_TO_SIZE[level] || 'lg');
 
-  // Build className string
-  const variantClass = styles[`text${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
-  const sizeClass = headingSize.includes('-')
-    ? styles[`text${headingSize.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`]
-    : styles[`text${headingSize.charAt(0).toUpperCase() + headingSize.slice(1)}`];
-  const weightClass = styles[`weight${weight.charAt(0).toUpperCase() + weight.slice(1)}`];
-  const alignClass = align !== 'left' ? styles[`text${align.charAt(0).toUpperCase() + align.slice(1)}`] : '';
-
-  const classes = [
-    styles.textComponent,
-    variantClass,
-    sizeClass,
-    weightClass,
-    gradient && 'text-gradient-primary',
-    shadow && 'text-shadow-md',
-    alignClass,
-    className
-  ].filter(Boolean).join(' ');
+  // Build css overrides
+  const cssOverrides = {};
+  if (gradient || variant === 'gradient') {
+    Object.assign(cssOverrides, GRADIENT_STYLES);
+  }
+  if (shadow) {
+    cssOverrides.textShadow = 'text';
+  }
 
   return (
-    <StyledHeading
+    <ChakraHeading
       as={`h${level}`}
-      className={classes}
-      style={style}
+      size={recipeSize}
+      fontWeight={WEIGHT_MAP[weight] || 'bold'}
+      color={gradient || variant === 'gradient' ? undefined : (variant === 'muted' ? 'fg.muted' : undefined)}
+      textAlign={align !== 'left' ? align : undefined}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
+      css={Object.keys(cssOverrides).length ? cssOverrides : undefined}
       {...props}
     >
       {children}
-    </StyledHeading>
+    </ChakraHeading>
   );
 }
 
@@ -171,7 +197,7 @@ BaseHeading.propTypes = {
 };
 
 /**
- * BaseParagraph - Chakra UI Text as paragraph with CSS Module styling
+ * BaseParagraph — Convenience wrapper for paragraph text
  */
 export function BaseParagraph({
   children,
@@ -217,3 +243,4 @@ BaseParagraph.propTypes = {
   className: PropTypes.string,
   style: PropTypes.object
 };
+

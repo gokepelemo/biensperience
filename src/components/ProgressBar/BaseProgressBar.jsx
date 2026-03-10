@@ -1,66 +1,63 @@
 /**
- * BaseProgressBar - Design System Progress Implementation
+ * BaseProgressBar – Native Chakra UI v3 Progress
  *
- * Drop-in replacement for the custom ProgressBar component.
- * Uses Progress primitive for built-in accessibility
- * while preserving the existing CSS Modules styling.
+ * Uses the `progress` slotRecipe from ui-theme.js for all visual styling.
+ * No CSS Module import — colorPalette, size, striped, animated variant
+ * props drive the recipe directly.
  *
- * Benefits:
- * - Built-in ARIA attributes (role=progressbar, aria-valuenow, etc.)
- * - Reduced-motion support
- * - Consistent progress patterns across the design system
+ * Chakra v3 Progress compound: Progress.Root / Track / Range / ValueText
  *
- * Task: biensperience-20d0 - Create wrappers for ProgressBar
+ * Migrated: P2.9 — biensperience-feb1
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Progress } from '@chakra-ui/react';
-import styles from './ProgressBar.module.scss';
+import { Flex, Progress, Text } from '@chakra-ui/react';
 
-/**
- * BaseProgressBar - Accessible progress bar with existing CSS Modules styling
- *
- * @param {Object} props
- * @param {number} props.value - Progress value (0-100)
- * @param {string} props.color - Color variant: 'primary', 'success', 'danger', 'warning'
- * @param {string} props.size - Size: 'sm', 'md', 'lg'
- * @param {boolean} props.showPercentage - Show percentage label
- * @param {boolean} props.animated - Animate progress bar
- */
+const COLOR_PALETTE_MAP = {
+  primary: 'brand',
+  success: 'green',
+  danger: 'red',
+  warning: 'yellow',
+};
+
 export default function BaseProgressBar({
   value,
   color = 'primary',
   size = 'md',
   showPercentage = false,
-  animated = false
+  animated = false,
 }) {
-  const clampedValue = Math.min(100, Math.max(0, value));
+  const clamped = Math.min(100, Math.max(0, value));
+  const palette = COLOR_PALETTE_MAP[color] || color;
 
-  const sizeClass = styles[`progressBar${size.charAt(0).toUpperCase() + size.slice(1)}`];
-  const colorClass = styles[`progressBar${color.charAt(0).toUpperCase() + color.slice(1)}`];
+  /* Map our size names to the recipe's size tokens (sm→sm, md→md, lg→lg) */
+  const SIZE_MAP = { sm: 'sm', md: 'md', lg: 'lg' };
+  const recipeSize = SIZE_MAP[size] || 'md';
 
   return (
-    <div className={styles.progressBarWrapper}>
+    <Flex align="center" gap="3" width="100%">
       <Progress.Root
-        className={`${styles.progressBar} ${sizeClass}`}
-        value={clampedValue}
+        value={clamped}
         max={100}
         min={0}
-        unstyled
+        size={recipeSize}
+        colorPalette={palette}
+        striped={animated}
+        animated={animated}
+        flex="1"
       >
         <Progress.Track>
-          <Progress.Range
-            className={`${styles.progressBarFill} ${colorClass} ${animated ? styles.progressBarAnimated : ''}`}
-          />
+          <Progress.Range />
         </Progress.Track>
       </Progress.Root>
+
       {showPercentage && (
-        <Progress.ValueText className={styles.progressBarPercentage}>
-          {clampedValue}%
-        </Progress.ValueText>
+        <Text fontSize="sm" fontWeight="semibold" minW="45px" textAlign="end">
+          {clamped}%
+        </Text>
       )}
-    </div>
+    </Flex>
   );
 }
 

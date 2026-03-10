@@ -1,27 +1,27 @@
 /**
- * BasePill - Design System Badge Implementation
+ * BasePill — Native Chakra UI Badge with recipe-based styling
  *
- * Drop-in replacement for the custom Pill component.
- * Uses Badge primitive for built-in accessibility
- * and consistent ARIA semantics while preserving the existing
- * Pill.module.scss styling via CSS Module class names.
+ * Uses Chakra's native Badge component with the badge recipe from ui-theme.js.
+ * Variant → colorPalette mapping + recipe variant (solid/outline).
+ * No CSS Modules — pure Chakra tokens.
  *
- * IMPORTANT: This implementation completely resets default Badge
- * styling and applies the existing CSS Module classes, ensuring pixel-perfect
- * visual parity with the original Pill component.
- *
- * Benefits:
- * - Semantic role="status" for screen readers
- * - Consistent focus management
- * - Built-in theme integration
- *
- * Task: biensperience-bbd4 - Migrate Pill component
+ * Task: biensperience-5c80 — P2.3 Pill/Badge → Chakra Badge
  */
 
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Badge } from '@chakra-ui/react';
-import styles from './Pill.module.scss';
+
+// Map Pill variant names to Chakra colorPalette tokens
+const COLOR_PALETTE_MAP = {
+  primary: 'brand',
+  secondary: 'gray',
+  success: 'green',
+  warning: 'yellow',
+  danger: 'red',
+  info: 'blue',
+  neutral: 'gray',
+};
 
 export default function BasePill({
   children,
@@ -33,24 +33,22 @@ export default function BasePill({
   style = {},
   ...props
 }) {
-  // Build className string with dynamic variant and size classes (identical to original Pill)
-  const variantClass = styles[`pillVariant${variant.charAt(0).toUpperCase() + variant.slice(1)}`];
-  const sizeClass = size !== 'md' ? styles[`pill${size.charAt(0).toUpperCase() + size.slice(1)}`] : '';
-
-  const classes = [
-    styles.pill,
-    variantClass,
-    sizeClass,
-    rounded && styles.pillRounded,
-    outline && styles.pillOutline,
-    className
-  ].filter(Boolean).join(' ');
-
   return (
     <Badge
-      className={classes}
-      style={style}
-      unstyled
+      colorPalette={COLOR_PALETTE_MAP[variant] || 'gray'}
+      variant={outline ? 'outline' : 'subtle'}
+      size={size}
+      borderRadius={rounded ? 'full' : undefined}
+      className={className || undefined}
+      style={Object.keys(style).length ? style : undefined}
+      css={{
+        gap: '{spacing.1}',
+        transition: 'all {durations.fast}',
+        _hover: {
+          transform: 'translateY(-1px) scale(1.02)',
+          boxShadow: '{shadows.sm}',
+        },
+      }}
       {...props}
     >
       {children}
