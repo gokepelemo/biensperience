@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Box, Flex } from "@chakra-ui/react";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
@@ -9,10 +10,8 @@ import DestinationCard from "../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
-import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
-import { Button, FlexCenter, SpaceY, EmptyState } from "../../components/design-system";
+import { Button, Heading, FlexCenter, EmptyState, ExperienceCardSkeleton, DestinationCardSkeleton } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
-import styles from "./AppHome.module.scss";
 
 const INITIAL_DISPLAY_LIMITS = {
   destinations: 10,
@@ -93,7 +92,7 @@ export default function AppHome() {
     if (itemCount <= limit) return null;
 
     return (
-      <div className={styles.showMoreWrapper}>
+      <Box flex="0 0 100%" maxW="100%" textAlign="center" mt="4" mb="5">
         <Button
           variant="link"
           size="sm"
@@ -101,7 +100,7 @@ export default function AppHome() {
         >
           {isExpanded ? lang.current.button.showLess : lang.current.button.showMore}
         </Button>
-      </div>
+      </Box>
     );
   };
 
@@ -119,7 +118,7 @@ export default function AppHome() {
       {/* Empty state - only shown after fetch completes with no data */}
       {isEmptyState ? (
         <FlexCenter>
-          <div className={styles.emptyStateCol}>
+          <Box w={{ base: "100%", md: "66.67%", lg: "50%" }} textAlign="center">
             <EmptyState
               variant="generic"
               title={lang.current.alert.welcomeTitle.replace('{name}', user?.name ? `, ${user.name}` : '')}
@@ -130,31 +129,22 @@ export default function AppHome() {
               onSecondaryAction={() => openExperienceWizard()}
               size="md"
             />
-          </div>
+          </Box>
         </FlexCenter>
       ) : (
         <>
           {/* Popular Destinations Section */}
-          <h2 className={`${styles.sectionHeading} animation-fade-in`}>{lang.current.heading.popularDestinations}</h2>
+          <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>{lang.current.heading.popularDestinations}</Heading>
           {isDestinationsLoading ? (
-            // Skeleton loaders matching DestinationCard layout
             <FlexCenter className="animation-fade-in">
-              <div className={styles.destinationsList}>
-                {Array.from({ length: INITIAL_DISPLAY_LIMITS.destinations }, (_, i) => (
-                  <div key={i} className={styles.destinationSkeletonWrapper}>
-                    <div className={styles.destinationSkeleton}>
-                      <div className={styles.destinationSkeletonOverlay}>
-                        <SkeletonLoader variant="text" width={`${65 + (i % 4) * 8}%`} height={20} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
+                <DestinationCardSkeleton count={INITIAL_DISPLAY_LIMITS.destinations} />
+              </Flex>
             </FlexCenter>
           ) : destinations && destinations.length > 0 ? (
             <>
               <FlexCenter className="animation-fade-in">
-                <div className={styles.destinationsList}>
+                <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
                   {(showAllDestinations ? destinations : destinations.slice(0, INITIAL_DISPLAY_LIMITS.destinations))
                     .map((destination, index) => (
                       <DestinationCard
@@ -163,71 +153,42 @@ export default function AppHome() {
                         className="animation-fade-in"
                       />
                     ))}
-                </div>
+                </Flex>
               </FlexCenter>
               {renderShowMoreButton(showAllDestinations, () => setShowAllDestinations(!showAllDestinations), destinations.length, INITIAL_DISPLAY_LIMITS.destinations)}
             </>
           ) : isDataLoaded && !loading ? (
             <FlexCenter className="animation-fade-in">
-              <div className={styles.emptyStateCol}>
+              <Box w={{ base: "100%", md: "66.67%", lg: "50%" }} textAlign="center">
                 <EmptyState
                   variant="destinations"
                   primaryAction={lang.current.button.createDestination}
                   onPrimaryAction={() => navigate('/destinations/new')}
                   size="md"
                 />
-              </div>
+              </Box>
             </FlexCenter>
           ) : (
             // Default to skeletons while in ambiguous loading state
             <FlexCenter className="animation-fade-in">
-              <div className={styles.destinationsList}>
-                {Array.from({ length: INITIAL_DISPLAY_LIMITS.destinations }, (_, i) => (
-                  <div key={i} className={styles.destinationSkeletonWrapper}>
-                    <div className={styles.destinationSkeleton}>
-                      <div className={styles.destinationSkeletonOverlay}>
-                        <SkeletonLoader variant="text" width={`${65 + (i % 4) * 8}%`} height={20} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
+                <DestinationCardSkeleton count={INITIAL_DISPLAY_LIMITS.destinations} />
+              </Flex>
             </FlexCenter>
           )}
 
           {/* Curated Experiences Section */}
-          <h2 className={`${styles.sectionHeading} animation-fade-in`}>{lang.current.heading.curatedExperiences}</h2>
+          <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>{lang.current.heading.curatedExperiences}</Heading>
           {isExperiencesLoading ? (
-            // Skeleton loaders matching ExperienceCard layout:
-            // - Wrapper with m-2 margin and 20rem width (matches ExperienceCard.jsx line 465)
-            // - Title centered in flex-grow area with blur overlay
-            // - Action button at bottom
-            // Count matches EXPERIENCES_INITIAL_DISPLAY
             <FlexCenter className="animation-fade-in">
-              <div className={styles.experiencesList}>
-                {Array.from({ length: INITIAL_DISPLAY_LIMITS.experiences }, (_, i) => (
-                  <div key={i} className={styles.experienceSkeletonWrapper}>
-                    <div className={styles.experienceSkeleton}>
-                      {/* Title area - centered with blur overlay (mirrors experienceCardTitle) */}
-                      <div className={styles.experienceSkeletonTitle}>
-                        <div className={styles.experienceSkeletonTitleOverlay}>
-                          <SkeletonLoader variant="text" width={`${75 + (i % 3) * 8}%`} height={20} />
-                          <SkeletonLoader variant="text" width={`${50 + (i % 4) * 10}%`} height={16} className={styles.mt1} />
-                        </div>
-                      </div>
-                      {/* Actions area - bottom (mirrors experienceCardActions) */}
-                      <div className={styles.experienceSkeletonActions}>
-                        <SkeletonLoader variant="circle" width={44} height={44} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
+                <ExperienceCardSkeleton count={INITIAL_DISPLAY_LIMITS.experiences} />
+              </Flex>
             </FlexCenter>
           ) : curatedExperiences && curatedExperiences.length > 0 ? (
             <>
               <FlexCenter className="animation-fade-in">
-                <div className={styles.experiencesList}>
+                <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
                   {(showAllExperiences ? curatedExperiences : curatedExperiences.slice(0, INITIAL_DISPLAY_LIMITS.experiences))
                     .map((experience, index) => (
                       <ExperienceCard
@@ -237,41 +198,27 @@ export default function AppHome() {
                         userPlans={plans}
                       />
                     ))}
-                </div>
+                </Flex>
               </FlexCenter>
               {renderShowMoreButton(showAllExperiences, () => setShowAllExperiences(!showAllExperiences), curatedExperiences.length, INITIAL_DISPLAY_LIMITS.experiences)}
             </>
           ) : isDataLoaded && !loading ? (
             <FlexCenter className="animation-fade-in">
-              <div className={styles.emptyStateCol}>
+              <Box w={{ base: "100%", md: "66.67%", lg: "50%" }} textAlign="center">
                 <EmptyState
                   variant="experiences"
                   primaryAction={lang.current.button.createExperience}
                   onPrimaryAction={() => openExperienceWizard()}
                   size="md"
                 />
-              </div>
+              </Box>
             </FlexCenter>
           ) : (
             // Default to skeletons while in ambiguous loading state
             <FlexCenter className="animation-fade-in">
-              <div className={styles.experiencesList}>
-                {Array.from({ length: INITIAL_DISPLAY_LIMITS.experiences }, (_, i) => (
-                  <div key={i} className={styles.experienceSkeletonWrapper}>
-                    <div className={styles.experienceSkeleton}>
-                      <div className={styles.experienceSkeletonTitle}>
-                        <div className={styles.experienceSkeletonTitleOverlay}>
-                          <SkeletonLoader variant="text" width={`${75 + (i % 3) * 8}%`} height={20} />
-                          <SkeletonLoader variant="text" width={`${50 + (i % 4) * 10}%`} height={16} className={styles.mt1} />
-                        </div>
-                      </div>
-                      <div className={styles.experienceSkeletonActions}>
-                        <SkeletonLoader variant="circle" width={44} height={44} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
+                <ExperienceCardSkeleton count={INITIAL_DISPLAY_LIMITS.experiences} />
+              </Flex>
             </FlexCenter>
           )}
         </>
