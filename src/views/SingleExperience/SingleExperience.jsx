@@ -100,6 +100,7 @@ import {
 } from "../../utilities/plans-api";
 import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
+import './components/MyPlanTabContent/plan-item-views.scss';
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
 import { idEquals, normalizeId, findById, findIndexById, filterOutById } from "../../utilities/id-utils";

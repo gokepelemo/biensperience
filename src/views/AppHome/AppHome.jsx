@@ -14,7 +14,7 @@ import { Button, Heading, FlexCenter, EmptyState, ExperienceCardSkeleton, Destin
 import { logger } from "../../utilities/logger";
 
 const INITIAL_DISPLAY_LIMITS = {
-  destinations: 10,
+  destinations: 12,
   experiences: 12
 };
 

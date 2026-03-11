@@ -13,6 +13,8 @@ import SortableCompactPlanItem from './SortableCompactPlanItem';
 import TimelinePlanItem from './TimelinePlanItem';
 import TimelineDateGroup from './TimelineDateGroup';
 
+import './plan-item-views.scss';
+
 /**
  * Unified renderer for plan items across all view types.
  * Handles DndContext/SortableContext setup and view-specific rendering.
