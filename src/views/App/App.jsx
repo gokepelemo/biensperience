@@ -13,8 +13,9 @@ import { ExperienceWizardProvider } from "../../contexts/ExperienceWizardContext
 import { DestinationWizardProvider } from "../../contexts/DestinationWizardContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
-import Loading from "../../components/Loading/Loading";
+import Loading from "../../components/LoadingWrapper/LoadingWrapper";
 import ScrollToTop from "../../components/ScrollToTop/ScrollToTop";
+import SkipLink from "../../components/SkipLink/SkipLink";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import { logger } from "../../utilities/logger";
 import { getCollaboratorNotifications } from '../../utilities/notifications-api';
@@ -24,10 +25,7 @@ import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import MultiStepPlanModal from "../../components/MultiStepPlanModal/MultiStepPlanModal";
 import LegalModalsHandler from "../../components/LegalModalsHandler/LegalModalsHandler";
 import { Helmet } from 'react-helmet-async';
-import { Box } from '@chakra-ui/react';
-import { Container } from "../../components/design-system";
-import { waitForCSS } from '../../utilities/css-loading';
-import { initializeCSSEnvironment } from '../../utilities/css-environment-consistency';
+import { Box, Container } from '@chakra-ui/react';
 import ProfileSkeleton from "../Profile/components/ProfileSkeleton";
 import { isSuperAdmin } from "../../utilities/permissions";
 import {
@@ -343,23 +341,10 @@ function AppContent() {
     return () => clearTimeout(t);
   }, [location.pathname, location.search, isAuthenticated, applyHashToUrl]);
 
-  // Effect: wait for CSS to load and initialize environment consistency
-  // This addresses production vs development timing differences
-  useEffect(() => {
-    const initializeCSS = async () => {
-      try {
-        logger.debug('Waiting for CSS to load...');
-        await waitForCSS();
-        logger.debug('CSS loading complete, initializing environment consistency...');
-        initializeCSSEnvironment();
-        logger.debug('CSS environment consistency initialized');
-      } catch (error) {
-        logger.warn('CSS initialization failed, continuing anyway', { error: error.message });
-      }
-    };
-
-    initializeCSS();
-  }, []);
+  // NOTE: CSS loading detection (waitForCSS / initializeCSSEnvironment) removed
+  // during Chakra migration (P4.1). Chakra uses CSS-in-JS, so stylesheet
+  // timing detection is no longer needed for Chakra components. Remaining SCSS
+  // files still load via Vite but don't require explicit detection.
 
   // Effect: fetch collaborator notifications on login/hard refresh
   useEffect(() => {
@@ -545,9 +530,7 @@ function AppContent() {
     return (
       <>
         {/* Skip link for keyboard navigation - WCAG 2.1 SC 2.4.1 Bypass Blocks */}
-        <a href="#main-content" className="skip-link">
-          Skip to main content
-        </a>
+        <SkipLink />
         <Box
           pt="70px"
           pb="8"

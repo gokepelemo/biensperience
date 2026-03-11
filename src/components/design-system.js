@@ -6,6 +6,16 @@ export { default as Breadcrumb } from './Breadcrumb';
 // This enables zero-regression migration between implementations
 export { default as Button } from './ButtonWrapper/ButtonWrapper';
 export { default as Checkbox } from './Checkbox/Checkbox';
+
+// Loading Abstraction Layer
+// IMPORTANT: All loading consumers should import from here, NOT from ../Loading/Loading
+// This enables zero-regression migration between implementations
+export { default as Loading } from './LoadingWrapper/LoadingWrapper';
+
+// SkipLink - Native Chakra implementation (no wrapper needed)
+// WCAG 2.1 SC 2.4.1 Bypass Blocks keyboard skip link
+export { default as SkipLink } from './SkipLink/SkipLink';
+
 // Pill Abstraction Layer
 // IMPORTANT: All pill consumers should import from here, NOT from ../Pill/Pill
 // This enables zero-regression migration between implementations
