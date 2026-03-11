@@ -654,7 +654,7 @@ export default function UpdateExperience() {
                 setData={setExperience}
               />
               <small className={`form-text ${styles.helperText}`}>
-                Upload multiple photos for this experience (optional)
+                Upload multiple photos for this experience
               </small>
             </div>
 

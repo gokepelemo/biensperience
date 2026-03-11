@@ -1,16 +1,17 @@
 /**
- * BaseListGroup - Design System List Implementation
+ * BaseListGroup - Native Chakra UI v3 List Implementation
  *
  * Drop-in replacement for react-bootstrap ListGroup / ListGroup.Item.
- * Uses Chakra List primitive with `unstyled` so CSS Modules control visuals.
+ * Uses Chakra List compound components with the slot recipe from
+ * ui-theme.js for styling — no SCSS, no Bootstrap class names.
  *
- * Sub-components: BaseListGroup (Root), BaseListGroupItem
+ * Features:
+ * - Action items (clickable/hoverable) via data-action attribute
+ * - Active state highlighting via data-active attribute
+ * - Disabled state via aria-disabled
+ * - Recipe-based styling for all states
  *
- * Maps react-bootstrap patterns:
- * - <ListGroup> → <List.Root>
- * - <ListGroup.Item> → <List.Item>
- *
- * Task: biensperience-d847
+ * Migration: biensperience-b905 (P3.8)
  */
 
 import React from 'react';
@@ -24,7 +25,7 @@ import { List } from '@chakra-ui/react';
  */
 function BaseListGroup({ children, className = '', as, ...props }) {
   return (
-    <List.Root className={className} as={as} unstyled listStyleType="none" {...props}>
+    <List.Root className={className || undefined} as={as} {...props}>
       {children}
     </List.Root>
   );
@@ -40,7 +41,7 @@ BaseListGroup.propTypes = {
  * BaseListGroupItem - Chakra List.Item wrapper
  *
  * Maps to react-bootstrap `<ListGroup.Item>`.
- * Supports `action` (clickable), `active`, `disabled` and `variant` as CSS classes.
+ * Uses data attributes for state-based styling via the list recipe.
  */
 function BaseListGroupItem({
   children,
@@ -53,21 +54,16 @@ function BaseListGroupItem({
   onClick,
   ...props
 }) {
-  const classNames = [
-    className,
-    action ? 'list-group-item-action' : '',
-    active ? 'active' : '',
-    disabled ? 'disabled' : '',
-    variant ? `list-group-item-${variant}` : '',
-  ].filter(Boolean).join(' ');
-
   return (
     <List.Item
-      className={classNames}
+      className={className || undefined}
       as={as}
       onClick={disabled ? undefined : onClick}
       aria-disabled={disabled || undefined}
       aria-current={active || undefined}
+      data-action={action || undefined}
+      data-active={active || undefined}
+      data-variant={variant || undefined}
       {...props}
     >
       {children}

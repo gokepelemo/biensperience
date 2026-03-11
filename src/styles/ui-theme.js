@@ -1206,15 +1206,25 @@ const config = defineConfig({
       // Dialog (Modal) slot recipe
       // Chakra v3 slots: backdrop, positioner, content, header, body,
       //                   footer, closeTrigger, title, description
+      //
+      // DialogModal.jsx uses Chakra compound components (Dialog.Header,
+      // Dialog.Body, Dialog.Footer, Dialog.CloseTrigger) — recipe styles
+      // are the sole styling mechanism. Global _modal.scss is retained
+      // only for legacy non-migrated modals that use plain HTML with
+      // Bootstrap class names.
       // -----------------------------------------------------------------
       dialog: {
         slots: ['backdrop', 'positioner', 'content', 'header', 'body', 'footer', 'closeTrigger', 'title', 'description'],
         base: {
           backdrop: {
-            background: { _light: 'rgba(0, 0, 0, 0.75)', _dark: 'rgba(0, 0, 0, 0.85)' },
+            background: { _light: 'rgba(0, 0, 0, 0.5)', _dark: 'rgba(0, 0, 0, 0.7)' },
             position: 'fixed',
             inset: 0,
-            zIndex: '{zIndex.modalBackdrop}',
+            zIndex: 1050,
+            backdropFilter: 'none',
+            // Instant show/hide — no animations
+            transition: 'none !important',
+            animation: 'none !important',
           },
           positioner: {
             display: 'flex',
@@ -1222,24 +1232,40 @@ const config = defineConfig({
             justifyContent: 'center',
             position: 'fixed',
             inset: 0,
-            zIndex: '{zIndex.modal}',
-            overflow: 'auto',
-            padding: '{spacing.4}',
+            zIndex: 1050,
+            padding: 0,
+            width: '100%',
+            maxWidth: '100%',
+            // Allow dropdowns/tooltips to render outside modal bounds
+            overflow: 'visible',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            // Instant show/hide — no animations
+            transition: 'none !important',
+            animation: 'none !important',
           },
           content: {
             background: { _light: '#ffffff', _dark: '#1e1e1e' },
             borderRadius: '{radii.lg}',
             boxShadow: '{shadows.lg}',
             maxHeight: '90vh',
-            overflow: 'hidden',
+            // Allow dropdowns to render outside content bounds
+            overflow: 'visible',
             display: 'flex',
             flexDirection: 'column',
             position: 'relative',
+            color: { _light: '{colors.gray.900}', _dark: '{colors.gray.100}' },
+            // Instant show/hide — no animations
+            transition: 'none',
+            animation: 'none',
           },
           header: {
-            background: 'linear-gradient(135deg, {colors.brand.500} 0%, {colors.brand.700} 100%)',
+            // Animated gradient matching global _modal.scss
+            background: 'var(--gradient-primary-animated)',
             backgroundSize: '400% 400%',
+            animation: 'gradientShift 8s ease infinite',
             color: 'white',
+            borderBottom: 'none',
             padding: '{spacing.4} {spacing.5}',
             display: 'flex',
             alignItems: 'center',
@@ -1249,6 +1275,8 @@ const config = defineConfig({
             fontWeight: '{fontWeights.bold}',
             color: 'white',
             fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+            margin: 0,
+            flex: 1,
           },
           description: {
             color: 'fg.secondary',
@@ -1257,9 +1285,16 @@ const config = defineConfig({
           },
           body: {
             padding: '{spacing.5}',
-            overflow: 'auto',
+            fontSize: '{fontSizes.md}',
+            lineHeight: '{lineHeights.relaxed}',
+            // Default: overflow visible so dropdowns render outside body
+            overflow: 'visible',
             flex: 1,
             color: 'fg',
+            // Stacking context: above footer so dropdowns appear on top
+            position: 'relative',
+            zIndex: 2,
+            overscrollBehavior: 'contain',
           },
           footer: {
             borderTop: '1px solid',
@@ -1270,23 +1305,46 @@ const config = defineConfig({
             alignItems: 'center',
             justifyContent: 'flex-end',
             gap: '{spacing.3}',
+            // Below body stacking context so dropdowns appear above
+            position: 'relative',
+            zIndex: 1,
           },
           closeTrigger: {
+            // WCAG 2.5.5 — minimum 44×44 px touch target
             width: '44px',
             height: '44px',
+            minWidth: '44px',
+            minHeight: '44px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: '{radii.sm}',
+            borderRadius: '{radii.md}',
             color: 'white',
             background: 'transparent',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            marginLeft: 'auto',
             cursor: 'pointer',
-            transition: 'all 200ms',
+            // Large, clearly visible × symbol
+            fontSize: '28px',
+            fontWeight: 300,
+            lineHeight: 1,
+            opacity: 0.9,
+            position: 'relative',
+            zIndex: 1,
+            transition: 'opacity 200ms, background-color 200ms, transform 200ms',
             _hover: {
+              opacity: 1,
               background: 'rgba(255, 255, 255, 0.15)',
               transform: 'scale(1.05)',
             },
             _active: { transform: 'scale(0.95)' },
+            _focusVisible: {
+              opacity: 1,
+              outline: 'none',
+              boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.3)',
+            },
           },
         },
         variants: {
@@ -1302,8 +1360,24 @@ const config = defineConfig({
                 height: '100dvh',
                 maxHeight: '100dvh',
                 borderRadius: 0,
+                overflow: 'hidden',
+                // iOS safe area insets for notch and home indicator
+                paddingTop: 'env(safe-area-inset-top, 0)',
+                paddingBottom: 'env(safe-area-inset-bottom, 0)',
+                paddingLeft: 'env(safe-area-inset-left, 0)',
+                paddingRight: 'env(safe-area-inset-right, 0)',
               },
               positioner: { padding: 0 },
+              body: {
+                flex: '1 1 0',
+                minHeight: 0,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                overscrollBehavior: 'contain',
+                WebkitOverflowScrolling: 'touch',
+              },
             },
           },
           scrollBehavior: {
@@ -1311,23 +1385,26 @@ const config = defineConfig({
               body: { overflowY: 'auto', maxHeight: 'calc(90vh - 120px)' },
             },
             outside: {
-              positioner: { overflow: 'auto' },
+              positioner: { overflowY: 'auto', overflowX: 'hidden' },
               content: { maxHeight: 'none' },
             },
           },
-          centered: {
-            true: {
-              positioner: { alignItems: 'center' },
+          placement: {
+            center: {
+              positioner: { alignItems: 'center', justifyContent: 'center' },
             },
-            false: {
+            top: {
               positioner: { alignItems: 'flex-start', paddingTop: '{spacing.16}' },
+            },
+            bottom: {
+              positioner: { alignItems: 'flex-end', paddingBottom: '{spacing.16}' },
             },
           },
         },
         defaultVariants: {
           size: 'md',
-          scrollBehavior: 'inside',
-          centered: true,
+          scrollBehavior: 'outside',
+          placement: 'center',
         },
       },
 
@@ -1578,7 +1655,9 @@ const config = defineConfig({
             },
           },
           itemIndicator: {
+            flexShrink: 0,
             marginLeft: 'auto',
+            color: 'inherit',
             transition: 'transform 200ms',
             _open: { transform: 'rotate(-180deg)' },
           },
@@ -1889,6 +1968,85 @@ const config = defineConfig({
           status: 'info',
         },
       },
+
+      // -----------------------------------------------------------------
+      // List slot recipe
+      // Chakra v3 slots: root, item, indicator
+      // -----------------------------------------------------------------
+      list: {
+        slots: ['root', 'item', 'indicator'],
+        base: {
+          root: {
+            listStyleType: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          },
+          item: {
+            padding: '{spacing.3} {spacing.4}',
+            borderBottom: '1px solid',
+            borderColor: { _light: 'rgba(0, 0, 0, 0.125)', _dark: 'rgba(255, 255, 255, 0.1)' },
+            _last: { borderBottom: 'none' },
+            '&[data-action]': {
+              cursor: 'pointer',
+              transition: 'background 150ms',
+              _hover: {
+                background: { _light: 'rgba(0, 0, 0, 0.03)', _dark: 'rgba(255, 255, 255, 0.05)' },
+              },
+            },
+            '&[data-active]': {
+              background: { _light: 'rgba(102, 126, 234, 0.08)', _dark: 'rgba(102, 126, 234, 0.15)' },
+              color: '{colors.brand.600}',
+              fontWeight: '{fontWeights.medium}',
+            },
+            _disabled: {
+              opacity: 0.5,
+              cursor: 'not-allowed',
+              pointerEvents: 'none',
+            },
+          },
+        },
+      },
+
+      // -----------------------------------------------------------------
+      // Popover slot recipe
+      // Chakra v3 slots: content, header, body, footer, closeTrigger,
+      //   arrow, arrowTip, title, description, positioner, trigger
+      // -----------------------------------------------------------------
+      popover: {
+        slots: ['content', 'header', 'body', 'footer', 'closeTrigger', 'arrow', 'arrowTip', 'title', 'description', 'positioner', 'trigger'],
+        base: {
+          positioner: {
+            zIndex: '{zIndex.popover}',
+          },
+          content: {
+            background: { _light: '#ffffff', _dark: '#1a1a2e' },
+            border: '1px solid',
+            borderColor: { _light: 'rgba(0, 0, 0, 0.175)', _dark: 'rgba(255, 255, 255, 0.1)' },
+            borderRadius: '{radii.md}',
+            boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.15)',
+            fontSize: '{fontSizes.sm}',
+            wordWrap: 'break-word',
+            minWidth: '200px',
+            maxWidth: '320px',
+            overflow: 'hidden',
+          },
+          header: {
+            padding: '{spacing.2} {spacing.4}',
+            margin: 0,
+            fontSize: '{fontSizes.md}',
+            fontWeight: '{fontWeights.semibold}',
+            background: { _light: '#f8f9fa', _dark: '#16213e' },
+            borderBottom: '1px solid',
+            borderBottomColor: { _light: 'rgba(0, 0, 0, 0.175)', _dark: 'rgba(255, 255, 255, 0.1)' },
+          },
+          body: {
+            padding: '{spacing.4}',
+            color: { _light: '#212529', _dark: '#e0e0e0' },
+          },
+        },
+      },
     },
   },
 
@@ -1897,12 +2055,20 @@ const config = defineConfig({
   // -----------------------------------------------------------------------
   globalCss: {
     body: {
+      margin: 0,
       bg: 'bg',
       color: 'fg',
       fontFamily: 'body',
       lineHeight: 'normal',
+      height: '100dvh',
       WebkitFontSmoothing: 'antialiased',
       MozOsxFontSmoothing: 'grayscale',
+    },
+    '#main-content': {
+      bg: 'bg',
+      color: 'fg',
+      minHeight: 'calc(100dvh - 70px - 2rem)',
+      paddingBottom: '{spacing.8}',
     },
     svg: {
       display: 'inline-block',

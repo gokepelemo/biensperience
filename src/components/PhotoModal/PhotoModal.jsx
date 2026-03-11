@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { sanitizeText, sanitizeUrl } from '../../utilities/sanitize';
 import { lang } from '../../lang.constants';
+import { useScrollLock } from '../../hooks/useScrollLock';
 
 /**
  * PhotoModal - Lightbox image viewer with gallery navigation
@@ -24,6 +25,9 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
   const id = useId();
   const modalRef = useRef(null);
   const previousFocusRef = useRef(null);
+
+  // Lock body scroll — coordinates with other modals via global ref counter
+  useScrollLock(true);
   
   // Update currentIndex when initialIndex changes (e.g., when user switches photos in PhotoCard)
   useEffect(() => {
@@ -123,13 +127,9 @@ export default function PhotoModal({ photo, photos = [], onClose, initialIndex =
     document.addEventListener('keydown', handleEscape);
     document.addEventListener('keydown', handleKeyboardNavigation);
 
-    // Prevent body scroll when modal is open
-    document.body.style.overflow = 'hidden';
-
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('keydown', handleKeyboardNavigation);
-      document.body.style.overflow = 'unset';
     };
   }, [onClose, hasMultiplePhotos, goToNext, goToPrevious, photoArray.length]);
 

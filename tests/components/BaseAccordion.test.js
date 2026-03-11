@@ -55,9 +55,23 @@ jest.mock('@chakra-ui/react', () => {
       ...props
     }, children);
 
+  const ItemBody = ({ children, className, ...props }) =>
+    React.createElement('div', {
+      'data-testid': 'accordion-body',
+      className,
+      ...props
+    }, children);
+
+  const ItemIndicator = ({ children, className, ...props }) =>
+    React.createElement('span', {
+      'data-testid': 'accordion-indicator',
+      className,
+      ...props
+    }, children);
+
   return {
     ...actual,
-    Accordion: { Root, Item, ItemTrigger, ItemContent },
+    Accordion: { Root, Item, ItemTrigger, ItemContent, ItemBody, ItemIndicator },
   };
 });
 
@@ -135,27 +149,28 @@ describe('BaseAccordion helper functions', () => {
 });
 
 describe('BaseAccordion rendering', () => {
-  it('should render with ds-accordion className', () => {
+  it('should render without extra className when none provided', () => {
     render(
       <BaseAccordion>
         <div>content</div>
       </BaseAccordion>
     );
     const root = screen.getByTestId('accordion-root');
-    expect(root.className).toBe('ds-accordion');
+    // No className added when none provided (Chakra recipe handles styling)
+    expect(root.className).toBeFalsy();
   });
 
-  it('should merge additional className', () => {
+  it('should pass className to Root', () => {
     render(
       <BaseAccordion className="my-custom-class">
         <div>content</div>
       </BaseAccordion>
     );
     const root = screen.getByTestId('accordion-root');
-    expect(root.className).toBe('ds-accordion my-custom-class');
+    expect(root.className).toBe('my-custom-class');
   });
 
-  it('should pass collapsible and variant="plain" to Root', () => {
+  it('should pass collapsible to Root', () => {
     render(
       <BaseAccordion>
         <div>content</div>
@@ -163,7 +178,16 @@ describe('BaseAccordion rendering', () => {
     );
     const root = screen.getByTestId('accordion-root');
     expect(root.getAttribute('data-collapsible')).toBe('true');
-    expect(root.getAttribute('data-variant')).toBe('plain');
+  });
+
+  it('should not set variant (uses default Chakra recipe)', () => {
+    render(
+      <BaseAccordion>
+        <div>content</div>
+      </BaseAccordion>
+    );
+    const root = screen.getByTestId('accordion-root');
+    expect(root.getAttribute('data-variant')).toBeNull();
   });
 });
 
@@ -180,19 +204,7 @@ describe('BaseAccordionItem', () => {
     expect(item.getAttribute('data-value')).toBe('item-0');
   });
 
-  it('should include accordion-item class', () => {
-    render(
-      <BaseAccordion>
-        <BaseAccordion.Item eventKey="0">
-          <div>item content</div>
-        </BaseAccordion.Item>
-      </BaseAccordion>
-    );
-    const item = screen.getByTestId('accordion-item');
-    expect(item.className).toContain('accordion-item');
-  });
-
-  it('should merge additional className', () => {
+  it('should pass className to item', () => {
     render(
       <BaseAccordion>
         <BaseAccordion.Item eventKey="0" className="custom-item">
@@ -201,7 +213,6 @@ describe('BaseAccordionItem', () => {
       </BaseAccordion>
     );
     const item = screen.getByTestId('accordion-item');
-    expect(item.className).toContain('accordion-item');
     expect(item.className).toContain('custom-item');
   });
 });
@@ -218,7 +229,7 @@ describe('BaseAccordionHeader', () => {
     expect(screen.getByText('Click me')).toBeInTheDocument();
   });
 
-  it('should include accordion-button class', () => {
+  it('should render an indicator with chevron icon', () => {
     render(
       <BaseAccordion>
         <BaseAccordion.Item eventKey="0">
@@ -226,11 +237,13 @@ describe('BaseAccordionHeader', () => {
         </BaseAccordion.Item>
       </BaseAccordion>
     );
-    const trigger = screen.getByTestId('accordion-trigger');
-    expect(trigger.className).toContain('accordion-button');
+    const indicator = screen.getByTestId('accordion-indicator');
+    expect(indicator).toBeInTheDocument();
+    // Chevron SVG is inside the indicator
+    expect(indicator.querySelector('svg')).toBeInTheDocument();
   });
 
-  it('should merge additional className', () => {
+  it('should pass className to trigger', () => {
     render(
       <BaseAccordion>
         <BaseAccordion.Item eventKey="0">
@@ -239,7 +252,6 @@ describe('BaseAccordionHeader', () => {
       </BaseAccordion>
     );
     const trigger = screen.getByTestId('accordion-trigger');
-    expect(trigger.className).toContain('accordion-button');
     expect(trigger.className).toContain('custom-header');
   });
 
@@ -269,7 +281,7 @@ describe('BaseAccordionBody', () => {
     expect(screen.getByText('Body content')).toBeInTheDocument();
   });
 
-  it('should include accordion-body class', () => {
+  it('should render ItemBody inside ItemContent', () => {
     render(
       <BaseAccordion>
         <BaseAccordion.Item eventKey="0">
@@ -278,10 +290,13 @@ describe('BaseAccordionBody', () => {
       </BaseAccordion>
     );
     const content = screen.getByTestId('accordion-content');
-    expect(content.className).toContain('accordion-body');
+    const body = screen.getByTestId('accordion-body');
+    expect(content).toBeInTheDocument();
+    expect(body).toBeInTheDocument();
+    expect(body.textContent).toBe('Body');
   });
 
-  it('should merge additional className', () => {
+  it('should pass className to ItemContent', () => {
     render(
       <BaseAccordion>
         <BaseAccordion.Item eventKey="0">
@@ -290,7 +305,6 @@ describe('BaseAccordionBody', () => {
       </BaseAccordion>
     );
     const content = screen.getByTestId('accordion-content');
-    expect(content.className).toContain('accordion-body');
     expect(content.className).toContain('custom-body');
   });
 });

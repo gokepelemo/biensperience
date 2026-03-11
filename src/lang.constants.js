@@ -518,7 +518,7 @@ const en = {
     people: "people",
     collaborators: "Collaborators",
     itemDescription: "Item Description",
-    urlOptional: "URL (optional)",
+    urlOptional: "URL",
     cost: "Cost",
     planningTimeLabel: "Planning Time",
     estimatedLabel: "Estimated:",

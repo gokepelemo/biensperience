@@ -754,7 +754,7 @@ export default function MultiStepPlanModal() {
                       <div className={styles.row}>
                         <div className={styles.colMd6}>
                           <Form.Group className={styles.formGroup}>
-                            <Form.Label>Parent Item (Optional)</Form.Label>
+                            <Form.Label>Parent Item</Form.Label>
                             <Form.Select
                               value={newPlanItem.parent_id || ''}
                               onChange={(e) => setNewPlanItem(prev => ({
@@ -795,7 +795,7 @@ export default function MultiStepPlanModal() {
 
                       <FormField
                         name="url"
-                        label="URL (Optional)"
+                        label="URL"
                         type="url"
                         value={newPlanItem.url}
                         onChange={(e) => setNewPlanItem(prev => ({ ...prev, url: e.target.value }))}

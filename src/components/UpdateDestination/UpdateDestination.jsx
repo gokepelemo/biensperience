@@ -419,7 +419,7 @@ export default function UpdateDestination() {
               </Form.Label>
               <PhotoUpload data={destination} setData={setDestination} />
               <small className={`form-text ${styles.helperText}`}>
-                Upload photo(s) to this destination (optional)
+                Upload photo(s) to this destination
               </small>
             </div>
 

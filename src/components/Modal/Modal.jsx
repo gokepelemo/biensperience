@@ -1,9 +1,10 @@
-import { useEffect, forwardRef, useId } from "react";
+import { forwardRef, useId } from "react";
 import { createPortal } from "react-dom";
 import styles from "./Modal.module.scss";
 import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
 import { useModalEscape } from "../../hooks/useKeyboardNavigation";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 /**
  * Modal Component - Legacy Implementation
@@ -52,17 +53,10 @@ const Modal = forwardRef(function Modal({
   // ESC key closes modal
   useModalEscape(onClose, show);
 
-  // Scroll lock via CSS overflow:hidden on body (non-allowBodyScroll mode only).
-  // allowBodyScroll mode uses a fixed overlay with internal scrolling — no
-  // scroll position manipulation needed.
-  useEffect(() => {
-    if (show && !allowBodyScroll) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [show, allowBodyScroll]);
+  // Lock body scroll — coordinates with other modals via global ref counter.
+  // Both normal and allowBodyScroll modals need body lock: allowBodyScroll
+  // scrolls within a fixed overlay, not the actual page body.
+  useScrollLock(show);
 
   if (!show) return null;
 

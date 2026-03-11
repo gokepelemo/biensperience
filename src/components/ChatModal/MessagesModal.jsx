@@ -15,6 +15,7 @@ import { FaChevronDown, FaChevronRight, FaTimes, FaUndo } from 'react-icons/fa';
 import { Link, useInRouterContext, useLocation, useParams } from 'react-router-dom';
 
 import { Alert } from '../design-system';
+import { useScrollLock } from '../../hooks/useScrollLock';
 import styles from './MessagesModal.module.scss';
 import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';
@@ -79,6 +80,9 @@ export default function MessagesModal({
 
   const modalContentRef = useRef(null);
   const previouslyFocusedElRef = useRef(null);
+
+  // Lock body scroll — coordinates with other modals via global ref counter
+  useScrollLock(show);
 
   const { user } = useUser();
 
@@ -393,15 +397,7 @@ export default function MessagesModal({
     };
   }, [show, mobileDropdownOpen]);
 
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (show) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [show]);
+  // Body scroll lock handled by useScrollLock hook above
 
   // Close mobile dropdown when clicking outside or on resize
   useEffect(() => {

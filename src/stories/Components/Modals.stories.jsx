@@ -365,7 +365,7 @@ export const PhotoUpload = {
             </div>
 
             <Form.Group className="mb-4">
-              <Form.Label style={labelStyle}>Caption (Optional)</Form.Label>
+              <Form.Label style={labelStyle}>Caption</Form.Label>
               <Form.Control type="text" placeholder="Add a caption for your photo..." style={inputStyle} />
             </Form.Group>
 

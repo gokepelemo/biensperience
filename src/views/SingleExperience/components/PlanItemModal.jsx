@@ -136,10 +136,10 @@ export default function PlanItemModal({
           />
         </FormGroup>
 
-        {/* URL (Optional) */}
+        {/* URL */}
         <FormGroup>
           <FormLabel htmlFor={`${formId}-url`}>
-            {l.current?.label?.urlOptional || "URL (Optional)"}
+            {l.current?.label?.urlOptional || "URL"}
           </FormLabel>
           <FormControl
             type="url"

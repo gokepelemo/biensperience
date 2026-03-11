@@ -1,95 +1,56 @@
 /**
  * Modal Component Styles (SCSS Module)
- * Migrated from Modal.css to Modal.module.scss
- * Uses SASS variables and mixins for better maintainability
+ *
+ * After P3.1 migration to native Chakra Dialog, most styling is handled
+ * by the Dialog slot recipe in ui-theme.js. This module retains only:
+ * - allowBodyScroll structural overrides (complex layout not suited for recipe)
+ * - iconSpacing utility
+ * - Legacy Modal.jsx support (kept for reference)
  */
 
 @use '../../styles/scss/abstracts' as *;
 
-/* Modal Show State - includes backdrop styling */
-.modalShow {
-  @include modal-base;
-  background-color: var(--color-bg-overlay);
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important; /* Use 100% instead of 100vw to avoid horizontal scroll on iOS */
-  height: 100% !important; /* Use 100% instead of 100vh for iOS Safari address bar handling */
-  z-index: $z-index-modal-backdrop !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  opacity: 1 !important;
-  pointer-events: auto !important; /* Allow backdrop to capture clicks for onClose */
-  overflow: visible !important; /* Allow tooltips and other overlays to show above modal */
-  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-  /* Disable all animations and transitions for instant show/hide */
-  transition: none !important;
-  animation: none !important;
-  transform: none !important;
-}
-
 /* Fixed-overlay scrollable modal mode
- * - Uses a fixed overlay that scrolls internally (overflow-y: auto on positioner)
- * - No scroll manipulation on the underlying page
- * - Used for mobile full-screen detail views (e.g., PlanItemDetailsModal)
+ * Used for mobile full-screen detail views (e.g., PlanItemDetailsModal).
+ * The positioner scrolls internally (overflow-y: auto) while the page
+ * body remains locked via useScrollLock.
  */
 .modalAllowBodyScroll {
-  /* Inline styles handle position: fixed + overflow-y: auto on the positioner.
-   * This class applies structural overrides for content sizing. */
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
   overscroll-behavior: contain;
 
-  :global(.modal-dialog) {
-    margin: 0 auto;
-    padding: $space-3;
-    height: auto;
-    max-height: none;
-    max-width: 100%;
-    box-sizing: border-box;
-
-    @media (max-width: $breakpoint-md) {
-      padding: 0;
-    }
+  /* Override Chakra positioner recipe to allow internal scroll */
+  &[data-scope="dialog"][data-part="positioner"] {
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 
-  .modalContent {
+  /* Content within scrollable overlay has no max-height constraint */
+  [data-scope="dialog"][data-part="content"] {
     max-height: none;
     height: auto;
     overflow: visible;
   }
 
-  .modalBody {
+  /* Body within scrollable overlay */
+  [data-scope="dialog"][data-part="body"] {
     overflow: visible;
   }
 
   /* Fullscreen variant sizes to content within the scrollable overlay */
-  .modalFullscreen {
+  [data-scope="dialog"][data-part="content"][data-size="full"] {
     height: auto;
     min-height: auto;
     max-height: none;
     overflow: visible;
     flex: 0 0 auto;
-    align-self: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
 
-    .modalContent {
-      height: auto;
-      max-height: none;
-      overflow: visible;
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      flex: 0 0 auto;
-      padding-top: 0;
-      padding-bottom: 0;
-    }
-
-    .modalBody {
+    [data-scope="dialog"][data-part="body"] {
       flex: 1 1 auto;
       min-height: 0;
       height: auto;
@@ -100,186 +61,35 @@
   }
 }
 
-/* Modal Dialog Centered */
-.modalDialogCentered {
-  margin: 0 auto;
-  padding: $space-4;
-  position: relative;
-  z-index: $z-index-modal + 1;
-  pointer-events: none; /* Let clicks through to backdrop */
-  flex: 0 0 auto; /* CRITICAL: Prevent flex child from stretching */
-  height: auto;
-  /* Parent .modalShow handles centering with flexbox */
-}
-
-/* Modal Content */
-.modalContent {
-  position: relative;
-  @include flex-column;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-lg;
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  max-height: 90vh;
-  pointer-events: auto !important; /* Ensure content captures clicks */
-  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
-  /* Allow dropdowns to render outside content bounds */
-  max-width: 100%;
-  overflow: visible;
-  box-sizing: border-box;
-}
-
-/* Modal Body - Base scroll containment */
-.modalBody {
-  overscroll-behavior: contain; /* Prevent scroll chaining to parent */
-}
-
-/* Scrollable Body */
-.modalDialogScrollable {
-  .modalBody {
-    overflow-y: auto;
-    max-height: calc(90vh - 120px);
-    overscroll-behavior: contain; /* Prevent scroll chaining to parent */
-  }
-}
-
-/* Size Variants */
-.modalSm {
-  max-width: 320px; /* Small modal for simple dialogs - reduced for legal docs */
-  width: auto;
-
-  .modalContent {
-    width: 100%;
-    height: auto;
-    max-height: 90vh;
-    pointer-events: auto; /* Enable clicks on content */
-  }
-}
-
-.modalMd {
-  max-width: 560px; /* Medium modal for legal docs, forms */
-  width: auto;
-  height: auto;
-  max-height: 90vh;
-
-  .modalContent {
-    height: auto;
-    max-height: 90vh;
-  }
-}
-
-.modalLg {
-  max-width: 800px; /* Standard large modal */
-  width: auto;
-  height: auto;
-  max-height: 90vh;
-
-  .modalContent {
-    height: auto;
-    max-height: 90vh;
-  }
-}
-
-.modalXl {
-  max-width: 1200px; /* Extra large modal for notes, documents, complex content */
-  width: 95%; /* Use most of viewport width on smaller screens */
-  height: auto;
-  max-height: 90vh;
-
-  .modalContent {
-    height: auto;
-    max-height: 90vh;
-  }
-}
-
-.modalFullscreen {
-  width: 100%;
-  max-width: 100%;
-  /* Use 100% with fallback to dvh for iOS Safari address bar handling */
-  height: 100%;
-  height: 100dvh;
-  min-height: 100%;
-  min-height: 100dvh;
-  max-height: 100%;
-  max-height: 100dvh;
-  margin: 0;
-  /* Remove dialog padding for fullscreen - content fills viewport */
-  padding: 0;
-  overflow: hidden; /* Prevent scroll on fullscreen modal container */
-  /* Flex container for content */
-  display: flex;
-  flex-direction: column;
-  /* Ensure fullscreen stretches inside the backdrop flex container */
-  align-self: stretch;
-  /* Participate in flex sizing (prevents intermittent auto-height behavior) */
-  flex: 1 1 0;
-  /* Ensure the dialog (and its children) can receive pointer events */
-  pointer-events: auto;
-
-  .modalContent {
-    width: 100%;
-    /* Explicit height chain for fullscreen - critical for Safari */
-    height: 100%;
-    height: 100dvh;
-    max-height: 100%;
-    max-height: 100dvh;
-    border-radius: $radius-lg; /* Keep rounded corners - dialog has padding */
-    overflow: hidden; /* Let children handle their own scrolling */
-    display: flex;
-    flex-direction: column;
-    /* Flex fill to ensure content takes all available space */
-    flex: 1 1 0;
-    min-height: 0;
-    /* iOS safe area insets for notch and home indicator */
-    padding-top: env(safe-area-inset-top, 0);
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    padding-left: env(safe-area-inset-left, 0);
-    padding-right: env(safe-area-inset-right, 0);
-  }
-
-  .modalBody {
-    /* Flexbox fill pattern: grow, shrink, zero basis */
-    flex: 1 1 0;
-    min-height: 0; /* Critical: Allow flex item to shrink below content size */
-    /* Explicit height ensures Safari calculates properly */
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* Don't scroll here - let children handle their own scrolling */
-    overscroll-behavior: contain; /* Prevent scroll chaining to parent */
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-
-    /* Mobile Safari fix: Enable scrolling when content overflows */
-    @media (max-width: 768px) {
-      overflow-y: auto; /* Allow scrolling on mobile */
-    }
-  }
-}
-
 /* Utility replacement classes */
 .iconSpacing {
   margin-inline-end: $space-2;
 }
 
-/* Responsive Modal Sizing */
+/* Responsive Modal Sizing — override recipe maxWidth on mobile */
 @include breakpoint-max(sm) {
-  .modalDialog {
-    max-width: 90%;
-    margin: 0 auto;
-  }
-
-  .modalLg,
-  .modalXl {
-    max-width: 90%;
+  :global([data-scope="dialog"][data-part="content"]) {
+    max-width: 90% !important;
   }
 }
 
-/* Fullscreen modal on mobile - remove border-radius and safe area padding */
+/* Fullscreen modal on mobile - remove border-radius */
 @include breakpoint-max(md) {
-  .modalFullscreen {
-    .modalContent {
-      border-radius: 0;
+  :global([data-scope="dialog"][data-part="content"][data-size="full"]) {
+    border-radius: 0 !important;
+  }
+
+  /* Enable scrolling on mobile for fullscreen body */
+  :global([data-scope="dialog"][data-part="body"]) {
+    &:has([data-scope="dialog"][data-part="content"][data-size="full"]) {
+      overflow-y: auto;
     }
   }
 }
 
+/* Fullscreen body mobile scroll fix */
+@media (max-width: 768px) {
+  :global([data-size="full"] [data-scope="dialog"][data-part="body"]) {
+    overflow-y: auto;
+  }
+}

@@ -89,7 +89,7 @@ export default function RequestPlanAccessModal({ show, onClose, planId, onSubmit
           </p>
 
           <FormGroup>
-            <FormLabel htmlFor={textareaId}>Message (optional)</FormLabel>
+            <FormLabel htmlFor={textareaId}>Message</FormLabel>
             <FormControl
               as="textarea"
               id={textareaId}

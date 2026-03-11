@@ -2,9 +2,9 @@
  * Tabs Abstraction Layer
  *
  * Provides a stable API for Tabs usage across the application.
- * Implementation: Chakra UI Tabs (BaseTabs) — Phase 5 complete.
+ * Implementation: Native Chakra UI v3 Tabs with slot recipe styling.
  *
- * Task: biensperience-5447
+ * Migration: biensperience-87fe (P3.2)
  * Related: biensperience-e5c4 (epic)
  */
 
@@ -31,6 +31,9 @@ TabsWrapper.propTypes = {
   defaultActiveKey: PropTypes.string,
   onSelect: PropTypes.func,
   className: PropTypes.string,
+  variant: PropTypes.oneOf(['line', 'enclosed', 'subtle', 'outline', 'plain']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  fitted: PropTypes.bool,
 };
 
 /**
@@ -46,6 +49,7 @@ TabWrapper.propTypes = {
   children: PropTypes.node,
   eventKey: PropTypes.string.isRequired,
   title: PropTypes.node,
+  disabled: PropTypes.bool,
   className: PropTypes.string,
 };
 

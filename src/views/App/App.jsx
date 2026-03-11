@@ -24,8 +24,8 @@ import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import MultiStepPlanModal from "../../components/MultiStepPlanModal/MultiStepPlanModal";
 import LegalModalsHandler from "../../components/LegalModalsHandler/LegalModalsHandler";
 import { Helmet } from 'react-helmet-async';
+import { Box } from '@chakra-ui/react';
 import { Container } from "../../components/design-system";
-import styles from './App.module.scss';
 import { waitForCSS } from '../../utilities/css-loading';
 import { initializeCSSEnvironment } from '../../utilities/css-environment-consistency';
 import ProfileSkeleton from "../Profile/components/ProfileSkeleton";
@@ -531,11 +531,11 @@ function AppContent() {
           : 'activity';
 
         return (
-          <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
+          <Box bg="bg" minH="100vh" py="8">
             <Container>
               <ProfileSkeleton isOwner={isOwner} activeTab={activeTab} />
             </Container>
-          </div>
+          </Box>
         );
       } catch (e) {
         return <Loading variant="centered" size="lg" message={lang.current.loading.page} />;
@@ -548,7 +548,12 @@ function AppContent() {
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <div className={styles.app}>
+        <Box
+          pt="70px"
+          pb="8"
+          minH="100dvh"
+          bg="bg"
+        >
           <CookieConsent />
           {/* Legal modals accessible via hash links (#terms, #privacy) */}
           <LegalModalsHandler />
@@ -631,7 +636,7 @@ function AppContent() {
               </Suspense>
             </Container>
           )}
-        </div>
+        </Box>
       </>
     );
 }

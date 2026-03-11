@@ -10,37 +10,14 @@
   display: inline;
 }
 
+/* Rendered via portal at document.body — uses fixed positioning
+ * so it escapes overflow:hidden ancestors (e.g. modal scroll areas). */
 .overlayContent {
-  position: absolute;
+  position: fixed;
   z-index: 1070; /* Match Bootstrap popover z-index */
   min-width: 200px;
   max-width: 320px;
   pointer-events: auto;
-}
-
-/* Placement variants */
-.placementTop {
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.placementBottom {
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.placementLeft {
-  right: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.placementRight {
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
 }
 
 /* Popover container */

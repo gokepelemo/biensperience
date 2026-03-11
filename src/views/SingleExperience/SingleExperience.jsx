@@ -3235,7 +3235,7 @@ export default function SingleExperience() {
                     {experience.experience_type && (
                       Array.isArray(experience.experience_type)
                         ? experience.experience_type.map((type, index) => (
-                            <Link key={index} to={`/experience-types/${type.toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
+                            <Link key={index} to={`/experience-types/${createUrlSlug(type)}`} style={{ textDecoration: 'none' }}>
                               <Pill variant="secondary" className={styles.tag}>
                                 {type}
                               </Pill>
@@ -3243,7 +3243,7 @@ export default function SingleExperience() {
                           ))
                         : typeof experience.experience_type === 'string'
                           ? experience.experience_type.split(',').map((type, index) => (
-                              <Link key={index} to={`/experience-types/${type.trim().toLowerCase().replace(/\s+/g, '-')}`} style={{ textDecoration: 'none' }}>
+                              <Link key={index} to={`/experience-types/${createUrlSlug(type)}`} style={{ textDecoration: 'none' }}>
                                 <Pill variant="secondary" className={styles.tag}>
                                   {type.trim()}
                                 </Pill>

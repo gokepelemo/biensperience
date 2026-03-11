@@ -375,7 +375,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
           <Tab eventKey="create" title={lang.current.inviteTracking.tabCreateSingle}>
             <Form onSubmit={handleCreateSingle}>
               <Form.Group className={styles.formGroup}>
-                <Form.Label>Email (optional)</Form.Label>
+                <Form.Label>Email</Form.Label>
                 <Form.Control
                   type="email"
                   placeholder="user@example.com"
@@ -397,7 +397,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
               </Form.Group>
 
               <Form.Group className={styles.formGroup}>
-                <Form.Label>Name (optional)</Form.Label>
+                <Form.Label>Name</Form.Label>
                 <Form.Control
                   type="text"
                   placeholder="John Doe"
@@ -418,7 +418,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
               </Form.Group>
 
               <Form.Group className={styles.formGroup}>
-                <Form.Label>Experiences (optional)</Form.Label>
+                <Form.Label>Experiences</Form.Label>
                 <SearchableSelect
                   multiple
                   options={experienceOptions}
@@ -429,7 +429,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
               </Form.Group>
 
               <Form.Group className={styles.formGroup}>
-                <Form.Label>Destinations (optional)</Form.Label>
+                <Form.Label>Destinations</Form.Label>
                 <SearchableSelect
                   multiple
                   options={destinationOptions}
@@ -461,7 +461,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
               </Form.Group>
 
               <Form.Group className={styles.formGroup}>
-                <Form.Label>Custom Message (optional)</Form.Label>
+                <Form.Label>Custom Message</Form.Label>
                 <Form.Control
                   as="textarea"
                   rows={3}
@@ -533,7 +533,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 </Alert>
 
                 <Form.Group className={styles.formGroup}>
-                  <Form.Label>Apply Experiences to All (optional)</Form.Label>
+                  <Form.Label>Apply Experiences to All</Form.Label>
                   <Form.Control
                     as="select"
                     multiple
@@ -554,7 +554,7 @@ export default function InviteCodeModal({ show, onHide, experiences = [], destin
                 </Form.Group>
 
                 <Form.Group className={styles.formGroup}>
-                  <Form.Label>Apply Destinations to All (optional)</Form.Label>
+                  <Form.Label>Apply Destinations to All</Form.Label>
                   <Form.Control
                     as="select"
                     multiple

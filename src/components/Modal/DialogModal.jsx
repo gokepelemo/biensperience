@@ -1,19 +1,16 @@
 /**
- * DialogModal - Dialog-based Modal Implementation
+ * DialogModal - Native Chakra UI v3 Dialog Implementation
  *
- * Drop-in replacement for the legacy Modal component.
- * Uses Dialog.Root for built-in accessibility (focus trapping,
- * ESC key handling, scroll locking, ARIA attributes) while rendering the
- * header, body, and footer as plain HTML elements so the global _modal.scss
- * styles (gradient header, white close button, footer buttons) apply without
- * specificity conflicts.
+ * Drop-in replacement for the legacy Bootstrap Modal component, now using
+ * native Chakra Dialog compound components (Dialog.Header, Dialog.Body,
+ * Dialog.Footer, Dialog.CloseTrigger). All styling is handled by the Dialog
+ * slot recipe in ui-theme.js — no inline style overrides.
  *
- * IMPORTANT: Do NOT use Dialog.Header, Dialog.Title, Dialog.Body, or
- * Dialog.Footer — they inject recipe styles that override the global
- * _modal.scss selectors. Use plain <div>/<h5>/<button> with Bootstrap-
- * compatible class names instead.
+ * The global _modal.scss is retained only for legacy non-migrated modals
+ * that still use plain HTML with Bootstrap class names. This component does
+ * NOT depend on _modal.scss.
  *
- * Task: biensperience-277f - Dialog Modal wrapper (feature-flagged)
+ * Migration: biensperience-6b63 (P3.1)
  */
 
 import { forwardRef, useId } from 'react';
@@ -21,6 +18,16 @@ import { Dialog, Portal } from '@chakra-ui/react';
 import styles from './Modal.module.scss';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
+import { useScrollLock } from '../../hooks/useScrollLock';
+
+// Map our size prop values to Chakra Dialog size variants
+const SIZE_MAP = {
+  sm: 'sm',
+  md: 'md',
+  lg: 'lg',
+  xl: 'xl',
+  fullscreen: 'full',
+};
 
 const DialogModal = forwardRef(function DialogModal({
   show,
@@ -50,9 +57,12 @@ const DialogModal = forwardRef(function DialogModal({
   const modalId = useId();
   const titleId = `modal-title-${modalId}`;
 
-  // allowBodyScroll mode uses a fixed overlay with overflow-y: auto on the
-  // positioner, so the modal content scrolls within the viewport without
-  // moving the underlying page. No scroll manipulation needed.
+  // Lock body scroll when modal is open. The hook uses a global ref counter
+  // so stacked modals coordinate correctly — body scroll is only restored
+  // when the last modal unmounts. Both normal and allowBodyScroll modals
+  // need body lock: allowBodyScroll mode scrolls within a fixed overlay
+  // (overflow-y: auto on positioner), not the actual page body.
+  useScrollLock(show);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -61,33 +71,18 @@ const DialogModal = forwardRef(function DialogModal({
     }
   };
 
-  // Map size prop to CSS module classes
-  const sizeClass = size === 'sm' ? styles.modalSm
-    : size === 'md' ? styles.modalMd
-    : size === 'lg' ? styles.modalLg
-    : size === 'xl' ? styles.modalXl
-    : size === 'fullscreen' ? styles.modalFullscreen
-    : '';
+  // Resolve Chakra size variant
+  const chakraSize = SIZE_MAP[size] || undefined;
 
-  const modalDialogClasses = [
-    'modal-dialog',
-    centered && 'modal-dialog-centered',
-    scrollable && styles.modalDialogScrollable,
-    sizeClass,
-    dialogClassName
-  ].filter(Boolean).join(' ');
+  // Determine scroll behavior:
+  // - allowBodyScroll: positioner scrolls (outside)
+  // - scrollable: body scrolls (inside)
+  // - default: no scrolling constraints (outside)
+  const scrollBehavior = scrollable ? 'inside' : 'outside';
 
-  const modalContentClasses = [
-    'modal-content',
-    styles.modalContent,
-    contentClassName
-  ].filter(Boolean).join(' ');
-
-  const modalBodyClasses = [
-    'modal-body',
-    styles.modalBody,
-    bodyClassName
-  ].filter(Boolean).join(' ');
+  // Build combined className for Dialog.Content
+  // dialogClassName and contentClassName both apply to the content card
+  const contentClasses = [contentClassName, dialogClassName].filter(Boolean).join(' ') || undefined;
 
   return (
     <Dialog.Root
@@ -100,126 +95,80 @@ const DialogModal = forwardRef(function DialogModal({
       closeOnEscape={true}
       closeOnInteractOutside={true}
       trapFocus={true}
+      // We use our own useScrollLock for iOS Safari position:fixed workaround
       preventScroll={false}
       lazyMount
       unmountOnExit
       motionPreset="none"
+      size={chakraSize}
+      placement={centered ? 'center' : 'top'}
+      scrollBehavior={scrollBehavior}
     >
       <Portal>
-        {/* Backdrop - plain styling, not Chakra's default */}
         <Dialog.Backdrop
-          className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''}`}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 1050,
-            background: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'none',
-            // Disable all animations and transitions
-            transition: 'none !important',
-            animation: 'none !important',
-          }}
+          className={allowBodyScroll ? styles.modalAllowBodyScroll : undefined}
         />
         <Dialog.Positioner
-          ref={ref}
-          className={`${styles.modalShow} ${allowBodyScroll ? styles.modalAllowBodyScroll : ''}`}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 1050,
-            display: 'flex',
-            alignItems: allowBodyScroll ? 'flex-start' : 'center',
-            justifyContent: allowBodyScroll ? 'flex-start' : 'center',
-            padding: 0,
-            width: '100%',
-            maxWidth: '100%',
-            // Disable all animations and transitions
-            transition: 'none !important',
-            animation: 'none !important',
-            // allowBodyScroll: scroll within the fixed overlay
-            // normal: allow dropdowns to render outside modal bounds
-            overflowY: allowBodyScroll ? 'auto' : 'visible',
-            overflowX: allowBodyScroll ? 'hidden' : 'visible',
-            WebkitOverflowScrolling: 'touch',
-          }}
+          className={allowBodyScroll ? styles.modalAllowBodyScroll : undefined}
+          // allowBodyScroll: positioner scrolls internally instead of page
+          style={allowBodyScroll ? {
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
+          } : undefined}
         >
-          {/* Dialog.Content provides ARIA role="dialog" + aria-modal + focus trap anchor */}
-          {/* Always include 'show' class since unmountOnExit ensures this only renders when open */}
           <Dialog.Content
-            className={`modal show ${modalDialogClasses}`}
+            ref={ref}
             aria-labelledby={title ? titleId : undefined}
-            style={{
-              // Reset Chakra Dialog.Content recipe styles
-              // Do NOT set maxWidth here — CSS module size classes
-              // (.modalSm, .modalMd, etc.) control max-width on this element
-              background: 'transparent',
-              boxShadow: 'none',
-              borderRadius: 0,
-              padding: 0,
-              width: size === 'fullscreen' ? '100%' : undefined,
-              maxHeight: 'none',
-              position: 'relative',
-              // Allow dropdowns to render outside content bounds
-              overflow: 'visible',
-              // Disable all animations and transitions
-              transition: 'none',
-              animation: 'none',
-            }}
+            className={contentClasses}
           >
-            {/* Plain HTML from here down — global _modal.scss targets these class names */}
-            <div className={modalContentClasses}>
-              {/* Header */}
-              {showHeader && (
-                <div className="modal-header">
-                  <h5 id={titleId} className="modal-title">
-                    {icon && <span className={styles.iconSpacing}>{icon}</span>}
-                    {title}
-                  </h5>
+            {/* Header */}
+            {showHeader && (
+              <Dialog.Header>
+                <Dialog.Title id={titleId}>
+                  {icon && <span className={styles.iconSpacing}>{icon}</span>}
+                  {title}
+                </Dialog.Title>
+                <Dialog.CloseTrigger asChild>
                   <button
                     type="button"
-                    className="btn-close"
                     onClick={onClose}
                     aria-label={lang.current.aria.close}
                     disabled={loading}
                   >
                     <span aria-hidden="true">&times;</span>
                   </button>
-                </div>
-              )}
+                </Dialog.CloseTrigger>
+              </Dialog.Header>
+            )}
 
-              {/* Body */}
-              <div className={modalBodyClasses}>
-                {children}
-              </div>
+            {/* Body */}
+            <Dialog.Body className={bodyClassName || undefined}>
+              {children}
+            </Dialog.Body>
 
-              {/* Footer */}
-              {(footer || (showSubmitButton && onSubmit)) && (
-                <div className="modal-footer">
-                  {footer ? (
-                    footer
-                  ) : (
-                    <>
-                      {showSubmitButton && onSubmit && (
-                        <button
-                          type="button"
-                          className={`btn btn-${submitVariant}`}
-                          onClick={handleSubmit}
-                          disabled={disableSubmit || loading}
-                        >
-                          {loading ? lang.current.loading.default : submitText}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Footer */}
+            {(footer || (showSubmitButton && onSubmit)) && (
+              <Dialog.Footer>
+                {footer ? (
+                  footer
+                ) : (
+                  <>
+                    {showSubmitButton && onSubmit && (
+                      <button
+                        type="button"
+                        className={`btn btn-${submitVariant}`}
+                        onClick={handleSubmit}
+                        disabled={disableSubmit || loading}
+                      >
+                        {loading ? lang.current.loading.default : submitText}
+                      </button>
+                    )}
+                  </>
+                )}
+              </Dialog.Footer>
+            )}
           </Dialog.Content>
         </Dialog.Positioner>
       </Portal>

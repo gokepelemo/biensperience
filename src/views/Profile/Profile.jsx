@@ -39,7 +39,7 @@ import { getOrCreateDmChannel } from "../../utilities/chat-api";
 import { storePreference, retrievePreference, expirePreference } from "../../utilities/preferences-utils";
 import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
-import { isSystemUser } from "../../utilities/system-users";
+import { isSystemUser, getSystemUserBySlug } from "../../utilities/system-users";
 import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowRelationship, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
@@ -55,12 +55,15 @@ export default function Profile() {
   const navigate = useNavigate();
   let { profileId } = useParams();
 
+  // Check if this is a system user slug (e.g. /profile/bienbot, /profile/archive)
+  const systemUser = useMemo(() => getSystemUserBySlug(profileId), [profileId]);
+
   // Validate profileId format
-  if (profileId && (typeof profileId !== 'string' || profileId.length !== 24)) {
+  if (profileId && !systemUser && (typeof profileId !== 'string' || profileId.length !== 24)) {
     // Invalid profileId format - handled by validation below
   }
 
-  let userId = profileId ? profileId : user._id;
+  let userId = profileId && !systemUser ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id || isSuperAdmin(user);
   // For empty state messaging, only check if viewing own profile (not super admin override)
   const isOwnProfile = !profileId || profileId === user._id;
@@ -1565,6 +1568,24 @@ export default function Profile() {
     const owned = total - shared;
     return { total, owned, shared };
   }, [plans, currentProfile]);
+
+  // Show system user info page (e.g. /profile/bienbot, /profile/archive)
+  if (systemUser) {
+    return (
+      <div style={{ padding: 'var(--space-20) 0' }}>
+        <Container>
+          <EmptyState
+            icon={systemUser.icon}
+            title={systemUser.name}
+            description={systemUser.description}
+            size="lg"
+            primaryAction={lang.current.button.goHome || 'Go Home'}
+            onPrimaryAction={() => navigate('/')}
+          />
+        </Container>
+      </div>
+    );
+  }
 
   // Show error state if profile not found
   if (profileError === lang.current.alert.userNotFound) {

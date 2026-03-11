@@ -1,78 +1,103 @@
 /**
- * BasePopover - CSS/React-based popover and overlay trigger
+ * BasePopover - Native Chakra UI v3 Popover Implementation
  *
- * Drop-in replacement for react-bootstrap OverlayTrigger + Popover.
- * Uses CSS positioning and React state for hover/focus-triggered popovers.
- * No external dependencies beyond React.
+ * Drop-in replacement for the CSS-based popover system.
+ * Uses Chakra Popover compound components with the slot recipe from
+ * ui-theme.js for styling — no SCSS, no manual positioning.
  *
- * Components:
- * - BaseOverlayTrigger: Wraps a child element and shows an overlay on hover/focus
- * - BasePopover: Container with compound .Header and .Body sub-components
+ * Features:
+ * - Automatic positioning via Chakra's Popover engine
+ * - Portal rendering (escapes overflow:hidden ancestors)
+ * - Hover and focus trigger support via controlled state
+ * - Header/Body slots styled by popover recipe
+ * - Keyboard accessible
  *
- * Task: biensperience-f51a
- * Related: biensperience-e5c4 (epic)
+ * Migration: biensperience-605a (P3.5)
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import styles from './BasePopover.module.scss';
+import { Popover as PopoverPrimitive, Portal } from '@chakra-ui/react';
 
 /**
  * BaseOverlayTrigger - Shows an overlay element on hover/focus
  *
- * Maps to react-bootstrap `<OverlayTrigger>`.
+ * Uses Chakra Popover with controlled state to implement hover/focus
+ * trigger behavior. Replaces manual getBoundingClientRect positioning
+ * and createPortal with Chakra's built-in positioning engine.
  *
  * @param {Array} trigger - Trigger types: ['hover'], ['focus'], or ['hover', 'focus']
  * @param {string} placement - Overlay placement: 'top', 'bottom', 'left', 'right'
  * @param {ReactElement} overlay - The overlay content to display
  */
 export function BaseOverlayTrigger({ trigger = ['hover', 'focus'], placement = 'top', overlay, children }) {
-  const [show, setShow] = useState(false);
+  const [open, setOpen] = useState(false);
   const hideTimerRef = useRef(null);
+  const triggerArr = Array.isArray(trigger) ? trigger : [trigger];
 
   const showOverlay = useCallback(() => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
-    setShow(true);
+    setOpen(true);
   }, []);
 
   const hideOverlay = useCallback(() => {
     // Small delay to allow moving cursor to the popover content
-    hideTimerRef.current = setTimeout(() => setShow(false), 150);
+    hideTimerRef.current = setTimeout(() => setOpen(false), 150);
   }, []);
 
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  // Build event handlers based on trigger types
   const triggerHandlers = {};
-  const triggerArr = Array.isArray(trigger) ? trigger : [trigger];
+  const contentHandlers = {};
 
   if (triggerArr.includes('hover')) {
     triggerHandlers.onMouseEnter = showOverlay;
     triggerHandlers.onMouseLeave = hideOverlay;
+    contentHandlers.onMouseEnter = showOverlay;
+    contentHandlers.onMouseLeave = hideOverlay;
   }
   if (triggerArr.includes('focus')) {
     triggerHandlers.onFocus = showOverlay;
     triggerHandlers.onBlur = hideOverlay;
   }
 
-  const placementClass = styles[`placement${placement.charAt(0).toUpperCase()}${placement.slice(1)}`] || styles.placementTop;
-
   return (
-    <span
-      className={styles.overlayTriggerContainer}
-      {...triggerHandlers}
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(details) => {
+        if (!details.open) setOpen(false);
+      }}
+      positioning={{ placement }}
+      autoFocus={false}
+      closeOnInteractOutside={true}
+      lazyMount
+      unmountOnExit
     >
-      {children}
-      {show && (
-        <div
-          className={`${styles.overlayContent} ${placementClass}`}
-          onMouseEnter={triggerArr.includes('hover') ? showOverlay : undefined}
-          onMouseLeave={triggerArr.includes('hover') ? hideOverlay : undefined}
+      <PopoverPrimitive.Trigger asChild>
+        <span
+          {...triggerHandlers}
+          style={{ display: 'inline' }}
         >
-          {overlay}
-        </div>
-      )}
-    </span>
+          {children}
+        </span>
+      </PopoverPrimitive.Trigger>
+      <Portal>
+        <PopoverPrimitive.Positioner>
+          <PopoverPrimitive.Content {...contentHandlers}>
+            {overlay}
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Positioner>
+      </Portal>
+    </PopoverPrimitive.Root>
   );
 }
 
@@ -92,10 +117,12 @@ BaseOverlayTrigger.propTypes = {
  * BasePopover - Popover container with compound sub-components
  *
  * Maps to react-bootstrap `<Popover>`.
+ * Renders as a simple wrapper div since Chakra Popover.Content handles
+ * the popup container styling via the recipe.
  */
 function BasePopover({ id, children, className = '' }) {
   return (
-    <div id={id} className={`${styles.popover} ${className}`.trim()} role="tooltip">
+    <div id={id} className={className || undefined}>
       {children}
     </div>
   );
@@ -110,13 +137,16 @@ BasePopover.propTypes = {
 };
 
 /**
- * BasePopoverHeader
+ * BasePopoverHeader - Chakra Popover.Header wrapper
+ *
+ * NOTE: The `as` prop from react-bootstrap is intentionally ignored.
+ * Chakra Popover.Header renders with recipe slot styling.
  */
-function BasePopoverHeader({ as: Component = 'h3', children, className = '' }) {
+function BasePopoverHeader({ as: _as, children, className = '' }) {
   return (
-    <Component className={`${styles.popoverHeader} ${className}`.trim()}>
+    <PopoverPrimitive.Header className={className || undefined}>
       {children}
-    </Component>
+    </PopoverPrimitive.Header>
   );
 }
 
@@ -128,13 +158,13 @@ BasePopoverHeader.propTypes = {
 };
 
 /**
- * BasePopoverBody
+ * BasePopoverBody - Chakra Popover.Body wrapper
  */
 function BasePopoverBody({ children, className = '' }) {
   return (
-    <div className={`${styles.popoverBody} ${className}`.trim()}>
+    <PopoverPrimitive.Body className={className || undefined}>
       {children}
-    </div>
+    </PopoverPrimitive.Body>
   );
 }
 

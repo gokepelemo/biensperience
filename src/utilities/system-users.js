@@ -24,6 +24,36 @@ export const SYSTEM_USER_IDS = {
 };
 
 /**
+ * System user profiles accessible via slug URLs (e.g. /profile/bienbot).
+ * Each entry defines display metadata for a system user that isn't
+ * backed by a real user document in the database.
+ */
+export const SYSTEM_USER_SLUGS = {
+  bienbot: {
+    slug: 'bienbot',
+    name: 'BienBot',
+    icon: '🤖',
+    description: 'BienBot is the Biensperience AI assistant. It sends you helpful notifications about your plans, collaborations, and activity on the platform.',
+  },
+  archive: {
+    slug: 'archive',
+    name: 'Archived User',
+    icon: '🗄️',
+    description: 'This is a system account used to preserve experiences when their original creator has deleted their account. Archived experiences remain available for anyone who has planned them.',
+  },
+};
+
+/**
+ * Look up a system user by URL slug.
+ * @param {string} slug - The URL slug (e.g. "bienbot")
+ * @returns {Object|null} System user info or null
+ */
+export function getSystemUserBySlug(slug) {
+  if (!slug) return null;
+  return SYSTEM_USER_SLUGS[slug.toLowerCase()] || null;
+}
+
+/**
  * Check if a user ID is a system user
  * @param {string|Object} userIdOrUser - User ID string or user object with _id
  * @returns {boolean} True if system user

@@ -162,7 +162,7 @@ export default function NewDestinationModal({ show, onClose, onDestinationCreate
           value={formData.state}
           onChange={handleChange}
           placeholder="e.g., California, Ontario, Île-de-France"
-          tooltip="Enter the state, province, or region (optional)"
+          tooltip="Enter the state, province, or region"
           tooltipPlacement="top"
         />
 

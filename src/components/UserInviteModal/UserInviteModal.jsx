@@ -175,7 +175,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
           </Form.Group>
 
           <Form.Group className={styles.formGroup}>
-            <Form.Label>Their Name (optional)</Form.Label>
+            <Form.Label>Their Name</Form.Label>
             <Form.Control
               type="text"
               placeholder="John"
@@ -187,7 +187,7 @@ export default function UserInviteModal({ show, onHide, onInviteCreated }) {
           </Form.Group>
 
           <Form.Group className={styles.formGroup}>
-            <Form.Label>Personal Message (optional)</Form.Label>
+            <Form.Label>Personal Message</Form.Label>
             <Form.Control
               as="textarea"
               rows={2}
