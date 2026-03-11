@@ -1,159 +1,132 @@
 /**
- * NavBar Component Styles (SCSS Module)
- * Migrated from NavBar.css to NavBar.module.scss
- * Uses SASS variables and mixins for better maintainability
+ * NavBar Component Styles — Chakra UI Native
+ *
+ * Minimal SCSS module for classes that complement Chakra token-based styling.
+ * Layout and core theming are handled by Chakra props in NavBar.jsx;
+ * this file covers decorative / animation / override details.
+ *
+ * Migration: P4.1 — biensperience-dd5f
  */
 
 @use '../../styles/scss/abstracts' as *;
 
-/* ============================================
-   NAVBAR BACKGROUND - Theme-Responsive
-   ============================================
-   The navbar follows the active theme:
-   Light mode: white background with dark text
-   Dark mode: dark background with light text
-   ============================================ */
+/* ── Nav list (desktop) ───────────────────────────────────────── */
 
-/* Theme-responsive navbar background */
-.navbar {
-  background: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border-light);
-  /* Base transition properties for smooth state changes */
-  transition: box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Fixed navbar height for consistent alignment */
-  min-height: 56px;
-  height: 56px;
-
-  /* Mobile: Remove border for seamless dropdown flow */
-  @media (max-width: 991.98px) {
-    border-bottom: none;
-  }
-
-  /* Align all navbar items by text baseline for consistent typography */
-  .navbarContainer {
-    width: 100%;
-    padding-right: 0.75rem;
-    padding-left: 0.75rem;
-    margin-right: auto;
-    margin-left: auto;
-    display: flex;
-    align-items: baseline; /* Baseline alignment for mixed font sizes */
-    height: 100%;
-  }
-
-  /* Desktop: Ensure navbar-collapse aligns items by baseline */
-  :global(.navbar-collapse) {
-    display: flex;
-    align-items: baseline;
-    height: 100%;
-    flex-grow: 1;
-    flex-basis: auto;
-  }
-
-  /* Desktop: Ensure navbar-nav ul aligns items by baseline */
-  :global(.navbar-nav) {
-    display: flex;
-    align-items: baseline;
-    height: 100%;
-  }
-}
-
-/* Nav list: absorbs me-auto mb-2 mb-lg-0 d-flex utilities */
 .navList {
-  margin-right: auto;
-  margin-bottom: $space-2;
   display: flex;
+  align-items: center;
+  height: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-right: auto;
+  gap: $space-1;
 
-  @include breakpoint-min(lg) {
-    margin-bottom: 0;
+  li {
+    display: flex;
+    align-items: center;
+    height: 100%;
   }
 }
 
-/* Mobile navbar collapse menu */
-.navbarCollapse {
-  /* Mobile styles */
-  @media (max-width: 991.98px) {
-    /* Base state - always positioned, visibility controlled by show class */
-    position: absolute !important;
-    top: 110% !important; /* Match navbar height exactly */
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    background: var(--color-bg-primary) !important;
-    z-index: 999 !important; /* Below navbar toggler (z-index: 20) but above content */
-    box-shadow: none !important; /* Seamless flow from navbar */
-    padding: $space-4 0 !important;
-    flex-direction: column !important;
-    border-top: none !important; /* No separator line */
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  color: var(--color-text-primary) !important;
+  opacity: 0.75;
+  font-weight: $font-weight-bold;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  line-height: 1;
+  height: var(--btn-height-md);
+  min-height: var(--btn-height-md);
+  text-decoration: none !important;
+  @include transition-all($transition-normal);
+  border-radius: $radius-md;
+  background: transparent;
+  border: none;
 
-    /* Hidden by default - use transform instead of height for absolute positioning */
-    &:global(.collapse:not(.show):not(.collapsing)) {
-      display: none !important;
-    }
+  &:link,
+  &:visited {
+    color: var(--color-text-primary) !important;
+    text-decoration: none !important;
+  }
 
-    /* Collapsing state - animating open or closed */
-    &:global(.collapsing) {
-      display: flex !important;
-      overflow: hidden !important;
-      /* Height animation handled by JS */
-    }
+  &:hover,
+  &:focus {
+    opacity: 1;
+    text-decoration: none !important;
+    color: var(--color-text-primary) !important;
+  }
 
-    /* Shown state */
-    &:global(.show) {
-      display: flex !important;
-      height: auto !important;
-    }
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 
-    /* Nav links container */
-    :global(.navbar-nav) {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: $space-1;
-      padding: 0 $space-4;
-      order: 1;
-      height: auto !important;
-      width: 100%;
-    }
+  &:active {
+    background: var(--color-bg-hover);
   }
 }
 
-/* Sticky navbar - always visible at top */
-.navbar.sticky {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-index-fixed);
-  box-shadow: var(--shadow-sm);
-  /* No animation - instant appearance */
-  /* Prevent layout thrashing */
-  will-change: transform, opacity;
-  contain: layout style;
-  /* Ensure consistent dimensions */
-  height: auto;
-  min-height: 56px;
+.navLinkActive {
+  opacity: 1;
 }
 
-/* slideDown animation removed - using height-based collapse instead */
+/* ── Mobile nav link ──────────────────────────────────────────── */
 
-/* Body padding for sticky navbar - use CSS transition for smoothness */
-:global(body) {
-  transition: padding-top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+.mobileNavLink {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  font-weight: $font-weight-bold;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  color: var(--color-text-primary) !important;
+  opacity: 0.75;
+  text-decoration: none !important;
+  @include transition-all($transition-normal);
+
+  &:link,
+  &:visited {
+    color: var(--color-text-primary) !important;
+    text-decoration: none !important;
+  }
+
+  &:hover,
+  &:focus {
+    opacity: 1;
+    background: var(--color-bg-hover);
+    text-decoration: none !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  &:active {
+    background: var(--color-bg-hover);
+  }
 }
 
-:global(body:has(.navbar.sticky)) {
-  padding-top: 70px; /* Fixed value for layout stability */
+.mobileNavLinkActive {
+  opacity: 1;
 }
+
+/* ── Logo ─────────────────────────────────────────────────────── */
 
 .logo {
   margin: 0;
-  font-size: $font-size-2xl; /* Match experience card buttons */
-  font-weight: $font-weight-normal; /* Lighter weight for better centering */
+  font-size: $font-size-2xl;
+  font-weight: $font-weight-normal;
   padding: 0;
   line-height: 1;
   @include flex-center;
-  /* Use standardized button height for WCAG touch target (44px) */
   width: var(--btn-height-md);
   height: var(--btn-height-md);
   background: var(--gradient-primary);
@@ -162,7 +135,6 @@
   border-radius: var(--btn-radius-default);
   @include transition-all(var(--btn-transition));
   font-family: var(--font-family-base);
-  /* Ensure logo is vertically centered */
   flex-shrink: 0;
 
   &:hover {
@@ -171,423 +143,110 @@
   }
 }
 
-:global(nav) {
-  font-weight: $font-weight-bold;
-}
+/* ── Brand button ─────────────────────────────────────────────── */
 
-/* Navbar brand wrapper for dynamic text */
-.navbarBrandWrapper {
-  display: flex;
-  align-items: baseline; /* Baseline alignment to match nav items */
-  height: 100%; /* Match navbar height for consistent alignment */
-  gap: $space-1; /* Tight gap between logo and text */
-
-  @media (max-width: 991.98px) {
-    gap: 0; /* No gap on mobile */
-  }
-}
-
-/* Logo link wrapper - separate from brand text */
-.logoLink {
-  display: flex;
-  align-items: center;
-  align-self: center; /* Keep logo vertically centered while siblings use baseline */
-  text-decoration: none;
-  height: 100%; /* Match parent height */
-}
-
-.brandText {
-  @include transition-all($transition-normal);
+.brandButton {
+  background: none;
+  border: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   color: var(--color-text-primary);
   font-weight: $font-weight-bold;
-  opacity: 1; /* Site title is always full opacity */
-  /* Brand name should be larger than nav links for visual hierarchy */
   font-size: var(--font-size-lg);
+  font-family: var(--font-family-base);
   line-height: 1;
-}
-
-/* Desktop: show dynamic text (entity name or Biensperience) */
-.brandTextDesktop {
-  display: inline;
-
-  @media (max-width: 991.98px) {
-    display: none;
-  }
-}
-
-/* Mobile: always show "Biensperience" */
-.brandTextMobile {
-  display: none;
-
-  @media (max-width: 991.98px) {
-    display: inline;
-  }
-}
-
-/* Mobile entity title inside hamburger menu - shown when scrolled past h1 */
-.mobileEntityTitle {
-  display: none; /* Hidden on desktop */
-  width: 100%;
-  padding: $space-3 $space-4;
-  margin-bottom: $space-2;
-  background: var(--color-bg-hover);
-  border: none;
-  border-radius: $radius-md;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-  font-weight: $font-weight-bold;
-  text-align: left;
-  cursor: pointer;
+  padding: $space-2 $space-3;
+  @include transition-all($transition-normal);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  @include transition-all($transition-normal);
-
-  &:hover {
-    background: var(--color-bg-secondary);
-  }
-
-  @media (max-width: 991.98px) {
-    display: block;
-  }
-}
-
-/* Brand text as clickable button - matches nav-link styling exactly */
-.brandTextButton {
-  background: none;
-  border: none;
-  padding: $space-2 $space-2; /* Reduced padding to bring closer to logo */
-  margin: 0; /* No margin - gap handled by wrapper */
-  cursor: pointer;
-  font-size: var(--font-size-lg); /* Brand name larger than nav links for hierarchy */
-  font-family: inherit;
-  line-height: 1;
-  /* Match nav-link height for alignment */
-  height: var(--btn-height-md);
-  min-height: var(--btn-height-md);
-  display: inline-flex;
-  align-items: center;
-
-  &:hover {
-    opacity: 0.85;
-  }
-
-  &:focus {
-    outline: none;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-radius: $radius-sm;
-  }
-
-  @media (max-width: 991.98px) {
-    padding: $space-2 $space-1; /* Minimal padding on mobile */
-    margin: 0; /* No margin on mobile */
-  }
-}
-
-/* Mobile: Center brand, keep hamburger aligned right */
-@include breakpoint-max(lg) {
-  .navbar > .navbarContainer {
-    display: flex;
-    flex-wrap: nowrap; /* Prevent hamburger from wrapping to new line */
-    align-items: center; /* Center items vertically */
-    justify-content: center; /* Center content horizontally */
-    position: relative; /* For absolute positioning of toggler */
-  }
-
-  .navbarBrandWrapper {
-    flex: 0 1 auto; /* Don't expand, allow natural width */
-    min-width: 0;
-    margin: 0 auto; /* Center the brand wrapper */
-    text-align: center;
-    /* Reduced padding - just enough to not overlap with hamburger */
-    padding-right: calc(44px + #{$space-2}); /* Hamburger width + small spacing */
-    padding-left: calc(44px + #{$space-2}); /* Balance on left for true centering */
-    gap: $space-1; /* Tight gap between logo and text on mobile */
-  }
-
-  :global(.navbar-brand) {
-    max-width: 100%; /* Prevent overflow */
-    justify-content: center; /* Center logo and text within brand */
-    gap: $space-1; /* Tight gap on mobile */
-    padding: $space-1; /* Minimal padding on mobile */
-  }
-
-  .brandText {
-    white-space: nowrap; /* Prevent text from wrapping */
-    overflow: hidden; /* Hide overflow text */
-    text-overflow: ellipsis; /* Show ellipsis for long text */
-    font-size: var(--font-size-xl); /* Larger, more legible font on mobile */
-  }
-
-  .logoLink {
-    padding: 0; /* Remove any padding from logo link on mobile */
-  }
-
-  :global(.navbar-toggler) {
-    flex-shrink: 0; /* Prevent hamburger from shrinking */
-    /* Strongly enforce right alignment on small screens in case other
-       global styles or third-party CSS change the default flow. */
-    order: 2;
-    /* Absolute-right placement with safe offset; stays on top of content */
-    position: absolute;
-    right: $space-3;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 20; /* Above other navbar content */
-
-    /* Prevent ANY transform changes on hover/active to avoid layout shift */
-    &:hover,
-    &:focus,
-    &:active {
-      transform: translateY(-50%) !important; /* Must preserve centering */
-    }
-  }
-
-  /* Ensure collapse content (nav links, search, actions) stacks below the
-     toggler on small screens so the toggler remains at the right edge. */
-  :global(.navbar-collapse) {
-    order: 3;
-    width: 100%;
-  }
-
-  .navbarBrandWrapper {
-    order: 1;
-  }
-
-  /* Mobile collapse menu styles are in .navbarCollapse class above */
-
-  /* Mobile nav links need full width for easy tapping */
-  .navbar :global(.nav-link),
-  .navbar :global(.dropdown-toggle) {
-    width: 100%;
-    justify-content: flex-start;
-    padding: $space-3 $space-4;
-    margin: 0;
-    border-radius: $radius-md;
-  }
-
-  /* Mobile dropdown menu styling */
-  .navbar :global(.dropdown-menu) {
-    position: static !important;
-    width: 100%;
-    background: var(--color-bg-secondary);
-    border: none;
-    box-shadow: none;
-    margin-top: $space-2;
-    padding-left: $space-4;
-  }
-
-  /* Mobile dropdown items need full width */
-  :global(.dropdown-item) {
-    padding: var(--menu-item-padding-y, #{$menu-item-padding-y})
-             var(--menu-item-padding-x, #{$menu-item-padding-x});
-    border-radius: $radius-md;
-  }
-}
-
-/* Nav link styling with theme colors and padding */
-.navbar :global(.nav-link) {
-  padding: $space-3 $space-4;
-  margin: 0 $space-1;
-  cursor: pointer;
-  @include transition-all(var(--btn-transition));
-  position: relative;
-  color: var(--color-text-primary);
-  opacity: 0.75;
-  font-weight: $font-weight-bold; /* All nav items bold */
-  font-size: var(--font-size-sm); /* Smaller than brand text for visual hierarchy */
-  line-height: 1;
-  /* WCAG 2.1 Level AA minimum touch target - fixed height for alignment */
-  height: var(--btn-height-md);
-  min-height: var(--btn-height-md);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  max-width: 280px;
 
   &:hover,
   &:focus {
-    color: var(--color-text-primary); /* Same color as site title */
-    background: transparent; /* No background change */
-    opacity: 1;
+    color: var(--color-text-primary);
+    text-decoration: none;
   }
 
   &:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+    border-radius: $radius-md;
   }
 
-  /* Better touch feedback on mobile */
-  &:active {
-    background: var(--color-bg-hover);
+  @include breakpoint-max(lg) {
+    font-size: var(--font-size-base);
+    padding: $space-2;
+    max-width: 200px;
   }
 }
 
-/* Active state for nav links - full opacity to show current section */
-/* Separate rule for higher specificity with :global(.active) */
-.navbar :global(.nav-link.active) {
-  opacity: 1 !important;
-  color: var(--color-text-primary) !important;
-}
+/* ── Desktop search ───────────────────────────────────────────── */
 
-/* Dropdown items */
-:global(.dropdown-menu) {
-  border-radius: $radius-md;
-  box-shadow: var(--shadow-md);
-  padding: 0;
-  overflow: hidden;
-  transform-origin: top;
-  will-change: opacity, transform;
-  display: none;
-}
+.desktopSearch {
+  flex: 0 0 auto;
+  width: 300px;
+  min-width: 200px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: $space-3;
+  transition: width $transition-normal ease;
 
-/* Dropdown toggle styling - match nav links, NOT button style */
-.navbar :global(.dropdown-toggle) {
-  padding: $space-3 $space-4;
-  margin: 0 $space-1;
-  cursor: pointer;
-  color: var(--color-text-primary);
-  opacity: 0.75;
-  text-decoration: none !important;
-  border: none;
-  background: transparent;
-  font-weight: $font-weight-bold;
-  font-size: var(--font-size-sm); /* Match nav-links, smaller than brand text */
-  line-height: 1;
-  @include inline-stack($space-2);
-  @include transition-all(var(--btn-transition));
-  /* WCAG 2.1 Level AA minimum touch target - fixed height for alignment */
-  height: var(--btn-height-md);
-  min-height: var(--btn-height-md);
-  display: inline-flex;
-  align-items: center;
-  /* Override global .dropdown-toggle button styles from theme.scss */
-  box-shadow: none !important;
-  border-radius: 0;
-  /* Prevent layout shift - fixed position in layout */
-  position: relative;
-
-  /* Ensure dropdown arrow is properly positioned */
-  &::after {
-    display: inline-block;
-    margin-left: $space-2;
-    vertical-align: middle;
-    content: "";
-    border-top: 0.3em solid;
-    border-right: 0.3em solid transparent;
-    border-bottom: 0;
-    border-left: 0.3em solid transparent;
-    /* Smooth rotation when open */
-    transition: transform 0.2s ease;
+  &:focus-within {
+    width: 400px;
   }
+}
 
-  /* Rotate arrow when open */
-  &[aria-expanded="true"]::after {
+/* ── Chevron (user dropdown arrow) ────────────────────────────── */
+
+.chevron {
+  @include transition-all($transition-fast);
+
+  [data-state="open"] & {
     transform: rotate(180deg);
   }
-
-  &:hover,
-  &:focus,
-  &[aria-expanded="true"] {
-    color: var(--color-text-primary); /* Same color as site title */
-    background: transparent; /* No background change */
-    opacity: 1;
-    /* Override global hover transform from theme.scss */
-    transform: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Use inset outline to prevent layout shift */
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px; /* Inset to prevent layout shift */
-  }
-
-  /* Better touch feedback on mobile */
-  &:active {
-    background: var(--color-bg-hover);
-  }
 }
 
-:global(.dropdown-item) {
-  padding: var(--menu-item-padding-y, #{$menu-item-padding-y})
-           var(--menu-item-padding-x, #{$menu-item-padding-x});
-  cursor: pointer;
-  @include transition-all(var(--btn-transition));
-  font-weight: $font-weight-bold; /* All dropdown items bold */
-  /* WCAG 2.1 Level AA minimum touch target */
-  min-height: var(--menu-item-min-height, #{$menu-item-min-height});
+/* ── Dropdown menu (desktop user menu) ────────────────────────── */
+
+.dropdownMenu {
+  min-width: 200px;
+  border-radius: $radius-lg;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: $space-2;
+  z-index: 1400;
   display: flex;
-  align-items: center;
-
-  /* First item should have rounded top corners */
-  &:first-child {
-    border-top-left-radius: $radius-md;
-    border-top-right-radius: $radius-md;
-  }
-
-  /* Last item should have rounded bottom corners */
-  &:last-child {
-    border-bottom-left-radius: $radius-md;
-    border-bottom-right-radius: $radius-md;
-  }
-
-  &:hover,
-  &:focus {
-    background: transparent; /* No background change */
-    color: var(--color-text-primary); /* Same color as site title */
-    transform: translateY(-2px); /* Slightly raised effect */
-  }
-
-  /* First item hover should maintain top corners, remove bottom corners */
-  &:first-child:hover,
-  &:first-child:focus {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-
-  /* Last item hover should maintain bottom corners, remove top corners */
-  &:last-child:hover,
-  &:last-child:focus {
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-  }
-
-  /* Active state - NO background highlight for previous item */
-  &.active {
-    background: var(--gradient-primary) !important;
-    color: white !important;
-  }
-
-  /* Touch feedback on mobile */
-  &:active {
-    background: var(--color-bg-hover) !important;
-    color: var(--color-text-primary) !important;
-    transform: scale(0.98);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-  }
+  flex-direction: column;
+  gap: $space-1;
 }
 
-/* Dropdown divider styling */
-:global(.dropdown-menu .dropdown-divider) {
-  margin: 0;
-  opacity: 0.2; /* Custom opacity for subtle divider */
-}
-
-/* Dropdown item with icon styling */
 .dropdownItem {
   display: flex !important;
   align-items: center;
   gap: $space-3;
+  padding: $space-2 $space-3;
+  border-radius: $radius-md;
+  font-size: var(--font-size-sm);
+  font-weight: $font-weight-bold;
+  color: var(--color-text-primary) !important;
+  text-decoration: none !important;
+  @include transition-all($transition-fast);
+
+  &:link,
+  &:visited {
+    color: var(--color-text-primary) !important;
+    text-decoration: none !important;
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--color-bg-hover);
+    text-decoration: none !important;
+    color: var(--color-text-primary) !important;
+  }
 
   span {
     flex: 1;
@@ -602,14 +261,12 @@
   @include transition-all($transition-fast);
 }
 
-/* Hover effect for icons */
 .dropdownItem:hover .dropdownIcon,
 .dropdownItem:focus .dropdownIcon {
   opacity: 1;
   color: var(--color-primary);
 }
 
-/* Logout item special styling */
 .dropdownItemLogout {
   &:hover,
   &:focus {
@@ -621,7 +278,13 @@
   }
 }
 
-/* Badge for notification counts (e.g., follower requests) */
+.dropdownDivider {
+  margin: 0;
+  opacity: 0.2;
+}
+
+/* ── Badge ────────────────────────────────────────────────────── */
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -637,142 +300,83 @@
   border-radius: var(--radius-full);
 }
 
-/* Navbar brand */
-:global(.navbar-brand) {
-  display: flex; /* Ensure flex layout */
-  flex-wrap: nowrap; /* Keep logo and text on same line */
-  align-items: baseline; /* Align logo and text to text baseline for pixel-perfect alignment */
-  gap: $space-2; /* Add gap between logo and text */
-  padding: $space-2 $space-4;
-  @include transition-all($transition-normal);
-  color: var(--color-text-primary);
+/* ── Drawer (mobile hamburger panel) ──────────────────────────── */
 
+.drawerBackdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 60px !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+  z-index: 1300 !important;
+}
+
+.drawerPositioner {
+  position: fixed !important;
+  top: 60px !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: auto !important;
+  z-index: 1350 !important;
+}
+
+.drawerContent {
+  background: var(--color-bg-primary) !important;
+  border-bottom: 1px solid var(--color-border-light);
+  border-radius: 0 !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+  max-height: calc(100dvh - 60px);
+  overflow-y: auto;
+}
+
+/* ── Mobile-only items ────────────────────────────────────────── */
+
+.mobileEntityTitle {
+  display: block;
+  width: 100%;
+  padding: $space-3 $space-4;
+  margin-bottom: $space-2;
+  background: var(--color-bg-hover);
+  border: none;
+  border-radius: $radius-md;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-weight: $font-weight-bold;
+  font-family: var(--font-family-base);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  @include transition-all($transition-normal);
+
+  &:hover {
+    background: var(--color-bg-secondary);
+  }
+}
+
+.mobileIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-right: $space-3;
+  opacity: 0.8;
+}
+
+.mobileButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family-base);
+  text-align: left;
+}
+
+.logoutLink {
   &:hover,
   &:focus {
-    color: var(--color-text-primary);
-  }
+    color: var(--color-danger) !important;
 
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-radius: $radius-md;
-  }
-}
-
-/* Custom collapse transitions for mobile menu */
-:global(.navbar-collapse.collapsing) {
-  height: 0;
-  overflow: hidden;
-  transition: height 0.35s ease; /* Custom timing for collapse animation */
-}
-
-/* Desktop only: standard Bootstrap collapse behavior */
-@media (min-width: 992px) {
-  :global(.navbar-collapse.collapse:not(.show)) {
-    display: none;
-  }
-
-  :global(.navbar-collapse.collapse.show) {
-    display: block;
-  }
-}
-
-/* Mobile: handled by .navbarCollapse class above */
-
-/* Mobile: flex display for ordering - applied via breakpoint-specific rules above */
-
-/* ============================================
-   NAVBAR RIGHT SECTION (Search + Actions)
-   Desktop: Search and action buttons inline
-   Mobile: Stacked with centered buttons
-   ============================================ */
-
-/* Navbar search integration */
-.navbarSearch {
-  flex: 0 0 auto; /* Don't grow, don't shrink */
-  width: 300px;
-  min-width: 200px;
-  max-width: 400px;
-  margin-left: auto; /* Push to the right */
-  margin-right: $space-3;
-  transition: width var(--transition-normal) ease;
-
-  /* Expand on focus-within for better usability */
-  &:focus-within {
-    width: 400px;
-  }
-
-  @include breakpoint-max(lg) {
-    flex: 1 1 100%;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: unset;
-    margin: $space-3 0;
-    padding: 0 $space-4;
-    order: 3; /* Search last on mobile (after nav links and actions) */
-    box-sizing: border-box;
-
-    &:focus-within {
-      width: 100%;
+    .mobileIcon {
+      color: var(--color-danger) !important;
     }
-  }
-}
-
-/* Navbar actions container - inline with search on desktop */
-.navbarActions {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  flex-shrink: 0;
-  margin-left: $space-2;
-
-  @include breakpoint-max(lg) {
-    width: auto; /* NOT full width - let buttons size naturally */
-    justify-content: center;
-    margin: $space-2 auto; /* Center the container */
-    order: 2; /* Actions after search on mobile */
-    padding: 0 $space-4;
-
-    /* Mobile: Buttons should NOT stretch to full width */
-    :global(.btn) {
-      flex: 0 0 auto; /* Don't grow or shrink */
-      width: auto;
-      min-width: fit-content;
-      /* Ensure adequate touch target while keeping compact */
-      min-height: var(--btn-height-sm);
-      padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
-    }
-  }
-}
-
-/* Mobile menu toggle button - always visible on dark navbar */
-:global(.navbar-toggler) {
-  border-color: var(--color-border) !important;
-  padding: $space-2;
-  /* WCAG 2.1 Level AA minimum touch target */
-  min-width: var(--btn-height-md);
-  min-height: var(--btn-height-md);
-  @include flex-center;
-  /* Prevent layout shift on transform */
-  transform-origin: center center;
-
-  &:focus {
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.5);
-  }
-
-  /* Better active/touch feedback for mobile - use box-shadow instead of scale to avoid layout shift */
-  &:active {
-    background: var(--color-bg-hover);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
-}
-
-:global(.navbar-toggler-icon) {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(0, 0, 0, 0.55)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-  width: 24px;
-  height: 24px;
-
-  @include dark-mode {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
   }
 }

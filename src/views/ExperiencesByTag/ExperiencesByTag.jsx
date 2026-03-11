@@ -1,6 +1,6 @@
-import styles from "./ExperiencesByTag.module.scss";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Box, Flex } from "@chakra-ui/react";
 import { useData } from "../../contexts/DataContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
@@ -163,14 +163,27 @@ export default function ExperiencesByTag() {
       />
 
       <FadeIn>
-        <Container className={styles.headerContainer}>
+        <Container mb="6">
           {/* Row 1: Title (full width) */}
-          <div className={styles.titleRow}>
-            <h1 className={styles.verticalSpacing}>{lang.current.experiencesByTag.experiencesTagged.replace('{tagName}', displayTagName)}</h1>
-          </div>
+          <Box w="100%" css={{ '@media (max-width: 768px)': { textAlign: 'center' } }}>
+            <Box
+              as="h1"
+              my="6"
+              fontSize="clamp(1.5rem, 4vw, 2rem)"
+              fontWeight="bold"
+              color="fg"
+            >
+              {lang.current.experiencesByTag.experiencesTagged.replace('{tagName}', displayTagName)}
+            </Box>
+          </Box>
           {/* Row 2: Actions (right-aligned) */}
-          <div className={styles.actionsRow}>
-            <div className={styles.actionsRight}>
+          <Flex
+            justify={{ base: "center", md: "flex-end" }}
+            align="center"
+            w="100%"
+            mb="4"
+          >
+            <Flex gap="3" align="center">
               <Button
                 as={Link}
                 to="/experiences"
@@ -180,20 +193,20 @@ export default function ExperiencesByTag() {
               >
                 {lang.current.experiencesByTag.viewAllExperiences}
               </Button>
-            </div>
-          </div>
+            </Flex>
+          </Flex>
         </Container>
       </FadeIn>
 
       {loading ? (
         <FadeIn>
-          <div className={styles.experiencesList}>
+          <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
             <ExperienceCardSkeleton count={ITEMS_PER_PAGE} />
-          </div>
+          </Flex>
         </FadeIn>
       ) : (
         <FadeIn>
-          <div className={styles.experiencesList}>
+          <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
             {displayedExperiences.length > 0 ? (
               displayedExperiences.map((experience, index) => (
                 <FadeIn key={experience?._id || `exp-${index}`} delay={index * 0.1}>
@@ -204,11 +217,11 @@ export default function ExperiencesByTag() {
                       forcePreload={true}
                     />
                   ) : (
-                    <div style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
-                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    <Box w="12rem" h="8rem" display="inline-block" m="0.5rem">
+                      <Box position="relative" w="100%" h="100%">
                         <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </div>
-                    </div>
+                      </Box>
+                    </Box>
                   )}
                 </FadeIn>
               ))
@@ -219,16 +232,16 @@ export default function ExperiencesByTag() {
               >
                 <h5>{lang.current.experiencesByTag.noExperiencesFound.replace('{tagName}', displayTagName)}</h5>
                 <p>{lang.current.experiencesByTag.tryBrowsingAll}</p>
-                <Button as={Link} to="/experiences" variant="gradient" className={styles.topSpacing2}>
+                <Button as={Link} to="/experiences" variant="gradient" mt="2">
                   {lang.current.experiencesByTag.browseAll}
                 </Button>
               </Alert>
             )}
-          </div>
+          </Flex>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <FlexCenter className={styles.paginationWrapper}>
+            <FlexCenter w="100%" mt="6" mb="6" justify="center">
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}

@@ -1,6 +1,18 @@
+/**
+ * NavBar Component — Chakra UI Native
+ *
+ * Migrated from Bootstrap + manual JS collapse/dropdown to Chakra UI v3:
+ * - Box/Flex for layout
+ * - Drawer for mobile hamburger menu
+ * - Menu for user dropdown
+ * - No Bootstrap class dependencies
+ *
+ * Migration: P4.1 — biensperience-dd5f
+ */
+
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import styles from "./NavBar.module.scss";
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useId } from "react";
+import { Box, Flex, Drawer, Portal, Menu } from "@chakra-ui/react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
@@ -13,30 +25,29 @@ import FollowerRequestsModal from "../FollowerRequestsModal";
 import { getFollowRequestCount } from "../../utilities/follows-api";
 import { eventBus } from "../../utilities/event-bus";
 import { lang } from "../../lang.constants";
-import { FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar, FaSignOutAlt, FaUserPlus } from "react-icons/fa";
+import {
+  FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar,
+  FaSignOutAlt, FaUserPlus, FaBars, FaTimes, FaChevronDown
+} from "react-icons/fa";
+import styles from "./NavBar.module.scss";
 
 export default function NavBar() {
-  const collapseRef = useRef(null);
-  const toggleRef = useRef(null);
-  const dropdownButtonRef = useRef(null);
-  const dropdownMenuRef = useRef(null);
-  const navbarRef = useRef(null);
-
+  const drawerId = useId();
   const { logoutUser, getDisplayName, isSuperAdmin: isSuper, user } = useUser();
   const { getExperience, getDestination } = useData();
   const { openExperienceWizard } = useExperienceWizard();
   const { openDestinationWizard } = useDestinationWizard();
+
   const [logoHovered, setLogoHovered] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Follower requests state
   const [showFollowerRequests, setShowFollowerRequests] = useState(false);
   const [followerRequestCount, setFollowerRequestCount] = useState(0);
 
-  // Check if user has private profile
   const hasPrivateProfile = user?.preferences?.profileVisibility === 'private';
 
   const {
-    isScrolled,
     h1Visible,
     h1Text,
     showActionButtons,
@@ -46,112 +57,38 @@ export default function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Collapse durations (match animation timings used elsewhere)
-  const COLLAPSE_DURATION = 350;
-  const DROPDOWN_DURATION = 200;
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
-  // Programmatically close the mobile collapse and/or open dropdowns
-  const closeNavigationMenus = useCallback(() => {
-    const collapseEl = collapseRef.current;
-    const toggleBtn = toggleRef.current;
-    const dropdownButton = dropdownButtonRef.current;
-    const dropdownMenu = dropdownMenuRef.current;
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
-    // Close collapse if open
-    try {
-      if (toggleBtn && collapseEl && toggleBtn.getAttribute('aria-expanded') === 'true') {
-        // Perform same close animation as toggle handler
-        collapseEl.style.height = collapseEl.scrollHeight + 'px';
-        collapseEl.classList.remove('collapse', 'show');
-        collapseEl.classList.add('collapsing');
-
-        // Force reflow
-        void collapseEl.offsetHeight;
-
-        collapseEl.style.height = '0';
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.classList.add('collapsed');
-
-        setTimeout(() => {
-          collapseEl.classList.remove('collapsing');
-          collapseEl.classList.add('collapse');
-          collapseEl.style.height = '';
-        }, COLLAPSE_DURATION);
-      }
-    } catch (err) {
-      // swallow - best-effort
-    }
-
-    // Close dropdown if open
-    try {
-      if (dropdownButton && dropdownMenu && dropdownButton.getAttribute('aria-expanded') === 'true') {
-        dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
-        dropdownMenu.style.opacity = '0';
-        dropdownMenu.style.transform = 'translateY(-10px)';
-
-        setTimeout(() => {
-          dropdownMenu.style.display = 'none';
-          dropdownButton.setAttribute('aria-expanded', 'false');
-        }, DROPDOWN_DURATION);
-      }
-    } catch (err) {
-      // swallow
-    }
-  }, []);
-
-  // Helper to handle nav link clicks: close menus in background (navigation handled by NavLink)
-  const handleNavAction = useCallback((e, { callback }) => {
-    // Run callback if provided
-    try {
-      if (typeof callback === 'function') callback();
-    } catch (err) {
-      // swallow
-    }
-
-    // Close menus in background (don't block navigation)
-    closeNavigationMenus();
-  }, [closeNavigationMenus]);
-
-  // Check if brand text is showing the h1 element (not "Biensperience")
   const isShowingH1 = !h1Visible && h1Text && showH1InNavbar;
 
-  // Handle brand text click - scroll to top if showing h1, navigate home otherwise
   const handleBrandClick = useCallback(() => {
     if (isShowingH1) {
-      // Scroll to top of page smoothly
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // Navigate to home
       navigate('/');
     }
   }, [isShowingH1, navigate]);
 
-  // Determine brand text based on current route and context
   const getBrandText = () => {
-    // Check if we're on an update route
     const path = location.pathname;
-    
     if (path.includes('/update')) {
       if (path.startsWith('/experiences/') && path.endsWith('/update')) {
-        // Extract experience ID from path
         const experienceId = path.split('/')[2];
         const experience = getExperience(experienceId);
-        if (experience) {
-          return `Update: ${experience.name}`;
-        }
+        if (experience) return `Update: ${experience.name}`;
       } else if (path.startsWith('/destinations/') && path.endsWith('/update')) {
-        // Extract destination ID from path
         const destinationId = path.split('/')[2];
         const destination = getDestination(destinationId);
-        if (destination) {
-          return `Update: ${destination.name}`;
-        }
+        if (destination) return `Update: ${destination.name}`;
       } else if (path === '/profile/update') {
         return `Update: ${user?.name || 'Profile'}`;
       }
     }
-    
-    // Default logic: show h1 text when scrolled past h1, otherwise show Biensperience
     return (!h1Visible && h1Text && showH1InNavbar) ? h1Text : 'Biensperience';
   };
 
@@ -159,7 +96,6 @@ export default function NavBar() {
     logoutUser();
   }
 
-  // Handler for modal count updates
   const handleRequestCountChange = useCallback((count) => {
     setFollowerRequestCount(count);
   }, []);
@@ -170,19 +106,16 @@ export default function NavBar() {
       setFollowerRequestCount(0);
       return;
     }
-
     const fetchCount = async () => {
       try {
         const count = await getFollowRequestCount();
         setFollowerRequestCount(count);
       } catch (err) {
-        // Silent fail - count badge just won't show
+        // Silent fail
       }
     };
-
     fetchCount();
 
-    // Subscribe to follow request events
     const handleNewRequest = () => fetchCount();
     const handleRequestAccepted = () => setFollowerRequestCount(prev => Math.max(0, prev - 1));
     const handleRequestRejected = () => setFollowerRequestCount(prev => Math.max(0, prev - 1));
@@ -190,398 +123,445 @@ export default function NavBar() {
     const unsub1 = eventBus.subscribe('follow:request:created', handleNewRequest);
     const unsub2 = eventBus.subscribe('follow:request:accepted', handleRequestAccepted);
     const unsub3 = eventBus.subscribe('follow:request:rejected', handleRequestRejected);
-
-    return () => {
-      unsub1();
-      unsub2();
-      unsub3();
-    };
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [user, hasPrivateProfile]);
 
-  useEffect(() => {
-    const collapseEl = collapseRef.current;
-    const toggleBtn = toggleRef.current;
-    const dropdownButton = dropdownButtonRef.current;
-    const dropdownMenu = dropdownMenuRef.current;
+  const isRouteActive = (prefix) => location.pathname.startsWith(prefix);
 
-    if (!collapseEl || !toggleBtn) return;
+  /* ── Render: desktop nav links ───────────────────────────────── */
 
-    // Custom toggle handler for mobile collapse
-    const handleToggle = (e) => {
-      e.preventDefault();
-
-      const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-
-      if (isExpanded) {
-        // Close the menu
-        collapseEl.style.height = collapseEl.scrollHeight + 'px';
-        collapseEl.classList.remove('collapse', 'show');
-        collapseEl.classList.add('collapsing');
-
-        // Force reflow to trigger transition
-        void collapseEl.offsetHeight;
-
-        collapseEl.style.height = '0';
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.classList.add('collapsed');
-
-        setTimeout(() => {
-          collapseEl.classList.remove('collapsing');
-          collapseEl.classList.add('collapse');
-          collapseEl.style.height = '';
-        }, 350);
-      } else {
-        // Open the menu
-        // First, remove the collapse class to make element visible for measurement
-        collapseEl.classList.remove('collapse');
-        collapseEl.classList.add('collapsing');
-        collapseEl.style.height = '0';
-        collapseEl.style.display = 'flex'; // Ensure visible for measurement
-
-        // Force reflow to ensure element is rendered
-        void collapseEl.offsetHeight;
-
-        // Now measure the actual content height
-        const height = collapseEl.scrollHeight;
-        collapseEl.style.height = height + 'px';
-        toggleBtn.setAttribute('aria-expanded', 'true');
-        toggleBtn.classList.remove('collapsed');
-
-        setTimeout(() => {
-          collapseEl.classList.remove('collapsing');
-          collapseEl.classList.add('collapse', 'show');
-          collapseEl.style.height = '';
-          collapseEl.style.display = ''; // Let CSS handle display
-        }, 350);
-      }
-    };
-
-    toggleBtn.addEventListener('click', handleToggle);
-
-    // Custom dropdown toggle handler with smooth animations
-    const handleDropdownToggle = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (!dropdownMenu || !dropdownButton) return;
-
-      const isCurrentlyOpen = dropdownButton.getAttribute('aria-expanded') === 'true';
-
-      if (isCurrentlyOpen) {
-        // Close dropdown with ease-out animation
-        dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
-        dropdownMenu.style.opacity = '0';
-        dropdownMenu.style.transform = 'translateY(-10px)';
-
-        setTimeout(() => {
-          dropdownMenu.style.display = 'none';
-          dropdownButton.setAttribute('aria-expanded', 'false');
-        }, 200);
-      } else {
-        // Open dropdown with ease-in animation
-        dropdownMenu.style.display = 'block';
-        dropdownMenu.style.opacity = '0';
-        dropdownMenu.style.transform = 'translateY(-10px)';
-        dropdownMenu.style.transition = 'opacity 0.3s ease-in, transform 0.3s ease-in';
-
-        // Force reflow
-        void dropdownMenu.offsetHeight;
-
-        requestAnimationFrame(() => {
-          dropdownMenu.style.opacity = '1';
-          dropdownMenu.style.transform = 'translateY(0)';
-          dropdownButton.setAttribute('aria-expanded', 'true');
-        });
-      }
-    };
-
-    // Close dropdown when clicking outside
-    const handleClickOutside = (e) => {
-      if (!dropdownMenu || !dropdownButton) return;
-
-      if (!dropdownMenu.contains(e.target) && !dropdownButton.contains(e.target)) {
-        const isCurrentlyOpen = dropdownButton.getAttribute('aria-expanded') === 'true';
-
-        if (isCurrentlyOpen) {
-          dropdownMenu.style.transition = 'opacity 0.2s ease-out, transform 0.2s ease-out';
-          dropdownMenu.style.opacity = '0';
-          dropdownMenu.style.transform = 'translateY(-10px)';
-
-          setTimeout(() => {
-            dropdownMenu.style.display = 'none';
-            dropdownButton.setAttribute('aria-expanded', 'false');
-          }, 200);
-        }
-      }
-    };
-
-    // Attach dropdown event listeners
-    if (dropdownButton) {
-      dropdownButton.addEventListener('click', handleDropdownToggle);
-    }
-
-    document.addEventListener('click', handleClickOutside);
-
-    return () => {
-      toggleBtn.removeEventListener('click', handleToggle);
-
-      if (dropdownButton) {
-        dropdownButton.removeEventListener('click', handleDropdownToggle);
-      }
-
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, []);
-
-  return (
-    <nav
-      ref={navbarRef}
-      className={`${styles.navbar} navbar navbar-expand-lg ${styles.sticky}`}
-      role="navigation"
-      aria-label={lang.current.aria.mainNavigation}
-    >
-      <div className={styles.navbarContainer}>
-        <div className={styles.navbarBrandWrapper}>
-          {/* Logo - navigates to home */}
-          <NavLink
-            className={styles.logoLink}
-            to="/"
-            role="button"
-            aria-label={lang.current.aria.biensperienceHome}
-            title="Biensperience"
-            onMouseEnter={() => setLogoHovered(true)}
-            onMouseLeave={() => setLogoHovered(false)}
-          >
-            <BiensperienceLogo
-              type={logoHovered ? "engine" : "clean"}
-              width={36}
-              height={36}
-              className={styles.logo}
-              aria-hidden="true"
-            />
-          </NavLink>
-          {/* Brand text - scrolls to top when showing h1, navigates home otherwise */}
-          {/* Desktop: shows entity name when scrolled. Mobile: always shows "Biensperience" */}
-          <button
-            type="button"
-            className={`${styles.brandText} ${styles.brandTextButton}`}
-            onClick={handleBrandClick}
-            aria-label={isShowingH1 ? lang.current.aria.scrollToTop : lang.current.aria.biensperienceHome}
-          >
-            <span className={styles.brandTextDesktop}>{getBrandText()}</span>
-            <span className={styles.brandTextMobile}>Biensperience</span>
-          </button>
-        </div>
-
-        <button
-          ref={toggleRef}
-          className="navbar-toggler collapsed"
-          type="button"
-          aria-controls="navbarText"
-          aria-expanded="false"
-          aria-label={lang.current.aria.toggleNavigationMenu}
+  const renderDesktopNavLinks = () => (
+    <ul className={styles.navList}>
+      <li>
+        <NavLink
+          to="/destinations"
+          className={`${styles.navLink} ${isRouteActive('/destinations') ? styles.navLinkActive : ''}`}
+          aria-label={lang.current.aria.browseDestinations}
         >
-          <span className="navbar-toggler-icon"></span>
-        </button>
+          Destinations
+        </NavLink>
+      </li>
+      <li>
+        <NavLink
+          to="/experiences"
+          className={`${styles.navLink} ${isRouteActive('/experiences') ? styles.navLinkActive : ''}`}
+          aria-label={lang.current.aria.browseExperiences}
+        >
+          Experiences
+        </NavLink>
+      </li>
+      <li>
+        <NavLink
+          to="/dashboard"
+          className={styles.navLink}
+          aria-label={lang.current.aria.viewDashboard}
+        >
+          Dashboard
+        </NavLink>
+      </li>
 
-        <div ref={collapseRef} className={`collapse navbar-collapse ${styles.navbarCollapse}`} id="navbarText">
-          {/* Mobile-only: Entity title shown in hamburger menu when scrolled past h1 */}
-          {isShowingH1 && (
+      {/* User dropdown */}
+      <li>
+        <Menu.Root positioning={{ placement: 'bottom-end', strategy: 'fixed' }}>
+          <Menu.Trigger asChild>
             <button
               type="button"
-              className={styles.mobileEntityTitle}
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                closeNavigationMenus();
-              }}
-              aria-label={lang.current.aria.scrollToTop}
+              className={styles.navLink}
+              aria-haspopup="true"
+              aria-label={lang.current.aria.userMenuFor.replace('{name}', getDisplayName())}
             >
-              {h1Text}
+              {getDisplayName()}
+              <FaChevronDown
+                size={10}
+                className={styles.chevron}
+              />
             </button>
+          </Menu.Trigger>
+          <Portal>
+            <Menu.Positioner>
+              <Menu.Content className={styles.dropdownMenu}>
+                {renderDropdownItems(false)}
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal>
+        </Menu.Root>
+      </li>
+    </ul>
+  );
+
+  /* ── Render: dropdown items (desktop only) ────────────────── */
+
+  const renderDropdownItems = (isMobile) => {
+    const closeMenu = isMobile ? closeMobile : () => {};
+    return (
+      <>
+        <Menu.Item value="profile" asChild className={styles.dropdownItem}>
+          <NavLink to="/profile" onClick={closeMenu} aria-label={lang.current.aria.viewYourProfile}>
+            <FaUser className={styles.dropdownIcon} />
+            <span>Profile</span>
+          </NavLink>
+        </Menu.Item>
+        <Menu.Item value="invites" asChild className={styles.dropdownItem}>
+          <NavLink to="/invites" onClick={closeMenu} aria-label={lang.current.aria.trackYourInviteCodes}>
+            <FaTicketAlt className={styles.dropdownIcon} />
+            <span>Invites</span>
+          </NavLink>
+        </Menu.Item>
+        {hasPrivateProfile && (
+          <Menu.Item
+            value="follower-requests"
+            className={styles.dropdownItem}
+            onClick={() => { closeMenu(); setShowFollowerRequests(true); }}
+            aria-label="View follower requests"
+          >
+            <FaUserPlus className={styles.dropdownIcon} />
+            <span>Follower Requests</span>
+            {followerRequestCount > 0 && (
+              <span className={styles.badge} aria-label={`${followerRequestCount} pending`}>
+                {followerRequestCount}
+              </span>
+            )}
+          </Menu.Item>
+        )}
+        {isSuper() && (
+          <Menu.Item value="admin-users" asChild className={styles.dropdownItem}>
+            <NavLink to="/admin/users" onClick={closeMenu} aria-label={lang.current.aria.adminPanelManageUsers}>
+              <FaUsers className={styles.dropdownIcon} />
+              <span>All Users</span>
+            </NavLink>
+          </Menu.Item>
+        )}
+        <Menu.Item
+          value="new-destination"
+          className={styles.dropdownItem}
+          onClick={() => { closeMenu(); openDestinationWizard(); }}
+          aria-label={lang.current.aria.createNewDestination}
+        >
+          <FaMapMarkerAlt className={styles.dropdownIcon} />
+          <span>New Destination</span>
+        </Menu.Item>
+        <Menu.Item
+          value="new-experience"
+          className={styles.dropdownItem}
+          onClick={() => { closeMenu(); openExperienceWizard(); }}
+          aria-label={lang.current.aria.createNewExperience}
+        >
+          <FaStar className={styles.dropdownIcon} />
+          <span>New Experience</span>
+        </Menu.Item>
+        <Menu.Separator className={styles.dropdownDivider} />
+        <Menu.Item
+          value="logout"
+          asChild
+          className={`${styles.dropdownItem} ${styles.dropdownItemLogout}`}
+        >
+          <NavLink
+            to="/logout"
+            onClick={(e) => { closeMenu(); handleLogOut(); }}
+            aria-label={lang.current.aria.logOutOfAccount}
+          >
+            <FaSignOutAlt className={styles.dropdownIcon} />
+            <span>Logout</span>
+          </NavLink>
+        </Menu.Item>
+      </>
+    );
+  };
+
+  /* ── Render: mobile nav within Drawer ─────────────────────── */
+
+  const renderMobileNavContent = () => (
+    <Flex direction="column" gap="1" py="2">
+      {/* Entity title when scrolled past h1 */}
+      {isShowingH1 && (
+        <Box
+          as="button"
+          type="button"
+          className={styles.mobileEntityTitle}
+          onClick={() => {
+            closeMobile();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          aria-label={lang.current.aria.scrollToTop}
+        >
+          {h1Text}
+        </Box>
+      )}
+
+      {/* Nav links */}
+      <NavLink
+        to="/destinations"
+        onClick={closeMobile}
+        className={`${styles.mobileNavLink} ${isRouteActive('/destinations') ? styles.mobileNavLinkActive : ''}`}
+        aria-label={lang.current.aria.browseDestinations}
+      >
+        Destinations
+      </NavLink>
+      <NavLink
+        to="/experiences"
+        onClick={closeMobile}
+        className={`${styles.mobileNavLink} ${isRouteActive('/experiences') ? styles.mobileNavLinkActive : ''}`}
+        aria-label={lang.current.aria.browseExperiences}
+      >
+        Experiences
+      </NavLink>
+      <NavLink
+        to="/dashboard"
+        onClick={closeMobile}
+        className={styles.mobileNavLink}
+        aria-label={lang.current.aria.viewDashboard}
+      >
+        Dashboard
+      </NavLink>
+
+      <Box h="1px" bg="border" mx="4" my="2" />
+
+      {/* User menu items (flat on mobile — no dropdown nesting) */}
+      <NavLink
+        to="/profile"
+        onClick={closeMobile}
+        className={styles.mobileNavLink}
+        aria-label={lang.current.aria.viewYourProfile}
+      >
+        <FaUser className={styles.mobileIcon} />
+        Profile
+      </NavLink>
+      <NavLink
+        to="/invites"
+        onClick={closeMobile}
+        className={styles.mobileNavLink}
+        aria-label={lang.current.aria.trackYourInviteCodes}
+      >
+        <FaTicketAlt className={styles.mobileIcon} />
+        Invites
+      </NavLink>
+      {hasPrivateProfile && (
+        <button
+          type="button"
+          onClick={() => { closeMobile(); setShowFollowerRequests(true); }}
+          className={`${styles.mobileNavLink} ${styles.mobileButton}`}
+          aria-label="View follower requests"
+        >
+          <FaUserPlus className={styles.mobileIcon} />
+          Follower Requests
+          {followerRequestCount > 0 && (
+            <span className={styles.badge} aria-label={`${followerRequestCount} pending`}>
+              {followerRequestCount}
+            </span>
           )}
-          <ul className={`navbar-nav ${styles.navList}`} role="menubar">
-            <li className="nav-item" role="none">
-              <NavLink
-                to="/destinations"
-                onClick={(e) => handleNavAction(e, {})}
-                className={({ isActive }) => {
-                  // Active if on /destinations or any /destinations/* route
-                  const isDestinationsRoute = location.pathname.startsWith('/destinations');
-                  return `nav-link ${isDestinationsRoute ? 'active' : ''}`;
-                }}
-                role="menuitem"
-                aria-label={lang.current.aria.browseDestinations}
-              >
-                Destinations
-              </NavLink>
-            </li>
-            <li className="nav-item" role="none">
-              <NavLink
-                to="/experiences"
-                onClick={(e) => handleNavAction(e, {})}
-                className={({ isActive }) => {
-                  // Active if on /experiences or any /experiences/* route
-                  const isExperiencesRoute = location.pathname.startsWith('/experiences');
-                  return `nav-link ${isExperiencesRoute ? 'active' : ''}`;
-                }}
-                role="menuitem"
-                aria-label={lang.current.aria.browseExperiences}
-              >
-                Experiences
-              </NavLink>
-            </li>
-            <li className="nav-item" role="none">
-              <NavLink
-                to="/dashboard"
-                onClick={(e) => handleNavAction(e, {})}
-                className="nav-link"
-                role="menuitem"
-                aria-label={lang.current.aria.viewDashboard}
-              >
-                Dashboard
-              </NavLink>
-            </li>
-            <li className="nav-item dropdown" role="none">
-              <button
-                ref={dropdownButtonRef}
-                className="nav-link dropdown-toggle"
-                type="button"
-                aria-expanded="false"
-                aria-haspopup="true"
-                aria-label={lang.current.aria.userMenuFor.replace('{name}', getDisplayName())}
-              >
-                {getDisplayName()}
-              </button>
-              <ul
-                ref={dropdownMenuRef}
-                className="dropdown-menu"
-                role="menu"
-                aria-label={lang.current.aria.userAccountOptions}
-              >
-                <li role="none">
-                    <NavLink
-                      to="/profile"
-                      onClick={(e) => handleNavAction(e, {})}
-                      className={`dropdown-item ${styles.dropdownItem}`}
-                      role="menuitem"
-                      aria-label={lang.current.aria.viewYourProfile}
-                    >
-                      <FaUser className={styles.dropdownIcon} />
-                      <span>Profile</span>
-                    </NavLink>
-                </li>
-                <li role="none">
-                  <NavLink
-                    to="/invites"
-                    onClick={(e) => handleNavAction(e, {})}
-                    className={`dropdown-item ${styles.dropdownItem}`}
-                    role="menuitem"
-                    aria-label={lang.current.aria.trackYourInviteCodes}
-                  >
-                    <FaTicketAlt className={styles.dropdownIcon} />
-                    <span>Invites</span>
-                  </NavLink>
-                </li>
-                {hasPrivateProfile && (
-                  <li role="none">
-                    <button
-                      type="button"
-                      onClick={(e) => handleNavAction(e, { callback: () => setShowFollowerRequests(true) })}
-                      className={`dropdown-item ${styles.dropdownItem}`}
-                      role="menuitem"
-                      aria-label="View follower requests"
-                    >
-                      <FaUserPlus className={styles.dropdownIcon} />
-                      <span>Follower Requests</span>
-                      {followerRequestCount > 0 && (
-                        <span className={styles.badge} aria-label={`${followerRequestCount} pending`}>
-                          {followerRequestCount}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                )}
-                {isSuper() && (
-                  <li role="none">
-                    <NavLink
-                      to="/admin/users"
-                      onClick={(e) => handleNavAction(e, {})}
-                      className={`dropdown-item ${styles.dropdownItem}`}
-                      role="menuitem"
-                      aria-label={lang.current.aria.adminPanelManageUsers}
-                    >
-                      <FaUsers className={styles.dropdownIcon} />
-                      <span>All Users</span>
-                    </NavLink>
-                  </li>
-                )}
-                <li role="none">
-                    <button
-                      type="button"
-                      className={`dropdown-item ${styles.dropdownItem}`}
-                      role="menuitem"
-                      aria-label={lang.current.aria.createNewDestination}
-                      onClick={(e) => handleNavAction(e, { callback: () => openDestinationWizard() })}
-                    >
-                      <FaMapMarkerAlt className={styles.dropdownIcon} />
-                      <span>New Destination</span>
-                    </button>
-                </li>
-                <li role="none">
-                    <button
-                      type="button"
-                      className={`dropdown-item ${styles.dropdownItem}`}
-                      role="menuitem"
-                      aria-label={lang.current.aria.createNewExperience}
-                      onClick={(e) => handleNavAction(e, { callback: () => openExperienceWizard() })}
-                    >
-                      <FaStar className={styles.dropdownIcon} />
-                      <span>New Experience</span>
-                    </button>
-                </li>
-                <li role="none">
-                  <hr className="dropdown-divider" aria-hidden="true" />
-                </li>
-                <li role="none">
-                  <NavLink
-                    to="/logout"
-                    onClick={(e) => handleNavAction(e, { callback: handleLogOut })}
-                    className={`dropdown-item ${styles.dropdownItem} ${styles.dropdownItemLogout}`}
-                    role="menuitem"
-                    aria-label={lang.current.aria.logOutOfAccount}
-                  >
-                    <FaSignOutAlt className={styles.dropdownIcon} />
-                    <span>Logout</span>
-                  </NavLink>
-                </li>
-              </ul>
-            </li>
-          </ul>
+        </button>
+      )}
+      {isSuper() && (
+        <NavLink
+          to="/admin/users"
+          onClick={closeMobile}
+          className={styles.mobileNavLink}
+          aria-label={lang.current.aria.adminPanelManageUsers}
+        >
+          <FaUsers className={styles.mobileIcon} />
+          All Users
+        </NavLink>
+      )}
+      <button
+        type="button"
+        onClick={() => { closeMobile(); openDestinationWizard(); }}
+        className={`${styles.mobileNavLink} ${styles.mobileButton}`}
+        aria-label={lang.current.aria.createNewDestination}
+      >
+        <FaMapMarkerAlt className={styles.mobileIcon} />
+        New Destination
+      </button>
+      <button
+        type="button"
+        onClick={() => { closeMobile(); openExperienceWizard(); }}
+        className={`${styles.mobileNavLink} ${styles.mobileButton}`}
+        aria-label={lang.current.aria.createNewExperience}
+      >
+        <FaStar className={styles.mobileIcon} />
+        New Experience
+      </button>
 
-          {/* Search Bar */}
-          <div className={styles.navbarSearch}>
-            <SearchBar
-              placeholder={lang.current.placeholder.search}
-              className="navbar-search-input"
-              onResultSelect={closeNavigationMenus}
-            />
-          </div>
+      <Box h="1px" bg="border" mx="4" my="2" />
 
-          {/* Dynamic Action Buttons - shown when scrolled past h1 */}
-          {showActionButtons && actionButtons.length > 0 && (
-            <div className={`${styles.navbarActions} animation-fade-in`}>
-              <ActionButtons buttons={actionButtons} compact={true} />
-            </div>
-          )}
-        </div>
-      </div>
+      <NavLink
+        to="/logout"
+        onClick={(e) => { closeMobile(); handleLogOut(); }}
+        className={`${styles.mobileNavLink} ${styles.logoutLink}`}
+        aria-label={lang.current.aria.logOutOfAccount}
+      >
+        <FaSignOutAlt className={styles.mobileIcon} />
+        Logout
+      </NavLink>
 
-      {/* Follower Requests Modal */}
+      {/* Search */}
+      <Box px="4" py="3" w="full">
+        <SearchBar
+          placeholder={lang.current.placeholder.search}
+          onResultSelect={closeMobile}
+        />
+      </Box>
+
+      {/* Dynamic action buttons */}
+      {showActionButtons && actionButtons.length > 0 && (
+        <Flex justify="center" px="4" py="2" className="animation-fade-in">
+          <ActionButtons buttons={actionButtons} compact={true} />
+        </Flex>
+      )}
+    </Flex>
+  );
+
+  /* ── Main render ─────────────────────────────────────────────── */
+
+  return (
+    <>
+      <Box
+        as="nav"
+        role="navigation"
+        aria-label={lang.current.aria.mainNavigation}
+        position="fixed"
+        top="0"
+        left="0"
+        right="0"
+        zIndex="sticky"
+        bg="bg"
+        borderBottom="1px solid"
+        borderColor={{ base: 'transparent', lg: 'border' }}
+        boxShadow="0 2px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)"
+        minH="60px"
+        h="60px"
+        transition="box-shadow 0.25s cubic-bezier(0.4,0,0.2,1)"
+        css={{ willChange: 'transform, opacity', contain: 'layout style' }}
+      >
+        <Flex align="center" h="full" w="full" px="3" mx="auto">
+          {/* ─── Brand ─── */}
+          <Flex
+            align="center"
+            h="full"
+            gap={{ base: '0', lg: '1' }}
+            flexShrink={0}
+            css={{
+              '@media (max-width: 991.98px)': {
+                flex: '1 1 auto',
+                justifyContent: 'center',
+              },
+            }}
+          >
+            <NavLink
+              to="/"
+              aria-label={lang.current.aria.biensperienceHome}
+              title="Biensperience"
+              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', height: '100%' }}
+              onMouseEnter={() => setLogoHovered(true)}
+              onMouseLeave={() => setLogoHovered(false)}
+            >
+              <BiensperienceLogo
+                type={logoHovered ? "engine" : "clean"}
+                width={36}
+                height={36}
+                className={styles.logo}
+                aria-hidden="true"
+              />
+            </NavLink>
+
+            <Box
+              as="button"
+              type="button"
+              onClick={handleBrandClick}
+              aria-label={isShowingH1 ? lang.current.aria.scrollToTop : lang.current.aria.biensperienceHome}
+              className={styles.brandButton}
+            >
+              <Box as="span" display={{ base: 'none', lg: 'inline' }}>{getBrandText()}</Box>
+              <Box as="span" display={{ base: 'inline', lg: 'none' }}>Biensperience</Box>
+            </Box>
+          </Flex>
+
+          {/* ─── Desktop nav ─── */}
+          <Flex
+            display={{ base: 'none', lg: 'flex' }}
+            align="baseline"
+            h="full"
+            flex="1"
+          >
+            {renderDesktopNavLinks()}
+
+            {/* Search */}
+            <Box className={styles.desktopSearch}>
+              <SearchBar
+                placeholder={lang.current.placeholder.search}
+                onResultSelect={() => {}}
+              />
+            </Box>
+
+            {/* Action buttons */}
+            {showActionButtons && actionButtons.length > 0 && (
+              <Flex align="center" gap="2" flexShrink={0} ml="2" className="animation-fade-in">
+                <ActionButtons buttons={actionButtons} compact={true} />
+              </Flex>
+            )}
+          </Flex>
+
+          {/* ─── Mobile hamburger ─── */}
+          <Box
+            as="button"
+            type="button"
+            display={{ base: 'flex', lg: 'none' }}
+            alignItems="center"
+            justifyContent="center"
+            position="absolute"
+            right="3"
+            top="50%"
+            transform="translateY(-50%)"
+            zIndex="20"
+            border="1px solid"
+            borderColor="border"
+            borderRadius="md"
+            bg="transparent"
+            p="2"
+            minW="var(--btn-height-md)"
+            minH="var(--btn-height-md)"
+            cursor="pointer"
+            aria-label={lang.current.aria.toggleNavigationMenu}
+            aria-expanded={mobileOpen}
+            aria-controls={drawerId}
+            onClick={() => setMobileOpen(prev => !prev)}
+            css={{
+              '&:focus': { boxShadow: '0 0 0 0.2rem rgba(102,126,234,0.5)' },
+              '&:active': { background: 'var(--color-bg-hover)' },
+              '&:hover, &:active': { transform: 'translateY(-50%) !important' },
+            }}
+          >
+            {mobileOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+          </Box>
+        </Flex>
+      </Box>
+
+      {/* ─── Mobile Drawer ─── */}
+      <Drawer.Root
+        open={mobileOpen}
+        onOpenChange={(e) => setMobileOpen(e.open)}
+        placement="bottom"
+      >
+        <Portal>
+          <Drawer.Backdrop className={styles.drawerBackdrop} />
+          <Drawer.Positioner className={styles.drawerPositioner}>
+            <Drawer.Content
+              id={drawerId}
+              className={styles.drawerContent}
+            >
+              <Drawer.Body p="0">
+                {renderMobileNavContent()}
+              </Drawer.Body>
+            </Drawer.Content>
+          </Drawer.Positioner>
+        </Portal>
+      </Drawer.Root>
+
+      {/* ─── Follower Requests Modal ─── */}
       <FollowerRequestsModal
         show={showFollowerRequests}
         onClose={() => setShowFollowerRequests(false)}
         onRequestCountChange={handleRequestCountChange}
       />
-    </nav>
+    </>
   );
 }

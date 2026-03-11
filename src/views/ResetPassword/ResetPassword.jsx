@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Box, Flex, Text } from '@chakra-ui/react';
 import { resetPassword } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
 import FormField from '../../components/FormField/FormField';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Alert } from '../../components/design-system';
-import styles from './ResetPassword.module.scss';
 
 export default function ResetPassword() {
   const { token } = useParams();
@@ -76,27 +76,60 @@ export default function ResetPassword() {
         keywords={pageStrings.pageKeywords}
       />
 
-      <div className={styles.resetPasswordWrapper}>
-        <div className={`${styles.resetPasswordCard} card`}>
-          <div className="card-body">
-                <h1 className={`${styles.mb4} ${styles.textCenter}`}>{pageStrings.heading}</h1>
+      <Flex
+        bg="bg"
+        minH="100vh"
+        w="100%"
+        align={{ base: "flex-start", sm: "center" }}
+        justify="center"
+        px={3}
+        pt={{ base: 2, sm: 4 }}
+        pb={4}
+        boxSizing="border-box"
+        overflowX="hidden"
+        overflowY="auto"
+      >
+        <Box
+          bg="bg"
+          border="1px solid"
+          borderColor="border.light"
+          borderRadius={{ base: "xl", sm: "2xl" }}
+          boxShadow="2xl"
+          w="100%"
+          maxW={{ base: "100%", sm: "480px", md: "520px" }}
+          mt={{ base: 4, sm: 0 }}
+          boxSizing="border-box"
+        >
+          <Box p={{ base: 4, sm: 8 }}>
+                <Text
+                  as="h1"
+                  fontSize={{ base: "2xl", sm: "3xl" }}
+                  fontWeight="semibold"
+                  color="brand.solid"
+                  textAlign="center"
+                  mb={4}
+                >
+                  {pageStrings.heading}
+                </Text>
 
                 {success ? (
                   <Alert type="success">
-                    <h5 className="alert-heading">{pageStrings.success}</h5>
-                    <p className={styles.mb0}>
+                    <Text as="h5" fontWeight="semibold">{pageStrings.success}</Text>
+                    <Text as="p" mb={0}>
                       {pageStrings.successMessage}
-                    </p>
+                    </Text>
                   </Alert>
                 ) : (
                   <form onSubmit={handleSubmit}>
                     {error && (
-                      <Alert type="danger" message={error} className={styles.mb4} />
+                      <Box mb={4}>
+                        <Alert type="danger" message={error} />
+                      </Box>
                     )}
 
-                    <p className={`${styles.textMuted} ${styles.mb4}`}>
+                    <Text color="fg.muted" mb={4}>
                       {pageStrings.instruction}
-                    </p>
+                    </Text>
 
                     <FormField
                       name="password"
@@ -128,22 +161,39 @@ export default function ResetPassword() {
                       type="submit"
                       variant="primary"
                       size="lg"
-                      className={`${styles.fullWidth} ${styles.mt4}`}
                       disabled={loading || !formData.password || !formData.confirmPassword}
+                      css={{
+                        width: "100%",
+                        marginTop: "var(--spacing-4)",
+                        background: "var(--colors-gradients-primary)",
+                        border: "none",
+                        transition: "transform 0.2s, box-shadow 0.2s",
+                        "&:hover:not(:disabled)": {
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 6px 12px rgba(102, 126, 234, 0.4)",
+                        },
+                        "&:disabled": { opacity: 0.6, cursor: "not-allowed" },
+                      }}
                     >
                       {loading ? lang.current.alert.resettingPassword : lang.current.button.resetPassword}
                     </Button>
 
-                    <div className={`${styles.mt4} ${styles.textCenter}`}>
-                      <Link to="/login" className={styles.textMuted}>
+                    <Box mt={4} textAlign="center">
+                      <Box
+                        as={Link}
+                        to="/login"
+                        color="fg.muted"
+                        textDecoration="none"
+                        _hover={{ color: "brand.fg", textDecoration: "underline" }}
+                      >
                         {lang.current.button.backToLogin}
-                      </Link>
-                    </div>
+                      </Box>
+                    </Box>
                   </form>
                 )}
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Flex>
     </>
   );
 }

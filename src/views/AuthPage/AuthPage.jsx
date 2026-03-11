@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useLocation } from "react-router-dom"
 import { useUser } from "../../contexts/UserContext"
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph"
+import { Box } from "@chakra-ui/react"
 
 export default function AuthPage() {
     const [signup, setSignup] = useState(false)
@@ -19,7 +20,7 @@ export default function AuthPage() {
     }, [location.pathname]);
 
     return (
-        <>
+        <Box>
             <PageOpenGraph
                 title={signup ? "Sign Up for Biensperience" : "Login to Biensperience"}
                 description={signup
@@ -34,6 +35,6 @@ export default function AuthPage() {
                 :
                 <LoginForm setUser={updateUser} />
             }
-        </>
+        </Box>
     )
 }

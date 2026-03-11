@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import { Box, Text } from '@chakra-ui/react';
 import { Modal, Alert } from '../design-system';
 import FormField from '../FormField/FormField';
 import { requestPasswordReset } from '../../utilities/users-api';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
-import styles from './ForgotPasswordModal.module.scss';
 
 export default function ForgotPasswordModal({ show, onClose }) {
   const [email, setEmail] = useState('');
@@ -54,22 +54,33 @@ export default function ForgotPasswordModal({ show, onClose }) {
       loading={loading}
     >
       {success ? (
-        <Alert type="success" className={styles.mb0}>
-          <strong>Email Sent!</strong>
-          <p className={`${styles.mb0} ${styles.mt2}`}>
-            If an account exists with this email address, you will receive a password reset link shortly.
-            Please check your inbox (and spam folder).
-          </p>
-        </Alert>
+        <Box mb={0}>
+          <Alert type="success">
+            <Text as="strong">Email Sent!</Text>
+            <Text as="p" mb={0} mt={2}>
+              If an account exists with this email address, you will receive a password reset link shortly.
+              Please check your inbox (and spam folder).
+            </Text>
+          </Alert>
+        </Box>
       ) : (
-        <form className={styles.forgotPasswordForm}>
+        <Box
+          as="form"
+          display="block"
+          css={{
+            gridTemplateColumns: "unset !important",
+            gap: "0 !important",
+          }}
+        >
           {error && (
-            <Alert type="danger" message={error} className={styles.mb3} />
+            <Box mb={3}>
+              <Alert type="danger" message={error} />
+            </Box>
           )}
 
-          <p className={`${styles.textMuted} ${styles.mb4}`}>
-            Enter your email address and we'll send you a link to reset your password.
-          </p>
+          <Text color="fg.muted" mb={4}>
+            Enter your email address and we&apos;ll send you a link to reset your password.
+          </Text>
 
           <FormField
             name="email"
@@ -82,7 +93,7 @@ export default function ForgotPasswordModal({ show, onClose }) {
             autoComplete="email"
             autoFocus
           />
-        </form>
+        </Box>
       )}
     </Modal>
   );

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, InputGroup, Form, Button } from "../design-system";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaArrowRight, FaInfoCircle, FaCopy, FaCheck } from "react-icons/fa";
-import { Fieldset } from "@chakra-ui/react";
+import { Fieldset, Box, Flex, Text } from "@chakra-ui/react";
 import * as usersService from "../../utilities/users-service";
 import { getObfuscatedJson, removeStorageKey } from "../../utilities/secure-storage-lite";
 import { lang } from "../../lang.constants";
@@ -11,7 +11,6 @@ import ForgotPasswordModal from "../ForgotPasswordModal/ForgotPasswordModal";
 import BiensperienceLogo from "../BiensperienceLogo/BiensperienceLogo";
 import Checkbox from "../Checkbox/Checkbox";
 import Divider from "../Divider/Divider";
-import styles from "./LoginForm.module.scss";
 
 // Check if we're in demo mode
 const isDemoMode = process.env.REACT_APP_DEMO_MODE === 'true';
@@ -182,71 +181,207 @@ export default function LoginForm({ setUser }) {
     }, []);
 
     return (
-        <div className={styles.authContainer}>
-            <div className={styles.authWrapper}>
+        <Flex
+            bg="bg"
+            minH="100vh"
+            w="100%"
+            align={{ base: "flex-start", sm: "center" }}
+            justify="center"
+            px={3}
+            pt={{ base: 2, sm: 3 }}
+            pb={3}
+            boxSizing="border-box"
+            overflowX="hidden"
+            overflowY="auto"
+        >
+            <Box
+                w="100%"
+                maxW={{ base: "100%", sm: "480px", md: "520px", xl: "560px" }}
+                boxSizing="border-box"
+            >
                 {/* Logo and App Description */}
-                <div className={styles.logoContainer}>
+                <Flex
+                    align="center"
+                    justify="space-between"
+                    gap={{ base: 2, sm: 4 }}
+                    mb={{ base: 3, sm: 4 }}
+                    mt={{ base: 1, sm: 0 }}
+                    direction={{ base: "column", md: "row" }}
+                    textAlign={{ base: "center", md: "left" }}
+                >
                     <BiensperienceLogo type="white" size="2xl" />
-                    <div className={styles.appDescription}>
-                        <p className={styles.appDescriptionText}>
+                    <Box
+                        flex={1}
+                        maxW={{ base: "100%", md: "300px" }}
+                        display={{ base: "none", sm: "block" }}
+                    >
+                        <Text
+                            color="fg.muted"
+                            fontSize="sm"
+                            lineHeight="tall"
+                            m={0}
+                            textAlign={{ base: "center", md: "right" }}
+                        >
                             Plan amazing travel experiences with friends and share your adventures with fellow travelers worldwide.
-                        </p>
-                    </div>
-                </div>
+                        </Text>
+                    </Box>
+                </Flex>
 
                 {/* Main Card */}
-                <Card className={styles.authCard}>
+                <Card
+                    bg="bg"
+                    border="1px solid"
+                    borderColor="border.light"
+                    borderRadius={{ base: "xl", sm: "2xl" }}
+                    p={{ base: "4", sm: "6" }}
+                    boxShadow="2xl"
+                    w="100%"
+                    boxSizing="border-box"
+                >
                     {/* Header */}
-                    <div className={styles.authHeader}>
-                        <h1 className={styles.authTitle} id="login-title">
+                    <Box textAlign="center" mb={{ base: 3, sm: 4 }}>
+                        <Text
+                            as="h1"
+                            id="login-title"
+                            fontSize={{ base: "2xl", sm: "3xl" }}
+                            fontWeight="bold"
+                            color="fg"
+                            mb={{ base: 1, sm: 2 }}
+                        >
                             {lang.current.heading.signInToAccount}
-                        </h1>
-                    </div>
+                        </Text>
+                    </Box>
 
                     {/* Demo Mode Info Box */}
                     {isDemoMode && (
-                        <div className={styles.demoInfoBox}>
-                            <div className={styles.demoInfoHeader}>
-                                <FaInfoCircle className={styles.demoInfoIcon} />
-                                <span>Demo Mode</span>
-                            </div>
-                            <p className={styles.demoInfoText}>
+                        <Box
+                            bg="brand.subtle"
+                            border="1px solid"
+                            borderColor="brand.solid"
+                            borderRadius="lg"
+                            p={{ base: 3, sm: 4 }}
+                            mb={{ base: 4, sm: 5 }}
+                        >
+                            <Flex align="center" gap={2} fontWeight="semibold" color="brand.fg" mb={2}>
+                                <FaInfoCircle />
+                                <Text as="span">Demo Mode</Text>
+                            </Flex>
+                            <Text fontSize="sm" color="fg.muted" mb={3}>
                                 This is a demo environment. Use these credentials to explore:
-                            </p>
-                            <div className={styles.demoCredentials}>
-                                <div className={styles.demoCredentialRow}>
-                                    <span className={styles.demoLabel}>Email:</span>
-                                    <code className={styles.demoValue}>{DEMO_USER.email}</code>
-                                    <button
+                            </Text>
+                            <Box bg="bg.secondary" borderRadius="md" p={{ base: 2, sm: 3 }} mb={{ base: 2, sm: 3 }}>
+                                <Flex align="center" gap={2} py={1}>
+                                    <Text as="span" fontSize="sm" fontWeight="medium" color="fg.muted" flexShrink={0} minW={{ base: "55px", sm: "60px" }}>Email:</Text>
+                                    <Box
+                                        as="code"
+                                        flex={1}
+                                        minW={0}
+                                        fontFamily="mono"
+                                        fontSize={{ base: "xs", sm: "sm" }}
+                                        color="fg"
+                                        bg="bg"
+                                        px={{ base: 1, sm: 2 }}
+                                        py={1}
+                                        borderRadius="sm"
+                                        border="1px solid"
+                                        borderColor="border.light"
+                                        overflow="hidden"
+                                        textOverflow="ellipsis"
+                                        whiteSpace="nowrap"
+                                    >
+                                        {DEMO_USER.email}
+                                    </Box>
+                                    <Box
+                                        as="button"
                                         type="button"
-                                        className={styles.demoCopyBtn}
+                                        display="flex"
+                                        alignItems="center"
+                                        justifyContent="center"
+                                        flexShrink={0}
+                                        w={{ base: "24px", sm: "28px" }}
+                                        h={{ base: "24px", sm: "28px" }}
+                                        p={0}
+                                        bg="transparent"
+                                        border="1px solid"
+                                        borderColor="border"
+                                        borderRadius="sm"
+                                        color="fg.muted"
+                                        cursor="pointer"
+                                        transition="all 0.15s"
+                                        _hover={{ bg: "bg.hover", color: "brand.fg", borderColor: "brand.solid" }}
                                         onClick={() => copyToClipboard(DEMO_USER.email, 'email')}
                                         aria-label="Copy email"
                                     >
-                                        {copiedField === 'email' ? <FaCheck /> : <FaCopy />}
-                                    </button>
-                                </div>
-                                <div className={styles.demoCredentialRow}>
-                                    <span className={styles.demoLabel}>Password:</span>
-                                    <code className={styles.demoValue}>{DEMO_USER.password}</code>
-                                    <button
+                                        {copiedField === 'email' ? <FaCheck style={{ fontSize: '10px' }} /> : <FaCopy style={{ fontSize: '10px' }} />}
+                                    </Box>
+                                </Flex>
+                                <Flex align="center" gap={2} py={1}>
+                                    <Text as="span" fontSize="sm" fontWeight="medium" color="fg.muted" flexShrink={0} minW={{ base: "55px", sm: "60px" }}>Password:</Text>
+                                    <Box
+                                        as="code"
+                                        flex={1}
+                                        minW={0}
+                                        fontFamily="mono"
+                                        fontSize={{ base: "xs", sm: "sm" }}
+                                        color="fg"
+                                        bg="bg"
+                                        px={{ base: 1, sm: 2 }}
+                                        py={1}
+                                        borderRadius="sm"
+                                        border="1px solid"
+                                        borderColor="border.light"
+                                        overflow="hidden"
+                                        textOverflow="ellipsis"
+                                        whiteSpace="nowrap"
+                                    >
+                                        {DEMO_USER.password}
+                                    </Box>
+                                    <Box
+                                        as="button"
                                         type="button"
-                                        className={styles.demoCopyBtn}
+                                        display="flex"
+                                        alignItems="center"
+                                        justifyContent="center"
+                                        flexShrink={0}
+                                        w={{ base: "24px", sm: "28px" }}
+                                        h={{ base: "24px", sm: "28px" }}
+                                        p={0}
+                                        bg="transparent"
+                                        border="1px solid"
+                                        borderColor="border"
+                                        borderRadius="sm"
+                                        color="fg.muted"
+                                        cursor="pointer"
+                                        transition="all 0.15s"
+                                        _hover={{ bg: "bg.hover", color: "brand.fg", borderColor: "brand.solid" }}
                                         onClick={() => copyToClipboard(DEMO_USER.password, 'password')}
                                         aria-label="Copy password"
                                     >
-                                        {copiedField === 'password' ? <FaCheck /> : <FaCopy />}
-                                    </button>
-                                </div>
-                            </div>
-                            <button
+                                        {copiedField === 'password' ? <FaCheck style={{ fontSize: '10px' }} /> : <FaCopy style={{ fontSize: '10px' }} />}
+                                    </Box>
+                                </Flex>
+                            </Box>
+                            <Box
+                                as="button"
                                 type="button"
-                                className={styles.demoFillBtn}
+                                w="100%"
+                                py={2}
+                                px={4}
+                                bg="brand.solid"
+                                color="white"
+                                border="none"
+                                borderRadius="md"
+                                fontSize="sm"
+                                fontWeight="semibold"
+                                cursor="pointer"
+                                transition="all 0.15s"
+                                _hover={{ transform: "translateY(-1px)", boxShadow: "md" }}
+                                _active={{ transform: "translateY(0)" }}
                                 onClick={fillDemoCredentials}
                             >
                                 Fill Demo Credentials
-                            </button>
-                        </div>
+                            </Box>
+                        </Box>
                     )}
 
                     {/* Form with ARIA labelling */}
@@ -257,16 +392,43 @@ export default function LoginForm({ setUser }) {
                         aria-describedby={error ? "login-error" : undefined}
                     >
                         {/* Email Field */}
-                        <Fieldset.Root className={styles.fieldsetSpacing}>
+                        <Fieldset.Root css={{ marginBottom: "var(--spacing-3)" }}>
                             <Fieldset.Legend
-                                className={styles.formLabel}
+                                css={{
+                                    fontSize: "var(--font-sizes-sm)",
+                                    fontWeight: "var(--font-weights-semibold)",
+                                    color: "var(--colors-fg)",
+                                    marginBottom: "var(--spacing-2)",
+                                    display: "block",
+                                }}
                             >
                                 {lang.current.label.email}
                             </Fieldset.Legend>
                             <Fieldset.Content>
-                                <InputGroup className={styles.inputGroup}>
+                                <InputGroup
+                                    css={{
+                                        border: "2px solid var(--colors-border)",
+                                        borderRadius: "var(--radii-xl)",
+                                        overflow: "hidden",
+                                        minHeight: "48px",
+                                        transition: "border-color 0.15s, box-shadow 0.15s",
+                                        "&:focus-within": {
+                                            borderColor: "var(--colors-brand-solid)",
+                                            boxShadow: "0 0 0 3px var(--colors-brand-muted)",
+                                        },
+                                    }}
+                                >
                                     <InputGroup.Text
-                                        className={styles.inputIcon}
+                                        css={{
+                                            backgroundColor: "var(--colors-bg-secondary)",
+                                            border: "none",
+                                            color: "var(--colors-fg-muted)",
+                                            padding: "var(--spacing-2) var(--spacing-3)",
+                                            minHeight: "48px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            flexShrink: 0,
+                                        }}
                                         aria-hidden="true"
                                     >
                                         <FaEnvelope />
@@ -281,7 +443,20 @@ export default function LoginForm({ setUser }) {
                                         placeholder={lang.current.placeholder.email}
                                         required
                                         autoComplete="email"
-                                        className={styles.formInput}
+                                        css={{
+                                            backgroundColor: "var(--colors-bg)",
+                                            border: "none",
+                                            color: "var(--colors-fg)",
+                                            fontSize: "var(--font-sizes-sm)",
+                                            padding: "var(--spacing-2) var(--spacing-3)",
+                                            minHeight: "48px",
+                                            transition: "background-color 0.15s",
+                                            flex: 1,
+                                            minWidth: 0,
+                                            "&:focus": { outline: "none", boxShadow: "none" },
+                                            "&::placeholder": { color: "var(--colors-fg-muted)" },
+                                            "&:disabled": { backgroundColor: "var(--colors-bg-secondary)", cursor: "not-allowed", opacity: 0.7 },
+                                        }}
                                         aria-required="true"
                                         aria-invalid={error ? "true" : "false"}
                                         disabled={isLoading}
@@ -291,16 +466,43 @@ export default function LoginForm({ setUser }) {
                         </Fieldset.Root>
 
                         {/* Password Field */}
-                        <Fieldset.Root className={styles.fieldsetSpacing}>
+                        <Fieldset.Root css={{ marginBottom: "var(--spacing-3)" }}>
                             <Fieldset.Legend
-                                className={styles.formLabel}
+                                css={{
+                                    fontSize: "var(--font-sizes-sm)",
+                                    fontWeight: "var(--font-weights-semibold)",
+                                    color: "var(--colors-fg)",
+                                    marginBottom: "var(--spacing-2)",
+                                    display: "block",
+                                }}
                             >
                                 {lang.current.label.password}
                             </Fieldset.Legend>
                             <Fieldset.Content>
-                                <InputGroup className={styles.inputGroup}>
+                                <InputGroup
+                                    css={{
+                                        border: "2px solid var(--colors-border)",
+                                        borderRadius: "var(--radii-xl)",
+                                        overflow: "hidden",
+                                        minHeight: "48px",
+                                        transition: "border-color 0.15s, box-shadow 0.15s",
+                                        "&:focus-within": {
+                                            borderColor: "var(--colors-brand-solid)",
+                                            boxShadow: "0 0 0 3px var(--colors-brand-muted)",
+                                        },
+                                    }}
+                                >
                                     <InputGroup.Text
-                                        className={styles.inputIcon}
+                                        css={{
+                                            backgroundColor: "var(--colors-bg-secondary)",
+                                            border: "none",
+                                            color: "var(--colors-fg-muted)",
+                                            padding: "var(--spacing-2) var(--spacing-3)",
+                                            minHeight: "48px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            flexShrink: 0,
+                                        }}
                                         aria-hidden="true"
                                     >
                                         <FaLock />
@@ -316,7 +518,20 @@ export default function LoginForm({ setUser }) {
                                         placeholder={lang.current.placeholder.password}
                                         required
                                         autoComplete="current-password"
-                                        className={styles.formInput}
+                                        css={{
+                                            backgroundColor: "var(--colors-bg)",
+                                            border: "none",
+                                            color: "var(--colors-fg)",
+                                            fontSize: "var(--font-sizes-sm)",
+                                            padding: "var(--spacing-2) var(--spacing-3)",
+                                            minHeight: "48px",
+                                            transition: "background-color 0.15s",
+                                            flex: 1,
+                                            minWidth: 0,
+                                            "&:focus": { outline: "none", boxShadow: "none" },
+                                            "&::placeholder": { color: "var(--colors-fg-muted)" },
+                                            "&:disabled": { backgroundColor: "var(--colors-bg-secondary)", cursor: "not-allowed", opacity: 0.7 },
+                                        }}
                                         aria-required="true"
                                         aria-invalid={error ? "true" : "false"}
                                         disabled={isLoading}
@@ -324,7 +539,23 @@ export default function LoginForm({ setUser }) {
                                     <Button
                                         variant="link"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className={styles.passwordToggle}
+                                        css={{
+                                            backgroundColor: "var(--colors-bg-secondary)",
+                                            border: "none",
+                                            color: "var(--colors-fg-muted)",
+                                            padding: "var(--spacing-2) var(--spacing-3)",
+                                            minHeight: "48px",
+                                            textDecoration: "none",
+                                            transition: "color 0.15s",
+                                            flexShrink: 0,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            width: "auto",
+                                            minWidth: "auto",
+                                            "&:hover:not(:disabled)": { color: "var(--colors-fg)" },
+                                            "&:disabled": { cursor: "not-allowed", opacity: 0.7 },
+                                            "&:focus-visible": { outline: "2px solid var(--colors-brand-solid)", outlineOffset: "-2px" },
+                                        }}
                                         type="button"
                                         aria-label={showPassword ? "Hide password" : "Show password"}
                                         aria-pressed={showPassword}
@@ -337,36 +568,64 @@ export default function LoginForm({ setUser }) {
                         </Fieldset.Root>
 
                         {/* Remember Me & Forgot Password */}
-                        <div className={styles.rememberForgotContainer}>
+                        <Flex
+                            direction="column"
+                            align="center"
+                            gap={{ base: 2, sm: 3 }}
+                            mt={{ base: 3, sm: 4 }}
+                            mb={{ base: 4, sm: 5 }}
+                            w="100%"
+                        >
                             <Checkbox
                                 id="remember-me"
                                 checked={rememberMe}
                                 onChange={(e) => setRememberMe(e.target.checked)}
-                                label={<span className={styles.rememberMeLabel}>{lang.current.button.rememberMe}</span>}
+                                label={<Text as="span" fontSize="sm" color="fg">{lang.current.button.rememberMe}</Text>}
                                 disabled={isLoading}
                             />
                             {showForgotPasswordLink && (
-                                <button
+                                <Box
+                                    as="button"
                                     type="button"
-                                    className={styles.forgotPasswordLink}
+                                    color="brand.fg"
+                                    fontSize="sm"
+                                    fontWeight="medium"
+                                    textDecoration="none"
+                                    bg="none"
+                                    border="none"
+                                    p={2}
+                                    m={-2}
+                                    cursor="pointer"
+                                    transition="color 0.15s"
+                                    borderRadius="sm"
+                                    _hover={{ color: "brand.emphasized", textDecoration: "underline" }}
+                                    _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px" }}
                                     onClick={() => setShowForgotPassword(true)}
                                     disabled={isLoading}
                                 >
                                     {lang.current.button.forgotPassword}
-                                </button>
+                                </Box>
                             )}
-                        </div>
+                        </Flex>
 
                         {/* Error message with ARIA live region */}
                         {error && (
-                            <div
+                            <Box
                                 id="login-error"
-                                className={styles.errorMessage}
+                                bg="danger.muted"
+                                color="danger.fg"
+                                p={3}
+                                borderRadius="md"
+                                mb={4}
+                                textAlign="center"
+                                fontSize="sm"
+                                border="1px solid"
+                                borderColor="danger.fg"
                                 role="alert"
                                 aria-live="polite"
                             >
                                 {error}
-                            </div>
+                            </Box>
                         )}
 
                         {/* Sign In Button with loading state */}
@@ -374,14 +633,59 @@ export default function LoginForm({ setUser }) {
                             type="submit"
                             variant="primary"
                             size="lg"
-                            className={styles.submitBtn}
+                            css={{
+                                width: "100%",
+                                background: "var(--colors-gradients-primary)",
+                                border: "none",
+                                borderRadius: "var(--radii-full)",
+                                padding: "var(--spacing-3)",
+                                minHeight: "48px",
+                                fontSize: "var(--font-sizes-sm)",
+                                fontWeight: "var(--font-weights-semibold)",
+                                marginBottom: "var(--spacing-4)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: "var(--spacing-2)",
+                                boxShadow: "0 8px 24px rgba(60, 64, 67, 0.35)",
+                                transition: "transform 0.15s, box-shadow 0.15s",
+                                "&:hover:not(:disabled)": {
+                                    transform: "translateY(-2px)",
+                                    boxShadow: "0 12px 28px rgba(60, 64, 67, 0.4)",
+                                },
+                                "&:focus-visible": {
+                                    outline: "2px solid var(--colors-brand-emphasized)",
+                                    outlineOffset: "2px",
+                                },
+                                "&:disabled": {
+                                    opacity: 0.6,
+                                    cursor: "not-allowed",
+                                    transform: "none",
+                                },
+                                "@media (min-width: 576px)": {
+                                    minHeight: "56px",
+                                    padding: "var(--spacing-4)",
+                                    fontSize: "var(--font-sizes-md)",
+                                    marginBottom: "var(--spacing-5)",
+                                },
+                            }}
                             disabled={isLoading || !credentials.email || !credentials.password}
                             aria-busy={isLoading}
                         >
                             {isLoading ? (
                                 <>
-                                    <span className={styles.spinner} aria-hidden="true" />
-                                    <span>Signing in...</span>
+                                    <Box
+                                        as="span"
+                                        display="inline-block"
+                                        w="20px"
+                                        h="20px"
+                                        border="2px solid rgba(255, 255, 255, 0.3)"
+                                        borderRadius="50%"
+                                        borderTopColor="white"
+                                        animation="spin 0.8s ease-in-out infinite"
+                                        aria-hidden="true"
+                                    />
+                                    <Text as="span">Signing in...</Text>
                                 </>
                             ) : (
                                 <>
@@ -398,39 +702,75 @@ export default function LoginForm({ setUser }) {
                 </Card>
 
                 {/* Sign Up Link and Legal Links */}
-                <div className={styles.authFooter}>
-                    <div className={styles.authFooterLinks}>
-                        <span>{lang.current.message.dontHaveAccount}</span>{' '}
-                        <button
+                <Flex
+                    direction="column"
+                    align="center"
+                    textAlign="center"
+                    mt={{ base: 4, sm: 5 }}
+                    color="fg.muted"
+                    fontSize={{ base: "sm", sm: "md" }}
+                    gap={{ base: 2, sm: 3 }}
+                >
+                    <Flex align="center" justify="center" gap={2} flexWrap="wrap">
+                        <Text as="span">{lang.current.message.dontHaveAccount}</Text>{' '}
+                        <Box
+                            as="button"
                             type="button"
-                            className={styles.switchLink}
+                            bg="none"
+                            border="none"
+                            color="brand.fg"
+                            fontWeight="semibold"
+                            cursor="pointer"
+                            p={2}
+                            m={-2}
+                            textDecoration="none"
+                            borderRadius="sm"
+                            transition="color 0.15s"
+                            _hover={{ textDecoration: "underline", color: "brand.emphasized" }}
+                            _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px" }}
                             onClick={() => navigate('/signup')}
                             disabled={isLoading}
                         >
                             {lang.current.button.signup}
-                        </button>
-                    </div>
-                    <div className={styles.legalLinks}>
-                        <a href="#privacy" className={styles.legalLink}>
+                        </Box>
+                    </Flex>
+                    <Flex align="baseline" justify="center" gap={2} fontSize="sm">
+                        <Box
+                            as="a"
+                            href="#privacy"
+                            color="fg.muted"
+                            textDecoration="none"
+                            transition="color 0.15s"
+                            _hover={{ color: "brand.fg", textDecoration: "underline" }}
+                            _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px", borderRadius: "sm" }}
+                        >
                             Privacy Policy
-                        </a>
-                        <span className={styles.legalSeparator}>•</span>
-                        <a href="#terms" className={styles.legalLink}>
+                        </Box>
+                        <Text as="span" color="fg.muted" fontSize="sm" lineHeight={1}>•</Text>
+                        <Box
+                            as="a"
+                            href="#terms"
+                            color="fg.muted"
+                            textDecoration="none"
+                            transition="color 0.15s"
+                            _hover={{ color: "brand.fg", textDecoration: "underline" }}
+                            _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px", borderRadius: "sm" }}
+                        >
                             Terms of Service
-                        </a>
-                    </div>
-                </div>
-            </div>
+                        </Box>
+                    </Flex>
+                </Flex>
+            </Box>
 
             {/* Screen reader only status announcements */}
-            <div className={styles.visuallyHidden} aria-live="polite" aria-atomic="true">
+            <Box srOnly aria-live="polite" aria-atomic="true">
                 {isLoading && "Signing you in, please wait..."}
-            </div>
+            </Box>
 
             <ForgotPasswordModal
                 show={showForgotPassword}
                 onClose={() => setShowForgotPassword(false)}
             />
-        </div>
+        </Flex>
     );
 }

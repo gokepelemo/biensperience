@@ -1,5 +1,5 @@
-import styles from "./Experiences.module.scss";
 import { useMemo, useState, useEffect, useRef } from "react";
+import { Box, Flex } from "@chakra-ui/react";
 import { useUser } from "../../contexts/UserContext";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useData } from "../../contexts/DataContext";
@@ -544,16 +544,16 @@ export default function Experiences() {
   ogDescription={`Explore ${displayedExperiences?.length || 'hundreds of'} curated travel experiences worldwide. Start planning your next adventure today.`}
       />
 
-      <Container className={styles.experiencesHeader}>
+      <Container mb="6">
         <Mobile>
-          <div style={{ textAlign: 'center' }}>
-            <h1 className={styles.my4}>Experiences</h1>
-          </div>
+          <Box textAlign="center">
+            <Box as="h1" my="4">Experiences</Box>
+          </Box>
         </Mobile>
         <Desktop>
-          <div style={{ textAlign: 'start' }}>
-            <h1 className={styles.my4}>Experiences</h1>
-          </div>
+          <Box textAlign="start">
+            <Box as="h1" my="4">Experiences</Box>
+          </Box>
         </Desktop>
       </Container>
 
@@ -725,14 +725,14 @@ export default function Experiences() {
 
       {initialLoading || loading || directFilterLoading || !initialLoadComplete ? (
         <FadeIn>
-          <div className={styles.experiencesList}>
+          <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
             <ExperienceCardSkeleton count={experiencesMeta.limit} />
-          </div>
+          </Flex>
         </FadeIn>
       ) : (
         <FadeIn>
           <>
-            <div ref={experiencesGridRef} className={styles.experiencesList}>
+            <Flex ref={experiencesGridRef} wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
               {displayedExperiences.length > 0 ? (
                 displayedExperiences.map((experience, index) => (
                   experience ? (
@@ -743,11 +743,11 @@ export default function Experiences() {
                       forcePreload={true}
                     />
                   ) : (
-                    <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
-                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    <Box key={`placeholder-${index}`} w="12rem" h="8rem" display="inline-block" m="0.5rem">
+                      <Box position="relative" w="100%" h="100%">
                         <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </div>
-                    </div>
+                      </Box>
+                    </Box>
                   )
                 ))
               ) : (
@@ -758,10 +758,10 @@ export default function Experiences() {
                   size="md"
                 />
               )}
-            </div>
+            </Flex>
 
             {!initialLoading && !loading && !directFilterLoading && displayedExperiences.length > 0 && experiencesMeta?.hasMore && (
-              <div className={styles.showMoreWrapper}>
+              <Box w="100%" textAlign="center" mt="4" mb="5">
                 <Button
                   variant="outline"
                   size="md"
@@ -770,7 +770,7 @@ export default function Experiences() {
                 >
                   {loadingMore ? lang.current.loading.default : lang.current.button.showMore}
                 </Button>
-              </div>
+              </Box>
             )}
           </>
         </FadeIn>

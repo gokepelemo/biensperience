@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, InputGroup, Form, Button } from "../design-system";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUser, FaArrowRight, FaTicketAlt } from "react-icons/fa";
-import { Fieldset } from "@chakra-ui/react";
+import { Fieldset, Box, Flex, Text } from "@chakra-ui/react";
 import { signUp } from "../../utilities/users-service";
 import { validateInviteCode } from "../../utilities/invite-codes-service";
 import { lang } from "../../lang.constants";
@@ -12,7 +12,6 @@ import Checkbox from "../Checkbox/Checkbox";
 import Divider from "../Divider/Divider";
 import PrivacyPolicyModal from "../PrivacyPolicyModal/PrivacyPolicyModal";
 import TermsOfServiceModal from "../TermsOfServiceModal/TermsOfServiceModal";
-import styles from "./SignUpForm.module.scss";
 
 /**
  * Sign up form component for user registration.
@@ -171,35 +170,164 @@ function SignUpForm(props) {
     setShowPrivacyModal(false);
   };
 
+  /* ── Shared CSS objects for InputGroup children ── */
+  const inputGroupCss = {
+    border: "2px solid var(--colors-border)",
+    borderRadius: "var(--radii-xl)",
+    overflow: "hidden",
+    minHeight: "44px",
+    transition: "border-color 0.15s, box-shadow 0.15s",
+    "&:focus-within": {
+      borderColor: "var(--colors-brand-solid)",
+      boxShadow: "0 0 0 3px var(--colors-brand-muted)",
+    },
+    "@media (min-width: 576px)": { minHeight: "56px" },
+  };
+
+  const inputIconCss = {
+    backgroundColor: "var(--colors-bg-secondary)",
+    border: "none",
+    color: "var(--colors-fg-muted)",
+    padding: "var(--spacing-2) var(--spacing-3)",
+    minHeight: "44px",
+    display: "flex",
+    alignItems: "center",
+    flexShrink: 0,
+    "@media (min-width: 576px)": { minHeight: "56px", padding: "var(--spacing-3) var(--spacing-4)" },
+  };
+
+  const formInputCss = {
+    backgroundColor: "var(--colors-bg)",
+    border: "none",
+    color: "var(--colors-fg)",
+    fontSize: "var(--font-sizes-sm)",
+    padding: "var(--spacing-2) var(--spacing-3)",
+    minHeight: "44px",
+    transition: "background-color 0.15s",
+    flex: 1,
+    minWidth: 0,
+    "&:focus": { outline: "none", boxShadow: "none" },
+    "&::placeholder": { color: "var(--colors-fg-muted)" },
+    "&:disabled": { backgroundColor: "var(--colors-bg-secondary)", cursor: "not-allowed", opacity: 0.7 },
+    "@media (min-width: 576px)": { minHeight: "56px", fontSize: "var(--font-sizes-md)", padding: "var(--spacing-3) var(--spacing-4)" },
+  };
+
+  const passwordToggleCss = {
+    backgroundColor: "var(--colors-bg-secondary)",
+    border: "none",
+    color: "var(--colors-fg-muted)",
+    padding: "var(--spacing-2) var(--spacing-3)",
+    minHeight: "44px",
+    textDecoration: "none",
+    transition: "color 0.15s",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    width: "auto",
+    minWidth: "auto",
+    "&:hover:not(:disabled)": { color: "var(--colors-fg)" },
+    "&:disabled": { cursor: "not-allowed", opacity: 0.7 },
+    "&:focus-visible": { outline: "2px solid var(--colors-brand-solid)", outlineOffset: "-2px" },
+    "@media (min-width: 576px)": { minHeight: "56px", padding: "var(--spacing-3) var(--spacing-4)" },
+  };
+
+  const fieldsetCss = { marginBottom: "var(--spacing-4)" };
+
+  const legendCss = {
+    fontSize: "var(--font-sizes-sm)",
+    fontWeight: "var(--font-weights-semibold)",
+    color: "var(--colors-fg)",
+    marginBottom: "var(--spacing-2)",
+    display: "block",
+  };
+
   return (
-    <div className={styles.authContainer}>
-      <div className={styles.authWrapper}>
+    <Flex
+      bg="bg"
+      minH="100vh"
+      w="100%"
+      align={{ base: "flex-start", sm: "center" }}
+      justify="center"
+      px={3}
+      pt={{ base: 2, sm: 3 }}
+      pb={3}
+      boxSizing="border-box"
+      overflowX="hidden"
+      overflowY="auto"
+    >
+      <Box
+        w="100%"
+        maxW={{ base: "100%", sm: "480px", md: "520px", xl: "560px" }}
+        boxSizing="border-box"
+      >
         {/* Logo and App Description */}
-        <div className={styles.logoContainer}>
+        <Flex
+          align="center"
+          justify="space-between"
+          gap={{ base: 2, sm: 4 }}
+          mb={{ base: 3, sm: 4 }}
+          mt={{ base: 1, sm: 0 }}
+          direction={{ base: "column", md: "row" }}
+          textAlign={{ base: "center", md: "left" }}
+        >
           <BiensperienceLogo type="white" size="2xl" />
-          <div className={styles.appDescription}>
-            <p className={styles.appDescriptionText}>
+          <Box
+            flex={1}
+            maxW={{ base: "100%", md: "300px" }}
+            display={{ base: "none", sm: "block" }}
+          >
+            <Text
+              color="fg.muted"
+              fontSize="sm"
+              lineHeight="tall"
+              m={0}
+              textAlign={{ base: "center", md: "right" }}
+            >
               Plan amazing travel experiences with friends and share your adventures with fellow travelers worldwide.
-            </p>
-          </div>
-        </div>
+            </Text>
+          </Box>
+        </Flex>
 
         {/* Main Card */}
-        <Card className={styles.authCard}>
+        <Card
+          bg="bg"
+          border="1px solid"
+          borderColor="border.light"
+          borderRadius={{ base: "xl", sm: "2xl" }}
+          p={{ base: "4", sm: "6" }}
+          boxShadow="2xl"
+          w="100%"
+          boxSizing="border-box"
+        >
           {/* Header */}
-          <div className={styles.authHeader}>
-            <h1 className={styles.authTitle}>{lang.current.heading.createAccount}</h1>
-            <p className={styles.authSubtitle}>{lang.current.message.joinCommunity}</p>
-          </div>
+          <Box textAlign="center" mb={{ base: 3, sm: 4 }}>
+            <Text
+              as="h1"
+              fontSize={{ base: "2xl", sm: "3xl" }}
+              fontWeight="bold"
+              color="fg"
+              mb={{ base: 1, sm: 2 }}
+            >
+              {lang.current.heading.createAccount}
+            </Text>
+            <Text
+              fontSize={{ base: "sm", sm: "md" }}
+              color="fg.muted"
+              m={0}
+              display={{ base: "none", sm: "block" }}
+            >
+              {lang.current.message.joinCommunity}
+            </Text>
+          </Box>
 
           {/* Form */}
           <Form onSubmit={handleSubmit} autoComplete="off">
             {/* Name Field */}
-            <Fieldset.Root className={styles.fieldGroup}>
-              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.name}</Fieldset.Legend>
+            <Fieldset.Root css={fieldsetCss}>
+              <Fieldset.Legend css={legendCss}>{lang.current.label.name}</Fieldset.Legend>
               <Fieldset.Content>
-                <InputGroup className={styles.inputGroup}>
-                  <InputGroup.Text className={styles.inputIcon}>
+                <InputGroup css={inputGroupCss}>
+                  <InputGroup.Text css={inputIconCss}>
                     <FaUser />
                   </InputGroup.Text>
                   <Form.Control
@@ -210,18 +338,18 @@ function SignUpForm(props) {
                     placeholder={lang.current.placeholder.name}
                     required
                     autoComplete="name"
-                    className={styles.formInput}
+                    css={formInputCss}
                   />
                 </InputGroup>
               </Fieldset.Content>
             </Fieldset.Root>
 
             {/* Email Field */}
-            <Fieldset.Root className={styles.fieldGroup}>
-              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.email}</Fieldset.Legend>
+            <Fieldset.Root css={fieldsetCss}>
+              <Fieldset.Legend css={legendCss}>{lang.current.label.email}</Fieldset.Legend>
               <Fieldset.Content>
-                <InputGroup className={styles.inputGroup}>
-                  <InputGroup.Text className={styles.inputIcon}>
+                <InputGroup css={inputGroupCss}>
+                  <InputGroup.Text css={inputIconCss}>
                     <FaEnvelope />
                   </InputGroup.Text>
                   <Form.Control
@@ -232,18 +360,18 @@ function SignUpForm(props) {
                     placeholder={lang.current.placeholder.email}
                     required
                     autoComplete="email"
-                    className={styles.formInput}
+                    css={formInputCss}
                   />
                 </InputGroup>
               </Fieldset.Content>
             </Fieldset.Root>
 
             {/* Password Field */}
-            <Fieldset.Root className={styles.fieldGroup}>
-              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.password}</Fieldset.Legend>
+            <Fieldset.Root css={fieldsetCss}>
+              <Fieldset.Legend css={legendCss}>{lang.current.label.password}</Fieldset.Legend>
               <Fieldset.Content>
-                <InputGroup className={styles.inputGroup}>
-                  <InputGroup.Text className={styles.inputIcon}>
+                <InputGroup css={inputGroupCss}>
+                  <InputGroup.Text css={inputIconCss}>
                     <FaLock />
                   </InputGroup.Text>
                   <Form.Control
@@ -254,12 +382,12 @@ function SignUpForm(props) {
                     placeholder={lang.current.placeholder.password}
                     required
                     autoComplete="new-password"
-                    className={styles.formInput}
+                    css={formInputCss}
                   />
                   <Button
                     variant="link"
                     onClick={() => setShowPassword(!showPassword)}
-                    className={styles.passwordToggle}
+                    css={passwordToggleCss}
                   >
                     {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </Button>
@@ -268,11 +396,11 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Confirm Password Field */}
-            <Fieldset.Root className={styles.fieldGroup}>
-              <Fieldset.Legend className={styles.formLabel}>{lang.current.label.confirmPassword}</Fieldset.Legend>
+            <Fieldset.Root css={fieldsetCss}>
+              <Fieldset.Legend css={legendCss}>{lang.current.label.confirmPassword}</Fieldset.Legend>
               <Fieldset.Content>
-                <InputGroup className={styles.inputGroup}>
-                  <InputGroup.Text className={styles.inputIcon}>
+                <InputGroup css={inputGroupCss}>
+                  <InputGroup.Text css={inputIconCss}>
                     <FaLock />
                   </InputGroup.Text>
                   <Form.Control
@@ -283,12 +411,12 @@ function SignUpForm(props) {
                     placeholder={lang.current.placeholder.confirmPassword}
                     required
                     autoComplete="new-password"
-                    className={styles.formInput}
+                    css={formInputCss}
                   />
                   <Button
                     variant="link"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className={styles.passwordToggle}
+                    css={passwordToggleCss}
                   >
                     {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                   </Button>
@@ -297,11 +425,11 @@ function SignUpForm(props) {
             </Fieldset.Root>
 
             {/* Invite Code Field */}
-            <Fieldset.Root className={styles.fieldGroup}>
-              <Fieldset.Legend className={styles.formLabel}>{lang.current.invite.inviteCodeOptional}</Fieldset.Legend>
+            <Fieldset.Root css={fieldsetCss}>
+              <Fieldset.Legend css={legendCss}>{lang.current.invite.inviteCodeOptional}</Fieldset.Legend>
               <Fieldset.Content>
-                <InputGroup className={styles.inputGroup}>
-                  <InputGroup.Text className={styles.inputIcon}>
+                <InputGroup css={inputGroupCss}>
+                  <InputGroup.Text css={inputIconCss}>
                     <FaTicketAlt />
                   </InputGroup.Text>
                   <Form.Control
@@ -312,95 +440,137 @@ function SignUpForm(props) {
                     placeholder="XXX-XXX-XXX"
                     autoComplete="off"
                     maxLength={11}
-                    className={`${styles.formInput} ${styles.inviteCodeInput}`}
+                    css={{
+                      ...formInputCss,
+                      textTransform: "uppercase",
+                      letterSpacing: "2px",
+                      fontFamily: "var(--fonts-mono)",
+                    }}
                   />
                 </InputGroup>
                 {inviteValidation.isValidating && (
-                  <small className={styles.helperText} style={{ display: 'block', marginTop: '0.5rem' }}>
+                  <Text as="small" display="block" mt={2} color="fg.muted">
                     {lang.current.invite.validatingCode}
-                  </small>
+                  </Text>
                 )}
                 {inviteValidation.isValid && inviteValidation.details && (
-                  <div className={styles.inviteDetails}>
-                    <small className={styles.successText} style={{ display: 'block' }}>
+                  <Box
+                    mt={2}
+                    p={3}
+                    bg="bg.secondary"
+                    borderRadius="md"
+                    border="1px solid"
+                    borderColor="border.light"
+                  >
+                    <Text as="small" display="block" color="success.fg">
                       ✓ {lang.current.invite.validCode}
-                    </small>
+                    </Text>
                     {inviteValidation.details.requiresEmail && (
-                      <small className={styles.helperText} style={{ display: 'block', marginTop: '0.25rem' }}>
+                      <Text as="small" display="block" mt={1} color="fg.muted">
                         {inviteValidation.details.message || lang.current.invite.enterEmailForDetails}
-                      </small>
+                      </Text>
                     )}
                     {!inviteValidation.details.requiresEmail && inviteValidation.details.inviterName && (
-                      <small className={styles.inviterInfo} style={{ display: 'block', marginTop: '0.25rem' }}>
+                      <Text as="small" display="block" mt={1} color="fg" fontWeight="medium">
                         {lang.current.invite.invitedBy.replace('{name}', inviteValidation.details.inviterName)}
-                      </small>
+                      </Text>
                     )}
                     {!inviteValidation.details.requiresEmail && inviteValidation.details.customMessage && (
-                      <small className={styles.inviteMessage} style={{ display: 'block', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                      <Text as="small" display="block" mt={1} color="fg.muted" fontStyle="italic">
                         "{inviteValidation.details.customMessage}"
-                      </small>
+                      </Text>
                     )}
                     {!inviteValidation.details.requiresEmail && inviteValidation.details.experienceNames?.length > 0 && (
-                      <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                        <small className={styles.helperText}>{lang.current.invite.experiencesIncluded}:</small>
-                        <ul className={styles.resourceList}>
+                      <Box mt={2} pl={2}>
+                        <Text as="small" color="fg.muted">{lang.current.invite.experiencesIncluded}:</Text>
+                        <Box as="ul" m="1 0 0 3" p={0} listStyleType="disc">
                           {inviteValidation.details.experienceNames.map((name, idx) => (
-                            <li key={idx}><small>{name}</small></li>
+                            <Box as="li" key={idx} color="fg.muted" lineHeight="1.4"><Text as="small">{name}</Text></Box>
                           ))}
-                        </ul>
-                      </div>
+                        </Box>
+                      </Box>
                     )}
                     {!inviteValidation.details.requiresEmail && inviteValidation.details.destinationNames?.length > 0 && (
-                      <div className={styles.inviteResources} style={{ marginTop: '0.5rem' }}>
-                        <small className={styles.helperText}>{lang.current.invite.destinationsIncluded}:</small>
-                        <ul className={styles.resourceList}>
+                      <Box mt={2} pl={2}>
+                        <Text as="small" color="fg.muted">{lang.current.invite.destinationsIncluded}:</Text>
+                        <Box as="ul" m="1 0 0 3" p={0} listStyleType="disc">
                           {inviteValidation.details.destinationNames.map((name, idx) => (
-                            <li key={idx}><small>{name}</small></li>
+                            <Box as="li" key={idx} color="fg.muted" lineHeight="1.4"><Text as="small">{name}</Text></Box>
                           ))}
-                        </ul>
-                      </div>
+                        </Box>
+                      </Box>
                     )}
-                  </div>
+                  </Box>
                 )}
                 {inviteValidation.error && (
-                  <small className={styles.errorText} style={{ display: 'block', marginTop: '0.5rem' }}>
+                  <Text as="small" display="block" mt={2} color="danger.fg">
                     {inviteValidation.error}
-                  </small>
+                  </Text>
                 )}
                 {state.inviteCode && !inviteValidation.isValidating && !inviteValidation.isValid && !inviteValidation.error && (
-                  <small className={styles.helperText} style={{ display: 'block', marginTop: '0.5rem' }}>
+                  <Text as="small" display="block" mt={2} color="fg.muted">
                     {lang.current.invite.inviteCodeHelp}
-                  </small>
+                  </Text>
                 )}
               </Fieldset.Content>
             </Fieldset.Root>
 
             {/* Terms & Privacy checkbox */}
-            <div className={styles.termsContainer}>
+            <Flex justify="center" mt={{ base: 3, sm: 4 }} mb={{ base: 4, sm: 5 }}>
               <Checkbox
                 id="agree-terms"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
                 label={
-                  <span className={styles.termsLabel}>
+                  <Text as="span" fontSize="sm" color="fg">
                     {lang.current.message.agreeToTermsPrefix}{' '}
-                    <a href="#" onClick={handleTermsClick} className={styles.termsLink}>
+                    <Box
+                      as="a"
+                      href="#"
+                      onClick={handleTermsClick}
+                      color="brand.fg"
+                      textDecoration="none"
+                      fontWeight="medium"
+                      transition="color 0.15s"
+                      _hover={{ color: "brand.emphasized", textDecoration: "underline" }}
+                      _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px" }}
+                    >
                       {lang.current.label.termsOfService}
-                    </a>
+                    </Box>
                     {' '}{lang.current.message.and}{' '}
-                    <a href="#" onClick={handlePrivacyClick} className={styles.termsLink}>
+                    <Box
+                      as="a"
+                      href="#"
+                      onClick={handlePrivacyClick}
+                      color="brand.fg"
+                      textDecoration="none"
+                      fontWeight="medium"
+                      transition="color 0.15s"
+                      _hover={{ color: "brand.emphasized", textDecoration: "underline" }}
+                      _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px" }}
+                    >
                       {lang.current.label.privacyPolicy}
-                    </a>
-                  </span>
+                    </Box>
+                  </Text>
                 }
               />
-            </div>
+            </Flex>
 
             {/* Error message */}
             {state.error && (
-              <div className={styles.errorMessage}>
+              <Box
+                bg="danger.muted"
+                color="danger.fg"
+                p={3}
+                borderRadius="md"
+                mb={4}
+                textAlign="center"
+                fontSize="sm"
+                border="1px solid"
+                borderColor="danger.fg"
+              >
                 {state.error}
-              </div>
+              </Box>
             )}
 
             {/* Sign Up Button */}
@@ -409,7 +579,42 @@ function SignUpForm(props) {
               variant="primary"
               size="lg"
               disabled={disable}
-              className={styles.submitBtn}
+              css={{
+                width: "100%",
+                background: "var(--colors-gradients-primary)",
+                border: "none",
+                borderRadius: "var(--radii-full)",
+                padding: "var(--spacing-3)",
+                minHeight: "44px",
+                fontSize: "var(--font-sizes-sm)",
+                fontWeight: "var(--font-weights-semibold)",
+                marginBottom: "var(--spacing-4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "var(--spacing-2)",
+                boxShadow: "0 8px 24px rgba(60, 64, 67, 0.35)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+                "&:hover:not(:disabled)": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 12px 28px rgba(60, 64, 67, 0.4)",
+                },
+                "&:focus-visible": {
+                  outline: "2px solid var(--colors-brand-emphasized)",
+                  outlineOffset: "2px",
+                },
+                "&:disabled": {
+                  opacity: 0.6,
+                  cursor: "not-allowed",
+                  transform: "none",
+                },
+                "@media (min-width: 576px)": {
+                  minHeight: "56px",
+                  padding: "var(--spacing-4)",
+                  fontSize: "var(--font-sizes-md)",
+                  marginBottom: "var(--spacing-5)",
+                },
+              }}
             >
               {lang.current.button.signup} <FaArrowRight />
             </Button>
@@ -422,26 +627,66 @@ function SignUpForm(props) {
         </Card>
 
         {/* Sign In Link and Legal Links */}
-        <div className={styles.authFooter}>
-          <div className={styles.authFooterLinks}>
-            <span>{lang.current.message.alreadyHaveAccount}</span>{' '}
-            <button type="button" className={styles.switchLink} onClick={handleLoginClick}>
+        <Flex
+          direction="column"
+          align="center"
+          textAlign="center"
+          mt={{ base: 4, sm: 5 }}
+          color="fg.muted"
+          fontSize={{ base: "sm", sm: "md" }}
+          gap={{ base: 2, sm: 3 }}
+        >
+          <Flex align="center" justify="center" gap={2} flexWrap="wrap">
+            <Text as="span">{lang.current.message.alreadyHaveAccount}</Text>{' '}
+            <Box
+              as="button"
+              type="button"
+              bg="none"
+              border="none"
+              color="brand.fg"
+              fontWeight="semibold"
+              cursor="pointer"
+              p={2}
+              m={-2}
+              textDecoration="none"
+              borderRadius="sm"
+              transition="color 0.15s"
+              _hover={{ textDecoration: "underline", color: "brand.emphasized" }}
+              _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px" }}
+              onClick={handleLoginClick}
+            >
               {lang.current.button.signIn}
-            </button>
-          </div>
-          <div className={styles.legalLinks}>
-            <a href="#privacy" className={styles.legalLink}>
+            </Box>
+          </Flex>
+          <Flex align="baseline" justify="center" gap={2} fontSize="sm">
+            <Box
+              as="a"
+              href="#privacy"
+              color="fg.muted"
+              textDecoration="none"
+              transition="color 0.15s"
+              _hover={{ color: "brand.fg", textDecoration: "underline" }}
+              _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px", borderRadius: "sm" }}
+            >
               Privacy Policy
-            </a>
-            <span className={styles.legalSeparator}>•</span>
-            <a href="#terms" className={styles.legalLink}>
+            </Box>
+            <Text as="span" color="fg.muted" fontSize="sm" lineHeight={1}>•</Text>
+            <Box
+              as="a"
+              href="#terms"
+              color="fg.muted"
+              textDecoration="none"
+              transition="color 0.15s"
+              _hover={{ color: "brand.fg", textDecoration: "underline" }}
+              _focusVisible={{ outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px", borderRadius: "sm" }}
+            >
               Terms of Service
-            </a>
-          </div>
-        </div>
-      </div>
+            </Box>
+          </Flex>
+        </Flex>
+      </Box>
 
-      {/* Privacy Policy Modal - Conditionally render to prevent close animation flash */}
+      {/* Privacy Policy Modal */}
       {showPrivacyModal && (
         <PrivacyPolicyModal
           show={true}
@@ -451,7 +696,7 @@ function SignUpForm(props) {
         />
       )}
 
-      {/* Terms of Service Modal - Conditionally render to prevent close animation flash */}
+      {/* Terms of Service Modal */}
       {showTermsModal && (
         <TermsOfServiceModal
           show={true}
@@ -460,7 +705,7 @@ function SignUpForm(props) {
           showBackButton={true}
         />
       )}
-    </div>
+    </Flex>
   );
 }
 
