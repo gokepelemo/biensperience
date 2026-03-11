@@ -89,7 +89,7 @@ import { lang } from '../../../lang.constants';
 import debug from '../../../utilities/debug';
 import MessagesModal from '../../../components/ChatModal/MessagesModal';
 import { groupItemsByType, groupPlanItemsByDate } from './MyPlanTabContent/utils/grouping';
-import styles from './MyPlanTabContent.module.scss';
+import { Box } from '@chakra-ui/react';
 import PlanActionsDropdown from './MyPlanTabContent/PlanActionsDropdown';
 import PlanItemsRenderer from './MyPlanTabContent/PlanItemsRenderer';
 
@@ -555,35 +555,35 @@ export default function MyPlanTabContent({
 
     if (isPlanLoading) {
       return (
-        <div className={`my-plan-view ${styles.planViewWrapper}`}>
+        <div className="my-plan-view" style={{ marginTop: 'var(--space-6)' }}>
           {hashSelecting && (
-            <div className={styles.loadingWrapper}>
+            <div style={{ marginBottom: 'var(--space-4)' }}>
               <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
             </div>
           )}
           {/* Skeleton for plan metrics */}
-          <div className={`plan-metrics-container ${styles.metricsContainer}`}>
-            <div className={styles.metricsGrid}>
+          <div className="plan-metrics-container" style={{ marginBottom: 'var(--space-6)' }}>
+            <Box css={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: '1fr', '@media (min-width: 576px)': { gridTemplateColumns: 'repeat(2, 1fr)' }, '@media (min-width: 768px)': { gridTemplateColumns: 'repeat(4, 1fr)' } }}>
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className={styles.metricsColumn}>
+                <div key={i} style={{ minWidth: 0 }}>
                   <div className="metric-card">
-                    <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className={styles.skeletonSpacing} />
+                    <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} style={{ marginBottom: 'var(--space-2)' }} />
                     <SkeletonLoader variant="text" width={SKELETON_TEXT_LARGE_WIDTH_PX + 'px'} height={SKELETON_TEXT_LARGE_HEIGHT_PX + 'px'} />
                   </div>
                 </div>
               ))}
-            </div>
+            </Box>
           </div>
           {/* Skeleton for plan items */}
-          <div className={`plan-items-skeleton ${styles.skeletonSection}`}>
+          <div className="plan-items-skeleton" style={{ marginTop: 'var(--space-6)' }}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className={`plan-item-card ${styles.skeletonCard}`}>
-                <div className={styles.skeletonCardInner}>
+              <Box key={i} className="plan-item-card" css={{ marginBottom: 'var(--space-4)', padding: 'var(--space-4)', '@media (min-width: 768px)': { padding: 'var(--space-6)' } }}>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                   <SkeletonLoader variant="circle" width={SKELETON_CIRCLE_SIZE_PX} height={SKELETON_CIRCLE_SIZE_PX} />
                   <SkeletonLoader variant="text" width={SKELETON_TEXT_MEDIUM_WIDTH} height={SKELETON_TEXT_MEDIUM_HEIGHT_PX} />
                 </div>
                 <SkeletonLoader variant="text" lines={2} height={SKELETON_TEXT_DOUBLE_HEIGHT_PX} />
-              </div>
+              </Box>
             ))}
           </div>
         </div>
@@ -592,8 +592,8 @@ export default function MyPlanTabContent({
 
     // Only show "Plan not found" when loading is complete and plan truly doesn't exist
     return (
-      <div className={`my-plan-view ${styles.planViewWrapper}`}>
-        <p className={styles.centeredGrayText}>
+      <div className="my-plan-view" style={{ marginTop: 'var(--space-6)' }}>
+        <p style={{ color: 'var(--color-text-muted)', textAlign: 'center' }}>
           {lang.current.alert.planNotFound}
         </p>
       </div>
@@ -665,18 +665,18 @@ export default function MyPlanTabContent({
 
   // Plan metadata using MetricsBar component
   const planMetadata = (
-    <div className={`plan-metrics-container ${styles.metricsContainer}`} ref={plannedDateRef}>
+    <div className="plan-metrics-container" style={{ marginBottom: 'var(--space-6)' }} ref={plannedDateRef}>
       {metricsLoading ? (
-        <div className={styles.metricsGrid}>
+        <Box css={{ display: 'grid', gap: 'var(--space-4)', gridTemplateColumns: '1fr', '@media (min-width: 576px)': { gridTemplateColumns: 'repeat(2, 1fr)' }, '@media (min-width: 768px)': { gridTemplateColumns: 'repeat(4, 1fr)' } }}>
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className={styles.metricsColumn}>
+            <div key={i} style={{ minWidth: 0 }}>
               <div className="metric-card">
-                <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} className={styles.skeletonSpacing} />
+                <SkeletonLoader variant="text" width={SKELETON_TEXT_SMALL_WIDTH_PX + 'px'} height={SKELETON_TEXT_SMALL_HEIGHT_PX + 'px'} style={{ marginBottom: 'var(--space-2)' }} />
                 <SkeletonLoader variant="text" width="80px" height="24px" />
               </div>
             </div>
           ))}
-        </div>
+        </Box>
       ) : (
         <MetricsBar metrics={planMetrics} compact />
       )}
@@ -687,22 +687,22 @@ export default function MyPlanTabContent({
   if (!currentPlan.plan || currentPlan.plan.length === 0) {
     if (plansLoading) {
       return (
-        <div className={`my-plan-view ${styles.planViewWrapper}`}>
+        <div className="my-plan-view" style={{ marginTop: 'var(--space-6)' }}>
           {hashSelecting && (
-            <div className={styles.loadingWrapper}>
+            <div style={{ marginBottom: 'var(--space-4)' }}>
               <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
             </div>
           )}
           {planMetadata}
-          <div className={`plan-items-skeleton ${styles.skeletonSection}`}>
+          <div className="plan-items-skeleton" style={{ marginTop: 'var(--space-6)' }}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className={`plan-item-card ${styles.skeletonCard}`}>
-                <div className={styles.skeletonCardInner}>
+              <Box key={i} className="plan-item-card" css={{ marginBottom: 'var(--space-4)', padding: 'var(--space-4)', '@media (min-width: 768px)': { padding: 'var(--space-6)' } }}>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                   <SkeletonLoader variant="circle" width={24} height={24} />
                   <SkeletonLoader variant="text" width="70%" height={20} />
                 </div>
                 <SkeletonLoader variant="text" lines={2} height={16} />
-              </div>
+              </Box>
             ))}
           </div>
         </div>
@@ -711,9 +711,9 @@ export default function MyPlanTabContent({
 
     // Show "No Plan Items" message when plans loaded but empty
     return (
-      <div className={`my-plan-view ${styles.planViewWrapper}`}>
+      <div className="my-plan-view" style={{ marginTop: 'var(--space-6)' }}>
         {hashSelecting && (
-          <div className={styles.loadingWrapper}>
+          <div style={{ marginBottom: 'var(--space-4)' }}>
             <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
           </div>
         )}
@@ -729,10 +729,10 @@ export default function MyPlanTabContent({
               onClick: handleSyncPlan,
               disabled: loading
             }}
-            className={styles.bannerSpacing}
+            style={{ marginBottom: 'var(--space-6)' }}
           />
         )}
-        <div className={`plan-header-row ${styles.planHeaderRow}`}>
+        <div className="plan-header-row" style={{ marginBottom: 'var(--space-6)' }}>
           <UsersListDisplay
             owner={planOwner}
             users={planCollaborators}
@@ -758,7 +758,7 @@ export default function MyPlanTabContent({
           />
         </div>
         {chatError && (
-          <p className={styles.dangerText}>{chatError}</p>
+          <p style={{ color: 'var(--color-danger)' }}>{chatError}</p>
         )}
         <MessagesModal
           show={showMessagesModal}
@@ -768,19 +768,19 @@ export default function MyPlanTabContent({
         />
         {planMetadata}
         {planTabLoading ? (
-          <div className={`plan-items-skeleton ${styles.skeletonSection}`}>
+          <div className="plan-items-skeleton" style={{ marginTop: 'var(--space-6)' }}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className={`plan-item-card ${styles.skeletonCard}`}>
-                <div className={styles.skeletonCardInner}>
+              <Box key={i} className="plan-item-card" css={{ marginBottom: 'var(--space-4)', padding: 'var(--space-4)', '@media (min-width: 768px)': { padding: 'var(--space-6)' } }}>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                   <SkeletonLoader variant="circle" width={24} height={24} />
                   <SkeletonLoader variant="text" width="70%" height={20} />
                 </div>
                 <SkeletonLoader variant="text" lines={2} height={16} />
-              </div>
+              </Box>
             ))}
           </div>
         ) : (
-          <p className={styles.centeredGrayText}>
+          <p style={{ color: 'var(--color-text-muted)', textAlign: 'center' }}>
             {lang.current.alert.noPlanItems}
           </p>
         )}
@@ -789,10 +789,10 @@ export default function MyPlanTabContent({
   }
 
   return (
-    <div className={`my-plan-view ${styles.planViewWrapper}`}>
+    <div className="my-plan-view" style={{ marginTop: 'var(--space-6)' }}>
       {/* Show loading indicator when we detected a hash deep-link and plans are still loading */}
       {hashSelecting && (
-        <div className={styles.loadingWrapper}>
+        <div style={{ marginBottom: 'var(--space-4)' }}>
           <Loading size="md" message={lang.current.label.loadingPlan || 'Loading plan...'} showMessage={true} />
         </div>
       )}
@@ -810,12 +810,12 @@ export default function MyPlanTabContent({
             onClick: handleSyncPlan,
             disabled: loading
           }}
-          className={styles.bannerSpacing}
+          style={{ marginBottom: 'var(--space-6)' }}
         />
       )}
 
       {/* Collaborators and Action Buttons Row */}
-      <div className={`plan-header-row ${styles.planHeaderRow}`}>
+      <div className="plan-header-row" style={{ marginBottom: 'var(--space-6)' }}>
         {/* Collaborators Display - Left Side */}
         <UsersListDisplay
           owner={planOwner}
@@ -845,7 +845,7 @@ export default function MyPlanTabContent({
       </div>
 
       {chatError && (
-        <p className={styles.dangerText}>{chatError}</p>
+        <p style={{ color: 'var(--color-danger)' }}>{chatError}</p>
       )}
 
       <MessagesModal
@@ -859,7 +859,7 @@ export default function MyPlanTabContent({
       {planMetadata}
 
       {/* View Toggle - Right aligned */}
-      <div className={`plan-view-toggle ${styles.viewToggle}`}>
+      <div className="plan-view-toggle" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-4)' }}>
         <SearchableSelect
           options={VIEW_OPTIONS}
           value={planItemsView}

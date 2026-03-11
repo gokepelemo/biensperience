@@ -295,7 +295,7 @@ export default function CollaboratorModal({
                 Current Collaborators
               </h5>
               {existingCollaborators.length === 0 ? (
-                <p className={styles.textMutedSm}>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
                   No collaborators yet. Add some below!
                 </p>
               ) : (
@@ -397,8 +397,8 @@ export default function CollaboratorModal({
 
                 {/* Selected NEW Collaborators Only */}
                 {newlySelectedCollaborators.length > 0 && (
-                  <div className={styles.mt3}>
-                    <strong className={styles.sectionLabelSecondary}>
+                  <div style={{ marginTop: 'var(--space-4)' }}>
+                    <strong style={{ display: 'block', marginBottom: 'var(--space-2)', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)' }}>
                       {lang.current.message.selected.replace('{count}', newlySelectedCollaborators.length)}
                     </strong>
                     <div
@@ -506,7 +506,7 @@ export default function CollaboratorModal({
             {/* Collaborators being added */}
             {newlySelectedCollaborators.length > 0 && (
               <div style={{ marginBottom: 'var(--space-3)' }}>
-                <strong className={styles.sectionLabelSuccess}>
+                <strong style={{ display: 'block', marginBottom: 'var(--space-2)', color: 'var(--color-success)', fontSize: 'var(--font-size-sm)' }}>
                   Adding {newlySelectedCollaborators.length} collaborator{newlySelectedCollaborators.length > 1 ? 's' : ''}:
                 </strong>
                 <div
@@ -532,7 +532,7 @@ export default function CollaboratorModal({
             {/* Collaborators being removed */}
             {removedCollaborators.length > 0 && (
               <div style={{ marginBottom: 'var(--space-3)' }}>
-                <strong className={styles.sectionLabelDanger}>
+                <strong style={{ display: 'block', marginBottom: 'var(--space-2)', color: 'var(--color-danger)', fontSize: 'var(--font-size-sm)' }}>
                   Removing {removedCollaborators.length} collaborator{removedCollaborators.length > 1 ? 's' : ''}:
                 </strong>
                 <div
@@ -558,7 +558,7 @@ export default function CollaboratorModal({
             )}
 
             {!hasChanges && (
-              <p className={styles.textMutedSm}>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
                 No changes to apply.
               </p>
             )}

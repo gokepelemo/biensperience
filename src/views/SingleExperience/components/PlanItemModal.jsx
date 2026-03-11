@@ -4,8 +4,8 @@ import { useState, useEffect, useId, useRef, useCallback } from 'react';
 import ActivityTypeSelect from '../../../components/ActivityTypeSelect';
 import AddressAutocomplete from '../../../components/AddressAutocomplete';
 import { lang } from '../../../lang.constants';
+import { Box } from '@chakra-ui/react';
 import { Modal, FormGroup, FormLabel, FormControl, FormInputGroup } from '../../../components/design-system';
-import styles from './PlanItemModal.module.scss';
 
 // Default form state for a plan item
 const DEFAULT_FORM_STATE = {
@@ -119,7 +119,7 @@ export default function PlanItemModal({
       loading={loading}
       disableSubmit={!formState.text}
     >
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <Box as="form" display="flex" flexDirection="column" gap="var(--space-3)" position="relative" zIndex={2} onSubmit={handleSubmit}>
         {/* Item Description */}
         <FormGroup>
           <FormLabel htmlFor={`${formId}-text`}>
@@ -151,7 +151,11 @@ export default function PlanItemModal({
         </FormGroup>
 
         {/* Cost + Planning Days - Side by Side */}
-        <div className={styles.twoColumnRow}>
+        <Box
+          display="grid"
+          gridTemplateColumns={{ base: "1fr", sm: "1fr 1fr" }}
+          gap="var(--space-3)"
+        >
           {/* Cost */}
           <FormGroup>
             <FormLabel htmlFor={`${formId}-cost`}>
@@ -206,9 +210,7 @@ export default function PlanItemModal({
               />
             </FormInputGroup>
           </FormGroup>
-        </div>
-
-        {/* Activity Type - Full Width for readable dropdown */}
+        </Box>
         <FormGroup>
           <FormLabel htmlFor={`${formId}-activityType`}>
             {l.current?.label?.activityType || "Activity Type"}
@@ -252,12 +254,12 @@ export default function PlanItemModal({
           />
           {/* Show selected location info */}
           {formState.location?.address && (
-            <small className={styles.locationConfirm}>
+            <small style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-success)', marginTop: 'var(--space-1)', display: 'block' }}>
               ✓ {formState.location.city || formState.location.country || 'Saved'}
             </small>
           )}
         </FormGroup>
-      </form>
+      </Box>
     </Modal>
   );
 }

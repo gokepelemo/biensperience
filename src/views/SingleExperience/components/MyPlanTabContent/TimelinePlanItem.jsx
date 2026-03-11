@@ -6,7 +6,6 @@ import { sanitizeUrl, sanitizeText } from '../../../../utilities/sanitize';
 import { getActivityTypeDisplay } from '../../../../constants/activity-types';
 import { formatTimeForDisplay } from './utils/time';
 import { buildStandardPlanItemActions } from './utils/actions';
-import styles from '../MyPlanTabContent.module.scss';
 
 /**
  * TimelinePlanItem - Similar to compact item but with time display for Timeline view.
@@ -88,7 +87,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
               aria-label={isExpanded ? 'Collapse child items' : 'Expand child items'}
               title={lang.current.tooltip.pinnedToTopExpandCollapse}
             >
-              <FaThumbtack className={`${styles.textWarning} pinned-pin-icon`} />
+              <FaThumbtack style={{ color: 'var(--color-warning)' }} className="pinned-pin-icon" />
               <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
             </button>
           ) : (
@@ -104,7 +103,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
           )
         ) : isPinned ? (
           <FaThumbtack
-            className={styles.textWarning}
+            style={{ color: 'var(--color-warning)' }}
             aria-label={lang.current.aria.pinnedItem}
             title={lang.current.tooltip.pinnedToTop}
           />
@@ -125,7 +124,8 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
 
       {/* Item text - clickable to view details */}
       <span
-        className={`timeline-item-text ${planItem.complete ? styles.completedText : ''} ${isPinned ? 'is-pinned' : ''}`}
+        className={`timeline-item-text ${isPinned ? 'is-pinned' : ''}`}
+        style={planItem.complete ? { textDecoration: 'line-through', color: 'var(--color-text-muted)' } : undefined}
         onClick={() => handleViewPlanItemDetails(planItem)}
         title="Click to view details"
         role="button"
@@ -183,7 +183,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
       {/* Meta info - cost, planning days, and visibility */}
       <span className="timeline-item-meta">
         {planItem.visibility === 'public' && (
-          <span className={`timeline-meta-visibility ${styles.textSuccess}`} title="Visible on experience feed">
+          <span className="timeline-meta-visibility" style={{ color: 'var(--color-success)' }} title="Visible on experience feed">
             <FaGlobe />
           </span>
         )}

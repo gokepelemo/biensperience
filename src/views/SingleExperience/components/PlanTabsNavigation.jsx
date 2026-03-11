@@ -13,7 +13,7 @@ import Loading from '../../../components/Loading/Loading';
 import debug from '../../../utilities/debug';
 import { lang } from '../../../lang.constants';
 import { idEquals, normalizeId } from '../../../utilities/id-utils';
-import styles from './PlanTabsNavigation.module.scss';
+import { Box, Flex } from '@chakra-ui/react';
 
 function PlanTabsNavigation({
   // Tab state
@@ -68,40 +68,58 @@ function PlanTabsNavigation({
       };
     }
   }, [dropdownOpen]);
+
+  // Style constants for tab navigation
+  const planTabsNavStyle = { display: 'flex', gap: 'var(--space-1)', overflow: 'visible', borderBottom: '1px solid var(--color-border-light)', marginBottom: 'var(--space-6)', '@media (max-width: 991px)': { justifyContent: 'center' }, '@media (max-width: 768px)': { gap: 0, justifyContent: 'center', flexWrap: 'wrap' } };
+  const tabItemBase = { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3) var(--space-4)', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'color var(--transition-fast), border-color var(--transition-fast)', marginBottom: '-1px', '&:hover:not(:disabled)': { color: 'var(--color-text-primary)', borderBottomColor: 'var(--color-border-medium)' }, '&:focus-visible': { outline: '2px solid var(--color-primary)', outlineOffset: '-2px', borderRadius: 'var(--radius-sm)' }, '@media (max-width: 991px)': { fontSize: 'var(--font-size-base)' }, '@media (max-width: 768px)': { padding: 'var(--space-3)', fontSize: 'var(--font-size-base)' } };
+  const tabItemActiveAdditions = { color: 'var(--color-text-primary)', borderBottomColor: 'var(--color-primary)', '&:hover:not(:disabled)': { borderBottomColor: 'var(--color-primary)' } };
+  const tabItemWithDropdownAdditions = { paddingRight: 'var(--space-2)' };
+  const tabIconStyle = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', '& svg': { width: '1em', height: '1em' }, '@media (max-width: 768px)': { fontSize: '0.875rem' } };
+  const tabLabelStyle = { lineHeight: 1, '@media (max-width: 991px)': { lineHeight: '1.15' } };
+  const tabDropdownContainerStyle = { position: 'relative', display: 'inline-flex', alignItems: 'center' };
+  const caretButtonBase = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-2)', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', cursor: 'pointer', color: 'var(--color-text-secondary)', marginBottom: '-1px', transition: 'color var(--transition-fast), border-color var(--transition-fast)', '&:hover': { color: 'var(--color-text-primary)', borderBottomColor: 'var(--color-border-medium)' }, '& svg': { width: '0.75rem', height: '0.75rem' } };
+  const caretButtonActiveAdditions = { color: 'var(--color-primary)', borderBottomColor: 'var(--color-primary)' };
+  const tabDropdownMenuStyle = { position: 'absolute', top: 'calc(100% + 4px)', left: '50%', transform: 'translateX(-50%)', zIndex: 100, minWidth: '160px', padding: 'var(--space-2) 0', background: 'var(--color-bg-primary, #ffffff)', border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)' };
+  const tabDropdownItemBase = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background-color var(--transition-fast), color var(--transition-fast)', '&:hover': { background: 'var(--color-bg-hover)', color: 'var(--color-text-primary)' } };
+  const tabDropdownItemSelectedAdditions = { color: 'var(--color-primary)', fontWeight: 'var(--font-weight-medium)', '&:hover': { color: 'var(--color-primary)' } };
+  const checkmarkStyle = { marginLeft: 'var(--space-2)', fontSize: '0.75rem', color: 'var(--color-primary)' };
+
   return (
-    <div className={styles.planTabsNav} role="tablist" aria-label={lang.current.aria.planTabs}>
+    <Flex css={planTabsNavStyle} role="tablist" aria-label={lang.current.aria.planTabs}>
       {/* Activity Tab - Always visible, shows experience activity feed */}
-      <button
+      <Box
+        as="button"
         type="button"
-        className={`${styles.tabItem} ${activeTab === "activity" ? styles.tabItemActive : ""}`}
+        css={{ ...tabItemBase, ...(activeTab === "activity" ? tabItemActiveAdditions : {}) }}
         onClick={() => setActiveTab("activity")}
         aria-selected={activeTab === "activity"}
         role="tab"
         tabIndex={activeTab === "activity" ? 0 : -1}
       >
-        <span className={styles.tabIcon}><FaRss /></span>
-        <span className={styles.tabLabel}>Activity</span>
-      </button>
+        <Box as="span" css={tabIconStyle}><FaRss /></Box>
+        <Box as="span" css={tabLabelStyle}>Activity</Box>
+      </Box>
 
       {/* The Plan Tab - Always visible */}
-      <button
+      <Box
+        as="button"
         type="button"
-        className={`${styles.tabItem} ${activeTab === "experience" ? styles.tabItemActive : ""}`}
+        css={{ ...tabItemBase, ...(activeTab === "experience" ? tabItemActiveAdditions : {}) }}
         onClick={() => setActiveTab("experience")}
         aria-selected={activeTab === "experience"}
         role="tab"
         tabIndex={activeTab === "experience" ? 0 : -1}
       >
-        <span className={styles.tabIcon}><FaListAlt /></span>
-        <span className={styles.tabLabel}>{lang.current.heading.thePlan}</span>
-      </button>
+        <Box as="span" css={tabIconStyle}><FaListAlt /></Box>
+        <Box as="span" css={tabLabelStyle}>{lang.current.heading.thePlan}</Box>
+      </Box>
 
       {/* My Plan Tab(s) - Loading or Dropdown/Button */}
       {plansLoading ? (
         // Show loading state for plan tabs
-        <button type="button" className={styles.tabItem} disabled>
+        <Box as="button" type="button" css={tabItemBase} disabled>
           <Loading size="sm" variant="inline" showMessage={false} />
-        </button>
+        </Box>
       ) : (
         (() => {
           // Debug log
@@ -137,14 +155,15 @@ function PlanTabsNavigation({
             }
 
             return (
-              <div
+              <Box
                 ref={dropdownRef}
-                className={`${styles.tabDropdownContainer} ${activeTab === 'myplan' ? styles.tabDropdownActive : ''} ${dropdownOpen ? styles.tabDropdownOpen : ''}`}
+                style={tabDropdownContainerStyle}
               >
                 {/* Tab button - switches to My Plan tab without opening dropdown */}
-                <button
+                <Box
+                  as="button"
                   type="button"
-                  className={`${styles.tabItem} ${styles.tabItemWithDropdown} ${activeTab === "myplan" ? styles.tabItemActive : ""}`}
+                  css={{ ...tabItemBase, ...tabItemWithDropdownAdditions, ...(activeTab === "myplan" ? tabItemActiveAdditions : {}) }}
                   onClick={() => {
                     // Clicking the tab should update the address bar to the selected plan
                     // even if a plan was already pre-selected.
@@ -159,14 +178,15 @@ function PlanTabsNavigation({
                   role="tab"
                   tabIndex={activeTab === "myplan" ? 0 : -1}
                 >
-                  <span className={styles.tabIcon}><FaUser /></span>
-                  <span className={styles.tabLabel}>{selectedDisplayName}</span>
-                </button>
+                  <Box as="span" css={tabIconStyle}><FaUser /></Box>
+                  <Box as="span" css={tabLabelStyle}>{selectedDisplayName}</Box>
+                </Box>
 
                 {/* Caret button - toggles dropdown */}
-                <button
+                <Box
+                  as="button"
                   type="button"
-                  className={styles.tabCaretButton}
+                  css={{ ...caretButtonBase, ...((activeTab === 'myplan' || dropdownOpen) ? caretButtonActiveAdditions : {}) }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setDropdownOpen(!dropdownOpen);
@@ -175,11 +195,11 @@ function PlanTabsNavigation({
                   aria-expanded={dropdownOpen}
                 >
                   {dropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
-                </button>
+                </Box>
 
                 {/* Dropdown menu */}
                 {dropdownOpen && (
-                  <div className={styles.tabDropdownMenu}>
+                  <Box css={tabDropdownMenuStyle}>
                     {allPlans.map((plan, ci) => {
                       const planUserId = plan.user?._id || plan.user;
                       const isOwnPlan = idEquals(planUserId, user._id);
@@ -197,10 +217,11 @@ function PlanTabsNavigation({
                       const isSelected = idEquals(planId, selectedPlanId);
 
                       return (
-                        <button
+                        <Box
+                          as="button"
                           key={optionKey}
                           type="button"
-                          className={`${styles.tabDropdownItem} ${isSelected ? styles.tabDropdownItemSelected : ''}`}
+                          css={{ ...tabDropdownItemBase, ...(isSelected ? tabDropdownItemSelectedAdditions : {}) }}
                           onClick={() => {
                             handlePlanChange(planId, { reason: 'dropdown/select-plan' });
                             setActiveTab("myplan");
@@ -208,13 +229,13 @@ function PlanTabsNavigation({
                           }}
                         >
                           <span>{displayName}</span>
-                          {isSelected && <FaCheck className={styles.checkmark} />}
-                        </button>
+                          {isSelected && <FaCheck style={checkmarkStyle} />}
+                        </Box>
                       );
                     })}
-                  </div>
+                  </Box>
                 )}
-              </div>
+              </Box>
             );
           }
 
@@ -226,9 +247,10 @@ function PlanTabsNavigation({
             // Only show the button if it's the user's own plan
             if (isOwnPlan) {
               return (
-                <button
+                <Box
+                  as="button"
                   type="button"
-                  className={`${styles.tabItem} ${activeTab === "myplan" ? styles.tabItemActive : ""}`}
+                  css={{ ...tabItemBase, ...(activeTab === "myplan" ? tabItemActiveAdditions : {}) }}
                   onClick={() => {
                     const planId = normalizeId(onlyPlan._id);
                     setSelectedPlanId(planId);
@@ -239,9 +261,9 @@ function PlanTabsNavigation({
                   role="tab"
                   tabIndex={activeTab === "myplan" ? 0 : -1}
                 >
-                  <span className={styles.tabIcon}><FaUser /></span>
-                  <span className={styles.tabLabel}>My Plan</span>
-                </button>
+                  <Box as="span" css={tabIconStyle}><FaUser /></Box>
+                  <Box as="span" css={tabLabelStyle}>My Plan</Box>
+                </Box>
               );
             }
           }
@@ -250,7 +272,7 @@ function PlanTabsNavigation({
           return null;
         })()
       )}
-    </div>
+    </Flex>
   );
 }
 

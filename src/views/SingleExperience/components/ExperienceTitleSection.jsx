@@ -4,10 +4,10 @@
  * Planned date badge has been moved to ActionButtonsRow
  */
 
+import { Box, Flex } from '@chakra-ui/react';
 import FadeIn from '../../../components/Animation/Animation';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
-import styles from './ExperienceTitleSection.module.scss';
 
 export default function ExperienceTitleSection({
   // Experience data
@@ -17,36 +17,42 @@ export default function ExperienceTitleSection({
   if (!experience) return null;
 
   return (
-    <div className={styles.experienceTitleSection}>
-      <h1 ref={h1Ref} className={`${styles.pageTitle} h fade-in`}>{experience.name}</h1>
+    <Box textAlign={{ base: "center", md: "start" }}>
+      <h1 ref={h1Ref} className="h fade-in" style={{ marginTop: 'var(--space-6)' }}>{experience.name}</h1>
 
       {/* Cost Estimate & Planning Days Grid */}
-      <div className={styles.headerGrid}>
+      <Flex
+        flexWrap="wrap"
+        gap="var(--space-3)"
+        align="center"
+        my="var(--space-2)"
+        justify={{ base: "center", md: "flex-start" }}
+      >
         {experience.cost_estimate > 0 && (
           <FadeIn>
-            <h2 className={`h5 ${styles.headerItem}`}>
+            <Box as="h2" className="h5" display="inline-flex" alignItems="center" minH="44px" m={0}>
               <CostEstimate
                 cost={experience.cost_estimate}
                 showLabel={true}
                 showTooltip={true}
                 showDollarSigns={true}
               />
-            </h2>
+            </Box>
           </FadeIn>
         )}
         {experience.max_planning_days > 0 && (
           <FadeIn>
-            <h2 className={`h5 ${styles.headerItem}`}>
+            <Box as="h2" className="h5" display="inline-flex" alignItems="center" minH="44px" m={0}>
               <PlanningTime
                 days={experience.max_planning_days}
                 showLabel={true}
                 showTooltip={true}
                 size="md"
               />
-            </h2>
+            </Box>
           </FadeIn>
         )}
-      </div>
-    </div>
+      </Flex>
+    </Box>
   );
 }

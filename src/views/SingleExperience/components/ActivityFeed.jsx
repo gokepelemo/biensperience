@@ -10,7 +10,7 @@ import { memo, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { FaRss, FaMapMarkerAlt, FaCamera, FaEye, FaRedo, FaSyncAlt } from 'react-icons/fa';
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu';
-import { Timeline, Pagination, ButtonGroup, IconButton } from '@chakra-ui/react';
+import { Box, Flex, Timeline, Pagination, ButtonGroup, IconButton } from '@chakra-ui/react';
 import UserAvatar from '../../../components/UserAvatar/UserAvatar';
 import PhotoModal from '../../../components/PhotoModal/PhotoModal';
 import { SkeletonLoader } from '../../../components/design-system';
@@ -20,7 +20,6 @@ import { eventBus } from '../../../utilities/event-bus';
 import { displayRelativeTime } from '../../../utilities/time-utils';
 import { useToast } from '../../../contexts/ToastContext';
 import { logger } from '../../../utilities/logger';
-import styles from './ActivityFeed.module.scss';
 
 const PAGE_SIZE = 10;
 
@@ -241,9 +240,9 @@ function ActivityFeed({ experienceId }) {
   // Loading skeleton
   if (loading) {
     return (
-      <div className={styles.activityFeed}>
+      <div style={{ padding: 'var(--space-4) 0' }}>
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className={styles.skeletonItem}>
+          <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', padding: 'var(--space-3) 0', borderBottom: '1px solid var(--color-border-light)' }}>
             <SkeletonLoader variant="circle" width={32} height={32} />
             <div style={{ flex: 1 }}>
               <SkeletonLoader variant="text" width="80%" height={16} />
@@ -258,16 +257,17 @@ function ActivityFeed({ experienceId }) {
   // Error state with retry
   if (error && activities.length === 0) {
     return (
-      <div className={styles.activityFeed}>
-        <div className={styles.errorBanner}>
+      <div style={{ padding: 'var(--space-4) 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-2) var(--space-3)', marginBottom: 'var(--space-3)', background: 'rgba(220, 53, 69, 0.1)', border: '1px solid var(--color-danger, #dc3545)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', color: 'var(--color-danger, #dc3545)' }}>
           <span>{error}</span>
-          <button
+          <Box
+            as="button"
             type="button"
-            className={styles.retryButton}
+            css={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', background: 'transparent', border: '1px solid var(--color-danger, #dc3545)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-1) var(--space-3)', fontSize: 'var(--font-size-xs)', color: 'var(--color-danger, #dc3545)', cursor: 'pointer', marginTop: 'var(--space-2)', transition: 'background var(--transition-fast), color var(--transition-fast)', '&:hover': { background: 'var(--color-danger, #dc3545)', color: 'white' } }}
             onClick={() => fetchFeed()}
           >
             <FaRedo /> Retry
-          </button>
+          </Box>
         </div>
       </div>
     );
@@ -276,11 +276,11 @@ function ActivityFeed({ experienceId }) {
   // Empty state
   if (activities.length === 0) {
     return (
-      <div className={styles.activityFeed}>
-        <div className={styles.emptyFeed}>
-          <div className={styles.emptyIcon}><FaRss /></div>
-          <div className={styles.emptyTitle}>No activity yet</div>
-          <div className={styles.emptyDescription}>
+      <div style={{ padding: 'var(--space-4) 0' }}>
+        <div style={{ textAlign: 'center', padding: 'var(--space-8) var(--space-4)', color: 'var(--color-text-muted)' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-3)', opacity: 0.4 }}><FaRss /></div>
+          <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-medium)', marginBottom: 'var(--space-2)', color: 'var(--color-text-secondary)' }}>No activity yet</div>
+          <div style={{ fontSize: 'var(--font-size-sm)', maxWidth: '300px', margin: '0 auto' }}>
             When users plan this experience or share photos publicly, their activity will appear here.
           </div>
         </div>
@@ -289,22 +289,23 @@ function ActivityFeed({ experienceId }) {
   }
 
   return (
-    <div className={styles.activityFeed}>
+    <div style={{ padding: 'var(--space-4) 0' }}>
       {/* New Updates indicator */}
       {hasNewUpdates && (
-        <button
+        <Box
+          as="button"
           type="button"
-          className={styles.newUpdatesBar}
+          css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-4)', marginBottom: 'var(--space-4)', background: 'var(--color-primary-light, #e8f4fd)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', color: 'var(--color-primary)', transition: 'background var(--transition-fast), transform var(--transition-fast)', animation: 'slideDown 0.3s ease-out', '&:hover': { background: 'var(--color-primary)', color: 'white', transform: 'translateY(-1px)' }, '@keyframes slideDown': { from: { opacity: 0, transform: 'translateY(-10px)' }, to: { opacity: 1, transform: 'translateY(0)' } } }}
           onClick={handleRefresh}
           aria-label="New updates available, click to refresh"
         >
-          <span className={styles.newUpdatesDot} />
+          <Box as="span" css={{ width: '8px', height: '8px', background: 'var(--color-primary)', borderRadius: '50%', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.4 }, '100%': { opacity: 1 } } }} />
           <FaSyncAlt size={12} /> New Updates
-        </button>
+        </Box>
       )}
 
       {/* Timeline Activity items */}
-      <Timeline.Root size="md" variant="outline" className={styles.timeline}>
+      <Timeline.Root size="md" variant="outline" css={{ width: '100%', '& .chakra-timeline__item': { alignItems: 'center' }, '& .chakra-timeline__content': { paddingTop: 0, paddingBottom: 'var(--space-4)' }, '& .chakra-timeline__indicator': { overflow: 'hidden' } }}>
         {paginatedActivities.map((activity) => {
           const { icon, colorPalette } = getActivityIndicator(activity);
           const text = getActivityText(activity);
@@ -329,13 +330,14 @@ function ActivityFeed({ experienceId }) {
                 </Timeline.Indicator>
               </Timeline.Connector>
               <Timeline.Content>
-                <Timeline.Title className={styles.activityText}>
+                <Timeline.Title css={{ display: 'block !important', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)', lineHeight: 'var(--line-height-normal)', '& strong': { fontWeight: 'var(--font-weight-semibold)' } }}>
                   {text}
                 </Timeline.Title>
                 {activityPhoto?.url && (
-                  <button
+                  <Box
+                    as="button"
                     type="button"
-                    className={styles.activityPhotoThumb}
+                    css={{ display: 'block', width: '80px', height: '80px', margin: 'var(--space-2) 0', padding: 0, border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden', cursor: 'pointer', background: 'var(--color-bg-tertiary, #f8f9fa)', transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)', flexShrink: 0, '&:hover': { borderColor: 'var(--color-primary)', boxShadow: 'var(--shadow-sm)' }, '& img': { width: '100%', height: '100%', objectFit: 'cover', display: 'block' } }}
                     onClick={() => setModalPhoto(activityPhoto)}
                     aria-label={`View photo added to ${activity.target?.name || 'plan item'}`}
                   >
@@ -344,9 +346,9 @@ function ActivityFeed({ experienceId }) {
                       alt={activityPhoto.photo_credit || 'Activity photo'}
                       loading="lazy"
                     />
-                  </button>
+                  </Box>
                 )}
-                <Timeline.Description className={styles.activityMeta}>
+                <Timeline.Description css={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
                   {displayRelativeTime(activity.timestamp || activity.createdAt)}
                 </Timeline.Description>
               </Timeline.Content>
@@ -365,7 +367,7 @@ function ActivityFeed({ experienceId }) {
 
       {/* Pagination */}
       {activities.length > PAGE_SIZE && (
-        <div className={styles.paginationContainer}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-4) 0', marginTop: 'var(--space-2)' }}>
           <Pagination.Root
             count={activities.length}
             pageSize={PAGE_SIZE}
@@ -399,15 +401,16 @@ function ActivityFeed({ experienceId }) {
 
       {/* Load more indicator when on last page with more data available */}
       {isOnLastPage && hasMore && (
-        <div className={styles.loadMore}>
-          <button
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-2) 0' }}>
+          <Box
+            as="button"
             type="button"
-            className={styles.loadMoreButton}
+            css={{ background: 'transparent', border: '1px solid var(--color-border-medium)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2) var(--space-6)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', cursor: 'pointer', transition: 'border-color var(--transition-fast), color var(--transition-fast)', '&:hover': { borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }, '&:disabled': { opacity: 0.5, cursor: 'not-allowed' } }}
             onClick={handleLoadMore}
             disabled={loadingMore}
           >
             {loadingMore ? 'Loading...' : 'Load more activities'}
-          </button>
+          </Box>
         </div>
       )}
     </div>

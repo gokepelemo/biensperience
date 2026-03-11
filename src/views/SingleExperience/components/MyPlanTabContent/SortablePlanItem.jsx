@@ -18,8 +18,6 @@ import CostEstimate from '../../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../../components/PlanningTime/PlanningTime';
 
 import { sanitizeUrl, sanitizeText } from '../../../../utilities/sanitize';
-
-import styles from '../MyPlanTabContent.module.scss';
 /**
  * SortablePlanItem - Individual plan item with drag-and-drop support
  * Memoized to prevent unnecessary re-renders when only one item's complete state changes
@@ -131,11 +129,12 @@ const SortablePlanItem = memo(function SortablePlanItem({
       ref={setNodeRef}
       style={style}
       data-plan-item-id={planItem._id}
-      className={`plan-item-card ${styles.mb3} ${styles.overflowHidden} ${
+      className={`plan-item-card ${
         planItem.isVisible ? "" : "collapsed"
       } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
+      style={{ marginBottom: 'var(--space-3)', overflow: 'hidden' }}
     >
-      <div className={`plan-item-header ${styles.planItemHeaderPadding}`}>
+      <div className="plan-item-header" style={{ padding: 'var(--space-4)' }}>
         <div className="plan-item-title-row">
           <div className="plan-item-tree">
             {!planItem.isChild ? (
@@ -154,7 +153,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                         aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
                         title={lang.current.tooltip.pinnedToTopExpandCollapse}
                       >
-                        <FaThumbtack className={`${styles.textWarning} pinned-pin-icon`} />
+                        <FaThumbtack style={{ color: 'var(--color-warning)' }} className="pinned-pin-icon" />
                         <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
                       </span>
                     );
@@ -176,7 +175,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   // For items without children: show pin instead of bullet when pinned
                   return (
                     <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
-                      {isPinned ? <FaThumbtack className={styles.textWarning} aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
+                      {isPinned ? <FaThumbtack style={{ color: 'var(--color-warning)' }} aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
                     </span>
                   );
                 }
@@ -186,7 +185,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
             )}
           </div>
 
-          <div className={`plan-item-title ${styles.flexGrow1} ${styles.fwSemibold}`}>
+          <div className="plan-item-title" style={{ flexGrow: 1, fontWeight: 600 }}>
             {planItem.url ? (() => {
               const safeUrl = sanitizeUrl(planItem.url);
               return safeUrl ? (
@@ -226,7 +225,8 @@ const SortablePlanItem = memo(function SortablePlanItem({
           <div
             {...attributes}
             {...listeners}
-            className={`drag-handle-wrapper ${isDragging ? styles.grabbing : styles.grab}`}
+            className="drag-handle-wrapper"
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           >
             <DragHandle
               isDragging={isDragging}
@@ -301,10 +301,10 @@ const SortablePlanItem = memo(function SortablePlanItem({
         </div>
       </div>
       {(Number(planItem.cost) > 0 || Number(planItem.planning_days) > 0 || planItem.visibility === 'public') && (
-        <div className={`plan-item-details ${styles.planItemDetailsPadding}`}>
+        <div className="plan-item-details" style={{ padding: 'var(--space-2)' }}>
           <div className="plan-item-meta">
             {planItem.visibility === 'public' && (
-              <span className={`plan-item-visibility ${styles.textSuccess}`} title="Visible on experience feed">
+              <span className="plan-item-visibility" style={{ color: 'var(--color-success)' }} title="Visible on experience feed">
                 <BsGlobe /> <small>Public</small>
               </span>
             )}

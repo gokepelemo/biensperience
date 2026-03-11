@@ -10,7 +10,7 @@ import SyncPlanModal from './components/SyncPlanModal';
 import PlanItemModal from './components/PlanItemModal';
 import PlanItemDetailsModal from '../../components/PlanItemDetailsModal/PlanItemDetailsModal';
 import IncompleteChildrenDialog from '../../components/IncompleteChildrenDialog/IncompleteChildrenDialog';
-import styles from "./SingleExperience.module.scss";
+import { Box, Flex } from "@chakra-ui/react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { lang } from "../../lang.constants";
@@ -3094,7 +3094,7 @@ export default function SingleExperience() {
           />
         )}
       {experience && !plansLoading ? (
-        <div className={styles.experienceDetailContainer}>
+        <Box minH="100vh" py="8" bg="bg">
           <Container>
             {/* Breadcrumb Navigation */}
             <Breadcrumb
@@ -3112,7 +3112,27 @@ export default function SingleExperience() {
               {/* Main Content Column (8 cols on lg+) */}
               <Col lg={8}>
                 {/* Hero Image Section */}
-                <div className={styles.heroSection}>
+                <Box
+                  borderRadius="xl"
+                  overflow="hidden"
+                  mb={{ base: "4", md: "6" }}
+                  h={{ base: "300px", md: "450px" }}
+                  bg="bg.muted"
+                  position="relative"
+                  css={{
+                    '& img': { width: '100%', height: '100%', objectFit: 'cover' },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: '30%',
+                      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent)',
+                      pointerEvents: 'none',
+                    },
+                  }}
+                >
                   {experience.photos && experience.photos.length > 0 ? (
                     <img
                       src={experience.photos[0]?.url || experience.photos[0]}
@@ -3124,18 +3144,37 @@ export default function SingleExperience() {
                       alt={experience.destination.name}
                     />
                   ) : (
-                    <div className={styles.noImagePlaceholder}>
+                    <Flex align="center" justify="center" h="100%" color="fg.muted">
                       No image available
-                    </div>
+                    </Flex>
                   )}
                   {/* Hero photo viewer button - opens upload modal when no photos and user can edit */}
-                  <button
+                  <Flex
+                    as="button"
                     type="button"
-                    className={styles.heroPhotoButton}
+                    position="absolute"
+                    right={{ base: "8px", md: "12px" }}
+                    bottom={{ base: "8px", md: "12px" }}
+                    bg="rgba(255,255,255,0.06)"
+                    border="2px solid rgba(255,255,255,0.9)"
+                    color="white"
+                    minW="44px"
+                    h="44px"
+                    px={{ base: "2", md: "3" }}
+                    borderRadius="8px"
+                    align="center"
+                    justify="center"
+                    gap="2"
+                    cursor="pointer"
+                    zIndex="5"
+                    backdropFilter="blur(4px)"
+                    transition="transform 0.15s ease, box-shadow 0.15s ease"
+                    fontSize="sm"
+                    fontWeight="medium"
+                    _hover={{ transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}
+                    _focus={{ outline: '2px solid var(--color-primary)', outlineOffset: '2px' }}
                     onClick={() => {
-                      // Check if there are no photos on the experience itself
                       const hasExperiencePhotos = experience.photos && experience.photos.length > 0;
-                      // Check if user can edit (owner or collaborator)
                       const canEdit = experience.permissions?.some(p =>
                         p.entity === 'user' &&
                         (p.type === 'owner' || p.type === 'collaborator') &&
@@ -3143,10 +3182,8 @@ export default function SingleExperience() {
                       );
 
                       if (!hasExperiencePhotos && canEdit) {
-                        // No photos on experience and user can edit - open upload modal
                         openModal(MODAL_NAMES.PHOTO_UPLOAD);
                       } else {
-                        // Has photos or user can't edit - open photo viewer
                         setPhotoViewerIndex(0);
                         openModal(MODAL_NAMES.PHOTO_VIEWER);
                       }
@@ -3155,36 +3192,36 @@ export default function SingleExperience() {
                   >
                     <FaRegImage />
                     {heroPhotos.length > 0 && (
-                      <span className={styles.photoCount}>{heroPhotos.length}</span>
+                      <Box as="span" fontSize="sm" fontWeight="medium">{heroPhotos.length}</Box>
                     )}
-                  </button>
-                </div>
+                  </Flex>
+                </Box>
 
                 {/* Tags Section */}
                 {(experience.experience_type || experience.destination || isExperienceArchived(experience) || (experienceOwner && !isArchiveUser(experienceOwner) && hasFeatureFlag(experienceOwner, 'curator'))) && (
-                  <div className={styles.tagsSection}>
+                  <Flex gap="2" mb="3" wrap="wrap" justify={{ base: "center", lg: "flex-start" }}>
                     {/* Curated Experience Tag with tooltip - shown when owner has curator flag and is not archived */}
                     {experienceOwner && !isArchiveUser(experienceOwner) && hasFeatureFlag(experienceOwner, 'curator') && (
                       <Tooltip
                         content={
-                          <div className={styles.curatorTooltipContent}>
-                            <div className={styles.curatorTooltipHeader}>
+                          <Box textAlign="left" maxW="280px">
+                            <Flex align="center" gap="2" mb="2" pb="2" borderBottom="1px solid rgba(255, 255, 255, 0.2)">
                               <FaStar size={14} />
-                              <span className={styles.curatorTooltipName}>
+                              <Box as="span" fontWeight="semibold" fontSize="md">
                                 {experienceOwner.name || 'Curator'}
-                              </span>
-                            </div>
+                              </Box>
+                            </Flex>
                             {experienceOwner.bio && (
-                              <p className={styles.curatorTooltipBio}>
+                              <Box as="p" fontSize="sm" lineHeight="1.4" mb="2" opacity="0.9">
                                 {experienceOwner.bio.length > 150
                                   ? `${experienceOwner.bio.substring(0, 150)}...`
                                   : experienceOwner.bio}
-                              </p>
+                              </Box>
                             )}
-                            <p className={styles.curatorTooltipCta}>
+                            <Box as="p" fontSize="xs" opacity="0.7" fontStyle="italic">
                               Tap again to view profile
-                            </p>
-                          </div>
+                            </Box>
+                          </Box>
                         }
                         placement="bottom"
                         trigger={['click']}
@@ -3192,7 +3229,6 @@ export default function SingleExperience() {
                         show={curatorTooltipVisible}
                         onToggle={(nextShow) => {
                           if (curatorTooltipVisible && !nextShow) {
-                            // Tooltip was visible and user clicked again - navigate to profile
                             navigate(`/profile/${experienceOwner._id}`);
                             setCuratorTooltipVisible(false);
                           } else {
@@ -3208,8 +3244,11 @@ export default function SingleExperience() {
                         >
                           <Pill
                             variant="secondary"
-                            className={styles.tag}
                             style={{
+                              padding: 'var(--spacing-2) var(--spacing-4)',
+                              borderRadius: 'var(--radii-full)',
+                              fontSize: 'var(--font-sizes-sm)',
+                              fontWeight: '500',
                               background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)',
                               color: 'white'
                             }}
@@ -3223,8 +3262,11 @@ export default function SingleExperience() {
                     {isExperienceArchived(experience) && (
                       <Pill
                         variant="secondary"
-                        className={styles.tag}
                         style={{
+                          padding: 'var(--spacing-2) var(--spacing-4)',
+                          borderRadius: 'var(--radii-full)',
+                          fontSize: 'var(--font-sizes-sm)',
+                          fontWeight: '500',
                           background: 'var(--color-text-muted)',
                           color: 'white'
                         }}
@@ -3236,7 +3278,7 @@ export default function SingleExperience() {
                       Array.isArray(experience.experience_type)
                         ? experience.experience_type.map((type, index) => (
                             <Link key={index} to={`/experience-types/${createUrlSlug(type)}`} style={{ textDecoration: 'none' }}>
-                              <Pill variant="secondary" className={styles.tag}>
+                              <Pill variant="secondary" css={{ py: '2', px: '4', borderRadius: 'full', fontSize: 'sm', bg: 'bg.muted', color: 'fg.muted', fontWeight: '500' }}>
                                 {type}
                               </Pill>
                             </Link>
@@ -3244,7 +3286,7 @@ export default function SingleExperience() {
                         : typeof experience.experience_type === 'string'
                           ? experience.experience_type.split(',').map((type, index) => (
                               <Link key={index} to={`/experience-types/${createUrlSlug(type)}`} style={{ textDecoration: 'none' }}>
-                                <Pill variant="secondary" className={styles.tag}>
+                                <Pill variant="secondary" css={{ py: '2', px: '4', borderRadius: 'full', fontSize: 'sm', bg: 'bg.muted', color: 'fg.muted', fontWeight: '500' }}>
                                   {type.trim()}
                                 </Pill>
                               </Link>
@@ -3253,42 +3295,42 @@ export default function SingleExperience() {
                     )}
                     {experience.destination && experience.destination.country && (
                       <Link to={`/countries/${createUrlSlug(experience.destination.country)}`} style={{ textDecoration: 'none' }}>
-                        <Pill variant="secondary" className={styles.tag}>
+                        <Pill variant="secondary" css={{ py: '2', px: '4', borderRadius: 'full', fontSize: 'sm', bg: 'bg.muted', color: 'fg.muted', fontWeight: '500' }}>
                           {experience.destination.country}
                         </Pill>
                       </Link>
                     )}
-                  </div>
+                  </Flex>
                 )}
 
                 {/* Title Section */}
-                <div className={styles.titleSection}>
-                  <h1 ref={h1Ref} className={styles.experienceTitle}>{experience.name}</h1>
+                <Box mb="6" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>
+                  <Box as="h1" ref={h1Ref} fontSize="3xl" fontWeight="bold" color="fg" mb="3" lineHeight="1.2">{experience.name}</Box>
                   {experience.destination && experience.destination.name && (
-                    <p className={styles.locationText}>
-                      <FaMapMarkerAlt />
+                    <Box as="p" fontSize="lg" color="fg.muted" display="inline-flex" alignItems="center" gap="2" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
+                      <Box as={FaMapMarkerAlt} color="colorPalette.solid" flexShrink="0" />
                       <Link to={`/destinations/${experience.destination._id}`}>
                         {experience.destination.name}{experience.destination.country ? `, ${experience.destination.country}` : ''}
                       </Link>
-                    </p>
+                    </Box>
                   )}
-                </div>
+                </Box>
 
                 {/* Experience Overview Card - Only render if overview has content */}
                 {experience.overview && (
-                  <div className={styles.contentCard}>
-                    <div className={styles.cardBody}>
-                      <h2 className={styles.cardTitle}>{lang.current.label.overview}</h2>
-                      <p className={styles.cardDescription}>
+                  <Box bg="bg" border="1px solid" borderColor="border" borderRadius="lg" mb="6" overflow="visible">
+                    <Box p={{ base: "4", md: "6" }}>
+                      <Box as="h2" fontSize="xl" fontWeight="semibold" color="fg" mb="4" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>{lang.current.label.overview}</Box>
+                      <Box as="p" fontSize="md" color="fg.muted" lineHeight="tall" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>
                         {experience.overview}
-                      </p>
-                    </div>
-                  </div>
+                      </Box>
+                    </Box>
+                  </Box>
                 )}
 
                 {/* Plan Items Card - always show (render EmptyState when no plan items) */}
-                <div className={styles.contentCard}>
-                  <div className={styles.cardBody}>
+                <Box bg="bg" border="1px solid" borderColor="border" borderRadius="lg" mb="6" overflow="visible">
+                  <Box p={{ base: "4", md: "6" }}>
                     {/* Plan Navigation Tabs */}
                     <PlanTabsNavigation
                       activeTab={activeTab}
@@ -3310,9 +3352,9 @@ export default function SingleExperience() {
                     {/* Experience Plan Items Tab Content */}
                     {activeTab === "experience" && (
                       experienceTabLoading ? (
-                        <div className={`experience-plan-view ${styles.skeletonPlanView}`}>
+                        <Box className="experience-plan-view" py="4">
                           {/* Skeleton for collaborators */}
-                          <div className={`plan-header-row ${styles.skeletonHeaderRow}`}>
+                          <Flex className="plan-header-row" justify="space-between" align="center" gap="5" mb="4">
                             <UsersListDisplay
                               loading={true}
                               owner={null}
@@ -3321,23 +3363,23 @@ export default function SingleExperience() {
                               reserveSpace={true}
                             />
                             {/* Action button skeleton */}
-                            <div className={styles.skeletonFlexEnd}>
+                            <Flex justify="flex-end">
                               <SkeletonLoader variant="rectangle" width="120px" height="40px" />
-                            </div>
-                          </div>
+                            </Flex>
+                          </Flex>
                           {/* Skeleton for plan items */}
-                          <div className={`plan-items-skeleton ${styles.skeletonItemsSpacer}`}>
+                          <Box className="plan-items-skeleton" mt="4">
                             {[1, 2, 3].map((i) => (
-                              <div key={i} className={`plan-item-card ${styles.skeletonItemCard}`}>
-                                <div className={styles.skeletonItemHeader}>
+                              <Box key={i} className="plan-item-card" p="4" mb="2" borderRadius="lg" border="1px solid" borderColor="border">
+                                <Flex align="center" gap="3" mb="2">
                                   <SkeletonLoader variant="circle" width={24} height={24} />
                                   <SkeletonLoader variant="text" width="70%" height={20} />
-                                </div>
+                                </Flex>
                                 <SkeletonLoader variant="text" lines={2} height={16} />
-                              </div>
+                              </Box>
                             ))}
-                          </div>
-                        </div>
+                          </Box>
+                        </Box>
                       ) : (experience.plan_items && experience.plan_items.length > 0) ? (
                         <ExperienceTabContent
                           user={user}
@@ -3456,15 +3498,15 @@ export default function SingleExperience() {
                         size="md"
                       />
                     )}
-                  </div>
-                </div>
+                  </Box>
+                </Box>
               </Col>
 
               {/* Sidebar Column (4 cols on lg+) */}
               <Col lg={4}>
-                <div className={styles.sidebar}>
-                  <div className={styles.sidebarCard}>
-                      <h3 className={styles.sidebarTitle}>Experience Details</h3>
+                <Box position={{ base: "relative", lg: "sticky" }} top={{ lg: "6" }} mb="6" css={{ '@media (max-width: 991px)': { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' } }}>
+                  <Box bg="bg.muted" border="1px solid" borderColor="border" borderRadius="lg" p={{ base: "4", lg: "6" }} w={{ base: "100%", lg: "auto" }}>
+                      <Box as="h3" fontSize={{ base: "xl", lg: "lg" }} fontWeight="semibold" color="fg" mb={{ base: "3", lg: "4" }} css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>Experience Details</Box>
 
                       {/* Date Picker Section */}
                       <DatePickerSection
@@ -3482,23 +3524,23 @@ export default function SingleExperience() {
                       />
 
                       {/* Details List */}
-                      <div className={styles.detailsList}>
+                      <Flex direction="column" gap={{ base: "3", lg: "4" }} mb={{ base: "4", lg: "6" }}>
                         {experience.rating > 0 && (
-                          <div className={styles.detailItem}>
-                            <div className={styles.detailLabel}>Rating</div>
-                            <div className={styles.detailValue}>
+                          <Box css={{ '@media (max-width: 991px)': { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' } }}>
+                            <Box color="fg.muted" fontSize={{ base: "md", lg: "sm" }} mb="1">Rating</Box>
+                            <Box color="fg" fontWeight="medium" fontSize={{ base: "lg", lg: "md" }}>
                               <StarRating
                                 rating={experience.rating}
                                 size="md"
                                 showValue={true}
                               />
-                            </div>
-                          </div>
+                            </Box>
+                          </Box>
                         )}
                         {experience.difficulty > 0 && (
-                          <div className={styles.detailItem}>
-                            <div className={styles.detailLabel}>Difficulty</div>
-                            <div className={styles.detailValue}>
+                          <Box css={{ '@media (max-width: 991px)': { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' } }}>
+                            <Box color="fg.muted" fontSize={{ base: "md", lg: "sm" }} mb="1">Difficulty</Box>
+                            <Box color="fg" fontWeight="medium" fontSize={{ base: "lg", lg: "md" }}>
                               <DifficultyRating
                                 difficulty={experience.difficulty}
                                 size="md"
@@ -3506,39 +3548,39 @@ export default function SingleExperience() {
                                 showLabel={true}
                                 variant="dots"
                               />
-                            </div>
-                          </div>
+                            </Box>
+                          </Box>
                         )}
                         {experience.cost_estimate > 0 && (
-                          <div className={styles.detailItem}>
-                            <div className={styles.detailLabel}>Estimated Cost</div>
-                            <div className={styles.detailValue}>
+                          <Box css={{ '@media (max-width: 991px)': { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' } }}>
+                            <Box color="fg.muted" fontSize={{ base: "md", lg: "sm" }} mb="1">Estimated Cost</Box>
+                            <Box color="fg" fontWeight="medium" fontSize={{ base: "lg", lg: "md" }}>
                               <CostEstimate
                                 cost={experience.cost_estimate}
                                 showLabel={false}
                                 showTooltip={true}
                                 showDollarSigns={true}
                               />
-                            </div>
-                          </div>
+                            </Box>
+                          </Box>
                         )}
                         {experience.max_planning_days > 0 && (
-                          <div className={styles.detailItem}>
-                            <div className={styles.detailLabel}>Planning Time</div>
-                            <div className={styles.detailValue}>
+                          <Box css={{ '@media (max-width: 991px)': { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' } }}>
+                            <Box color="fg.muted" fontSize={{ base: "md", lg: "sm" }} mb="1">Planning Time</Box>
+                            <Box color="fg" fontWeight="medium" fontSize={{ base: "lg", lg: "md" }}>
                               <PlanningTime
                                 days={experience.max_planning_days}
                                 showLabel={false}
                                 showTooltip={true}
                                 size="md"
                               />
-                            </div>
-                          </div>
+                            </Box>
+                          </Box>
                         )}
-                      </div>
+                      </Flex>
 
                       {/* Action Buttons */}
-                      <div className={styles.sidebarActions}>
+                      <Flex direction="column" gap={{ base: "2", lg: "3" }} css={{ '@media (max-width: 991px)': { alignItems: 'center', width: '100%' } }}>
                         <ActionButtonsRow
                           user={user}
                           experience={experience}
@@ -3563,13 +3605,13 @@ export default function SingleExperience() {
                           activeTab={activeTab}
                           onShare={handleShareExperience}
                         />
-                      </div>
-                  </div>
-                </div>
+                      </Flex>
+                  </Box>
+                </Box>
               </Col>
             </Row>
           </Container>
-        </div>
+        </Box>
       ) : experienceNotFound ? (
         <EntityNotFound
           entityType="experience"

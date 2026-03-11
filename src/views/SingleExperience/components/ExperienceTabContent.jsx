@@ -38,7 +38,6 @@ import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { isOwner } from '../../../utilities/permissions';
 import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
 import debug from '../../../utilities/debug';
-import styles from './ExperienceTabContent.module.scss';
 
 // View options for experience plan items display
 const VIEW_OPTIONS = [
@@ -281,7 +280,7 @@ function ExperiencePlanActionsDropdown({
               setIsOpen(false);
             }}
           >
-            <BsPlusCircle className={styles.me2} />
+            <BsPlusCircle style={{ marginInlineEnd: 'var(--space-2)' }} />
             {lang.current.button.addPlanItem}
           </button>
           <button
@@ -291,7 +290,7 @@ function ExperiencePlanActionsDropdown({
               setIsOpen(false);
             }}
           >
-            <BsPersonPlus className={styles.me2} />
+            <BsPersonPlus style={{ marginInlineEnd: 'var(--space-2)' }} />
             {lang.current.button.addCollaborators}
           </button>
         </div>
@@ -873,7 +872,7 @@ export default function ExperienceTabContent({
   const allItemIds = itemsToRender.map((item) => item._id.toString());
 
   return (
-    <div className={`experience-plan-view ${styles.mt4}`}>
+    <div className="experience-plan-view" style={{ marginTop: 'var(--space-6)' }}>
       {/* Collaborators and Action Buttons Row */}
       <div className="plan-header-row">
         {/* Collaborators Display - Left Side */}

@@ -4,12 +4,12 @@
  */
 
 import { Link } from 'react-router-dom';
+import { Box } from "@chakra-ui/react";
 import PhotoCard from '../../../components/PhotoCard/PhotoCard';
 import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
-import styles from './ExperienceHeader.module.scss';
 
 export default function ExperienceHeader({
   experience,
@@ -37,118 +37,120 @@ export default function ExperienceHeader({
 
       {/* Planned Date Badge - shows selected plan's date */}
       {userHasExperience && !pendingUnplan && (
-        <FadeIn>
-          {displayedPlannedDate ? (
-            <TagPill
-              color="primary"
-              className={`cursor-pointer ${styles.plannedDateBadge} planned-date-badge`}
-              onClick={() => {
-                if (showDatePicker) {
-                  setShowDatePicker(false);
-                } else {
-                  setIsEditingDate(true);
-                  setPlannedDate(formatDateForInput(displayedPlannedDate));
-                  setShowDatePicker(true);
-                }
-              }}
-              title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
-            >
-              Planned for {formatDateShort(displayedPlannedDate)}
-            </TagPill>
-          ) : (
-            <TagPill
-              color="primary"
-              className={`cursor-pointer ${styles.plannedDateBadge} planned-date-badge`}
-              onClick={() => {
-                if (showDatePicker) {
-                  setShowDatePicker(false);
-                } else {
-                  setIsEditingDate(false);
-                  setPlannedDate("");
-                  setShowDatePicker(true);
-                }
-              }}
-              title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
-            >
-              {lang.current.label.plannedDate}: {lang.current.label.setOneNow}
-            </TagPill>
-          )}
-        </FadeIn>
+        <Box mb="2">
+          <FadeIn>
+            {displayedPlannedDate ? (
+              <TagPill
+                color="primary"
+                className="cursor-pointer planned-date-badge"
+                onClick={() => {
+                  if (showDatePicker) {
+                    setShowDatePicker(false);
+                  } else {
+                    setIsEditingDate(true);
+                    setPlannedDate(formatDateForInput(displayedPlannedDate));
+                    setShowDatePicker(true);
+                  }
+                }}
+                title={showDatePicker ? "Click to close date picker" : "Click to edit planned date"}
+              >
+                Planned for {formatDateShort(displayedPlannedDate)}
+              </TagPill>
+            ) : (
+              <TagPill
+                color="primary"
+                className="cursor-pointer planned-date-badge"
+                onClick={() => {
+                  if (showDatePicker) {
+                    setShowDatePicker(false);
+                  } else {
+                    setIsEditingDate(false);
+                    setPlannedDate("");
+                    setShowDatePicker(true);
+                  }
+                }}
+                title={showDatePicker ? "Click to close date picker" : "Click to set a planned date"}
+              >
+                {lang.current.label.plannedDate}: {lang.current.label.setOneNow}
+              </TagPill>
+            )}
+          </FadeIn>
+        </Box>
       )}
 
       {/* Photos */}
       {experience.photos && experience.photos.length > 0 && (
-        <div id="photos" className={`row ${styles.photosRow}`}>
-          <div className={styles.fullWidth}>
+        <Box id="photos" className="row" mb="6">
+          <Box w="100%">
             <PhotoCard
               photos={experience.photos}
               defaultPhotoId={experience.default_photo_id}
               altText={experience.name}
             />
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
 
       {/* Destination Link */}
       {experience.destination && (
-        <div className={styles.destinationSection}>
+        <Box mb="4">
           <strong>Destination: </strong>
           <Link to={`/destinations/${experience.destination._id}`}>
             {experience.destination.name}, {experience.destination.country}
           </Link>
-        </div>
+        </Box>
       )}
 
       {/* Description */}
       {experience.description && (
-        <div className={styles.aboutSection}>
+        <Box mb="6">
           <h3>About</h3>
           <p className="experience-description">{experience.description}</p>
-        </div>
+        </Box>
       )}
 
       {/* Cost Estimate */}
       {experience.cost_estimate > 0 && (
-        <div className={styles.costSection}>
+        <Box mb="4">
           <strong>Estimated Cost: </strong>
           <CostEstimate
             cost={experience.cost_estimate}
             showTooltip={true}
             showDollarSigns={true}
           />
-        </div>
+        </Box>
       )}
 
       {/* Experience Type Tags */}
       {experience.experience_type && experience.experience_type.length > 0 && (
-        <div className={styles.typeSection}>
+        <Box mb="4">
           <strong>Type: </strong>
           {experience.experience_type.join(', ')}
-        </div>
+        </Box>
       )}
 
       {/* Travel Tips */}
       {travelTips && travelTips.length > 0 && (
-        <div id="travel-tips" className={styles.travelTipsSection}>
+        <Box id="travel-tips" mb="6">
           <h3>Travel Tips</h3>
           <ul className="travel-tips-list">
             {travelTips.map((tip, index) => (
               <li key={index}>{tip}</li>
             ))}
           </ul>
-        </div>
+        </Box>
       )}
 
       {/* Edit Button */}
       {canEdit && (
-        <div className={styles.editSection}>
+        <Box mb="6">
           <Link
             to={`/experiences/${experience._id}/update`}
             className="btn btn-primary"
           >
             Edit Experience
           </Link>
-        </div>
+        </Box>
       )}
     </div>
   );

@@ -3,11 +3,11 @@
  * Modal for setting/editing planned dates
  */
 
-import { Modal, FormGroup, FormLabel, FormControl, Alert } from '../../../components/design-system';
+import { Flex } from '@chakra-ui/react';
+import { Modal, FormGroup, FormLabel, FormControl, Alert, Button as DSButton } from '../../../components/design-system';
 import { getMinimumPlanningDate, isValidPlannedDate } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { FaCalendarAlt } from 'react-icons/fa';
-import styles from './DatePickerSection.module.scss';
 
 export default function DatePickerSection({
   // Visibility state
@@ -43,25 +43,28 @@ export default function DatePickerSection({
 
   // Custom footer with all action buttons
   const modalFooter = (
-    <div className={styles.footerActions}>
+    <Flex gap="var(--space-2)" w="100%" justify="flex-end" flexWrap="nowrap">
       {!isEditingDate && (
-        <button
-          className={styles.btnOutlineSecondary}
+        <DSButton
+          variant="outline"
+          size="md"
           onClick={() => handleAddExperience({})}
           aria-label={lang.current.button.skip}
         >
           {lang.current.button.skip}
-        </button>
+        </DSButton>
       )}
-      <button
-        className={styles.btnOutlineSecondary}
+      <DSButton
+        variant="outline"
+        size="md"
         onClick={handleClose}
         aria-label={lang.current.button.cancel}
       >
         {lang.current.button.cancel}
-      </button>
-      <button
-        className={styles.btnPrimary}
+      </DSButton>
+      <DSButton
+        variant="gradient"
+        size="md"
         onClick={handleSubmit}
         disabled={!plannedDate || loading}
         aria-label={
@@ -73,8 +76,8 @@ export default function DatePickerSection({
         {loading ? "Saving..." : (isEditingDate
           ? lang.current.button.updateDate
           : lang.current.button.setDateAndAdd)}
-      </button>
-    </div>
+      </DSButton>
+    </Flex>
   );
 
   return (
@@ -89,7 +92,7 @@ export default function DatePickerSection({
       footer={modalFooter}
     >
       {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
-        <p className={`${styles.textMuted} ${styles.mb3}`}>
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
           {lang.current.helper.requiresDaysToPlan.replace(
             "{days}",
             formatPlanningTime(experience.max_planning_days)
@@ -97,8 +100,8 @@ export default function DatePickerSection({
         </p>
       )}
 
-      <FormGroup className={styles.mb3}>
-        <FormLabel htmlFor="plannedDate" className={styles.fwSemibold}>
+      <FormGroup style={{ marginBottom: 'var(--space-4)' }}>
+        <FormLabel htmlFor="plannedDate" style={{ fontWeight: 'var(--font-weight-semibold)' }}>
           {lang.current.label.whenDoYouWantExperience}
         </FormLabel>
         <FormControl
@@ -122,7 +125,7 @@ export default function DatePickerSection({
           ) && (
             <Alert
               type="warning"
-              className={styles.alertTopSpacing}
+              style={{ marginTop: 'var(--space-2)' }}
               message={lang.current.alert.notEnoughTimeWarning}
             />
           )}

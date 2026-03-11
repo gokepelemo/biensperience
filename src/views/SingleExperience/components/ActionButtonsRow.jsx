@@ -9,13 +9,41 @@
 import { memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaCalendarAlt, FaPencilAlt, FaTrash, FaShareAlt } from 'react-icons/fa';
+import { Box, Flex } from '@chakra-ui/react';
 import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { formatDateForInput, formatDateOrdinal } from '../../../utilities/date-utils';
 import useButtonWidth from '../../../hooks/useButtonWidth';
 import { idEquals } from '../../../utilities/id-utils';
-import styles from './ActionButtonsRow.module.scss';
+
+/* Base styles shared by all action buttons */
+const actionButtonBase = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "var(--space-2)",
+  px: "var(--space-4)",
+  py: "var(--space-2)",
+  borderRadius: "var(--btn-radius-default)",
+  fontSize: "var(--font-size-sm)",
+  fontWeight: "semibold",
+  whiteSpace: "nowrap",
+  minH: "44px",
+  borderWidth: "2px",
+  borderStyle: "solid",
+  borderColor: "transparent",
+  cursor: "pointer",
+  transition: "all 0.15s ease",
+  _hover: {
+    transform: "translateY(-2px)",
+    boxShadow: "var(--shadow-md)",
+  },
+  _disabled: {
+    opacity: 0.6,
+    cursor: "not-allowed",
+  },
+};
 
 function ActionButtonsRow({
   // User & Experience data
@@ -84,11 +112,28 @@ function ActionButtonsRow({
   // Sidebar variant - vertical stacking with full-width buttons
   if (variant === "sidebar") {
     return (
-      <div className={styles.sidebarContainer}>
+      <Flex direction="column" align="center" gap="var(--space-3)">
         {/* Primary Action - Plan It / Planned Button */}
         <FadeIn>
-          <button
-            className={`${styles.sidebarPlanButton} ${userHasExperience ? styles.planned : ''} ${userHasExperience && favHover ? styles.removeHover : ''} ${loading || plansLoading ? styles.loading : ''}`}
+          <Box
+            as="button"
+            {...actionButtonBase}
+            minH="52px"
+            bg={
+              userHasExperience && favHover
+                ? "var(--color-danger)"
+                : userHasExperience
+                  ? "var(--color-success)"
+                  : "var(--gradient-primary)"
+            }
+            color="white"
+            fontSize="var(--font-size-base)"
+            borderColor={
+              userHasExperience && favHover
+                ? "var(--color-danger)"
+                : "transparent"
+            }
+            pointerEvents={loading || plansLoading ? "none" : undefined}
             ref={planButtonRef}
             onClick={handleExperience}
             aria-label={
@@ -111,15 +156,24 @@ function ActionButtonsRow({
             ) : (
               "Plan This Experience"
             )}
-          </button>
+          </Box>
         </FadeIn>
 
         {/* Planned Date Badge - Only shown when My Plan tab is active (hidden on The Plan/experience tab) */}
         {selectedPlan?.planned_date && activeTab === "myplan" && (
           <FadeIn>
-            <div className={styles.flexCenterWrap}>
-              <div
-                className={`${styles.datePickerBadge} ${!userOwnsSelectedPlan ? styles.viewOnly : ''}`}
+            <Flex justify="center">
+              <Box
+                {...actionButtonBase}
+                bg="var(--gradient-primary)"
+                color="white"
+                px="var(--space-3)"
+                py="var(--space-2)"
+                cursor={!userOwnsSelectedPlan ? "default" : "pointer"}
+                _hover={!userOwnsSelectedPlan
+                  ? { transform: "none", boxShadow: "none" }
+                  : { transform: "translateY(-2px)", boxShadow: "var(--shadow-md)" }
+                }
                 onClick={() => {
                   if (!userOwnsSelectedPlan) return;
                   if (showDatePicker) {
@@ -135,20 +189,37 @@ function ActionButtonsRow({
                   : "Shared plan date (view only)"
                 }
               >
-                <FaCalendarAlt className={styles.dateIcon} />
+                <FaCalendarAlt style={{ fontSize: '1em', flexShrink: 0 }} />
                 {formatDateOrdinal(selectedPlan.planned_date)}
-              </div>
-            </div>
+              </Box>
+            </Flex>
           </FadeIn>
         )}
 
         {/* Secondary Actions Row */}
-        <div className={styles.sidebarSecondaryRow}>
+        <Flex
+          gap={{ base: "var(--space-1)", sm: "var(--space-2)" }}
+          justify="center"
+          flexWrap="nowrap"
+        >
           {/* Edit Date Button - Only shown if user owns the selected plan and on My Plan tab */}
           {userOwnsSelectedPlan && activeTab === "myplan" && (
             <FadeIn>
-              <button
-                className={styles.secondaryButton}
+              <Box
+                as="button"
+                {...actionButtonBase}
+                bg="var(--color-bg-primary)"
+                color="var(--color-text-primary)"
+                borderColor="var(--color-border-medium)"
+                minW="44px"
+                px="var(--space-3)"
+                py="var(--space-2)"
+                _hover={{
+                  transform: "translateY(-2px)",
+                  boxShadow: "var(--shadow-md)",
+                  bg: "var(--color-bg-hover)",
+                  borderColor: "var(--color-border-dark)",
+                }}
                 onClick={() => {
                   if (showDatePicker) {
                     setShowDatePicker(false);
@@ -171,21 +242,35 @@ function ActionButtonsRow({
                 }
               >
                 <FaCalendarAlt /> Update Date
-              </button>
+              </Box>
             </FadeIn>
           )}
 
           {/* Share Button */}
           {onShare && (
             <FadeIn>
-              <button
-                className={styles.shareButton}
+              <Box
+                as="button"
+                {...actionButtonBase}
+                bg="var(--color-bg-primary)"
+                color="var(--color-info)"
+                borderColor="var(--color-info)"
+                minW="44px"
+                px="var(--space-3)"
+                py="var(--space-2)"
+                _hover={{
+                  transform: "translateY(-2px)",
+                  boxShadow: "var(--shadow-md)",
+                  bg: "var(--color-info)",
+                  color: "white",
+                  borderColor: "var(--color-info)",
+                }}
                 onClick={onShare}
                 aria-label={lang.current.button.share}
                 title={lang.current.button.share}
               >
                 <FaShareAlt />
-              </button>
+              </Box>
             </FadeIn>
           )}
 
@@ -193,39 +278,88 @@ function ActionButtonsRow({
           {isOwner(user, experience) && (
             <>
               <FadeIn>
-                <button
-                  className={styles.secondaryButton}
+                <Box
+                  as="button"
+                  {...actionButtonBase}
+                  bg="var(--color-bg-primary)"
+                  color="var(--color-text-primary)"
+                  borderColor="var(--color-border-medium)"
+                  minW="44px"
+                  px="var(--space-3)"
+                  py="var(--space-2)"
+                  _hover={{
+                    transform: "translateY(-2px)",
+                    boxShadow: "var(--shadow-md)",
+                    bg: "var(--color-bg-hover)",
+                    borderColor: "var(--color-border-dark)",
+                  }}
                   onClick={() => navigate(`/experiences/${experienceId}/update`)}
                   aria-label={lang.current.button.updateExperience}
                   title={lang.current.button.updateExperience}
                 >
                   <FaPencilAlt />
-                </button>
+                </Box>
               </FadeIn>
               <FadeIn>
-                <button
-                  className={styles.dangerButton}
+                <Box
+                  as="button"
+                  {...actionButtonBase}
+                  bg="var(--color-bg-primary)"
+                  color="var(--color-danger)"
+                  borderColor="var(--color-danger)"
+                  minW="44px"
+                  px="var(--space-3)"
+                  py="var(--space-2)"
+                  _hover={{
+                    transform: "translateY(-2px)",
+                    boxShadow: "var(--shadow-md)",
+                    bg: "rgba(220, 53, 69, 0.1)",
+                    borderColor: "var(--color-danger)",
+                  }}
                   onClick={() => setShowDeleteModal(true)}
                   aria-label={lang.current.button.delete}
                   title={lang.current.button.delete}
                 >
                   <FaTrash />
-                </button>
+                </Box>
               </FadeIn>
             </>
           )}
-        </div>
-      </div>
+        </Flex>
+      </Flex>
     );
   }
 
   // Default variant - horizontal row layout
   return (
-    <div className={`${styles.actionButtonsRow} col-md-6`}>
+    <Flex
+      className="col-md-6"
+      align="center"
+      justify={{ base: "center", md: "flex-end" }}
+      gap={{ base: "var(--space-1)", md: "var(--space-2)" }}
+      flexWrap="nowrap"
+    >
       {/* Plan It / Planned Button */}
       <FadeIn>
-        <button
-          className={`${styles.planButton} ${userHasExperience ? styles.planned : ''} ${userHasExperience && favHover ? styles.removeHover : ''} ${loading || plansLoading ? styles.loading : ''}`}
+        <Box
+          as="button"
+          {...actionButtonBase}
+          bg={
+            userHasExperience && favHover
+              ? "var(--color-danger)"
+              : userHasExperience
+                ? "var(--color-success)"
+                : "var(--gradient-primary)"
+          }
+          color="white"
+          borderColor={
+            userHasExperience && favHover
+              ? "var(--color-danger)"
+              : userHasExperience
+                ? "var(--color-success)"
+                : "transparent"
+          }
+          pointerEvents={loading || plansLoading ? "none" : undefined}
           ref={planButtonRef}
           onClick={handleExperience}
           aria-label={
@@ -248,14 +382,23 @@ function ActionButtonsRow({
           ) : (
             lang.current.button.addFavoriteExp
           )}
-        </button>
+        </Box>
       </FadeIn>
 
       {/* Planned Date Badge - Between Plan It and action buttons - Only shown on My Plan tab */}
       {selectedPlan?.planned_date && activeTab === "myplan" && (
         <FadeIn>
-          <div
-            className={`${styles.datePickerBadge} ${!userOwnsSelectedPlan ? styles.viewOnly : ''}`}
+          <Box
+            {...actionButtonBase}
+            bg="var(--gradient-primary)"
+            color="white"
+            px="var(--space-3)"
+            py="var(--space-2)"
+            cursor={!userOwnsSelectedPlan ? "default" : "pointer"}
+            _hover={!userOwnsSelectedPlan
+              ? { transform: "none", boxShadow: "none" }
+              : { transform: "translateY(-2px)", boxShadow: "var(--shadow-md)" }
+            }
             onClick={() => {
               if (!userOwnsSelectedPlan) return;
               if (showDatePicker) {
@@ -271,17 +414,30 @@ function ActionButtonsRow({
               : "Shared plan date (view only)"
             }
           >
-            <FaCalendarAlt className={styles.dateIcon} />
+            <FaCalendarAlt style={{ fontSize: '1em', flexShrink: 0 }} />
             {formatDateOrdinal(selectedPlan.planned_date)}
-          </div>
+          </Box>
         </FadeIn>
       )}
 
       {/* Edit Date Button - Only shown if user owns the selected plan and on My Plan tab */}
       {userOwnsSelectedPlan && activeTab === "myplan" && (
         <FadeIn>
-          <button
-            className={styles.secondaryButton}
+          <Box
+            as="button"
+            {...actionButtonBase}
+            bg="var(--color-bg-primary)"
+            color="var(--color-text-primary)"
+            borderColor="var(--color-border-medium)"
+            minW="44px"
+            px="var(--space-3)"
+            py="var(--space-2)"
+            _hover={{
+              transform: "translateY(-2px)",
+              boxShadow: "var(--shadow-md)",
+              bg: "var(--color-bg-hover)",
+              borderColor: "var(--color-border-dark)",
+            }}
             onClick={() => {
               if (showDatePicker) {
                 setShowDatePicker(false);
@@ -304,21 +460,35 @@ function ActionButtonsRow({
             }
           >
             <FaCalendarAlt />
-          </button>
+          </Box>
         </FadeIn>
       )}
 
       {/* Share Button */}
       {onShare && (
         <FadeIn>
-          <button
-            className={styles.shareButton}
+          <Box
+            as="button"
+            {...actionButtonBase}
+            bg="var(--color-bg-primary)"
+            color="var(--color-info)"
+            borderColor="var(--color-info)"
+            minW="44px"
+            px="var(--space-3)"
+            py="var(--space-2)"
+            _hover={{
+              transform: "translateY(-2px)",
+              boxShadow: "var(--shadow-md)",
+              bg: "var(--color-info)",
+              color: "white",
+              borderColor: "var(--color-info)",
+            }}
             onClick={onShare}
             aria-label={lang.current.button.share}
             title={lang.current.button.share}
           >
             <FaShareAlt />
-          </button>
+          </Box>
         </FadeIn>
       )}
 
@@ -326,28 +496,54 @@ function ActionButtonsRow({
       {isOwner(user, experience) && (
         <>
           <FadeIn>
-            <button
-              className={styles.secondaryButton}
+            <Box
+              as="button"
+              {...actionButtonBase}
+              bg="var(--color-bg-primary)"
+              color="var(--color-text-primary)"
+              borderColor="var(--color-border-medium)"
+              minW="44px"
+              px="var(--space-3)"
+              py="var(--space-2)"
+              _hover={{
+                transform: "translateY(-2px)",
+                boxShadow: "var(--shadow-md)",
+                bg: "var(--color-bg-hover)",
+                borderColor: "var(--color-border-dark)",
+              }}
               onClick={() => navigate(`/experiences/${experienceId}/update`)}
               aria-label={lang.current.button.updateExperience}
               title={lang.current.button.updateExperience}
             >
               <FaPencilAlt />
-            </button>
+            </Box>
           </FadeIn>
           <FadeIn>
-            <button
-              className={styles.dangerButton}
+            <Box
+              as="button"
+              {...actionButtonBase}
+              bg="var(--color-bg-primary)"
+              color="var(--color-danger)"
+              borderColor="var(--color-danger)"
+              minW="44px"
+              px="var(--space-3)"
+              py="var(--space-2)"
+              _hover={{
+                transform: "translateY(-2px)",
+                boxShadow: "var(--shadow-md)",
+                bg: "rgba(220, 53, 69, 0.1)",
+                borderColor: "var(--color-danger)",
+              }}
               onClick={() => setShowDeleteModal(true)}
               aria-label={lang.current.button.delete}
               title={lang.current.button.delete}
             >
               <FaTrash />
-            </button>
+            </Box>
           </FadeIn>
         </>
       )}
-    </div>
+    </Flex>
   );
 }
 

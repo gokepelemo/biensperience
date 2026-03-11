@@ -11,7 +11,8 @@ import TagPill from '../../../components/Pill/TagPill';
 import { formatDateMetricCard } from '../../../utilities/date-utils';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import { lang } from '../../../lang.constants';
-import styles from './PlanMetricsDisplay.module.scss';
+import { Box } from '@chakra-ui/react';
+import { Button as DSButton } from '../../../components/design-system';
 
 function PlanMetricsDisplay({
   plannedDate,
@@ -26,28 +27,44 @@ function PlanMetricsDisplay({
   const fullDateText = plannedDate ? formatDateMetricCard(plannedDate) : 'No date set';
 
   return (
-    <div className={`plan-metrics ${styles.metricsGrid}`}>
+    <Box className="plan-metrics" css={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)', marginTop: 'var(--space-6)', marginBottom: 'var(--space-6)', '@media (max-width: 768px)': { gridTemplateColumns: '1fr' } }}>
       {/* Completion Percentage */}
-      <div className={styles.metricCol}>
-        <div className={`metric-card ${styles.fullHeight}`} title={`${completionPercentage}% of plan items completed`}>
+      <Box style={{ minHeight: 0 }}>
+        <div className="metric-card" style={{ height: '100%' }} title={`${completionPercentage}% of plan items completed`}>
           <div className="metric-label">Completion</div>
           <div className="metric-value">{completionPercentage}%</div>
-          <div className={styles.progressTrack} style={{ height: 'var(--progress-bar-height-sm)' }}>
-            <div
-              className={styles.progressFill}
+          <Box style={{ display: 'flex', overflow: 'hidden', backgroundColor: 'var(--color-bg-tertiary)', borderRadius: 'var(--radius-pill)', marginTop: 'var(--space-2)', height: 'var(--progress-bar-height-sm)' }}>
+            <Box
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                transition: 'width 0.6s ease',
+                background: 'var(--gradient-primary, linear-gradient(135deg, var(--color-primary), var(--color-primary-light)))',
+                backgroundSize: '200% 200%',
+                animation: 'gradientShift 3s ease infinite',
+                '@keyframes gradientShift': {
+                  '0%': { backgroundPosition: '0% 50%' },
+                  '50%': { backgroundPosition: '100% 50%' },
+                  '100%': { backgroundPosition: '0% 50%' }
+                }
+              }}
               role="progressbar"
               style={{ width: `${completionPercentage}%` }}
               aria-valuenow={completionPercentage}
               aria-valuemin="0"
               aria-valuemax="100"
             />
-          </div>
+          </Box>
         </div>
-      </div>
+      </Box>
 
       {/* Planned Date */}
-      <div className={styles.metricCol}>
-        <div className={`metric-card ${styles.fullHeight}`} title={fullDateText}>
+      <Box style={{ minHeight: 0 }}>
+        <div className="metric-card" style={{ height: '100%' }} title={fullDateText}>
           <div className="metric-label">Planned Date</div>
           <div className="metric-value-container">
             {plannedDate ? (
@@ -71,20 +88,22 @@ function PlanMetricsDisplay({
             )}
           </div>
           {showEditButton && (
-            <button
-              className={styles.editDateBtn}
+            <DSButton
+              variant="outline"
+              size="sm"
               onClick={onEditDate}
               title={plannedDate ? 'Edit planned date' : 'Set a planned date'}
+              style={{ marginTop: 'var(--space-2)' }}
             >
               {plannedDate ? 'Update Date' : 'Set Date'}
-            </button>
+            </DSButton>
           )}
         </div>
-      </div>
+      </Box>
 
       {/* Total Cost */}
-      <div className={styles.metricCol}>
-        <div className={`metric-card ${styles.fullHeight}`} title={`Estimated cost: $${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+      <Box style={{ minHeight: 0 }}>
+        <div className="metric-card" style={{ height: '100%' }} title={`Estimated cost: $${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
           <div className="metric-label">Estimated Cost</div>
           <div className="metric-value metric-value-cost">
             <CostEstimate
@@ -94,8 +113,8 @@ function PlanMetricsDisplay({
             />
           </div>
         </div>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 

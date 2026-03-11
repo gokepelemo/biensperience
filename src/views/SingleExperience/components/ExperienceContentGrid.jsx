@@ -8,7 +8,7 @@
 
 import { FaRegImage, FaHeart, FaCalendarAlt, FaDollarSign, FaClock, FaStar } from 'react-icons/fa';
 import { SkeletonLoader, Breadcrumb, Row, Col } from '../../../components/design-system';
-import styles from '../SingleExperience.module.scss';
+import { Box, Flex } from '@chakra-ui/react';
 
 /**
  * @param {Object} props
@@ -60,33 +60,33 @@ export default function ExperienceContentGrid({
         {/* Main Content Column (8 cols on lg+) */}
         <Col lg={8}>
           {/* Hero Image Section */}
-          <div className={styles.heroSection}>
+          <Box borderRadius="xl" overflow="hidden" mb={{ base: "4", lg: "6" }} h={{ base: "300px", lg: "450px" }} bg="bg.muted" position="relative" css={{ '& img': { width: '100%', height: '100%', objectFit: 'cover' }, '&::after': { content: "''", position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', background: 'linear-gradient(to top, rgba(0,0,0,0.3), transparent)', pointerEvents: 'none' } }}>
             {heroContent}
-            <button
+            <Box as="button"
               type="button"
-              className={styles.heroPhotoButton}
+              css={{ position: 'absolute', right: '12px', bottom: '12px', background: 'rgba(255,255,255,0.06)', border: '2px solid rgba(255,255,255,0.9)', color: 'white', minWidth: '44px', height: '44px', padding: '0 var(--space-3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', cursor: 'pointer', zIndex: 5, backdropFilter: 'blur(4px)', transition: 'transform 0.15s ease, box-shadow 0.15s ease', fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }, '&:focus': { outline: '2px solid var(--color-primary)', outlineOffset: '2px' }, '& svg': { fontSize: '1.125rem' }, '@media (max-width: 768px)': { right: '8px', bottom: '8px', padding: '0 var(--space-2)' } }}
               onClick={onPhotoButtonClick}
               aria-label={photoCount > 0 ? `View ${photoCount} photo${photoCount !== 1 ? 's' : ''}` : "Add photos"}
             >
               <FaRegImage />
               {photoCount > 0 && (
-                <span className={styles.photoCount}>{photoCount}</span>
+                <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)' }}>{photoCount}</span>
               )}
-            </button>
-          </div>
+            </Box>
+          </Box>
 
           {/* Tags Section */}
           {tagsContent && (
-            <div className={styles.tagsSection}>
+            <Flex gap="2" mb="3" flexWrap="wrap" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
               {tagsContent}
-            </div>
+            </Flex>
           )}
 
           {/* Title Section */}
           {titleContent && (
-            <div className={styles.titleSection}>
+            <Box mb="6" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>
               {titleContent}
-            </div>
+            </Box>
           )}
 
           {/* Main Content (Overview, Plan Items, etc.) */}
@@ -95,9 +95,9 @@ export default function ExperienceContentGrid({
 
         {/* Sidebar Column (4 cols on lg+) */}
         <Col lg={4}>
-          <div className={styles.sidebar}>
+          <Box position={{ base: "relative", lg: "sticky" }} top={{ lg: "6" }} mb="6" css={{ '@media (max-width: 991px)': { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' } }}>
             {sidebarContent}
-          </div>
+          </Box>
         </Col>
       </Row>
     </>
@@ -118,45 +118,45 @@ export function ExperienceContentGridSkeleton() {
         {/* Main Content Column */}
         <Col lg={8}>
           {/* Hero Image Skeleton */}
-          <div className={styles.heroSection}>
+          <Box borderRadius="xl" overflow="hidden" mb={{ base: "4", lg: "6" }} h={{ base: "300px", lg: "450px" }} bg="bg.muted" position="relative" css={{ '& img': { width: '100%', height: '100%', objectFit: 'cover' }, '&::after': { content: "''", position: 'absolute', bottom: 0, left: 0, right: 0, height: '30%', background: 'linear-gradient(to top, rgba(0,0,0,0.3), transparent)', pointerEvents: 'none' } }}>
             <SkeletonLoader
               variant="rectangle"
               width="100%"
               height="100%"
               style={{ position: 'absolute', top: 0, left: 0 }}
             />
-          </div>
+          </Box>
 
           {/* Tags Skeleton */}
-          <div className={styles.tagsSection}>
+          <Flex gap="2" mb="3" flexWrap="wrap" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
             <SkeletonLoader variant="rectangle" width="80px" height="28px" style={{ borderRadius: 'var(--radius-full)' }} />
             <SkeletonLoader variant="rectangle" width="100px" height="28px" style={{ borderRadius: 'var(--radius-full)' }} />
             <SkeletonLoader variant="rectangle" width="70px" height="28px" style={{ borderRadius: 'var(--radius-full)' }} />
-          </div>
+          </Flex>
 
           {/* Title Section Skeleton */}
-          <div className={styles.titleSection}>
+          <Box mb="6" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>
             <SkeletonLoader variant="text" width="70%" height="40px" />
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
               <SkeletonLoader variant="circle" width="20px" height="20px" />
               <SkeletonLoader variant="text" width="200px" height="20px" />
             </div>
-          </div>
+          </Box>
 
           {/* Overview Card Skeleton */}
-          <div className={styles.contentCard}>
-            <div className={styles.cardBody}>
+          <Box bg="bg" border="1px solid" borderColor="border" borderRadius="lg" mb="6" overflow="visible">
+            <Box p={{ base: "4", lg: "6" }}>
               <SkeletonLoader variant="text" width="120px" height="24px" style={{ marginBottom: 'var(--space-4)' }} />
               <SkeletonLoader variant="text" width="100%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
               <SkeletonLoader variant="text" width="95%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
               <SkeletonLoader variant="text" width="80%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
               <SkeletonLoader variant="text" width="60%" height="16px" />
-            </div>
-          </div>
+            </Box>
+          </Box>
 
           {/* Plan Items Card Skeleton */}
-          <div className={styles.contentCard}>
-            <div className={styles.cardBody}>
+          <Box bg="bg" border="1px solid" borderColor="border" borderRadius="lg" mb="6" overflow="visible">
+            <Box p={{ base: "4", lg: "6" }}>
               {/* Tabs Skeleton */}
               <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border-light)', paddingBottom: 'var(--space-3)' }}>
                 <SkeletonLoader variant="rectangle" width="100px" height="36px" style={{ borderRadius: 'var(--radius-md)' }} />
@@ -174,14 +174,14 @@ export function ExperienceContentGridSkeleton() {
                   <SkeletonLoader variant="rectangle" width="60px" height="28px" style={{ borderRadius: 'var(--radius-sm)' }} />
                 </div>
               ))}
-            </div>
-          </div>
+            </Box>
+          </Box>
         </Col>
 
         {/* Sidebar Column */}
         <Col lg={4}>
-          <div className={styles.sidebar}>
-            <div className={styles.sidebarCard}>
+          <Box position={{ base: "relative", lg: "sticky" }} top={{ lg: "6" }} mb="6" css={{ '@media (max-width: 991px)': { display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' } }}>
+            <Box bg="bg.muted" border="1px solid" borderColor="border" borderRadius="lg" p={{ base: "4", lg: "6" }} w={{ base: "100%", lg: "auto" }}>
               {/* Sidebar Title Skeleton */}
               <SkeletonLoader variant="text" width="140px" height="24px" style={{ marginBottom: 'var(--space-4)' }} />
 
@@ -192,25 +192,25 @@ export function ExperienceContentGridSkeleton() {
               </div>
 
               {/* Details List Skeleton */}
-              <div className={styles.detailsList}>
+              <Flex direction="column" gap={{ base: "3", lg: "4" }} mb={{ base: "4", lg: "6" }}>
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className={styles.detailItem}>
+                  <Box key={i} css={{ '@media (max-width: 991px)': { textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' } }}>
                     <SkeletonLoader variant="text" width="80px" height="14px" style={{ marginBottom: 'var(--space-1)' }} />
                     <SkeletonLoader variant="text" width="120px" height="20px" />
-                  </div>
+                  </Box>
                 ))}
-              </div>
+              </Flex>
 
               {/* Action Buttons Skeleton */}
-              <div className={styles.sidebarActions}>
+              <Flex direction="column" gap={{ base: "2", lg: "3" }} css={{ '@media (max-width: 991px)': { alignItems: 'center', width: '100%' } }}>
                 <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-3)' }} />
                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <SkeletonLoader variant="rectangle" width="100%" height="40px" style={{ borderRadius: 'var(--radius-md)' }} />
                   <SkeletonLoader variant="rectangle" width="44px" height="40px" style={{ borderRadius: 'var(--radius-md)', flexShrink: 0 }} />
                 </div>
-              </div>
-            </div>
-          </div>
+              </Flex>
+            </Box>
+          </Box>
         </Col>
       </Row>
     </>
@@ -237,14 +237,14 @@ export function ExperienceStatsBar({
   if (stats.length === 0) return null;
 
   return (
-    <div className={styles.statsBar}>
+    <Flex flexWrap="wrap" gap={{ base: "3", lg: "4" }} py={{ base: "3", lg: "4" }} px={{ base: "4", lg: "6" }} bg="bg.muted" borderRadius="lg" mb={{ base: "4", lg: "6" }} border="1px solid" borderColor="border" css={{ '@media (max-width: 768px)': { justifyContent: 'center' } }}>
       {stats.map((stat, index) => (
-        <div key={index} className={styles.statItem}>
-          <stat.icon className={styles.statIcon} />
-          <span className={styles.statValue}>{stat.value}</span>
-          <span className={styles.statLabel}>{stat.label}</span>
-        </div>
+        <Flex key={index} alignItems="center" gap="2" pr="4" css={{ borderRight: '1px solid var(--color-border-light)', '&:last-child': { borderRight: 'none', paddingRight: 0 }, '@media (max-width: 768px)': { flex: '1 1 40%', justifyContent: 'center', borderRight: 'none', paddingRight: 0 } }}>
+          <stat.icon style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-lg)', flexShrink: 0 }} />
+          <span style={{ fontWeight: 'var(--font-weight-semibold)', fontSize: 'var(--font-size-lg)', color: 'var(--color-text-primary)' }}>{stat.value}</span>
+          <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>{stat.label}</span>
+        </Flex>
       ))}
-    </div>
+    </Flex>
   );
 }

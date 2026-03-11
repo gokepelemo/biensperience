@@ -8,13 +8,12 @@
  */
 
 import { memo } from 'react';
+import { Box, Flex } from '@chakra-ui/react';
 import PhotoCard from '../../../components/PhotoCard/PhotoCard';
 import InfoCard from '../../../components/InfoCard/InfoCard';
 import GoogleMap from '../../../components/GoogleMap/GoogleMap';
 import TagPill from '../../../components/Pill/TagPill';
 import { createUrlSlug } from '../../../utilities/url-utils';
-import styles from '../SingleExperience.module.scss';
-import overviewStyles from './ExperienceOverviewSection.module.scss';
 
 function ExperienceOverviewSection({
   // Experience data
@@ -24,10 +23,10 @@ function ExperienceOverviewSection({
   lang
 }) {
   return (
-    <div className={`${overviewStyles.overviewRow} fade-in`}>
+    <Flex flexWrap="wrap" mt="var(--space-4)" mb="var(--space-4)" className="fade-in">
       {/* Photo Section - Left Column */}
-      <div className={`${overviewStyles.photoColumn} fade-in`}>
-        <div className={overviewStyles.photoWrapper}>
+      <Box flex={{ base: "0 0 100%", md: "0 0 50%" }} maxW={{ base: "100%", md: "50%" }} p="var(--space-3)" className="fade-in">
+        <Box mb="var(--space-4)">
           <PhotoCard
             photos={experience.photos}
             photo={experience.photo}
@@ -39,12 +38,12 @@ function ExperienceOverviewSection({
                 : ""
             }`}
           />
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Info Card Section - Right Column */}
-      <div className={`${overviewStyles.infoColumn} fade-in`}>
-        <div className={`${overviewStyles.infoInner} fade-in`}>
+      <Box flex={{ base: "0 0 100%", md: "0 0 50%" }} maxW={{ base: "100%", md: "50%" }} p="var(--space-3)" className="fade-in">
+        <Box w="100%" className="fade-in">
           <InfoCard
             title={
               !experience.destination || !experience.destination.name ? (
@@ -67,7 +66,6 @@ function ExperienceOverviewSection({
                         {experience.experience_type.map((type) => (
                           <TagPill
                             key={type}
-                            className={styles.experienceTagPill}
                             color="primary"
                             size="sm"
                             gradient={true}
@@ -99,9 +97,9 @@ function ExperienceOverviewSection({
               )
             }
           />
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Flex>
   );
 }
 

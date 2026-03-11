@@ -10,7 +10,7 @@ import { Modal, Checkbox, Alert } from '../../../components/design-system';
 import { formatCurrency } from '../../../utilities/currency-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { sanitizeUrl, sanitizeText } from '../../../utilities/sanitize';
-import styles from './SyncPlanModal.module.scss';
+import { Box, Flex } from '@chakra-ui/react';
 
 export default function SyncPlanModal({
   // Modal state
@@ -51,15 +51,15 @@ export default function SyncPlanModal({
       }
     >
       <>
-        <p style={{ color: 'var(--color-text-muted)' }} className={styles.mb3}>
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
           {lang.current.alert.selectChangesToApply}
         </p>
 
         {/* Added Items */}
         {syncChanges.added.length > 0 && (
-          <div className={styles.sectionGroup}>
-            <div className={styles.sectionHeader}>
-              <h6 style={{ color: 'var(--color-success)' }} className={styles.noMarginBottom}>
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <Flex justify="space-between" align="center" mb="2">
+              <h6 style={{ color: 'var(--color-success)', marginBottom: 0 }}>
                 <strong>
                   {lang.current.label.addedItems.replace(
                     "{count}",
@@ -89,12 +89,12 @@ export default function SyncPlanModal({
                     }
                   }}
                 />
-            </div>
-            <div className={styles.listGroup}>
+            </Flex>
+            <Box css={{ display: 'flex', flexDirection: 'column', paddingLeft: 0, marginBottom: 0, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
               {syncChanges.added.map((item, idx) => (
-                <div key={idx} className={styles.listGroupItem}>
-                  <div className={styles.itemRow}>
-                    <div className={styles.checkboxCell}>
+                <Box key={idx} css={{ position: 'relative', display: 'block', padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)', '&:last-child': { borderBottom: 0 } }}>
+                  <Flex align="flex-start">
+                    <div style={{ marginInlineEnd: 'var(--space-4)', marginTop: 'var(--space-1)' }}>
                       <Checkbox
                         id={`add-${idx}`}
                         variant="outline"
@@ -115,13 +115,13 @@ export default function SyncPlanModal({
                         }}
                       />
                     </div>
-                    <div className={styles.contentCell}>
+                    <div style={{ flexGrow: 1 }}>
                       <strong>{item.text}</strong>
                       {item.url && (() => {
                         const safeUrl = sanitizeUrl(item.url);
                         const displayUrl = sanitizeText(item.url);
                         return safeUrl && displayUrl ? (
-                          <div className={styles.smallText} style={{ color: 'var(--color-text-muted)' }}>
+                          <div style={{ fontSize: 'var(--font-size-sm)', lineHeight: 'var(--line-height-normal)', color: 'var(--color-text-muted)' }}>
                             URL:{" "}
                             <a
                               href={safeUrl}
@@ -134,9 +134,9 @@ export default function SyncPlanModal({
                         ) : null;
                       })()}
                     </div>
-                    <div className={styles.badgeCell}>
+                    <div style={{ marginInlineStart: 'var(--space-2)', textAlign: 'end' }}>
                       {item.cost > 0 && (
-                        <div className={styles.badgeSecondary}>
+                        <div style={{ display: 'inline-block', padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--color-secondary-bg, #6c757d)', color: 'var(--color-bg-primary)' }}>
                           <CostEstimate
                             cost={item.cost}
                             showTooltip={false}
@@ -145,7 +145,7 @@ export default function SyncPlanModal({
                         </div>
                       )}
                       {item.planning_days > 0 && (
-                        <div className={`${styles.badgeInfo} ${styles.badgeGapStart}`}>
+                        <div style={{ display: 'inline-block', padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--color-info-bg, #0dcaf0)', color: 'var(--color-text-primary)', marginInlineStart: 'var(--space-1)' }}>
                           <PlanningTime
                             days={item.planning_days}
                             showTooltip={false}
@@ -153,18 +153,18 @@ export default function SyncPlanModal({
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
+                  </Flex>
+                </Box>
               ))}
-            </div>
+            </Box>
           </div>
         )}
 
         {/* Removed Items */}
         {syncChanges.removed.length > 0 && (
-          <div className={styles.sectionGroup}>
-            <div className={styles.sectionHeader}>
-              <h6 style={{ color: 'var(--color-danger)' }} className={styles.noMarginBottom}>
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <Flex justify="space-between" align="center" mb="2">
+              <h6 style={{ color: 'var(--color-danger)', marginBottom: 0 }}>
                 <strong>
                   {lang.current.label.removedItems.replace(
                     "{count}",
@@ -194,15 +194,15 @@ export default function SyncPlanModal({
                     }
                   }}
                 />
-            </div>
-            <div className={styles.listGroup}>
+            </Flex>
+            <Box css={{ display: 'flex', flexDirection: 'column', paddingLeft: 0, marginBottom: 0, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
               {syncChanges.removed.map((item, idx) => (
-                <div
+                <Box
                   key={idx}
-                  className={styles.listGroupItemDanger}
+                  css={{ position: 'relative', display: 'block', padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--color-danger-bg, rgba(220, 53, 69, 0.08))', borderColor: 'var(--color-danger-border, rgba(220, 53, 69, 0.2))', borderBottom: '1px solid var(--color-border)', '&:last-child': { borderBottom: 0 } }}
                 >
-                  <div className={styles.itemRow}>
-                    <div className={styles.checkboxCell}>
+                  <Flex align="flex-start">
+                    <div style={{ marginInlineEnd: 'var(--space-4)', marginTop: 'var(--space-1)' }}>
                       <Checkbox
                         id={`remove-${idx}`}
                         variant="outline"
@@ -225,26 +225,26 @@ export default function SyncPlanModal({
                         }}
                       />
                     </div>
-                    <div className={styles.contentCell}>
+                    <div style={{ flexGrow: 1 }}>
                       <strong>{item.text}</strong>
                       {item.url && (
-                        <div className={styles.smallText} style={{ color: 'var(--color-text-muted)' }}>
+                        <div style={{ fontSize: 'var(--font-size-sm)', lineHeight: 'var(--line-height-normal)', color: 'var(--color-text-muted)' }}>
                           URL: {item.url}
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
+                  </Flex>
+                </Box>
               ))}
-            </div>
+            </Box>
           </div>
         )}
 
         {/* Modified Items */}
         {syncChanges.modified.length > 0 && (
-          <div className={styles.sectionGroup}>
-            <div className={styles.sectionHeader}>
-              <h6 style={{ color: 'var(--color-warning)' }} className={styles.noMarginBottom}>
+          <div style={{ marginBottom: 'var(--space-6)' }}>
+            <Flex justify="space-between" align="center" mb="2">
+              <h6 style={{ color: 'var(--color-warning)', marginBottom: 0 }}>
                 <strong>
                   {lang.current.label.modifiedItems.replace(
                     "{count}",
@@ -274,12 +274,12 @@ export default function SyncPlanModal({
                     }
                   }}
                 />
-            </div>
-            <div className={styles.listGroup}>
+            </Flex>
+            <Box css={{ display: 'flex', flexDirection: 'column', paddingLeft: 0, marginBottom: 0, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
               {syncChanges.modified.map((item, idx) => (
-                <div key={idx} className={styles.listGroupItem}>
-                  <div className={styles.itemRow}>
-                    <div className={styles.checkboxCell}>
+                <Box key={idx} css={{ position: 'relative', display: 'block', padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)', '&:last-child': { borderBottom: 0 } }}>
+                  <Flex align="flex-start">
+                    <div style={{ marginInlineEnd: 'var(--space-4)', marginTop: 'var(--space-1)' }}>
                       <Checkbox
                         id={`modify-${idx}`}
                         variant="outline"
@@ -302,14 +302,14 @@ export default function SyncPlanModal({
                         }}
                       />
                     </div>
-                    <div className={styles.contentCell}>
-                      <strong className={styles.itemTitle}>{item.text}</strong>
+                    <div style={{ flexGrow: 1 }}>
+                      <strong style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{item.text}</strong>
                       {item.modifications.map((mod, modIdx) => (
-                        <div key={modIdx} className={`${styles.smallText} ${styles.modDetail}`}>
-                          <span className={`${styles.badgeWarning} ${styles.me2}`} style={{ color: 'var(--color-text-primary)' }}>
+                        <div key={modIdx} style={{ fontSize: 'var(--font-size-sm)', lineHeight: 'var(--line-height-normal)', marginBottom: 'var(--space-1)' }}>
+                          <span style={{ display: 'inline-block', padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)', lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--color-warning-bg, #ffc107)', color: 'var(--color-text-primary)', marginInlineEnd: 'var(--space-2)' }}>
                             {mod.field}
                           </span>
-                          <span className={styles.me2} style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)' }}>
+                          <span style={{ marginInlineEnd: 'var(--space-2)', textDecoration: 'line-through', color: 'var(--color-text-muted)' }}>
                             {mod.field === "cost"
                               ? `$${(mod.old || 0).toLocaleString("en-US", {
                                   minimumFractionDigits: 2,
@@ -322,7 +322,7 @@ export default function SyncPlanModal({
                               : mod.old || "(empty)"}
                           </span>
                           →
-                          <span className={styles.ms2} style={{ color: 'var(--color-success)' }}>
+                          <span style={{ marginInlineStart: 'var(--space-2)', color: 'var(--color-success)' }}>
                             {mod.field === "cost"
                               ? `$${(mod.new || 0).toLocaleString("en-US", {
                                   minimumFractionDigits: 2,
@@ -337,10 +337,10 @@ export default function SyncPlanModal({
                         </div>
                       ))}
                     </div>
-                  </div>
-                </div>
+                  </Flex>
+                </Box>
               ))}
-            </div>
+            </Box>
           </div>
         )}
 
@@ -356,7 +356,7 @@ export default function SyncPlanModal({
 
         <Alert
           type="warning"
-          className={styles.mt3}
+          style={{ marginTop: 'var(--space-4)' }}
           title={lang.current.label.note}
           message={lang.current.alert.syncPreserveNote}
         />
