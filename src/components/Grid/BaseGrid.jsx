@@ -58,6 +58,13 @@ export function BaseCol({ children, className = '', xs, sm, md, lg, xl, xxl, sty
 
   const hasResponsive = Object.keys(colSpan).length > 0;
 
+  // Default to full-width (12 cols) on mobile when responsive breakpoints are set
+  // but no base/xs value is specified. Matches Bootstrap behavior where columns
+  // are full-width by default and only resize at the specified breakpoint.
+  if (hasResponsive && !colSpan.base) {
+    colSpan.base = 12;
+  }
+
   return (
     <GridItem
       colSpan={hasResponsive ? colSpan : 12}
