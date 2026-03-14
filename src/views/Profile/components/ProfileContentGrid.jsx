@@ -172,11 +172,16 @@ function TabSkeletonItem({ width }) {
  * Tabs skeleton for Profile navigation
  * Shows 5 tabs: Activity, Follows, Planned, Created, Destinations
  * Matches TabNav component structure with centered layout
+ *
+ * Real TabNav renders:
+ *   - Desktop: nav.tabNav.tabNavBordered > button.tabItem (with icon + label + optional badge)
+ *   - Mobile: div.mobileDropdown > button.dropdownTrigger (min-height 48px) + margin-bottom space-4
+ * Both are wrapped in .profileTabs (margin-bottom space-6)
  */
 export function ProfileTabsSkeleton() {
   return (
     <div className={styles.profileTabs}>
-      {/* Desktop tabs skeleton (mirrors TabNav horizontal tabs) */}
+      {/* Desktop tabs skeleton (mirrors TabNav .tabNav.tabNavBordered) */}
       <div className={styles.profileTabsSkeletonDesktop} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
         <TabSkeletonItem width="50px" />
         <TabSkeletonItem width="45px" />
@@ -185,7 +190,8 @@ export function ProfileTabsSkeleton() {
         <TabSkeletonItem width="72px" />
       </div>
 
-      {/* Mobile dropdown skeleton (mirrors TabNav dropdown trigger) */}
+      {/* Mobile dropdown skeleton (mirrors TabNav .mobileDropdown > .dropdownTrigger)
+          Real trigger: min-height 48px, padding space-3/space-4, radius-lg, margin-bottom space-4 */}
       <div className={styles.profileTabsSkeletonMobile}>
         <SkeletonLoader
           variant="rectangle"

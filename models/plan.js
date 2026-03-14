@@ -544,6 +544,40 @@ const planSchema = new Schema(
       }, { _id: true }) ],
       default: []
     },
+    // Per-member travel origins for this plan.
+    // Each plan member (owner or collaborator) can record where they're
+    // traveling from and an optional travel cost estimate to the destination.
+    // Multiple entries, one per user — upserted by user ID.
+    member_locations: {
+      type: [new Schema({
+        user: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+          required: true
+        },
+        location: {
+          type: locationSchema,
+          default: null
+        },
+        // Optional estimated travel cost from this member's origin to the experience destination
+        travel_cost_estimate: {
+          type: Number,
+          default: null
+        },
+        currency: {
+          type: String,
+          default: 'USD',
+          maxlength: 3,
+          uppercase: true,
+          trim: true
+        },
+        updated_at: {
+          type: Date,
+          default: Date.now
+        }
+      }, { _id: false })],
+      default: []
+    },
     permissions: {
       type: [permissionSchema],
       default: [],

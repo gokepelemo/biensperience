@@ -383,6 +383,30 @@ export default function NewExperience() {
               <PhotoUpload data={newExperience} setData={setNewExperience} />
             </div>
 
+            <div className={styles.formSection}>
+              <Form.Group>
+                <Form.Label htmlFor="visibility">
+                  {lang.current.label.experienceVisibility}
+                  {' '}
+                  <FormTooltip
+                    content={lang.current.tooltip.experienceVisibility}
+                    placement="top"
+                  />
+                </Form.Label>
+                <Form.Control
+                  as="select"
+                  id="visibility"
+                  name="visibility"
+                  value={newExperience.visibility || 'public'}
+                  onChange={handleChange}
+                >
+                  <option value="public">{lang.current.label.experienceVisibilityPublic}</option>
+                  <option value="contributors">{lang.current.label.experienceVisibilityContributors}</option>
+                  <option value="private">{lang.current.label.experienceVisibilityPrivate}</option>
+                </Form.Control>
+              </Form.Group>
+            </div>
+
             {/* Planning days and cost estimate are computed from plan items (virtuals). Removed from creation form. */}
 
             <div className={styles.formActions}>

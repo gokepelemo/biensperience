@@ -432,10 +432,10 @@ export default function NavBar() {
         transition="box-shadow 0.25s cubic-bezier(0.4,0,0.2,1)"
         css={{ willChange: 'transform, opacity', contain: 'layout style' }}
       >
-        <Flex align="center" h="full" w="full" px="3" mx="auto">
+        <Flex align="flex-end" h="full" w="full" px="3" mx="auto" pb="2">
           {/* ─── Brand ─── */}
           <Flex
-            align="center"
+            align="flex-end"
             h="full"
             gap={{ base: '0', lg: '1' }}
             flexShrink={0}
@@ -478,7 +478,7 @@ export default function NavBar() {
           {/* ─── Desktop nav ─── */}
           <Flex
             display={{ base: 'none', lg: 'flex' }}
-            align="baseline"
+            align="flex-end"
             h="full"
             flex="1"
           >
@@ -509,8 +509,7 @@ export default function NavBar() {
             justifyContent="center"
             position="absolute"
             right="3"
-            top="50%"
-            transform="translateY(-50%)"
+            bottom="8px"
             zIndex="20"
             border="1px solid"
             borderColor="border"
@@ -527,7 +526,7 @@ export default function NavBar() {
             css={{
               '&:focus': { boxShadow: '0 0 0 0.2rem rgba(102,126,234,0.5)' },
               '&:active': { background: 'var(--color-bg-hover)' },
-              '&:hover, &:active': { transform: 'translateY(-50%) !important' },
+              '&:hover, &:active': { transform: 'none !important' },
             }}
           >
             {mobileOpen ? <FaTimes size={20} /> : <FaBars size={20} />}

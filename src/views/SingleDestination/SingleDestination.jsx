@@ -491,26 +491,21 @@ export default function SingleDestination() {
           {/* Breadcrumb Skeleton */}
           <Breadcrumb loading />
 
-          {/* Hero section skeleton */}
-          <SkeletonLoader variant="rectangle" width="100%" height="450px" className={styles.skeletonHero} />
+          {/* Hero section skeleton - matches .heroSection container exactly */}
+          <div className={styles.heroSection}>
+            <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ borderRadius: 0 }} />
+          </div>
 
-          {/* Stats bar skeleton */}
-          <div style={{
-            display: 'flex',
-            gap: 'var(--space-6)',
-            padding: 'var(--space-4) var(--space-6)',
-            background: 'var(--color-bg-secondary)',
-            borderRadius: 'var(--radius-lg)',
-            marginBottom: 'var(--space-6)',
-            flexWrap: 'wrap'
-          }}>
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <SkeletonLoader variant="circle" width="24px" height="24px" />
-                <SkeletonLoader variant="text" width="30px" height="24px" />
-                <SkeletonLoader variant="text" width="70px" height="16px" />
-              </div>
-            ))}
+          {/* Stats bar skeleton - matches MetricsBar compact layout */}
+          <div className={styles.statsBar}>
+            <div className={styles.skeletonMetricsRow}>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className={styles.skeletonMetricItem}>
+                  <SkeletonLoader variant="text" width="70px" height="14px" style={{ marginBottom: '0.25rem' }} />
+                  <SkeletonLoader variant="text" width="30px" height="22px" />
+                </div>
+              ))}
+            </div>
           </div>
 
           <Row>
@@ -526,7 +521,7 @@ export default function SingleDestination() {
                 </Card.Body>
               </Card>
 
-              {/* Map card skeleton */}
+              {/* Map card skeleton - matches GoogleMap height={350} */}
               <Card className={styles.contentCard}>
                 <Card.Body className={styles.contentCardBody}>
                   <SkeletonLoader variant="text" width="100px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
@@ -534,34 +529,14 @@ export default function SingleDestination() {
                 </Card.Body>
               </Card>
 
-              {/* Travel tips card skeleton */}
+              {/* Experiences card skeleton - matches DestinationExperienceGrid (6 cards at 280px) */}
               <Card className={styles.contentCard}>
                 <Card.Body className={styles.contentCardBody}>
-                  <SkeletonLoader variant="text" width="200px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
-                        <SkeletonLoader variant="circle" width="32px" height="32px" />
-                        <div style={{ flex: 1 }}>
-                          <SkeletonLoader variant="text" width="80px" height="14px" style={{ marginBottom: 'var(--space-1)' }} />
-                          <SkeletonLoader variant="text" width="90%" height="16px" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card.Body>
-              </Card>
-
-              {/* Experiences card skeleton */}
-              <Card className={styles.contentCard}>
-                <Card.Body className={styles.contentCardBody}>
-                  <SkeletonLoader variant="text" width="180px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
+                  <SkeletonLoader variant="text" width="220px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
                   <Row>
-                    {[1, 2, 3, 4].map((i) => (
-                      <Col md={6} key={i} style={{ marginBottom: 'var(--space-4)' }}>
-                        <SkeletonLoader variant="rectangle" width="100%" height="200px" style={{ borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-3)' }} />
-                        <SkeletonLoader variant="text" width="85%" height="20px" style={{ marginBottom: 'var(--space-2)' }} />
-                        <SkeletonLoader variant="text" width="60%" height="14px" />
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <Col md={6} key={i} style={{ marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'center' }}>
+                        <SkeletonLoader variant="rectangle" width="100%" height="280px" />
                       </Col>
                     ))}
                   </Row>
@@ -569,12 +544,11 @@ export default function SingleDestination() {
               </Card>
             </Col>
 
-            {/* Sidebar column */}
+            {/* Sidebar column - uses .sidebar class for matching bg/border/padding/sticky */}
             <Col lg={4}>
               <div className={styles.sidebar}>
                 <SkeletonLoader variant="text" width="120px" height="22px" style={{ marginBottom: 'var(--space-4)' }} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
+                <div className={styles.sidebarActions}>
                   <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
                   <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
                 </div>

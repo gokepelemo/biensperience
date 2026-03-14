@@ -17,10 +17,10 @@ import { formatChanges } from "../../utilities/change-formatter";
 import FormField from "../../components/FormField/FormField";
 import { isSuperAdmin } from "../../utilities/permissions";
 import { reverseGeocode } from "../../utilities/address-utils";
-import { Button, Alert, FormTooltip, Modal, Form } from "../../components/design-system";
+import { Spinner } from "@chakra-ui/react";
+import { Button, Alert, Checkbox, FormTooltip, Modal, Form } from "../../components/design-system";
 import { hasFeatureFlag, FEATURE_FLAGS } from "../../utilities/feature-flags";
 import Autocomplete from "../../components/Autocomplete/Autocomplete";
-import Checkbox from "../../components/Checkbox/Checkbox";
 import DeleteAccountModal from "../../components/DeleteAccountModal/DeleteAccountModal";
 import { logger } from "../../utilities/logger";
 import { getLinkedAccounts, unlinkAccount, linkAccount } from "../../utilities/oauth-service";
@@ -775,7 +775,7 @@ export default function UpdateProfile() {
                       }}
                     >
                       {geolocating ? (
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                        <Spinner size="sm" />
                       ) : (
                         <FaCrosshairs />
                       )}
@@ -880,7 +880,7 @@ export default function UpdateProfile() {
 
                     {linkedAccountsLoading ? (
                       <div className={styles.linkedAccountsLoading}>
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                        <Spinner size="sm" />
                       </div>
                     ) : linkedAccounts ? (
                       <>

@@ -241,16 +241,39 @@
 }
 
 /* Loading skeleton styles */
-.skeletonHero {
-  height: 450px;
-  border-radius: var(--radius-xl);
-  margin-bottom: 1.5rem;
+
+/* Metrics row skeleton - mirrors MetricsBar compact layout (stacked title/value per item) */
+.skeletonMetricsRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
 
   @media (max-width: 767px) {
+    flex-wrap: wrap;
+  }
+}
 
-    height: 300px;
-    margin-bottom: 1rem;
-  
+.skeletonMetricItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  flex: 1 1 0%;
+  min-width: 0;
+
+  @media (max-width: 767px) {
+    flex: 1 1 50%;
+    min-width: 140px;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border-light);
+
+    &:nth-child(odd) {
+      border-right: 1px solid var(--color-border-light);
+    }
+
+    &:nth-last-child(-n+2) {
+      border-bottom: none;
+    }
   }
 }
 

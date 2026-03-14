@@ -46,33 +46,44 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--color-border-light);
+  background: var(--gradient-primary-animated);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  color: white;
+  border-bottom: none;
   padding: var(--space-4) var(--space-5);
   pointer-events: auto !important;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
 }
 
 .modalTitle {
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-lg);
-  color: var(--color-text-primary);
+  color: white;
   margin: 0;
+  flex: 1;
 }
 
 .closeButton {
-  background: none;
+  background: transparent;
   border: none;
   font-size: 1.5rem;
-  color: var(--color-text-secondary);
+  color: white;
+  opacity: 0.9;
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
+  min-width: 44px;
+  min-height: 44px;
   line-height: 1;
   border-radius: var(--radius-md);
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: opacity var(--transition-fast), background var(--transition-fast);
   pointer-events: auto !important;
 
   &:hover {
-    color: var(--color-text-primary);
-    background: var(--color-bg-tertiary);
+    opacity: 1;
+    color: white;
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 

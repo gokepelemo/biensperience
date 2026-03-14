@@ -106,8 +106,12 @@ export default function usePlanSync({
     // Check if any plan item has changed
     for (let i = 0; i < (plan.plan || []).length; i++) {
       const planItem = plan.plan[i];
+      // Guard: skip items missing plan_item_id (legacy/corrupt data) — treat as diverged
+      if (!planItem.plan_item_id) {
+        return true;
+      }
       const experienceItem = exp.plan_items.find(
-        (item) => item._id.toString() === planItem.plan_item_id.toString()
+        (item) => item._id?.toString() === planItem.plan_item_id.toString()
       );
 
       if (!experienceItem) {
@@ -414,7 +418,13 @@ export default function usePlanSync({
       return;
     }
 
-    const hasDiverged = checkPlanDivergence(currentPlan, exp);
+    let hasDiverged = false;
+    try {
+      hasDiverged = checkPlanDivergence(currentPlan, exp);
+    } catch (err) {
+      logger.error('[usePlanSync] Error during divergence check', { error: err.message }, err);
+      return;
+    }
 
     logger.debug('[usePlanSync] Divergence check', {
       planId,

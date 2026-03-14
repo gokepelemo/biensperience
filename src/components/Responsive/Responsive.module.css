@@ -1,18 +1,20 @@
 /* Responsive Components - Visibility utilities for different breakpoints */
+/* Breakpoints align with project standard (AGENTS.md):
+   Mobile: < 768px  |  Tablet: 768px–991px  |  Desktop: ≥ 992px */
 
 /* Show utilities - Desktop defaults */
 .showMobile {
   display: none;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: block;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: none;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: none;
   }
 
@@ -24,15 +26,15 @@
 .showTablet {
   display: none;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: none;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: block;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: none;
   }
 
@@ -44,15 +46,15 @@
 .showDesktop {
   display: block;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: none;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: none;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: block;
   }
 
@@ -64,15 +66,15 @@
 .showMobileTablet {
   display: none;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: block;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: block;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: none;
   }
 
@@ -84,15 +86,15 @@
 .showTabletDesktop {
   display: block;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: none;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: block;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: block;
   }
 
@@ -105,15 +107,15 @@
 .hideMobile {
   display: block;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: none;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: block;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: block;
   }
 
@@ -125,15 +127,15 @@
 .hideTablet {
   display: block;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: block;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: none;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: block;
   }
 
@@ -145,15 +147,15 @@
 .hideDesktop {
   display: none;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: block;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: block;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: none;
   }
 
@@ -165,15 +167,15 @@
 .hideMobileTablet {
   display: block;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: none;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: block;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: block;
   }
 
@@ -185,15 +187,15 @@
 .hideTabletDesktop {
   display: none;
 
-  @media (max-width: 640px) {
+  @media (max-width: 767px) {
     display: block;
   }
 
-  @media (min-width: 641px) and (max-width: 1024px) {
+  @media (min-width: 768px) and (max-width: 991px) {
     display: none;
   }
 
-  @media (min-width: 1025px) {
+  @media (min-width: 992px) {
     display: none;
   }
 

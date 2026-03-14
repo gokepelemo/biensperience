@@ -325,23 +325,28 @@ export default function Dashboard() {
 function DashboardSkeleton() {
   return (
     <div className={styles.dashboardContainer}>
+      {/* Mobile/Tablet navigation skeleton - matches .mobileNav */}
+      <div className={styles.skeletonMobileNav}>
+        <SkeletonLoader variant="rectangle" width="100%" height={40} style={{ borderRadius: 'var(--radius-full)', maxWidth: '500px', margin: '0 auto' }} />
+      </div>
+
       {/* CSS Grid Layout - matches real dashboard */}
       <div className={styles.skeletonLayout}>
         {/* Sidebar skeleton */}
         <aside className={styles.skeletonSidebar}>
           <div className={styles.skeletonNavItems}>
-            {/* 4 nav items to match actual navigation */}
+            {/* 4 nav items to match actual ViewNav desktop sidebar navigation */}
             {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonLoader key={i} variant="rectangle" width="100%" height={44} style={{ borderRadius: 'var(--radius-md)' }} />
+              <SkeletonLoader key={i} variant="rectangle" width="100%" height={40} style={{ borderRadius: 'var(--radius-md)' }} />
             ))}
           </div>
         </aside>
 
         {/* Main content skeleton */}
         <main className={styles.skeletonMain}>
-          {/* Welcome section skeleton - matches welcomeSection */}
+          {/* Welcome section skeleton - matches welcomeSection (.welcomeTitle + .welcomeSubtitle) */}
           <div className={styles.skeletonWelcome}>
-            <SkeletonLoader variant="text" width="320px" height="var(--font-size-3xl)" style={{ marginBottom: 'var(--space-2)' }} />
+            <SkeletonLoader variant="text" width="320px" height="var(--font-size-3xl)" style={{ marginBottom: '0.5rem' }} />
             <SkeletonLoader variant="text" width="280px" height="var(--font-size-lg)" />
           </div>
 
@@ -409,9 +414,10 @@ function DashboardSkeleton() {
             <div className={styles.skeletonActivityCard}>
               <SkeletonLoader variant="text" width="140px" height="var(--font-size-xl)" style={{ marginBottom: 'var(--space-6)' }} />
               <div className={styles.skeletonActivityList}>
-                {/* 4 activity items to match typical list */}
+                {/* 4 activity items to match typical list - includes avatar, content, and View button */}
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className={styles.skeletonActivityItem}>
+                    <SkeletonLoader variant="circle" width={32} height={32} style={{ flexShrink: 0 }} />
                     <div className={styles.skeletonActivityItemContent}>
                       <SkeletonLoader variant="text" width={`${60 + (i % 3) * 10}%`} height="var(--font-size-base)" style={{ marginBottom: 'var(--space-1)' }} />
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
@@ -419,7 +425,7 @@ function DashboardSkeleton() {
                         <SkeletonLoader variant="text" width="80px" height="var(--font-size-sm)" />
                       </div>
                     </div>
-                    <SkeletonLoader variant="rectangle" width={60} height={32} style={{ borderRadius: 'var(--radius-md)' }} />
+                    <SkeletonLoader variant="rectangle" width={60} height="var(--btn-height-sm)" style={{ borderRadius: 'var(--radius-md)', flexShrink: 0 }} />
                   </div>
                 ))}
               </div>
@@ -432,7 +438,7 @@ function DashboardSkeleton() {
                 <SkeletonLoader variant="text" width="120px" height="var(--font-size-xl)" style={{ marginBottom: 'var(--space-6)' }} />
                 <div className={styles.skeletonQuickActionsList}>
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <SkeletonLoader key={i} variant="rectangle" width="100%" height={38} style={{ borderRadius: 'var(--radius-md)' }} />
+                    <SkeletonLoader key={i} variant="rectangle" width="100%" height="var(--btn-height-md)" style={{ borderRadius: 'var(--radius-md)' }} />
                   ))}
                 </div>
               </div>

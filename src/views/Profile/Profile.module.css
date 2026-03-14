@@ -561,6 +561,7 @@
 
   @media (max-width: 576px) {
     display: block;
+    margin-bottom: var(--space-4); /* Match TabNav .mobileDropdown margin */
   }
 }
 

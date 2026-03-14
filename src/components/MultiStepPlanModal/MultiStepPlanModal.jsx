@@ -582,8 +582,8 @@ export default function MultiStepPlanModal() {
       <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content" style={{ borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
           {/* Header */}
-          <div className="modal-header" style={{ borderBottom: '1px solid var(--color-border-light)' }}>
-            <h5 className="modal-title" style={{ fontWeight: 'var(--font-weight-bold)' }}>
+          <div className="modal-header">
+            <h5 className="modal-title">
               {currentStep === STEPS.CREATE_EXPERIENCE ? lang.current.multiStepPlanModal.createNewExperience :
                currentStep === STEPS.ADD_PLAN_ITEMS ? lang.current.multiStepPlanModal.addPlanItemsTitle :
                lang.current.multiStepPlanModal.planYourExperience}

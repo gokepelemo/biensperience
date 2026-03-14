@@ -31,8 +31,6 @@ function ExperienceCardSkeleton({ count = 6 }) {
           </div>
           <div className={styles.actions}>
             <SkeletonLoader variant="circle" width={44} height={44} />
-            <SkeletonLoader variant="circle" width={44} height={44} />
-            <SkeletonLoader variant="circle" width={44} height={44} />
           </div>
         </div>
       ))}

@@ -66,6 +66,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     destination: '',
     map_location: '',
     experience_type: [],
+    visibility: 'public',
   });
   const [tags, setTags] = useState([]);
   const [destinationSearchTerm, setDestinationSearchTerm] = useState('');
@@ -160,6 +161,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         destination: '',
         map_location: '',
         experience_type: [],
+        visibility: 'public',
       });
       setTags([]);
       setDestinationSearchTerm('');
@@ -183,6 +185,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           destination: initialValues.destinationId || initialValues.destination || '',
           map_location: initialValues.map_location || '',
           experience_type: initialValues.experience_type || [],
+          visibility: initialValues.visibility || 'public',
         };
         setExperienceData(pre);
         // Prefill tags (experience types) when initial values are provided
@@ -498,6 +501,9 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         if (tags.length > 0) {
           updateData.experience_type = tags;
         }
+        if (experienceData.visibility) {
+          updateData.visibility = experienceData.visibility;
+        }
 
         if (Object.keys(updateData).length > 0) {
           const updated = await updateExperience(createdExperience._id, updateData);
@@ -769,6 +775,27 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           <FormTooltip content={lang.current.helper.photosOptional} placement="top" />
         </Form.Label>
         <PhotoUpload data={experienceData} setData={handlePhotoChange} />
+      </div>
+
+      <div className={styles.mb4}>
+        <Form.Group>
+          <Form.Label htmlFor="wizard-visibility">
+            {lang.current.label.experienceVisibility}
+            {' '}
+            <FormTooltip content={lang.current.tooltip.experienceVisibility} placement="top" />
+          </Form.Label>
+          <Form.Control
+            as="select"
+            id="wizard-visibility"
+            name="visibility"
+            value={experienceData.visibility || 'public'}
+            onChange={handleChange}
+          >
+            <option value="public">{lang.current.label.experienceVisibilityPublic}</option>
+            <option value="contributors">{lang.current.label.experienceVisibilityContributors}</option>
+            <option value="private">{lang.current.label.experienceVisibilityPrivate}</option>
+          </Form.Control>
+        </Form.Group>
       </div>
     </Form>
   );

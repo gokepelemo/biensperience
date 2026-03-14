@@ -179,8 +179,8 @@
 
 .btn-outline-success:hover:not(:disabled),
 .btn-outline-success:focus:not(:disabled) {
-    background: var(--color-success);
-    border-color: var(--color-success);
+    background: var(--color-success-dark);
+    border-color: var(--color-success-dark);
     color: white;
     transform: translateY(var(--btn-hover-lift));
     box-shadow: var(--btn-shadow-hover);

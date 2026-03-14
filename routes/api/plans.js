@@ -57,4 +57,8 @@ router.post("/:id/costs", modificationLimiter, plansCtrl.addCost); // Add a cost
 router.patch("/:id/costs/:costId", modificationLimiter, plansCtrl.updateCost); // Update a cost entry
 router.delete("/:id/costs/:costId", modificationLimiter, plansCtrl.deleteCost); // Delete a cost entry
 
+// Member travel origin routes (any plan member manages their own location)
+router.put("/:id/member-location", modificationLimiter, plansCtrl.setMemberLocation); // Set/update own travel origin
+router.delete("/:id/member-location", modificationLimiter, plansCtrl.removeMemberLocation); // Remove own travel origin
+
 module.exports = router;

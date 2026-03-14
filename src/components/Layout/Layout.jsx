@@ -56,7 +56,7 @@ export function FlexBetween({
       className={className || undefined}
       style={style}
       css={{
-        '@media (max-width: 640px)': {
+        '@media (max-width: 767px)': {
           flexDirection: 'column',
           alignItems: 'stretch',
           gap: 'var(--chakra-spacing-3)',

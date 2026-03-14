@@ -19,7 +19,7 @@
   background-position: center;
   border-radius: 0.5rem;
   transition: all 500ms;
-  will-change: min-height, transform;
+  will-change: transform;
   /* Layout properties (replaces d-flex flex-column align-items-center justify-content-between p-3 position-relative overflow-hidden) */
   display: flex;
   flex-direction: column;

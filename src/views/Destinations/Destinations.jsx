@@ -9,7 +9,7 @@ import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterDestinations } from "../../utilities/sort-filter";
-import { Container, Mobile, Desktop, EmptyState, SkeletonLoader, DestinationCardSkeleton } from "../../components/design-system";
+import { Container, Mobile, Desktop, EmptyState, DestinationCardSkeleton } from "../../components/design-system";
 import { logger } from "../../utilities/logger";
 import { lang } from "../../lang.constants";
 
@@ -137,11 +137,7 @@ export default function Destinations() {
                     forcePreload={true}
                   />
                 ) : (
-                  <div key={`placeholder-${index}`} style={{ width: '12rem', height: '8rem', display: 'inline-block', margin: '0.5rem' }}>
-                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                    </div>
-                  </div>
+                  <DestinationCardSkeleton key={`placeholder-${index}`} count={1} />
                 )
               ))
             ) : (

@@ -5195,6 +5195,168 @@ const getPlanPreview = asyncHandler(async (req, res) => {
   });
 });
 
+// ============================================================================
+// MEMBER LOCATION MANAGEMENT
+// Each plan member (owner or collaborator) may record their travel origin and
+// an optional travel cost estimate. This information is stored in the
+// `member_locations` array (one entry per user, upserted by user ID).
+// ============================================================================
+
+/**
+ * Set or update the calling user's travel origin on a plan.
+ * Any plan member (owner or collaborator) may call this for themselves.
+ *
+ * PUT /api/plans/:id/member-location
+ * Body: { location: { address, city, country, ... }, travel_cost_estimate?, currency? }
+ */
+const setMemberLocation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  // Only plan members may call this
+  const isMember = await isPlanMember(plan, req.user._id);
+  if (!isMember) {
+    return errorResponse(res, null, 'You must be a plan member to set a travel origin', 403);
+  }
+
+  const { location, travel_cost_estimate, currency } = req.body;
+
+  // Validate location object
+  if (!location || typeof location !== 'object' || Array.isArray(location)) {
+    return errorResponse(res, null, 'A location object is required', 400);
+  }
+  if (location.address !== undefined && (typeof location.address !== 'string' || location.address.length > 500)) {
+    return errorResponse(res, null, 'location.address must be a string up to 500 characters', 400);
+  }
+  if (location.geo && location.geo.coordinates) {
+    const [lng, lat] = location.geo.coordinates;
+    if (typeof lng !== 'number' || typeof lat !== 'number' ||
+        lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      return errorResponse(res, null, 'Invalid geo coordinates', 400);
+    }
+  }
+
+  // Validate optional travel_cost_estimate
+  if (travel_cost_estimate !== undefined && travel_cost_estimate !== null) {
+    if (typeof travel_cost_estimate !== 'number' || !isFinite(travel_cost_estimate) || travel_cost_estimate < 0) {
+      return errorResponse(res, null, 'travel_cost_estimate must be a non-negative number', 400);
+    }
+  }
+
+  // Validate optional currency
+  const normalizedCurrency = (typeof currency === 'string' && currency.trim().length === 3)
+    ? currency.trim().toUpperCase()
+    : 'USD';
+
+  const userIdStr = req.user._id.toString();
+
+  // Upsert: update existing entry or push a new one
+  if (!Array.isArray(plan.member_locations)) {
+    plan.member_locations = [];
+  }
+  const existingIndex = plan.member_locations.findIndex(
+    ml => ml.user && ml.user.toString() === userIdStr
+  );
+
+  const entry = {
+    user: req.user._id,
+    location,
+    travel_cost_estimate: travel_cost_estimate ?? null,
+    currency: normalizedCurrency,
+    updated_at: new Date()
+  };
+
+  if (existingIndex >= 0) {
+    plan.member_locations[existingIndex] = entry;
+  } else {
+    plan.member_locations.push(entry);
+  }
+
+  // Use atomic update to avoid triggering full-doc validators on unrelated fields
+  await Plan.findByIdAndUpdate(
+    plan._id,
+    { $set: { member_locations: plan.member_locations } },
+    { new: false, runValidators: false }
+  );
+
+  backendLogger.info('Plan member location set', {
+    planId: id,
+    userId: userIdStr,
+    address: location.address
+  });
+
+  return successResponse(res, { member_locations: plan.member_locations }, 'Travel origin updated');
+});
+
+/**
+ * Remove the calling user's travel origin from a plan.
+ * Any plan member may remove their own location.
+ * Plan owners may additionally pass ?userId= to remove another member's location.
+ *
+ * DELETE /api/plans/:id/member-location
+ */
+const removeMemberLocation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  // Determine whose location to remove
+  let targetUserId = req.user._id.toString();
+  if (req.query.userId && req.query.userId !== targetUserId) {
+    // Only plan owners (or super admins) can remove another member's location
+    const isOwner = plan.permissions?.some(
+      p => p.entity === 'user' && p.type === 'owner' && p._id.toString() === req.user._id.toString()
+    );
+    const isSuperAdminUser = req.user.role === 'super_admin';
+    if (!isOwner && !isSuperAdminUser) {
+      return errorResponse(res, null, 'Only the plan owner can remove another member\'s location', 403);
+    }
+    if (!mongoose.Types.ObjectId.isValid(req.query.userId)) {
+      return errorResponse(res, null, 'Invalid userId', 400);
+    }
+    targetUserId = req.query.userId;
+  }
+
+  // Verify caller is at least a plan member
+  const isMember = await isPlanMember(plan, req.user._id);
+  if (!isMember) {
+    return errorResponse(res, null, 'You must be a plan member to modify locations', 403);
+  }
+
+  if (!Array.isArray(plan.member_locations)) {
+    return successResponse(res, { member_locations: [] }, 'No location to remove');
+  }
+
+  const updated = plan.member_locations.filter(
+    ml => !(ml.user && ml.user.toString() === targetUserId)
+  );
+
+  await Plan.findByIdAndUpdate(
+    plan._id,
+    { $set: { member_locations: updated } },
+    { new: false, runValidators: false }
+  );
+
+  backendLogger.info('Plan member location removed', { planId: id, targetUserId });
+
+  return successResponse(res, { member_locations: updated }, 'Travel origin removed');
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -5230,6 +5392,9 @@ module.exports = {
   updateCost,
   deleteCost,
   getCostSummary,
+  // Member travel origins
+  setMemberLocation,
+  removeMemberLocation,
   // Plan access request (token-based)
   approveByToken,
   getPlanPreview

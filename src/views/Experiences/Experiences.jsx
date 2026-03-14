@@ -7,7 +7,7 @@ import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import SortFilter from "../../components/SortFilter/SortFilter";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
-import { Button, Container, Mobile, Desktop, FadeIn, EmptyState, SkeletonLoader, ExperienceCardSkeleton } from "../../components/design-system";
+import { Button, Container, Mobile, Desktop, FadeIn, EmptyState, ExperienceCardSkeleton } from "../../components/design-system";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { getDestinations, showDestination } from '../../utilities/destinations-api';
 import { getExperienceTags, getExperiences } from '../../utilities/experiences-api';
@@ -743,11 +743,7 @@ export default function Experiences() {
                       forcePreload={true}
                     />
                   ) : (
-                    <Box key={`placeholder-${index}`} w="12rem" h="8rem" display="inline-block" m="0.5rem">
-                      <Box position="relative" w="100%" h="100%">
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </Box>
-                    </Box>
+                    <ExperienceCardSkeleton key={`placeholder-${index}`} count={1} />
                   )
                 ))
               ) : (

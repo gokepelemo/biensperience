@@ -44,6 +44,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Global font rendering: antialiased on macOS/WebKit for consistent body text */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* Global link style: pointer cursor, no underline */
 a,
 .link-btn {

@@ -926,6 +926,65 @@ export async function deletePlanCost(planId, costId) {
 }
 
 // ============================================
+// MEMBER LOCATION MANAGEMENT
+// ============================================
+
+/**
+ * Set or update the current user's travel origin on a plan.
+ * Any plan member (owner or collaborator) may call this for themselves.
+ *
+ * @param {string} planId - Plan ID
+ * @param {Object} locationData - { location: { address, city, country, geo? }, travel_cost_estimate?, currency? }
+ * @returns {Promise<{ member_locations: Array }>}
+ */
+export async function setMemberLocation(planId, locationData) {
+  try {
+    logger.debug('[plans-api] Setting member location', { planId });
+    const result = await sendRequest(`${BASE_URL}/${planId}/member-location`, 'PUT', locationData);
+
+    try {
+      broadcastEvent('plan:updated', { planId, data: result, version: Date.now() });
+    } catch (e) {
+      // ignore
+    }
+
+    return extractData(result);
+  } catch (error) {
+    logger.error('[plans-api] Failed to set member location', { planId, error: error.message }, error);
+    throw error;
+  }
+}
+
+/**
+ * Remove the current user's travel origin from a plan.
+ * Plan owners may pass userId to remove a specific member's location.
+ *
+ * @param {string} planId - Plan ID
+ * @param {string} [userId] - Optional: target user ID (owner only)
+ * @returns {Promise<{ member_locations: Array }>}
+ */
+export async function removeMemberLocation(planId, userId) {
+  try {
+    logger.debug('[plans-api] Removing member location', { planId, userId });
+    const url = userId
+      ? `${BASE_URL}/${planId}/member-location?userId=${userId}`
+      : `${BASE_URL}/${planId}/member-location`;
+    const result = await sendRequest(url, 'DELETE');
+
+    try {
+      broadcastEvent('plan:updated', { planId, data: result, version: Date.now() });
+    } catch (e) {
+      // ignore
+    }
+
+    return extractData(result);
+  } catch (error) {
+    logger.error('[plans-api] Failed to remove member location', { planId, error: error.message }, error);
+    throw error;
+  }
+}
+
+// ============================================
 // PLAN ITEM DETAIL MANAGEMENT API FUNCTIONS
 // ============================================
 

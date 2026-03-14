@@ -5,7 +5,18 @@ export { default as Breadcrumb } from './Breadcrumb';
 // IMPORTANT: All button consumers should import from here, NOT from ../Button/Button
 // This enables zero-regression migration between implementations
 export { default as Button } from './ButtonWrapper/ButtonWrapper';
-export { default as Checkbox } from './Checkbox/Checkbox';
+// Checkbox Abstraction Layer
+// IMPORTANT: All checkbox consumers should import from here, NOT from ../Checkbox/Checkbox
+// This enables zero-regression migration between implementations
+export { default as Checkbox } from './CheckboxWrapper/CheckboxWrapper';
+
+// Divider Abstraction Layer (Chakra Separator–based)
+// IMPORTANT: All divider consumers should import from here for consistency
+export { default as Divider } from './Divider/BaseDivider';
+
+// Stepper Abstraction Layer (Chakra Steps–based)
+// IMPORTANT: All stepper consumers should import from here for consistency
+export { default as Stepper } from './Stepper/BaseStepper';
 
 // Loading Abstraction Layer
 // IMPORTANT: All loading consumers should import from here, NOT from ../Loading/Loading

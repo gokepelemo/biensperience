@@ -92,6 +92,8 @@ import { groupItemsByType, groupPlanItemsByDate } from './MyPlanTabContent/utils
 import { Box } from '@chakra-ui/react';
 import PlanActionsDropdown from './MyPlanTabContent/PlanActionsDropdown';
 import PlanItemsRenderer from './MyPlanTabContent/PlanItemsRenderer';
+import { TravelOriginModal, TravelOriginsSection } from './UserLocationSection';
+import { setMemberLocation, removeMemberLocation } from '../../../utilities/plans-api';
 
 // View options for plan items display
 const VIEW_OPTIONS = [
@@ -249,6 +251,9 @@ export default function MyPlanTabContent({
 
   // Tab loading state for smooth transitions
   const [planTabLoading, setPlanTabLoading] = useState(true);
+  // Travel origin modal state
+  const [showTravelOriginModal, setShowTravelOriginModal] = useState(false);
+  const [memberLocationLoading, setMemberLocationLoading] = useState(false);
   // View state for plan items display (card or compact) - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
@@ -389,6 +394,47 @@ export default function MyPlanTabContent({
       (p) => idEquals(p._id, user._id) && ["owner", "collaborator"].includes(p.type)
     );
   const canEdit = isSuperAdmin || isPlanOwner || isPlanCollaborator;
+
+  // Current user's member location entry (if set)
+  const myMemberLocation = useMemo(() => {
+    const uid = String(user?._id);
+    return (currentPlan?.member_locations || []).find(
+      (ml) => String(ml.user?._id ?? ml.user) === uid
+    ) || null;
+  }, [currentPlan?.member_locations, user?._id]);
+
+  // Save the current user's travel origin
+  const handleSaveMemberLocation = useCallback(async ({ address, travel_cost_estimate, currency }) => {
+    if (!currentPlan?._id) return;
+    setMemberLocationLoading(true);
+    try {
+      const updated = await setMemberLocation(currentPlan._id, {
+        location: { address },
+        travel_cost_estimate,
+        currency
+      });
+      if (updated) updateSelectedPlanInState(() => updated);
+      setShowTravelOriginModal(false);
+    } catch (err) {
+      debug.error('[MyPlanTabContent] member location save failed', err);
+    } finally {
+      setMemberLocationLoading(false);
+    }
+  }, [currentPlan?._id, updateSelectedPlanInState]);
+
+  // Remove the current user's travel origin
+  const handleRemoveMemberLocation = useCallback(async () => {
+    if (!currentPlan?._id) return;
+    setMemberLocationLoading(true);
+    try {
+      const updated = await removeMemberLocation(currentPlan._id);
+      if (updated) updateSelectedPlanInState(() => updated);
+    } catch (err) {
+      debug.error('[MyPlanTabContent] member location remove failed', err);
+    } finally {
+      setMemberLocationLoading(false);
+    }
+  }, [currentPlan?._id, updateSelectedPlanInState]);
 
   // Compute earliest scheduled date from plan items as fallback
   // NOTE: ALL useMemo hooks must be called BEFORE any early returns to maintain hooks order
@@ -900,6 +946,20 @@ export default function MyPlanTabContent({
         fixedDate={dateModalParentDate}
       />
 
+      {/* Travel Origins Section */}
+      <TravelOriginsSection
+        memberLocations={currentPlan.member_locations || []}
+        user={user}
+        planCollaborators={planCollaborators || []}
+        planOwner={planOwner}
+        planCurrency={currentPlan?.currency || 'USD'}
+        canEdit={canEdit}
+        onEditOwn={() => setShowTravelOriginModal(true)}
+        onRemoveOwn={handleRemoveMemberLocation}
+        loading={memberLocationLoading}
+        lang={lang}
+      />
+
       {/* Costs Section */}
       <CostsList
         planId={selectedPlanId}
@@ -918,6 +978,19 @@ export default function MyPlanTabContent({
         compact={false}
         presenceConnected={presenceConnected}
         onlineUserIds={onlineUserIds}
+      />
+
+      {/* Travel Origin Edit Modal */}
+      <TravelOriginModal
+        show={showTravelOriginModal}
+        onClose={() => setShowTravelOriginModal(false)}
+        currentAddress={myMemberLocation?.location?.address || myMemberLocation?.location?.city || ''}
+        currentCostEstimate={myMemberLocation?.travel_cost_estimate}
+        currentCurrency={myMemberLocation?.currency}
+        loading={memberLocationLoading}
+        onSave={handleSaveMemberLocation}
+        planCurrency={currentPlan?.currency || 'USD'}
+        lang={lang}
       />
     </div>
   );
