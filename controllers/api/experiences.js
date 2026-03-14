@@ -1852,6 +1852,27 @@ async function showUserExperiences(req, res) {
       uniqueExperiences = Array.from(experienceMap.values());
     }
 
+    // Visibility filter: hide experiences the viewer is not allowed to discover.
+    // Own profile and super admins see everything; others see only public,
+    // contributor-visible (if they have a permission entry), or private (if they
+    // are owner/collaborator on that experience).
+    const isOwnProfileForPlanned = req.user._id.toString() === req.params.userId.toString();
+    const isSuperAdminViewerForPlanned = isSuperAdmin(req.user);
+    if (!isOwnProfileForPlanned && !isSuperAdminViewerForPlanned) {
+      const viewerIdStr = req.user._id.toString();
+      uniqueExperiences = uniqueExperiences.filter(experience => {
+        const vis = experience.visibility || 'public';
+        if (vis === 'public') return true;
+        const expPerms = experience.permissions || [];
+        const viewerPerm = expPerms.find(
+          p => p.entity === 'user' && p._id && p._id.toString() === viewerIdStr
+        );
+        if (!viewerPerm) return false;
+        if (vis === 'private') return ['owner', 'collaborator'].includes(viewerPerm.type);
+        return true; // contributors visibility — any permission entry grants access
+      });
+    }
+
     // Return paginated response with metadata, or just array for backwards compatibility
     if (hasPagination) {
       const totalPlans = await Plan.countDocuments({ user: req.params.userId });
