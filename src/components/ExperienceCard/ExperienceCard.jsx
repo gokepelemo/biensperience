@@ -1,7 +1,7 @@
 import styles from "./ExperienceCard.module.css";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect } from "react";
-import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers, FaStar } from "react-icons/fa";
+import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers, FaStar, FaLock, FaUserFriends } from "react-icons/fa";
 import SkeletonLoader from "../SkeletonLoader/SkeletonLoader";
 import TagPill from '../Pill/TagPill';
 import { lang } from "../../lang.constants";
@@ -507,6 +507,32 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
               <FaUsers className={styles.sharedIcon} />
             </div>
           )}
+          {/* Visibility Badge - shown to owners/collaborators when experience is not public */}
+          {(() => {
+            const vis = experience.visibility;
+            if (!vis || vis === 'public') return null;
+            const userPerms = experience.permissions || [];
+            const userIdStr = user?._id?.toString();
+            const userPerm = userIdStr
+              ? userPerms.find(p => p.entity === 'user' && p._id?.toString() === userIdStr)
+              : null;
+            if (!userPerm) return null;
+            const label = vis === 'private'
+              ? (lang.current.label?.experienceVisibilityPrivate || 'Private')
+              : (lang.current.label?.experienceVisibilityContributors || 'Contributors Only');
+            const tooltip = vis === 'private'
+              ? (lang.current.tooltip?.experienceVisibilityPrivate || 'Private \u2014 only you and collaborators can see this')
+              : (lang.current.tooltip?.experienceVisibilityContributors || 'Contributors Only \u2014 visible to people who have planned this');
+            return (
+              <div
+                className={styles.visibilityBadge}
+                title={`${label}: ${tooltip}`}
+                aria-label={label}
+              >
+                {vis === 'private' ? <FaLock className={styles.visibilityIcon} /> : <FaUserFriends className={styles.visibilityIcon} />}
+              </div>
+            );
+          })()}
           {/* Curated Experience Badge - shown in top-left corner */}
           {experience.isCurated && (
             <div

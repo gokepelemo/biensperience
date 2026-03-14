@@ -331,6 +331,33 @@
   }
 }
 
+/* Visibility Badge (private / contributors-only) - bottom-left corner */
+.visibilityBadge {
+  position: absolute;
+  bottom: 3.5rem; /* above the action buttons */
+  left: 0.5rem;
+  z-index: 10;
+  background: var(--color-bg-overlay, rgba(0, 0, 0, 0.55));
+  color: white;
+  padding: 0.3rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: var(--shadow-sm);
+  width: 28px;
+  height: 28px;
+  opacity: 0.9;
+
+  .visibilityIcon {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+  }
+}
+
 /* Curated Experience Badge - top-left corner */
 .curatedBadge {
   position: absolute;

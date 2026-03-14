@@ -233,6 +233,34 @@ async function index(req, res) {
       // Support filtering by curated experiences (only show experiences created by users with curator flag)
       const isCuratedFilter = req.query.curated === 'true' || req.query.curated === true;
 
+      // Visibility filter: only show experiences the requesting user is allowed to discover.
+      // public (or unset)      → visible to everyone
+      // contributors           → visible to users with any permission entry on the experience
+      // private                → visible only to owners and collaborators
+      if (!req.user) {
+        // Unauthenticated: public experiences only
+        filter.$or = [{ visibility: 'public' }, { visibility: { $exists: false } }];
+      } else if (!permissions.isSuperAdmin(req.user)) {
+        const viewerId = req.user._id;
+        filter.$or = [
+          { visibility: 'public' },
+          { visibility: { $exists: false } },
+          // contributors-only: any permission entry grants discovery
+          {
+            visibility: 'contributors',
+            permissions: { $elemMatch: { _id: viewerId, entity: 'user' } }
+          },
+          // private: only owner and collaborator can discover
+          {
+            visibility: 'private',
+            permissions: {
+              $elemMatch: { _id: viewerId, entity: 'user', type: { $in: ['owner', 'collaborator'] } }
+            }
+          }
+        ];
+      }
+      // Super admin sees everything (no additional filter)
+
       const baseQuery = Experience.find(filter)
         .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
         .slice('photos', 1)
@@ -729,6 +757,29 @@ async function showExperience(req, res) {
       return errorResponse(res, null, 'Experience not found', 404);
     }
 
+    // Visibility gate: check if the requesting user can view this experience
+    const visibility = experience.visibility || 'public';
+    if (visibility !== 'public') {
+      const viewer = req.user;
+      if (!viewer) {
+        return errorResponse(res, null, 'Experience not found', 404);
+      }
+      if (!permissions.isSuperAdmin(viewer)) {
+        const viewerIdStr = viewer._id.toString();
+        const expPerms = experience.permissions || [];
+        const viewerPerm = expPerms.find(p =>
+          p.entity === 'user' && p._id && p._id.toString() === viewerIdStr
+        );
+        if (!viewerPerm) {
+          // No permission entry at all → 404 (don't reveal existence)
+          return errorResponse(res, null, 'Experience not found', 404);
+        }
+        if (visibility === 'private' && !['owner', 'collaborator'].includes(viewerPerm.type)) {
+          return errorResponse(res, null, 'Experience not found', 404);
+        }
+      }
+    }
+
     // Manually compute virtuals since .lean() bypasses schema virtuals
     if (experience.plan_items && experience.plan_items.length > 0) {
       const itemMap = new Map();
@@ -859,6 +910,24 @@ async function showExperienceWithContext(req, res) {
 
     if (!experience) {
       return errorResponse(res, null, 'Experience not found', 404);
+    }
+
+    // Visibility gate for showExperienceWithContext
+    const expVisibility = experience.visibility || 'public';
+    if (expVisibility !== 'public') {
+      if (!permissions.isSuperAdmin(req.user)) {
+        const viewerIdStr = userId.toString();
+        const expPerms = experience.permissions || [];
+        const viewerPerm = expPerms.find(p =>
+          p.entity === 'user' && p._id && p._id.toString() === viewerIdStr
+        );
+        if (!viewerPerm) {
+          return errorResponse(res, null, 'Experience not found', 404);
+        }
+        if (expVisibility === 'private' && !['owner', 'collaborator'].includes(viewerPerm.type)) {
+          return errorResponse(res, null, 'Experience not found', 404);
+        }
+      }
     }
 
     // Manually compute virtuals since .lean() bypasses schema virtuals
@@ -1831,6 +1900,27 @@ async function showUserCreatedExperiences(req, res) {
         }
       }
     };
+
+    // Visibility filter: hide private experiences from users who are not the owner
+    const isOwnProfile = req.user && req.user._id.toString() === userId.toString();
+    const isSuperAdminViewer = req.user && permissions.isSuperAdmin(req.user);
+    if (!isOwnProfile && !isSuperAdminViewer) {
+      if (!req.user) {
+        queryFilter.$or = [{ visibility: 'public' }, { visibility: { $exists: false } }];
+      } else {
+        const viewerId = req.user._id;
+        queryFilter.$or = [
+          { visibility: 'public' },
+          { visibility: { $exists: false } },
+          // contributors-only: viewer must have any permission entry
+          {
+            visibility: 'contributors',
+            permissions: { $elemMatch: { _id: viewerId, entity: 'user' } }
+          }
+          // private: never shown on other users' profiles
+        ];
+      }
+    }
 
     // Build query
     let query = Experience.find(queryFilter)
