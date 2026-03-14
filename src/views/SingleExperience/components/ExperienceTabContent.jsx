@@ -899,7 +899,7 @@ export default function ExperienceTabContent({
         )}
       </div>
 
-      {/* View Toggle - Right aligned */}
+      {/* View Toggle */}
       <div className="plan-view-toggle">
         <SearchableSelect
           options={VIEW_OPTIONS}

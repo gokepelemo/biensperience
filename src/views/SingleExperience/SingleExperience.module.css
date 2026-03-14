@@ -2565,27 +2565,14 @@
    COMPACT PLAN ITEMS VIEW
    ============================================== */
 
-/* View toggle select - positioned at top right */
+/* View toggle select - full width */
 :global(.plan-view-toggle) {
-  display: flex !important; /* Ensure visible on all screen sizes */
-  justify-content: flex-end;
+  display: flex !important;
   margin-bottom: 1rem;
 
   .plan-view-select {
-    min-width: 140px;
-    max-width: 160px;
-  }
-
-  /* Ensure SearchableSelect is visible on mobile and tablet */
-  @media (max-width: 767px) {
-
-    justify-content: flex-end;
-
-    .plan-view-select {
-      min-width: 120px;
-      max-width: 140px;
-    }
-  
+    width: 100%;
+    flex: 1;
   }
 }
 

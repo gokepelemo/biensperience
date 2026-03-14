@@ -255,8 +255,7 @@ export default function SingleExperience() {
   // Incomplete children dialog state (blocks parent completion when children are incomplete)
   const [incompleteChildrenDialogData, setIncompleteChildrenDialogData] = useState(null);
 
-  // Curator tooltip state (two-click pattern: first shows tooltip, second navigates)
-  const [curatorTooltipVisible, setCuratorTooltipVisible] = useState(false);
+  // (curator tooltip state removed - navigation is now via double-click)
 
   // Refs
   const planButtonRef = useRef(null);
@@ -3201,63 +3200,22 @@ export default function SingleExperience() {
                 {/* Tags Section */}
                 {(experience.experience_type || experience.destination || isExperienceArchived(experience) || (experienceOwner && !isArchiveUser(experienceOwner) && hasFeatureFlag(experienceOwner, 'curator'))) && (
                   <Flex gap="2" mb="3" wrap="wrap" justify={{ base: "center", lg: "flex-start" }}>
-                    {/* Curated Experience Tag with tooltip - shown when owner has curator flag and is not archived */}
+                    {/* Curated Experience Tag - shown when owner has curator flag and is not archived */}
+                    {/* Double-click (or Enter key) navigates to curator profile */}
                     {experienceOwner && !isArchiveUser(experienceOwner) && hasFeatureFlag(experienceOwner, 'curator') && (
-                      <Tooltip
-                        content={
-                          <Box textAlign="left" maxW="280px">
-                            <Flex align="center" gap="2" mb="2" pb="2" borderBottom="1px solid rgba(255, 255, 255, 0.2)">
-                              <FaStar size={14} />
-                              <Box as="span" fontWeight="semibold" fontSize="md">
-                                {experienceOwner.name || 'Curator'}
-                              </Box>
-                            </Flex>
-                            {experienceOwner.bio && (
-                              <Box as="p" fontSize="sm" lineHeight="1.4" mb="2" opacity="0.9">
-                                {experienceOwner.bio.length > 150
-                                  ? `${experienceOwner.bio.substring(0, 150)}...`
-                                  : experienceOwner.bio}
-                              </Box>
-                            )}
-                            <Box as="p" fontSize="xs" opacity="0.7" fontStyle="italic">
-                              Tap again to view profile
-                            </Box>
-                          </Box>
-                        }
-                        placement="bottom"
-                        trigger={['click']}
-                        rootClose
-                        show={curatorTooltipVisible}
-                        onToggle={(nextShow) => {
-                          if (curatorTooltipVisible && !nextShow) {
-                            navigate(`/profile/${experienceOwner._id}`);
-                            setCuratorTooltipVisible(false);
-                          } else {
-                            setCuratorTooltipVisible(nextShow);
-                          }
-                        }}
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Curated by ${experienceOwner.name || 'Curator'}. Double-click to view profile.`}
+                        title={`Curated by ${experienceOwner.name || 'Curator'}`}
+                        style={{ textDecoration: 'none', cursor: 'pointer' }}
+                        onDoubleClick={() => navigate(`/profile/${experienceOwner._id}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/profile/${experienceOwner._id}`); }}
                       >
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Curated by ${experienceOwner.name || 'Curator'}. Click for more info.`}
-                          style={{ textDecoration: 'none', cursor: 'pointer' }}
-                        >
-                          <Pill
-                            variant="secondary"
-                            style={{
-                              padding: 'var(--spacing-2) var(--spacing-4)',
-                              borderRadius: 'var(--radii-full)',
-                              fontSize: 'var(--font-sizes-sm)',
-                              fontWeight: '500',
-                              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)',
-                              color: 'white'
-                            }}
-                          >
-                            Curated Experience
-                          </Pill>
-                        </span>
-                      </Tooltip>
+                        <Pill variant="secondary" css={{ py: '2', px: '4', borderRadius: 'full', fontSize: 'sm', background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%)', color: 'white', fontWeight: '500' }}>
+                          Curated Experience
+                        </Pill>
+                      </span>
                     )}
                     {/* Archived badge - shown when experience is owned by Archive User */}
                     {isExperienceArchived(experience) && (
@@ -3308,9 +3266,9 @@ export default function SingleExperience() {
                 <Box mb="6" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>
                   <Box as="h1" ref={h1Ref} fontSize="3xl" fontWeight="bold" color="fg" mb="3" lineHeight="1.2">{experience.name}</Box>
                   {experience.destination && experience.destination.name && (
-                    <Box as="p" fontSize="lg" color="fg.muted" display="inline-flex" alignItems="center" gap="2" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
-                      <Box as={FaMapMarkerAlt} color="colorPalette.solid" flexShrink="0" />
-                      <Link to={`/destinations/${experience.destination._id}`}>
+                    <Box as="p" fontSize="lg" color="fg.muted" display="inline-flex" alignItems="center" gap="2" lineHeight="1" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
+                      <Box as={FaMapMarkerAlt} color="colorPalette.solid" flexShrink="0" display="block" />
+                      <Link to={`/destinations/${experience.destination._id}`} style={{ lineHeight: 1 }}>
                         {experience.destination.name}{experience.destination.country ? `, ${experience.destination.country}` : ''}
                       </Link>
                     </Box>

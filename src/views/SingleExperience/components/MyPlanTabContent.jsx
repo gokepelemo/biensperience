@@ -904,8 +904,8 @@ export default function MyPlanTabContent({
       {/* Plan Metrics Cards */}
       {planMetadata}
 
-      {/* View Toggle - Right aligned */}
-      <div className="plan-view-toggle" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-4)' }}>
+      {/* View Toggle */}
+      <div className="plan-view-toggle">
         <SearchableSelect
           options={VIEW_OPTIONS}
           value={planItemsView}

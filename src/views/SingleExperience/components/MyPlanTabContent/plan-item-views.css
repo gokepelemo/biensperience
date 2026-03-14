@@ -1998,23 +1998,11 @@
 /* View Toggle */
 .plan-view-toggle {
   display: flex !important;
-  justify-content: flex-end;
   margin-bottom: 1rem;
 
   .plan-view-select {
-    min-width: 140px;
-    max-width: 160px;
-  }
-
-  @media (max-width: 767px) {
-
-    justify-content: flex-end;
-
-    .plan-view-select {
-      min-width: 120px;
-      max-width: 140px;
-    }
-  
+    width: 100%;
+    flex: 1;
   }
 }
 
