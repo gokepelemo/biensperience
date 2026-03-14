@@ -6,7 +6,7 @@
 import React, { useState, useCallback, useId } from 'react';
 import PropTypes from 'prop-types';
 import { FaChevronDown } from 'react-icons/fa';
-import styles from './CollapsibleSectionLayout.module.scss';
+import styles from './CollapsibleSectionLayout.module.css';
 
 /**
  * Section - Individual collapsible section

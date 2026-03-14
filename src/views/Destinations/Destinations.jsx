@@ -1,4 +1,4 @@
-import styles from "./Destinations.module.scss";
+import styles from "./Destinations.module.css";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";

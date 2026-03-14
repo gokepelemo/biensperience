@@ -1,0 +1,70 @@
+/**
+ * Profile Dropdown Views - Consistent Layout
+ *
+ * Standardized layout for Profile, Invites, and All Users views
+ * to prevent layout shifts when navigating between them.
+ */
+
+
+/* ============================================
+   PROFILE DROPDOWN VIEW CONTAINER
+   ============================================ */
+
+.profile-dropdown-view {
+  /* Consistent container spacing */
+  /* No horizontal padding - parent .container handles it */
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+/* ============================================
+   VIEW HEADER
+   ============================================ */
+
+.profile-dropdown-view .view-header {
+  /* Consistent header layout */
+  margin-bottom: 1.5rem;
+}
+
+.profile-dropdown-view .view-header .row {
+  /* Header row alignment */
+  align-items: center;
+}
+
+.profile-dropdown-view .view-header h1,
+.profile-dropdown-view .view-header h2 {
+  /* Consistent heading styles */
+  margin-bottom: 0.5rem;
+  font-weight: 800;
+}
+
+.profile-dropdown-view .view-header .header-actions {
+  /* Action buttons alignment */
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.profile-dropdown-view .view-header .header-description {
+  /* Description text styling */
+  color: var(--color-text-muted);
+  margin-bottom: 0;
+  font-size: clamp(0.8125rem, 1.5vw, 0.9375rem);
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 768px) {
+  .profile-dropdown-view {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .profile-dropdown-view .view-header .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

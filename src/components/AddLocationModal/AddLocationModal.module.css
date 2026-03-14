@@ -1,0 +1,265 @@
+/* AddLocationModal - Multi-step location entry */
+
+.addLocationModal {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem;
+}
+
+/* Step indicator */
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0.5;
+  transition: all 150ms;
+
+  &.active {
+    opacity: 1;
+  }
+
+  &.completed {
+    opacity: 1;
+
+    .stepNumber {
+      background: var(--color-success);
+      color: white;
+    }
+  }
+}
+
+.stepNumber {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  font-weight: 600;
+  transition: all 150ms;
+
+  .active & {
+    background: var(--gradient-primary);
+    color: white;
+  }
+}
+
+.stepLabel {
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+  color: var(--color-text-muted);
+  font-weight: 500;
+
+  .active & {
+    color: var(--color-text-primary);
+  }
+}
+
+.stepConnector {
+  width: 60px;
+  height: 2px;
+  background: var(--color-border-light);
+
+  @media (max-width: 480px) {
+    width: 40px;
+  }
+}
+
+/* Error message */
+.errorMessage {
+  padding: 0.75rem 1rem;
+  background: rgba(var(--color-danger-rgb, 239, 68, 68), 0.1);
+  border: 1px solid var(--color-danger, #ef4444);
+  border-radius: var(--radius-md);
+  color: var(--color-danger, #ef4444);
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  text-align: center;
+}
+
+/* Step content */
+.stepContent {
+  min-height: 200px;
+}
+
+/* Address step */
+.addressStep {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.addressInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  transition: all 150ms;
+
+  &:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+  }
+}
+
+.addressIcon {
+  color: var(--color-primary);
+  font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+  flex-shrink: 0;
+}
+
+.addressInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  color: var(--color-text-primary);
+  outline: none;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.searchButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 150ms;
+
+  &:hover:not(:disabled) {
+    transition: all 300ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  };
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.addressHint {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* Confirm step */
+.confirmStep {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.locationDetails {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+}
+
+.locationIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: rgba(var(--color-primary-rgb), 0.15);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  flex-shrink: 0;
+}
+
+.locationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.locationAddress {
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
+
+.locationMeta {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  color: var(--color-text-muted);
+}
+
+.mapPreview {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+}
+
+.confirmHint {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* Footer buttons */
+.footerButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border-light);
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.buttonSpinner {
+  animation: spin 1s linear infinite;
+}

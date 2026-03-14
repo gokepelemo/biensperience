@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import PropTypes from 'prop-types';
-import styles from './Checkbox.module.scss';
+import styles from './Checkbox.module.css';
 
 /**
  * Checkbox — Chakra-inspired, tokenized checkbox component.

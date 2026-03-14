@@ -49,13 +49,7 @@ export const decorators = [
 ];
 
 // Optional parameters or global decorators can be added below.
-import '../src/index.scss';
-import '../src/styles/theme.scss';
-import '../src/styles/design-tokens.scss';
-import '../src/styles/utilities.scss';
-import '../src/styles/accessibility.scss';
-import '../src/styles/alerts.scss';
-import '../src/styles/animations.scss';
+import '../src/index.css';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { UserProvider } from '../src/contexts/UserContext';

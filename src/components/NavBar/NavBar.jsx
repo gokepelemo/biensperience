@@ -29,7 +29,7 @@ import {
   FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar,
   FaSignOutAlt, FaUserPlus, FaBars, FaTimes, FaChevronDown
 } from "react-icons/fa";
-import styles from "./NavBar.module.scss";
+import styles from "./NavBar.module.css";
 
 export default function NavBar() {
   const drawerId = useId();

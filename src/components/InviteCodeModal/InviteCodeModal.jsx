@@ -26,7 +26,7 @@ import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
 import Checkbox from '../Checkbox/Checkbox';
 import { SearchableSelect } from '../FormField';
-import styles from './InviteCodeModal.module.scss';
+import styles from './InviteCodeModal.module.css';
 
 export default function InviteCodeModal({ show, onHide, experiences = [], destinations = [] }) {
   const [invites, setInvites] = useState([]);

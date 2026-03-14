@@ -1,4 +1,4 @@
-import styles from "./DestinationCard.module.scss";
+import styles from "./DestinationCard.module.css";
 import { Link } from "react-router-dom";
 import { useMemo, memo, useRef, useEffect } from "react";
 import { useDataTransition } from "../../hooks/useDataTransition";

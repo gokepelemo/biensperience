@@ -1,0 +1,780 @@
+/**
+ * Design Tokens - Runtime CSS Custom Properties
+ *
+ * This file contains ONLY runtime-specific tokens:
+ * - Dark mode color overrides
+ * - Mobile/tablet responsive overrides
+ * - Component-specific tokens (buttons, forms, badges)
+ * - Complex tokens not suitable for SASS generation
+ *
+ * Base design tokens (typography, spacing, colors, shadows, etc.) are:
+ * - Defined in src/styles/scss/abstracts/_variables.scss (SASS variables)
+ * - Auto-generated as CSS custom properties in src/styles/scss/abstracts/_tokens.scss
+ *
+ * BUTTON TEXT CONVENTIONS:
+ * - All button text must use Title Case (e.g., "Sign In", "Add Experience", "Try Again")
+ * - Button text should be sourced from src/lang.constants.js for internationalization
+ * - Never hardcode button text directly in components
+ * - Use: lang.current.button.buttonName for all button text
+ */
+
+:root {
+  /* ============================================
+     BASE TYPOGRAPHY TOKENS
+     (Previously generated from _tokens.scss)
+     ============================================ */
+
+  /* Font Families */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* Font Sizes - Responsive with clamp() */
+  --font-size-xs: clamp(0.75rem, 1vw, 0.875rem);
+  --font-size-sm: clamp(0.875rem, 1.25vw, 1rem);
+  --font-size-base: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  --font-size-lg: clamp(1.0625rem, 2vw, 1.3125rem);
+  --font-size-xl: clamp(1.25rem, 2.5vw, 1.5rem);
+  --font-size-2xl: clamp(1.5rem, 3vw, 1.875rem);
+  --font-size-3xl: clamp(1.875rem, 4vw, 2.25rem);
+  --font-size-4xl: clamp(2.25rem, 5vw, 3rem);
+  --font-size-5xl: clamp(3rem, 6vw, 4rem);
+
+  /* Mobile-specific font sizes */
+  --font-size-mobile-sm: 0.875rem;
+  --font-size-mobile-base: 1rem;
+  --font-size-mobile-lg: 1.125rem;
+  --font-size-mobile-xl: 1.5rem;
+  --font-size-mobile-2xl: 2rem;
+
+  /* Line Heights */
+  --line-height-none: 1;
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+
+  /* Letter Spacing */
+  --letter-spacing-tighter: -0.05em;
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+
+  /* ============================================
+     BASE SPACING TOKENS
+     ============================================ */
+
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-2-5: 0.625rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* Mobile-optimized spacing */
+  --space-mobile-xs: 0.5rem;
+  --space-mobile-sm: 0.75rem;
+  --space-mobile-md: 1rem;
+  --space-mobile-lg: 1.5rem;
+  --space-mobile-xl: 2rem;
+
+  /* Container padding */
+  --container-padding: 1rem;
+  --container-padding-mobile: 0.75rem;
+
+  /* Menu tokens */
+  --menu-item-padding-y: 0.75rem;
+  --menu-item-padding-x: 1rem;
+  --menu-item-min-height: 44px;
+  --menu-item-mobile-padding-y: 1rem;
+
+  /* ============================================
+     BASE SHADOW TOKENS
+     ============================================ */
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.1);
+  --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.15);
+  --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.2);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.25);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-text-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-text-md: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* ============================================
+     BASE BORDER RADIUS TOKENS
+     ============================================ */
+
+  --radius-none: 0;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* ============================================
+     BASE TRANSITION TOKENS
+     ============================================ */
+
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Easing curves */
+  --easing-linear: linear;
+  --easing-ease: ease;
+  --easing-ease-in: ease-in;
+  --easing-ease-out: ease-out;
+  --easing-ease-in-out: ease-in-out;
+  --easing-custom: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ============================================
+     BASE Z-INDEX TOKENS
+     ============================================ */
+
+  --z-index-base: 0;
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-modal-dropdown: 1055;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+
+  /* Breakpoints (for reference) */
+  --breakpoint-xs: 320px;
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+  --breakpoint-xxl: 1400px;
+
+  /* ============================================
+     BASE COLOR TOKENS
+     (Previously generated from _tokens.scss)
+     ============================================ */
+
+  /* Brand Colors */
+  --color-primary: #667eea;
+  --color-primary-rgb: 102, 126, 234;
+  --color-primary-light: rgba(102, 126, 234, 0.1);
+  --color-primary-dark: #764ba2;
+  --color-primary-hover: #5a67d8;
+  --color-secondary: #764ba2;
+  --color-accent: #f093fb;
+
+  /* Semantic Colors */
+  --color-success: #28a745;
+  --color-success-light: rgba(40, 167, 69, 0.1);
+  --color-success-dark: #218838;
+  --color-warning: #ffc107;
+  --color-warning-light: rgba(255, 193, 7, 0.1);
+  --color-warning-dark: #e0a800;
+  --color-danger: #dc3545;
+  --color-danger-light: rgba(220, 53, 69, 0.1);
+  --color-danger-dark: #c82333;
+  --color-info: #17a2b8;
+  --color-info-light: rgba(23, 162, 184, 0.1);
+  --color-info-dark: #138496;
+
+  /* Text Colors on Colored Backgrounds */
+  --color-on-primary: #ffffff;
+  --color-on-success: #ffffff;
+  --color-on-warning: #1a202c;
+  --color-on-danger: #ffffff;
+  --color-on-info: #ffffff;
+
+  /* Text Colors */
+  --color-text-primary: #1a202c;
+  --color-text-secondary: #2d3748;
+  --color-text-tertiary: #4a5568;
+  --color-text-muted: #5a6370;
+  --color-text-disabled: #9ca3af;
+  --color-text-inverse: #ffffff;
+
+  /* Background Colors */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8f9fa;
+  --color-bg-tertiary: #e9ecef;
+  --color-bg-hover: rgba(102, 126, 234, 0.05);
+  --color-bg-overlay: rgba(0, 0, 0, 0.75);
+  --color-bg-overlay-light: rgba(255, 255, 255, 0.15);
+  --color-bg-input: #ffffff;
+
+  /* Border Colors */
+  --color-border-light: rgba(0, 0, 0, 0.05);
+  --color-border-medium: rgba(0, 0, 0, 0.1);
+  --color-border-dark: rgba(0, 0, 0, 0.2);
+  --color-border-primary: rgba(102, 126, 234, 0.2);
+  --color-border-overlay: rgba(255, 255, 255, 0.25);
+
+  /* ============================================
+     COLOR SCHEME - Informs the browser about
+     supported themes for form controls, scrollbars,
+     and other UA-styled elements.
+     ============================================ */
+
+  color-scheme: light dark;
+
+  /* ============================================
+     BASE COLORS - Fundamental color constants
+     ============================================ */
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* ============================================
+     SEMANTIC COLOR STATES - For alerts, badges, etc.
+     ============================================ */
+
+  --color-info-bg: rgba(23, 162, 184, 0.1);
+  --color-info-border: rgba(23, 162, 184, 0.3);
+  --color-info-text: #0c5460;
+  --color-success-bg: rgba(40, 167, 69, 0.1);
+  --color-success-border: rgba(40, 167, 69, 0.3);
+  --color-success-text: #155724;
+  --color-danger-bg: rgba(220, 53, 69, 0.1);
+  --color-danger-border: rgba(220, 53, 69, 0.3);
+  --color-danger-text: #721c24;
+  --color-warning-bg: rgba(255, 193, 7, 0.1);
+  --color-warning-border: rgba(255, 193, 7, 0.3);
+  --color-warning-text: #856404;
+
+  /* ============================================
+     ALPHA VARIANTS - For transparency effects
+     ============================================ */
+
+  --color-primary-alpha-10: rgba(102, 126, 234, 0.1);
+  --color-primary-alpha-20: rgba(102, 126, 234, 0.2);
+  --color-primary-alpha-30: rgba(102, 126, 234, 0.3);
+  --color-primary-alpha-40: rgba(102, 126, 234, 0.4);
+  --color-primary-alpha-50: rgba(102, 126, 234, 0.5);
+
+  /* ============================================
+     SOCIAL MEDIA BRAND COLORS
+     ============================================ */
+
+  --color-facebook: #1877F2;
+  --color-google: #DB4437;
+  --color-twitter: #1DA1F2;
+  --color-star: #ffc107;
+  --color-read-receipt: #4ade80;
+  --color-demo-border: #ddd;
+  --color-demo-bg: #f0f0f0;
+  --color-demo-warning: #fff3cd;
+  --color-demo-info: #d1ecf1;
+  --color-message-sent: #10b981;
+  --color-message-pending: #fbbf24;
+  --color-logo-text: #666;
+  --color-logo-bg: #f8f9fa;
+  --color-logo-border: #e5e7eb;
+  --color-logo-bg-light: #f9fafb;
+  --color-logo-bg-purple: #e0e7ff;
+  --color-logo-bg-dark: #1f2937;
+  --color-logo-text-light: #d1d5db;
+  --color-logo-bg-indigo: #4f46e5;
+  --color-logo-text-purple: #e0e7ff;
+  --color-logo-bg-darker: #111827;
+  --color-logo-text-muted: #9ca3af;
+  --color-logo-bg-violet: #7c3aed;
+  --color-logo-text-dark: #1f2937;
+  --color-logo-border-light: #d1d5db;
+  --color-logo-text-gray: #4b5563;
+  --color-logo-text-gray-light: #6b7280;
+  --color-banner-text-solid: #000000;
+
+  /* ============================================
+     FAVORITE BUTTON COLORS
+     ============================================ */
+
+  --color-favorite-add-hover-start: #28a745;    /* Green for add hover */
+  --color-favorite-add-hover-end: #218838;      /* Darker green */
+  --color-favorite-remove-hover-start: #dc3545; /* Red for remove hover */
+  --color-favorite-remove-hover-end: #c82333;   /* Darker red */
+  --color-favorite-pill-bg: #667eea;            /* Purple pill background */
+  --color-favorite-pill-bg-end: #764ba2;        /* Darker purple */
+  --color-favorite-text: #ffffff;               /* White text */
+
+  /* ============================================
+     SHIMMER/LOADING COLORS
+     ============================================ */
+
+  --color-shimmer-light: rgba(255, 255, 255, 0.4);
+  --color-shimmer-dark: rgba(255, 255, 255, 0.1);
+
+  /* ============================================
+     GRADIENTS
+     ============================================ */
+
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-primary-reverse: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  --gradient-primary-animated: linear-gradient(-45deg, #667eea, #764ba2, #667eea, #764ba2);
+
+  /* ============================================
+     BUTTON TOKENS - Unified Button Design System
+     ============================================
+
+     All buttons use these standardized values to ensure
+     consistent height, padding, and proportions across
+     the entire application.
+
+     STANDARD HEIGHTS (WCAG 2.1 AA touch targets):
+     - Small (sm): 36px min-height
+     - Medium (md): 44px min-height (default, WCAG minimum)
+     - Large (lg): 52px min-height
+
+     PADDING FORMULA:
+     - Vertical: height-based for centering
+     - Horizontal: font-size × 2 (minimum)
+     ============================================ */
+
+  /* Base Button Standards - Apply to ALL buttons */
+  --btn-height-sm: 36px;
+  --btn-height-md: 44px;
+  --btn-height-lg: 52px;
+
+  /* Padding - tightened for more compact buttons while maintaining WCAG touch targets */
+  --btn-padding-y-sm: var(--space-1);    /* 4px */
+  --btn-padding-x-sm: var(--space-2);    /* 8px */
+  --btn-padding-y-md: var(--space-2);    /* 8px */
+  --btn-padding-x-md: var(--space-3);    /* 12px */
+  --btn-padding-y-lg: var(--space-3);    /* 12px */
+  --btn-padding-x-lg: var(--space-5);    /* 20px */
+
+  /* Font sizes - consistent across all variants */
+  --btn-font-size-sm: var(--font-size-sm);   /* 14px */
+  --btn-font-size-md: var(--font-size-base); /* 16px */
+  --btn-font-size-lg: var(--font-size-lg);   /* 18px */
+
+  /* Font weight - same for all buttons */
+  --btn-font-weight: var(--font-weight-semibold); /* 600 */
+
+  /* Border radius - two options */
+  --btn-radius-default: var(--radius-md);  /* 8px - standard buttons */
+  --btn-radius-pill: var(--radius-full);   /* 999px - pill buttons */
+
+  /* Shadows - consistent hover/active states */
+  --btn-shadow-base: var(--shadow-sm);
+  --btn-shadow-hover: var(--shadow-md);
+  --btn-shadow-active: var(--shadow-sm);
+
+  /* Transition - smooth state changes */
+  --btn-transition: all var(--transition-fast) ease;
+
+  /* Hover lift - subtle elevation effect */
+  --btn-hover-lift: -2px;
+
+  /* Gap for icon + text buttons */
+  --btn-icon-gap: var(--space-2); /* 8px */
+
+  /* Gradient Button (Primary Action) */
+  --btn-gradient-bg: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  --btn-gradient-color: #ffffff;
+  --btn-gradient-hover-brightness: 1.05; /* Reduced from 1.1 for better contrast (4.6:1) */
+  --btn-gradient-active-brightness: 0.95;
+  /* Gradient button sizing (aliases to standard sizes for utility class compatibility) */
+  --btn-gradient-padding-y: var(--btn-padding-y-md);
+  --btn-gradient-padding-x: var(--btn-padding-x-md);
+  --btn-gradient-font-size: var(--btn-font-size-md);
+  --btn-gradient-font-weight: var(--btn-font-weight);
+  --btn-gradient-border-radius: var(--btn-radius-pill);
+  --btn-gradient-min-height: var(--btn-height-md);
+
+  /* Secondary/Outline Button */
+  --btn-secondary-bg: transparent;
+  --btn-secondary-color: var(--color-primary);
+  --btn-secondary-border: 2px solid var(--color-primary);
+  --btn-secondary-hover-bg: var(--color-primary);
+  --btn-secondary-hover-color: #ffffff;
+  --btn-secondary-hover-border: 2px solid var(--color-primary);
+  /* Secondary button sizing (aliases to standard sizes for utility class compatibility) */
+  --btn-secondary-padding-y: var(--btn-padding-y-md);
+  --btn-secondary-padding-x: var(--btn-padding-x-md);
+  --btn-secondary-font-size: var(--btn-font-size-md);
+  --btn-secondary-font-weight: var(--btn-font-weight);
+  --btn-secondary-border-radius: var(--btn-radius-pill);
+
+  /* Tertiary/Ghost Button (minimal styling) */
+  --btn-tertiary-bg: transparent;
+  --btn-tertiary-color: var(--color-text-secondary);
+  --btn-tertiary-border: 1px solid var(--color-border-light);
+  --btn-tertiary-hover-bg: var(--color-bg-secondary);
+  --btn-tertiary-hover-color: var(--color-text-primary);
+
+  /* Danger Button */
+  --btn-danger-bg: var(--color-danger);
+  --btn-danger-color: #ffffff;
+  --btn-danger-hover-bg: var(--color-danger-dark);
+
+  /* Success Button */
+  --btn-success-bg: var(--color-success);
+  --btn-success-color: #ffffff;
+  --btn-success-hover-bg: var(--color-success-dark);
+
+  /* Link Button (text-only) */
+  --btn-link-color: var(--color-primary);
+  --btn-link-hover-color: var(--color-primary-dark);
+  --btn-link-padding-x: var(--space-2);
+  --btn-link-padding-y: var(--space-1);
+
+  /* File Input Button */
+  --btn-file-input-bg: var(--btn-gradient-bg);
+  --btn-file-input-color: var(--btn-gradient-color);
+  --btn-file-input-padding-y: var(--btn-gradient-padding-y);
+  --btn-file-input-padding-x: var(--btn-gradient-padding-x);
+  --btn-file-input-font-size: var(--btn-gradient-font-size);
+  --btn-file-input-font-weight: var(--btn-gradient-font-weight);
+  --btn-file-input-border-radius-left: var(--radius-full);
+  --btn-file-input-margin-right: var(--space-5);
+  --btn-file-input-hover-brightness: var(--btn-gradient-hover-brightness);
+  --btn-file-input-active-brightness: var(--btn-gradient-active-brightness);
+
+  /* File Input Container */
+  --input-file-bg: var(--color-bg-input);
+  --input-file-color: var(--color-text-primary);
+  --input-file-border: 2px solid var(--color-border-medium);
+  --input-file-border-radius: var(--radius-full);
+  --input-file-min-height: var(--btn-gradient-min-height);
+  --input-file-focus-border: var(--color-primary);
+
+  /* ============================================
+     FORM SYSTEM TOKENS - Consistent Form Styling
+     ============================================ */
+
+  /* Form Field Container (InputGroup wrapper) */
+  --form-field-border: 2px solid var(--color-border-medium);
+  --form-field-border-radius: var(--radius-xl);
+  --form-field-min-height: 56px;
+  --form-field-overflow: hidden;
+
+  /* Form Field Input Group Text (prefix/suffix) */
+  --form-field-addon-bg: var(--color-bg-secondary);
+  --form-field-addon-border: none;
+  --form-field-addon-color: var(--color-text-muted);
+  --form-field-addon-padding: var(--space-3) var(--space-4);
+  --form-field-addon-min-height: 56px;
+
+  /* Form Field Control (input/select/textarea) */
+  --form-field-control-bg: var(--color-bg-primary);
+  --form-field-control-border: none;
+  --form-field-control-color: var(--color-text-primary);
+  --form-field-control-font-size: var(--font-size-base);
+  --form-field-control-padding: var(--space-3) var(--space-4);
+  --form-field-control-min-height: 56px;
+  --form-field-control-outline: none;
+  --form-field-control-box-shadow: none;
+
+  /* Form Titles/Headers */
+  --form-title-font-size: var(--font-size-3xl);
+  --form-title-font-weight: var(--font-weight-bold);
+  --form-title-color: var(--color-text-primary);
+  --form-title-margin: var(--space-8) auto var(--space-6) auto;
+  --form-title-text-align: center;
+
+  /* Form Section Headers */
+  --form-section-header-font-size: var(--font-size-lg);
+  --form-section-header-font-weight: var(--font-weight-semibold);
+  --form-section-header-color: var(--color-text-primary);
+  --form-section-header-margin-bottom: var(--space-4);
+  --form-section-header-margin-top: var(--space-6);
+
+  /* Form Container */
+  --form-container-max-width: 800px;
+  --form-container-margin: var(--space-8) auto;
+  --form-container-padding: var(--space-6);
+  --form-container-bg: var(--color-bg-primary);
+  --form-container-border-radius: var(--radius-xl);
+  --form-container-shadow: var(--shadow-md);
+
+  /* Form Groups */
+  --form-group-margin-bottom: var(--space-4);
+
+  /* ============================================
+     BADGE COLORS
+     ============================================ */
+
+  /* Badge Colors - Semantic */
+  --badge-primary-bg: #667eea;
+  --badge-primary-text: #ffffff;
+
+  --badge-success-bg: #28a745;
+  --badge-success-text: #ffffff;
+
+  --badge-danger-bg: #dc3545;
+  --badge-danger-text: #ffffff;
+
+  --badge-warning-bg: #ffc107;
+  --badge-warning-text: #333333; /* Darkened for WCAG AA contrast (4.6:1) */
+
+  --badge-info-bg: #138496; /* Darkened for improved contrast (5.1:1 with 13% buffer) */
+  --badge-info-text: #ffffff;
+
+  --badge-neutral-bg: #6c757d;
+  --badge-neutral-text: #ffffff;
+
+  /* Badge Colors - Category Specific */
+  --badge-nature-bg: #28a745;
+  --badge-nature-text: #ffffff;
+
+  --badge-culture-bg: #764ba2;
+  --badge-culture-text: #ffffff;
+
+  --badge-food-bg: #fd7e14;
+  --badge-food-text: #ffffff;
+
+  --badge-adventure-bg: #dc3545;
+  --badge-adventure-text: #ffffff;
+
+  --badge-relaxation-bg: #17a2b8;
+  --badge-relaxation-text: #ffffff;
+
+  --badge-photography-bg: #e83e8c;
+  --badge-photography-text: #ffffff;
+
+  --badge-seasonal-bg: #ffc107;
+  --badge-seasonal-text: #000000;
+
+  --badge-nightlife-bg: #6610f2;
+  --badge-nightlife-text: #ffffff;
+
+  --badge-shopping-bg: #20c997;
+  --badge-shopping-text: #ffffff;
+
+  --badge-historical-bg: #6c757d;
+  --badge-historical-text: #ffffff;
+
+  /* ============================================
+     CONTAINER WIDTHS
+     ============================================ */
+
+  --container-sm: 540px;
+  --container-md: 720px;
+  --container-lg: 960px;
+  --container-xl: 1140px;
+  --container-xxl: 1320px;
+
+  /* ============================================
+     COMPONENT-SPECIFIC TOKENS
+     ============================================ */
+
+  /* Progress Components */
+  --progress-bar-height-sm: 8px;
+  --progress-bar-height-md: 12px;
+  --progress-bar-height-lg: 16px;
+
+  /* Button Widths - For dynamic sizing */
+  --btn-width-min: 120px;
+  --btn-width-sm: 140px;
+  --btn-width-md: 160px;
+  --btn-width-lg: 200px;
+
+  /* Font Size Adjustments */
+  --font-size-adjust-xs: 0.6em;
+  --font-size-adjust-sm: 0.875em;
+  --font-size-adjust-lg: 1.125em;
+
+  /* Layout Overrides */
+  --layout-min-height-card: 400px;
+  --layout-fit-content: fit-content;
+
+  /* Modal Content Spacing */
+  --modal-content-padding: var(--space-4);
+  --modal-section-margin: var(--space-4);
+  --modal-button-group-margin: var(--space-3);
+
+  /* Form Field Overrides */
+  --form-field-bg-secondary: var(--color-bg-secondary);
+  --form-field-border-light: 1px solid var(--color-border-light);
+
+  /* List Item Spacing */
+  --list-item-margin: var(--space-2);
+
+  /* Badge Spacing */
+  --badge-margin-left: var(--space-2);
+
+  /* Icon Spacing */
+  --icon-margin-right: var(--space-2);
+  --icon-margin-left: var(--space-1);
+}
+
+/* ============================================
+   DARK MODE - Unified Implementation
+   Both system preference and manual selection use identical styles.
+   Tokens are defined once via the @mixin and included in both selectors.
+   ============================================ */
+
+/* System preference dark mode (auto-detected when no explicit theme is set) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Text Colors - Light on dark backgrounds */
+    --color-text-primary: #f8f9fa;
+    --color-text-secondary: #e9ecef;
+    --color-text-tertiary: #dee2e6;
+    --color-text-muted: #adb5bd;
+    --color-text-disabled: #6c757d;
+    /* Background Colors - Dark theme */
+    --color-bg-primary: #121212;
+    --color-bg-secondary: #1e1e1e;
+    --color-bg-tertiary: #2d2d2d;
+    --color-bg-hover: rgba(255, 255, 255, 0.05);
+    --color-bg-overlay: rgba(0, 0, 0, 0.85);
+    --color-bg-input: #2d2d2d;
+    /* Border Colors */
+    --color-border-light: rgba(255, 255, 255, 0.1);
+    --color-border-medium: rgba(255, 255, 255, 0.2);
+    --color-border-dark: rgba(255, 255, 255, 0.3);
+    --color-border-primary: rgba(102, 126, 234, 0.3);
+    /* Shadows */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
+    --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.2);
+    --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.3);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.5);
+    /* Semantic Colors */
+    --color-success: #40c057;
+    --color-success-light: rgba(64, 192, 87, 0.15);
+    --color-success-dark: #2f9e44;
+    --color-danger: #fa5252;
+    --color-danger-light: rgba(250, 82, 82, 0.15);
+    --color-danger-dark: #e03131;
+    --color-warning: #ffd43b;
+    --color-warning-light: rgba(255, 212, 59, 0.15);
+    --color-warning-dark: #fab005;
+    --color-info: #339af0;
+    --color-info-light: rgba(51, 154, 240, 0.15);
+    --color-info-dark: #1c7ed6;
+    /* Primary Colors */
+    --color-primary-light: rgba(102, 126, 234, 0.15);
+    --color-primary-hover: #7c8ff0;
+    /* Button Tokens */
+    --btn-secondary-bg: var(--color-bg-tertiary);
+    --btn-secondary-color: var(--color-text-primary);
+    --btn-secondary-border: 2px solid var(--color-border-medium);
+    --btn-secondary-hover-bg: rgba(255, 255, 255, 0.1);
+    --btn-secondary-hover-border: 2px solid var(--color-border-dark);
+  }
+}
+
+/* Manual dark mode selection */
+:root[data-theme="dark"] {
+  /* Text Colors - Light on dark backgrounds */
+  --color-text-primary: #f8f9fa;
+  --color-text-secondary: #e9ecef;
+  --color-text-tertiary: #dee2e6;
+  --color-text-muted: #adb5bd;
+  --color-text-disabled: #6c757d;
+  /* Background Colors - Dark theme */
+  --color-bg-primary: #121212;
+  --color-bg-secondary: #1e1e1e;
+  --color-bg-tertiary: #2d2d2d;
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+  --color-bg-overlay: rgba(0, 0, 0, 0.85);
+  --color-bg-input: #2d2d2d;
+  /* Border Colors */
+  --color-border-light: rgba(255, 255, 255, 0.1);
+  --color-border-medium: rgba(255, 255, 255, 0.2);
+  --color-border-dark: rgba(255, 255, 255, 0.3);
+  --color-border-primary: rgba(102, 126, 234, 0.3);
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.15);
+  --shadow-md: 0 4px 12px rgba(102, 126, 234, 0.2);
+  --shadow-lg: 0 10px 30px rgba(102, 126, 234, 0.3);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.5);
+  /* Semantic Colors */
+  --color-success: #40c057;
+  --color-success-light: rgba(64, 192, 87, 0.15);
+  --color-success-dark: #2f9e44;
+  --color-danger: #fa5252;
+  --color-danger-light: rgba(250, 82, 82, 0.15);
+  --color-danger-dark: #e03131;
+  --color-warning: #ffd43b;
+  --color-warning-light: rgba(255, 212, 59, 0.15);
+  --color-warning-dark: #fab005;
+  --color-info: #339af0;
+  --color-info-light: rgba(51, 154, 240, 0.15);
+  --color-info-dark: #1c7ed6;
+  /* Primary Colors */
+  --color-primary-light: rgba(102, 126, 234, 0.15);
+  --color-primary-hover: #7c8ff0;
+  /* Button Tokens */
+  --btn-secondary-bg: var(--color-bg-tertiary);
+  --btn-secondary-color: var(--color-text-primary);
+  --btn-secondary-border: 2px solid var(--color-border-medium);
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.1);
+  --btn-secondary-hover-border: 2px solid var(--color-border-dark);
+}
+
+/* ============================================
+   DARK MODE - Component Overrides
+   ============================================ */
+
+[data-theme="dark"] {
+  /* Component-specific dark mode overrides */
+  --form-field-bg-secondary: var(--color-bg-tertiary);
+  --form-field-border-light: 1px solid var(--color-border-medium);
+}
+
+/* ============================================
+   MOBILE-SPECIFIC OVERRIDES
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    /* Adjust font sizes for mobile readability */
+    --font-size-4xl: 2rem;      /* 32px max on mobile */
+    --font-size-3xl: 1.75rem;   /* 28px max on mobile */
+    --font-size-2xl: 1.5rem;    /* 24px max on mobile */
+
+    /* Tighter spacing on mobile */
+    --space-12: 2rem;     /* Reduce from 48px to 32px */
+    --space-16: 2.5rem;   /* Reduce from 64px to 40px */
+    --space-20: 3rem;     /* Reduce from 80px to 48px */
+    --space-24: 4rem;     /* Reduce from 96px to 64px */
+
+    /* Smaller shadows on mobile */
+    --shadow-lg: 0 8px 20px rgba(102, 126, 234, 0.15);
+    --shadow-xl: 0 12px 30px rgba(0, 0, 0, 0.2);
+
+    /* Adjust button sizes for touch targets (min 44px) */
+    --btn-gradient-min-height: 44px;
+    --btn-secondary-min-height: 44px;
+  }
+}
+
+/* ============================================
+   TABLET-SPECIFIC OVERRIDES
+   ============================================ */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root {
+    /* Tablet-optimized spacing */
+    --space-16: 3rem;     /* 48px */
+    --space-20: 4rem;     /* 64px */
+    --space-24: 5rem;     /* 80px */
+  }
+}

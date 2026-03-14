@@ -6,7 +6,7 @@
 import React, { memo } from 'react';
 import PropTypes from 'prop-types';
 import SkeletonLoader from '../SkeletonLoader/SkeletonLoader';
-import styles from './MapListingCardSkeleton.module.scss';
+import styles from './MapListingCardSkeleton.module.css';
 
 /**
  * MapListingCardSkeleton component

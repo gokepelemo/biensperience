@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from './ActionButtons.module.scss';
+import styles from './ActionButtons.module.css';
 import { lang } from '../../lang.constants';
 import {
   FaEdit,

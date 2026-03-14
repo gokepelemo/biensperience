@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import styles from './Animation.module.scss';
+import styles from './Animation.module.css';
 
 /**
  * Animation wrapper component for applying entrance animations

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 
-import styles from './MessagesModal.module.scss';
+import styles from './MessagesModal.module.css';
 
 // Channel title with hover marquee when truncated
 export default function ChannelTitle({ label, className, innerClassName }) {

@@ -7,7 +7,7 @@
 import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { FaList, FaMapMarkedAlt } from 'react-icons/fa';
-import styles from './MapListLayout.module.scss';
+import styles from './MapListLayout.module.css';
 import { lang } from '../../lang.constants';
 
 /**

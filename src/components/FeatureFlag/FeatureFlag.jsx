@@ -10,7 +10,7 @@
 import React from 'react';
 import { useFeatureFlag, useFeatureFlags } from '../../hooks/useFeatureFlag';
 import { logger } from '../../utilities/logger';
-import styles from './FeatureFlag.module.scss';
+import styles from './FeatureFlag.module.css';
 
 /**
  * Render children only if feature flag is enabled

@@ -22,7 +22,7 @@ import { isSuperAdmin } from '../../utilities/permissions';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import DropZone from '../DropZone';
-import styles from './PhotosTab.module.scss';
+import styles from './PhotosTab.module.css';
 
 /**
  * Normalize a photo ID to string format

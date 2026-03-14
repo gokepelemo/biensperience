@@ -29,7 +29,7 @@ import { useViewModePreference } from '../../hooks/useUIPreference';
 import { useCurrencyConversion } from '../../hooks/useCurrencyConversion';
 import { useDataTransition } from '../../hooks/useDataTransition';
 import PlanCalendar from './PlanCalendar';
-import styles from './MyPlans.module.scss';
+import styles from './MyPlans.module.css';
 
 // View mode options (kept for local use, matches VIEW_MODES from preferences)
 const VIEW_MODES = {

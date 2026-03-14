@@ -1,0 +1,221 @@
+.travelTipsList {
+  margin: 2rem 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+
+  /* Empty State */
+  &:empty {
+    display: none;
+  }
+}
+
+.textMuted {
+  color: var(--color-text-muted);
+}
+
+.travelTipsHeading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: clamp(var(--font-size-2xl), 3.5vw, var(--font-size-3xl));
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--color-border-medium);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+}
+
+.travelTipsIcon {
+  font-size: clamp(var(--font-size-2xl), 3.5vw, var(--font-size-3xl));
+  line-height: var(--line-height-none);
+  flex-shrink: 0;
+}
+
+/* Slider Container */
+.travelTipsSlider {
+  position: relative;
+  margin: 0;
+  padding: 0.5rem 0 2rem 0; /* Top padding for hover + generous bottom for dots below cards */
+  overflow: visible; /* Allow dots to render below the slider */
+
+  /* Slick list contains slides - hidden overflow prevents horizontal bleed */
+  :global(.slick-list) {
+    overflow: hidden;
+    margin: 0 0.5rem; /* Inner spacing for cards */
+  }
+
+  :global(.slick-track) {
+    display: flex;
+  }
+
+  :global(.slick-slide) {
+    padding: 0 0.5rem; /* Spacing between cards */
+    box-sizing: border-box;
+  }
+
+  /* Slick slider arrow customization */
+  :global(.slick-prev),
+  :global(.slick-next) {
+    /* Use standardized small button height for slider arrows */
+    width: var(--btn-height-sm);
+    height: var(--btn-height-sm);
+    z-index: 10;
+    background: var(--color-primary);
+    border-radius: 9999px;
+    transition: var(--btn-transition);
+    transform: translateY(0); /* Prevent layout shifts */
+
+    &:before {
+      font-size: 20px;
+      opacity: 1;
+    }
+
+    &:hover {
+      background: var(--color-primary-dark);
+      transform: translateY(0) !important; /* Override any global hover transforms */
+    }
+  }
+
+  :global(.slick-prev) {
+    left: 0.5rem;
+  }
+
+  :global(.slick-next) {
+    right: 0.5rem;
+  }
+
+  :global(.slick-disabled) {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Dots styling for navigation */
+  :global(.slick-dots) {
+    position: relative;
+    bottom: 0;
+    margin-top: 1rem;
+
+    li {
+      margin: 0 0.25rem;
+
+      button {
+        /* Touch-friendly dot size (44px minimum touch target) */
+        width: var(--btn-height-md);
+        height: var(--btn-height-md);
+        padding: 0;
+
+        &:before {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          opacity: 0.5;
+          line-height: var(--btn-height-md);
+          width: var(--btn-height-md);
+          height: var(--btn-height-md);
+        }
+      }
+
+      &:global(.slick-active) button:before {
+        color: var(--color-primary);
+        opacity: 1;
+      }
+    }
+  }
+}
+
+/* Individual slide wrapper */
+.travelTipSlide {
+  padding: 0.5rem 0;
+  box-sizing: border-box;
+  min-height: 200px; /* Minimum height for visual consistency */
+  height: auto; /* Allow card to expand to fit content */
+  display: flex; /* Enable vertical centering */
+  align-items: center; /* Vertically center card content */
+
+  /* Ensure the TravelTip component fills the slide width but expands vertically */
+  > * {
+    min-height: 200px;
+    height: auto; /* Allow expansion */
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* Grid Layout for Tips (fallback for editable mode) */
+.travelTipsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+/* Responsive Grid */
+@media (min-width: 768px) {
+  .travelTipsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .travelTipsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+/* Dark Mode Support */
+.travelTipsList {
+  :root[data-theme="dark"] & {
+
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+  
+    }
+  }
+}
+
+.travelTipsHeading {
+  :root[data-theme="dark"] & {
+
+    color: var(--color-text-secondary);
+    border-bottom-color: var(--color-primary-light);
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    color: var(--color-text-secondary);
+    border-bottom-color: var(--color-primary-light);
+  
+    }
+  }
+}
+
+
+/* Print Styles */
+@media print {
+  .travelTipsList {
+    background: transparent;
+    border: none;
+    page-break-inside: avoid;
+  }
+
+  .travelTipsGrid {
+    grid-template-columns: 1fr;
+  }
+}

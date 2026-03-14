@@ -2,7 +2,7 @@ import React, { useMemo, isValidElement } from 'react';
 import { Tooltip as ChakraTooltip, Portal, Box } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
-import styles from './Tooltip.module.scss';
+import styles from './Tooltip.module.css';
 
 /**
  * Tooltip Component - Chakra UI v3 tooltip implementation

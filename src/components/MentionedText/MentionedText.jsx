@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { renderTextWithMentions } from '../../utilities/mentions';
-import styles from './MentionedText.module.scss';
+import styles from './MentionedText.module.css';
 
 /**
  * Component for rendering text with interactive mentions

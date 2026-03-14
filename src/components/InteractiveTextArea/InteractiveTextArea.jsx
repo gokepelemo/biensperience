@@ -25,7 +25,7 @@ import { resolveMentionsToDisplayText } from '../../utilities/mention-resolver';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
 import { createFilter } from '../../utilities/trie';
-import styles from './InteractiveTextArea.module.scss';
+import styles from './InteractiveTextArea.module.css';
 
 /**
  * Highlight styles for createRegexRenderer (defined at module level for performance)

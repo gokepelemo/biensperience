@@ -8,7 +8,7 @@ import { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaCalendarAlt, FaClock } from 'react-icons/fa';
 import { Modal } from '../design-system';
-import styles from './AddDateModal.module.scss';
+import styles from './AddDateModal.module.css';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { useUser } from '../../contexts/UserContext';

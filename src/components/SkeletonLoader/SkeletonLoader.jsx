@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import styles from './SkeletonLoader.module.scss';
+import styles from './SkeletonLoader.module.css';
 
 /**
  * SkeletonLoader component for displaying loading states

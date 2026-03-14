@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { Alert } from '../design-system';
 import { getFormDataAge } from '../../utilities/form-persistence';
 import { logger } from '../../utilities/logger';
-import styles from './RestoreFormDataAlert.module.scss';
+import styles from './RestoreFormDataAlert.module.css';
 
 /**
  * Format time duration in human-readable format

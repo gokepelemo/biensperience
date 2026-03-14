@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import styles from './Pill.module.scss';
+import styles from './Pill.module.css';
 
 /**
  * Pill/Badge component for displaying status, tags, or labels

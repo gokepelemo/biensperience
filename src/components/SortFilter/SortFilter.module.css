@@ -1,0 +1,105 @@
+.sortFilterContainer {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.sortFilterControls {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+.sortControl,
+.filterControl {
+  flex: 1 1 0%;
+  min-width: 260px; /* Fixed minimum for form usability */
+
+  label {
+    margin-bottom: 0.5rem;
+    color: var(--color-text-secondary);
+    display: block;
+  }
+
+  :global(.form-select) {
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-border-primary);
+    padding: 0.75rem 1rem;
+    font-size: var(--font-size-base);
+    transition: all var(--transition-normal) ease;
+    background-color: var(--color-bg-input);
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 0.25rem var(--color-primary-light);
+      outline: none;
+    }
+  }
+
+  /* Ensure Autocomplete inputs within controls take full width */
+  :global(.autocomplete-wrapper) {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* New grid-based layout for automatic 2-column arrangement */
+.sortFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.sfField {
+  width: 100%;
+  min-width: 0; /* Prevent grid blowout from content */
+  box-sizing: border-box;
+
+  /* Ensure all form elements inside stretch to equal width */
+  :global(.form-group),
+  > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  select,
+  input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* Type filter wrapper */
+.sfTypeWithClear {
+  position: relative;
+  width: 100%;
+}
+
+:global(.autocomplete-wrapper) {
+  width: 100%;
+  box-sizing: border-box;
+}

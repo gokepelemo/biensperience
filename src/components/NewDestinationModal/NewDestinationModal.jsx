@@ -1,4 +1,4 @@
-import styles from "./NewDestinationModal.module.scss";
+import styles from "./NewDestinationModal.module.css";
 import { useState, useEffect } from "react";
 import { Modal, Form } from '../design-system';
 import FormField from "../FormField/FormField";

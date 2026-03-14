@@ -20,7 +20,7 @@ import {
 } from '../../components/Dashboard';
 import MessagesModal from '../../components/ChatModal/MessagesModal';
 import ViewNav from '../../components/ViewNav';
-import styles from './Dashboard.module.scss';
+import styles from './Dashboard.module.css';
 
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);

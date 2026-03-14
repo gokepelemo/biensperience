@@ -1,4 +1,4 @@
-import styles from "./ConfirmModal.module.scss";
+import styles from "./ConfirmModal.module.css";
 import { lang } from "../../lang.constants";
 import { Modal, Alert } from "../design-system";
 import { FaExclamationTriangle, FaTrash } from "react-icons/fa";

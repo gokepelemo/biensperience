@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import styles from './SwipeCardLayout.module.scss';
+import styles from './SwipeCardLayout.module.css';
 import { lang } from '../../lang.constants';
 
 /**

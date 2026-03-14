@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import styles from './Button.module.scss';
+import styles from './Button.module.css';
 import { calculateButtonWidth } from '../../utilities/button-utils';
 
 const BOOTSTRAP_VARIANTS = [

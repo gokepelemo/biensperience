@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Alert, Button } from '../design-system';
 import { FaShieldAlt, FaRedo } from 'react-icons/fa';
-import styles from './TwoFactorAuthModal.module.scss';
+import styles from './TwoFactorAuthModal.module.css';
 
 /**
  * Two-Factor Authentication Modal Component

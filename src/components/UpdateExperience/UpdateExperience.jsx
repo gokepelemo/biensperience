@@ -1,5 +1,5 @@
 import { FormTooltip } from '../design-system';
-import "./UpdateExperience.module.scss";
+import styles from "./UpdateExperience.module.css";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { createFilter } from "../../utilities/trie";

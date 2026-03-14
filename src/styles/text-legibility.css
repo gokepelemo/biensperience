@@ -1,0 +1,51 @@
+/**
+ * Text Legibility Fixes
+ *
+ * Minimal, targeted fixes for text visibility issues.
+ * Only addresses specific components where text is not visible.
+ * Does NOT override existing working component styles.
+ */
+
+
+/*
+ * This file intentionally minimal to avoid breaking existing styles.
+ * Component-specific fixes should be added to component CSS files.
+ */
+
+/* ============================================
+   ALLUSER TABLE LEGIBILITY
+   ============================================ */
+
+/* AllUsers table - ensure table headers and cells are visible */
+.all-users-container table thead th {
+  color: var(--color-text-secondary) !important;
+}
+
+.all-users-container table tbody td {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* ============================================
+   FORM PLACEHOLDER VISIBILITY
+   ============================================ */
+
+/* Ensure form placeholders are visible globally */
+::placeholder {
+  color: var(--color-text-disabled) !important;
+  opacity: 1;
+}
+
+::-webkit-input-placeholder {
+  color: var(--color-text-disabled) !important;
+  opacity: 1;
+}
+
+::-moz-placeholder {
+  color: var(--color-text-disabled) !important;
+  opacity: 1;
+}
+
+:-ms-input-placeholder {
+  color: var(--color-text-disabled) !important;
+  opacity: 1;
+}

@@ -1,5 +1,5 @@
 import { lang } from '../../lang.constants';
-import styles from "./Loading.module.scss";
+import styles from "./Loading.module.css";
 
 /**
  * Loading - A reusable loading component with multiple animation variations

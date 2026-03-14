@@ -1,0 +1,30 @@
+/**
+ * ActionButtonsRow Component Styles (SingleDestination)
+ */
+
+/* Container - flex layout with responsive alignment */
+.actionsContainer {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
+
+  @media (min-width: 768px) {
+
+    width: 50%;
+    justify-content: flex-end;
+  
+  }
+}
+
+/* Button spacing utilities */
+.buttonSpacing {
+  margin-block: 0.25rem;
+  margin-inline-start: 0.5rem;
+
+  @media (min-width: 576px) {
+
+    margin-block: 0.5rem;
+  
+  }
+}

@@ -1,0 +1,65 @@
+/* ErrorBoundary Styles */
+
+.errorBoundaryContainer {
+  max-width: 800px;
+  margin-block: 2rem; /* replaces my-5 */
+}
+
+.errorBoundaryAlert {
+  box-shadow: var(--shadow-sm);
+}
+
+.alertHeading {
+  color: inherit;
+  font-weight: 600;
+}
+
+.errorDetails {
+  margin-top: 1rem; /* replaces mt-3 */
+
+  summary {
+    cursor: pointer;
+    user-select: none;
+    color: var(--color-danger);
+    font-weight: 600;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+.errorContent {
+  margin-top: 0.5rem; /* replaces mt-2 */
+}
+
+.codeBlock {
+  background-color: var(--color-bg-secondary);
+  padding: 0.5rem; /* replaces p-2 */
+  border-radius: 0.5rem; /* replaces rounded */
+}
+
+.actionButtons {
+  margin-top: 1.25rem; /* replaces mt-4 */
+  display: flex; /* replaces d-flex */
+  gap: 0.5rem; /* replaces gap-2 */
+}
+
+.recurringWarning {
+  margin-top: 1rem; /* replaces mt-3 */
+}
+
+.warningText {
+  margin-bottom: 0; /* replaces mb-0 */
+}
+
+.cursorPointer {
+  cursor: pointer;
+}

@@ -7,7 +7,7 @@ import { deleteAccount, searchUsers } from '../../utilities/users-api';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
-import styles from './DeleteAccountModal.module.scss';
+import styles from './DeleteAccountModal.module.css';
 
 /**
  * DeleteAccountModal Component

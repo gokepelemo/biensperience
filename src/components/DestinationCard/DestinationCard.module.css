@@ -1,0 +1,82 @@
+/**
+ * DestinationCard Component Styles (SCSS Module)
+ * Migrated from DestinationCard.css to DestinationCard.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+/* Card wrapper (replaces d-block m-2) */
+.wrapper {
+  display: block;
+  margin: 0.5rem;
+  vertical-align: top;
+}
+
+/* Skeleton overlay (replaces position-absolute w-100 h-100 start-0 top-0) */
+.skeletonOverlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset-inline-start: 0;
+  top: 0;
+}
+
+/* Destination Card Layout */
+.destinationCard {
+  width: 12rem;
+  height: 8rem;
+  background-size: cover;
+  background-position: center;
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden; /* replaces overflow-hidden */
+  transition: transform 300ms, box-shadow 300ms;
+
+  /* Subtle hover lift */
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+}
+
+/* Fluid variant - fills parent container in grid layouts */
+.destinationCardFluid {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  height: auto;
+}
+
+.destinationCardLink {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  text-decoration: none; /* replaces text-decoration-none */
+}
+
+.destinationCardTitle {
+  background-color: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 0.5rem;
+  padding: 0.75rem; /* replaces p-3 */
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+  max-height: 100%;
+  line-height: 1.375;
+  font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+  font-weight: 700; /* replaces fw-bold */
+  text-align: center; /* replaces text-center */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  text-overflow: ellipsis;
+  color: var(--btn-gradient-color);
+}

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import Autocomplete from "../Autocomplete/Autocomplete";
 import { FormGroup, FormLabel, FormControl } from "../design-system";
 import { lang } from "../../lang.constants";
-import styles from "./SortFilter.module.scss";
+import styles from "./SortFilter.module.css";
 
 /**
  * SortFilter

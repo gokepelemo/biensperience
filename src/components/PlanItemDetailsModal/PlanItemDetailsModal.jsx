@@ -30,7 +30,7 @@ import DocumentsTab from './DocumentsTab';
 import PhotosTab from './PhotosTab';
 import DetailItemCard from './DetailItemCard';
 import getDetailDisplayFields from './getDetailDisplayFields';
-import styles from './PlanItemDetailsModal.module.scss';
+import styles from './PlanItemDetailsModal.module.css';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
 import { formatPlanningTime, getPlanningTimeTooltip } from '../../utilities/planning-time-utils';

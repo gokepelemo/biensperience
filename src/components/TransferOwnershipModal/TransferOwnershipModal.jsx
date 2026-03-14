@@ -11,7 +11,7 @@ import { Button, Text, Modal } from '../design-system';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import Banner from '../Banner/Banner';
 import Loading from '../Loading/Loading';
-import styles from './TransferOwnershipModal.module.scss';
+import styles from './TransferOwnershipModal.module.css';
 
 // Get transfer ownership strings from lang constants
 const t = () => lang.current.modal?.transferOwnership || {};

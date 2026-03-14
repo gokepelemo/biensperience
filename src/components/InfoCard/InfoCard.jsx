@@ -1,4 +1,4 @@
-import styles from "./InfoCard.module.scss";
+import styles from "./InfoCard.module.css";
 import { Link } from "react-router-dom";
 
 /**

@@ -7,7 +7,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import SkeletonLoader from '../SkeletonLoader/SkeletonLoader';
-import styles from './CardGridLayout.module.scss';
+import styles from './CardGridLayout.module.css';
 
 /**
  * CardGridLayout - Responsive card grid container

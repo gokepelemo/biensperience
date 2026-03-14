@@ -23,7 +23,7 @@ import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { useToast } from '../../contexts/ToastContext';
 import { lang } from '../../lang.constants';
-import styles from './PlanItemNotes.module.scss';
+import styles from './PlanItemNotes.module.css';
 
 // Visibility options for notes (plan-level restriction)
 // - 'contributors': Visible to all plan collaborators (All Contributors)

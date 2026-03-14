@@ -8,7 +8,7 @@
 
 import SearchableSelect from '../FormField/SearchableSelect';
 import { ACTIVITY_CATEGORIES, ACTIVITY_TYPES } from '../../constants/activity-types';
-import styles from './ActivityTypeSelect.module.scss';
+import styles from './ActivityTypeSelect.module.css';
 
 export default function ActivityTypeSelect({
   value,

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Box, Button, HStack, VStack, IconButton } from '@chakra-ui/react';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
-import styles from './Toast.module.scss';
+import styles from './Toast.module.css';
 
 /**
  * Get icon component based on type

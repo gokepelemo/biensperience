@@ -1,4 +1,4 @@
-import styles from "./FavoriteDestination.module.scss";
+import styles from "./FavoriteDestination.module.css";
 import { useState } from "react";
 import { lang } from "../../lang.constants";
 import {

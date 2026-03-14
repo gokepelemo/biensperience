@@ -42,7 +42,7 @@ export const Overview = {
 				<li>Avoid layout shifts (no jitter) by reserving space and using placeholders.</li>
 			</ul>
 			<p style={{ marginTop: '1rem', fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
-				Storybook auto-loads our app CSS (bootstrap + theme + tokens) to ensure accuracy.
+				Storybook auto-loads the app CSS (Chakra UI + theme tokens) to ensure accuracy.
 			</p>
 		</div>
 	)

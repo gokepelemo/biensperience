@@ -1,0 +1,167 @@
+/* Breadcrumb Navigation */
+.breadcrumbNav {
+  margin-bottom: 1rem;
+  font-size: var(--font-size-sm);
+
+  /* Bootstrap breadcrumb classes (legacy) */
+  :global(.breadcrumb) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    list-style: none;
+    background: transparent;
+    padding: 0;
+    margin-bottom: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.breadcrumb-item) {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    padding: 0 !important;
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+
+      &:hover {
+        color: var(--color-primary);
+      }
+    }
+
+    &.active {
+      color: var(--color-text-primary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    + :global(.breadcrumb-item)::before {
+      padding: 0 !important;
+      margin: 0;
+      color: var(--color-text-muted);
+      content: "\2002/\2002";
+    }
+  }
+
+  /* Chakra UI Breadcrumb overrides
+   * Chakra v3 recipe-based components use generated class names
+   * (chakra-breadcrumb__*) rather than data-part attributes.
+   * We target both for forward-compatibility. */
+  :global([data-part="root"]),
+  :global(.chakra-breadcrumb__root) {
+    padding: 0;
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  :global([data-part="list"]),
+  :global(.chakra-breadcrumb__list) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    list-style: none;
+    padding: 0 !important;
+    padding-left: 0 !important;
+    margin: 0;
+    font-size: var(--font-size-sm) !important;
+    /* Override Chakra fg.muted token with our design token */
+    color: var(--color-text-muted) !important;
+  }
+
+  :global([data-part="item"]),
+  :global(.chakra-breadcrumb__item) {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+  }
+
+  :global([data-part="link"]),
+  :global(.chakra-breadcrumb__link) {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    font-size: var(--font-size-sm) !important;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+  }
+
+  :global([data-part="current-link"]),
+  :global(.chakra-breadcrumb__currentLink) {
+    color: var(--color-text-primary) !important;
+    font-weight: var(--font-weight-medium) !important;
+    font-size: var(--font-size-sm) !important;
+  }
+
+  :global([data-part="separator"]),
+  :global(.chakra-breadcrumb__separator) {
+    color: var(--color-text-muted);
+    padding: 0 0.33em;
+    margin: 0;
+    font-size: var(--font-size-sm) !important;
+
+    /* Hide the default Chakra chevron SVG icon */
+    svg {
+      display: none;
+    }
+  }
+
+  /* Reset any Chakra-injected <nav> or <ol> padding */
+  nav, ol, ul {
+    padding: 0 !important;
+    padding-left: 0 !important;
+    margin: 0;
+  }
+}
+
+/* Skeleton breadcrumb row */
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+.skeletonSeparator {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Mobile breadcrumb styles (back arrow only) */
+.mobileBreadcrumb {
+  margin-bottom: 1rem;
+
+  .backLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: color var(--transition-fast);
+
+    &:hover {
+      color: var(--color-primary);
+    }
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  .backLabel {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

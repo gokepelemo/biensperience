@@ -1,4 +1,4 @@
-import styles from "./PhotoThumbnail.module.scss";
+import styles from "./PhotoThumbnail.module.css";
 import { useMemo, useState, useEffect } from "react";
 import { lang } from "../../lang.constants";
 import { sanitizeText } from "../../utilities/sanitize";

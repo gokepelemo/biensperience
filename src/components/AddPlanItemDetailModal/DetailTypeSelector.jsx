@@ -4,7 +4,7 @@
  */
 
 import PropTypes from 'prop-types';
-import styles from './AddPlanItemDetailModal.module.scss';
+import styles from './AddPlanItemDetailModal.module.css';
 import { DETAIL_TYPES, DETAIL_TYPE_CONFIG } from './constants';
 
 /**

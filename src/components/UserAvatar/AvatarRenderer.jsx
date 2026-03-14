@@ -22,7 +22,7 @@
 import { forwardRef, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Avatar } from '@chakra-ui/react';
-import styles from './UserAvatar.module.scss';
+import styles from './UserAvatar.module.css';
 
 // ── Image-load cache ──────────────────────────────────────────────
 // Module-level Set of image URLs that have successfully loaded in this

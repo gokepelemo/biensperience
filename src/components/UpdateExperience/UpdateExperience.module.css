@@ -1,0 +1,123 @@
+/* Modal animations - using :global() for Bootstrap classes */
+:global(.modal.fade.show) {
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+:global(.modal-dialog-centered) {
+  animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.loadingContainer {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  margin-top: 3rem;
+}
+
+.errorRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.errorCol {
+  width: 100%;
+
+  @media (min-width: 768px) {
+
+    flex: 0 0 66.6667%;
+    max-width: 66.6667%;
+  
+  }
+}
+
+.noMarginBottom {
+  margin-bottom: 0;
+}
+
+.errorActions {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.backButton {
+  margin-inline-end: 0.5rem;
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.fullCol {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+.changesList {
+  margin-bottom: 0;
+  margin-top: 0.5rem;
+}
+
+.formRow {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.formSection {
+  margin-bottom: 1.5rem;
+}
+
+.helperText {
+  color: var(--color-text-muted);
+}
+
+.requiredIndicator {
+  color: var(--color-danger);
+}
+
+.destinationHelper {
+  color: var(--color-text-muted);
+  margin-top: 0.5rem;
+  display: block;
+}
+
+.inlineLink {
+  padding: 0;
+  margin-inline-start: 0.25rem;
+  vertical-align: baseline;
+}
+
+.formActions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+}
+
+.mb4 {
+  margin-bottom: 1.5rem;
+}

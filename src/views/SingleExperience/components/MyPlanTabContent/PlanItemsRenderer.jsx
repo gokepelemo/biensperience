@@ -13,7 +13,7 @@ import SortableCompactPlanItem from './SortableCompactPlanItem';
 import TimelinePlanItem from './TimelinePlanItem';
 import TimelineDateGroup from './TimelineDateGroup';
 
-import './plan-item-views.scss';
+import './plan-item-views.css';
 
 /**
  * Unified renderer for plan items across all view types.

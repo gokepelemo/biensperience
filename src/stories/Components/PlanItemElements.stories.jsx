@@ -7,9 +7,9 @@ import DragHandle from '../../components/DragHandle/DragHandle';
 import CostEstimate from '../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../components/PlanningTime/PlanningTime';
 
-import '../../styles/utilities.scss';
-import '../../styles/design-tokens.scss';
-import '../../views/SingleExperience/SingleExperience.module.scss';
+import '../../styles/utilities.css';
+import '../../styles/design-tokens.css';
+import '../../views/SingleExperience/SingleExperience.module.css';
 
 export default {
   title: 'Design System/Planning/Plan Item Elements',

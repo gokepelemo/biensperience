@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import { fetchUrlPreview, isOEmbedUrl, getProviderName } from '../../utilities/oembed-service';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
-import styles from './LinkPreview.module.scss';
+import styles from './LinkPreview.module.css';
 
 /**
  * LinkPreview - Displays a preview card or embedded content for a URL

@@ -1,4 +1,4 @@
-import styles from "./TravelTipsList.module.scss";
+import styles from "./TravelTipsList.module.css";
 import TravelTip from '../TravelTip/TravelTip';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Button } from '../components/design-system';
-import '../styles/utilities.scss';
-import '../styles/design-tokens.scss';
-import '../views/SingleExperience/SingleExperience.module.scss'; // Plan button styles
+import '../styles/utilities.css';
+import '../styles/design-tokens.css';
+import '../views/SingleExperience/SingleExperience.module.css'; // Plan button styles
 
 export default {
   title: 'Components/Forms/Buttons',

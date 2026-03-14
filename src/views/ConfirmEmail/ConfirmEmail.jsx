@@ -6,7 +6,7 @@ import { handleError } from '../../utilities/error-handler';
 import Loading from '../../components/Loading/Loading';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import { Button, Alert } from '../../components/design-system';
-import styles from './ConfirmEmail.module.scss';
+import styles from './ConfirmEmail.module.css';
 import { lang } from '../../lang.constants';
 
 export default function ConfirmEmail() {

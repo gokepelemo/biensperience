@@ -8,7 +8,7 @@ import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt, FaArrowRight, FaTimes } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
-import styles from './MapInfoCard.module.scss';
+import styles from './MapInfoCard.module.css';
 
 /**
  * MapInfoCard component

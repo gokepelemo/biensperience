@@ -12,7 +12,7 @@ import { FaMapMarkerAlt, FaTimes } from 'react-icons/fa';
 import { getAddressSuggestions, getPlaceDetails } from '../../utilities/address-utils';
 import { logger } from '../../utilities/logger';
 import Loading from '../../components/Loading/Loading';
-import styles from './AddressAutocomplete.module.scss';
+import styles from './AddressAutocomplete.module.css';
 
 export default function AddressAutocomplete({
   value,

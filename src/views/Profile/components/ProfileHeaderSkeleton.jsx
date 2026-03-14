@@ -7,7 +7,7 @@
 
 import { Card } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
-import styles from '../Profile.module.scss';
+import styles from '../Profile.module.css';
 
 export default function ProfileHeaderSkeleton({ isOwner = false }) {
   return (

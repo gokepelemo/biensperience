@@ -1,0 +1,31 @@
+/* ===== Bootstrap Utility Replacements ===== */
+
+.subtitle {
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-bottom: 0;
+}
+
+.mb4 {
+  margin-bottom: 1.5rem;
+}
+
+.mb0 {
+  margin-bottom: 0;
+}
+
+.mt2 {
+  margin-top: 0.5rem;
+}
+
+.sectionSpacing {
+  margin-bottom: 1rem;
+  color: var(--color-text-muted);
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.formContainer {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}

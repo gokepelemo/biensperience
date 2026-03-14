@@ -29,7 +29,7 @@ import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { SkeletonLoader } from '../design-system';
 
-import styles from './ActivityFeed.module.scss';
+import styles from './ActivityFeed.module.css';
 
 // Activity type filter options
 const ACTIVITY_FILTERS = [

@@ -1,0 +1,39 @@
+/* New plan item form */
+.newPlanItem {
+  width: 50%;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  box-sizing: border-box;
+
+  button {
+    grid-column: 1 / span 2;
+    width: 25%;
+    min-width: 50px;
+  }
+
+  label {
+    font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  }
+
+  * {
+    margin: 0.5rem 0;
+  }
+
+  @media (max-width: 576px) {
+    width: 100%;
+  }
+}
+
+/* Plan item visibility toggle button */
+.planItemVisibility {
+  width: fit-content;
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.sectionHeading {
+  font-size: 1.25rem;
+  font-weight: 300;
+  margin-top: 1rem;
+}

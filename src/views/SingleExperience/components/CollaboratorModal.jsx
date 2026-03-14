@@ -16,7 +16,7 @@ import FormField from '../../../components/FormField/FormField';
 import { Modal, Button as DSButton, Pill, Alert } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
 import { lang } from '../../../lang.constants';
-import styles from './CollaboratorModal.module.scss';
+import styles from './CollaboratorModal.module.css';
 
 export default function CollaboratorModal({
   show,

@@ -19,7 +19,7 @@ import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles"
 import { isSuperAdmin } from "../../utilities/permissions";
 import { createFilter } from "../../utilities/trie";
 import { lang } from "../../lang.constants";
-import styles from "./AllUsers.module.scss";
+import styles from "./AllUsers.module.css";
 
 export default function AllUsers() {
   const { user } = useUser();

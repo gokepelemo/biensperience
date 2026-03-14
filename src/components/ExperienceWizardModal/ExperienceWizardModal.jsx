@@ -29,7 +29,7 @@ import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
-import styles from './ExperienceWizardModal.module.scss';
+import styles from './ExperienceWizardModal.module.css';
 
 const STEPS = {
   BASIC_INFO: 1,

@@ -9,7 +9,7 @@ import {
   formatRating,
   normalizeRating
 } from '../../utilities/rating-utils';
-import styles from './RatingScale.module.scss';
+import styles from './RatingScale.module.css';
 
 /**
  * SVG Star component for star ratings

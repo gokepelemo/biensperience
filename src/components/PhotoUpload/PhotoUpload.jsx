@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import styles from "./PhotoUpload.module.scss";
+import styles from "./PhotoUpload.module.css";
 import DOMPurify from "dompurify";
 import { uploadPhoto, uploadPhotoBatch, uploadPhotoUrl, deletePhoto, getPhotoSizeLimit } from "../../utilities/photos-api";
 import { handleError } from "../../utilities/error-handler";

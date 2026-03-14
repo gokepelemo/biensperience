@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Button } from '../design-system';
 import { FaArrowLeft, FaCookieBite } from 'react-icons/fa';
-import styles from './CookiePolicyModal.module.scss';
+import styles from './CookiePolicyModal.module.css';
 import { lang } from '../../lang.constants';
 
 // Get legal email from env var with fallback

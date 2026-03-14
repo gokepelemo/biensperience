@@ -12,7 +12,7 @@ import { FaUser, FaCheckCircle, FaMapMarkerAlt, FaCamera, FaStar } from 'react-i
 import { ProfileSkeleton, ProfileHeaderSkeleton, ProfileContentGridSkeleton } from '../../views/Profile/components';
 import ExperienceCard from '../../components/ExperienceCard/ExperienceCard';
 import DestinationCard from '../../components/DestinationCard/DestinationCard';
-import styles from '../../views/Profile/Profile.module.scss';
+import styles from '../../views/Profile/Profile.module.css';
 
 export default {
   title: 'Views/ProfileView',

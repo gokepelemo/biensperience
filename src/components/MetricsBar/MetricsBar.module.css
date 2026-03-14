@@ -1,0 +1,363 @@
+/**
+ * MetricsBar Styles
+ * Responsive metrics display - horizontal bar on desktop, cards on mobile/tablet
+ */
+
+/* Container - horizontal bar on desktop, cards on mobile/tablet */
+.metricsBar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  background: var(--color-bg-secondary);
+  border-radius: 0.75rem;
+  overflow: hidden;
+
+  /* Mobile/Tablet: Stack as cards */
+  @media (max-width: 767px) {
+
+    flex-direction: column;
+    gap: 0.75rem;
+    background: transparent;
+    border-radius: 0;
+
+    .metricItem {
+      background: var(--color-bg-secondary);
+      border-radius: 0.75rem;
+      border: 1px solid var(--color-border-light);
+    }
+  
+  }
+}
+
+/* Bordered variant - dividers between items */
+.bordered {
+  .metricItem:not(:last-child) {
+    border-right: 1px solid var(--color-border-light);
+
+    @media (max-width: 767px) {
+
+      border-right: none;
+      border-bottom: none; /* No extra border on cards */
+    
+    }
+  }
+}
+
+/* Compact variant - minimal padding, no icons, cleaner look */
+.compact {
+  background: var(--color-bg-secondary);
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border-light);
+
+  .metricItem {
+    padding: 1rem 1.25rem;
+    align-items: flex-start; /* Align content to top */
+  }
+
+  /* Hide icons in compact mode */
+  .metricIcon {
+    display: none;
+  }
+
+  .metricTitle {
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+
+  .metricValue {
+    font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+    font-weight: 700;
+  }
+
+  /* Planned Date tends to be the longest value; shrink more to avoid ellipsis */
+  :global(.plannedDateItem),
+  :global(.smallMetricValueItem) {
+    .metricValue {
+      font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+    }
+  }
+
+  /* Smaller progress bar in compact mode - full width */
+  .progressBar {
+    width: 100%;
+    max-width: none;
+    height: 4px;
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 767px) {
+
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0;
+    background: var(--color-bg-secondary);
+    border-radius: 0.75rem;
+
+    .metricItem {
+      flex: 1 1 50%;
+      min-width: 140px;
+      padding: 0.75rem 1rem;
+      background: transparent;
+      border-radius: 0;
+      border: none;
+      border-bottom: 1px solid var(--color-border-light);
+
+      &:nth-child(odd) {
+        border-right: 1px solid var(--color-border-light);
+      }
+
+      &:nth-last-child(-n+2) {
+        border-bottom: none;
+      }
+    }
+
+    .metricValue {
+      font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+    }
+
+    :global(.plannedDateItem),
+    :global(.smallMetricValueItem) {
+      .metricValue {
+        font-size: clamp(0.875rem, 1.25vw, 1rem);
+      }
+    }
+  
+  }
+}
+
+/* Individual metric item */
+.metricItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  flex: 1 1 0%;
+  min-width: 0;
+  transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &.clickable {
+    cursor: pointer;
+
+    &:focus {
+      outline: 2px solid var(--color-primary);
+      outline-offset: -2px;
+    }
+  }
+
+  @media (max-width: 767px) {
+
+    padding: 1rem;
+    flex: none;
+  
+  }
+}
+
+/* Icon container */
+.metricIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 0.5rem;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+  flex-shrink: 0;
+}
+
+.iconEmoji {
+  font-size: 1.25em;
+  line-height: 1;
+}
+
+.iconFa {
+  font-size: 1em;
+}
+
+/* Content area */
+.metricContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.metricTitle {
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.25rem;
+}
+
+.metricValue {
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+
+  /* Truncate long values */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metricFooter {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+/* Progress bar - full width within metric content */
+.progressBar {
+  height: 6px;
+  width: 100%;
+  max-width: none;
+  background: var(--color-bg-tertiary);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  border-radius: 9999px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Action button area */
+.metricAction {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+/* ============================================ */
+/* Color Variants */
+/* ============================================ */
+
+.colorPrimary {
+  .metricIcon {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+
+  .metricValue {
+    color: var(--color-primary);
+  }
+}
+
+.colorSuccess {
+  .metricIcon {
+    background: rgba(40, 167, 69, 0.1);
+    color: var(--color-success);
+  }
+
+  .metricValue {
+    color: var(--color-success);
+  }
+
+  .progressFill {
+    background: var(--color-success);
+  }
+}
+
+.colorWarning {
+  .metricIcon {
+    background: rgba(255, 193, 7, 0.1);
+    color: var(--color-warning);
+  }
+
+  .metricValue {
+    color: var(--color-warning);
+  }
+
+  .progressFill {
+    background: var(--color-warning);
+  }
+}
+
+.colorDanger {
+  .metricIcon {
+    background: rgba(220, 53, 69, 0.1);
+    color: var(--color-danger);
+  }
+
+  .metricValue {
+    color: var(--color-danger);
+  }
+
+  .progressFill {
+    background: var(--color-danger);
+  }
+}
+
+.colorDefault {
+  /* Uses default colors - no overrides needed */
+}
+
+/* ============================================ */
+/* Tooltip Styles */
+/* ============================================ */
+
+.hasTooltip {
+  cursor: help;
+
+  &:hover {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+  }
+}
+
+.hoverTooltip {
+  position: fixed;
+  z-index: 10000;
+  background-color: var(--color-bg-overlay, rgba(0, 0, 0, 0.9));
+  color: white;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: min(300px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+
+  /* Animation */
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.tooltipArrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--color-bg-overlay, rgba(0, 0, 0, 0.9));
+}

@@ -18,7 +18,7 @@ import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { BsThreeDotsVertical } from 'react-icons/bs';
-import styles from './ActionsMenu.module.scss';
+import styles from './ActionsMenu.module.css';
 
 /**
  * ActionsMenu component

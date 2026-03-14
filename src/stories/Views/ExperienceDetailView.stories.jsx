@@ -13,7 +13,7 @@ import { FaMapMarkerAlt, FaHeart, FaShare, FaEdit, FaTrash, FaRegImage, FaStar, 
 import PlanningTime from '../../components/PlanningTime/PlanningTime';
 import CostEstimate from '../../components/CostEstimate/CostEstimate';
 import { StarRating, DifficultyRating } from '../../components/RatingScale/RatingScale';
-import styles from '../../views/SingleExperience/SingleExperience.module.scss';
+import styles from '../../views/SingleExperience/SingleExperience.module.css';
 
 export default {
   title: 'Views/ExperienceDetailView',

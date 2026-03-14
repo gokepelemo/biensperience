@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../../components/design-system';
 import { lang } from '../../lang.constants';
-import styles from './Pagination.module.scss';
+import styles from './Pagination.module.css';
 
 /**
  * Build page numbers with ellipsis for large page counts

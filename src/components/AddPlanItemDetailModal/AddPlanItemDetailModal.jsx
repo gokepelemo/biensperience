@@ -12,7 +12,7 @@ import { Modal } from '../design-system';
 import DetailTypeSelector from './DetailTypeSelector';
 import DetailEntryForm from './DetailEntryForm';
 import DocumentUploadStep from './DocumentUploadStep';
-import styles from './AddPlanItemDetailModal.module.scss';
+import styles from './AddPlanItemDetailModal.module.css';
 import { lang } from '../../lang.constants';
 import { logger } from '../../utilities/logger';
 import { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES, STEPS } from './constants';

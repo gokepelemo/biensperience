@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import styles from './AddPlanItemDetailModal.module.scss';
+import styles from './AddPlanItemDetailModal.module.css';
 import { Tooltip } from '../design-system';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';

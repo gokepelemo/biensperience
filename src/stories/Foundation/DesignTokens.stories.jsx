@@ -335,7 +335,7 @@ export const Overview = {
           Breakpoints
         </h2>
         <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-4)' }}>
-          Mobile-first responsive breakpoints. Use SCSS mixins: <code>@include breakpoint(md)</code> for min-width.
+          Mobile-first responsive breakpoints. Use Chakra UI responsive props or the <code>Show</code>/<code>Hide</code> components from the design system for breakpoint-aware rendering.
         </p>
 
         <div style={{

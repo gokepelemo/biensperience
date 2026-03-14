@@ -32,7 +32,7 @@ import {
 } from '../../utilities/cost-utils';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
 import { lang } from '../../lang.constants';
-import styles from './CostEstimate.module.scss';
+import styles from './CostEstimate.module.css';
 
 export default function CostEstimate({
   cost,

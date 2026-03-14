@@ -6,7 +6,7 @@
 import React from 'react';
 import { Alert, Button, Container } from '../design-system';
 import { logger } from '../../utilities/logger';
-import styles from './ErrorBoundary.module.scss';
+import styles from './ErrorBoundary.module.css';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {

@@ -1,0 +1,8 @@
+/**
+ * ActivityTypeSelect wrapper styles.
+ * The interactive UI lives in SearchableSelect.
+ */
+
+.activityTypeSelect {
+  width: 100%;
+}

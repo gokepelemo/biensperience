@@ -9,7 +9,7 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import InteractiveMap from './InteractiveMap';
 import MapListingsPanel from './MapListingsPanel';
-import styles from './MapWithListings.module.scss';
+import styles from './MapWithListings.module.css';
 
 /**
  * MapWithListings component

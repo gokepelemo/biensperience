@@ -38,7 +38,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import styles from './MultiStepPlanModal.module.scss';
+import styles from './MultiStepPlanModal.module.css';
 
 const STEPS = {
   CREATE_EXPERIENCE: 1,

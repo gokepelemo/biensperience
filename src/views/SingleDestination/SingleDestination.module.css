@@ -1,0 +1,316 @@
+/* Breadcrumb styles are fully owned by src/components/Breadcrumb/Breadcrumb.module.scss.
+ * View-level overrides removed — use the Breadcrumb component's className prop if needed. */
+
+/* Hero Image Section */
+.heroSection {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  height: 450px;
+  background: var(--color-bg-secondary);
+  position: relative;
+
+  @media (max-width: 767px) {
+
+    height: 300px;
+    margin-bottom: 1rem;
+  
+  }
+
+  /* Overlay gradient for better text visibility */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30%;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+    pointer-events: none;
+  }
+}
+
+.heroImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: var(--space-8);
+  color: white;
+  z-index: 1; /* Above the ::after gradient overlay */
+}
+
+/* Small transparent outline photo button in bottom-right of hero */
+.heroPhotoButton {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.9);
+  color: white;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  z-index: 5;
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  &:hover {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  svg {
+    font-size: 1.125rem;
+  }
+
+  @media (max-width: 767px) {
+
+    right: 8px;
+    bottom: 8px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 var(--space-2);
+  
+  }
+}
+
+/* Photo count text inside button */
+.photoCount {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Stats Bar below hero - Using MetricsBar compact component */
+.statsBar {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-6);
+
+  /* Override MetricsBar defaults for better mobile layout */
+  justify-content: center;
+
+  @media (min-width: 768px) {
+
+    justify-content: flex-start;
+  
+  }
+}
+
+.heroTitle {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+  color: white;
+}
+
+.heroMeta {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+  flex-wrap: wrap;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: white;
+    font-size: var(--font-size-base);
+  }
+
+  a {
+    color: white !important;
+    text-decoration: none !important;
+    display: flex;
+    align-items: center;
+
+    &:hover,
+    &:focus {
+      text-decoration: underline !important;
+    }
+  }
+}
+
+/* Content Section Card */
+.contentCard {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.contentCardBody {
+  padding: var(--space-6);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.sectionIcon {
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sectionText {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Destination Map */
+.destinationMap {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  position: sticky;
+  top: var(--space-6);
+}
+
+.sidebarTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+}
+
+.sidebarActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Inline spinner for buttons - CSS-only, fixed dimensions */
+.buttonSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinButton 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinButton {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* Main Container */
+.destinationContainer {
+  background-color: var(--color-bg-primary);
+  min-height: 100vh;
+  padding: var(--space-8) 0;
+}
+
+/* Loading skeleton styles */
+.skeletonHero {
+  height: 450px;
+  border-radius: var(--radius-xl);
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 767px) {
+
+    height: 300px;
+    margin-bottom: 1rem;
+  
+  }
+}
+
+/* Responsive adjustments for new layout */
+@media (max-width: 991px) {
+
+  .heroTitle {
+    font-size: var(--font-size-2xl);
+  }
+
+  .heroMeta {
+    gap: var(--space-4);
+    font-size: var(--font-size-sm);
+  }
+
+  .sidebar {
+    position: relative;
+    top: 0;
+    margin-bottom: var(--space-6);
+  }
+
+}
+
+@media (max-width: 575px) {
+
+  .heroSection {
+    border-radius: var(--radius-lg);
+  }
+
+  .heroOverlay {
+    padding: var(--space-4);
+  }
+
+  .heroTitle {
+    font-size: var(--font-size-xl);
+  }
+
+  .heroMeta {
+    gap: var(--space-3);
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sectionTitle {
+    justify-content: center;
+    text-align: center;
+  }
+
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border-width: 0;
+}

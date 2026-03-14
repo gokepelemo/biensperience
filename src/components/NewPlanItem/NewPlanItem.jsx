@@ -1,4 +1,4 @@
-import styles from "./NewPlanItem.module.scss";
+import styles from "./NewPlanItem.module.css";
 import { useCallback, useState, useMemo } from "react";
 import { addPlanItem, updatePlanItem } from "../../utilities/experiences-api";
 import { lang } from "../../lang.constants";

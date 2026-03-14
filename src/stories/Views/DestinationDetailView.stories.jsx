@@ -14,7 +14,7 @@ import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage,
 import ExperienceCard from '../../components/ExperienceCard/ExperienceCard';
 import TravelTipsList from '../../components/TravelTipsList/TravelTipsList';
 import DestinationExperienceGrid from '../../views/SingleDestination/components/DestinationExperienceGrid';
-import styles from '../../views/SingleDestination/SingleDestination.module.scss';
+import styles from '../../views/SingleDestination/SingleDestination.module.css';
 
 export default {
   title: 'Views/DestinationDetailView',

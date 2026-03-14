@@ -7,7 +7,7 @@
 import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
-import styles from './PlannerLayout.module.scss';
+import styles from './PlannerLayout.module.css';
 
 /**
  * PlannerLayout - Two-column layout optimized for trip planning

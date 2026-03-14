@@ -18,7 +18,7 @@ import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import Loading from '../Loading/Loading';
 import Toggle from '../Toggle';
-import styles from './ApiTokenModal.module.scss';
+import styles from './ApiTokenModal.module.css';
 
 export default function ApiTokenModal({ show, onHide, user, onUserUpdate }) {
   const [tokens, setTokens] = useState([]);

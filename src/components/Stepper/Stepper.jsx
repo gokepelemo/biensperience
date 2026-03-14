@@ -1,4 +1,4 @@
-import styles from './Stepper.module.scss';
+import styles from './Stepper.module.css';
 
 /**
  * Stepper component for step-by-step progress indication

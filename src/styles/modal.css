@@ -1,0 +1,182 @@
+/**
+ * Shared Modal Styles
+ * Used by: SingleExperience, UpdateExperience, ConfirmModal
+ * Provides consistent modern modal design across the app
+ */
+
+
+/* ============================================
+   MODAL STRUCTURE
+   ============================================ */
+
+/* Animations removed - using conditional rendering for instant mount/unmount.
+ * CSS animations caused flash on close because they restart during unmount.
+ * Modal visibility is now controlled entirely by React state. */
+
+.modal.fade.show {
+  opacity: 1;
+}
+
+.modal-dialog-centered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal-content {
+  border-radius: 0.75rem;
+  border: none;
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15), 0 10px 10px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+/* ============================================
+   MODAL HEADER
+   ============================================ */
+
+.modal-header {
+  background: var(--gradient-primary-animated);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  color: white;
+  border-bottom: none;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header .modal-title {
+  font-weight: 700;
+  font-size: clamp(var(--font-size-xl), 3vw, var(--font-size-2xl));
+  color: white !important;
+  margin: 0;
+  flex: 1;
+}
+
+.modal-header .btn-close {
+  /* Override Bootstrap's default btn-close for gradient headers */
+  background: transparent !important;
+  border: none;
+  box-sizing: border-box; /* Override Bootstrap's content-box */
+  /* Larger touch target (WCAG 2.5.5 - min 44x44px) */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  /* Override Bootstrap's negative margin alignment hack */
+  margin: 0 !important;
+  margin-left: auto !important;
+  /* Display properties for custom × symbol */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Large, clearly visible × symbol */
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  color: white;
+  opacity: 0.9;
+  filter: none;
+  /* Smooth transitions */
+  transition: opacity 300ms, background-color 300ms, transform 300ms;
+  /* Ensure the button appears on top of gradient */
+  position: relative;
+  z-index: 1;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+  /* Semi-transparent white background on hover for better visibility */
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  transform: scale(1.05);
+}
+
+.modal-header .btn-close:focus {
+  opacity: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.modal-header .btn-close:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   MODAL BODY
+   ============================================ */
+
+.modal-body {
+  padding: 1.25rem;
+  font-size: clamp(0.9375rem, 1.75vw, 1.0625rem);
+  line-height: 1.625;
+  /* Stacking context for dropdowns to appear above footer */
+  position: relative;
+  z-index: 2;
+  /* Allow dropdowns to render outside modal body bounds */
+  overflow: visible;
+}
+
+/* ============================================
+   MODAL FOOTER
+   ============================================ */
+
+.modal-footer {
+  border-top: 1px solid var(--color-border-medium);
+  padding: 1rem 1.25rem;
+  background: var(--color-bg-secondary);
+  /* Lower stacking context so body dropdowns appear above */
+  position: relative;
+  z-index: 1;
+}
+
+.modal-footer .btn {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 300ms;
+}
+
+.modal-footer .btn-secondary {
+  background: var(--color-text-tertiary);
+  border: none;
+
+  &:hover {
+    background: var(--color-text-secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.modal-footer .btn-danger {
+  background: var(--gradient-primary);
+  border: none;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.modal-footer .btn-primary {
+  background: var(--gradient-primary-animated);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  border: none;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+    animation: gradientShift 4s ease infinite;
+  }
+}
+
+/* ============================================
+   MODAL BACKDROP
+   ============================================ */
+
+.modal.d-block {
+  background-color: var(--color-bg-overlay);
+}

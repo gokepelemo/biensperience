@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
-import styles from './PhotoUploadModal.module.scss';
+import styles from './PhotoUploadModal.module.css';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import { Button, Modal } from '../design-system';
 import { lang } from '../../lang.constants';

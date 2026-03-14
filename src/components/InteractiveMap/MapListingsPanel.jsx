@@ -12,7 +12,7 @@ import EmptyState from '../EmptyState/EmptyState';
 import { SearchInput } from '../design-system';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useGridNavigation } from '../../hooks/useKeyboardNavigation';
-import styles from './MapListingsPanel.module.scss';
+import styles from './MapListingsPanel.module.css';
 
 // Debounce delay for search input (ms)
 const SEARCH_DEBOUNCE_DELAY = 300;

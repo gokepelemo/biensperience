@@ -16,7 +16,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Flex, Box, Stack as StackPrimitive } from '@chakra-ui/react';
-import styles from './Layout.module.scss';
+import styles from './Layout.module.css';
 
 const GAP_MAP = {
   sm: '0.5rem',

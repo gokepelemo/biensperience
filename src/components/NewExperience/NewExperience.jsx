@@ -1,4 +1,4 @@
-import styles from "./NewExperience.module.scss";
+import styles from "./NewExperience.module.css";
 import { useState, useEffect, useMemo, useId } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../../contexts/DataContext";

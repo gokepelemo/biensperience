@@ -35,7 +35,7 @@ import { convertCostToTarget, fetchRates } from '../../utilities/currency-conver
 import { exportToCsv, formatDateForCsv } from '../../utilities/csv-utils';
 import { lang } from '../../lang.constants';
 import UserAvatar from '../UserAvatar/UserAvatar';
-import styles from './CostSummary.module.scss';
+import styles from './CostSummary.module.css';
 
 // Category icons mapping
 const CATEGORY_ICONS = {

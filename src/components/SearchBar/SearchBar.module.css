@@ -1,0 +1,65 @@
+/* SearchBar wrapper styles - leverages Autocomplete component styles */
+
+.searchBarWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  transition: max-width 0.3s ease, width 0.3s ease;
+
+  /* Expand on focus-within (when input inside is focused) */
+  &:focus-within {
+    max-width: 75%;
+    min-width: 400px;
+
+    /* Ensure the dropdown is at least as wide as the expanded input */
+    :global(.autocompleteDropdown) {
+      min-width: 400px;
+    }
+  }
+}
+
+/* Sticky navbar search - using :global() for navbar class */
+:global(.navbar.sticky) {
+  .searchBarWrapper {
+    max-width: 240px;
+
+    &:focus-within {
+      max-width: 75%;
+      min-width: 400px;
+    }
+  }
+}
+
+/* Mobile/Tablet responsive - full width in navbar collapse menu */
+@media (max-width: 991.98px) {
+  .searchBarWrapper {
+    max-width: 100%;
+    width: 100%;
+
+    &:focus-within {
+      max-width: 100%;
+      min-width: unset;
+    }
+  }
+}
+
+/* Sticky navbar on mobile/tablet */
+@media (max-width: 991.98px) {
+  :global(.navbar.sticky) {
+    .searchBarWrapper {
+      max-width: 100%;
+      width: 100%;
+      margin-top: 0.5rem;
+
+      &:focus-within {
+        max-width: 100%;
+        min-width: unset;
+      }
+    }
+  }
+}
+
+/*
+ * Legacy styles removed - now using unified Autocomplete component
+ * All search dropdown, results, and interaction styles are handled by Autocomplete.css
+ */

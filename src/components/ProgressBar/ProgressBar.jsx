@@ -1,4 +1,4 @@
-import styles from './ProgressBar.module.scss';
+import styles from './ProgressBar.module.css';
 
 /**
  * Progress bar component with percentage display

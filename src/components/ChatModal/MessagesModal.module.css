@@ -1,0 +1,668 @@
+/* Custom Modal Implementation for Stream Chat */
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-bg-overlay, rgba(0, 0, 0, 0.5));
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.modalDialog {
+  width: 95%;
+  max-width: 1200px;
+  max-height: calc(100vh - 2rem); /* Leave some space at bottom */
+  margin: 0 auto;
+  padding: 1rem;
+  position: relative;
+  z-index: 1051;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-primary);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+  max-height: calc(100vh - 2rem); /* Leave some space at bottom */
+  height: calc(100vh - 2rem); /* Explicit height with bottom spacing */
+  overflow: hidden;
+  position: relative;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.modalTitleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.modalTitleLink:hover,
+.modalTitleLink:focus-visible {
+  text-decoration: underline;
+}
+
+.modalTitleChannel {
+  display: inline-block;
+  max-width: 52vw;
+  vertical-align: bottom;
+}
+
+.modalTitleChannelText {
+  display: inline-block;
+  max-width: 52vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Close button in header */
+.closeButton {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+    outline: none;
+  }
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingState {
+  padding: 1rem;
+  color: var(--color-text-secondary);
+}
+
+.messagesContainer {
+  /* Fill available modal body space so the pane can stretch to full modal height */
+  flex: 1 1 auto;
+  min-height: 0; /* allow flex children to shrink inside constrained containers */
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+
+  @media (max-width: 767px) {
+
+    grid-template-columns: 1fr;
+  
+  }
+}
+
+.sidebar {
+  border-right: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
+  /* remove inner padding so channel backgrounds can reach the divider */
+  padding-right: 0;
+  overflow-y: auto; /* Ensure vertical scrolling */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+
+  @media (max-width: 767px) {
+
+    display: none;
+  
+  }
+}
+
+.channelList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 100%; /* Allow scrolling within sidebar */
+  overflow-y: auto; /* Enable scrolling if content exceeds height */
+}
+
+.channelButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  /* Use standard menu-item vertical padding; reduce right padding to reclaim whitespace */
+  padding: var(--menu-item-padding-y, 0.75rem)
+           0.5rem
+           var(--menu-item-padding-y, 0.75rem)
+           var(--menu-item-padding-x, 1rem);
+  min-height: var(--menu-item-min-height, 44px);
+  border-radius: 0; /* No rounded corners for full-width active state */
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover:not(.active) {
+    background: var(--color-bg-hover);
+  }
+
+  &.active {
+    background: var(--color-bg-tertiary);
+  }
+
+  /* Unread state - bold text */
+  &.hasUnread .channelName {
+    font-weight: 700;
+  }
+}
+
+.channelListItem {
+  position: relative;
+}
+
+.deleteChannelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-primary);
+  opacity: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+    color: var(--color-text-on-danger, #fff);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+}
+
+.channelListItem:hover .deleteChannelButton,
+.channelButton:focus .deleteChannelButton {
+  opacity: 1;
+  color: var(--color-danger);
+  background: var(--color-danger-bg, rgba(220, 53, 69, 0.1));
+  border-color: var(--color-danger-border, rgba(220, 53, 69, 0.3));
+}
+
+.channelName {
+  display: block;
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  /* Constrain child so it can ellipsize; inner element handles the ellipsis */
+  overflow: hidden;
+  position: relative; /* container for absolutely-positioned animated label */
+}
+
+/* Inner element used for marquee animation */
+.channelTitleInner {
+  display: inline-block;
+  padding-right: 6px; /* small gap when scrolling (slightly reduced) */
+}
+
+/* Static clipped label shown by default */
+.channelTitleStatic {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Animated label used for marquee; hidden until hover */
+.channelTitleAnimating {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center; /* ensure vertical centering without relying on transform */
+  transform: none;
+  visibility: hidden;
+  white-space: nowrap;
+  z-index: 1; /* sit above the static label */
+  pointer-events: none;
+}
+
+/* Toggle between static and animated labels on hover/focus */
+.channelButton:hover .channelTitleStatic,
+.channelButton:focus .channelTitleStatic,
+.channelButton:focus-visible .channelTitleStatic {
+  visibility: hidden;
+}
+.channelButton:hover .channelTitleAnimating,
+.channelButton:focus .channelTitleAnimating,
+.channelButton:focus-visible .channelTitleAnimating {
+  visibility: visible;
+}
+
+/* Mobile dropdown marquee inner */
+.mobileChannelTitleInner {
+  display: inline-block;
+}
+
+/* Unread badge */
+.unreadBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-white);
+  background: var(--color-primary);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* Dismissed/hidden channels section */
+.dismissedSection {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.dismissedToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted, var(--color-text-secondary));
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+}
+
+.dismissedChevron {
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.dismissedLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.dismissedList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dismissedListItem {
+  position: relative;
+}
+
+.dismissedChannelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 8px 8px 8px 16px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+
+  &:hover {
+    opacity: 0.85;
+    background: var(--color-bg-hover);
+  }
+}
+
+.dismissedChannelName {
+  display: block;
+  flex: 1;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  position: relative;
+  text-decoration: line-through;
+  text-decoration-color: var(--color-text-muted, var(--color-text-secondary));
+}
+
+.restoreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  opacity: 0;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: opacity 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+
+  &:hover {
+    background: var(--color-success-bg, rgba(25, 135, 84, 0.1));
+    border-color: var(--color-success-border, rgba(25, 135, 84, 0.3));
+    color: var(--color-success, #198754);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+}
+
+.dismissedChannelRow:hover .restoreButton {
+  opacity: 1;
+  color: var(--color-success, #198754);
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: opacity 0.15s ease;
+
+  /* CSS variable for gutter reference - used by Stream Chat component overrides.
+   * Uses Stream Chat's native spacing-2 (8px) for minimal breathing room
+   * so avatars and bubbles don't touch the pane edges.
+   */
+  --messagesModalChatGutter: var(--str-chat__spacing-2, 8px);
+}
+
+.pane.switching {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.empty,
+.emptyPane {
+  color: var(--color-text-secondary);
+  padding: 12px;
+}
+
+/* Mobile channel selector dropdown */
+.mobileChannelSelector {
+  display: none;
+  position: relative;
+  margin-bottom: 0.75rem;
+
+  @media (max-width: 767px) {
+
+    display: block;
+    /* Add left/right padding so the chat list (dropdown) doesn't touch modal edges */
+    padding-inline: 0.75rem;
+  
+  }
+}
+
+.mobileDropdownToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--menu-item-padding-y, 0.75rem)
+           var(--menu-item-padding-x, 1rem);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+
+  &:hover,
+  &:focus {
+    border-color: var(--color-primary);
+    outline: none;
+  }
+}
+
+.mobileDropdownLabel {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileDropdownIcon {
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.mobileDropdownList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  /* When portaled to document.body, must sit above modal/backdrop z-indexes */
+  z-index: 2000;
+  margin: 0.25rem 0 0 0;
+  padding: 0.5rem 0;
+  list-style: none;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.mobileDropdownItem {
+  /* Button reset + full-width row — uses standardized menu-item padding */
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: var(--menu-item-padding-y, 0.75rem)
+           var(--menu-item-padding-x, 1rem);
+  min-height: var(--menu-item-min-height, 44px);
+  border: none;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &.active {
+    background: var(--color-bg-tertiary);
+    font-weight: 600;
+  }
+
+  /* Unread state - bold text */
+  &.hasUnread .mobileDropdownItemLabel {
+    font-weight: 700;
+  }
+}
+
+.mobileDropdownItemLabel {
+  flex: 1;
+  overflow: hidden; /* outer constrainer for inner ellipsis */
+  padding-left: 8px; /* add left inset so titles don't butt against avatar/icon */
+  position: relative; /* container for animated label */
+}
+
+/* NOTE: .mobileTitleStatic and .mobileChannelTitleInner were removed as unused.
+ * ChannelTitle component uses .channelTitleStatic and .channelTitleAnimating internally,
+ * which are styled via the .mobileDropdownItem hover rules below and the base channel title styles above.
+ */
+
+/* Toggle between static and animated labels on hover/focus for mobile dropdown items */
+/* ChannelTitle component uses .channelTitleStatic and .channelTitleAnimating internally */
+.mobileDropdownItem:hover .channelTitleStatic,
+.mobileDropdownItem:focus .channelTitleStatic {
+  visibility: hidden;
+}
+.mobileDropdownItem:hover .channelTitleAnimating,
+.mobileDropdownItem:focus .channelTitleAnimating {
+  visibility: visible;
+}
+
+/* Ensure the Stream Chat wrapper fills remaining space after mobile selector */
+.messagesContainer :global(.str-chat) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  /* Override Stream Chat's internal spacing variables to add more left gutter.
+   * This is cleaner than trying to override each component's padding individually.
+   * Stream Chat components read these variables for their internal layout.
+   */
+  --str-chat__message-list-gutter: var(--str-chat__spacing-6, 1.5rem);
+}
+
+/* Stream Chat (scoped) token alignment */
+@include streamChatTokenAlignment('.pane')
+@include streamChatOverlayZIndex('.pane')
+@include streamChatSendToChannelCheckbox('.pane')
+
+/* ChannelHeader title bar - full width */
+.pane :global(.str-chat__channel-header) {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+/* Main panel - full width, no side padding */
+.pane :global(.str-chat__main-panel) {
+  padding-inline: 0;
+  box-sizing: border-box;
+}
+
+/* Force message list gutters to match the header gutter (normal + virtual list). */
+.pane :global(.str-chat__list .str-chat__message-list-scroll) {
+  padding-inline: var(--messagesModalChatGutter);
+  /* Spacing between header/avatar row and first messages (no top/bottom padding). */
+  margin-block-start: var(--str-chat__spacing-2);
+}
+
+.pane :global(.str-chat__list .str-chat__message-list-scroll .str-chat__li) {
+  margin-inline: calc(-1 * var(--messagesModalChatGutter));
+  padding-inline: var(--messagesModalChatGutter);
+}
+
+.pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div) {
+  padding-inline: var(--messagesModalChatGutter);
+  /* Spacing between header/avatar row and first messages (no top/bottom padding). */
+  margin-block-start: var(--str-chat__spacing-2);
+}
+
+/* Keep message input aligned with the same left/right gutter */
+.pane :global(.str-chat__message-input) {
+  padding-inline: var(--messagesModalChatGutter);
+  box-sizing: border-box;
+}
+
+.pane :global(.str-chat__virtual-list .str-chat__message-list-scroll > div .str-chat__li) {
+  margin-inline: calc(-1 * var(--messagesModalChatGutter));
+  padding-inline: var(--messagesModalChatGutter);
+}
+
+/* No extra margins for avatars, bubbles, or date separators - pane is full width */

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchAll } from '../../utilities/search-api';
 import { logger } from '../../utilities/logger';
 import Autocomplete from '../Autocomplete/Autocomplete';
-import styles from './SearchBar.module.scss';
+import styles from './SearchBar.module.css';
 
 /**
  * SearchBar Component

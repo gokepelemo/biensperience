@@ -10,7 +10,7 @@ import ExperienceCard from '../../../components/ExperienceCard/ExperienceCard';
 import DestinationCard from '../../../components/DestinationCard/DestinationCard';
 import { SkeletonLoader, EmptyState } from '../../../components/design-system';
 import Pagination from '../../../components/Pagination/Pagination';
-import styles from '../Profile.module.scss';
+import styles from '../Profile.module.css';
 
 /**
  * @param {Object} props

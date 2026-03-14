@@ -1,0 +1,50 @@
+/**
+ * ExperienceCardSkeleton styles
+ * Matches ExperienceCard layout: 20rem width, 12rem min-height, centered title + bottom actions
+ */
+
+.card {
+  width: 20rem;
+  min-height: 12rem;
+  margin: 0.5rem;
+  border-radius: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: var(--color-bg-tertiary);
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.titleOverlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  width: 100%;
+  flex-shrink: 0;
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import styles from "./UpdateDestination.module.scss";
+import styles from "./UpdateDestination.module.css";
 import { updateDestination as updateDestAPI, showDestination } from "../../utilities/destinations-api";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";

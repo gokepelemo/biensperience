@@ -1,4 +1,4 @@
-import styles from './PhotoModal.module.scss';
+import styles from './PhotoModal.module.css';
 import { useEffect, useState, useCallback, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';

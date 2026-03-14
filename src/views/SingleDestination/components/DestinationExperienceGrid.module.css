@@ -1,0 +1,57 @@
+/**
+ * DestinationExperienceGrid Component Styles
+ *
+ * Uses same layout patterns as SingleDestination for pixel-perfect consistency.
+ * Maintains Bootstrap Row/Col grid with design system tokens.
+ */
+
+.grid {
+  /* No padding needed - inherits from parent Card.Body */
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-4);
+
+  @media (max-width: 767px) {
+
+    justify-content: center;
+    text-align: center;
+  
+  }
+}
+
+.loadMore {
+  height: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 0;
+}
+
+.loadMoreText {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Skeleton grid - mirrors the main grid layout */
+.skeletonGrid {
+  /* Uses Bootstrap Row/Col via JSX, no custom grid needed */
+}
+
+/* ===== Utility replacements ===== */
+
+.flexCenter {
+  display: flex;
+  justify-content: center;
+}
+
+.justifyCenter {
+  justify-content: center;
+}

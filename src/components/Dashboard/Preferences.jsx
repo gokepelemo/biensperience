@@ -14,7 +14,7 @@ import themeManager from '../../utilities/theme-manager';
 import { lang, getLanguageOptions } from '../../lang.constants';
 import { getTimezoneOptions, detectUserTimezone, storePreferences } from '../../utilities/preferences-utils';
 import { getCurrencyDropdownOptions } from '../../utilities/currency-utils';
-import styles from './Preferences.module.scss';
+import styles from './Preferences.module.css';
 
 export default function Preferences() {
   const { user, profile, fetchProfile } = useUser();

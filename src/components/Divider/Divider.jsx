@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from './Divider.module.scss';
+import styles from './Divider.module.css';
 
 /**
  * Divider with centered label and tokenized shadow.

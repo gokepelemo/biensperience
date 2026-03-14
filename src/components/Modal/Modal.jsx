@@ -1,6 +1,6 @@
 import { forwardRef, useId } from "react";
 import { createPortal } from "react-dom";
-import styles from "./Modal.module.scss";
+import styles from "./Modal.module.css";
 import PropTypes from "prop-types";
 import { lang } from "../../lang.constants";
 import { useModalEscape } from "../../hooks/useKeyboardNavigation";

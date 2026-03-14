@@ -9,8 +9,8 @@
 import ProfileHeaderSkeleton from './ProfileHeaderSkeleton';
 import { ProfileContentGridSkeleton, ProfileTabsSkeleton } from './ProfileContentGrid';
 import { SkeletonLoader, Row, Col } from '../../../components/design-system';
-import activityFeedStyles from '../../../components/ActivityFeed/ActivityFeed.module.scss';
-import styles from '../Profile.module.scss';
+import activityFeedStyles from '../../../components/ActivityFeed/ActivityFeed.module.css';
+import styles from '../Profile.module.css';
 
 export default function ProfileSkeleton({ isOwner = false, activeTab = 'activity' }) {
   return (

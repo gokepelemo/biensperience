@@ -8,7 +8,7 @@ import React, { memo } from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
-import styles from './MapListingCard.module.scss';
+import styles from './MapListingCard.module.css';
 
 /**
  * MapListingCard component

@@ -27,7 +27,7 @@ import { Breadcrumb } from '@chakra-ui/react';
 import { FaHome, FaArrowLeft } from 'react-icons/fa';
 import { Show, Hide } from '../Responsive';
 import SkeletonLoader from '../SkeletonLoader/SkeletonLoader';
-import styles from './Breadcrumb.module.scss';
+import styles from './Breadcrumb.module.css';
 
 /**
  * Desktop skeleton breadcrumb using SkeletonLoader for visual consistency

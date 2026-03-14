@@ -17,7 +17,7 @@ import {
   ACTIVITY_CATEGORIES,
   getCostCategoryIcon
 } from '../../constants/activity-types';
-import styles from './CostEntry.module.scss';
+import styles from './CostEntry.module.css';
 
 // Get currency options from centralized utility (sorted by popularity)
 const CURRENCIES = getCurrencyDropdownOptions({ format: 'codeAndName' });

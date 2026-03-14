@@ -10,7 +10,7 @@ import PropTypes from 'prop-types';
 import { FaMapMarkerAlt, FaSearch, FaSpinner, FaCheck } from 'react-icons/fa';
 import GoogleMap from '../GoogleMap/GoogleMap';
 import { Modal, Button } from '../design-system';
-import styles from './AddLocationModal.module.scss';
+import styles from './AddLocationModal.module.css';
 import { logger } from '../../utilities/logger';
 import { sendRequest } from '../../utilities/send-request';
 import { lang } from '../../lang.constants';

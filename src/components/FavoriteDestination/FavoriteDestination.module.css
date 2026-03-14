@@ -1,0 +1,104 @@
+/* Base button transitions */
+:global(button),
+:global(.btn) {
+  transition: var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+/* Pills - Using unified design system utility class */
+/* .pill styles are now defined in src/styles/utilities.css for consistency */
+
+/* FavoriteDestination-specific pill overrides */
+:global(.pill) {
+  background: linear-gradient(90deg, var(--color-favorite-pill-bg) 0%, var(--color-favorite-pill-bg-end) 100%);
+  margin: var(--space-1);
+
+  &:global(.inactive) {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+    box-shadow: none;
+  }
+
+  :global(.icon) {
+    margin-right: 0.5rem;
+    font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+  }
+
+  &:hover {
+    color: var(--color-favorite-text) !important;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+/* Custom Button Classes - Extend Bootstrap without overriding */
+.btnFavoriteAdd,
+.btnFavoriteRemove {
+  /* Clone btn-icon properties - purple gradient base */
+  background: var(--gradient-primary) !important;
+  color: white !important;
+  border: none;
+  font-weight: var(--btn-font-weight);
+  font-size: var(--btn-font-size-sm);
+  padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+  transition: var(--btn-transition);
+  /* Fit content width with comfortable padding */
+  width: fit-content;
+  white-space: nowrap;
+  /* Use standardized small button height */
+  min-height: var(--btn-height-sm);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: var(--btn-radius-default);
+  box-shadow: var(--btn-shadow-base);
+}
+
+/* Turn green when hovering on add state */
+.btnFavoriteAdd:hover {
+  background: linear-gradient(135deg, var(--color-favorite-add-hover-start) 0%, var(--color-favorite-add-hover-end) 100%) !important;
+  transform: translateY(var(--btn-hover-lift));
+  box-shadow: var(--btn-shadow-hover);
+  color: white !important;
+}
+
+/* Turn red when hovering on remove state */
+.btnFavoriteRemove:hover {
+  background: linear-gradient(135deg, var(--color-favorite-remove-hover-start) 0%, var(--color-favorite-remove-hover-end) 100%) !important;
+  transform: translateY(var(--btn-hover-lift));
+  box-shadow: var(--btn-shadow-hover);
+  color: white !important;
+}
+
+/* Loading pulse animation for favorite button */
+@keyframes favoritePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.85);
+  }
+}
+
+.btnFavoriteAdd.loading,
+.btnFavoriteRemove.loading {
+  animation: favoritePulse 0.8s ease-in-out infinite;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Center button on mobile and tablet viewports */
+.favoriteDestinationWrapper {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 991px) {
+  .favoriteDestinationWrapper {
+    justify-content: center;
+  }
+}

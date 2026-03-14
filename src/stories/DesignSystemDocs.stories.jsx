@@ -43,7 +43,7 @@ export const Overview = {
       <h2>Color System</h2>
       
       <h3>Philosophy</h3>
-      <p>The color system is built on <strong>semantic meaning</strong>, <strong>WCAG AA accessibility compliance</strong> (minimum 4.5:1 contrast ratio for normal text, 3:1 for large text and UI components), and <strong>complete dark mode support</strong>. All colors are defined as CSS variables in <code>src/styles/design-tokens.scss</code> and generated from SASS variables in <code>src/styles/scss/abstracts/_tokens.scss</code>.</p>
+      <p>The color system is built on <strong>semantic meaning</strong>, <strong>WCAG AA accessibility compliance</strong> (minimum 4.5:1 contrast ratio for normal text, 3:1 for large text and UI components), and <strong>complete dark mode support</strong>. All colors are defined as CSS custom properties in <code>src/styles/design-tokens.css</code> and the Chakra UI theme at <code>src/contexts/UIProvider.jsx</code>.</p>
       
       <h3>Primary Colors</h3>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
@@ -169,7 +169,7 @@ export const Overview = {
       </table>
 
       <h3>Design Tokens</h3>
-      <p>Design tokens are defined as SASS variables in <code>src/styles/scss/abstracts/_variables.scss</code> and auto-generated as CSS custom properties in <code>src/styles/scss/abstracts/_tokens.scss</code>. Runtime overrides (dark mode, mobile) live in <code>src/styles/design-tokens.scss</code>.</p>
+      <p>Design tokens are defined as CSS custom properties in <code>src/styles/design-tokens.css</code>. The Chakra UI v3 theme configuration lives in <code>src/contexts/UIProvider.jsx</code> and controls tokens natively. Runtime overrides (dark mode, mobile) are handled by Chakra's color mode system.</p>
       
       <h4>Spacing Tokens</h4>
       <ul>
@@ -339,7 +339,7 @@ export const Overview = {
           <tr style={rowStyle}>
             <td style={cellStyle}>Bypass Blocks (2.4.1)</td>
             <td style={cellStyle}>A</td>
-            <td style={cellStyle}>Skip-link in <code>accessibility.scss</code>, visible on keyboard focus.</td>
+            <td style={cellStyle}>Skip-link in <code>accessibility.css</code>, visible on keyboard focus.</td>
           </tr>
           <tr style={rowStyle}>
             <td style={cellStyle}>Non-Color Indicators (1.4.1)</td>

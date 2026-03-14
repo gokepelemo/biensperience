@@ -1,0 +1,513 @@
+/* ============================================
+   PAGINATION COMPONENT STYLES
+   ============================================
+   Design based on screenshot showing:
+   - Row 1: Default state
+   - Row 2: Hover state (light background)
+   - Row 3: Active state (primary color)
+   - Row 4: Disabled state (faded)
+
+   Dot grid shows varying sizes representing record counts.
+   ============================================ */
+
+/* ============================================
+   CSS CUSTOM PROPERTIES (DESIGN TOKENS)
+   ============================================ */
+:root {
+  /* Pagination specific tokens */
+  --pagination-bg: var(--color-bg-primary);
+  --pagination-bg-hover: var(--color-bg-secondary);
+  --pagination-bg-active: var(--color-primary);
+  --pagination-border: var(--color-border-medium);
+  --pagination-border-hover: var(--color-border-dark);
+  --pagination-text: var(--color-text-primary);
+  --pagination-text-muted: var(--color-text-muted);
+  --pagination-text-active: #ffffff;
+
+  /* Dot sizes based on record count */
+  --pagination-dot-xs: 8px;
+  --pagination-dot-sm: 12px;
+  --pagination-dot-md: 16px;
+  --pagination-dot-lg: 20px;
+
+  /* Element sizes */
+  --pagination-arrow-size: 36px;
+  --pagination-btn-height: var(--btn-height-sm);
+  --pagination-radius: var(--radius-full);
+  --pagination-radius-sm: var(--radius-md);
+}
+
+/* Dark mode overrides */
+:root {
+  :root[data-theme="dark"] & {
+
+    --pagination-bg: var(--color-bg-secondary);
+    --pagination-bg-hover: var(--color-bg-tertiary);
+    --pagination-border: var(--color-border-light);
+    --pagination-border-hover: var(--color-border-medium);
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    --pagination-bg: var(--color-bg-secondary);
+    --pagination-bg-hover: var(--color-bg-tertiary);
+    --pagination-border: var(--color-border-light);
+    --pagination-border-hover: var(--color-border-medium);
+  
+    }
+  }
+}
+
+
+:root[data-theme="dark"] {
+  --pagination-bg: var(--color-bg-secondary);
+  --pagination-bg-hover: var(--color-bg-tertiary);
+  --pagination-border: var(--color-border-light);
+  --pagination-border-hover: var(--color-border-medium);
+}
+
+/* ============================================
+   PAGINATION ROW (DEFAULT VARIANT)
+   Shows: page number, arrows, Previous/Next, results info, ellipsis
+   ============================================ */
+.paginationRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--pagination-bg);
+  border-radius: var(--pagination-radius-sm);
+
+  /* Disabled state for entire row */
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+/* Page number indicator (e.g., "9") */
+.pageIndicator {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--pagination-text);
+}
+
+/* Circular arrow buttons */
+.arrowButton {
+  width: var(--pagination-arrow-size);
+  height: var(--pagination-arrow-size);
+  min-width: var(--pagination-arrow-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pagination-bg);
+  border: 1px solid var(--pagination-border);
+  border-radius: var(--pagination-radius);
+  color: var(--pagination-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover:not(:disabled):not(.disabled) {
+    background: var(--pagination-bg-hover);
+    border-color: var(--pagination-border-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled,
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+/* Text buttons (Previous / Next) */
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--pagination-bg);
+  border: 1px solid var(--pagination-border);
+  border-radius: var(--pagination-radius-sm);
+  color: var(--pagination-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+
+  &:hover:not(:disabled):not(.disabled) {
+    background: var(--pagination-bg-hover);
+    border-color: var(--pagination-border-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled,
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+/* Results info text */
+.resultsInfo {
+  font-size: var(--font-size-sm);
+  color: var(--pagination-text-muted);
+  white-space: nowrap;
+}
+
+/* More button (ellipsis) */
+.moreButton {
+  width: var(--pagination-arrow-size);
+  height: var(--pagination-arrow-size);
+  min-width: var(--pagination-arrow-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pagination-bg);
+  border: 1px solid var(--pagination-border);
+  border-radius: var(--pagination-radius-sm);
+  color: var(--pagination-text-muted);
+  font-size: var(--font-size-lg);
+  cursor: default;
+
+  &.disabled {
+    opacity: 0.4;
+  }
+}
+
+/* Page info text (for compact variant) */
+.pageInfo {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--pagination-text);
+  white-space: nowrap;
+}
+
+/* ============================================
+   DOTS GRID VARIANT
+   Grid of dots where size indicates record count per page
+   ============================================ */
+.paginationDotsGrid {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--pagination-bg);
+  border: 2px dashed var(--pagination-border);
+  border-radius: var(--pagination-radius-sm);
+  min-width: 120px;
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+/* Base dot styles */
+.dot {
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--pagination-border);
+  padding: 0;
+
+  &:hover:not(:disabled) {
+    background: var(--pagination-border-hover);
+    transform: scale(1.1);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* Dot size variants based on record count */
+.dotXs {
+  width: var(--pagination-dot-xs);
+  height: var(--pagination-dot-xs);
+}
+
+.dotSm {
+  width: var(--pagination-dot-sm);
+  height: var(--pagination-dot-sm);
+}
+
+.dotMd {
+  width: var(--pagination-dot-md);
+  height: var(--pagination-dot-md);
+}
+
+.dotLg {
+  width: var(--pagination-dot-lg);
+  height: var(--pagination-dot-lg);
+}
+
+/* Active dot state */
+.dotActive {
+  background: var(--color-primary) !important;
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary-dark) !important;
+  }
+}
+
+/* ============================================
+   LEGACY STYLES (numbers variant)
+   ============================================ */
+.paginationWrap {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0.5rem 0;
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .paginationList {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  :global(.page-item.active) {
+    button {
+      pointer-events: none;
+    }
+  }
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.paginationButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--pagination-bg);
+  border: 1px solid var(--pagination-border);
+  border-radius: var(--pagination-radius-sm);
+  color: var(--pagination-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--pagination-bg-hover);
+    border-color: var(--pagination-border-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.paginationNumbers {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.paginationNumber {
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--pagination-radius-sm);
+  color: var(--pagination-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--pagination-bg-hover);
+    border-color: var(--pagination-border);
+  }
+
+  &.active {
+    background: var(--pagination-bg-active);
+    border-color: var(--pagination-bg-active);
+    color: var(--pagination-text-active);
+  }
+}
+
+.paginationEllipsis {
+  padding: 0.5rem;
+  color: var(--pagination-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.paginationInfo {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: var(--font-size-sm);
+  color: var(--pagination-text-muted);
+  text-align: center;
+}
+
+/* Legacy dots variant (keep for backward compatibility) */
+.paginationDots {
+  justify-content: center;
+}
+
+.paginationDotsContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.paginationDot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  background: var(--pagination-border);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--pagination-border-hover);
+  }
+
+  &.active {
+    width: 12px;
+    height: 12px;
+    background: var(--color-primary);
+  }
+}
+
+.paginationArrow {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pagination-bg);
+  border: 1px solid var(--pagination-border);
+  border-radius: var(--pagination-radius-sm);
+  color: var(--pagination-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--pagination-bg-hover);
+    border-color: var(--pagination-border-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+@media (max-width: 768px) {
+  .paginationRow {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .resultsInfo {
+    flex-basis: 100%;
+    text-align: center;
+    order: 10; /* Push to end */
+  }
+
+  .textButton {
+    padding: 0.25rem 0.5rem;
+    font-size: var(--font-size-xs);
+  }
+
+  .arrowButton,
+  .moreButton {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+}
+
+/* ============================================
+   STATE SHOWCASE STYLES (for Storybook)
+   ============================================ */
+
+/* Hover state simulation */
+.paginationRow.stateHover {
+  .arrowButton,
+  .textButton,
+  .moreButton {
+    background: var(--pagination-bg-hover);
+    border-color: var(--pagination-border-hover);
+  }
+}
+
+/* Active state simulation */
+.paginationRow.stateActive {
+  .pageIndicator {
+    color: var(--color-primary);
+  }
+
+  .arrowButton,
+  .textButton {
+    background: var(--pagination-bg-active);
+    border-color: var(--pagination-bg-active);
+    color: var(--pagination-text-active);
+  }
+
+  .resultsInfo {
+    color: var(--color-primary);
+  }
+}

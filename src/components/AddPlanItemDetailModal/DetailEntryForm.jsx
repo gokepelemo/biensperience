@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import styles from './AddPlanItemDetailModal.module.scss';
+import styles from './AddPlanItemDetailModal.module.css';
 import { DETAIL_TYPES } from './constants';
 import { Tooltip } from '../design-system';
 import Checkbox from '../Checkbox/Checkbox';

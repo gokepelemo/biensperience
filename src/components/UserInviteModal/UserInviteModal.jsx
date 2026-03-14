@@ -13,7 +13,7 @@ import { useUser } from '../../contexts/UserContext';
 import { logger } from '../../utilities/logger';
 import { Modal, Button, Form } from '../design-system';
 import Checkbox from '../Checkbox/Checkbox';
-import styles from './UserInviteModal.module.scss';
+import styles from './UserInviteModal.module.css';
 
 export default function UserInviteModal({ show, onHide, onInviteCreated }) {
   const { user } = useUser();

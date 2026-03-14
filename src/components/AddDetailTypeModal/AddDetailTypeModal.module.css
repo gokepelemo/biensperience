@@ -1,0 +1,173 @@
+/**
+ * AddDetailTypeModal Styles
+ * Responsive modal for selecting detail types to add to a plan item
+ */
+
+.addDetailTypeModal {
+  padding: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+}
+
+.hint {
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin-bottom: 1.25rem;
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+
+  @media (max-width: 768px) {
+    font-size: clamp(0.875rem, 1.25vw, 1rem);
+    margin-bottom: 1rem;
+  }
+}
+
+.category {
+  margin-bottom: 1.25rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    margin-bottom: 1rem;
+  }
+}
+
+.categoryLabel {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  padding-left: 0.25rem;
+
+  @media (max-width: 768px) {
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+    margin-bottom: 0.5rem;
+  }
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 150ms;
+  text-align: center;
+  min-height: 100px;
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    min-height: 80px;
+  }
+}
+
+.typeIcon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  line-height: 1;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+}
+
+.typeLabel {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+
+  @media (max-width: 768px) {
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+  }
+}
+
+/* Dark mode support */
+.typeCard {
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-tertiary);
+  
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.15);
+    }
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-tertiary);
+  
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.15);
+    }
+  
+    }
+  }
+}
+
+
+/* Explicit dark mode class support */
+:global(.dark) {
+  .typeCard {
+    background: var(--color-bg-tertiary);
+
+    &:hover {
+      background: rgba(var(--color-primary-rgb), 0.15);
+    }
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .typeCard {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}

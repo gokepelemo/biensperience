@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import styles from './DropZone.module.scss';
+import styles from './DropZone.module.css';
 import { FaCloudUploadAlt } from 'react-icons/fa';
 
 /**

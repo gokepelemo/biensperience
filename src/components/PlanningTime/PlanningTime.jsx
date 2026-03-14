@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { FaClock } from 'react-icons/fa';
 import { formatPlanningTime, getPlanningTimeTooltip, getPlanningTimeLabel } from '../../utilities/planning-time-utils';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
-import styles from './PlanningTime.module.scss';
+import styles from './PlanningTime.module.css';
 
 /**
  * PlanningTime Component

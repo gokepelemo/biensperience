@@ -1,4 +1,4 @@
-import styles from "./Profile.module.scss";
+import styles from "./Profile.module.css";
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash, FaFacebook, FaGoogle, FaKey, FaUnlink } from "react-icons/fa";

@@ -1,0 +1,258 @@
+/**
+ * RatingScale Component Styles
+ * Supports star ratings, difficulty bars, and percentage displays
+ */
+
+/* Base rating scale */
+.ratingScale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* No rating state */
+.noRating {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+/* Inherit mode - inherits all styles from parent */
+.inherit {
+  font-size: inherit;
+  color: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+/* Size variants */
+.sizeSm {
+  font-size: var(--font-size-sm);
+  gap: 0.25rem;
+}
+
+.sizeMd {
+  font-size: var(--font-size-base);
+  gap: 0.5rem;
+}
+
+.sizeLg {
+  font-size: var(--font-size-lg);
+  gap: 0.5rem;
+}
+
+.sizeXl {
+  font-size: var(--font-size-xl);
+  gap: 0.75rem;
+}
+
+/* ============================================ */
+/* Star Rating Styles */
+/* ============================================ */
+
+.starRating {
+  .stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .star {
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+
+  .ratingValue {
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .ratingLabel {
+    color: var(--color-text-secondary);
+    font-size: 0.9em;
+  }
+}
+
+/* ============================================ */
+/* Difficulty Rating Styles */
+/* ============================================ */
+
+/* Bar variant */
+.difficultyBar {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+
+  .barContainer {
+    position: relative;
+    width: 100%;
+    min-width: 120px;
+    height: 8px;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .barFill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width var(--transition-normal), background-color var(--transition-normal);
+  }
+
+  .barSegments {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    gap: 2px;
+    padding: 0 2px;
+  }
+
+  .barSegment {
+    flex: 1;
+    border-right: 1px solid var(--color-bg-primary);
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  .difficultyValue,
+  .difficultyLabel {
+    font-size: 0.85em;
+    font-weight: 600;
+  }
+
+  &.sizeSm .barContainer {
+    height: 6px;
+    min-width: 80px;
+  }
+
+  &.sizeLg .barContainer {
+    height: 10px;
+    min-width: 160px;
+  }
+
+  &.sizeXl .barContainer {
+    height: 12px;
+    min-width: 200px;
+  }
+}
+
+/* Dots variant */
+.difficultyDots {
+  .dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
+  }
+
+  .dotFilled {
+    /* Color set inline via style prop */
+  }
+
+  .dotEmpty {
+    background-color: var(--color-border-medium);
+  }
+
+  .difficultyValue,
+  .difficultyLabel {
+    font-size: 0.9em;
+    font-weight: 600;
+  }
+
+  &.sizeSm .dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  &.sizeLg .dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  &.sizeXl .dot {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* Numeric variant */
+.difficultyNumeric {
+  .difficultyValue {
+    font-weight: 700;
+    font-size: 1.1em;
+  }
+
+  .difficultyLabel {
+    font-size: 0.9em;
+    font-weight: 500;
+    margin-left: 0.25rem;
+  }
+}
+
+/* ============================================ */
+/* Percentage Rating Styles */
+/* ============================================ */
+
+.percentageRating {
+  width: 100%;
+
+  .percentageBarContainer {
+    flex: 1;
+    height: 8px;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .percentageBarFill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width var(--transition-normal);
+  }
+
+  .percentageValue {
+    min-width: 40px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  &.sizeSm .percentageBarContainer {
+    height: 6px;
+  }
+
+  &.sizeLg .percentageBarContainer {
+    height: 10px;
+  }
+
+  &.sizeXl .percentageBarContainer {
+    height: 12px;
+  }
+}
+
+/* ============================================ */
+/* Numeric Rating (fallback) */
+/* ============================================ */
+
+.numericRating {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}

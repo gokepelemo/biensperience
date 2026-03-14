@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Button } from '../design-system';
 import { FaArrowLeft, FaShieldAlt } from 'react-icons/fa';
-import styles from './PrivacyPolicyModal.module.scss';
+import styles from './PrivacyPolicyModal.module.css';
 
 // Get legal email from env var with fallback
 const LEGAL_EMAIL = process.env.LEGAL_EMAIL_CONTACT || 'privacy@biensperience.com';

@@ -1,0 +1,43 @@
+/* Add spacing and flex layout for destination cards */
+.destinationsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: 2rem;
+}
+
+/* Responsive: Center h1 on mobile/tablet */
+.destinationsHeader {
+  @media (max-width: 991px) {
+    :global(h1) {
+      text-align: center;
+      width: 100%;
+    }
+  }
+}
+
+/* Utility replacement classes */
+.my4 {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.halfCol {
+  width: 50%;
+
+  @media (max-width: 767px) {
+
+    width: 100%;
+  
+  }
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.textStart {
+  text-align: start;
+}

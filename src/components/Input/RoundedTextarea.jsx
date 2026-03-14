@@ -1,7 +1,7 @@
 import React, { useState, forwardRef } from 'react';
 import PropTypes from 'prop-types';
 import FormField from '../FormField/FormField';
-import styles from './RoundedTextarea.module.scss';
+import styles from './RoundedTextarea.module.css';
 
 /**
  * RoundedTextarea now implemented as a variation of FormField.

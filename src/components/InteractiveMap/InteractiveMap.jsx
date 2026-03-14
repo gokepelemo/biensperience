@@ -10,7 +10,7 @@ import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-m
 import { FaStar, FaMapMarkerAlt } from 'react-icons/fa';
 import MapInfoCard from './MapInfoCard';
 import { createMarkerIcon } from './markerIcons';
-import styles from './InteractiveMap.module.scss';
+import styles from './InteractiveMap.module.css';
 import { logger } from '../../utilities/logger';
 
 // Google Maps API Key from environment variable (Vite)

@@ -24,7 +24,7 @@ import { FaChevronDown, FaCheck } from 'react-icons/fa';
 import { SearchInput } from '../design-system';
 import { createFilter } from '../../utilities/trie';
 import { lang } from '../../lang.constants';
-import styles from './SearchableSelect.module.scss';
+import styles from './SearchableSelect.module.css';
 
 export default function SearchableSelect({
   options = [],

@@ -1,7 +1,7 @@
 import React from 'react';
 import { FaFacebook, FaGoogle } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
-import styles from './SocialLoginButtons.module.scss';
+import styles from './SocialLoginButtons.module.css';
 import PropTypes from 'prop-types';
 
 /**

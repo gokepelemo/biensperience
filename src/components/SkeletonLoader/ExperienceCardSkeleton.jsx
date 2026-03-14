@@ -12,7 +12,7 @@
 import React, { memo } from 'react';
 import PropTypes from 'prop-types';
 import SkeletonLoader from './SkeletonLoader';
-import styles from './ExperienceCardSkeleton.module.scss';
+import styles from './ExperienceCardSkeleton.module.css';
 
 function ExperienceCardSkeleton({ count = 6 }) {
   return (

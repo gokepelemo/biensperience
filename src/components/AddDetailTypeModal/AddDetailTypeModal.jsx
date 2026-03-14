@@ -8,7 +8,7 @@
 import PropTypes from 'prop-types';
 import { Modal } from '../design-system';
 import { DETAIL_TYPES, DETAIL_TYPE_CONFIG } from '../AddPlanItemDetailModal/constants';
-import styles from './AddDetailTypeModal.module.scss';
+import styles from './AddDetailTypeModal.module.css';
 import { lang } from '../../lang.constants';
 
 /**

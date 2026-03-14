@@ -1,4 +1,4 @@
-import styles from "./UsersListDisplay.module.scss";
+import styles from "./UsersListDisplay.module.css";
 import UserAvatar from "../UserAvatar/UserAvatar";
 import { lang } from "../../lang.constants";
 import PropTypes from "prop-types";

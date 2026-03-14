@@ -20,7 +20,7 @@ import { Button, Alert, Form } from '../design-system';
 import FormField from '../FormField/FormField';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import TravelTipsManager from '../TravelTipsManager/TravelTipsManager';
-import styles from './DestinationWizardModal.module.scss';
+import styles from './DestinationWizardModal.module.css';
 
 const STEPS = {
   BASIC_INFO: 1,

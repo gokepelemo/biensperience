@@ -1,4 +1,4 @@
-import styles from "./TravelTip.module.scss";
+import styles from "./TravelTip.module.css";
 import { useMemo } from 'react';
 import {
   FaLanguage, FaMoneyBillWave, FaBus, FaShieldAlt,

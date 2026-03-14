@@ -1,0 +1,240 @@
+/**
+ * PlannerLayout Styles
+ * Two-column layout with collapsible sidebar for trip planning.
+ */
+
+.plannerLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+}
+
+.header {
+  padding: 1rem 1.5rem;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+
+  @media (max-width: 767px) {
+
+    padding: 0.75rem 1rem;
+  
+  }
+}
+
+.contentArea {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+
+  @media (max-width: 991px) {
+
+    flex-direction: column;
+  
+  }
+}
+
+.main {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  min-height: 0; /* Flexbox overflow fix */
+
+  @media (max-width: 767px) {
+
+    padding: 1rem;
+  
+  }
+}
+
+.sidebar {
+  width: 320px;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Hide on mobile (use bottom sheet instead) */
+  @media (max-width: 991px) {
+
+    display: none;
+  
+  }
+}
+
+/* Sidebar on left side */
+.sidebarLeft {
+  .contentArea {
+    flex-direction: row-reverse;
+  }
+
+  .sidebar {
+    border-left: none;
+    border-right: 1px solid var(--color-border-light);
+  }
+
+  .collapseToggle {
+    right: auto;
+    left: -12px;
+  }
+}
+
+/* Collapsed sidebar */
+.sidebarCollapsed {
+  .sidebar {
+    width: 48px;
+  }
+
+  .sidebarContent {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .collapseToggle {
+    transform: rotate(180deg);
+  }
+}
+
+.collapseToggle {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+  transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #667eea;
+  outline-offset: 2px;
+  }
+}
+
+.sidebarContent {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mobile Bottom Sheet */
+.mobileSheet {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+  z-index: 1050;
+  max-height: 70vh;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  @media (max-width: 991px) {
+
+    display: block;
+  
+  }
+
+  &.expanded {
+    max-height: 70vh;
+
+    .mobileSheetContent {
+      max-height: calc(70vh - 56px);
+      opacity: 1;
+    }
+  }
+
+  &:not(.expanded) {
+    max-height: 56px;
+
+    .mobileSheetContent {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+  }
+}
+
+.mobileSheetToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  touch-action: manipulation;
+  min-height: 56px;
+
+  &:focus-visible {
+    outline: 2px solid #667eea;
+  outline-offset: 2px;
+  }
+}
+
+.mobileSheetTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.itemBadge {
+  background: var(--color-primary);
+  color: white;
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.mobileSheetContent {
+  padding: 0 1.5rem 1.5rem;
+  overflow-y: auto;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.footer {
+  padding: 1rem 1.5rem;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+
+  @media (max-width: 991px) {
+
+    /* Account for mobile bottom sheet */
+    padding-bottom: calc(1rem + 56px);
+  
+  }
+
+  @media (max-width: 767px) {
+
+    padding: 0.75rem 1rem;
+    padding-bottom: calc(0.75rem + 56px);
+  
+  }
+}

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import styles from './FeaturedHeroLayout.module.scss';
+import styles from './FeaturedHeroLayout.module.css';
 
 /**
  * FeaturedHeroLayout - Large hero section for featured content

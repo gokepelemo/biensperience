@@ -85,7 +85,7 @@ jest.mock('../src/contexts/UserContext', () => ({
   UserProvider: ({ children }) => children,
 }));
 
-// Mock useFeatureFlag — used by ButtonWrapper, ModalWrapper, and other wrapper components
+// Mock useFeatureFlag — used by FeatureFlag component and useGatedAction hook
 jest.mock('../src/hooks/useFeatureFlag', () => ({
   __esModule: true,
   default: jest.fn(() => ({ enabled: false, config: null })),

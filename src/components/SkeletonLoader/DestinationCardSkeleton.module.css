@@ -1,0 +1,31 @@
+/**
+ * DestinationCardSkeleton styles
+ * Matches DestinationCard layout: 12rem × 8rem, centered title overlay with blur
+ */
+
+.card {
+  width: 12rem;
+  height: 8rem;
+  margin: 0.5rem;
+  border-radius: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: var(--color-bg-tertiary);
+}
+
+.overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+}

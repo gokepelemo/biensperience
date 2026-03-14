@@ -61,7 +61,7 @@ const FA_ICONS = {
 import { formatDateMetricCard } from '../../utilities/date-utils';
 import { formatCostEstimate } from '../../utilities/cost-utils';
 import { formatPlanningTime } from '../../utilities/planning-time-utils';
-import styles from './MetricsBar.module.scss';
+import styles from './MetricsBar.module.css';
 
 /**
  * Detect if a string is an emoji

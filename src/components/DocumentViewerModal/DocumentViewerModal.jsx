@@ -21,7 +21,7 @@ import {
   FaChevronRight,
   FaDownload
 } from 'react-icons/fa';
-import styles from './DocumentViewerModal.module.scss';
+import styles from './DocumentViewerModal.module.css';
 
 // Map icon names to components for dynamic lookup (tree-shakeable)
 const DOCUMENT_ICONS = {

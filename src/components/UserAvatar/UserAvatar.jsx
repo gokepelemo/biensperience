@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import styles from "./UserAvatar.module.scss";
+import styles from "./UserAvatar.module.css";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import DOMPurify from "dompurify";

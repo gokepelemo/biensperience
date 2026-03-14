@@ -2,7 +2,7 @@ import React from 'react';
 import { Heading, Text } from '../design-system';
 import { useUser } from '../../contexts/UserContext';
 import DestinationCard from '../DestinationCard/DestinationCard';
-import styles from './Favorites.module.scss';
+import styles from './Favorites.module.css';
 
 export default function Favorites() {
   const { favoriteDestinations = [] } = useUser();

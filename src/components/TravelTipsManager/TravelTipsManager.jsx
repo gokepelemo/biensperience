@@ -6,7 +6,7 @@
 
 // Note: Bootstrap imports removed - using custom styled components
 import { lang } from '../../lang.constants';
-import styles from './TravelTipsManager.module.scss';
+import styles from './TravelTipsManager.module.css';
 import { useState } from 'react';
 import { sanitizeUrl } from '../../utilities/sanitize';
 import { Button } from '../design-system';

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import SearchInput from '../SearchInput/SearchInput';
 import { lang } from '../../lang.constants';
-import styles from './Dropdown.module.scss';
+import styles from './Dropdown.module.css';
 
 /**
  * Dropdown - accessible select-like component with optional search and left icons

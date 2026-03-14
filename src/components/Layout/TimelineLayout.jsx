@@ -5,7 +5,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import styles from './TimelineLayout.module.scss';
+import styles from './TimelineLayout.module.css';
 
 /**
  * TimelineItem - Individual item on the timeline

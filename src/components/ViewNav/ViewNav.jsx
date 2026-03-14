@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { FaChevronDown } from 'react-icons/fa';
 import PropTypes from 'prop-types';
-import styles from './ViewNav.module.scss';
+import styles from './ViewNav.module.css';
 import { lang } from '../../lang.constants';
 
 /**

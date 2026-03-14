@@ -4,7 +4,7 @@ import { Button } from '../design-system';
 import { getPlanPreview } from '../../utilities/plans-api';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
-import styles from './PlanAccessDenied.module.scss';
+import styles from './PlanAccessDenied.module.css';
 
 /**
  * PlanAccessDenied — Shown when a user navigates to a plan they cannot access.

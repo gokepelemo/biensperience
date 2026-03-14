@@ -14,7 +14,7 @@ import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { FaInfoCircle } from 'react-icons/fa';
 import { useTooltipContext } from '../../contexts/TooltipContext';
-import styles from './InfoTooltip.module.scss';
+import styles from './InfoTooltip.module.css';
 
 export default function InfoTooltip({
   id: providedId,

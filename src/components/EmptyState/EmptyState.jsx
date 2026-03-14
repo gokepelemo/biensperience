@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../design-system';
-import styles from './EmptyState.module.scss';
+import styles from './EmptyState.module.css';
 import { addEasterEgg } from '../../utilities/paquette-utils';
 
 /**

@@ -1,0 +1,161 @@
+/**
+ * BottomNavLayout Styles
+ * Mobile layout with fixed bottom navigation.
+ */
+
+.bottomNavLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 64px;
+  /* Smooth scrolling for better mobile UX */
+  -webkit-overflow-scrolling: touch;
+}
+
+.bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 64px;
+  background: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border-light);
+  padding-bottom: env(safe-area-inset-bottom, 0); /* iOS safe area */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  .blurBg & {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    :root[data-theme="dark"] & {
+
+      background: rgba(26, 32, 44, 0.85);
+    
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) & {
+
+      background: rgba(26, 32, 44, 0.85);
+    
+      }
+    }
+  }
+
+  .hideOnScroll & {
+    &.hidden {
+      transform: translateY(100%);
+    }
+  }
+}
+
+/* Individual Nav Item */
+.navItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  flex: 1;
+  height: 100%;
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  /* WCAG touch target */
+  min-width: 44px;
+  min-height: 44px;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--color-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #667eea;
+  outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+
+  &.active {
+    color: var(--color-primary);
+
+    .navIcon {
+      transform: scale(1.1);
+    }
+
+    .navLabel {
+      font-weight: 600;
+    }
+  }
+}
+
+.navIcon {
+  position: relative;
+  font-size: 1.25rem;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navBadge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 9999px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.navLabel {
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Desktop: hide bottom nav, show regular content */
+@media (min-width: 992px) {
+
+  .bottomNavLayout {
+    .content {
+      padding-bottom: 0;
+    }
+
+    .bottomNav {
+      display: none;
+    }
+  }
+
+}

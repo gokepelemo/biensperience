@@ -10,7 +10,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import ExperienceCard from '../../../components/ExperienceCard/ExperienceCard';
 import { SkeletonLoader, EmptyState, Row, Col } from '../../../components/design-system';
 import { lang } from '../../../lang.constants';
-import styles from './DestinationExperienceGrid.module.scss';
+import styles from './DestinationExperienceGrid.module.css';
 
 /**
  * @param {Object} props

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Pagination from './Pagination';
-import styles from './Pagination.module.scss';
-import '../../styles/design-tokens.scss';
-import '../../styles/utilities.scss';
+import styles from './Pagination.module.css';
+import '../../styles/design-tokens.css';
+import '../../styles/utilities.css';
 
 export default {
   title: 'Components/Navigation/Pagination',

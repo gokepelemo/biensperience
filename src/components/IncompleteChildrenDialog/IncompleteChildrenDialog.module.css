@@ -1,0 +1,125 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.alert {
+  margin-bottom: 0;
+}
+
+.parentLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+.parentIcon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.childList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.childItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary, #f8f9fa);
+  transition: background-color 0.2s ease, opacity 0.3s ease;
+
+  &:hover:not(.childItemDone) {
+    background: var(--color-bg-tertiary, #e9ecef);
+  }
+}
+
+.childItemDone {
+  opacity: 0.6;
+  background: var(--color-success-bg, #d4edda);
+}
+
+.childCheckbox {
+  flex-shrink: 0;
+}
+
+.childText {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+.childTextDone {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border, #dee2e6);
+  border-top-color: var(--color-primary, #0d6efd);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.remaining {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 0;
+  padding-top: 0.25rem;
+}
+
+/* ── Parent-prompt view ─────────────────────── */
+
+.parentPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.parentPromptIcon {
+  font-size: 2.5rem;
+  color: var(--color-success, #198754);
+}
+
+.parentPromptText {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
+}
+
+/* ── Footer ─────────────────────────────────── */
+
+.footerActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  width: 100%;
+}

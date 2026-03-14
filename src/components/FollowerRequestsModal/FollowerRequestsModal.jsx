@@ -22,7 +22,7 @@ import { Modal, Button, Text } from '../design-system';
 import Pagination from '../Pagination/Pagination';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import Loading from '../Loading/Loading';
-import styles from './FollowerRequestsModal.module.scss';
+import styles from './FollowerRequestsModal.module.css';
 
 const REQUESTS_PER_PAGE = 10;
 

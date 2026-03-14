@@ -1,4 +1,4 @@
-import styles from "./SingleDestination.module.scss";
+import styles from "./SingleDestination.module.css";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { showDestination } from "../../utilities/destinations-api";

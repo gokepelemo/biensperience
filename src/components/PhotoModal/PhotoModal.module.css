@@ -1,0 +1,269 @@
+/* PhotoModal Component Styles */
+
+.photoModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Ensure the photo viewer always stacks above app modals (e.g., PlanItemDetailsModal) */
+  z-index: calc(var(--z-index-modal) + 20);
+  cursor: pointer;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Photo Modal Content */
+.photoModalContent {
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Layout shift prevention */
+  contain: layout style;
+  min-height: 400px; /* Reserve space for image loading */
+}
+
+.photoModalImage {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Close Button */
+.photoModalClose {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6); /* Darker background for better contrast */
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9999px;
+  color: #ffffff; /* Always white text */
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  cursor: pointer;
+  padding: 0.5rem;
+  /* Use standardized button height for WCAG touch target */
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  @include transition-all(var(--btn-transition));
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.85);
+    border-color: rgba(255, 255, 255, 0.7);
+    transform: rotate(90deg);
+  }
+}
+
+/* Navigation Buttons */
+.photoModalNav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6); /* Darker background for better contrast */
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9999px;
+  color: #ffffff; /* Always white text */
+  font-size: clamp(1.875rem, 4vw, 2.25rem);
+  cursor: pointer;
+  padding: 0.5rem;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 300ms;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.85);
+    border-color: rgba(255, 255, 255, 0.7);
+    transform: translateY(-50%) scale(1.1);
+  }
+}
+
+.photoModalNavPrev {
+  left: -60px;
+}
+
+.photoModalNavNext {
+  right: -60px;
+}
+
+/* Photo Counter */
+.photoModalCounter {
+  position: absolute;
+  top: -50px;
+  left: 0;
+  color: #ffffff; /* Always white text on dark background */
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.85); /* Darker background for better contrast */
+  border-radius: 0.5rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-weight: 600;
+}
+
+/* Photo Credits */
+.photoModalCredits {
+  position: absolute;
+  bottom: -50px;
+  left: 0;
+  color: #ffffff; /* Always white text on dark background */
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.85); /* Darker background for better contrast */
+  border-radius: 0.5rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  a {
+    color: #a3d9ff; /* Light blue for links on dark background */
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: #ffffff; /* White on hover */
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Thumbnail Navigation - Circular design matching PhotoCard */
+.photoModalThumbnails {
+  position: absolute;
+  bottom: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: 90vw;
+  overflow-x: auto;
+}
+
+.photoModalThumbnail {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 300ms;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 0.5rem;
+  }
+
+  &:hover {
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  &.active {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4);
+    transform: scale(1.05);
+  }
+
+  &:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .photoModalImage {
+    max-height: 80vh;
+  }
+
+  .photoModalClose {
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  .photoModalCounter {
+    top: 10px;
+    left: 10px;
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+    padding: 0.4rem 0.8rem;
+  }
+
+  .photoModalNav {
+    font-size: clamp(1.5rem, 3vw, 1.875rem);
+    width: var(--btn-height-sm);
+    height: var(--btn-height-sm);
+  }
+
+  .photoModalNavPrev {
+    left: 10px;
+  }
+
+  .photoModalNavNext {
+    right: 10px;
+  }
+
+  .photoModalCredits {
+    position: static;
+    margin-top: 1rem;
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+  }
+
+  .photoModalThumbnails {
+    position: static;
+    margin-top: 1rem;
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: 100%;
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .photoModalThumbnail {
+    width: 48px;
+    height: 48px;
+    border-radius: 0.375rem;
+  }
+}

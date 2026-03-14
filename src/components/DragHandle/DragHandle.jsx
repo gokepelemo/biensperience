@@ -6,7 +6,7 @@
  */
 
 import { lang } from '../../lang.constants';
-import styles from './DragHandle.module.scss';
+import styles from './DragHandle.module.css';
 
 export default function DragHandle({ isDragging = false, disabled = false }) {
   if (disabled) {

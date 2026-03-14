@@ -5,7 +5,7 @@ import { Modal, Alert } from '../design-system';
 import Checkbox from '../Checkbox/Checkbox';
 import { sanitizeText } from '../../utilities/sanitize';
 import { logger } from '../../utilities/logger';
-import styles from './IncompleteChildrenDialog.module.scss';
+import styles from './IncompleteChildrenDialog.module.css';
 
 /**
  * IncompleteChildrenDialog

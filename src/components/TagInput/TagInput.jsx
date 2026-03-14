@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import styles from "./TagInput.module.scss";
+import styles from "./TagInput.module.css";
 import TagPill from "../Pill/TagPill";
 import { logger } from "../../utilities/logger";
 import { getExperienceTags } from "../../utilities/experiences-api";

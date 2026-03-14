@@ -1,0 +1,171 @@
+/**
+ * UserAvatar Component Styles (SCSS Module)
+ * Migrated from UserAvatar.css to UserAvatar.module.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+.userAvatar {
+  border-radius: 9999px;
+  border: 3px solid white;
+  overflow: hidden;
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.2s ease, z-index 0s 0.2s;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+
+  &:hover {
+    transform: translateY(-1px) scale(1.03);
+    z-index: 10;
+    transition: transform 0.2s ease, z-index 0s;
+    text-decoration: none;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatarInitials {
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    user-select: none;
+  }
+}
+
+/* Avatar Sizes — --user-avatar-size drives both SCSS and Chakra css prop */
+.userAvatarXs {
+  --user-avatar-size: 24px;
+  width: 24px;
+  height: 24px;
+
+  .avatarInitials {
+    font-size: 10px;
+  }
+}
+
+.userAvatarSm {
+  --user-avatar-size: 32px;
+  width: 32px;
+  height: 32px;
+
+  .avatarInitials {
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+  }
+}
+
+.userAvatarMd {
+  --user-avatar-size: 40px;
+  width: 40px;
+  height: 40px;
+
+  .avatarInitials {
+    font-size: clamp(0.875rem, 1.25vw, 1rem);
+  }
+}
+
+.userAvatarLg {
+  --user-avatar-size: 48px;
+  width: 48px;
+  height: 48px;
+
+  .avatarInitials {
+    font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  }
+}
+
+.userAvatarXl {
+  --user-avatar-size: 64px;
+  width: 64px;
+  height: 64px;
+
+  .avatarInitials {
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  }
+}
+
+.userAvatarProfile {
+  --user-avatar-size: 150px;
+  width: 150px;
+  height: 150px;
+
+  .avatarInitials {
+    font-size: 4rem;
+  }
+
+  @media (max-width: 767.98px) {
+    --user-avatar-size: 120px;
+    width: 120px;
+    height: 120px;
+
+    .avatarInitials {
+      font-size: 3rem;
+    }
+  }
+}
+
+/* Presence Indicators */
+.presenceOnline {
+  border-color: var(--color-success, #22c55e) !important;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.presenceOffline {
+  border-color: var(--color-text-muted, #9ca3af) !important;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Link wrapper — reset anchor styles so the avatar itself handles visuals */
+.avatarLink {
+  display: inline-flex;
+  text-decoration: none;
+  color: inherit;
+  line-height: 0;
+
+  &:hover {
+    text-decoration: none;
+  }
+}
+
+/* Skeleton placeholder — shown while avatar URL resolves or image loads */
+.avatarSkeleton {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(110deg, #e0e0e0 25%, #f0f0f0 37%, #e0e0e0 63%);
+  background-size: 200% 100%;
+  animation: avatarShimmer 1.5s ease-in-out infinite;
+
+  @media (prefers-color-scheme: dark) {
+    background: linear-gradient(110deg, #2a2a2a 25%, #3a3a3a 37%, #2a2a2a 63%);
+    background-size: 200% 100%;
+  }
+}
+
+[data-theme="dark"] .avatarSkeleton {
+  background: linear-gradient(110deg, #2a2a2a 25%, #3a3a3a 37%, #2a2a2a 63%);
+  background-size: 200% 100%;
+}
+
+@keyframes avatarShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Chakra Avatar overrides — ensure SCSS stays in control of sizing/shape */
+.userAvatar {
+  &[data-scope="avatar"][data-part="root"] {
+    width: var(--user-avatar-size, 40px);
+    height: var(--user-avatar-size, 40px);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+}

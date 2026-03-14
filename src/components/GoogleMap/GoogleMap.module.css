@@ -1,0 +1,216 @@
+.googleMapContainer {
+  position: relative;
+  width: 100%;
+}
+
+.googleMap {
+  display: block;
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-standard);
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.googleMapPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-secondary);
+  border: 2px dashed var(--color-border-medium);
+  border-radius: 0.5rem;
+}
+
+.mapPlaceholderText {
+  margin: 0;
+  padding: 1rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Get Directions Button */
+.directionsButton {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 9999px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-standard);
+
+  &:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    font-size: 1rem;
+  }
+}
+
+/* Directions Modal */
+.directionsModalBody {
+  padding: 0 !important;
+  /* Use vh as fallback, dvh for modern browsers */
+  height: calc(100vh - 120px);
+  height: calc(100dvh - 120px);
+  overflow: hidden;
+}
+
+.directionsModalContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.directionsMap {
+  flex: 1;
+  width: 100%;
+  min-height: 0; /* Allow flex shrink */
+  border: none;
+}
+
+/* Loading and Error States */
+.directionsLoading,
+.directionsError {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.directionsLoading {
+  p {
+    margin: 0;
+    font-size: var(--font-size-lg);
+  }
+}
+
+.spinner {
+  font-size: 2rem;
+  color: var(--color-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.directionsError {
+  p {
+    margin: 0;
+    font-size: var(--font-size-base);
+    max-width: 400px;
+  }
+}
+
+.errorIcon {
+  font-size: 2.5rem;
+  color: var(--color-warning);
+}
+
+.errorHint {
+  font-size: var(--font-size-sm) !important;
+  color: var(--color-text-muted);
+}
+
+.directionsActions {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem;
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.openInGoogleMaps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--btn-gradient-bg) !important;
+  color: #ffffff !important;
+  border-radius: 9999px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all var(--transition-standard);
+  box-shadow: var(--btn-shadow-base);
+
+  &:hover,
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--btn-shadow-hover);
+    color: #ffffff !important;
+    text-decoration: none;
+    background: var(--btn-gradient-bg) !important;
+    filter: brightness(var(--btn-gradient-hover-brightness));
+  }
+
+  &:active {
+    transform: translateY(0);
+    filter: brightness(var(--btn-gradient-active-brightness));
+    color: #ffffff !important;
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    color: #ffffff !important;
+  }
+
+  svg {
+    font-size: 1rem;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .googleMap {
+    border-radius: 0.375rem;
+  }
+
+  .directionsButton {
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.5rem;
+
+    span {
+      display: none;
+    }
+  }
+
+  .directionsModalBody {
+    height: calc(100vh - 100px);
+    height: calc(100dvh - 100px);
+  }
+}

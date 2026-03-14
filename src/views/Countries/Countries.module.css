@@ -1,0 +1,224 @@
+.countriesView {
+  padding: 1rem 0;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: clamp(2.25rem, 5vw, 3rem);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: clamp(1.0625rem, 2vw, 1.3125rem);
+    color: var(--color-text-secondary);
+  }
+
+  /* Skeleton placeholder for stats subtitle - matches subtitle line-height */
+  .subtitleSkeleton {
+    display: flex;
+    justify-content: center;
+    height: calc(clamp(1.0625rem, 2vw, 1.3125rem) * 1.5); /* Match line-height of subtitle */
+  }
+}
+
+/* View Toggle (List/Map) */
+.viewToggle {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.viewToggleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-medium);
+    }
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-medium);
+    }
+  
+    }
+  }
+}
+
+.viewToggleButtonActive {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: var(--gradient-primary);
+    border-color: transparent;
+    color: white;
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--gradient-primary);
+    border-color: transparent;
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--gradient-primary);
+    border-color: transparent;
+  
+    }
+  }
+}
+
+/* Map View Container */
+.mapViewContainer {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+
+  @media (max-width: 767px) {
+
+    padding: 0;
+  
+  }
+}
+
+.mapViewInfo {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  margin-bottom: 0.75rem;
+}
+
+.mapLoadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sectionTitle {
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+/* Unified content container for symmetrical alignment */
+.contentContainer {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Destinations list - flexbox layout matching Destinations view for consistent distribution */
+.destinationsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  align-items: stretch;
+  margin-bottom: 2rem;
+}
+/* Experiences list - flexbox layout matching Experiences view for consistent distribution */
+.experiencesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+/* Show More button container */
+.showMoreContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.showMoreButton {
+  min-width: 200px;
+}
+
+
+/* Responsive Adjustments */
+@media (max-width: 767px) {
+
+  .header h1 {
+    font-size: clamp(1.875rem, 4vw, 2.25rem);
+  }
+
+  .sectionTitle {
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  }
+
+}
+
+/* ===== Bootstrap Utility Replacements ===== */
+
+.errorContainer {
+  width: 100%;
+
+  @media (min-width: 768px) {
+
+    width: 66.666667%;
+  
+  }
+}

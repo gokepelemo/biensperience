@@ -183,29 +183,6 @@ export default defineConfig(({ mode }) => {
     devCodeSplit: false,
     // PostCSS configuration
     postcss: './postcss.config.js',
-    // Preprocessor options for SASS
-    preprocessorOptions: {
-      scss: {
-        // Ensure consistent SASS compilation
-        api: 'modern-compiler', // Use modern SASS compiler API
-        // Bootstrap (and other deps) still emit Dart Sass deprecations (@import, color fns, etc).
-        // Keep build output clean while still surfacing warnings from our own SCSS.
-        quietDeps: true,
-        silenceDeprecations: ['legacy-js-api'], // Silence legacy API warnings
-        // Include paths for @import resolution
-        includePaths: [
-          path.resolve(__dirname, 'src/styles'),
-          path.resolve(__dirname, 'node_modules'),
-        ],
-      },
-    },
-    // CSS modules configuration
-    modules: {
-      localsConvention: 'camelCase', // Convert CSS class names to camelCase
-      generateScopedName: process.env.NODE_ENV === 'production'
-        ? '[hash:base64:5]' // Short hash in production
-        : '[name]__[local]___[hash:base64:5]', // Descriptive names in development
-    },
   },
 
   // Optimize dependencies

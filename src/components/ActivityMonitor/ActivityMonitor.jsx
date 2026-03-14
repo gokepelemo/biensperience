@@ -15,7 +15,7 @@ import { formatDateTime } from '../../utilities/date-utils';
 import { handleError } from '../../utilities/error-handler';
 import { lang } from '../../lang.constants';
 import { useToast } from '../../contexts/ToastContext';
-import styles from './ActivityMonitor.module.scss';
+import styles from './ActivityMonitor.module.css';
 
 const ACTION_TYPES = [
   'permission_added', 'permission_removed', 'permission_updated', 'ownership_transferred',

@@ -17,7 +17,7 @@
 import React from 'react';
 import { Text } from '../design-system';
 import CostEstimate from '../CostEstimate/CostEstimate';
-import styles from './ActualCost.module.scss';
+import styles from './ActualCost.module.css';
 
 export default function ActualCosts({
   costs = [],

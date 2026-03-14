@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { lang } from "../../lang.constants";
-import styles from "./Alert.module.scss";
+import styles from "./Alert.module.css";
 
 /**
  * Reusable Alert Component with support for various types, sizes, and actions.

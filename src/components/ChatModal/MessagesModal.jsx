@@ -16,7 +16,7 @@ import { Link, useInRouterContext, useLocation, useParams } from 'react-router-d
 
 import { Alert } from '../design-system';
 import { useScrollLock } from '../../hooks/useScrollLock';
-import styles from './MessagesModal.module.scss';
+import styles from './MessagesModal.module.css';
 import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';
 import StreamChatAvatar from './StreamChatAvatar';

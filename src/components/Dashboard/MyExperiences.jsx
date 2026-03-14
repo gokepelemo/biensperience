@@ -3,7 +3,7 @@ import { Heading, Text, Button } from '../design-system';
 import { Stack, FlexBetween } from '../Layout/Layout';
 import { showUserCreatedExperiences } from '../../utilities/experiences-api';
 import { Link } from 'react-router-dom';
-import styles from './MyExperiences.module.scss';
+import styles from './MyExperiences.module.css';
 
 export default function MyExperiences({ userId }) {
   const [experiences, setExperiences] = useState([]);

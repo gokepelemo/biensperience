@@ -28,7 +28,7 @@ import Pagination from '../../components/Pagination/Pagination';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
 import UserInviteModal from '../../components/UserInviteModal/UserInviteModal';
 import { Modal, Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, SpaceY, Pill, EmptyState, Alert, SearchInput } from '../../components/design-system';
-import styles from './InviteTracking.module.scss';
+import styles from './InviteTracking.module.css';
 
 // Status filter options
 const STATUS_FILTERS = {

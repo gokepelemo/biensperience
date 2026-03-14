@@ -1,4 +1,4 @@
-import styles from "./AlertModal.module.scss";
+import styles from "./AlertModal.module.css";
 import { Modal } from '../design-system';
 
 /**

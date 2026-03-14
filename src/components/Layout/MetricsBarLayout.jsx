@@ -5,7 +5,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import styles from './MetricsBarLayout.module.scss';
+import styles from './MetricsBarLayout.module.css';
 
 /**
  * MetricItem - Individual metric display

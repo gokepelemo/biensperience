@@ -42,7 +42,7 @@
 import React, { useRef, useCallback, useId } from 'react';
 import PropTypes from 'prop-types';
 import { FaSearch, FaTimes } from 'react-icons/fa';
-import styles from './SearchInput.module.scss';
+import styles from './SearchInput.module.css';
 
 /**
  * @param {Object} props

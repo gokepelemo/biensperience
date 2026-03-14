@@ -1,4 +1,4 @@
-import styles from "./ExperienceCard.module.scss";
+import styles from "./ExperienceCard.module.css";
 import { Link } from "react-router-dom";
 import { useState, useCallback, useMemo, memo, useEffect } from "react";
 import { FaEdit, FaTimes, FaPlus, FaMinus, FaCheck, FaUsers, FaStar } from "react-icons/fa";

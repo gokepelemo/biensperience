@@ -35,7 +35,7 @@ import { hasFeatureFlag } from '../../utilities/feature-flags';
 import { isSuperAdmin } from '../../utilities/permissions';
 import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import DropZone from '../DropZone';
-import styles from './DocumentsTab.module.scss';
+import styles from './DocumentsTab.module.css';
 
 // Pagination config
 const DEFAULT_PAGE_SIZE = 10;

@@ -11,7 +11,7 @@ import { MapWithListings } from "../../components/InteractiveMap";
 import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { Button, FlexCenter, SpaceY, EmptyState, FadeIn, SkeletonLoader, ExperienceCardSkeleton, DestinationCardSkeleton, Alert } from "../../components/design-system";
-import styles from "./Countries.module.scss";
+import styles from "./Countries.module.css";
 
 export default function Countries() {
   const { countryName } = useParams();

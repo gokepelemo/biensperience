@@ -1,4 +1,4 @@
-import styles from "./PhotoCard.module.scss";
+import styles from "./PhotoCard.module.css";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { lang } from "../../lang.constants";
 import PhotoModal from "../PhotoModal/PhotoModal";

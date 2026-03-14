@@ -5,7 +5,7 @@ import UserAvatar from '../UserAvatar/UserAvatar';
 import { Pill, Dropdown, FormControl } from '../design-system';
 import { createFilter } from '../../utilities/trie';
 import { lang } from '../../lang.constants';
-import styles from './Autocomplete.module.scss';
+import styles from './Autocomplete.module.css';
 
 /**
  * Unified Autocomplete Component

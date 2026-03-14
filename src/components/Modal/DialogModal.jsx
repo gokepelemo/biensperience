@@ -15,7 +15,7 @@
 
 import { forwardRef, useId } from 'react';
 import { Dialog, Portal } from '@chakra-ui/react';
-import styles from './Modal.module.scss';
+import styles from './Modal.module.css';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
 import { useScrollLock } from '../../hooks/useScrollLock';

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Autocomplete from '../Autocomplete/Autocomplete';
-import styles from './DestinationBrowser.module.scss';
+import styles from './DestinationBrowser.module.css';
 
 /**
  * DestinationBrowser - Map-based destination listing with filters

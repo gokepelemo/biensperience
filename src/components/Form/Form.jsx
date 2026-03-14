@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { lang } from '../../lang.constants';
 import Checkbox from '../Checkbox/Checkbox';
-import styles from './Form.module.scss';
+import styles from './Form.module.css';
 
 /**
  * Form component with unified styling for form elements

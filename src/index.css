@@ -1,0 +1,56 @@
+/* ============================================
+   GLOBAL IMPORTS - Design System Order
+   ============================================
+   Import order matters:
+   1. @use rules MUST come first (SASS requirement)
+   2. Then @import rules for CSS files
+
+   Note: @use rules are the modern SASS approach,
+   @import is deprecated for SCSS but still valid for plain CSS files
+*/
+
+/* 1. Design System Foundation */
+/* 1b. Bootstrap Component Base Styles (migration bridge)
+   Provides structural CSS for Bootstrap classes still used in JSX.
+   Remove this file once all Bootstrap class names are replaced. */
+@import './styles/bootstrap-base-components.css';
+
+/* 2. Global Styles */
+@import './styles/headings.css';
+@import './styles/utilities.css';
+@import './styles/theme.css';
+@import './styles/animations.css';
+
+/* 3. Accessibility & Alert Styles */
+@import './styles/accessibility.css';
+@import './styles/alerts.css';
+
+/* 4. Components Layer */
+@import './styles/forms.css';
+@import './styles/modal.css';
+@import './styles/profile-dropdown-views.css';
+@import './styles/text-legibility.css';
+@import './styles/data-transition.css';
+
+/* 5. CSS Custom Properties (for runtime theming) */
+@import './styles/design-tokens.css';
+
+/* ============================================
+   GLOBAL BASE STYLES
+   ============================================ */
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Global link style: pointer cursor, no underline */
+a,
+.link-btn {
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}

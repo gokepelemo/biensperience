@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import styles from "./NewDestination.module.scss";
+import styles from "./NewDestination.module.css";
 import { lang } from "../../lang.constants";
 import { createDestination } from "../../utilities/destinations-api";
 import { useData } from "../../contexts/DataContext";

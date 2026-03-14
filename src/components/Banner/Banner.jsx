@@ -4,7 +4,7 @@ import { FaTimes, FaInfoCircle, FaCheckCircle, FaExclamationTriangle, FaTimesCir
 import { Button } from '../design-system';
 import { FadeIn } from '../Animation';
 import { lang } from '../../lang.constants';
-import styles from './Banner.module.scss';
+import styles from './Banner.module.css';
 
 /**
  * Banner component for notifications and alerts with auto-expiry functionality

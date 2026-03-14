@@ -1,0 +1,16 @@
+/**
+ * AlertModal Component Styles (SCSS Module)
+ * Migrated from AlertModal.css to AlertModal.module.scss
+ * Uses SASS variables for better maintainability
+ */
+
+.alertModal {
+  :global(.modal-body .alert) {
+    border: none;
+    font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  }
+}
+
+.mb0 {
+  margin-bottom: 0;
+}

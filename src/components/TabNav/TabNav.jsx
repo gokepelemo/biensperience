@@ -9,7 +9,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaChevronDown } from 'react-icons/fa';
 import { lang } from '../../lang.constants';
-import styles from './TabNav.module.scss';
+import styles from './TabNav.module.css';
 
 /**
  * Individual tab item

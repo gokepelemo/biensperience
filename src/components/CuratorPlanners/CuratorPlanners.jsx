@@ -17,7 +17,7 @@ import { getCuratorPlanners } from '../../utilities/activities-api';
 import { getOrCreateDmChannel } from '../../utilities/chat-api';
 import { logger } from '../../utilities/logger';
 import { formatRelativeTime } from '../../utilities/date-utils';
-import styles from './CuratorPlanners.module.scss';
+import styles from './CuratorPlanners.module.css';
 
 export default function CuratorPlanners({ user }) {
   const [planners, setPlanners] = useState([]);

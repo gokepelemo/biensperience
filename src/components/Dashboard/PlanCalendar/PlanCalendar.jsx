@@ -9,7 +9,7 @@ import { Tooltip as ChakraTooltip, Portal, Box } from '@chakra-ui/react';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { lang } from '../../../lang.constants';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import styles from './PlanCalendar.module.scss';
+import styles from './PlanCalendar.module.css';
 
 // Setup date-fns localizer for react-big-calendar
 const locales = {

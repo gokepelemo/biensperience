@@ -14,7 +14,7 @@ import { Button, Container, Heading, EmptyState, Alert, Dropdown, DropdownToggle
 import TagPill from '../../components/Pill/TagPill';
 import Pagination from '../../components/Pagination/Pagination';
 import ViewNav from '../../components/ViewNav/ViewNav';
-import styles from '../../views/Profile/Profile.module.scss';
+import styles from '../../views/Profile/Profile.module.css';
 
 export default {
   title: 'Page Layouts/Profile',

@@ -12,7 +12,7 @@
 import React, { memo } from 'react';
 import PropTypes from 'prop-types';
 import SkeletonLoader from './SkeletonLoader';
-import styles from './DestinationCardSkeleton.module.scss';
+import styles from './DestinationCardSkeleton.module.css';
 
 function DestinationCardSkeleton({ count = 6 }) {
   return (

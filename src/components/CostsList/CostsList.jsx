@@ -17,7 +17,7 @@ import CostSummary from '../CostSummary';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import Pagination from '../Pagination/Pagination';
 import { EmptyState, Pill, Accordion, Button } from '../design-system';
-import styles from './CostsList.module.scss';
+import styles from './CostsList.module.css';
 
 const COSTS_PER_PAGE = 10;
 

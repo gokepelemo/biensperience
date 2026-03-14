@@ -1,0 +1,118 @@
+.stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.stepperItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+}
+
+.stepperMarker {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  transition: all var(--transition-standard);
+  z-index: 1;
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-border-medium);
+  color: var(--color-text-muted);
+}
+
+/* Status-based styles */
+.stepperItemActive .stepperMarker {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.stepperItemError .stepperMarker {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: white;
+}
+
+/* Color variants */
+.stepperItemSuccess.stepperItemActive .stepperMarker,
+.stepperItemSuccess.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-success);
+  background: var(--color-success);
+}
+
+.stepperItemDanger.stepperItemActive .stepperMarker,
+.stepperItemDanger.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+}
+
+.stepperItemWarning.stepperItemActive .stepperMarker,
+.stepperItemWarning.stepperItemCompleted .stepperMarker {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
+}
+
+.stepperConnector {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--color-border-medium);
+  transform: translateX(0);
+}
+
+.stepperItemCompleted .stepperConnector,
+.stepperItemActive .stepperConnector {
+  background: var(--color-primary);
+}
+
+.stepperContent {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.stepperTitle {
+  font-size: clamp(0.875rem, 1.25vw, 1rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.stepperDescription {
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+  color: var(--color-text-muted);
+}
+
+/* Compact variant */
+.stepperCompact .stepperItem {
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.stepperCompact .stepperMarker {
+  width: 24px;
+  height: 24px;
+  font-size: clamp(0.75rem, 1vw, 0.875rem);
+}
+
+.stepperCompact .stepperConnector {
+  top: 12px;
+  left: calc(50% + 12px);
+  width: calc(100% - 24px);
+}

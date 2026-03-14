@@ -1,0 +1,94 @@
+/**
+ * Accordion Component Styles
+ * Migrated from Accordion.css to Accordion.scss
+ * Uses SASS variables and mixins for better maintainability
+ */
+
+.ds-accordion {
+  --accordion-bg: var(--color-bg-secondary);
+  --accordion-border: var(--color-border-light);
+  --accordion-radius: 0.5rem;
+
+  /* Ensure accordion content visibility is controlled by data-state */
+  /* This provides a static CSS fallback in case Chakra/Zag runtime styles */
+  /* don't inject properly (e.g., production builds with different CSS ordering) */
+  [data-scope="accordion"][data-part="item-content"],
+  [data-scope="collapsible"][data-part="content"] {
+    &[data-state="closed"] {
+      display: none;
+    }
+    &[data-state="open"] {
+      display: block;
+    }
+  }
+
+  .accordion-item {
+    background: var(--accordion-bg);
+    border-radius: var(--accordion-radius);
+    margin-bottom: 0.75rem;
+  }
+
+  .accordion-button,
+  [data-part="item-trigger"] {
+    background: transparent;
+    color: var(--color-text-primary);
+    font-weight: 600;
+    padding: 1rem;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+
+    &:not(.collapsed),
+    &[data-state="open"] {
+      background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-600) 100%);
+      color: white;
+    }
+
+    /* Ensure caret/arrow is visible and positioned correctly */
+    &::after {
+      flex-shrink: 0 !important;
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+      margin-left: 0.5rem !important;
+      order: 999 !important; /* Force caret to end of flex container */
+      content: "" !important;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+      background-repeat: no-repeat !important;
+      background-size: 1.25rem !important;
+      background-position: center !important;
+      transition: transform 0.2s ease-in-out !important;
+    }
+
+    /* Rotate caret when expanded and change to white */
+    &:not(.collapsed)::after,
+    &[data-state="open"]::after {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e") !important;
+      transform: rotate(-180deg) !important;
+    }
+
+    /* Style nested headings and links */
+    h1, h2, h3, h4, h5, h6 {
+      margin: 0;
+      font-size: inherit;
+      font-weight: inherit;
+      color: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+
+      &:hover {
+        color: inherit;
+        opacity: 0.9;
+      }
+    }
+  }
+
+  .accordion-body,
+  [data-part="item-content"] {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border-top: 1px dashed var(--accordion-border);
+  }
+}

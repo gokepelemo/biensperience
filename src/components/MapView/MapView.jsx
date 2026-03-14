@@ -1,5 +1,5 @@
 import GoogleMap from '../GoogleMap/GoogleMap';
-import styles from './MapView.module.scss';
+import styles from './MapView.module.css';
 import { lang } from '../../lang.constants';
 
 /**

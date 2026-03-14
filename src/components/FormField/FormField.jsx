@@ -1,7 +1,7 @@
 import React from 'react';
 import { InputGroup, FormTooltip, FormGroup, FormLabel, FormControl, FormText } from '../design-system';
 import PropTypes from 'prop-types';
-import styles from './FormField.module.scss';
+import styles from './FormField.module.css';
 import TextareaAutosize from 'react-textarea-autosize';
 import SearchableSelect from './SearchableSelect';
 

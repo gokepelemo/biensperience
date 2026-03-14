@@ -1,0 +1,2066 @@
+/* Profile View Styles - Storybook ProfileView Design Pattern */
+
+/* Profile Header Card - Container */
+.profileHeaderCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-8);
+  overflow: visible; /* Allow dropdown to escape - border-radius handled on children */
+  box-shadow: var(--shadow-sm);
+
+  /* Skeleton sizing tokens (kept here so skeletons match responsive layout) */
+  --profile-skeleton-avatar-size: 150px;
+  --profile-skeleton-name-font-size: var(--font-size-3xl);
+  --profile-skeleton-verified-size: 24px;
+  --profile-skeleton-location-icon-size: 16px;
+}
+
+/* Cover Image / Gradient Banner */
+.profileCover {
+  height: 200px;
+  background: var(--gradient-primary);
+  position: relative;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0; /* Match parent border-radius for top corners */
+}
+
+/* Profile Header Body - contains avatar, info, stats */
+.profileHeaderBody {
+  padding: var(--space-6);
+  margin-top: calc(var(--space-20) * -1);
+  position: relative;
+  z-index: 1;
+}
+
+/* Flex container for avatar + info + actions */
+.profileHeaderFlex {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  align-items: flex-start; /* Align avatar and content to top */
+}
+
+/* Avatar Container - clickable wrapper for photo modal */
+.profileAvatarContainer {
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+
+  &:hover {
+    transform: scale(1.02);
+  }
+
+  &:hover .profileAvatarOverlay {
+    opacity: 1;
+  }
+}
+
+/* Avatar Overlay - shown on hover */
+.profileAvatarOverlay {
+  position: absolute;
+  inset: 5px; /* Match the border width */
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: white;
+  font-size: 1.5rem;
+}
+
+/* Avatar */
+/* Avatar — wraps the UserAvatar component; sizing is handled by
+   the 'profile' size variant in UserAvatar.module.scss.
+   This class adds the border, shadow, and block display. */
+.profileAvatar {
+  border: 5px solid var(--color-bg-primary);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-full);
+  display: block;
+}
+
+/* Avatar placeholder is no longer rendered directly (handled by
+   AvatarRenderer initials fallback), but keep the class for
+   backwards compatibility with ProfileSkeleton. */
+.profileAvatarPlaceholder {
+  width: 150px;
+  height: 150px;
+  border-radius: var(--radius-full);
+  border: 5px solid var(--color-bg-primary);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  color: var(--color-text-muted);
+}
+
+/* Info section - name, location, bio */
+.profileInfo {
+  flex: 1;
+  min-width: 250px;
+  padding-top: var(--space-20); /* Push content below the cover overlap area (avatar extends 80px into body) */
+}
+
+/* Name row - contains h1 and verified badge */
+.profileNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.profileName {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+/* Email verified badge - outside h1 for proper semantics */
+.verifiedBadge {
+  color: var(--color-success);
+  font-size: var(--font-size-xl);
+  flex-shrink: 0;
+}
+
+.profileLocation {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.profileBio {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--space-4);
+}
+
+/* Curator Badge */
+.curatorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%);
+  color: white;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+}
+
+/* Profile Links */
+.profileLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.profileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--color-bg-hover);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  span {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Social link with brand color */
+.profileLinkSocial {
+  composes: profileLink;
+
+  .profileLinkIcon {
+    transition: color 0.15s ease;
+  }
+
+  &:hover .profileLinkIcon {
+    /* Keep brand color on hover for social links */
+  }
+}
+
+.profileLinkIcon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+/* Link editor styles for UpdateProfile */
+.linkEditRow {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  align-items: center;
+
+  @media (max-width: 576px) {
+    flex-wrap: wrap;
+  }
+}
+
+.linkTypeSelect {
+  flex-shrink: 0;
+  width: 140px;
+
+  select {
+    font-size: var(--font-size-sm);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+  }
+
+  @media (max-width: 576px) {
+    width: 100%;
+  }
+}
+
+.linkIconPreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+
+  @media (max-width: 576px) {
+    display: none;
+  }
+}
+
+.linkInputGroup {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+
+  input {
+    font-size: var(--font-size-sm);
+  }
+
+  @media (max-width: 576px) {
+    flex-wrap: wrap;
+    width: 100%;
+
+    input {
+      width: 100% !important;
+      max-width: none !important;
+    }
+  }
+}
+
+.linkRemoveBtn {
+  flex-shrink: 0;
+  padding: var(--space-2) !important;
+  min-width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Stats row */
+.profileStats {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.profileStat {
+  text-align: left;
+}
+
+.profileStatValue {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.profileStatLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Compact Metrics Bar */
+.profileMetricsBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.profileMetric {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+
+  strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+/* Clickable metric - navigates to corresponding tab */
+.profileMetricClickable {
+  composes: profileMetric;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+
+  &:hover {
+    background-color: var(--color-bg-hover);
+    color: var(--color-primary);
+
+    strong {
+      color: var(--color-primary);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.profileMetricDivider {
+  color: var(--color-text-disabled);
+  font-weight: var(--font-weight-normal);
+}
+
+.profileMetricSecondary {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+/* Action buttons */
+.profileActions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  padding-top: var(--space-20); /* Push content below the cover overlap area */
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10; /* Ensure dropdown floats above other profile content */
+}
+
+/* Tab Navigation - GitHub-style wrapper */
+.profileTabs {
+  margin-bottom: var(--space-6);
+
+  /* Skeleton sizing for tabs (mirrors TabNav font/icon scaling) */
+  --profile-tab-skeleton-icon-size: 16px;
+  --profile-tab-skeleton-label-height: 14px;
+}
+
+@media (max-width: 768px) {
+  .profileTabs {
+    --profile-tab-skeleton-icon-size: 14px;
+    --profile-tab-skeleton-label-height: 12px;
+  }
+}
+
+/* Content Grid */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+
+  /* Ensure cards fill their grid cells properly */
+  > * {
+    width: 100%;
+    min-width: 0; /* Prevent overflow */
+  }
+
+  /* Pagination should span full width */
+  :global(nav[aria-label="Pagination"]) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: var(--space-4);
+  }
+}
+
+/* Destinations Grid - smaller cards (12rem x 8rem) */
+.destinationsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, max-content));
+  gap: var(--space-4);
+  justify-content: center;
+}
+
+/* Empty state wrapper - centers empty state in viewport */
+.emptyStateWrapper {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40vh;
+  width: 100%;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+  .profileHeaderFlex {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .profileInfo {
+    text-align: center;
+    padding-top: 0; /* Reset padding when stacked vertically - name appears after avatar */
+  }
+
+  .profileNameRow {
+    justify-content: center;
+    margin-top: var(--space-4);
+  }
+
+  .profileName {
+    text-align: center;
+  }
+
+  .profileLocation {
+    justify-content: center;
+  }
+
+  .profileStats {
+    justify-content: center;
+  }
+
+  .profileStat {
+    text-align: center;
+  }
+
+  .profileMetricsBar {
+    justify-content: center;
+  }
+
+  .profileActions {
+    padding-top: 0; /* Reset padding when stacked vertically */
+    justify-content: center;
+  }
+
+  .profileGrid {
+    justify-items: center;
+  }
+}
+
+@media (max-width: 767px) {
+  .profileGrid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+    justify-items: center;
+  }
+}
+
+@media (max-width: 575px) {
+  .profileCover {
+    height: 150px;
+  }
+
+  .profileHeaderBody {
+    margin-top: calc(var(--space-15) * -1);
+    padding: var(--space-4);
+  }
+
+  /* Avatar sizing is handled by UserAvatar 'profile' size variant;
+     keep placeholder sizing for skeleton fallback */
+  .profileAvatarPlaceholder {
+    width: 120px;
+    height: 120px;
+  }
+
+  .profileName {
+    font-size: var(--font-size-2xl);
+  }
+
+  /* Keep skeleton placeholders in lockstep with the real responsive sizing */
+  .profileHeaderCard {
+    --profile-skeleton-avatar-size: 120px;
+    --profile-skeleton-name-font-size: var(--font-size-2xl);
+    --profile-skeleton-verified-size: 20px;
+    --profile-skeleton-location-icon-size: 14px;
+  }
+
+  .profileStats {
+    gap: var(--space-4);
+  }
+
+  .profileStatValue {
+    font-size: var(--font-size-xl);
+  }
+
+  .profileGrid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+
+/* Profile tab skeletons - mirror TabNav responsive behavior */
+.profileTabsSkeletonDesktop {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    gap: 0;
+  }
+
+  @media (max-width: 576px) {
+    display: none;
+  }
+}
+
+.profileTabsSkeletonMobile {
+  display: none;
+  width: 100%;
+
+  @media (max-width: 576px) {
+    display: block;
+  }
+}
+
+.profileTabSkeletonItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: -1px;
+
+  @media (max-width: 768px) {
+    padding: var(--space-3);
+  }
+}
+
+/* Legacy styles below - kept for compatibility */
+
+/* Profile heading wrapper - h1 + email verified badge */
+.profileHeadingWrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Dropdown z-index fix */
+:global(.dropdown) {
+  position: relative;
+}
+
+.normalizeCheckbox > input[type="checkbox"] {
+  margin: 0 !important;
+}
+
+:global(.dropdown-menu) {
+  z-index: 1070 !important;
+  position: absolute !important;
+
+  &.show {
+    z-index: 1070 !important;
+  }
+}
+
+/* Dropdown item styling with icons */
+.dropdownItem {
+  display: flex !important;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-primary) !important;
+  background: transparent !important;
+  transition: all var(--transition-fast);
+
+  span {
+    flex: 1;
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
+  }
+}
+
+.dropdownIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.8;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.dropdownItem:hover .dropdownIcon,
+.dropdownItem:focus .dropdownIcon {
+  opacity: 1;
+  color: var(--color-primary);
+}
+
+/* Admin update styling - special highlight */
+.dropdownItemAdmin {
+  &:hover,
+  &:focus {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-warning) !important;
+
+    .dropdownIcon {
+      color: var(--color-warning) !important;
+    }
+  }
+}
+
+/* Profile header row to ensure proper stacking context */
+.profileHeaderRow {
+  position: relative;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  margin: var(--space-8) 0;
+
+  :global(.col-md-6) {
+    display: flex;
+    align-items: center;
+
+    &:first-child {
+      justify-content: flex-start;
+    }
+
+    &:last-child {
+      position: relative;
+      z-index: 1065;
+      justify-content: flex-end;
+
+      :global(.d-flex) {
+        position: relative;
+        z-index: 1070;
+      }
+    }
+  }
+
+  @media (max-width: 991px) {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+
+    :global(.col-md-6) {
+      &:first-child,
+      &:last-child {
+        justify-content: center !important;
+        width: 100%;
+      }
+
+      &:last-child :global(.d-flex) {
+        justify-content: center !important;
+      }
+    }
+
+    h1 {
+      text-align: center;
+    }
+  }
+}
+
+/* Pills - Experience Type Tags */
+.profilePill {
+  background: var(--color-white) !important; /* Override TagPill color variants */
+  color: var(--color-primary) !important;
+  box-shadow: var(--shadow-sm);
+  font-weight: var(--font-weight-semibold);
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--color-white) !important; /* Retain white background on hover, override gradients */
+    transform: translateY(calc(var(--space-1) * -1));
+    box-shadow: var(--shadow-md);
+    color: var(--color-primary-dark) !important;
+  }
+
+  &.inactive {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    box-shadow: none;
+  }
+
+  /* Icon inside pill */
+  .icon,
+  svg {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-sm);
+    color: currentColor;
+  }
+}
+
+/* Profile Detail Card */
+.profileDetailCard {
+  background: var(--color-bg-surface, transparent);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.profileDetailSection {
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--color-border-light);
+    font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  transition: all var(--transition-normal);
+  margin-bottom: 0;
+
+  /* Gradient background sections - first and second child */
+  &:first-child,
+  &:nth-child(2) {
+    background: var(--gradient-primary);
+    box-shadow: var(--shadow-sm);
+
+    .profileDetailSectionTitle {
+      color: var(--color-white);
+    }
+
+    p,
+    a {
+      color: var(--color-white);
+    }
+
+    a:hover {
+      color: var(--color-white);
+    }
+
+    /* Profile pills in gradient sections use base .profilePill styles */
+    /* Note: Inherits from .profilePill above - no overrides needed */
+    /* Ensure pill text is legible on the gradient background */
+    .profilePill {
+      background: rgba(255, 255, 255, 0.08) !important; /* subtle surface on gradient */
+      color: var(--color-white) !important; /* use design token for on-gradient text */
+      box-shadow: none;
+      border: 1px solid rgba(255,255,255,0.08);
+
+      &:hover {
+        background: rgba(255,255,255,0.12) !important;
+        color: var(--color-white) !important;
+        transform: translateY(calc(var(--space-1) * -1));
+        box-shadow: var(--shadow-sm);
+      }
+
+      &.inactive {
+        background: rgba(255,255,255,0.04);
+        color: var(--color-text-secondary) !important;
+        box-shadow: none;
+      }
+    }
+    /* Also override TagPill module classes (global) when rendered inside gradient sections */
+    /* Make general TagPill variants use a subtle translucent surface and white text on the gradient */
+    :global(.tagPillPrimary),
+    :global(.tagPillNeutral) {
+      background: rgba(255, 255, 255, 0.08) !important;
+      color: var(--color-white) !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+    }
+    /* For the 'light' variant (which is normally white bg + purple text),
+       render it as a light translucent surface with dark text when on gradient
+       so it remains legible (white text on white bg would be invisible). */
+    :global(.tagPillLight) {
+      background: rgba(255,255,255,0.92) !important; /* nearly white surface */
+      color: var(--color-text-primary) !important; /* dark text for contrast */
+      border: 1px solid rgba(0,0,0,0.06) !important;
+    }
+
+    /* Pagination button styling on gradient background */
+    :global(.btn-link) {
+      color: var(--color-white) !important;
+      font-weight: var(--font-weight-semibold);
+      text-decoration: none;
+      transition: all var(--transition-normal);
+
+      &:hover {
+        color: var(--color-white) !important;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        transform: translateY(calc(var(--space-1) * -1));
+      }
+    }
+
+    /* Prominent link styling for "add some favorite destinations" */
+    .noFavoriteDestinations a.fw-bold {
+      padding: var(--space-1);
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      font-weight: var(--font-weight-bold);
+      display: inline-block;
+      transition: all var(--transition-normal);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      box-shadow: var(--shadow-sm);
+      color: var(--color-white);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.6);
+        transform: translateY(calc(var(--space-1) * -2));
+        box-shadow: var(--shadow-md);
+        color: var(--color-white);
+      }
+    }
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.profileDetailSectionTitle {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xl);
+  margin: 0 0 var(--space-5) 0;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.profileDetailContent {
+  background: transparent;
+  color: var(--color-text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  padding-bottom: var(--space-2);
+}
+
+.noFavoriteDestinations {
+  text-align: center;
+  margin: var(--space-4) 0;
+  padding: var(--space-6);
+  background: var(--color-bg-surface-variant, rgba(102, 126, 234, 0.05));
+  border-radius: var(--radius-lg);
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+
+  /* Button styling */
+  :global(.btn) {
+    display: inline-block;
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-base);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-normal);
+    text-decoration: none;
+    border: none;
+  }
+
+  :global(.btn-primary) {
+    background: var(--gradient-primary);
+    color: var(--color-white) !important;
+    box-shadow: var(--shadow-sm);
+
+    &:hover {
+      background: var(--gradient-primary);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(calc(var(--space-1) * -2));
+      color: var(--color-white) !important;
+    }
+  }
+
+  /* Legacy link styling (if not using btn class) */
+  a:not(:global(.btn)) {
+    display: inline-block;
+    margin-top: var(--space-2);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: var(--font-weight-semibold);
+    transition: all var(--transition-base);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      background: rgba(102, 126, 234, 0.1);
+      color: var(--color-primary-dark);
+      transform: translateY(calc(var(--space-1) * -1));
+    }
+  }
+}
+
+.profileDestinations {
+  a {
+    text-decoration: none;
+  }
+}
+
+.badgeNav {
+  width: fit-content;
+  margin: 0 auto;
+  font-size: var(--font-size-base);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+  border: 2px solid var(--color-border-medium);
+  padding: 0 !important;
+  overflow: hidden;
+  display: flex;
+  border-radius: var(--radius-full);
+
+  span {
+    padding: var(--space-2) var(--space-8);
+    font-weight: var(--font-weight-normal);
+    cursor: pointer;
+    color: var(--color-text-primary);
+    transition: all var(--transition-normal);
+    position: relative;
+
+    &:first-child {
+      border-radius: var(--radius-full) 0 0 var(--radius-full);
+    }
+
+    &:last-child {
+      border-radius: 0 var(--radius-full) var(--radius-full) 0;
+    }
+
+    &:hover {
+      background: var(--color-primary-light);
+    }
+
+    &.activeTab {
+      background: var(--gradient-primary);
+      color: var(--color-white);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+  }
+}
+
+/* Reserve space for two rows of cards to avoid layout shifts when switching tabs */
+.profileCardsReserved {
+  /* Base per-row card height (adjust if card min-heights change) */
+  --profile-card-row-height: 14rem; /* approx card min-height + paddings */
+  --profile-cards-gap: 1rem;
+  min-height: calc(var(--profile-card-row-height) * 2 + var(--profile-cards-gap));
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+
+  /* Ensure skeleton placeholders center nicely */
+  .loading-skeleton {
+    border-radius: var(--radius-md);
+    background: linear-gradient(90deg, rgba(240,240,240,0.6) 25%, rgba(230,230,230,0.4) 37%, rgba(240,240,240,0.6) 63%);
+    background-size: 400% 100%;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* Pagination inside cards container - needs to break flex flow */
+.profileCardsReserved {
+  :global(.pagination),
+  :global(nav[aria-label="Pagination"]) {
+    flex-basis: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-4);
+    padding: var(--space-2) 0;
+  }
+}
+
+/* Pagination container - always centered, consistent across tab switches */
+.paginationContainer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: var(--space-6);
+  padding: var(--space-4) 0;
+  min-height: 60px; /* Reserve space to prevent layout shift */
+
+  /* Center the Pagination component */
+  :global(nav[aria-label="Pagination"]),
+  > div {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* Feature Flags Pills - Super Admin Only */
+.featureFlagsPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.featureFlagPillActive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary, #6366f1) 100%);
+  color: var(--color-white);
+  font-size: var(--font-size-sm);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .featureFlagName {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-white);
+  }
+
+  .featureFlagTier {
+    font-size: var(--font-size-xs);
+    padding: var(--space-0-5, 2px) var(--space-1);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--color-white);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+}
+
+.featureFlagRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-white);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: var(--space-1);
+  padding: 0;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+  }
+
+  &:focus {
+    outline: 2px solid var(--color-white);
+    outline-offset: 1px;
+  }
+}
+
+.featureFlagAutocomplete {
+  margin-bottom: var(--space-2);
+  max-width: 300px;
+}
+
+/* ============================================
+   UpdateProfile Section Cards
+   ============================================ */
+
+.sectionCard {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  overflow: visible; /* Allow dropdowns/autocomplete to escape card boundaries */
+}
+
+.sectionCardHeader {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; /* Match parent border-radius for top corners */
+
+  h3 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+
+    svg {
+      color: var(--color-primary);
+    }
+  }
+}
+
+.sectionCardBody {
+  padding: var(--space-6);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg); /* Match parent border-radius for bottom corners */
+  background: var(--color-bg-surface); /* Ensure background fills rounded corners */
+}
+
+/* Admin section row styling (like in screenshot) */
+.adminSectionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border-light);
+  gap: var(--space-4);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &:first-child {
+    padding-top: 0;
+  }
+}
+
+.adminSectionLabel {
+  flex: 1;
+
+  strong {
+    display: block;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-1);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+}
+
+.adminSectionActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  align-items: stretch;
+  min-width: 160px;
+}
+
+/* Status badge for admin sections */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+
+  &.confirmed {
+    color: var(--color-success);
+  }
+
+  &.unconfirmed {
+    color: var(--color-warning);
+  }
+
+  svg {
+    font-size: 1em;
+  }
+}
+
+/* Admin action buttons */
+.adminActionBtn {
+  min-width: 140px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+
+  &.active {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: var(--color-white);
+
+    &:hover {
+      background: var(--color-success-dark, #059669);
+    }
+  }
+
+  &.inactive {
+    background: transparent;
+    border: 2px solid var(--color-border-medium);
+    color: var(--color-text-secondary);
+
+    &:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+  }
+
+  &.danger {
+    background: transparent;
+    border: 2px solid var(--color-danger);
+    color: var(--color-danger);
+
+    &:hover {
+      background: var(--color-danger);
+      color: var(--color-white);
+    }
+  }
+}
+
+/* ============================================
+   Danger Zone Section (Delete Account)
+   ============================================ */
+
+.dangerZone {
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 3%, var(--color-bg-surface));
+
+  .sectionCardHeader {
+    background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-tertiary));
+    border-bottom-color: var(--color-danger);
+
+    h3 {
+      color: var(--color-danger);
+
+      svg {
+        color: var(--color-danger);
+      }
+    }
+  }
+}
+
+.dangerItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+}
+
+.dangerItemInfo {
+  flex: 1;
+
+  strong {
+    display: block;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-1);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-relaxed);
+  }
+}
+
+/* Demo account warning message */
+.demoAccountWarning {
+  color: var(--color-text-muted) !important;
+  font-style: italic;
+  background: var(--color-bg-tertiary);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-info);
+  margin-top: var(--space-2);
+}
+
+/* ==================== Follows Tab Styles ==================== */
+
+.followsTab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Follows Filter Pills */
+.followsFilterPills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+
+  :root[data-theme="dark"] & {
+
+    border-bottom-color: var(--color-border-dark);
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    border-bottom-color: var(--color-border-dark);
+  
+    }
+  }
+
+  /* On very small screens, allow horizontal scroll if needed */
+  @media (max-width: 480px) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-3);
+    justify-content: flex-start;
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+
+    /* Show scrollbar on mobile for discoverability */
+    scrollbar-width: thin;
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: var(--color-bg-tertiary);
+      border-radius: 2px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-border-medium);
+      border-radius: 2px;
+    }
+  }
+}
+
+.followsFilterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 480px) {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-medium);
+    }
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-medium);
+    }
+  
+    }
+  }
+}
+
+.followsFilterPillActive {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: white;
+
+  &:hover {
+    background: var(--gradient-primary);
+    border-color: transparent;
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--gradient-primary);
+    border-color: transparent;
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--gradient-primary);
+    border-color: transparent;
+  
+    }
+  }
+}
+
+/* Follows List */
+.followsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.followsItemWrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.followsItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  flex: 1;
+  min-width: 0;
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  @media (max-width: 480px) {
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-tertiary);
+    }
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-tertiary);
+    }
+  
+    }
+  }
+}
+
+.followsItemAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: var(--color-danger-bg, #fef2f2);
+    border-color: var(--color-danger, #ef4444);
+    color: var(--color-danger, #ef4444);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  svg {
+    font-size: var(--font-size-base);
+  }
+
+  /* Ensure WCAG 44px touch target on mobile */
+  @media (max-width: 480px) {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--color-danger, #ef4444);
+      color: var(--color-danger, #ef4444);
+    }
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--color-danger, #ef4444);
+      color: var(--color-danger, #ef4444);
+    }
+  
+    }
+  }
+}
+
+.followsItemActionSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.followsItemSkeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+  
+    }
+  }
+}
+
+.followsItemAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.followsItemAvatarPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-tertiary);
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-tertiary);
+  
+    }
+  }
+}
+
+.followsItemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.followsItemName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @media (max-width: 480px) {
+    font-size: var(--font-size-sm);
+  }
+}
+
+.followsItemLocation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  svg {
+    font-size: var(--font-size-xs);
+  }
+
+  @media (max-width: 480px) {
+    font-size: var(--font-size-xs);
+  }
+}
+
+.followsLoadMore {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
+/* Activity Filter Dropdown - Matches Dashboard Plans filter style */
+.activityFilterDropdown {
+  display: flex;
+  justify-content: flex-end;
+
+  /* Limit the width of the dropdown for cleaner appearance */
+  > * {
+    width: 200px;
+  }
+
+  @media (max-width: 480px) {
+    > * {
+      width: 180px;
+    }
+  }
+}
+
+/* ==================== Linked Accounts Section ==================== */
+
+.linkedAccountsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.linkedAccountItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-medium);
+  }
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    text-align: center;
+  }
+
+  :root[data-theme="dark"] & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-tertiary);
+    }
+  
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-dark);
+
+    &:hover {
+      background: var(--color-bg-tertiary);
+    }
+  
+    }
+  }
+}
+
+.linkedAccountInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+
+  @media (max-width: 576px) {
+    justify-content: center;
+  }
+}
+
+.linkedAccountIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: var(--radius-md);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+
+  &.facebook {
+    background: #1877f2;
+    color: white;
+  }
+
+  &.google {
+    background: #ea4335;
+    color: white;
+  }
+
+  &.twitter {
+    background: #000000;
+    color: white;
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+  }
+}
+
+.linkedAccountDetails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+
+  @media (max-width: 576px) {
+    align-items: center;
+  }
+}
+
+.linkedAccountName {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.linkedAccountStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+
+  &.linked {
+    color: var(--color-success);
+  }
+
+  &.notLinked {
+    color: var(--color-text-muted);
+  }
+
+  svg {
+    font-size: 0.875em;
+  }
+}
+
+.linkedAccountDate {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.linkedAccountActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+
+  @media (max-width: 576px) {
+    justify-content: center;
+  }
+}
+
+.linkedAccountBtn {
+  min-width: 80px;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 2px solid transparent;
+  cursor: pointer;
+
+  &.link {
+    background: var(--gradient-primary);
+    color: var(--color-white);
+    border-color: transparent;
+
+    &:hover:not(:disabled) {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+  }
+
+  &.unlink {
+    background: transparent;
+    border-color: var(--color-border-medium);
+    color: var(--color-text-secondary);
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+      background: rgba(239, 68, 68, 0.05);
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.linkedAccountSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.linkedAccountsEmpty {
+  text-align: center;
+  padding: var(--space-6);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+
+  p {
+    margin: 0;
+  }
+}
+
+.linkedAccountsPasswordStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-3);
+
+  svg {
+    color: var(--color-success);
+  }
+
+  &.noPassword svg {
+    color: var(--color-warning);
+  }
+}
+
+/* ===== UpdateProfile Utility Replacements ===== */
+
+.mb4 {
+  margin-bottom: 1.5rem;
+}
+
+.mb3 {
+  margin-bottom: 1rem;
+}
+
+.mt4 {
+  margin-top: 1.5rem;
+}
+
+.mt2 {
+  margin-top: 0.5rem;
+}
+
+.my4 {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.me2 {
+  margin-inline-end: 0.5rem;
+}
+
+.p0 {
+  padding: 0;
+}
+
+.noTextDecoration {
+  text-decoration: none;
+}
+
+.flexGrow1 {
+  flex-grow: 1;
+}
+
+.justifyCenter {
+  justify-content: center;
+}
+
+.formActions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  gap: 1rem;
+}
+
+.curatorLinksLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.locationHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin-top: calc(0.5rem * -1);
+  margin-bottom: 1rem;
+}
+
+.linkedAccountsLoading {
+  text-align: center;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.linkedAccountsDesc {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.changesList {
+  margin-bottom: 0;
+  margin-top: 0.5rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.col12 {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+.profileContainer {
+  max-width: 992px;
+  margin-inline: auto;
+  padding-inline: 0.75rem;
+}

@@ -34,7 +34,7 @@ import PropTypes from 'prop-types';
 import { Menu, Portal } from '@chakra-ui/react';
 import { LuChevronDown } from 'react-icons/lu';
 import { Button } from '../design-system';
-import styles from './SplitButton.module.scss';
+import styles from './SplitButton.module.css';
 
 /**
  * SplitButton - Primary action button with dropdown menu for secondary actions.
