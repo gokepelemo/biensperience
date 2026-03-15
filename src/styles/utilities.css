@@ -1780,7 +1780,7 @@ body {
   color: var(--color-text-primary, #212529); background-color: var(--color-bg-primary, #fff);
   -webkit-text-size-adjust: 100%;
 }
-a { color: var(--color-primary, #0d6efd); text-decoration: underline; &:hover { color: var(--color-primary, #0a58ca); } }
+a:not([class*="chakra-button"]):not([class*="btn"]) { color: var(--color-primary, #0d6efd); text-decoration: underline; &:hover { color: var(--color-primary, #0a58ca); } }
 img, svg { vertical-align: middle; }
 [hidden] { display: none !important; }
 

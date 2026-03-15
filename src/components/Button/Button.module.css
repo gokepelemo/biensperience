@@ -57,6 +57,14 @@
   color: #fff !important;
   box-shadow: var(--btn-shadow-base);
 
+  /* Ensure white text when rendered as an anchor (<Link>, <a>) */
+  &:link,
+  &:visited,
+  &:hover,
+  &:active {
+    color: #fff !important;
+  }
+
   &:hover:not(:disabled) {
     filter: brightness(var(--btn-gradient-hover-brightness));
     transform: translateY(var(--btn-hover-lift));

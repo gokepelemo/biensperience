@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Box, Flex } from "@chakra-ui/react";
 import { useData } from "../../contexts/DataContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
@@ -17,6 +17,7 @@ import { lang } from "../../lang.constants";
 const ITEMS_PER_PAGE = 12;
 
 export default function ExperiencesByTag() {
+  const navigate = useNavigate();
   const { tagName } = useParams();
   const { experiences: contextExperiences, plans, loading: contextLoading } = useData();
   const [actualTagName, setActualTagName] = useState("");
@@ -185,11 +186,10 @@ export default function ExperiencesByTag() {
           >
             <Flex gap="3" align="center">
               <Button
-                as={Link}
-                to="/experiences"
                 variant="gradient"
                 leftIcon={<FaUser />}
                 rightIcon={<FaArrowRight />}
+                onClick={() => navigate('/experiences')}
               >
                 {lang.current.experiencesByTag.viewAllExperiences}
               </Button>
@@ -232,7 +232,7 @@ export default function ExperiencesByTag() {
               >
                 <h5>{lang.current.experiencesByTag.noExperiencesFound.replace('{tagName}', displayTagName)}</h5>
                 <p>{lang.current.experiencesByTag.tryBrowsingAll}</p>
-                <Button as={Link} to="/experiences" variant="gradient" mt="2">
+                <Button variant="gradient" onClick={() => navigate('/experiences')} mt="2">
                   {lang.current.experiencesByTag.browseAll}
                 </Button>
               </Alert>

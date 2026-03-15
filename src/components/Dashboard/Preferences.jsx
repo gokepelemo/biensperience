@@ -307,7 +307,7 @@ export default function Preferences() {
                   checked={form.notificationsEnabled}
                   onCheckedChange={(details) => handleChange('notificationsEnabled', details.checked)}
                   size="md"
-                  colorPalette="blue"
+                  colorPalette="purple"
                 >
                   <Switch.HiddenInput />
                   <Switch.Control>

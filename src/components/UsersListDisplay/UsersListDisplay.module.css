@@ -53,9 +53,13 @@
   margin-inline-start: 1rem;
 }
 
-/* Single user display (no stack) */
-.usersListSingle :global(.user-avatar) {
-  margin-left: 0 !important;
+/* Single user display (no stack) — match multi-user row height to prevent layout shift */
+.usersListSingle {
+  :global(.user-avatar) {
+    margin-left: 0 !important;
+  }
+
+  min-height: 44px;
 }
 
 /* Avatar Stack - Overlapping avatars */
