@@ -9,7 +9,8 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Button, Dropdown, SearchInput } from '../../components/design-system';
-import { FaPaperPlane, FaPlus, FaTimes } from 'react-icons/fa';
+import SplitButton from '../SplitButton/SplitButton';
+import { FaStickyNote, FaPlus, FaTimes, FaBan } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
@@ -157,21 +158,20 @@ function NoteForm({
         {/* Spacer to push buttons to the right */}
         <div className={styles.formActionsSpacer} />
 
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          {lang.current.button.cancel}
-        </Button>
-        <Button
-          variant="primary"
+        <SplitButton
+          label={loading ? loadingText : submitText}
+          icon={<FaStickyNote aria-hidden="true" />}
           onClick={onSubmit}
+          variant="gradient"
+          size="sm"
           disabled={!content?.trim() || loading}
-          aria-describedby="note-form-hint"
+          menuAriaLabel="Note form actions"
+          placement="top-end"
         >
-          <FaPaperPlane aria-hidden="true" /> {loading ? loadingText : submitText}
-        </Button>
+          <SplitButton.Item value="cancel" onClick={onCancel}>
+            <FaBan /> {lang.current.button.cancel}
+          </SplitButton.Item>
+        </SplitButton>
       </div>
       <span id="note-form-hint" className={styles.visuallyHidden}>
         Press Enter to submit, Shift+Enter for new line, Escape to cancel
@@ -514,7 +514,8 @@ export default function PlanItemNotes({
     setShowAddNoteForm(false);
     setNewNoteContent('');
     setNewNoteVisibility('contributors');
-  }, []);
+    persistence.clear();
+  }, [persistence]);
 
   const handleDeleteNote = useCallback((noteId) => {
     setNoteToDelete(noteId);
@@ -591,6 +592,7 @@ export default function PlanItemNotes({
               disabled={disabled}
               size="sm"
               className={styles.searchPill}
+              inputClassName={styles.searchPillInput}
             />
 
             <button
