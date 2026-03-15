@@ -117,7 +117,13 @@
   transform: rotate(180deg);
 }
 
-.accordionBody {
+/* .accordionBody is applied to ItemContent (the outer collapsing container).
+ * Visual styles must live on the inner ItemBody so they are correctly
+ * clipped by ItemContent's overflow:hidden during the collapse animation.
+ * Putting padding/background/border on ItemContent itself causes a visible
+ * grey strip because those box properties are not clipped by the element's
+ * own overflow — only children are. */
+.accordionBody > [data-part="item-body"] {
   padding: var(--space-4);
   background: var(--color-bg-primary);
   border-top: 1px solid var(--color-border-light);

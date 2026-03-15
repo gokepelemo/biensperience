@@ -2,6 +2,7 @@
 .textareaWrapper {
   position: relative;
   display: block;
+  width: 100%;
 }
 
 .textareaControl {
@@ -109,6 +110,7 @@
 /* Text input variant to match textarea visual style */
 .textWrapper {
   position: relative;
+  width: 100%;
 }
 
 .textControl {

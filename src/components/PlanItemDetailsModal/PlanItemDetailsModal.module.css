@@ -1709,3 +1709,56 @@
     color: white;
   }
 }
+
+/* Plan item navigation bar (prev / next) */
+.itemNavigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-subtle, rgba(0,0,0,0.08));
+  flex-shrink: 0;
+}
+
+.itemNavBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--color-border-subtle, rgba(0,0,0,0.15));
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms;
+  flex-shrink: 0;
+
+  & svg {
+    font-size: 0.8rem;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover, rgba(0,0,0,0.06));
+    color: var(--color-text-primary);
+    border-color: var(--color-border, rgba(0,0,0,0.25));
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+.itemNavHint {
+  flex: 1;
+  text-align: center;
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

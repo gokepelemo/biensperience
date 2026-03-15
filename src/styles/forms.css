@@ -15,6 +15,16 @@ form,
   padding: clamp(var(--space-2), 2vw, var(--space-6));
 }
 
+/* Inside modals, forms should be full width with no extra margin/padding */
+.modal-body form,
+.modal-body .form-container,
+[class*="modalBody"] form,
+[class*="modal-body"] form {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 /* Specific form classes */
 form.newExperience,
 form.new-experience-form,

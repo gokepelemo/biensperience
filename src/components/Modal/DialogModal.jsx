@@ -136,6 +136,18 @@ const DialogModal = forwardRef(function DialogModal({
                     onClick={onClose}
                     aria-label={lang.current.aria.close}
                     disabled={loading}
+                    style={{
+                      position: 'relative',
+                      top: 'unset',
+                      right: 'unset',
+                      bottom: 'unset',
+                      left: 'unset',
+                      inset: 'unset',
+                      alignSelf: 'center',
+                      flexShrink: 0,
+                      marginTop: 0,
+                      marginBottom: 0,
+                    }}
                   >
                     <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>&times;</span>
                   </button>

@@ -2022,6 +2022,33 @@ export default function SingleExperience() {
     }
   }, [selectedPlanId, openModal, writeExperienceHash]);
 
+  // Navigate to the previous plan item in the Details modal (keyboard ← / swipe right)
+  const handlePrevPlanItemDetails = useCallback(() => {
+    const items = selectedPlan?.plan;
+    if (!items || !selectedDetailsItem) return;
+    const idx = items.findIndex(item => idEquals(item._id, selectedDetailsItem._id));
+    if (idx > 0) {
+      handleViewPlanItemDetails(items[idx - 1]);
+    }
+  }, [selectedPlan, selectedDetailsItem, handleViewPlanItemDetails]);
+
+  // Navigate to the next plan item in the Details modal (keyboard → / swipe left)
+  const handleNextPlanItemDetails = useCallback(() => {
+    const items = selectedPlan?.plan;
+    if (!items || !selectedDetailsItem) return;
+    const idx = items.findIndex(item => idEquals(item._id, selectedDetailsItem._id));
+    if (idx >= 0 && idx < items.length - 1) {
+      handleViewPlanItemDetails(items[idx + 1]);
+    }
+  }, [selectedPlan, selectedDetailsItem, handleViewPlanItemDetails]);
+
+  // Compute whether prev/next navigation is available for the details modal
+  const detailsNavIndex = useMemo(() => {
+    const items = selectedPlan?.plan;
+    if (!items || !selectedDetailsItem) return -1;
+    return items.findIndex(item => idEquals(item._id, selectedDetailsItem._id));
+  }, [selectedPlan?.plan, selectedDetailsItem]);
+
   // Hash repair: if React Router (or other navigation) clears the hash after the
   // plan/tab/modal has successfully loaded, re-add the expected hash.
   // This effect is intentionally keyed on `location.hash` so it runs when the
@@ -4017,6 +4044,8 @@ export default function SingleExperience() {
         presenceConnected={presenceConnected}
         planMembers={planMembers}
         experienceName={experience?.name || ''}
+        onPrev={detailsNavIndex > 0 ? handlePrevPlanItemDetails : undefined}
+        onNext={detailsNavIndex >= 0 && selectedPlan?.plan && detailsNavIndex < selectedPlan.plan.length - 1 ? handleNextPlanItemDetails : undefined}
       />
 
       {/* Inline Cost Entry Modal - for adding costs from plan item details */}

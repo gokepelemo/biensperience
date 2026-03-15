@@ -1281,6 +1281,9 @@ const config = defineConfig({
             fontSize: 'clamp(1rem, 2vw, 1.25rem)',
             margin: 0,
             flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            minHeight: '44px',
           },
           description: {
             color: 'fg.secondary',
@@ -1334,8 +1337,6 @@ const config = defineConfig({
             padding: 0,
             margin: 0,
             marginLeft: 'auto',
-            // Ensure perfect vertical centering in header flex container
-            alignSelf: 'center',
             cursor: 'pointer',
             // Large, clearly visible × symbol
             fontSize: '28px',

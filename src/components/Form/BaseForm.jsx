@@ -103,6 +103,7 @@ export function BaseFormGroup({
     <Field.Root
       display="flex"
       flexDirection="column"
+      alignItems="stretch"
       gap="2"
       invalid={invalid}
       className={className || undefined}

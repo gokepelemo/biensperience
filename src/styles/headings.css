@@ -32,7 +32,12 @@ h1, h2, h3, h4, h5, h6,
   &[data-scope="dialog"][data-part="title"] {
     color: white;
     contain: none;
-    margin-bottom: 0;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    flex: 1;
   }
 
   /* Performance optimizations */

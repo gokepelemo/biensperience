@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from '../design-system';
-import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown } from 'react-icons/fa';
+import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import {
   Chat,
   Channel,
@@ -79,7 +79,10 @@ export default function PlanItemDetailsModal({
   presenceConnected = false,
   planMembers = [],
   // Experience name for PDF export title
-  experienceName = ''
+  experienceName = '',
+  // Navigation callbacks for keyboard/swipe between plan items
+  onPrev,
+  onNext
 }) {
   const streamApiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
 
@@ -158,6 +161,9 @@ export default function PlanItemDetailsModal({
   const titleInputRef = useRef(null);
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
+  // Touch tracking refs for swipe-to-navigate
+  const touchStartXRef = useRef(null);
+  const touchStartYRef = useRef(null);
 
   // Mobile/Tablet: allow the details modal to scroll within its fixed overlay.
   // Uses 991px breakpoint to match tab dropdown visibility (same breakpoint as .detailsTabs display: none)
@@ -371,6 +377,66 @@ export default function PlanItemDetailsModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, planItem?.scheduled_date, planItem?.scheduled_time]);
+
+  // Keyboard navigation: ArrowLeft = prev item, ArrowRight = next item
+  useEffect(() => {
+    if (!show || (!onPrev && !onNext)) return;
+
+    const handleKeyDown = (e) => {
+      const el = document.activeElement;
+      const tag = el?.tagName?.toLowerCase();
+      const role = el?.getAttribute?.('role');
+      // Skip when user is interacting with a text input or navigable widget
+      if (
+        tag === 'input' || tag === 'textarea' || tag === 'select' ||
+        el?.isContentEditable ||
+        role === 'tab' || role === 'option'
+      ) return;
+
+      if (e.key === 'ArrowLeft' && onPrev) {
+        e.preventDefault();
+        onPrev();
+      } else if (e.key === 'ArrowRight' && onNext) {
+        e.preventDefault();
+        onNext();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [show, onPrev, onNext]);
+
+  // Swipe gesture handlers for touch-to-navigate between plan items
+  const handleTouchStart = useCallback((e) => {
+    if (e.touches.length !== 1) {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      return;
+    }
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (touchStartXRef.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+    const dy = e.changedTouches[0].clientY - touchStartYRef.current;
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+
+    // Must exceed threshold and be primarily horizontal (not a scroll)
+    const SWIPE_THRESHOLD = 60;
+    if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+    if (Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+    if (dx < 0 && onNext) {
+      // Swipe left → next item
+      onNext();
+    } else if (dx > 0 && onPrev) {
+      // Swipe right → prev item
+      onPrev();
+    }
+  }, [onPrev, onNext]);
 
   // Handle click outside for add dropdown
   useEffect(() => {
@@ -1246,7 +1312,37 @@ export default function PlanItemDetailsModal({
       allowBodyScroll={isMobileViewport}
       bodyClassName={isMobileViewport ? styles.modalBodyDocumentScroll : styles.modalBodyFullscreen}
     >
-      <div className={`${styles.planItemDetailsModal} ${isMobileViewport ? styles.documentScrollMode : ''}`}>
+      <div
+        className={`${styles.planItemDetailsModal} ${isMobileViewport ? styles.documentScrollMode : ''}`}
+        onTouchStart={(onPrev || onNext) ? handleTouchStart : undefined}
+        onTouchEnd={(onPrev || onNext) ? handleTouchEnd : undefined}
+      >
+        {/* Item navigation bar - prev/next with keyboard and swipe support */}
+        {(onPrev || onNext) && (
+          <div className={styles.itemNavigation}>
+            <button
+              type="button"
+              className={styles.itemNavBtn}
+              onClick={onPrev}
+              disabled={!onPrev}
+              aria-label="Previous plan item"
+              title="Previous item (← arrow key)"
+            >
+              <FaChevronLeft />
+            </button>
+            <span className={styles.itemNavHint}>Use arrow keys or swipe to navigate</span>
+            <button
+              type="button"
+              className={styles.itemNavBtn}
+              onClick={onNext}
+              disabled={!onNext}
+              aria-label="Next plan item"
+              title="Next item (→ arrow key)"
+            >
+              <FaChevronRight />
+            </button>
+          </div>
+        )}
         {/* Assignment section */}
         <div className={styles.assignmentSection}>
           <label className={styles.assignmentLabel}>{lang.current.planItemDetailsModal.assignedTo}</label>
