@@ -141,7 +141,7 @@ export default function usePlanSync({
 
     try {
       const currentPlan = allPlans.find((p) => idEquals(p._id, selectedPlanId));
-      if (!currentPlan) return;
+      if (!currentPlan || !Array.isArray(currentPlan.plan)) return;
 
       const changes = {
         added: [],
@@ -169,8 +169,11 @@ export default function usePlanSync({
 
       // Find items in plan but not in experience (removed)
       currentPlan.plan.forEach((planItem) => {
+        // Skip items missing plan_item_id — they're corrupt/legacy and can't be
+        // meaningfully compared or removed by ID in confirmSyncPlan.
+        if (!planItem.plan_item_id) return;
         const expItem = experience.plan_items.find(
-          (eItem) => eItem._id.toString() === planItem.plan_item_id?.toString()
+          (eItem) => eItem._id.toString() === planItem.plan_item_id.toString()
         );
         if (!expItem) {
           changes.removed.push({
@@ -263,8 +266,8 @@ export default function usePlanSync({
       setSyncLoading(true);
 
       const currentPlan = allPlans.find((p) => idEquals(p._id, selectedPlanId));
-      if (!currentPlan) {
-        throw new Error('Current plan not found');
+      if (!currentPlan || !Array.isArray(currentPlan.plan)) {
+        throw new Error('Current plan not found or has no plan items');
       }
 
       // Start with current plan items
@@ -289,9 +292,9 @@ export default function usePlanSync({
 
       // Apply selected removals
       if (selectedSyncItems.removed.length > 0) {
-        const itemIdsToRemove = selectedSyncItems.removed.map((idx) =>
-          syncChanges.removed[idx]._id.toString()
-        );
+        const itemIdsToRemove = selectedSyncItems.removed
+          .map((idx) => syncChanges.removed[idx]._id?.toString())
+          .filter(Boolean);
         updatedPlanSnapshot = updatedPlanSnapshot.filter(
           (pItem) => !itemIdsToRemove.includes(pItem.plan_item_id?.toString())
         );

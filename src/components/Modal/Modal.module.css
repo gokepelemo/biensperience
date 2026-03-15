@@ -26,33 +26,31 @@
 
   /* Content within scrollable overlay has no max-height constraint */
   [data-scope="dialog"][data-part="content"] {
-    max-height: none;
-    height: auto;
-    overflow: visible;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   /* Body within scrollable overlay */
   [data-scope="dialog"][data-part="body"] {
-    overflow: visible;
+    overflow: visible !important;
   }
 
   /* Fullscreen variant sizes to content within the scrollable overlay */
   [data-scope="dialog"][data-part="content"][data-size="full"] {
-    height: auto;
-    min-height: auto;
-    max-height: none;
-    overflow: visible;
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow: visible !important;
     flex: 0 0 auto;
-    min-height: 100vh;
-    min-height: 100dvh;
     display: flex;
     flex-direction: column;
 
     [data-scope="dialog"][data-part="body"] {
       flex: 1 1 auto;
       min-height: 0;
-      height: auto;
-      overflow: visible;
+      height: auto !important;
+      overflow: visible !important;
       display: flex;
       flex-direction: column;
     }
@@ -64,16 +62,16 @@
   margin-inline-end: 0.5rem;
 }
 
-/* Responsive Modal Sizing — override recipe maxWidth on mobile */
+/* Responsive Modal Sizing — override recipe maxWidth on mobile (exclude fullscreen) */
 @media (max-width: 575px) {
 
-  :global([data-scope="dialog"][data-part="content"]) {
+  :global([data-scope="dialog"][data-part="content"]:not([data-size="full"])) {
     max-width: 90% !important;
   }
 
 }
 
-/* Fullscreen modal on mobile - remove border-radius */
+/* Fullscreen modal on mobile - remove all border radius for true fullscreen */
 @media (max-width: 767px) {
 
   :global([data-scope="dialog"][data-part="content"][data-size="full"]) {

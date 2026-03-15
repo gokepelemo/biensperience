@@ -28,6 +28,13 @@ h1, h2, h3, h4, h5, h6,
   letter-spacing: var(--letter-spacing-tight);
   color: var(--color-text-primary);
 
+  /* Let Chakra Dialog title slot recipe control its own styling */
+  &[data-scope="dialog"][data-part="title"] {
+    color: white;
+    contain: none;
+    margin-bottom: 0;
+  }
+
   /* Performance optimizations */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

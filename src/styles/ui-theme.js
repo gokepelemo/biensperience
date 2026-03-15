@@ -41,8 +41,8 @@ const config = defineConfig({
   // (SCSS backward compat during migration). theme-manager.js sets both.
   // -----------------------------------------------------------------------
   conditions: {
-    dark: '.dark &, [data-theme="dark"] &, @media (prefers-color-scheme: dark)',
-    light: ':root &, .light &, [data-theme="light"] &',
+    light: '.light &, [data-theme="light"] &',
+    dark: '.dark &, [data-theme="dark"] &',
   },
 
   // -----------------------------------------------------------------------
@@ -1246,7 +1246,7 @@ const config = defineConfig({
           },
           content: {
             background: { _light: '#ffffff', _dark: '#1e1e1e' },
-            borderRadius: '{radii.lg}',
+            borderRadius: '1.25rem',
             boxShadow: '{shadows.lg}',
             maxHeight: '90vh',
             // Allow dropdowns to render outside content bounds
@@ -1270,6 +1270,10 @@ const config = defineConfig({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            // Round top corners so gradient header clips to modal corners
+            // (content uses overflow: visible to allow dropdowns to escape)
+            borderTopLeftRadius: '1.25rem',
+            borderTopRightRadius: '1.25rem',
           },
           title: {
             fontWeight: '{fontWeights.bold}',
@@ -1305,6 +1309,10 @@ const config = defineConfig({
             alignItems: 'center',
             justifyContent: 'flex-end',
             gap: '{spacing.3}',
+            // Round bottom corners so footer background clips to modal corners
+            // (content uses overflow: visible to allow dropdowns to escape)
+            borderBottomLeftRadius: '1.25rem',
+            borderBottomRightRadius: '1.25rem',
             // Below body stacking context so dropdowns appear above
             position: 'relative',
             zIndex: 1,
@@ -1318,6 +1326,7 @@ const config = defineConfig({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            alignSelf: 'center',
             borderRadius: '{radii.md}',
             color: 'white',
             background: 'transparent',
@@ -1325,6 +1334,8 @@ const config = defineConfig({
             padding: 0,
             margin: 0,
             marginLeft: 'auto',
+            // Ensure perfect vertical centering in header flex container
+            alignSelf: 'center',
             cursor: 'pointer',
             // Large, clearly visible × symbol
             fontSize: '28px',
@@ -1368,6 +1379,14 @@ const config = defineConfig({
                 paddingRight: 'env(safe-area-inset-right, 0)',
               },
               positioner: { padding: 0 },
+              header: {
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: 0,
+              },
+              footer: {
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              },
               body: {
                 flex: '1 1 0',
                 minHeight: 0,

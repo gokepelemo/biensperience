@@ -3094,7 +3094,7 @@ export default function SingleExperience() {
           />
         )}
       {experience && !plansLoading ? (
-        <Box minH="100vh" py="8" bg="bg">
+        <Box minH="100vh" pt="4" pb="8" bg="bg">
           <Container>
             {/* Breadcrumb Navigation */}
             <Breadcrumb
@@ -3266,9 +3266,9 @@ export default function SingleExperience() {
                 <Box mb="6" css={{ '@media (max-width: 991px)': { textAlign: 'center' } }}>
                   <Box as="h1" ref={h1Ref} fontSize="3xl" fontWeight="bold" color="fg" mb="3" lineHeight="1.2">{experience.name}</Box>
                   {experience.destination && experience.destination.name && (
-                    <Box as="p" fontSize="lg" color="fg.muted" display="inline-flex" alignItems="center" gap="2" lineHeight="1" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
-                      <Box as={FaMapMarkerAlt} color="colorPalette.solid" flexShrink="0" display="block" />
-                      <Link to={`/destinations/${experience.destination._id}`} style={{ lineHeight: 1 }}>
+                    <Box as="p" fontSize="lg" color="fg.muted" display="inline-flex" alignItems="baseline" gap="2" css={{ '@media (max-width: 991px)': { justifyContent: 'center' } }}>
+                      <FaMapMarkerAlt style={{ color: 'var(--color-primary)', flexShrink: 0, position: 'relative', top: '0.15em' }} />
+                      <Link to={`/destinations/${experience.destination._id}`}>
                         {experience.destination.name}{experience.destination.country ? `, ${experience.destination.country}` : ''}
                       </Link>
                     </Box>

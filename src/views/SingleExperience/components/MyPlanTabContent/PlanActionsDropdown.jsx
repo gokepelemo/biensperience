@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BsArrowRepeat, BsChatDots, BsPersonPlus, BsPlusCircle } from 'react-icons/bs';
+import { BsArrowRepeat, BsChatDots, BsGeoAlt, BsPersonPlus, BsPlusCircle } from 'react-icons/bs';
 
 import ActionsMenu from '../../../../components/ActionsMenu';
 import { lang } from '../../../../lang.constants';
@@ -14,7 +14,8 @@ export default function PlanActionsDropdown({
   handleSyncPlan,
   chatEnabled,
   chatLoading,
-  openPlanChat
+  openPlanChat,
+  openTravelOriginModal,
 }) {
   const actions = useMemo(() => {
     return [
@@ -41,6 +42,13 @@ export default function PlanActionsDropdown({
         hidden: !isPlanOwner,
       },
       {
+        id: 'travel-origin',
+        label: lang.current.label.myTravelOrigin,
+        icon: <BsGeoAlt />,
+        onClick: () => openTravelOriginModal(),
+        hidden: !canEdit || !openTravelOriginModal,
+      },
+      {
         id: 'sync',
         label: loading ? lang.current.button.syncing : lang.current.button.syncNow,
         icon: <BsArrowRepeat className={loading ? 'spin' : undefined} />,
@@ -59,6 +67,7 @@ export default function PlanActionsDropdown({
     loading,
     openCollaboratorModal,
     openPlanChat,
+    openTravelOriginModal,
     showSyncButton,
   ]);
 

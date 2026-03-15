@@ -5,7 +5,7 @@
 
 .infoCard {
   width: 280px;
-  background: white;
+  background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
   overflow: hidden;
   font-family: var(--font-family-base);
@@ -17,19 +17,16 @@
    */
   margin: 0;
 
-  :root[data-theme="dark"] & {
-
+  :root[data-theme="dark"] &,
+  .dark & {
     background: var(--color-bg-secondary);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-secondary);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  
+      background: var(--color-bg-secondary);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     }
   }
 }
@@ -85,19 +82,16 @@
 
 .content {
   padding: 16px 20px 20px !important; /* Generous padding for card content */
-  background: white;
+  background: var(--color-bg-primary);
 
-  :root[data-theme="dark"] & {
-
+  :root[data-theme="dark"] &,
+  .dark & {
     background: var(--color-bg-secondary);
-  
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-secondary);
-  
+      background: var(--color-bg-secondary);
     }
   }
 }

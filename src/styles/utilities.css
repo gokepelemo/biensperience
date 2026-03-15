@@ -1503,7 +1503,7 @@ svg.standalone-icon {
 .bg-info        { background-color: var(--color-info-text, #0dcaf0) !important; }
 .bg-light       { background-color: var(--color-bg-secondary, #f8f9fa) !important; }
 .bg-dark        { background-color: var(--color-bg-inverse, #212529) !important; }
-.bg-white       { background-color: #fff !important; }
+.bg-white       { background-color: var(--color-bg-primary) !important; }
 .bg-transparent { background-color: transparent !important; }
 
 /* ── Shadows (Bootstrap names) ─────────────── */

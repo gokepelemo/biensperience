@@ -182,36 +182,28 @@ export default function NewDestination() {
               tooltipPlacement="top"
             />
 
-            <div className={`${styles.row} ${styles.formRow}`}>
-              <div className={`${styles.colMd6} ${styles.formColSpacing}`}>
-                <FormField
-                  name="state"
-                  label={lang.current.formLabel.stateProvince}
-                  type="text"
-                  value={newDestination.state || ''}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.stateProvince}
-                  tooltip={lang.current.helper.stateProvinceRequired}
-                  tooltipPlacement="top"
-                  className={styles.mb0}
-                />
-              </div>
+            <FormField
+              name="state"
+              label={lang.current.formLabel.stateProvince}
+              type="text"
+              value={newDestination.state || ''}
+              onChange={handleChange}
+              placeholder={lang.current.placeholder.stateProvince}
+              tooltip={lang.current.helper.stateProvinceRequired}
+              tooltipPlacement="top"
+            />
 
-              <div className={styles.colMd6}>
-                <FormField
-                  name="country"
-                  label={lang.current.formLabel.country}
-                  type="text"
-                  value={newDestination.country || ''}
-                  onChange={handleChange}
-                  placeholder={lang.current.placeholder.country}
-                  required
-                  tooltip={lang.current.helper.countryRequired}
-                  tooltipPlacement="top"
-                  className={styles.mb0}
-                />
-              </div>
-            </div>
+            <FormField
+              name="country"
+              label={lang.current.formLabel.country}
+              type="text"
+              value={newDestination.country || ''}
+              onChange={handleChange}
+              placeholder={lang.current.placeholder.country}
+              required
+              tooltip={lang.current.helper.countryRequired}
+              tooltipPlacement="top"
+            />
 
             <FormField
               name="overview"

@@ -50,6 +50,9 @@
             } catch (e) { applied = 'light'; }
           }
           document.documentElement.setAttribute('data-theme', applied);
+          document.documentElement.classList.remove('dark', 'light');
+          document.documentElement.classList.add(applied);
+          document.documentElement.style.colorScheme = applied;
         } catch (err) {
           // ignore
         }

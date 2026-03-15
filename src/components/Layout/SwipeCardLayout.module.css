@@ -130,7 +130,7 @@
 .rejectButton {
   width: 64px;
   height: 64px;
-  background: white;
+  background: var(--color-bg-primary);
   color: var(--color-danger);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
 
@@ -167,7 +167,7 @@
 .undoButton {
   width: 44px;
   height: 44px;
-  background: white;
+  background: var(--color-bg-primary);
   color: var(--color-warning);
   font-size: 1rem;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);

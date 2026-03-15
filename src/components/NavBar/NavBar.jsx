@@ -427,16 +427,15 @@ export default function NavBar() {
         borderBottom="1px solid"
         borderColor={{ base: 'transparent', lg: 'border' }}
         boxShadow="0 2px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)"
-        minH="60px"
-        h="60px"
+        minH="68px"
+        h="68px"
         transition="box-shadow 0.25s cubic-bezier(0.4,0,0.2,1)"
         css={{ willChange: 'transform, opacity', contain: 'layout style' }}
       >
-        <Flex align="flex-end" h="full" w="full" px="3" mx="auto" pb="2">
+        <Flex align="center" h="full" w="full" px="3" mx="auto">
           {/* ─── Brand ─── */}
           <Flex
-            align="flex-end"
-            h="full"
+            align="center"
             gap={{ base: '0', lg: '1' }}
             flexShrink={0}
             css={{
@@ -450,7 +449,7 @@ export default function NavBar() {
               to="/"
               aria-label={lang.current.aria.biensperienceHome}
               title="Biensperience"
-              style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', height: '100%' }}
+              className={styles.logoLink}
               onMouseEnter={() => setLogoHovered(true)}
               onMouseLeave={() => setLogoHovered(false)}
             >
@@ -478,8 +477,7 @@ export default function NavBar() {
           {/* ─── Desktop nav ─── */}
           <Flex
             display={{ base: 'none', lg: 'flex' }}
-            align="flex-end"
-            h="full"
+            align="center"
             flex="1"
           >
             {renderDesktopNavLinks()}
@@ -509,7 +507,13 @@ export default function NavBar() {
             justifyContent="center"
             position="absolute"
             right="3"
-            bottom="8px"
+            top="50%"
+            css={{
+              transform: 'translateY(-50%)',
+              '&:focus': { boxShadow: '0 0 0 0.2rem rgba(102,126,234,0.5)' },
+              '&:active': { background: 'var(--color-bg-hover)' },
+              '&:hover, &:active': { transform: 'translateY(-50%) !important' },
+            }}
             zIndex="20"
             border="1px solid"
             borderColor="border"
@@ -523,11 +527,6 @@ export default function NavBar() {
             aria-expanded={mobileOpen}
             aria-controls={drawerId}
             onClick={() => setMobileOpen(prev => !prev)}
-            css={{
-              '&:focus': { boxShadow: '0 0 0 0.2rem rgba(102,126,234,0.5)' },
-              '&:active': { background: 'var(--color-bg-hover)' },
-              '&:hover, &:active': { transform: 'none !important' },
-            }}
           >
             {mobileOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
           </Box>

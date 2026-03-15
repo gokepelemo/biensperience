@@ -71,9 +71,18 @@ select {
   line-height: 1.5;
   border-radius: clamp(var(--radius-md), 1vw, var(--radius-lg));
   border: 2px solid var(--color-border-medium);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
   transition: all 300ms;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Placeholder color */
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-disabled);
 }
 
 /* Specific overrides for form-specific styles */
@@ -171,6 +180,15 @@ form .btn-lg {
 }
 
 /* ============================================
+   SELECT OPTION ELEMENTS (native dark mode)
+   ============================================ */
+
+select option {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* ============================================
    HELPER TEXT & VALIDATION
    ============================================ */
 
@@ -180,6 +198,7 @@ small.form-text {
   margin-top: clamp(var(--space-1), 0.5vw, var(--space-2));
   display: block;
   line-height: 1.4;
+  color: var(--color-text-muted);
 }
 
 .invalid-feedback,

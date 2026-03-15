@@ -62,7 +62,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 try {
   // Prefer hydrated theme from user preferences (if present)
   const stored = themeManager.getHydratedTheme ? themeManager.getHydratedTheme() : themeManager.getStoredTheme();
-  if (stored) themeManager.applyTheme(stored);
+  themeManager.applyTheme(stored || 'system-default');
 } catch (err) {
   // ignore
 }

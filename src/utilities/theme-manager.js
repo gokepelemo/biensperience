@@ -156,7 +156,7 @@ function _ensureMediaListener(theme) {
 
 export function applyTheme(theme) {
   if (typeof document === 'undefined') return;
-  if (!theme) return;
+  if (!theme) theme = 'system-default';
   try {
     // Resolve system-default to actual preference (light/dark)
     const applied = _resolveEffective(theme);

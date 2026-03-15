@@ -801,6 +801,7 @@ export default function MyPlanTabContent({
             chatEnabled={chatEnabled}
             chatLoading={chatLoading}
             openPlanChat={openPlanChat}
+            openTravelOriginModal={() => setShowTravelOriginModal(true)}
           />
         </div>
         {chatError && (
@@ -887,6 +888,7 @@ export default function MyPlanTabContent({
           chatEnabled={chatEnabled}
           chatLoading={chatLoading}
           openPlanChat={openPlanChat}
+          openTravelOriginModal={() => setShowTravelOriginModal(true)}
         />
       </div>
 
@@ -944,20 +946,6 @@ export default function MyPlanTabContent({
         minDate={currentPlan?.planned_date || null}
         timeOnly={dateModalTimeOnly}
         fixedDate={dateModalParentDate}
-      />
-
-      {/* Travel Origins Section */}
-      <TravelOriginsSection
-        memberLocations={currentPlan.member_locations || []}
-        user={user}
-        planCollaborators={planCollaborators || []}
-        planOwner={planOwner}
-        planCurrency={currentPlan?.currency || 'USD'}
-        canEdit={canEdit}
-        onEditOwn={() => setShowTravelOriginModal(true)}
-        onRemoveOwn={handleRemoveMemberLocation}
-        loading={memberLocationLoading}
-        lang={lang}
       />
 
       {/* Costs Section */}

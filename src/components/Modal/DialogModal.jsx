@@ -137,7 +137,7 @@ const DialogModal = forwardRef(function DialogModal({
                     aria-label={lang.current.aria.close}
                     disabled={loading}
                   >
-                    <span aria-hidden="true">&times;</span>
+                    <span aria-hidden="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>&times;</span>
                   </button>
                 </Dialog.CloseTrigger>
               </Dialog.Header>
