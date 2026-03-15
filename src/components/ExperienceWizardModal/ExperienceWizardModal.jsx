@@ -11,6 +11,7 @@ import {
   FaUserPlus,
   FaEnvelope
 } from 'react-icons/fa';
+import { Steps } from '@chakra-ui/react';
 import BiensperienceLogo from '../BiensperienceLogo/BiensperienceLogo';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
@@ -32,11 +33,11 @@ import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
 import styles from './ExperienceWizardModal.module.css';
 
 const STEPS = {
-  BASIC_INFO: 1,
-  MORE_DETAILS: 2,
-  PLAN_ITEMS: 3,
-  COLLABORATORS: 4,
-  SUCCESS: 5,
+  BASIC_INFO: 0,
+  MORE_DETAILS: 1,
+  PLAN_ITEMS: 2,
+  COLLABORATORS: 3,
+  SUCCESS: 4,
 };
 
 // Step labels are set dynamically using lang constants in renderStepIndicator
@@ -590,9 +591,8 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   // Handle going back
   const handleBack = useCallback(() => {
     if (currentStep > STEPS.BASIC_INFO && currentStep !== STEPS.SUCCESS) {
-      // Can't go back before experience is created (after step 2)
+      // Can't go back to earlier steps after experience is created
       if (currentStep === STEPS.PLAN_ITEMS) {
-        // Can't go back to step 2 after experience is created
         return;
       }
       setCurrentStep(prev => prev - 1);
@@ -641,22 +641,31 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     [STEPS.SUCCESS]: lang.current.experienceWizardModal.stepDone,
   };
 
+  const stepItems = [
+    { index: STEPS.BASIC_INFO, title: stepLabels[STEPS.BASIC_INFO] },
+    { index: STEPS.MORE_DETAILS, title: stepLabels[STEPS.MORE_DETAILS] },
+    { index: STEPS.PLAN_ITEMS, title: stepLabels[STEPS.PLAN_ITEMS] },
+    { index: STEPS.COLLABORATORS, title: stepLabels[STEPS.COLLABORATORS] },
+  ];
+
   const renderStepIndicator = () => (
-    <div className={styles.stepIndicator}>
-      {[STEPS.BASIC_INFO, STEPS.MORE_DETAILS, STEPS.PLAN_ITEMS, STEPS.COLLABORATORS].map((step, index, arr) => (
-        <React.Fragment key={step}>
-          <div className={`${styles.step} ${currentStep >= step ? styles.active : ''} ${currentStep > step ? styles.completed : ''}`}>
-            <span className={styles.stepNumber}>
-              {currentStep > step ? <FaCheck size={12} /> : index + 1}
-            </span>
-            <span className={styles.stepLabel}>{stepLabels[step]}</span>
-          </div>
-          {index < arr.length - 1 && (
-            <div className={`${styles.stepConnector} ${currentStep > step ? styles.active : ''}`} />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
+    <Steps.Root step={currentStep} count={stepItems.length} size="sm" colorPalette="blue" px="5" pt="4" pb="2">
+      <Steps.List>
+        {stepItems.map((s) => (
+          <Steps.Item key={s.index} index={s.index}>
+            <Steps.Indicator>
+              <Steps.Status
+                complete={<FaCheck size={10} />}
+                incomplete={<Steps.Number />}
+                current={<Steps.Number />}
+              />
+            </Steps.Indicator>
+            <Steps.Title>{s.title}</Steps.Title>
+            <Steps.Separator />
+          </Steps.Item>
+        ))}
+      </Steps.List>
+    </Steps.Root>
   );
 
   const renderStep1 = () => (

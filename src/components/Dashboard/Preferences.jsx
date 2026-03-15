@@ -6,6 +6,7 @@ import {
   Form,
 } from '../design-system';
 import Checkbox from '../Checkbox/Checkbox';
+import { Switch } from '@chakra-ui/react';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
 import { updateUser, startPhoneVerification, confirmPhoneVerification } from '../../utilities/users-api';
@@ -301,13 +302,19 @@ export default function Preferences() {
               <div className="form-section-title">Notifications</div>
 
               <div className={styles.mb4}>
-                <Checkbox
+                <Switch.Root
                   id="notifications-enabled"
                   checked={form.notificationsEnabled}
-                  onChange={(e) => handleChange('notificationsEnabled', e.target.checked)}
-                  label="Enable Notifications"
+                  onCheckedChange={(details) => handleChange('notificationsEnabled', details.checked)}
                   size="md"
-                />
+                  colorPalette="blue"
+                >
+                  <Switch.HiddenInput />
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Label>Notifications</Switch.Label>
+                </Switch.Root>
               </div>
 
               {form.notificationsEnabled && (
@@ -423,7 +430,7 @@ export default function Preferences() {
               )}
             </div>
 
-            <div style={{ paddingTop: 'var(--space-2)' }}>
+            <div style={{ paddingTop: 'var(--space-2)', display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 type="submit"
                 variant="gradient"

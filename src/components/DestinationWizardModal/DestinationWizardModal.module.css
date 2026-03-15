@@ -96,70 +96,6 @@
   pointer-events: auto !important;
 }
 
-/* Step Indicator */
-.stepIndicator {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.step {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  transition: color var(--transition-fast);
-
-  .stepNumber {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-full);
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--font-size-sm);
-    transition: all var(--transition-fast);
-  }
-
-  &.active {
-    color: var(--color-primary);
-
-    .stepNumber {
-      background: var(--color-primary);
-      color: white;
-    }
-  }
-
-  &.completed {
-    color: var(--color-success);
-
-    .stepNumber {
-      background: var(--color-success);
-      color: white;
-    }
-  }
-}
-
-.stepConnector {
-  width: 32px;
-  height: 2px;
-  background: var(--color-border-light);
-  transition: background var(--transition-fast);
-
-  &.active {
-    background: var(--color-success);
-  }
-}
-
 .stepContent {
   min-height: 280px;
 }
@@ -295,19 +231,6 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .stepIndicator {
-    gap: var(--space-2);
-    padding: var(--space-3);
-
-    .stepLabel {
-      display: none;
-    }
-  }
-
-  .stepConnector {
-    width: 20px;
-  }
-
   .modalFooter {
     flex-direction: column;
     gap: var(--space-3);

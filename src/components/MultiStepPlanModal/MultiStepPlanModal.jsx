@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { FaCheck, FaArrowLeft, FaGripVertical, FaPlus, FaTrash } from 'react-icons/fa';
+import { Steps } from '@chakra-ui/react';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -41,9 +42,9 @@ import { CSS } from '@dnd-kit/utilities';
 import styles from './MultiStepPlanModal.module.css';
 
 const STEPS = {
-  CREATE_EXPERIENCE: 1,
-  ADD_PLAN_ITEMS: 2,
-  SELECT_DATE: 3,
+  CREATE_EXPERIENCE: 0,
+  ADD_PLAN_ITEMS: 1,
+  SELECT_DATE: 2,
 };
 
 const FORM_ID = 'multiStepPlanModal';
@@ -224,7 +225,7 @@ export default function MultiStepPlanModal() {
       setError('');
       setCreatedExperience(null);
       setPlannedDate('');
-      setCurrentStep(1);
+      setCurrentStep(STEPS.CREATE_EXPERIENCE);
       setPlanItems([]);
       setNewPlanItem({
         text: '',
@@ -597,26 +598,31 @@ export default function MultiStepPlanModal() {
           </div>
 
           {/* Step Indicator */}
-          <div className={styles.stepIndicator}>
-            <div className={`${styles.step} ${currentStep >= 1 ? styles.active : ''} ${currentStep > 1 ? styles.completed : ''}`}>
-              <span className={styles.stepNumber}>
-                {currentStep > 1 ? <FaCheck size={12} /> : '1'}
-              </span>
-              <span className={styles.stepLabel}>{lang.current.multiStepPlanModal.stepCreateExperience}</span>
-            </div>
-            <div className={`${styles.stepConnector} ${currentStep > 1 ? styles.active : ''}`} />
-            <div className={`${styles.step} ${currentStep >= 2 ? styles.active : ''} ${currentStep > 2 ? styles.completed : ''}`}>
-              <span className={styles.stepNumber}>
-                {currentStep > 2 ? <FaCheck size={12} /> : '2'}
-              </span>
-              <span className={styles.stepLabel}>{lang.current.multiStepPlanModal.stepAddPlanItems}</span>
-            </div>
-            <div className={`${styles.stepConnector} ${currentStep > 2 ? styles.active : ''}`} />
-            <div className={`${styles.step} ${currentStep >= 3 ? styles.active : ''}`}>
-              <span className={styles.stepNumber}>3</span>
-              <span className={styles.stepLabel}>{lang.current.multiStepPlanModal.stepSelectDate}</span>
-            </div>
-          </div>
+          <Steps.Root step={currentStep} count={3} size="sm" colorPalette="blue" px="5" pt="4" pb="2">
+            <Steps.List>
+              <Steps.Item index={STEPS.CREATE_EXPERIENCE}>
+                <Steps.Indicator>
+                  <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+                </Steps.Indicator>
+                <Steps.Title>{lang.current.multiStepPlanModal.stepCreateExperience}</Steps.Title>
+                <Steps.Separator />
+              </Steps.Item>
+              <Steps.Item index={STEPS.ADD_PLAN_ITEMS}>
+                <Steps.Indicator>
+                  <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+                </Steps.Indicator>
+                <Steps.Title>{lang.current.multiStepPlanModal.stepAddPlanItems}</Steps.Title>
+                <Steps.Separator />
+              </Steps.Item>
+              <Steps.Item index={STEPS.SELECT_DATE}>
+                <Steps.Indicator>
+                  <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+                </Steps.Indicator>
+                <Steps.Title>{lang.current.multiStepPlanModal.stepSelectDate}</Steps.Title>
+                <Steps.Separator />
+              </Steps.Item>
+            </Steps.List>
+          </Steps.Root>
 
           {/* Body */}
           <div className="modal-body" style={{ padding: 'var(--space-5)' }}>

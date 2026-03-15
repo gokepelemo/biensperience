@@ -6,6 +6,7 @@ import {
   FaCheck,
   FaArrowRight,
 } from 'react-icons/fa';
+import { Steps } from '@chakra-ui/react';
 import BiensperienceLogo from '../BiensperienceLogo/BiensperienceLogo';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
@@ -23,11 +24,11 @@ import TravelTipsManager from '../TravelTipsManager/TravelTipsManager';
 import styles from './DestinationWizardModal.module.css';
 
 const STEPS = {
-  BASIC_INFO: 1,
-  DETAILS: 2,
-  PHOTOS: 3,
-  TRAVEL_TIPS: 4,
-  SUCCESS: 5,
+  BASIC_INFO: 0,
+  DETAILS: 1,
+  PHOTOS: 2,
+  TRAVEL_TIPS: 3,
+  SUCCESS: 4,
 };
 
 /**
@@ -371,22 +372,31 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
     [STEPS.SUCCESS]: lang.current.destinationWizardModal.stepDone,
   };
 
+  const stepItems = [
+    { index: STEPS.BASIC_INFO, title: stepLabels[STEPS.BASIC_INFO] },
+    { index: STEPS.DETAILS, title: stepLabels[STEPS.DETAILS] },
+    { index: STEPS.PHOTOS, title: stepLabels[STEPS.PHOTOS] },
+    { index: STEPS.TRAVEL_TIPS, title: stepLabels[STEPS.TRAVEL_TIPS] },
+  ];
+
   const renderStepIndicator = () => (
-    <div className={styles.stepIndicator}>
-      {[STEPS.BASIC_INFO, STEPS.DETAILS, STEPS.PHOTOS, STEPS.TRAVEL_TIPS].map((step, index, arr) => (
-        <React.Fragment key={step}>
-          <div className={`${styles.step} ${currentStep >= step ? styles.active : ''} ${currentStep > step ? styles.completed : ''}`}>
-            <span className={styles.stepNumber}>
-              {currentStep > step ? <FaCheck size={12} /> : index + 1}
-            </span>
-            <span className={styles.stepLabel}>{stepLabels[step]}</span>
-          </div>
-          {index < arr.length - 1 && (
-            <div className={`${styles.stepConnector} ${currentStep > step ? styles.active : ''}`} />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
+    <Steps.Root step={currentStep} count={stepItems.length} size="sm" colorPalette="blue" px="5" pt="4" pb="2">
+      <Steps.List>
+        {stepItems.map((s) => (
+          <Steps.Item key={s.index} index={s.index}>
+            <Steps.Indicator>
+              <Steps.Status
+                complete={<FaCheck size={10} />}
+                incomplete={<Steps.Number />}
+                current={<Steps.Number />}
+              />
+            </Steps.Indicator>
+            <Steps.Title>{s.title}</Steps.Title>
+            <Steps.Separator />
+          </Steps.Item>
+        ))}
+      </Steps.List>
+    </Steps.Root>
   );
 
   const renderStep1 = () => (

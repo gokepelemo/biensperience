@@ -8,6 +8,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaMapMarkerAlt, FaSearch, FaSpinner, FaCheck } from 'react-icons/fa';
+import { Steps } from '@chakra-ui/react';
 import GoogleMap from '../GoogleMap/GoogleMap';
 import { Modal, Button } from '../design-system';
 import styles from './AddLocationModal.module.css';
@@ -17,8 +18,8 @@ import { lang } from '../../lang.constants';
 
 // Steps for the modal wizard
 const STEPS = {
-  ENTER_ADDRESS: 1,
-  CONFIRM_LOCATION: 2
+  ENTER_ADDRESS: 0,
+  CONFIRM_LOCATION: 1
 };
 
 /**
@@ -163,17 +164,24 @@ export default function AddLocationModal({
     >
       <div className={styles.addLocationModal}>
         {/* Step indicator */}
-        <div className={styles.stepIndicator}>
-          <div className={`${styles.step} ${currentStep >= STEPS.ENTER_ADDRESS ? styles.active : ''} ${currentStep > STEPS.ENTER_ADDRESS ? styles.completed : ''}`}>
-            <span className={styles.stepNumber}>1</span>
-            <span className={styles.stepLabel}>{lang.current.addLocationModal.stepAddress}</span>
-          </div>
-          <div className={styles.stepConnector} />
-          <div className={`${styles.step} ${currentStep >= STEPS.CONFIRM_LOCATION ? styles.active : ''}`}>
-            <span className={styles.stepNumber}>2</span>
-            <span className={styles.stepLabel}>{lang.current.addLocationModal.stepConfirm}</span>
-          </div>
-        </div>
+        <Steps.Root step={currentStep} count={2} size="sm" colorPalette="blue" mb="3">
+          <Steps.List>
+            <Steps.Item index={STEPS.ENTER_ADDRESS}>
+              <Steps.Indicator>
+                <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+              </Steps.Indicator>
+              <Steps.Title>{lang.current.addLocationModal.stepAddress}</Steps.Title>
+              <Steps.Separator />
+            </Steps.Item>
+            <Steps.Item index={STEPS.CONFIRM_LOCATION}>
+              <Steps.Indicator>
+                <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+              </Steps.Indicator>
+              <Steps.Title>{lang.current.addLocationModal.stepConfirm}</Steps.Title>
+              <Steps.Separator />
+            </Steps.Item>
+          </Steps.List>
+        </Steps.Root>
 
         {/* Error message */}
         {error && (

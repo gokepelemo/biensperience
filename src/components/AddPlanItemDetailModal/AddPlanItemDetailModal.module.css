@@ -37,80 +37,6 @@
   }
 }
 
-/* Step Indicator */
-.stepIndicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 0.5rem 1rem;
-  margin-bottom: 1rem;
-}
-
-.step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  opacity: 0.5;
-  transition: all 150ms;
-
-  &.active {
-    opacity: 1;
-  }
-
-  &.completed {
-    opacity: 1;
-
-    .stepNumber {
-      background: var(--color-success, #22c55e);
-      color: white;
-    }
-  }
-}
-
-.stepNumber {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--color-bg-secondary);
-  border: 2px solid var(--color-border-medium);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(0.875rem, 1.25vw, 1rem);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  transition: all 150ms;
-
-  .active & {
-    border-color: var(--color-primary);
-    background: var(--color-primary);
-    color: white;
-  }
-}
-
-.stepLabel {
-  font-size: clamp(0.75rem, 1vw, 0.875rem);
-  color: var(--color-text-muted);
-
-  .active & {
-    color: var(--color-text-primary);
-    font-weight: 500;
-  }
-}
-
-.stepConnector {
-  width: 60px;
-  height: 2px;
-  background: var(--color-border-light);
-  margin: 0 0.5rem;
-
-  @media (max-width: 768px) {
-    width: 30px;
-  }
-}
-
 /* Step Content */
 .stepContent {
   padding: 0 1rem;
@@ -911,7 +837,6 @@
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
   .typeCard,
-  .stepNumber,
   .dropZone {
     transition: none;
   }

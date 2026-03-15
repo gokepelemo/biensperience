@@ -272,6 +272,14 @@ export default function NavBar() {
 
   const renderMobileNavContent = () => (
     <Flex direction="column" gap="1" py="2">
+      {/* Search */}
+      <Box px="4" pt="2" pb="1" w="full">
+        <SearchBar
+          placeholder={lang.current.placeholder.search}
+          onResultSelect={closeMobile}
+        />
+      </Box>
+
       {/* Entity title when scrolled past h1 */}
       {isShowingH1 && (
         <Box
@@ -392,14 +400,6 @@ export default function NavBar() {
         <FaSignOutAlt className={styles.mobileIcon} />
         Logout
       </NavLink>
-
-      {/* Search */}
-      <Box px="4" py="3" w="full">
-        <SearchBar
-          placeholder={lang.current.placeholder.search}
-          onResultSelect={closeMobile}
-        />
-      </Box>
 
       {/* Dynamic action buttons */}
       {showActionButtons && actionButtons.length > 0 && (

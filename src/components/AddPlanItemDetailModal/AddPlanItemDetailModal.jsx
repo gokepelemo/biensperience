@@ -8,6 +8,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { FaCheck } from 'react-icons/fa';
+import { Steps } from '@chakra-ui/react';
 import { Modal } from '../design-system';
 import DetailTypeSelector from './DetailTypeSelector';
 import DetailEntryForm from './DetailEntryForm';
@@ -207,22 +209,31 @@ export default function AddPlanItemDetailModal({
     >
       <div className={styles.addDetailModal}>
         {/* Step indicator */}
-        <div className={styles.stepIndicator}>
-          <div className={`${styles.step} ${currentStep >= STEPS.SELECT_TYPE ? styles.active : ''} ${currentStep > STEPS.SELECT_TYPE ? styles.completed : ''}`}>
-            <span className={styles.stepNumber}>1</span>
-            <span className={styles.stepLabel}>Type</span>
-          </div>
-          <div className={styles.stepConnector} />
-          <div className={`${styles.step} ${currentStep >= STEPS.ENTER_DETAILS ? styles.active : ''} ${currentStep > STEPS.ENTER_DETAILS ? styles.completed : ''}`}>
-            <span className={styles.stepNumber}>2</span>
-            <span className={styles.stepLabel}>Details</span>
-          </div>
-          <div className={styles.stepConnector} />
-          <div className={`${styles.step} ${currentStep >= STEPS.UPLOAD_DOCUMENT ? styles.active : ''}`}>
-            <span className={styles.stepNumber}>3</span>
-            <span className={styles.stepLabel}>Document</span>
-          </div>
-        </div>
+        <Steps.Root step={currentStep} count={3} size="sm" colorPalette="blue" mb="3">
+          <Steps.List>
+            <Steps.Item index={STEPS.SELECT_TYPE}>
+              <Steps.Indicator>
+                <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+              </Steps.Indicator>
+              <Steps.Title>Type</Steps.Title>
+              <Steps.Separator />
+            </Steps.Item>
+            <Steps.Item index={STEPS.ENTER_DETAILS}>
+              <Steps.Indicator>
+                <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+              </Steps.Indicator>
+              <Steps.Title>Details</Steps.Title>
+              <Steps.Separator />
+            </Steps.Item>
+            <Steps.Item index={STEPS.UPLOAD_DOCUMENT}>
+              <Steps.Indicator>
+                <Steps.Status complete={<FaCheck size={10} />} incomplete={<Steps.Number />} current={<Steps.Number />} />
+              </Steps.Indicator>
+              <Steps.Title>Document</Steps.Title>
+              <Steps.Separator />
+            </Steps.Item>
+          </Steps.List>
+        </Steps.Root>
 
         {/* Error message */}
         {error && (

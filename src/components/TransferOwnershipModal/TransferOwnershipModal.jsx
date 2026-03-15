@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useId } from 'react';
 import { FaCheck, FaArrowLeft, FaExclamationTriangle, FaArchive, FaUserFriends, FaTrash } from 'react-icons/fa';
+import { Steps } from '@chakra-ui/react';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
 import { checkExperiencePlans, deleteExperience, transferOwnership, archiveExperience } from '../../utilities/experiences-api';
@@ -476,50 +477,39 @@ export default function TransferOwnershipModal({
       showSubmitButton={false}
     >
       {/* Step Indicator */}
-      {currentStep !== STEPS.LOADING && planCheckData?.requiresTransfer && (
-        <nav
-          className={styles.stepIndicator}
-          aria-label="Progress"
-        >
-          <div
-            className={`${styles.step} ${currentStep >= STEPS.CHOOSE_ACTION ? styles.active : ''} ${currentStep > STEPS.CHOOSE_ACTION ? styles.completed : ''}`}
-            aria-current={currentStep === STEPS.CHOOSE_ACTION ? 'step' : undefined}
-          >
-            <span className={styles.stepNumber} aria-hidden="true">
-              {currentStep > STEPS.CHOOSE_ACTION ? <FaCheck size={12} /> : '1'}
-            </span>
-            <span className={styles.stepLabel}>
-              {currentStep > STEPS.CHOOSE_ACTION ? 'Choose Action (completed)' : 'Choose Action'}
-            </span>
-          </div>
-          {selectedAction === ACTIONS.TRANSFER && (
-            <>
-              <div className={`${styles.stepConnector} ${currentStep > STEPS.CHOOSE_ACTION ? styles.active : ''}`} aria-hidden="true" />
-              <div
-                className={`${styles.step} ${currentStep >= STEPS.SELECT_USER ? styles.active : ''} ${currentStep > STEPS.SELECT_USER ? styles.completed : ''}`}
-                aria-current={currentStep === STEPS.SELECT_USER ? 'step' : undefined}
-              >
-                <span className={styles.stepNumber} aria-hidden="true">
-                  {currentStep > STEPS.SELECT_USER ? <FaCheck size={12} /> : '2'}
-                </span>
-                <span className={styles.stepLabel}>
-                  {currentStep > STEPS.SELECT_USER ? 'Select User (completed)' : 'Select User'}
-                </span>
-              </div>
-            </>
-          )}
-          <div className={`${styles.stepConnector} ${currentStep >= STEPS.CONFIRM ? styles.active : ''}`} aria-hidden="true" />
-          <div
-            className={`${styles.step} ${currentStep >= STEPS.CONFIRM ? styles.active : ''}`}
-            aria-current={currentStep === STEPS.CONFIRM ? 'step' : undefined}
-          >
-            <span className={styles.stepNumber} aria-hidden="true">
-              {selectedAction === ACTIONS.TRANSFER ? '3' : '2'}
-            </span>
-            <span className={styles.stepLabel}>Confirm</span>
-          </div>
-        </nav>
-      )}
+      {currentStep !== STEPS.LOADING && planCheckData?.requiresTransfer && (() => {
+        // Build dynamic step list — "Select User" only appears for transfer
+        const isTransfer = selectedAction === ACTIONS.TRANSFER;
+        const dynamicSteps = [
+          { key: 'action', title: 'Choose Action', stepValue: STEPS.CHOOSE_ACTION },
+          ...(isTransfer ? [{ key: 'user', title: 'Select User', stepValue: STEPS.SELECT_USER }] : []),
+          { key: 'confirm', title: 'Confirm', stepValue: STEPS.CONFIRM },
+        ];
+        // Map currentStep (which uses the STEPS enum values 1/2/3) to
+        // a 0-based index in the dynamic array for the Chakra indicator.
+        const activeIndex = dynamicSteps.findIndex(s => s.stepValue === currentStep);
+        const resolvedIndex = activeIndex >= 0 ? activeIndex : 0;
+
+        return (
+          <Steps.Root step={resolvedIndex} count={dynamicSteps.length} size="sm" colorPalette="blue" mb="3">
+            <Steps.List>
+              {dynamicSteps.map((s, i) => (
+                <Steps.Item key={s.key} index={i}>
+                  <Steps.Indicator>
+                    <Steps.Status
+                      complete={<FaCheck size={10} />}
+                      incomplete={<Steps.Number />}
+                      current={<Steps.Number />}
+                    />
+                  </Steps.Indicator>
+                  <Steps.Title>{s.title}</Steps.Title>
+                  <Steps.Separator />
+                </Steps.Item>
+              ))}
+            </Steps.List>
+          </Steps.Root>
+        );
+      })()}
 
       {/* Error Banner */}
       <div aria-live="assertive" aria-atomic="true">

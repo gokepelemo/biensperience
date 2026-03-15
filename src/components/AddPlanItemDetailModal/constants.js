@@ -132,7 +132,7 @@ export const DETAIL_CATEGORIES = {
  * Step identifiers for the modal wizard
  */
 export const STEPS = {
-  SELECT_TYPE: 1,
-  ENTER_DETAILS: 2,
-  UPLOAD_DOCUMENT: 3
+  SELECT_TYPE: 0,
+  ENTER_DETAILS: 1,
+  UPLOAD_DOCUMENT: 2
 };

@@ -3,78 +3,6 @@
   /* Any additional styles for the modal content wrapper */
 }
 
-.stepIndicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-3) var(--space-4);
-  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
-  background: var(--color-bg-muted);
-  border-bottom: 1px solid var(--color-border-light);
-  gap: var(--space-2);
-}
-
-.step {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
-
-  &.active {
-    opacity: 1;
-  }
-
-  &.completed {
-    opacity: 1;
-  }
-}
-
-.stepNumber {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--color-border);
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  transition: all 0.2s ease;
-
-  .active & {
-    background: var(--color-primary);
-    color: white;
-  }
-
-  .completed & {
-    background: var(--color-success-dark);
-    color: white;
-  }
-}
-
-.stepLabel {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-
-  .active & {
-    color: var(--color-text-primary);
-  }
-}
-
-.stepConnector {
-  width: 40px;
-  height: 2px;
-  background: var(--color-border);
-  transition: background 0.2s ease;
-
-  &.active {
-    background: var(--color-primary);
-  }
-}
-
 /* Footer is now rendered inside Modal's custom footer prop */
 .modalFooter {
   display: flex;
@@ -275,21 +203,6 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .stepIndicator {
-    padding: var(--space-3);
-    gap: var(--space-1);
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  .stepLabel {
-    display: none;
-  }
-
-  .stepConnector {
-    width: 24px;
-  }
-
   .modalBody {
     padding: var(--space-4);
   }
