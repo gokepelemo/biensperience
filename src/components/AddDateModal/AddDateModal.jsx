@@ -1,11 +1,13 @@
 /**
  * AddDateModal Component
  * Simple modal for adding a scheduled date and time to a plan item.
+ * Uses Chakra UI DatePicker for date selection.
  * Properly handles user timezone for date/time storage and display.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
+import { DatePicker, parseDate } from '@chakra-ui/react';
 import { FaCalendarAlt, FaClock } from 'react-icons/fa';
 import { Modal } from '../design-system';
 import styles from './AddDateModal.module.css';
@@ -40,6 +42,18 @@ function formatTimeForInput(time) {
     return d.toTimeString().slice(0, 5);
   }
   return '';
+}
+
+/**
+ * Safely parse a YYYY-MM-DD string to a Chakra DateValue
+ */
+function safeParseDateValue(dateStr) {
+  if (!dateStr) return null;
+  try {
+    return parseDate(dateStr);
+  } catch {
+    return null;
+  }
 }
 
 export default function AddDateModal({
@@ -225,22 +239,53 @@ export default function AddDateModal({
           </div>
         )}
 
-        {/* Date input - read-only in timeOnly mode */}
+        {/* Date picker - read-only in timeOnly mode */}
         <div className={styles.inputGroup}>
           <label className={styles.inputLabel}>
             <FaCalendarAlt className={styles.inputIcon} />
             {modalStrings.dateLabel}
             {timeOnly && <span className={styles.inherited}> {modalStrings.inheritedFromParent || '(from parent)'}</span>}
           </label>
-          <input
-            type="date"
-            className={`${styles.dateInput} ${timeOnly ? styles.readOnly : ''}`}
-            value={selectedDate}
-            onChange={(e) => !timeOnly && setSelectedDate(e.target.value)}
-            disabled={loading || timeOnly}
-            readOnly={timeOnly}
-            min={minDateForInput || undefined}
-          />
+          {timeOnly ? (
+            <input
+              type="date"
+              className={`${styles.dateInput} ${styles.readOnly}`}
+              value={selectedDate}
+              disabled
+              readOnly
+            />
+          ) : (
+            <DatePicker.Root
+              value={selectedDate ? [safeParseDateValue(selectedDate)].filter(Boolean) : []}
+              onValueChange={(details) => {
+                if (details.value && details.value.length > 0) {
+                  setSelectedDate(details.value[0].toString());
+                } else {
+                  setSelectedDate('');
+                }
+              }}
+              min={minDateForInput ? safeParseDateValue(minDateForInput) : undefined}
+              disabled={loading}
+              closeOnSelect
+              inline
+              width="100%"
+            >
+              <DatePicker.Content unstyled>
+                <DatePicker.View view="day">
+                  <DatePicker.Header />
+                  <DatePicker.DayTable />
+                </DatePicker.View>
+                <DatePicker.View view="month">
+                  <DatePicker.Header />
+                  <DatePicker.MonthTable />
+                </DatePicker.View>
+                <DatePicker.View view="year">
+                  <DatePicker.Header />
+                  <DatePicker.YearTable />
+                </DatePicker.View>
+              </DatePicker.Content>
+            </DatePicker.Root>
+          )}
         </div>
 
         {/* Time input - primary in timeOnly mode, optional otherwise */}

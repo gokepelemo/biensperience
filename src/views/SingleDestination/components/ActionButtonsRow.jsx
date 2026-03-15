@@ -6,7 +6,9 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
+import { FaPencilAlt, FaTrash } from 'react-icons/fa';
 import { FadeIn } from '../../../components/design-system';
+import SplitButton from '../../../components/SplitButton/SplitButton';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { calculateGroupButtonWidth } from '../../../utilities/button-utils';
@@ -89,32 +91,28 @@ export default function ActionButtonsRow({
         </button>
       </FadeIn>
 
-      {/* Edit & Delete Buttons - Only shown if user is owner */}
+      {/* Owner actions - Edit (primary) with Delete in dropdown */}
       {isOwner(user, destination) && (
-        <>
-          <FadeIn>
-            <button
-              className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
-              style={buttonStyle}
-              onClick={() => navigate(`/destinations/${destinationId}/update`)}
-              aria-label={lang.current.aria.editDestination}
-              title={lang.current.aria.editDestination}
-            >
-              Edit
-            </button>
-          </FadeIn>
-          <FadeIn>
-            <button
-              className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
-              style={buttonStyle}
+        <FadeIn>
+          <SplitButton
+            label="Edit"
+            icon={<FaPencilAlt />}
+            onClick={() => navigate(`/destinations/${destinationId}/update`)}
+            variant="outline"
+            size="sm"
+            menuAriaLabel="Destination actions"
+            placement="bottom-end"
+          >
+            <SplitButton.Item
+              value="delete"
               onClick={() => setShowDeleteModal(true)}
-              aria-label={lang.current.aria.deleteDestination}
-              title={lang.current.aria.deleteDestination}
+              color="fg.error"
+              _hover={{ bg: "bg.error", color: "fg.error" }}
             >
-              Delete
-            </button>
-          </FadeIn>
-        </>
+              <FaTrash /> Delete
+            </SplitButton.Item>
+          </SplitButton>
+        </FadeIn>
       )}
     </div>
   );

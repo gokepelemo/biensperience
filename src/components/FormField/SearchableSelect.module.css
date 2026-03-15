@@ -9,6 +9,120 @@
   width: 100%;
 }
 
+/* ComboboxControl - the visible dropdown "box" */
+.comboboxControl {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-input, var(--color-bg-secondary));
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  gap: var(--space-2);
+  min-height: var(--btn-height-md);
+
+  &:hover:not(.disabled) {
+    border-color: var(--color-border-medium);
+  }
+
+  &:focus-within {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+  }
+
+  &.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--color-bg-tertiary);
+  }
+
+  &.valid {
+    border-color: var(--color-success);
+  }
+
+  &.invalid {
+    border-color: var(--color-danger);
+  }
+}
+
+/* Size variants on comboboxControl */
+.comboboxControl.sizeSm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  min-height: var(--btn-height-sm);
+}
+
+.comboboxControl.sizeMd {
+  min-height: var(--btn-height-md);
+}
+
+.comboboxControl.sizeLg {
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--font-size-lg);
+  min-height: var(--btn-height-lg);
+}
+
+/* ComboboxInput - transparent text field inside the control */
+.comboboxInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: inherit;
+  cursor: pointer;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+/* Hidden input when multi-value display is shown */
+.comboboxInputHidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+}
+
+/* ComboboxTrigger - just the chevron button, no visual box */
+.comboboxTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Leading icon inside combobox control */
+.leadingIcon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 1.1em;
+}
+
+/* Multi-value display overlay */
+.multiValueDisplay {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+}
+
 /* Trigger button */
 .trigger {
   display: flex;

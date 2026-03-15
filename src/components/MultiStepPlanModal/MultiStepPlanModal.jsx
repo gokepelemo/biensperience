@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { FaCheck, FaArrowLeft, FaGripVertical, FaPlus, FaTrash } from 'react-icons/fa';
-import { Steps } from '@chakra-ui/react';
+import { Steps, DatePicker, parseDate } from '@chakra-ui/react';
 import { useData } from '../../contexts/DataContext';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -870,16 +870,38 @@ export default function MultiStepPlanModal() {
                   </div>
 
                   <div className={styles.datePickerContainer}>
-                    <label className={styles.formLabel}>
-                      When are you planning this experience?
-                    </label>
-                    <input
-                      type="date"
-                      className={styles.dateInput}
-                      value={plannedDate}
-                      onChange={(e) => setPlannedDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
+                    <DatePicker.Root
+                      value={plannedDate ? (() => { try { return [parseDate(plannedDate)]; } catch { return []; } })() : []}
+                      onValueChange={(details) => {
+                        if (details.value && details.value.length > 0) {
+                          setPlannedDate(details.value[0].toString());
+                        } else {
+                          setPlannedDate('');
+                        }
+                      }}
+                      min={(() => { try { return parseDate(new Date().toISOString().split('T')[0]); } catch { return undefined; } })()}
+                      closeOnSelect
+                      inline
+                      width="100%"
+                    >
+                      <DatePicker.Label className={styles.formLabel}>
+                        When are you planning this experience?
+                      </DatePicker.Label>
+                      <DatePicker.Content unstyled>
+                        <DatePicker.View view="day">
+                          <DatePicker.Header />
+                          <DatePicker.DayTable />
+                        </DatePicker.View>
+                        <DatePicker.View view="month">
+                          <DatePicker.Header />
+                          <DatePicker.MonthTable />
+                        </DatePicker.View>
+                        <DatePicker.View view="year">
+                          <DatePicker.Header />
+                          <DatePicker.YearTable />
+                        </DatePicker.View>
+                      </DatePicker.Content>
+                    </DatePicker.Root>
                     <p className={styles.helpText}>
                       You can always change this later from the experience page.
                     </p>

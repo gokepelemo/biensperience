@@ -103,6 +103,7 @@ function PlanTabsNavigation({
     position: 'absolute', top: 'calc(100% + 4px)', left: '50%',
     transform: 'translateX(-50%)', zIndex: 100, minWidth: '160px',
     padding: 'var(--space-2) 0', background: 'var(--color-bg-primary, #ffffff)',
+    backgroundColor: 'var(--color-bg-primary, #ffffff)',
     border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-md)',
     boxShadow: 'var(--shadow-lg)',
   };
@@ -197,7 +198,7 @@ function PlanTabsNavigation({
 
             {/* Dropdown menu */}
             {dropdownOpen && (
-              <Box css={dropdownMenuStyle}>
+              <Box css={dropdownMenuStyle} bg="var(--color-bg-primary, #ffffff)">
                 {allPlans.map((plan, ci) => {
                   const planUserId = plan.user?._id || plan.user;
                   const isOwnPlan = idEquals(planUserId, user._id);

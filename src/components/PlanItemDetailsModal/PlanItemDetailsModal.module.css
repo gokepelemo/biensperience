@@ -744,8 +744,7 @@
  * =============================================================================
  */
 
-/* Base Stream Chat container */
-.chatPane :global(.str-chat__container),
+/* Stream Chat channel wrapper - fills chatPane vertically */
 .chatPane :global(.str-chat) {
   height: 100%;
   flex: 1 1 auto;
@@ -754,29 +753,28 @@
   flex-direction: column;
 }
 
-/* Stream Chat (scoped) token alignment - matches MessagesModal .pane */
-@include streamChatTokenAlignment('.chatPane')
-@include streamChatOverlayZIndex('.chatPane')
+/* Stream Chat container - lays Window + Thread side by side (flex row) */
+.chatPane :global(.str-chat__container) {
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  position: relative; /* anchor for thread absolute overlay on mobile/tablet */
+}
 
 /* =============================================================================
  * THREAD LAYOUT - Display thread panel on the right side
  * =============================================================================
- * Stream Chat SDK v2 structure:
- * .str-chat > .str-chat__channel > .str-chat__container > [children: Window + Thread]
+ * Stream Chat SDK structure:
+ * .str-chat > .str-chat__container > [Window (.str-chat__main-panel) + Thread]
  *
- * Key insight: .str-chat__container has display:flex (horizontal) but both
- * main-panel and thread-container have width:100%, causing stacking.
- * Fix: Override widths to allow side-by-side layout.
+ * .str-chat__container defaults to display:flex (row), placing Window and
+ * Thread side by side. We fix widths so they share space properly.
  */
 
-/* Ensure container uses horizontal flex layout */
-.chatPane :global(.str-chat__container) {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-}
-
-/* Main panel fills remaining space - override width:100% */
+/* Main panel fills remaining space */
 .chatPane :global(.str-chat__main-panel) {
   flex: 1 1 auto !important;
   width: auto !important;
@@ -832,7 +830,91 @@
   border-top: 1px solid var(--color-border-light) !important;
 }
 
-@include streamChatSendToChannelCheckbox('.chatPane')
+/* =============================================================================
+ * "ALSO SEND AS DIRECT MESSAGE" CHECKBOX - Chakra UI design
+ * =============================================================================
+ * Styles Stream Chat's native send-to-channel checkbox to match the app's
+ * Chakra UI design system: gradient fill when checked, focus ring, rounded.
+ */
+
+/* 1. Hide the native checkbox input */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* 2. Field row layout */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 3. Label: inline-flex so ::before (box) and text sit side by side */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field label) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm, 0.875rem);
+  padding-inline: 0;
+}
+
+/* 4. Visual checkbox box via label::before */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field label::before) {
+  content: '';
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-border-medium);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm, 4px);
+  transition: all 0.2s ease;
+  display: inline-block;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* 5. Checkmark icon via label::after (initially hidden) */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field label::after) {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 6a. Checked: gradient fill on the box */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
+  border-color: transparent;
+  background: var(--gradient-primary, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+}
+
+/* 6b. Checked: show white checkmark */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
+  opacity: 1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='11.5 3.5 5.5 10.5 2.5 7.5' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* 7. Focus + hover ring on the box */
+.chatPane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
+.chatPane :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
+  border-color: var(--color-primary, #667eea);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
+}
 
 /* Pagination */
 .pagination {

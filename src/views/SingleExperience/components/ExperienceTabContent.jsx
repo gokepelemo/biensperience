@@ -10,6 +10,7 @@ import { BsPlusCircle, BsPersonPlus, BsListUl, BsCardList, BsPencilSquare, BsTra
 import { FaClock, FaDollarSign } from 'react-icons/fa';
 import { lang } from '../../../lang.constants';
 import ActionsMenu from '../../../components/ActionsMenu';
+import { groupItemsByType } from '../../../utilities/plan-grouping-utils';
 import {
   DndContext,
   closestCenter,
@@ -30,7 +31,7 @@ import UsersListDisplay from '../../../components/UsersListDisplay/UsersListDisp
 import DragHandle from '../../../components/DragHandle/DragHandle';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import PlanningTime from '../../../components/PlanningTime/PlanningTime';
-import SearchableSelect from '../../../components/FormField/SearchableSelect';
+import PlanItemViewSelector from '../../../components/PlanItemViewSelector/PlanItemViewSelector';
 import { Text } from '../../../components/design-system';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { formatCurrency } from '../../../utilities/currency-utils';
@@ -41,8 +42,8 @@ import debug from '../../../utilities/debug';
 
 // View options for experience plan items display
 const VIEW_OPTIONS = [
-  { value: 'card', label: lang.current.label.cardView, icon: BsCardList },
-  { value: 'compact', label: lang.current.label.compactView, icon: BsListUl }
+  { value: 'compact', label: lang.current.label.compactView, icon: BsListUl },
+  { value: 'activity', label: lang.current.label.activityView, icon: BsListUl }
 ];
 
 // Sortable plan item component for drag and drop
@@ -544,13 +545,18 @@ export default function ExperienceTabContent({
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
   const [rawPlanItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
 
-  // ExperienceTabContent only supports 'card' and 'compact' views
-  // Fallback 'timeline' and 'activity' to 'compact' since they're only available in MyPlanTabContent
+  // ExperienceTabContent supports 'compact' and 'activity'; card/timeline fall back to 'compact'.
   const planItemsView = useMemo(() => {
-    return (rawPlanItemsView === 'timeline' || rawPlanItemsView === 'activity') 
-      ? 'compact' 
+    return (rawPlanItemsView === 'card' || rawPlanItemsView === 'timeline')
+      ? 'compact'
       : rawPlanItemsView;
   }, [rawPlanItemsView]);
+
+  // Activity grouping for activity view
+  const activityGroups = useMemo(() => {
+    if (planItemsView !== 'activity' || !experience?.plan_items?.length) return null;
+    return groupItemsByType(experience.plan_items, { parentLookup: experience.plan_items });
+  }, [planItemsView, experience?.plan_items]);
 
   // Compute online user IDs from presence data
   // Always include the current user when presence is connected (they're always online to themselves)
@@ -901,12 +907,10 @@ export default function ExperienceTabContent({
 
       {/* View Toggle */}
       <div className="plan-view-toggle">
-        <SearchableSelect
+        <PlanItemViewSelector
           options={VIEW_OPTIONS}
           value={planItemsView}
           onChange={setPlanItemsView}
-          placeholder="View"
-          searchable={false}
           size="sm"
           className="plan-view-select"
         />
@@ -974,6 +978,110 @@ export default function ExperienceTabContent({
               ))}
             </div>
           </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Plan Items List - Activity View (grouped by activity type) */}
+      {planItemsView === 'activity' && activityGroups && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="activity-plan-items-list">
+            {activityGroups.groups.map((group) => {
+              const visibleItems = group.items.filter(item => {
+                const parentKey = item?.parent?.toString();
+                return !item.parent || (parentKey && expandedParents.has(parentKey) && animatingCollapse !== parentKey);
+              });
+              if (visibleItems.length === 0) return null;
+              return (
+                <div key={group.type} className="activity-type-group">
+                  <div className="activity-type-group-header">
+                    <span className="activity-type-icon">{group.icon}</span>
+                    <span className="activity-type-label">{group.label}</span>
+                    <span className="activity-type-count">({visibleItems.length})</span>
+                  </div>
+                  <SortableContext
+                    items={visibleItems.map(item => item._id.toString())}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="activity-type-group-items">
+                      {visibleItems.map((planItem) => (
+                        <SortableCompactExperiencePlanItem
+                          key={planItem._id}
+                          planItem={planItem}
+                          canEdit={canEdit}
+                          hasChildren={parentsWithChildren.has(planItem._id?.toString())}
+                          isExpanded={expandedParents.has(planItem._id?.toString()) && animatingCollapse !== planItem._id?.toString()}
+                          isAnimatingCollapse={animatingCollapse === planItem._id?.toString()}
+                          toggleExpanded={toggleExpanded}
+                          handleEditExperiencePlanItem={handleEditExperiencePlanItem}
+                          setPlanItemToDelete={setPlanItemToDelete}
+                          setShowPlanDeleteModal={setShowPlanDeleteModal}
+                          lang={lang}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </div>
+              );
+            })}
+
+            {activityGroups.ungrouped.filter(item => {
+              const parentKey = item?.parent?.toString();
+              return !item.parent || (parentKey && expandedParents.has(parentKey) && animatingCollapse !== parentKey);
+            }).length > 0 && (
+              <div className="activity-type-group activity-type-ungrouped">
+                <div className="activity-type-group-header">
+                  <span className="activity-type-icon">📌</span>
+                  <span className="activity-type-label">Unspecified</span>
+                  <span className="activity-type-count">({activityGroups.ungrouped.filter(item => {
+                    const parentKey = item?.parent?.toString();
+                    return !item.parent || (parentKey && expandedParents.has(parentKey) && animatingCollapse !== parentKey);
+                  }).length})</span>
+                </div>
+                <SortableContext
+                  items={activityGroups.ungrouped
+                    .filter(item => {
+                      const parentKey = item?.parent?.toString();
+                      return !item.parent || (parentKey && expandedParents.has(parentKey) && animatingCollapse !== parentKey);
+                    })
+                    .map(item => item._id.toString())}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="activity-type-group-items">
+                    {activityGroups.ungrouped
+                      .filter(item => {
+                        const parentKey = item?.parent?.toString();
+                        return !item.parent || (parentKey && expandedParents.has(parentKey) && animatingCollapse !== parentKey);
+                      })
+                      .map((planItem) => (
+                        <SortableCompactExperiencePlanItem
+                          key={planItem._id}
+                          planItem={planItem}
+                          canEdit={canEdit}
+                          hasChildren={parentsWithChildren.has(planItem._id?.toString())}
+                          isExpanded={expandedParents.has(planItem._id?.toString()) && animatingCollapse !== planItem._id?.toString()}
+                          isAnimatingCollapse={animatingCollapse === planItem._id?.toString()}
+                          toggleExpanded={toggleExpanded}
+                          handleEditExperiencePlanItem={handleEditExperiencePlanItem}
+                          setPlanItemToDelete={setPlanItemToDelete}
+                          setShowPlanDeleteModal={setShowPlanDeleteModal}
+                          lang={lang}
+                        />
+                      ))}
+                  </div>
+                </SortableContext>
+              </div>
+            )}
+
+            {activityGroups.groups.length === 0 && activityGroups.ungrouped.length === 0 && (
+              <div className="activity-empty-state">
+                <p>No plan items yet. Add items to see them grouped by activity type.</p>
+              </div>
+            )}
+          </div>
         </DndContext>
       )}
     </div>

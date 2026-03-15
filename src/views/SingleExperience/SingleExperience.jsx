@@ -2023,24 +2023,36 @@ export default function SingleExperience() {
   }, [selectedPlanId, openModal, writeExperienceHash]);
 
   // Navigate to the previous plan item in the Details modal (keyboard ← / swipe right)
+  // Does NOT update the URL hash – keyboard/swipe navigation is transient and should
+  // not be stored in form persistence. The hash-repair effect is suppressed by
+  // elevating userInteractionRef for one animation frame (long enough for React to
+  // flush effects via MessageChannel before the flag is cleared).
   const handlePrevPlanItemDetails = useCallback(() => {
     const items = selectedPlan?.plan;
     if (!items || !selectedDetailsItem) return;
     const idx = items.findIndex(item => idEquals(item._id, selectedDetailsItem._id));
     if (idx > 0) {
-      handleViewPlanItemDetails(items[idx - 1]);
+      beginUserInteraction('plan-item-nav');
+      setSelectedDetailsItem(items[idx - 1]);
+      setDetailsModalInitialTab('notes');
+      requestAnimationFrame(() => endUserInteraction('plan-item-nav'));
     }
-  }, [selectedPlan, selectedDetailsItem, handleViewPlanItemDetails]);
+  }, [selectedPlan, selectedDetailsItem, setSelectedDetailsItem, setDetailsModalInitialTab, beginUserInteraction, endUserInteraction]);
 
   // Navigate to the next plan item in the Details modal (keyboard → / swipe left)
+  // Does NOT update the URL hash – keyboard/swipe navigation is transient and should
+  // not be stored in form persistence. See handlePrevPlanItemDetails for details.
   const handleNextPlanItemDetails = useCallback(() => {
     const items = selectedPlan?.plan;
     if (!items || !selectedDetailsItem) return;
     const idx = items.findIndex(item => idEquals(item._id, selectedDetailsItem._id));
     if (idx >= 0 && idx < items.length - 1) {
-      handleViewPlanItemDetails(items[idx + 1]);
+      beginUserInteraction('plan-item-nav');
+      setSelectedDetailsItem(items[idx + 1]);
+      setDetailsModalInitialTab('notes');
+      requestAnimationFrame(() => endUserInteraction('plan-item-nav'));
     }
-  }, [selectedPlan, selectedDetailsItem, handleViewPlanItemDetails]);
+  }, [selectedPlan, selectedDetailsItem, setSelectedDetailsItem, setDetailsModalInitialTab, beginUserInteraction, endUserInteraction]);
 
   // Compute whether prev/next navigation is available for the details modal
   const detailsNavIndex = useMemo(() => {

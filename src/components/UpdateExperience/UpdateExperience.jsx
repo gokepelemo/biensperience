@@ -606,7 +606,7 @@ export default function UpdateExperience() {
               </Form.Group>
             </div>
 
-            <div className={styles.formSection}>
+            <Form.Group className={styles.formSection}>
               <Form.Label htmlFor="experience_type">
                 {lang.current.label.experienceTypes}
                 {' '}
@@ -625,7 +625,7 @@ export default function UpdateExperience() {
               <small className={`form-text ${styles.helperText}`}>
                 {lang.current.helper.experienceTypesOptional}
               </small>
-            </div>
+            </Form.Group>
 
             <FormField
               name="map_location"
@@ -640,7 +640,7 @@ export default function UpdateExperience() {
 
             {/* Planning days and cost estimate removed from update form — computed from plan items (virtuals). */}
 
-            <div className={styles.formSection}>
+            <Form.Group className={styles.formSection}>
               <Form.Label>
                 Photos
                 {' '}
@@ -649,14 +649,14 @@ export default function UpdateExperience() {
                   placement="top"
                 />
               </Form.Label>
-                <PhotoUpload
+              <PhotoUpload
                 data={experience}
                 setData={setExperience}
               />
               <small className={`form-text ${styles.helperText}`}>
                 Upload multiple photos for this experience
               </small>
-            </div>
+            </Form.Group>
 
             <div className={styles.formSection}>
               <Form.Group>

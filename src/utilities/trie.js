@@ -39,6 +39,61 @@ const SCORE_STARTS_WITH = 300;   // Field starts with query
 const SCORE_WORD_STARTS = 200;   // Word in field starts with query
 const SCORE_CONTAINS = 100;      // Field contains query substring
 const SCORE_PREFIX_MATCH = 50;   // Basic trie prefix match
+const SCORE_FUZZY_MATCH = 30;    // Fuzzy/typo-tolerant match
+
+/**
+ * Calculate Levenshtein edit distance between two strings.
+ * Returns the minimum number of single-character edits (insertions,
+ * deletions, substitutions) required to change one string into the other.
+ * Uses an optimised single-row DP approach: O(min(a,b)) space, O(a*b) time.
+ *
+ * @param {string} a - First string (already lowercased)
+ * @param {string} b - Second string (already lowercased)
+ * @returns {number} Edit distance
+ */
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  // Keep the shorter string as 'b' so the row array is small
+  if (a.length < b.length) { const tmp = a; a = b; b = tmp; }
+
+  const bLen = b.length;
+  const row = new Uint16Array(bLen + 1);
+
+  // Initialise first row
+  for (let j = 0; j <= bLen; j++) row[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    let prev = i; // value of row[0] before overwriting
+    row[0] = i;
+    for (let j = 1; j <= bLen; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const val = Math.min(
+        row[j] + 1,      // deletion
+        prev + 1,         // insertion
+        row[j - 1] + cost // substitution
+      );
+      prev = row[j];
+      row[j] = val;
+    }
+  }
+  return row[bLen];
+}
+
+/**
+ * Determine the maximum allowed edit distance for a query of the given length.
+ * Short queries allow fewer typos to avoid flooding with false positives.
+ *
+ * @param {number} len - Length of the query string
+ * @returns {number} Max allowed edit distance
+ */
+function maxEditDistance(len) {
+  if (len <= 2) return 0;  // Too short for fuzzy
+  if (len <= 4) return 1;  // 1 typo allowed
+  return 2;                // 2 typos allowed
+}
 
 /**
  * TrieNode - Node in the trie tree
@@ -413,7 +468,61 @@ class TrieFilter {
       });
     }
 
-    // Phase 3: Build and sort results
+    // Phase 3: Fuzzy matching for items not found by trie or substring (catches typos)
+    const maxDist = maxEditDistance(normalizedQuery.length);
+    if (maxDist > 0) {
+      this.items.forEach((item, index) => {
+        if (itemScores.has(index)) return;
+
+        let bestScore = 0;
+
+        this.fields.forEach(field => {
+          const path = typeof field === 'function' ? null : (field.path || field);
+          if (!path) return;
+
+          const fieldWeight = typeof field === 'object' ? (field.score || 50) : 50;
+          const weightMultiplier = 0.5 + (fieldWeight / 100);
+
+          const value = this._getNestedValue(item, path);
+          if (!value || typeof value !== 'string') return;
+
+          const normalizedValue = value.toLowerCase();
+          const fieldWords = normalizedValue.split(/\s+/).map(w => w.replace(/[^\w]/g, '')).filter(Boolean);
+
+          for (const queryWord of queryWords) {
+            const qMaxDist = maxEditDistance(queryWord.length);
+            if (qMaxDist === 0) continue;
+
+            // Check whole field
+            if (normalizedValue.length <= normalizedQuery.length + qMaxDist + 5) {
+              const dist = levenshtein(normalizedQuery, normalizedValue);
+              if (dist <= qMaxDist) {
+                const penalty = dist / qMaxDist; // 0..1, lower is better
+                const weightedScore = Math.round(SCORE_FUZZY_MATCH * weightMultiplier * (1 - penalty * 0.5));
+                bestScore = Math.max(bestScore, weightedScore);
+              }
+            }
+
+            // Check individual words in field
+            for (const word of fieldWords) {
+              if (Math.abs(word.length - queryWord.length) > qMaxDist) continue;
+              const dist = levenshtein(queryWord, word);
+              if (dist <= qMaxDist) {
+                const penalty = dist / qMaxDist;
+                const weightedScore = Math.round(SCORE_FUZZY_MATCH * weightMultiplier * (1 - penalty * 0.5));
+                bestScore = Math.max(bestScore, weightedScore);
+              }
+            }
+          }
+        });
+
+        if (bestScore > 0) {
+          itemScores.set(index, bestScore);
+        }
+      });
+    }
+
+    // Phase 4: Build and sort results
     let results = Array.from(itemScores.entries())
       .map(([index, score]) => ({ item: this.items[index], score }));
 
@@ -506,7 +615,59 @@ class TrieFilter {
       });
     }
 
-    // Phase 3: Build and sort results
+    // Phase 3: Fuzzy matching for items not found by trie or substring (catches typos)
+    const maxDist = maxEditDistance(normalizedQuery.length);
+    if (maxDist > 0) {
+      this.items.forEach((item, index) => {
+        if (itemScores.has(index)) return;
+
+        let bestScore = 0;
+
+        this.fields.forEach(field => {
+          const path = typeof field === 'function' ? null : (field.path || field);
+          if (!path) return;
+
+          const fieldWeight = typeof field === 'object' ? (field.score || 50) : 50;
+          const weightMultiplier = 0.5 + (fieldWeight / 100);
+
+          const value = this._getNestedValue(item, path);
+          if (!value || typeof value !== 'string') return;
+
+          const normalizedValue = value.toLowerCase();
+          const fieldWords = normalizedValue.split(/\s+/).map(w => w.replace(/[^\w]/g, '')).filter(Boolean);
+
+          for (const queryWord of queryWords) {
+            const qMaxDist = maxEditDistance(queryWord.length);
+            if (qMaxDist === 0) continue;
+
+            if (normalizedValue.length <= normalizedQuery.length + qMaxDist + 5) {
+              const dist = levenshtein(normalizedQuery, normalizedValue);
+              if (dist <= qMaxDist) {
+                const penalty = dist / qMaxDist;
+                const weightedScore = Math.round(SCORE_FUZZY_MATCH * weightMultiplier * (1 - penalty * 0.5));
+                bestScore = Math.max(bestScore, weightedScore);
+              }
+            }
+
+            for (const word of fieldWords) {
+              if (Math.abs(word.length - queryWord.length) > qMaxDist) continue;
+              const dist = levenshtein(queryWord, word);
+              if (dist <= qMaxDist) {
+                const penalty = dist / qMaxDist;
+                const weightedScore = Math.round(SCORE_FUZZY_MATCH * weightMultiplier * (1 - penalty * 0.5));
+                bestScore = Math.max(bestScore, weightedScore);
+              }
+            }
+          }
+        });
+
+        if (bestScore > 0) {
+          itemScores.set(index, bestScore);
+        }
+      });
+    }
+
+    // Phase 4: Build and sort results
     let results = Array.from(itemScores.entries())
       .map(([index, score]) => ({ item: this.items[index], score }));
 
@@ -572,7 +733,8 @@ export const SCORES = {
   STARTS_WITH: SCORE_STARTS_WITH,
   WORD_STARTS: SCORE_WORD_STARTS,
   CONTAINS: SCORE_CONTAINS,
-  PREFIX_MATCH: SCORE_PREFIX_MATCH
+  PREFIX_MATCH: SCORE_PREFIX_MATCH,
+  FUZZY_MATCH: SCORE_FUZZY_MATCH
 };
 
 export { Trie, TrieNode, TrieFilter };

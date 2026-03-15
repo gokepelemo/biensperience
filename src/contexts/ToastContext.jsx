@@ -61,8 +61,19 @@ export function ToastProvider({ children }) {
       animation: options.animation || 'fade',
     };
 
-    setToasts((prev) => [...prev, newToast]);
-    return id;
+    let duplicateId = null;
+    setToasts((prev) => {
+      const duplicate = prev.find(
+        (t) => t.message === newToast.message && t.type === newToast.type
+      );
+      if (duplicate) {
+        duplicateId = duplicate.id;
+        return prev;
+      }
+      return [...prev, newToast];
+    });
+
+    return duplicateId ?? id;
   }, []);
 
   /**

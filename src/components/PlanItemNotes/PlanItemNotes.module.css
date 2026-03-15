@@ -83,7 +83,7 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-full);
-  padding: 0 1.25rem;
+  padding: 0;
   min-width: 0;
   height: 100%; /* Fill parent height */
   transition: border-color var(--transition-fast);
@@ -120,6 +120,15 @@
   
     }
   }
+}
+
+/* Override SearchInput's inner input so it's transparent inside the pill */
+.searchPillInput {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  height: 100% !important;
 }
 
 .searchIcon {

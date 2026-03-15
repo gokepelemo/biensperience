@@ -351,9 +351,9 @@ function PlanItemsRenderer({
 
   // Render appropriate view
   switch (viewType) {
-    case 'card':
-      return renderCardView();
     case 'compact':
+    // card view is deprecated — fall through to compact
+    case 'card':
       return renderCompactView();
     case 'activity':
       return renderActivityView();

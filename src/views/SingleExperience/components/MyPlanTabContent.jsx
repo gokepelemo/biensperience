@@ -72,7 +72,7 @@ import { Text } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import MetricsBar from '../../../components/MetricsBar/MetricsBar';
 import CostsList from '../../../components/CostsList';
-import SearchableSelect from '../../../components/FormField/SearchableSelect';
+import PlanItemViewSelector from '../../../components/PlanItemViewSelector/PlanItemViewSelector';
 import AddDateModal from '../../../components/AddDateModal';
 import { useUIPreference } from '../../../hooks/useUIPreference';
 import { usePlanChat } from '../../../hooks/usePlanChat';
@@ -97,7 +97,6 @@ import { setMemberLocation, removeMemberLocation } from '../../../utilities/plan
 
 // View options for plan items display
 const VIEW_OPTIONS = [
-  { value: 'card', label: lang.current.label.cardView, icon: BsCardList },
   { value: 'compact', label: lang.current.label.compactView, icon: BsListUl },
   { value: 'activity', label: lang.current.label.activityView, icon: BsListUl },
   { value: 'timeline', label: lang.current.label.timelineView, icon: BsCalendarWeek }
@@ -254,9 +253,11 @@ export default function MyPlanTabContent({
   // Travel origin modal state
   const [showTravelOriginModal, setShowTravelOriginModal] = useState(false);
   const [memberLocationLoading, setMemberLocationLoading] = useState(false);
-  // View state for plan items display (card or compact) - persisted in user preferences
+  // View state for plan items display - persisted in user preferences
   // Uses shared key 'viewMode.planItems' so preference syncs between Experience and Plan views
-  const [planItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
+  // Default to 'compact'; migrate any saved 'card' preference to 'compact'
+  const [rawPlanItemsView, setPlanItemsView] = useUIPreference('viewMode.planItems', 'compact');
+  const planItemsView = rawPlanItemsView === 'card' ? 'compact' : rawPlanItemsView;
 
   // Get current plan with "stale until updated" pattern to prevent flash
   // Keep last valid plan when sharedPlans.find() temporarily returns undefined during updates
@@ -908,12 +909,10 @@ export default function MyPlanTabContent({
 
       {/* View Toggle */}
       <div className="plan-view-toggle">
-        <SearchableSelect
+        <PlanItemViewSelector
           options={VIEW_OPTIONS}
           value={planItemsView}
           onChange={setPlanItemsView}
-          placeholder="View"
-          searchable={false}
           size="sm"
           className="plan-view-select"
         />

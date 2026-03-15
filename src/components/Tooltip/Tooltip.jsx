@@ -123,7 +123,14 @@ function Tooltip({
 }
 
 const MemoizedTooltip = React.memo(Tooltip, (prevProps, nextProps) => {
-  // Custom comparison for memoization - only re-render if key props change
+  // Custom comparison for memoization - only re-render if key props change.
+  // NOTE: children uses strict reference equality so that dynamic content inside
+  // the trigger (e.g. a planningDays value that changed between plan items) always
+  // causes the tooltip to re-render with the updated children.  Checking only
+  // `type` and `key` (the previous approach) was too loose: it considered any two
+  // <div> wrappers "equal" even when their nested text content differed, which
+  // prevented the Planning Time / Cost cards from updating on keyboard/swipe
+  // navigation inside PlanItemDetailsModal.
   const contentEqual = prevProps.content === nextProps.content;
   const placementEqual = prevProps.placement === nextProps.placement;
   const showEqual = prevProps.show === nextProps.show;
@@ -134,11 +141,12 @@ const MemoizedTooltip = React.memo(Tooltip, (prevProps, nextProps) => {
   const rootCloseEqual = prevProps.rootClose === nextProps.rootClose;
   const variantEqual = prevProps.variant === nextProps.variant;
 
-  // For children, check if they're the same React element or primitive
-  const childrenEqual = prevProps.children === nextProps.children ||
-    (React.isValidElement(prevProps.children) && React.isValidElement(nextProps.children) &&
-     prevProps.children.key === nextProps.children.key &&
-     prevProps.children.type === nextProps.children.type);
+  // Use reference equality for children - same as the default React.memo behaviour.
+  // This is intentionally simple: any re-render in the parent that produces new
+  // children JSX will flow through to the Tooltip.  The useMemo hooks inside the
+  // Tooltip function itself (wrappedChildren, tooltipStyles, arrowStyles) already
+  // guard against redundant internal work.
+  const childrenEqual = prevProps.children === nextProps.children;
 
   return contentEqual && placementEqual && showEqual && classNameEqual &&
          delayEqual && delayShowEqual && delayHideEqual && rootCloseEqual &&

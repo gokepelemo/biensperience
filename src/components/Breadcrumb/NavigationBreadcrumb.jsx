@@ -94,7 +94,7 @@ export default function NavigationBreadcrumb({
           <Breadcrumb.Item>
             <Breadcrumb.Link asChild>
               <Link to="/">
-                <FaHome size={12} style={{ marginRight: '4px' }} />
+                <FaHome style={{ width: 'var(--font-size-sm)', height: 'var(--font-size-sm)', marginRight: '4px' }} />
                 Home
               </Link>
             </Breadcrumb.Link>

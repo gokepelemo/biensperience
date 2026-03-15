@@ -45,7 +45,8 @@ import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
 import UserAvatar from "../../components/UserAvatar/UserAvatar";
-import { SearchableSelect } from "../../components/FormField";
+import { SearchableSelectBasic } from "../../components/FormField";
+import SplitButton from "../../components/SplitButton/SplitButton";
 
 export default function Profile() {
     const { user, profile, updateUser: updateUserContext } = useUser();
@@ -1993,81 +1994,66 @@ export default function Profile() {
                     </>
                   )}
                   {isOwner && (
-                    <Dropdown>
-                      <DropdownToggle
-                        aria-label={lang.current.aria.profileActions}
-                        style={{ borderRadius: 'var(--radius-full)' }}
-                      >
-                        ⋯
-                      </DropdownToggle>
-                      <DropdownMenu>
-                        {isSuperAdmin(user) && (
-                          <>
-                            <DropdownItem
-                              className={styles.dropdownItem}
-                              onClick={handleOpenApiModal}
-                            >
-                              <FaKey className={styles.dropdownIcon} />
-                              <span>API Tokens</span>
-                            </DropdownItem>
-                            <DropdownItem
-                              className={styles.dropdownItem}
-                              onClick={handleOpenActivityMonitor}
-                            >
-                              <FaEye className={styles.dropdownIcon} />
-                              <span>Activity Monitor</span>
-                            </DropdownItem>
-                          </>
-                        )}
-                        <DropdownItem
-                          className={styles.dropdownItem}
-                          onClick={() => setShowPhotoUploadModal(true)}
-                          title={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
-                          aria-label={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
+                    <SplitButton
+                      label={lang.current.label.editProfile}
+                      icon={<FaEdit />}
+                      onClick={() => navigate('/profile/update')}
+                      variant="outline"
+                      size="sm"
+                      rounded
+                      menuAriaLabel={lang.current.aria.profileActions}
+                      placement="bottom-end"
+                    >
+                      <SplitButton.Item value="photos" onClick={() => setShowPhotoUploadModal(true)}>
+                        <FaCamera className={styles.dropdownIcon} />
+                        Manage Photos
+                      </SplitButton.Item>
+                      {currentProfile && !currentProfile.emailConfirmed && (
+                        <SplitButton.Item
+                          value="resend-email"
+                          onClick={async () => {
+                            if (!currentProfile || !currentProfile.email) return;
+                            if (resendInProgress || resendDisabled) return;
+                            try {
+                              setResendInProgress(true);
+                              await resendConfirmation(currentProfile.email);
+                              startCooldown();
+                              success(lang.current.success.resendConfirmation);
+                            } catch (err) {
+                              const msg = handleError(err, { context: 'Resend verification' });
+                              showError(msg || 'Failed to resend verification email');
+                            } finally {
+                              setResendInProgress(false);
+                            }
+                          }}
+                          disabled={resendInProgress || resendDisabled}
                         >
-                          <FaCamera className={styles.dropdownIcon} />
-                          <span>Manage Photos</span>
-                        </DropdownItem>
-                        <DropdownItem asChild className={styles.dropdownItem}>
-                          <Link to="/profile/update">
-                            <FaEdit className={styles.dropdownIcon} />
-                            <span>Update Profile</span>
+                          <FaEnvelope className={styles.dropdownIcon} />
+                          {lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}
+                        </SplitButton.Item>
+                      )}
+                      {isSuperAdmin(user) && (
+                        <>
+                          <SplitButton.Separator />
+                          <SplitButton.Item value="api-tokens" onClick={handleOpenApiModal}>
+                            <FaKey className={styles.dropdownIcon} />
+                            API Tokens
+                          </SplitButton.Item>
+                          <SplitButton.Item value="activity-monitor" onClick={handleOpenActivityMonitor}>
+                            <FaEye className={styles.dropdownIcon} />
+                            Activity Monitor
+                          </SplitButton.Item>
+                        </>
+                      )}
+                      {isSuperAdmin(user) && profileId && profileId !== user._id && (
+                        <SplitButton.Item value="admin-update" asChild>
+                          <Link to={`/profile/${profileId}/update`}>
+                            <FaUserShield className={styles.dropdownIcon} />
+                            Admin Update
                           </Link>
-                        </DropdownItem>
-                        {currentProfile && !currentProfile.emailConfirmed && (
-                          <DropdownItem
-                            className={styles.dropdownItem}
-                            onClick={async () => {
-                              if (!currentProfile || !currentProfile.email) return;
-                              if (resendInProgress || resendDisabled) return;
-                              try {
-                                setResendInProgress(true);
-                                await resendConfirmation(currentProfile.email);
-                                startCooldown();
-                                success(lang.current.success.resendConfirmation);
-                              } catch (err) {
-                                const msg = handleError(err, { context: 'Resend verification' });
-                                showError(msg || 'Failed to resend verification email');
-                              } finally {
-                                setResendInProgress(false);
-                              }
-                            }}
-                            disabled={resendInProgress || resendDisabled}
-                          >
-                            <FaEnvelope className={styles.dropdownIcon} />
-                            <span>{lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}</span>
-                          </DropdownItem>
-                        )}
-                        {isSuperAdmin(user) && profileId && profileId !== user._id && (
-                          <DropdownItem asChild className={`${styles.dropdownItem} ${styles.dropdownItemAdmin}`}>
-                            <Link to={`/profile/${profileId}/update`}>
-                              <FaUserShield className={styles.dropdownIcon} />
-                              <span>Admin Update</span>
-                            </Link>
-                          </DropdownItem>
-                        )}
-                      </DropdownMenu>
-                    </Dropdown>
+                        </SplitButton.Item>
+                      )}
+                    </SplitButton>
                   )}
                 </div>
               </div>
@@ -2093,7 +2079,7 @@ export default function Profile() {
                   feedType={activityFeedType}
                   rightControls={(
                     <div className={styles.activityFilterDropdown}>
-                      <SearchableSelect
+                      <SearchableSelectBasic
                         options={[
                           { value: 'all', label: lang.current.profile?.activityFilterAll || 'All', icon: FaList },
                           { value: 'own', label: lang.current.profile?.activityFilterOwn || 'Mine', icon: FaList },

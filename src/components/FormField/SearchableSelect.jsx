@@ -1,7 +1,8 @@
 /**
  * SearchableSelect Component
  *
- * A styled searchable dropdown with icon support matching the design system.
+ * A styled searchable combobox built on Chakra UI's Combobox primitive.
+ * Filters options using the trie algorithm for fast, fuzzy-matched results.
  * Can be used standalone or integrated with FormField.
  *
  * @example
@@ -13,15 +14,26 @@
  *   value={selected}
  *   onChange={setSelected}
  *   placeholder="Select country..."
- *   searchable
  * />
  */
 
-import React, { useState, useRef, useEffect, useCallback, useId, useMemo } from 'react';
-import { Portal } from '@chakra-ui/react';
+import React, { useState, useCallback, useId, useMemo } from 'react';
+import {
+  ComboboxRoot,
+  ComboboxControl,
+  ComboboxInput,
+  ComboboxTrigger,
+  ComboboxPositioner,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxItemText,
+  ComboboxItemIndicator,
+  ComboboxEmpty,
+  createListCollection,
+} from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { FaChevronDown, FaCheck } from 'react-icons/fa';
-import { SearchInput } from '../design-system';
 import { createFilter } from '../../utilities/trie';
 import { lang } from '../../lang.constants';
 import styles from './SearchableSelect.module.css';
@@ -48,33 +60,30 @@ export default function SearchableSelect({
   const generatedId = useId();
   const selectId = providedId || generatedId;
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  // Search query state - drives trie filtering
+  const [inputValue, setInputValue] = useState('');
 
-  const containerRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const listRef = useRef(null);
-
-  const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth <= 767; // breakpoint-md - 1
+  const isMobileOrTabletViewport = typeof window !== 'undefined' && window.innerWidth <= 767;
   const shouldPortal = portal || isMobileOrTabletViewport;
 
+  // Normalize value to array for ComboboxRoot (always expects string[])
   const selectedValues = useMemo(() => {
-    if (!multiple) return value;
+    if (!multiple) return value ? [value] : [];
     if (Array.isArray(value)) return value;
     return [];
   }, [multiple, value]);
 
+  // For multi-select display overlay
   const selectedOptions = useMemo(() => {
     if (!multiple) return [];
     const valueSet = new Set(selectedValues);
     return options.filter(opt => valueSet.has(opt.value));
   }, [multiple, options, selectedValues]);
 
-  // Find selected option
+  // For single-select icon/suffix display in the control
   const selectedOption = useMemo(() => {
     if (multiple) return null;
-    return options.find(opt => opt.value === value);
+    return options.find(opt => opt.value === value) || null;
   }, [multiple, options, value]);
 
   // Build trie filter index when options change
@@ -89,360 +98,162 @@ export default function SearchableSelect({
     return filter;
   }, [options]);
 
-  // Filter options based on search using trie
+  // Filter options via trie when user is typing; show full list when input is empty
   const filteredOptions = useMemo(() => {
-    if (!searchQuery) return options;
-    return trieFilter.filter(searchQuery, { rankResults: true });
-  }, [searchQuery, options, trieFilter]);
+    if (!inputValue) return options;
+    return trieFilter.filter(inputValue, { rankResults: true });
+  }, [inputValue, options, trieFilter]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!isOpen) return;
+  // Chakra collection built from filtered options
+  const collection = useMemo(() => createListCollection({
+    items: filteredOptions,
+    itemToValue: item => item.value,
+    itemToString: item => item.label,
+  }), [filteredOptions]);
 
-    const handleClickOutside = (e) => {
-      // When portaled, the dropdown is fixed and outside the container DOM subtree.
-      // Check outside both the container AND the dropdown.
-      // Note: CSS.escape handles special characters in useId() output (e.g., colons in ":r0:")
-      const escapedId = CSS.escape(selectId);
-      const dropdownRef = document.querySelector(`[data-searchable-select="${escapedId}"]`);
-
-      const clickedOutsideContainer = containerRef.current && !containerRef.current.contains(e.target);
-      const clickedOutsideDropdown = shouldPortal && dropdownRef && !dropdownRef.contains(e.target);
-
-      if (clickedOutsideContainer && (!shouldPortal || clickedOutsideDropdown)) {
-        setIsOpen(false);
-        setSearchQuery('');
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, selectId, shouldPortal]);
-
-  // Position dropdown when portaled (fixed positioning)
-  const positionDropdown = useCallback(() => {
-    if (!isOpen) return;
-    if (!shouldPortal) return;
-
-    // Query dropdown and trigger
-    // Note: CSS.escape handles special characters in useId() output (e.g., colons in ":r0:")
-    const escapedId = CSS.escape(selectId);
-    const dropdown = document.querySelector(`[data-searchable-select="${escapedId}"]`);
-    const trigger = containerRef.current?.querySelector(`.${styles.trigger}`);
-
-    if (!dropdown || !trigger) return;
-
-    // Ensure fixed positioning for predictable placement
-    dropdown.style.position = 'fixed';
-    dropdown.style.visibility = 'hidden';
-
-    // Run in RAF and a short timeout to ensure layout has settled and dropdown height is measured
-    const applyPosition = () => {
-      const triggerRect = trigger.getBoundingClientRect();
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const dropdownHeight = dropdown.offsetHeight || 300; // fallback height
-      const viewportHeight = window.innerHeight;
-      const viewportWidth = window.innerWidth;
-      const spaceBelow = viewportHeight - triggerRect.bottom - 8; // 8px gap
-      const spaceAbove = triggerRect.top - 8;
-
-      // Position below trigger if there's enough space, otherwise above
-      if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        dropdown.style.top = `${Math.min(viewportHeight - dropdownHeight - 8, triggerRect.bottom + 4)}px`;
-        dropdown.style.bottom = 'auto';
-        dropdown.style.maxHeight = `${Math.min(dropdownHeight, spaceBelow)}px`;
-      } else {
-        dropdown.style.top = 'auto';
-        dropdown.style.bottom = `${Math.min(viewportHeight - 8, viewportHeight - triggerRect.top + 4)}px`;
-        dropdown.style.maxHeight = `${Math.min(dropdownHeight, spaceAbove)}px`;
-      }
-
-      // Ensure stylesheet doesn't leave right anchored; JS fully controls geometry
-      dropdown.style.right = 'auto';
-      // Use the trigger rect so the dropdown matches the visible trigger width
-      // This avoids issues when ancestor layout/padding differs from container
-      const left = Math.max(0, triggerRect.left);
-      const targetWidth = Math.max(120, triggerRect.width);
-      dropdown.style.left = `${left}px`;
-      dropdown.style.width = `${targetWidth}px`;
-      dropdown.style.boxSizing = 'border-box';
-      dropdown.style.transform = 'none';
-      dropdown.style.visibility = 'visible';
-    };
-
-    // Use RAF then a micro timeout for cross-browser stability
-    window.requestAnimationFrame(() => {
-      applyPosition();
-      setTimeout(applyPosition, 20);
-    });
-  }, [isOpen, selectId, shouldPortal]);
-
-  // Keep position in sync while open (modal body scroll uses capture)
-  useEffect(() => {
-    if (!isOpen || !shouldPortal) return;
-
-    const handleScroll = () => positionDropdown();
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, [isOpen, shouldPortal, positionDropdown]);
-
-  // Reposition when dropdown opens, when filtered options change, or on searchQuery updates
-  useEffect(() => {
-    if (!isOpen) return;
-    positionDropdown();
-
-    // small delay to handle content rendering
-    const t = setTimeout(() => positionDropdown(), 30);
-    return () => clearTimeout(t);
-  }, [isOpen, filteredOptions.length, searchQuery, positionDropdown]);
-
-  // Reposition on window resize while open
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleResize = () => positionDropdown();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isOpen, positionDropdown]);
-
-  
-
-  // Reset highlighted index when filtered options change
-  useEffect(() => {
-    setHighlightedIndex(0);
-  }, [searchQuery]);
-
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback((e) => {
-    if (!isOpen) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex(prev =>
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex(prev => prev > 0 ? prev - 1 : 0);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (filteredOptions[highlightedIndex]) {
-          handleSelect(filteredOptions[highlightedIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setIsOpen(false);
-        setSearchQuery('');
-        break;
-      case 'Tab':
-        setIsOpen(false);
-        setSearchQuery('');
-        break;
-      default:
-        break;
-    }
-  }, [isOpen, filteredOptions, highlightedIndex]);
-
-  // Scroll highlighted option into view
-  useEffect(() => {
-    if (isOpen && listRef.current) {
-      const highlightedEl = listRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
-      if (highlightedEl) {
-        highlightedEl.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [highlightedIndex, isOpen]);
-
-  const handleSelect = (option) => {
+  // Handler: item selected/deselected
+  const handleValueChange = useCallback(({ value: newValues }) => {
     if (!multiple) {
-      onChange(option.value);
-      setIsOpen(false);
-      setSearchQuery('');
-      return;
-    }
-
-    const next = new Set(selectedValues);
-    if (next.has(option.value)) {
-      next.delete(option.value);
+      onChange(newValues[0] ?? '');
     } else {
-      next.add(option.value);
+      onChange(newValues);
     }
-    onChange(Array.from(next));
-  };
+    setInputValue('');
+  }, [multiple, onChange]);
 
-  const handleToggle = () => {
-    if (!disabled) {
-      setIsOpen(!isOpen);
-      if (isOpen) {
-        setSearchQuery('');
-      }
-    }
-  };
+  // Handler: user typed in the input
+  const handleInputValueChange = useCallback(({ inputValue: iv }) => {
+    setInputValue(iv);
+  }, []);
 
-  // Build trigger class names
-  const triggerClasses = [
-    styles.trigger,
-    styles[`size${size.charAt(0).toUpperCase() + size.slice(1)}`],
-    isOpen && styles.open,
+  // Handler: reset filter on open so the full list is always shown initially
+  const handleOpenChange = useCallback(({ open }) => {
+    if (open) setInputValue('');
+  }, []);
+
+  // Multi-select display overlay: shown when not actively filtering
+  const showMultiValueDisplay = multiple && selectedOptions.length > 0 && inputValue === '';
+  const multiValueText = showMultiValueDisplay
+    ? (selectedOptions.length === 1
+        ? selectedOptions[0].label
+        : `${selectedOptions[0].label} +${selectedOptions.length - 1}`)
+    : null;
+
+  // CSS class composition for the control element
+  const sizeClass = `size${size.charAt(0).toUpperCase() + size.slice(1)}`;
+  const controlClasses = [
+    styles.comboboxControl,
+    styles[sizeClass],
     disabled && styles.disabled,
     isValid && styles.valid,
     isInvalid && styles.invalid,
-    className
+    className,
   ].filter(Boolean).join(' ');
 
   return (
-    <div
-      ref={containerRef}
+    <ComboboxRoot
+      collection={collection}
+      value={selectedValues}
+      onValueChange={handleValueChange}
+      inputValue={inputValue}
+      onInputValueChange={handleInputValueChange}
+      onOpenChange={handleOpenChange}
+      ids={{ input: selectId }}
+      multiple={multiple}
+      disabled={disabled}
+      closeOnSelect={!multiple}
+      openOnClick
+      readOnly={!searchable}
+      positioning={{
+        strategy: shouldPortal ? 'fixed' : 'absolute',
+        placement: 'bottom-start',
+        sameWidth: true,
+        flip: true,
+        offset: { mainAxis: 4 },
+      }}
       className={styles.container}
-      onKeyDown={handleKeyDown}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
     >
-      {/* Hidden native select for form submission */}
+      {/* Hidden native inputs for form submission */}
       {name && (
-        multiple ? (
-          (Array.isArray(selectedValues) ? selectedValues : []).map((v) => (
-            <input
-              key={v}
-              type="hidden"
-              name={name.endsWith('[]') ? name : `${name}[]`}
-              value={v}
-            />
-          ))
-        ) : (
-          <input type="hidden" name={name} value={value || ''} />
-        )
+        multiple
+          ? (Array.isArray(selectedValues) ? selectedValues : []).map(v => (
+              <input
+                key={v}
+                type="hidden"
+                name={name.endsWith('[]') ? name : `${name}[]`}
+                value={v}
+              />
+            ))
+          : <input type="hidden" name={name} value={value || ''} />
       )}
 
-      {/* Trigger button */}
-      <button
-        type="button"
-        id={selectId}
-        className={triggerClasses}
-        onClick={handleToggle}
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-label={ariaLabel}
-        aria-describedby={ariaDescribedBy}
-      >
-        <span className={styles.triggerContent}>
-          {multiple ? (
-            selectedOptions.length > 0 ? (
-              <>
-                <span className={styles.triggerLabel}>
-                  {selectedOptions.length === 1
-                    ? selectedOptions[0].label
-                    : `${selectedOptions[0].label} +${selectedOptions.length - 1}`}
-                </span>
-              </>
-            ) : (
-              <span className={styles.placeholder}>{placeholder}</span>
-            )
-          ) : selectedOption ? (
-            <>
-              {selectedOption.icon && (
-                <span className={styles.optionIcon}>
-                  {React.createElement(selectedOption.icon)}
-                </span>
-              )}
-              <span className={styles.triggerLabel}>{selectedOption.label}</span>
-              {selectedOption.suffix && (
-                <span className={styles.triggerSuffix}>{selectedOption.suffix}</span>
-              )}
-            </>
-          ) : (
-            <span className={styles.placeholder}>{placeholder}</span>
-          )}
-        </span>
-        <FaChevronDown className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`} />
-      </button>
+      <ComboboxControl className={controlClasses}>
+        {/* Leading icon for single-select when an option has been selected and user is not filtering */}
+        {!multiple && selectedOption?.icon && !inputValue && (
+          <span className={styles.leadingIcon} aria-hidden="true">
+            {React.createElement(selectedOption.icon)}
+          </span>
+        )}
 
-      {/* Dropdown panel */}
-      {isOpen && (() => {
-        const dropdown = (
-          <div
-            className={styles.dropdown}
-            role="presentation"
-            data-searchable-select={selectId}
-            style={shouldPortal ? { visibility: 'hidden', zIndex: 9999 } : undefined}
-          >
-            {/* Search input */}
-            {searchable && (
-              <div className={styles.searchWrapper}>
-                <SearchInput
-                  ref={searchInputRef}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={searchPlaceholder}
-                  ariaLabel={lang.current.searchableSelect.searchOptionsAria}
-                  size="sm"
-                />
-              </div>
-            )}
+        {/* Multi-select value summary — shown as overlay over the transparent input */}
+        {showMultiValueDisplay && (
+          <span className={styles.multiValueDisplay} aria-hidden="true">
+            {multiValueText}
+          </span>
+        )}
 
-            {/* Options list */}
-            <ul
-              ref={listRef}
-              className={styles.optionsList}
-              role="listbox"
-              aria-multiselectable={multiple || undefined}
-              aria-activedescendant={filteredOptions[highlightedIndex]?.value}
-            >
-              {filteredOptions.length === 0 ? (
-                <li className={styles.noResults}>{lang.current.searchableSelect.noResultsFound}</li>
-              ) : (
-                filteredOptions.map((option, index) => (
-                  <li
-                    key={option.value}
-                    data-index={index}
-                    className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''} ${(multiple ? selectedValues.includes(option.value) : option.value === value) ? styles.selected : ''}`}
-                    role="option"
-                    aria-selected={(multiple ? selectedValues.includes(option.value) : option.value === value)}
-                    onMouseDown={(e) => {
-                      // Handle selection on mousedown to ensure it fires before
-                      // any click-outside handlers can close the dropdown
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleSelect(option);
-                    }}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                  >
-                    {option.icon && (
-                      <span className={styles.optionIcon}>
-                        {React.createElement(option.icon)}
-                      </span>
-                    )}
-                    <span className={styles.optionLabel}>{option.label}</span>
-                    {option.suffix && (
-                      <span className={styles.optionSuffix}>{option.suffix}</span>
-                    )}
-                    {(multiple ? selectedValues.includes(option.value) : option.value === value) && (
-                      <FaCheck className={styles.checkIcon} aria-hidden="true" />
-                    )}
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-        );
+        <ComboboxInput
+          placeholder={showMultiValueDisplay ? searchPlaceholder : placeholder}
+          className={[
+            styles.comboboxInput,
+            showMultiValueDisplay ? styles.comboboxInputHidden : '',
+          ].filter(Boolean).join(' ')}
+        />
 
-        // When portaled, use Chakra's Portal which is aware of Dialog focus traps.
-        // This ensures the dropdown remains interactive inside Chakra modals.
-        if (shouldPortal) {
-          return <Portal>{dropdown}</Portal>;
-        }
+        {/* Suffix label for single-select selected option */}
+        {!multiple && selectedOption?.suffix && !inputValue && (
+          <span className={styles.optionSuffix}>{selectedOption.suffix}</span>
+        )}
 
-        return dropdown;
-      })()}
-    </div>
+        <ComboboxTrigger className={styles.comboboxTrigger}>
+          <FaChevronDown className={styles.chevron} />
+        </ComboboxTrigger>
+      </ComboboxControl>
+
+      <ComboboxPositioner>
+        <ComboboxContent className={styles.dropdown}>
+          <ComboboxEmpty className={styles.noResults}>
+            {lang.current.searchableSelect.noResultsFound}
+          </ComboboxEmpty>
+          <ComboboxList className={styles.optionsList}>
+            {filteredOptions.map(option => (
+              <ComboboxItem
+                key={option.value}
+                item={option}
+                className={styles.option}
+              >
+                {option.icon && (
+                  <span className={styles.optionIcon} aria-hidden="true">
+                    {React.createElement(option.icon)}
+                  </span>
+                )}
+                <ComboboxItemText className={styles.optionLabel}>
+                  {option.label}
+                </ComboboxItemText>
+                {option.suffix && (
+                  <span className={styles.optionSuffix}>{option.suffix}</span>
+                )}
+                <ComboboxItemIndicator className={styles.checkIcon}>
+                  <FaCheck aria-hidden="true" />
+                </ComboboxItemIndicator>
+              </ComboboxItem>
+            ))}
+          </ComboboxList>
+        </ComboboxContent>
+      </ComboboxPositioner>
+    </ComboboxRoot>
   );
 }
 

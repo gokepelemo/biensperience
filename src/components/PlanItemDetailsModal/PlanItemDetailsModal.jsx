@@ -312,8 +312,11 @@ export default function PlanItemDetailsModal({
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
 
-  // Reset to specified initial tab when modal opens or a DIFFERENT plan item is selected
-  // This effect should ONLY run when show or planItemId actually changes value
+  // Reset to specified initial tab when modal opens or a DIFFERENT plan item is selected.
+  // planItemIdStr is included in deps so keyboard/swipe navigation between items
+  // (where show and initialTab stay the same) correctly resets all local state.
+  // The ref-based isDifferentPlanItem guard ensures we only reset on _id change, not
+  // on every field update of the same item.
   useEffect(() => {
     const prevState = initializedForRef.current;
     const isModalOpening = show && !prevState.show;
@@ -353,13 +356,14 @@ export default function PlanItemDetailsModal({
       setShowAddDropdown(false);
       setShowLocationModal(false);
       setShowDateModal(false);
+      setShowDetailTypeSelectorModal(false);
+      setShowAddDetailModal(false);
+      setSelectedDetailType(null);
       setLocalScheduledDate(planItem?.scheduled_date || null);
       setLocalScheduledTime(planItem?.scheduled_time || null);
     }
-    // NOTE: We intentionally exclude planItemIdStr from dependencies because we track it via ref
-    // This prevents the effect from running on every planItem prop update
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show, initialTab]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- planItem fields are read only inside shouldReset block which already gates on planItemIdStr change
+  }, [show, initialTab, planItemIdStr]);
 
   // Re-sync localScheduledDate/Time when the prop changes externally
   // (e.g. a collaborator updates via WebSocket or parent re-fetches)
@@ -1749,11 +1753,15 @@ export default function PlanItemDetailsModal({
             </div>
           )}
 
-          {/* NotesTab - keep mounted but hidden to preserve form state during tab switches */}
+          {/* NotesTab - keep mounted but hidden to preserve form state during tab switches.
+               key={planItemIdStr} ensures the component fully remounts when navigating
+               to a different plan item (clearing search, edit form, etc.) while still
+               preserving state across tab switches within the same item. */}
           <div
             className={`${styles.notesTabWrapper} ${activeTab === 'notes' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
             <PlanItemNotes
+              key={planItemIdStr}
               planItemId={planItemIdStr}
               notes={notes}
               currentUser={currentUser}

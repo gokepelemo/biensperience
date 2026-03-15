@@ -1,10 +1,11 @@
 /**
  * DatePickerSection Component
- * Modal for setting/editing planned dates
+ * Modal for setting/editing planned dates using Chakra UI DatePicker
  */
 
-import { Flex } from '@chakra-ui/react';
-import { Modal, FormGroup, FormLabel, FormControl, Alert, Button as DSButton } from '../../../components/design-system';
+import { useMemo } from 'react';
+import { DatePicker, Flex, Text, parseDate } from '@chakra-ui/react';
+import { Modal, Alert, Button as DSButton } from '../../../components/design-system';
 import { getMinimumPlanningDate, isValidPlannedDate } from '../../../utilities/date-utils';
 import { formatPlanningTime } from '../../../utilities/planning-time-utils';
 import { FaCalendarAlt } from 'react-icons/fa';
@@ -39,6 +40,36 @@ export default function DatePickerSection({
 
   const handleSubmit = () => {
     handleDateUpdate();
+  };
+
+  // Convert plannedDate string (YYYY-MM-DD) to DateValue[] for Chakra DatePicker
+  const datePickerValue = useMemo(() => {
+    if (!plannedDate) return [];
+    try {
+      return [parseDate(plannedDate)];
+    } catch {
+      return [];
+    }
+  }, [plannedDate]);
+
+  // Compute min date as DateValue
+  const minDateValue = useMemo(() => {
+    const minStr = getMinimumPlanningDate(experience.max_planning_days);
+    if (!minStr) return undefined;
+    try {
+      return parseDate(minStr);
+    } catch {
+      return undefined;
+    }
+  }, [experience.max_planning_days]);
+
+  // Handle Chakra DatePicker value change → update parent string state
+  const handleValueChange = (details) => {
+    if (details.value && details.value.length > 0) {
+      setPlannedDate(details.value[0].toString());
+    } else {
+      setPlannedDate("");
+    }
   };
 
   // Custom footer with all action buttons
@@ -92,44 +123,53 @@ export default function DatePickerSection({
       footer={modalFooter}
     >
       {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
-        <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+        <Text color="var(--color-text-muted)" mb="var(--space-4)">
           {lang.current.helper.requiresDaysToPlan.replace(
             "{days}",
             formatPlanningTime(experience.max_planning_days)
           )}
-        </p>
+        </Text>
       )}
 
-      <FormGroup style={{ marginBottom: 'var(--space-4)' }}>
-        <FormLabel htmlFor="plannedDate" style={{ fontWeight: 'var(--font-weight-semibold)' }}>
+      <DatePicker.Root
+        value={datePickerValue}
+        onValueChange={handleValueChange}
+        min={minDateValue}
+        closeOnSelect
+        inline
+        width="100%"
+      >
+        <DatePicker.Label fontWeight="var(--font-weight-semibold)">
           {lang.current.label.whenDoYouWantExperience}
-        </FormLabel>
-        <FormControl
-          type="date"
-          id="plannedDate"
-          value={plannedDate}
-          onChange={(e) => setPlannedDate(e.target.value)}
-          onClick={(e) =>
-            e.target.showPicker && e.target.showPicker()
-          }
-          min={getMinimumPlanningDate(
-            experience.max_planning_days
-          )}
-          autoFocus
-        />
-        {plannedDate &&
-          experience.max_planning_days > 0 &&
-          !isValidPlannedDate(
-            plannedDate,
-            experience.max_planning_days
-          ) && (
-            <Alert
-              type="warning"
-              style={{ marginTop: 'var(--space-2)' }}
-              message={lang.current.alert.notEnoughTimeWarning}
-            />
-          )}
-      </FormGroup>
+        </DatePicker.Label>
+        <DatePicker.Content unstyled>
+          <DatePicker.View view="day">
+            <DatePicker.Header />
+            <DatePicker.DayTable />
+          </DatePicker.View>
+          <DatePicker.View view="month">
+            <DatePicker.Header />
+            <DatePicker.MonthTable />
+          </DatePicker.View>
+          <DatePicker.View view="year">
+            <DatePicker.Header />
+            <DatePicker.YearTable />
+          </DatePicker.View>
+        </DatePicker.Content>
+      </DatePicker.Root>
+
+      {plannedDate &&
+        experience.max_planning_days > 0 &&
+        !isValidPlannedDate(
+          plannedDate,
+          experience.max_planning_days
+        ) && (
+          <Alert
+            type="warning"
+            style={{ marginTop: 'var(--space-2)' }}
+            message={lang.current.alert.notEnoughTimeWarning}
+          />
+        )}
     </Modal>
   );
 }
