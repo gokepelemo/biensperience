@@ -92,11 +92,12 @@ export default function AppHome() {
     if (itemCount <= limit) return null;
 
     return (
-      <Box flex="0 0 100%" maxW="100%" textAlign="center" mt="4" mb="5">
+      <Box flex="0 0 100%" maxW="100%" textAlign="center" mt="6" mb="12">
         <Button
           variant="link"
           size="sm"
           onClick={onToggle}
+          style={{ minHeight: 'auto', minWidth: 'auto', textDecoration: 'none' }}
         >
           {isExpanded ? lang.current.button.showLess : lang.current.button.showMore}
         </Button>
@@ -134,7 +135,7 @@ export default function AppHome() {
       ) : (
         <>
           {/* Popular Destinations Section */}
-          <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>{lang.current.heading.popularDestinations}</Heading>
+          <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>{lang.current.heading.popularDestinations}</Heading>
           {isDestinationsLoading ? (
             <FlexCenter className="animation-fade-in">
               <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
@@ -178,7 +179,7 @@ export default function AppHome() {
           )}
 
           {/* Curated Experiences Section */}
-          <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>{lang.current.heading.curatedExperiences}</Heading>
+          <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>{lang.current.heading.curatedExperiences}</Heading>
           {isExperiencesLoading ? (
             <FlexCenter className="animation-fade-in">
               <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">

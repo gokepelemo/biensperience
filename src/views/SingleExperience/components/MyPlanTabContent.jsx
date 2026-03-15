@@ -778,7 +778,7 @@ export default function MyPlanTabContent({
             style={{ marginBottom: 'var(--space-6)' }}
           />
         )}
-        <div className="plan-header-row" style={{ marginBottom: 'var(--space-6)' }}>
+        <div className="plan-header-row">
           <UsersListDisplay
             owner={planOwner}
             users={planCollaborators}
@@ -862,7 +862,7 @@ export default function MyPlanTabContent({
       )}
 
       {/* Collaborators and Action Buttons Row */}
-      <div className="plan-header-row" style={{ marginBottom: 'var(--space-6)' }}>
+      <div className="plan-header-row">
         {/* Collaborators Display - Left Side */}
         <UsersListDisplay
           owner={planOwner}

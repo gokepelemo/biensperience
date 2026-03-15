@@ -87,7 +87,7 @@ const BaseButton = React.forwardRef(function BaseButton({
   // Map size — Chakra recipe supports xs / sm / md / lg; xl → lg
   const recipeSize = size === 'xl' ? 'lg' : size;
 
-  // Extra style props for rounded, shadow, fullWidth, matchWidth
+  // Extra style props for fullWidth, matchWidth
   const extraStyles = useMemo(() => {
     const s = { ...style };
 
@@ -105,13 +105,19 @@ const BaseButton = React.forwardRef(function BaseButton({
     return s;
   }, [matchWidth, fullWidth, size, style]);
 
-  // Compose CSS overrides for rounded / shadow
+  // Compose CSS overrides for rounded / shadow / link variant
   const cssOverrides = useMemo(() => {
     const css = {};
     if (rounded) css.borderRadius = 'full';
     if (shadow) css.boxShadow = 'lg';
+    // Link variant: override global button min-height/min-width (accessibility.css)
+    // and size variant minHeight so link renders as inline text
+    if (recipeVariant === 'link') {
+      css.minHeight = 'auto !important';
+      css.minWidth = 'auto !important';
+    }
     return Object.keys(css).length ? css : undefined;
-  }, [rounded, shadow]);
+  }, [rounded, shadow, recipeVariant]);
 
   // Content with optional icons
   const content = (

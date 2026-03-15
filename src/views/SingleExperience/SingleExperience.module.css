@@ -1197,7 +1197,7 @@
   align-items: center;
   gap: 1.25rem;
   padding: 0;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-6);
 
   @media (max-width: 768px) {
     flex-direction: column;

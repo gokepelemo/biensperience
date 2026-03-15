@@ -826,12 +826,15 @@ const config = defineConfig({
             },
             link: {
               background: 'transparent',
-              color: '{colors.brand.500}',
+              color: { _light: '{colors.brand.500}', _dark: '#9f93f7' },
               border: 'none',
               padding: '0',
               minHeight: 'auto',
-              textDecoration: 'underline',
-              _hover: { color: '{colors.brand.600}' },
+              textDecoration: 'none',
+              _hover: {
+                color: { _light: '{colors.brand.600}', _dark: '#b8aef9' },
+                textDecoration: 'underline',
+              },
             },
             outline: {
               background: 'transparent',
