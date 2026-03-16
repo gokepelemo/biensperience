@@ -18,7 +18,7 @@ import CostEstimate from '../CostEstimate/CostEstimate';
 import ActualCost from '../ActualCost/ActualCost';
 import Pill from '../Pill/Pill';
 import InfoTooltip from '../InfoTooltip/InfoTooltip';
-import { SearchableSelect } from '../FormField';
+import { SearchableSelectBasic } from '../FormField';
 import { getUserPlans, getCollaborators } from '../../utilities/plans-api';
 import { usePlanExperience } from '../../contexts/PlanExperienceContext';
 import { formatDateMetricCard } from '../../utilities/date-utils';
@@ -394,7 +394,7 @@ export default function MyPlans() {
               {/* Filter dropdown */}
               {plans.length > 0 && (
                 <div className={styles.planFilterDropdown}>
-                  <SearchableSelect
+                  <SearchableSelectBasic
                     options={filterOptions}
                     value={planFilter}
                     onChange={setPlanFilter}

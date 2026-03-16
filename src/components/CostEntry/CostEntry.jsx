@@ -9,6 +9,8 @@
  */
 
 import { useState, useEffect, useMemo, useId } from 'react';
+import { DatePicker, Portal, parseDate } from '@chakra-ui/react';
+import { LuCalendar } from 'react-icons/lu';
 import { lang } from '../../lang.constants';
 import { getCurrencySymbol, getCurrencyDropdownOptions } from '../../utilities/currency-utils';
 import { Modal, Button, Form, FormGroup, FormLabel, FormControl, FormText } from '../../components/design-system';
@@ -363,16 +365,54 @@ export default function CostEntry({
 
           {/* Date */}
           <FormGroup className={styles.formGroup}>
-            <FormLabel htmlFor={`${formId}-date`} className={styles.formLabel}>
-              {costStrings.costDate}
-            </FormLabel>
-            <FormControl
-              type="date"
-              id={`${formId}-date`}
-              value={costData.date}
-              onChange={handleChange('date')}
-              aria-label={costStrings.costDate}
-            />
+            <DatePicker.Root
+              value={costData.date ? (() => { try { return [parseDate(costData.date)]; } catch { return []; } })() : []}
+              onValueChange={(details) => {
+                const dateStr = details.value?.[0]?.toString() || '';
+                setCostData(prev => ({ ...prev, date: dateStr }));
+                if (errors.date) {
+                  setErrors(prev => ({ ...prev, date: null }));
+                }
+              }}
+              closeOnSelect
+            >
+              <DatePicker.Label className={styles.formLabel}>
+                {costStrings.costDate}
+              </DatePicker.Label>
+              <DatePicker.Control>
+                <DatePicker.Input />
+                <DatePicker.IndicatorGroup>
+                  <DatePicker.Trigger>
+                    <LuCalendar />
+                  </DatePicker.Trigger>
+                </DatePicker.IndicatorGroup>
+              </DatePicker.Control>
+              <Portal>
+                <DatePicker.Positioner>
+                  <DatePicker.Content
+                    bg="var(--color-bg-primary)"
+                    borderRadius="var(--radius-lg)"
+                    boxShadow="lg"
+                    border="1px solid"
+                    borderColor="var(--color-border-light)"
+                    p="2"
+                  >
+                    <DatePicker.View view="day">
+                      <DatePicker.Header />
+                      <DatePicker.DayTable />
+                    </DatePicker.View>
+                    <DatePicker.View view="month">
+                      <DatePicker.Header />
+                      <DatePicker.MonthTable />
+                    </DatePicker.View>
+                    <DatePicker.View view="year">
+                      <DatePicker.Header />
+                      <DatePicker.YearTable />
+                    </DatePicker.View>
+                  </DatePicker.Content>
+                </DatePicker.Positioner>
+              </Portal>
+            </DatePicker.Root>
             <FormText className={styles.formHelp} muted>
               {costStrings.costDateHelp}
             </FormText>

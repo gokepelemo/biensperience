@@ -1,7 +1,8 @@
-/* Breadcrumb Navigation */
+/* Breadcrumb Navigation — fixed min-height prevents layout shift between skeleton/loaded */
 .breadcrumbNav {
   margin-bottom: 1rem;
   font-size: var(--font-size-sm);
+  min-height: 20px;
 
   /* Bootstrap breadcrumb classes (legacy) */
   :global(.breadcrumb) {
@@ -122,13 +123,15 @@
   }
 }
 
-/* Skeleton breadcrumb row */
+/* Skeleton breadcrumb row — matches loaded Chakra Breadcrumb dimensions */
 .skeletonRow {
   display: flex;
   align-items: center;
   gap: 0;
   font-size: var(--font-size-sm);
-  line-height: 1;
+  /* Use normal line-height to match loaded Chakra breadcrumb (not line-height: 1) */
+  line-height: normal;
+  min-height: 20px;
 }
 
 .skeletonSeparator {
@@ -136,9 +139,10 @@
   font-size: var(--font-size-sm);
 }
 
-/* Mobile breadcrumb styles (back arrow only) */
+/* Mobile breadcrumb styles (back arrow only) — min-height matches skeleton */
 .mobileBreadcrumb {
   margin-bottom: 1rem;
+  min-height: 20px;
 
   .backLink {
     display: inline-flex;

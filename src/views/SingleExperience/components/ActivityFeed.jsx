@@ -19,6 +19,7 @@ import { getPhotosByIds } from '../../../utilities/photos-api';
 import { eventBus } from '../../../utilities/event-bus';
 import { displayRelativeTime } from '../../../utilities/time-utils';
 import { useToast } from '../../../contexts/ToastContext';
+import { useUser } from '../../../contexts/UserContext';
 import { logger } from '../../../utilities/logger';
 
 const PAGE_SIZE = 10;
@@ -42,26 +43,38 @@ function getActivityIndicator(activity) {
 /**
  * Returns the text for a given activity action
  */
-function getActivityText(activity) {
-  const actorName = activity.actor?.name || 'Someone';
+function ActorName({ actor }) {
+  const { user: currentUser } = useUser();
+  const isCurrentUser = currentUser?._id && actor?._id && currentUser._id === actor._id;
+  const name = isCurrentUser ? 'You' : (actor?.name || 'Someone');
+  if (actor?._id) {
+    return <Link to={`/profile/${actor._id}`} style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-primary)', textDecoration: 'none' }}><strong>{name}</strong></Link>;
+  }
+  return <strong>{name}</strong>;
+}
+
+function ActivityText({ activity }) {
+  const { user: currentUser } = useUser();
+  const isCurrentUser = currentUser?._id && activity.actor?._id && currentUser._id === activity.actor._id;
+  const verb = (singular, plural) => isCurrentUser ? plural : singular;
 
   switch (activity.action) {
     case 'experience_planned':
-      return <><strong>{actorName}</strong> is planning this experience</>;
+      return <><ActorName actor={activity.actor} /> {verb('is planning', 'are planning')} this experience</>;
     case 'plan_item_photo_added':
       return (
         <>
-          <strong>{actorName}</strong> added a photo to &ldquo;{activity.target?.name || 'a plan item'}&rdquo;
+          <ActorName actor={activity.actor} /> added a photo to &ldquo;{activity.target?.name || 'a plan item'}&rdquo;
         </>
       );
     case 'plan_item_visibility_changed':
       return (
         <>
-          <strong>{actorName}</strong> shared &ldquo;{activity.target?.name || 'a plan item'}&rdquo; publicly
+          <ActorName actor={activity.actor} /> shared &ldquo;{activity.target?.name || 'a plan item'}&rdquo; publicly
         </>
       );
     default:
-      return <><strong>{actorName}</strong> {activity.reason || 'performed an action'}</>;
+      return <><ActorName actor={activity.actor} /> {activity.reason || 'performed an action'}</>;
   }
 }
 
@@ -308,7 +321,7 @@ function ActivityFeed({ experienceId }) {
       <Timeline.Root size="md" variant="outline" css={{ width: '100%', '& .chakra-timeline__item': { alignItems: 'center' }, '& .chakra-timeline__content': { paddingTop: 0, paddingBottom: 'var(--space-4)' }, '& .chakra-timeline__indicator': { overflow: 'hidden' } }}>
         {paginatedActivities.map((activity) => {
           const { icon, colorPalette } = getActivityIndicator(activity);
-          const text = getActivityText(activity);
+          const text = <ActivityText activity={activity} />;
           const actorUser = activity.actor ? {
             _id: activity.actor._id,
             name: activity.actor.name,

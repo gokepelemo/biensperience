@@ -1,40 +1,8 @@
 /* Breadcrumb styles are fully owned by src/components/Breadcrumb/Breadcrumb.module.scss.
  * View-level overrides removed — use the Breadcrumb component's className prop if needed. */
 
-/* Hero Image Section */
-.heroSection {
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-  margin-bottom: 1.5rem;
-  height: 450px;
-  background: var(--color-bg-secondary);
-  position: relative;
-
-  @media (max-width: 767px) {
-
-    height: 300px;
-    margin-bottom: 1rem;
-  
-  }
-
-  /* Overlay gradient for better text visibility */
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 30%;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
-    pointer-events: none;
-  }
-}
-
-.heroImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+/* Hero Image Section — layout now handled by Chakra Box props in JSX.
+ * Only overlay/title/meta styles remain here. */
 
 .heroOverlay {
   position: absolute;
@@ -47,62 +15,23 @@
   z-index: 1; /* Above the ::after gradient overlay */
 }
 
-/* Small transparent outline photo button in bottom-right of hero */
-.heroPhotoButton {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  background: rgba(255,255,255,0.06);
-  border: 2px solid rgba(255,255,255,0.9);
-  color: white;
-  min-width: 44px;
-  height: 44px;
-  padding: 0 var(--space-3);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  z-index: 5;
-  backdrop-filter: blur(4px);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-
-  &:hover {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  svg {
-    font-size: 1.125rem;
-  }
-
-  @media (max-width: 767px) {
-
-    right: 8px;
-    bottom: 8px;
-    min-width: 44px;
-    height: 44px;
-    padding: 0 var(--space-2);
-  
-  }
-}
-
-/* Photo count text inside button */
+/* Photo count text inside hero button (button itself now uses Chakra Flex props) */
 .photoCount {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
-/* Stats Bar below hero - Using MetricsBar compact component */
+/* Stats Bar below hero - Using MetricsBar compact component
+ * Border + overflow match .metricsBar.compact to prevent layout shift
+ * between skeleton and loaded states. */
 .statsBar {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-6);
   box-shadow: var(--shadow-sm);
   padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
 
   /* Override MetricsBar defaults for better mobile layout */
   justify-content: center;
@@ -110,7 +39,7 @@
   @media (min-width: 768px) {
 
     justify-content: flex-start;
-  
+
   }
 }
 
@@ -233,23 +162,21 @@
 }
 
 
-/* Main Container */
-.destinationContainer {
-  background-color: var(--color-bg-primary);
-  min-height: 100vh;
-  padding: var(--space-8) 0;
-}
+/* Main Container — now rendered as Chakra <Box minH="100vh" pt="4" pb="8" bg="bg"> */
 
 /* Loading skeleton styles */
 
-/* Metrics row skeleton - mirrors MetricsBar compact layout (stacked title/value per item) */
+/* Metrics row skeleton — mirrors MetricsBar .metricsBar.compact layout exactly.
+ * Matches flex structure, padding, and mobile breakpoints to eliminate layout shift. */
 .skeletonMetricsRow {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
 
   @media (max-width: 767px) {
+    flex-direction: row;
     flex-wrap: wrap;
+    gap: 0;
   }
 }
 
@@ -265,6 +192,9 @@
     flex: 1 1 50%;
     min-width: 140px;
     padding: 0.75rem 1rem;
+    background: transparent;
+    border-radius: 0;
+    border: none;
     border-bottom: 1px solid var(--color-border-light);
 
     &:nth-child(odd) {
@@ -298,10 +228,6 @@
 }
 
 @media (max-width: 575px) {
-
-  .heroSection {
-    border-radius: var(--radius-lg);
-  }
 
   .heroOverlay {
     padding: var(--space-4);

@@ -20,6 +20,8 @@ import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildDestinationSchema } from '../../utilities/schema-utils';
 import { isOwner, canEdit as canEditPermission } from "../../utilities/permissions";
 import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState, Alert, Breadcrumb, Row, Col } from "../../components/design-system";
+import { Box, Flex } from "@chakra-ui/react";
+import SingleDestinationSkeleton from "./components/SingleDestinationSkeleton";
 import { toggleUserFavoriteDestination, deleteDestination } from "../../utilities/destinations-api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from "react-icons/fa";
@@ -485,89 +487,17 @@ export default function SingleDestination() {
 
   // Show loading state
   if (isInitialLoading) {
-    return (
-      <div className={styles.destinationContainer}>
-        <Container>
-          {/* Breadcrumb Skeleton */}
-          <Breadcrumb loading />
-
-          {/* Hero section skeleton - matches .heroSection container exactly */}
-          <div className={styles.heroSection}>
-            <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ borderRadius: 0 }} />
-          </div>
-
-          {/* Stats bar skeleton - matches MetricsBar compact layout */}
-          <div className={styles.statsBar}>
-            <div className={styles.skeletonMetricsRow}>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className={styles.skeletonMetricItem}>
-                  <SkeletonLoader variant="text" width="70px" height="14px" style={{ marginBottom: '0.25rem' }} />
-                  <SkeletonLoader variant="text" width="30px" height="22px" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Row>
-            {/* Main content column */}
-            <Col lg={8}>
-              {/* Overview card skeleton */}
-              <Card className={styles.contentCard}>
-                <Card.Body className={styles.contentCardBody}>
-                  <SkeletonLoader variant="text" width="120px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
-                  <SkeletonLoader variant="text" width="100%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
-                  <SkeletonLoader variant="text" width="95%" height="16px" style={{ marginBottom: 'var(--space-2)' }} />
-                  <SkeletonLoader variant="text" width="80%" height="16px" />
-                </Card.Body>
-              </Card>
-
-              {/* Map card skeleton - matches GoogleMap height={350} */}
-              <Card className={styles.contentCard}>
-                <Card.Body className={styles.contentCardBody}>
-                  <SkeletonLoader variant="text" width="100px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
-                  <SkeletonLoader variant="rectangle" width="100%" height="350px" style={{ borderRadius: 'var(--radius-lg)' }} />
-                </Card.Body>
-              </Card>
-
-              {/* Experiences card skeleton - matches DestinationExperienceGrid (6 cards at 280px) */}
-              <Card className={styles.contentCard}>
-                <Card.Body className={styles.contentCardBody}>
-                  <SkeletonLoader variant="text" width="220px" height="28px" style={{ marginBottom: 'var(--space-4)' }} />
-                  <Row>
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <Col md={6} key={i} style={{ marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'center' }}>
-                        <SkeletonLoader variant="rectangle" width="100%" height="280px" />
-                      </Col>
-                    ))}
-                  </Row>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            {/* Sidebar column - uses .sidebar class for matching bg/border/padding/sticky */}
-            <Col lg={4}>
-              <div className={styles.sidebar}>
-                <SkeletonLoader variant="text" width="120px" height="22px" style={{ marginBottom: 'var(--space-4)' }} />
-                <div className={styles.sidebarActions}>
-                  <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
-                  <SkeletonLoader variant="rectangle" width="100%" height="44px" style={{ borderRadius: 'var(--radius-full)' }} />
-                </div>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </div>
-    );
+    return <SingleDestinationSkeleton />;
   }
 
   // Show error state if destination not found
   if (!destination) {
     return (
-      <div className={styles.destinationContainer}>
+      <Box minH="100vh" pt="4" pb="8" bg="bg">
         <Container>
           <EntityNotFound entityType="destination" />
         </Container>
-      </div>
+      </Box>
     );
   }
 
@@ -599,7 +529,7 @@ export default function SingleDestination() {
       {/* Hidden h1 for screen readers */}
       <h1 ref={h1Ref} className={styles.visuallyHidden}>{destinationTitle}</h1>
 
-      <div className={styles.destinationContainer}>
+      <Box minH="100vh" pt="4" pb="8" bg="bg">
         <Container>
           {/* Breadcrumb Navigation */}
           <Breadcrumb
@@ -609,12 +539,31 @@ export default function SingleDestination() {
             backLabel="Destinations"
           />
 
-          {/* Hero Image Section */}
-          <div className={styles.heroSection}>
+          {/* Hero Image Section — Chakra Box props match skeleton exactly */}
+          <Box
+            borderRadius="xl"
+            overflow="hidden"
+            mb={{ base: "4", md: "6" }}
+            h={{ base: "300px", md: "450px" }}
+            bg="bg.muted"
+            position="relative"
+            css={{
+              '& img': { width: '100%', height: '100%', objectFit: 'cover' },
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '30%',
+                background: 'linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent)',
+                pointerEvents: 'none',
+              },
+            }}
+          >
             <img
               src={getHeroImageUrl()}
               alt={destination.name}
-              className={styles.heroImage}
             />
             <div className={styles.heroOverlay}>
               <h2 className={styles.heroTitle}>{destinationTitle}</h2>
@@ -623,20 +572,36 @@ export default function SingleDestination() {
               </div>
             </div>
             {/* Hero photo button - opens upload modal when no photos and user can edit */}
-            <button
+            <Flex
+              as="button"
               type="button"
-              className={styles.heroPhotoButton}
+              position="absolute"
+              right={{ base: "8px", md: "12px" }}
+              bottom={{ base: "8px", md: "12px" }}
+              bg="rgba(255,255,255,0.06)"
+              border="2px solid rgba(255,255,255,0.9)"
+              color="white"
+              minW="44px"
+              h="44px"
+              px={{ base: "2", md: "3" }}
+              borderRadius="8px"
+              align="center"
+              justify="center"
+              gap="2"
+              cursor="pointer"
+              zIndex="5"
+              backdropFilter="blur(4px)"
+              transition="transform 0.15s ease, box-shadow 0.15s ease"
+              fontSize="sm"
+              fontWeight="medium"
+              _hover={{ outline: '2px solid var(--color-primary)', outlineOffset: '2px' }}
               onClick={() => {
-                // Check if there are no photos on the destination
                 const hasDestinationPhotos = destination.photos && destination.photos.length > 0;
-                // Check if user can edit (owner or collaborator)
                 const canEdit = canEditPermission(user, destination);
 
                 if (!hasDestinationPhotos && canEdit) {
-                  // No photos and user can edit - open upload modal
                   setShowPhotoUploadModal(true);
                 } else {
-                  // Has photos or user can't edit - open photo viewer
                   setPhotoViewerIndex(0);
                   setShowPhotoViewer(true);
                 }
@@ -647,8 +612,8 @@ export default function SingleDestination() {
               {heroPhotos.length > 0 && (
                 <span className={styles.photoCount}>{heroPhotos.length}</span>
               )}
-            </button>
-          </div>
+            </Flex>
+          </Box>
 
           {/* Stats Bar - Using MetricsBar compact for mobile alignment */}
           <MetricsBar
@@ -840,7 +805,7 @@ export default function SingleDestination() {
             </Col>
           </Row>
         </Container>
-      </div>
+      </Box>
 
       {/* Delete Destination Confirmation Modal */}
       {showPhotoViewer && (
