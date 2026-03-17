@@ -9,7 +9,7 @@
 
 import { memo, useState, useEffect, useRef } from 'react';
 import { FaListAlt, FaUser, FaChevronDown, FaChevronUp, FaCheck, FaRss } from 'react-icons/fa';
-import { Tabs, Box, Flex } from '@chakra-ui/react';
+import { Tabs, Box, Flex, NativeSelect } from '@chakra-ui/react';
 import Loading from '../../../components/Loading/Loading';
 import debug from '../../../utilities/debug';
 import { lang } from '../../../lang.constants';
@@ -128,6 +128,54 @@ function PlanTabsNavigation({
   // Determine if the My Plan tab should render at all
   const showMyPlanTab = plansLoading || (hasPlans && (hasMultiplePlans || singlePlanIsOwn()));
 
+  // Build the current select value for mobile dropdown.
+  // For multi-plan, encode the plan ID into the value so each plan is a distinct option.
+  const getMobileSelectValue = () => {
+    if (activeTab === 'myplan' && hasMultiplePlans && selectedPlanId) {
+      return `myplan:${normalizeId(selectedPlanId)}`;
+    }
+    return activeTab;
+  };
+
+  // Handle mobile select change
+  const handleMobileSelectChange = (e) => {
+    const value = e.target.value;
+
+    if (value === 'activity' || value === 'experience') {
+      setActiveTab(value);
+      return;
+    }
+
+    if (value === 'myplan') {
+      const planIdToUse = ensurePlanSelected() || normalizeId(selectedPlanId);
+      if (planIdToUse) {
+        handlePlanChange(planIdToUse, { reason: 'mobile-select/myplan' });
+      }
+      setActiveTab('myplan');
+      return;
+    }
+
+    // Multi-plan selection: value is "myplan:<planId>"
+    if (value.startsWith('myplan:')) {
+      const planId = value.replace('myplan:', '');
+      handlePlanChange(planId, { reason: 'mobile-select/select-plan' });
+      setSelectedPlanId(planId);
+      setActiveTab('myplan');
+    }
+  };
+
+  // Get display name for a plan (used by both mobile select and desktop dropdown)
+  const getPlanDisplayName = (plan) => {
+    const planUserId = plan.user?._id || plan.user;
+    const isOwnPlan = idEquals(planUserId, user._id);
+    if (isOwnPlan) return 'My Plan';
+    if (plan.user?.name) {
+      const firstName = plan.user.name.split(' ')[0];
+      return `${firstName}'s Plan`;
+    }
+    return 'Plan';
+  };
+
   return (
     <Tabs.Root
       value={activeTab}
@@ -146,7 +194,44 @@ function PlanTabsNavigation({
       fitted={false}
       mb="6"
     >
-      <Tabs.List aria-label={lang.current.aria.planTabs}>
+      {/* Mobile/Tablet: Native select dropdown (hidden on md+) */}
+      <Box display={{ base: 'block', md: 'none' }} mb="2">
+        <NativeSelect.Root size="md" variant="outline">
+          <NativeSelect.Field
+            aria-label={lang.current.aria.planTabs}
+            value={getMobileSelectValue()}
+            onChange={handleMobileSelectChange}
+            css={{
+              fontWeight: 'var(--font-weight-medium)',
+              color: 'var(--color-text-primary)',
+              borderColor: 'var(--color-border-light)',
+              '&:focus': { borderColor: 'var(--color-primary)', boxShadow: '0 0 0 1px var(--color-primary)' },
+            }}
+          >
+            <option value="activity">Activity</option>
+            <option value="experience">{lang.current.heading.thePlan}</option>
+            {plansLoading ? (
+              <option value="myplan" disabled>Loading plans...</option>
+            ) : showMyPlanTab && hasMultiplePlans ? (
+              allPlans.map((plan, ci) => {
+                const planId = normalizeId(plan._id);
+                const optionKey = planId != null ? planId : `plan-${ci}`;
+                return (
+                  <option key={optionKey} value={`myplan:${planId}`}>
+                    {getPlanDisplayName(plan)}
+                  </option>
+                );
+              })
+            ) : showMyPlanTab ? (
+              <option value="myplan">My Plan</option>
+            ) : null}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Box>
+
+      {/* Desktop: Tab triggers (hidden below md) */}
+      <Tabs.List aria-label={lang.current.aria.planTabs} display={{ base: 'none', md: 'flex' }}>
         {/* Activity Tab */}
         <Tabs.Trigger value="activity">
           <FaRss />
@@ -200,16 +285,6 @@ function PlanTabsNavigation({
             {dropdownOpen && (
               <Box css={dropdownMenuStyle} bg="var(--color-bg-primary, #ffffff)">
                 {allPlans.map((plan, ci) => {
-                  const planUserId = plan.user?._id || plan.user;
-                  const isOwnPlan = idEquals(planUserId, user._id);
-                  let displayName = 'Plan';
-                  if (isOwnPlan) {
-                    displayName = 'My Plan';
-                  } else if (plan.user?.name) {
-                    const firstName = plan.user.name.split(' ')[0];
-                    displayName = `${firstName}'s Plan`;
-                  }
-
                   const planId = normalizeId(plan._id);
                   const optionKey = planId != null ? planId : `plan-${ci}`;
                   const isSelected = idEquals(planId, selectedPlanId);
@@ -226,7 +301,7 @@ function PlanTabsNavigation({
                         setDropdownOpen(false);
                       }}
                     >
-                      <span>{displayName}</span>
+                      <span>{getPlanDisplayName(plan)}</span>
                       {isSelected && <FaCheck style={checkmarkStyle} />}
                     </Box>
                   );
