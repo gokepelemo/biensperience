@@ -1,7 +1,6 @@
-import React from 'react';
 import { FaFacebook, FaGoogle } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
-import styles from './SocialLoginButtons.module.css';
+import { Flex, IconButton, VisuallyHidden } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 
 /**
@@ -13,77 +12,112 @@ import PropTypes from 'prop-types';
  * @param {Function} [props.onError] - Error callback
  * @param {string} [props.actionType='signin'] - Action type: 'signin' or 'signup'
  * @param {boolean} [props.showDivider=true] - Show "OR" divider
+ * @param {boolean} [props.disabled=false] - Disable all buttons
  */
 export default function SocialLoginButtons({
   isLinking = false,
   onError,
   actionType = 'signin',
-  showDivider = true
+  showDivider = true,
+  disabled = false,
 }) {
   // Use REACT_APP_API_URL if set, otherwise use current origin (works in production where API is same-origin)
   const baseUrl = process.env.REACT_APP_API_URL || window.location.origin;
 
   // Determine button text based on action type
-  const getButtonText = () => {
-    return actionType === 'signup' ? 'Sign up with' : 'Sign in with';
-  };
-
-  const buttonPrefix = getButtonText();
+  const buttonPrefix = actionType === 'signup' ? 'Sign up with' : 'Sign in with';
 
   const handleSocialLogin = (provider) => {
     const endpoint = isLinking ? `/api/auth/link/${provider}` : `/api/auth/${provider}`;
     window.location.href = `${baseUrl}${endpoint}`;
   };
 
+  const sharedButtonCss = {
+    borderRadius: 'full',
+    transition: 'all 0.15s',
+    _hover: {
+      transform: 'translateY(-1px)',
+      boxShadow: '{shadows.md}',
+    },
+    _active: {
+      transform: 'translateY(0)',
+      boxShadow: '{shadows.xs}',
+    },
+  };
+
   return (
-    <div className={styles.socialLoginContainer}>
-      {showDivider && (
-        <div className={styles.divider}>
-          <span className={styles.dividerText}>OR</span>
-        </div>
-      )}
+    <Flex
+      direction="row"
+      justify="center"
+      gap={{ base: 3, sm: 4 }}
+      w="100%"
+      mt={showDivider ? 0 : 2}
+    >
+      {/* Facebook */}
+      <IconButton
+        aria-label={`${buttonPrefix} Facebook`}
+        variant="ghost"
+        size={{ base: 'md', sm: 'lg' }}
+        onClick={() => handleSocialLogin('facebook')}
+        disabled={disabled}
+        css={{
+          ...sharedButtonCss,
+          background: '#0a58ca',
+          color: 'white',
+          border: '1px solid #0a58ca',
+          _hover: {
+            ...sharedButtonCss._hover,
+            background: '#0a58ca',
+            filter: 'brightness(1.05)',
+          },
+        }}
+      >
+        <FaFacebook />
+      </IconButton>
 
-      <div className={styles.socialButtons}>
-        <button
-          type="button"
-          className={`${styles.socialBtn} ${styles.facebookBtn}`}
-          onClick={() => handleSocialLogin('facebook')}
-          aria-label={`${buttonPrefix} Facebook`}
-        >
-          <FaFacebook className={styles.socialIcon} />
-          <span className={styles.btnText}>
-            <span className={styles.btnPrefix}>{buttonPrefix} </span>
-            <span className={styles.btnProvider}>Facebook</span>
-          </span>
-        </button>
+      {/* Google */}
+      <IconButton
+        aria-label={`${buttonPrefix} Google`}
+        variant="outline"
+        size={{ base: 'md', sm: 'lg' }}
+        onClick={() => handleSocialLogin('google')}
+        disabled={disabled}
+        css={{
+          ...sharedButtonCss,
+          background: { _light: '{colors.gray.50}', _dark: '{colors.gray.800}' },
+          borderColor: { _light: 'rgba(0, 0, 0, 0.15)', _dark: 'rgba(255, 255, 255, 0.2)' },
+          color: 'fg',
+          _hover: {
+            ...sharedButtonCss._hover,
+            background: { _light: '{colors.gray.100}', _dark: '{colors.gray.700}' },
+          },
+        }}
+      >
+        <FaGoogle />
+      </IconButton>
 
-        <button
-          type="button"
-          className={`${styles.socialBtn} ${styles.googleBtn}`}
-          onClick={() => handleSocialLogin('google')}
-          aria-label={`${buttonPrefix} Google`}
-        >
-          <FaGoogle className={styles.socialIcon} />
-          <span className={styles.btnText}>
-            <span className={styles.btnPrefix}>{buttonPrefix} </span>
-            <span className={styles.btnProvider}>Google</span>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.socialBtn} ${styles.twitterBtn}`}
-          onClick={() => handleSocialLogin('twitter')}
-          aria-label={`${buttonPrefix} X`}
-        >
-          <FaXTwitter className={styles.socialIcon} />
-          <span className={styles.btnText}>
-            <span className={styles.btnPrefix}>{buttonPrefix} </span>
-            <span className={styles.btnProvider}>X</span>
-          </span>
-        </button>
-      </div>
-    </div>
+      {/* X (formerly Twitter) */}
+      <IconButton
+        aria-label={`${buttonPrefix} X`}
+        variant="ghost"
+        size={{ base: 'md', sm: 'lg' }}
+        onClick={() => handleSocialLogin('twitter')}
+        disabled={disabled}
+        css={{
+          ...sharedButtonCss,
+          background: '#000',
+          color: '#fff',
+          border: '1px solid #222',
+          _hover: {
+            ...sharedButtonCss._hover,
+            background: '#000',
+            filter: 'brightness(1.1)',
+          },
+        }}
+      >
+        <FaXTwitter />
+      </IconButton>
+    </Flex>
   );
 }
 
@@ -92,4 +126,5 @@ SocialLoginButtons.propTypes = {
   onError: PropTypes.func,
   actionType: PropTypes.oneOf(['signin', 'signup']),
   showDivider: PropTypes.bool,
+  disabled: PropTypes.bool,
 };

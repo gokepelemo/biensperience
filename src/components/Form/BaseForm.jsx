@@ -317,7 +317,10 @@ BaseFormCheck.propTypes = {
 };
 
 /**
- * BaseFormText — Chakra Field.HelperText with native styling
+ * BaseFormText — Helper text for forms
+ *
+ * Renders as a styled Box rather than Field.HelperText to avoid requiring
+ * a Field.Root ancestor (which causes useFieldStyles errors when used standalone).
  */
 export function BaseFormText({
   children,
@@ -327,7 +330,7 @@ export function BaseFormText({
   ...props
 }) {
   return (
-    <Field.HelperText
+    <Box
       fontSize="sm"
       color={muted ? 'fg.muted' : 'fg.subtle'}
       className={className || undefined}
@@ -335,7 +338,7 @@ export function BaseFormText({
       {...props}
     >
       {children}
-    </Field.HelperText>
+    </Box>
   );
 }
 

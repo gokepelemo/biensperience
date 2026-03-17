@@ -578,40 +578,13 @@ function SignUpForm(props) {
               type="submit"
               variant="primary"
               size="lg"
+              rounded
+              shadow
+              fullWidth
               disabled={disable}
               css={{
-                width: "100%",
-                background: "var(--colors-gradients-primary)",
-                border: "none",
-                borderRadius: "var(--radii-full)",
-                padding: "var(--spacing-3)",
-                minHeight: "44px",
-                fontSize: "var(--font-sizes-sm)",
-                fontWeight: "var(--font-weights-semibold)",
                 marginBottom: "var(--spacing-4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "var(--spacing-2)",
-                boxShadow: "0 8px 24px rgba(60, 64, 67, 0.35)",
-                transition: "transform 0.15s, box-shadow 0.15s",
-                "&:hover:not(:disabled)": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 12px 28px rgba(60, 64, 67, 0.4)",
-                },
-                "&:focus-visible": {
-                  outline: "2px solid var(--colors-brand-emphasized)",
-                  outlineOffset: "2px",
-                },
-                "&:disabled": {
-                  opacity: 0.6,
-                  cursor: "not-allowed",
-                  transform: "none",
-                },
                 "@media (min-width: 576px)": {
-                  minHeight: "56px",
-                  padding: "var(--spacing-4)",
-                  fontSize: "var(--font-sizes-md)",
                   marginBottom: "var(--spacing-5)",
                 },
               }}
