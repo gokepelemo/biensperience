@@ -96,6 +96,18 @@ const en = {
     addPhotoCredits: "+ Add Photo Credits",
     notNow: "Not Now",
     completing: "Completing…",
+    follow: "Follow",
+    unfollow: "Unfollow",
+    following: "Following",
+    requested: "Requested",
+    withdrawRequest: "Withdraw Request",
+    withdrawing: "Withdrawing...",
+    message: "Message",
+    opening: "Opening…",
+    managePhotos: "Manage Photos",
+    back: "Back",
+    browseExperiences: "Browse Experiences",
+    createExperience: "Create an Experience",
   },
 
   // Dialog / overlay strings
@@ -262,6 +274,21 @@ const en = {
       photoUpdated: "Your profile photo has been updated",
       emailConfirmed: "Email confirmed! You now have full access to all features.",
       passwordChanged: "Your password has been changed successfully",
+    },
+    follow: {
+      cannotFollowSelf: "You cannot follow yourself",
+      requestSent: "Follow request sent to {name}",
+      nowFollowing: "Now following {name}",
+      failedToFollow: "Failed to follow user",
+      invalidOperation: "Invalid operation",
+      unfollowed: "Unfollowed {name}",
+      failedToRefollow: "Failed to re-follow user",
+      failedToUnfollow: "Failed to unfollow user",
+      requestWithdrawn: "Follow request withdrawn",
+      failedToWithdraw: "Failed to withdraw follow request",
+      followerRemoved: "{name} removed",
+      failedToRestoreFollower: "Failed to restore follower",
+      failedToRemoveFollower: "Failed to remove follower",
     },
     auth: {
       signedIn: "Welcome back!",
@@ -620,6 +647,10 @@ const en = {
     emailConfirmed: "Email confirmed",
     profileActions: "Profile Actions",
     editDestination: "Edit Destination",
+    removeFollower: "Remove follower",
+    removeFollowerName: "Remove {name} as follower",
+    unfollowUser: "Unfollow",
+    unfollowUserName: "Unfollow {name}",
     
     // Photos and images
     photoUpload: "Photo upload",
@@ -1498,6 +1529,60 @@ const en = {
     // Private profile
     privateProfileTitle: "Private Profile",
     privateProfileDescription: "This user has set their profile to private.",
+    privateProfileDescriptionName: "{name}'s profile is private.",
+    followRequestPendingMessage: "Your follow request is pending approval.",
+    followUserAction: "Follow {name}",
+    thisUser: "This user",
+
+    // Follow/Unfollow
+    follower: "Follower",
+    followers: "Followers",
+    followingLabel: "Following",
+    noFollowersYet: "No Followers Yet",
+    notFollowingAnyone: "Not Following Anyone",
+    noFollowersOwnProfile: "You don't have any followers yet.",
+    noFollowersOtherProfile: "{name} doesn't have any followers yet.",
+    notFollowingOwnProfile: "You're not following anyone yet.",
+    notFollowingOtherProfile: "{name} isn't following anyone yet.",
+
+    // Profile metrics
+    plan: "Plan",
+    plans: "Plans",
+    shared: "shared",
+    experience: "Experience",
+    experiences: "Experiences",
+    destination: "Destination",
+    destinations: "Destinations",
+
+    // Profile tabs
+    activityTab: "Activity",
+    followsTab: "Follows",
+    plannedTab: "Planned",
+
+    // Activity filter
+    activityFilterAll: "All",
+    activityFilterOwn: "Mine",
+    activityFilterFollowing: "Following",
+    filterActivity: "Filter activity",
+
+    // Empty states
+    noPlannedExperiences: "No Planned Experiences",
+    noPlannedOwnProfile: "You haven't planned any experiences yet{nameSuffix}. Browse experiences and start planning your next adventure.",
+    noPlannedOtherProfile: "{name} hasn't planned any experiences yet.",
+    noCreatedExperiences: "No Created Experiences",
+    noCreatedOwnProfile: "You haven't created any experiences yet{nameSuffix}. Share your travel knowledge with the community.",
+    noCreatedOtherProfile: "{name} hasn't created any experiences yet.",
+
+    // Super admin section on profile
+    superAdminPermissions: "Super Admin Permissions",
+    currentRoleLabel: "Current Role:",
+    roleChangeDescription: "Change this user's role. Super admins have full access to all resources and user management.",
+    emailStatusLabel: "Email Status:",
+    confirmed: "Confirmed",
+    notConfirmed: "Not Confirmed",
+    emailConfirmDescription: "Manually confirm or unconfirm this user's email address.",
+    unknownRole: "Unknown",
+    failedToOpenMessage: "Failed to open message",
   },
 
   // Invite tracking view strings

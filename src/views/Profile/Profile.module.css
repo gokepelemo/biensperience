@@ -292,28 +292,6 @@
   justify-content: center;
 }
 
-/* Stats row */
-.profileStats {
-  display: flex;
-  gap: var(--space-6);
-  flex-wrap: wrap;
-}
-
-.profileStat {
-  text-align: left;
-}
-
-.profileStatValue {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
-}
-
-.profileStatLabel {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
 /* Compact Metrics Bar */
 .profileMetricsBar {
   display: flex;
@@ -322,6 +300,13 @@
   flex-wrap: wrap;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+
+  @media (max-width: 576px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+    text-align: center;
+  }
 }
 
 .profileMetric {
@@ -357,16 +342,39 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  @media (max-width: 576px) {
+    flex-direction: column;
+    justify-content: center;
+    min-height: 44px;
+    margin: 0;
+    padding: var(--space-2);
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    gap: 2px;
+
+    &:hover {
+      background-color: var(--color-bg-hover);
+    }
+  }
 }
 
 .profileMetricDivider {
   color: var(--color-text-disabled);
   font-weight: var(--font-weight-normal);
+
+  @media (max-width: 576px) {
+    display: none;
+  }
 }
 
 .profileMetricSecondary {
   color: var(--color-text-muted);
   font-weight: var(--font-weight-normal);
+
+  @media (max-width: 576px) {
+    display: none;
+  }
 }
 
 /* Action buttons */
@@ -434,8 +442,31 @@
   width: 100%;
 }
 
-/* Responsive adjustments */
-@media (max-width: 991px) {
+/* Responsive adjustments — tablet (576-991px):
+   Keep avatar + info side by side, actions flow below */
+@media (max-width: 991px) and (min-width: 576px) {
+  .profileHeaderFlex {
+    flex-wrap: wrap;
+  }
+
+  .profileInfo {
+    padding-top: var(--space-10); /* Reduced from --space-20 for smaller avatar */
+  }
+
+  .profileActions {
+    padding-top: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .profileGrid {
+    justify-items: center;
+  }
+}
+
+/* Responsive adjustments — mobile (<576px):
+   Full vertical stack, centered */
+@media (max-width: 575px) {
   .profileHeaderFlex {
     flex-direction: column;
     align-items: center;
@@ -460,14 +491,6 @@
     justify-content: center;
   }
 
-  .profileStats {
-    justify-content: center;
-  }
-
-  .profileStat {
-    text-align: center;
-  }
-
   .profileMetricsBar {
     justify-content: center;
   }
@@ -487,6 +510,18 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: var(--space-4);
     justify-items: center;
+  }
+}
+
+/* Tablet — reduced avatar and skeleton tokens */
+@media (max-width: 991px) and (min-width: 576px) {
+  .profileAvatarPlaceholder {
+    width: 120px;
+    height: 120px;
+  }
+
+  .profileHeaderCard {
+    --profile-skeleton-avatar-size: 120px;
   }
 }
 
@@ -517,14 +552,6 @@
     --profile-skeleton-name-font-size: var(--font-size-2xl);
     --profile-skeleton-verified-size: 20px;
     --profile-skeleton-location-icon-size: 14px;
-  }
-
-  .profileStats {
-    gap: var(--space-4);
-  }
-
-  .profileStatValue {
-    font-size: var(--font-size-xl);
   }
 
   .profileGrid {
@@ -653,373 +680,6 @@
   }
 }
 
-/* Profile header row to ensure proper stacking context */
-.profileHeaderRow {
-  position: relative;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  margin: var(--space-8) 0;
-
-  :global(.col-md-6) {
-    display: flex;
-    align-items: center;
-
-    &:first-child {
-      justify-content: flex-start;
-    }
-
-    &:last-child {
-      position: relative;
-      z-index: 1065;
-      justify-content: flex-end;
-
-      :global(.d-flex) {
-        position: relative;
-        z-index: 1070;
-      }
-    }
-  }
-
-  @media (max-width: 991px) {
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-4);
-
-    :global(.col-md-6) {
-      &:first-child,
-      &:last-child {
-        justify-content: center !important;
-        width: 100%;
-      }
-
-      &:last-child :global(.d-flex) {
-        justify-content: center !important;
-      }
-    }
-
-    h1 {
-      text-align: center;
-    }
-  }
-}
-
-/* Pills - Experience Type Tags */
-.profilePill {
-  background: var(--color-white) !important; /* Override TagPill color variants */
-  color: var(--color-primary) !important;
-  box-shadow: var(--shadow-sm);
-  font-weight: var(--font-weight-semibold);
-  border: none;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  transition: all var(--transition-fast);
-
-  &:hover {
-    background: var(--color-white) !important; /* Retain white background on hover, override gradients */
-    transform: translateY(calc(var(--space-1) * -1));
-    box-shadow: var(--shadow-md);
-    color: var(--color-primary-dark) !important;
-  }
-
-  &.inactive {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-secondary);
-    box-shadow: none;
-  }
-
-  /* Icon inside pill */
-  .icon,
-  svg {
-    display: inline-flex;
-    align-items: center;
-    font-size: var(--font-size-sm);
-    color: currentColor;
-  }
-}
-
-/* Profile Detail Card */
-.profileDetailCard {
-  background: var(--color-bg-surface, transparent);
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  z-index: 1;
-}
-
-.profileDetailSection {
-  padding: var(--space-8);
-  border-bottom: 1px solid var(--color-border-light);
-    font-size: var(--font-size-base);
-  color: var(--color-text-primary);
-  transition: all var(--transition-normal);
-  margin-bottom: 0;
-
-  /* Gradient background sections - first and second child */
-  &:first-child,
-  &:nth-child(2) {
-    background: var(--gradient-primary);
-    box-shadow: var(--shadow-sm);
-
-    .profileDetailSectionTitle {
-      color: var(--color-white);
-    }
-
-    p,
-    a {
-      color: var(--color-white);
-    }
-
-    a:hover {
-      color: var(--color-white);
-    }
-
-    /* Profile pills in gradient sections use base .profilePill styles */
-    /* Note: Inherits from .profilePill above - no overrides needed */
-    /* Ensure pill text is legible on the gradient background */
-    .profilePill {
-      background: rgba(255, 255, 255, 0.08) !important; /* subtle surface on gradient */
-      color: var(--color-white) !important; /* use design token for on-gradient text */
-      box-shadow: none;
-      border: 1px solid rgba(255,255,255,0.08);
-
-      &:hover {
-        background: rgba(255,255,255,0.12) !important;
-        color: var(--color-white) !important;
-        transform: translateY(calc(var(--space-1) * -1));
-        box-shadow: var(--shadow-sm);
-      }
-
-      &.inactive {
-        background: rgba(255,255,255,0.04);
-        color: var(--color-text-secondary) !important;
-        box-shadow: none;
-      }
-    }
-    /* Also override TagPill module classes (global) when rendered inside gradient sections */
-    /* Make general TagPill variants use a subtle translucent surface and white text on the gradient */
-    :global(.tagPillPrimary),
-    :global(.tagPillNeutral) {
-      background: rgba(255, 255, 255, 0.08) !important;
-      color: var(--color-white) !important;
-      border: 1px solid rgba(255,255,255,0.08) !important;
-    }
-    /* For the 'light' variant (which is normally white bg + purple text),
-       render it as a light translucent surface with dark text when on gradient
-       so it remains legible (white text on white bg would be invisible). */
-    :global(.tagPillLight) {
-      background: rgba(255,255,255,0.92) !important; /* nearly white surface */
-      color: var(--color-text-primary) !important; /* dark text for contrast */
-      border: 1px solid rgba(0,0,0,0.06) !important;
-    }
-
-    /* Pagination button styling on gradient background */
-    :global(.btn-link) {
-      color: var(--color-white) !important;
-      font-weight: var(--font-weight-semibold);
-      text-decoration: none;
-      transition: all var(--transition-normal);
-
-      &:hover {
-        color: var(--color-white) !important;
-        text-decoration: underline;
-        text-underline-offset: 4px;
-        transform: translateY(calc(var(--space-1) * -1));
-      }
-    }
-
-    /* Prominent link styling for "add some favorite destinations" */
-    .noFavoriteDestinations a.fw-bold {
-      padding: var(--space-1);
-      border-radius: var(--radius-sm);
-      text-decoration: none;
-      font-weight: var(--font-weight-bold);
-      display: inline-block;
-      transition: all var(--transition-normal);
-      border: 2px solid rgba(255, 255, 255, 0.4);
-      box-shadow: var(--shadow-sm);
-      color: var(--color-white);
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.3);
-        border-color: rgba(255, 255, 255, 0.6);
-        transform: translateY(calc(var(--space-1) * -2));
-        box-shadow: var(--shadow-md);
-        color: var(--color-white);
-      }
-    }
-  }
-
-  &:last-child {
-    border-bottom: none;
-  }
-}
-
-.profileDetailSectionTitle {
-  font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-xl);
-  margin: 0 0 var(--space-5) 0;
-  color: var(--color-text-primary);
-  text-align: center;
-}
-
-.profileDetailContent {
-  background: transparent;
-  color: var(--color-text-primary);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  justify-content: center;
-  padding-bottom: var(--space-2);
-}
-
-.noFavoriteDestinations {
-  text-align: center;
-  margin: var(--space-4) 0;
-  padding: var(--space-6);
-  background: var(--color-bg-surface-variant, rgba(102, 126, 234, 0.05));
-  border-radius: var(--radius-lg);
-  font-size: 1.1rem;
-  line-height: 1.8;
-  color: var(--color-text-primary);
-
-  /* Button styling */
-  :global(.btn) {
-    display: inline-block;
-    margin-top: var(--space-3);
-    padding: var(--space-3) var(--space-6);
-    font-weight: var(--font-weight-semibold);
-    font-size: var(--font-size-base);
-    border-radius: var(--radius-md);
-    transition: all var(--transition-normal);
-    text-decoration: none;
-    border: none;
-  }
-
-  :global(.btn-primary) {
-    background: var(--gradient-primary);
-    color: var(--color-white) !important;
-    box-shadow: var(--shadow-sm);
-
-    &:hover {
-      background: var(--gradient-primary);
-      box-shadow: var(--shadow-lg);
-      transform: translateY(calc(var(--space-1) * -2));
-      color: var(--color-white) !important;
-    }
-  }
-
-  /* Legacy link styling (if not using btn class) */
-  a:not(:global(.btn)) {
-    display: inline-block;
-    margin-top: var(--space-2);
-    color: var(--color-primary);
-    text-decoration: none;
-    font-weight: var(--font-weight-semibold);
-    transition: all var(--transition-base);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-
-    &:hover {
-      background: rgba(102, 126, 234, 0.1);
-      color: var(--color-primary-dark);
-      transform: translateY(calc(var(--space-1) * -1));
-    }
-  }
-}
-
-.profileDestinations {
-  a {
-    text-decoration: none;
-  }
-}
-
-.badgeNav {
-  width: fit-content;
-  margin: 0 auto;
-  font-size: var(--font-size-base);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  box-shadow: var(--shadow-sm);
-  border: 2px solid var(--color-border-medium);
-  padding: 0 !important;
-  overflow: hidden;
-  display: flex;
-  border-radius: var(--radius-full);
-
-  span {
-    padding: var(--space-2) var(--space-8);
-    font-weight: var(--font-weight-normal);
-    cursor: pointer;
-    color: var(--color-text-primary);
-    transition: all var(--transition-normal);
-    position: relative;
-
-    &:first-child {
-      border-radius: var(--radius-full) 0 0 var(--radius-full);
-    }
-
-    &:last-child {
-      border-radius: 0 var(--radius-full) var(--radius-full) 0;
-    }
-
-    &:hover {
-      background: var(--color-primary-light);
-    }
-
-    &.activeTab {
-      background: var(--gradient-primary);
-      color: var(--color-white);
-      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.15);
-    }
-  }
-}
-
-/* Reserve space for two rows of cards to avoid layout shifts when switching tabs */
-.profileCardsReserved {
-  /* Base per-row card height (adjust if card min-heights change) */
-  --profile-card-row-height: 14rem; /* approx card min-height + paddings */
-  --profile-cards-gap: 1rem;
-  min-height: calc(var(--profile-card-row-height) * 2 + var(--profile-cards-gap));
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-2) 0;
-
-  /* Ensure skeleton placeholders center nicely */
-  .loading-skeleton {
-    border-radius: var(--radius-md);
-    background: linear-gradient(90deg, rgba(240,240,240,0.6) 25%, rgba(230,230,230,0.4) 37%, rgba(240,240,240,0.6) 63%);
-    background-size: 400% 100%;
-    animation: pulse 1.6s ease-in-out infinite;
-  }
-}
-
-@keyframes pulse {
-  0% { background-position: 100% 0; }
-  100% { background-position: 0 0; }
-}
-
-/* Pagination inside cards container - needs to break flex flow */
-.profileCardsReserved {
-  :global(.pagination),
-  :global(nav[aria-label="Pagination"]) {
-    flex-basis: 100%;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    margin-top: var(--space-4);
-    padding: var(--space-2) 0;
-  }
-}
 
 /* Pagination container - always centered, consistent across tab switches */
 .paginationContainer {
@@ -1150,6 +810,12 @@
   padding: var(--space-6);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg); /* Match parent border-radius for bottom corners */
   background: var(--color-bg-surface); /* Ensure background fills rounded corners */
+}
+
+/* Super admin panel wrapper */
+.superAdminPanel {
+  margin: var(--space-16) 0;
+  animation: fadeIn var(--transition-normal);
 }
 
 /* Admin section row styling (like in screenshot) */
@@ -1344,18 +1010,8 @@
   margin-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border-light);
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     border-bottom-color: var(--color-border-dark);
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    border-bottom-color: var(--color-border-dark);
-  
-    }
   }
 
   /* On very small screens, allow horizontal scroll if needed */
@@ -1412,29 +1068,13 @@
     font-size: var(--font-size-xs);
   }
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--color-bg-tertiary);
     border-color: var(--color-border-dark);
 
     &:hover {
       background: var(--color-bg-hover);
       border-color: var(--color-border-medium);
-    }
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-tertiary);
-    border-color: var(--color-border-dark);
-
-    &:hover {
-      background: var(--color-bg-hover);
-      border-color: var(--color-border-medium);
-    }
-  
     }
   }
 }
@@ -1449,20 +1089,9 @@
     border-color: transparent;
   }
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--gradient-primary);
     border-color: transparent;
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--gradient-primary);
-    border-color: transparent;
-  
-    }
   }
 }
 
@@ -1504,27 +1133,12 @@
     padding: var(--space-3);
   }
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
     &:hover {
       background: var(--color-bg-tertiary);
-    }
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-secondary);
-    border-color: var(--color-border-dark);
-
-    &:hover {
-      background: var(--color-bg-tertiary);
-    }
-  
     }
   }
 }
@@ -1566,8 +1180,7 @@
     min-width: 44px;
   }
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
@@ -1575,22 +1188,6 @@
       background: rgba(239, 68, 68, 0.15);
       border-color: var(--color-danger, #ef4444);
       color: var(--color-danger, #ef4444);
-    }
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-secondary);
-    border-color: var(--color-border-dark);
-
-    &:hover:not(:disabled) {
-      background: rgba(239, 68, 68, 0.15);
-      border-color: var(--color-danger, #ef4444);
-      color: var(--color-danger, #ef4444);
-    }
-  
     }
   }
 }
@@ -1619,20 +1216,9 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-secondary);
-    border-color: var(--color-border-dark);
-  
-    }
   }
 }
 
@@ -1660,18 +1246,8 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-lg);
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--color-bg-tertiary);
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-tertiary);
-  
-    }
   }
 }
 
@@ -1764,27 +1340,12 @@
     text-align: center;
   }
 
-  :root[data-theme="dark"] & {
-
+  @mixin dark {
     background: var(--color-bg-secondary);
     border-color: var(--color-border-dark);
 
     &:hover {
       background: var(--color-bg-tertiary);
-    }
-  
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-
-    background: var(--color-bg-secondary);
-    border-color: var(--color-border-dark);
-
-    &:hover {
-      background: var(--color-bg-tertiary);
-    }
-  
     }
   }
 }

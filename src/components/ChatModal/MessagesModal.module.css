@@ -618,9 +618,130 @@
 }
 
 /* Stream Chat (scoped) token alignment */
-@include streamChatTokenAlignment('.pane')
-@include streamChatOverlayZIndex('.pane')
-@include streamChatSendToChannelCheckbox('.pane')
+.pane :global(.str-chat),
+.pane :global(.str-chat__channel),
+.pane :global(.str-chat__main-panel),
+.pane :global(.str-chat__window) {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.pane :global(.str-chat__channel-header) {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.pane :global(.str-chat__message-list) {
+  background: var(--color-bg-primary);
+}
+
+.pane :global(.str-chat__message-input) {
+  background: var(--color-bg-secondary);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.pane :global(.str-chat__textarea textarea) {
+  color: var(--color-text-primary);
+}
+
+.pane :global(.str-chat__main-panel),
+.pane :global(.str-chat__window) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane :global(.str-chat__message-list) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Stream Chat overlay z-index */
+.pane :global(.str-chat__message-actions-box),
+.pane :global(.str-chat__message-actions-list),
+.pane :global(.str-chat__reaction-selector),
+.pane :global(.str-chat__reaction-selector-content),
+.pane :global(.str-chat__emoji-picker-container),
+.pane :global(.str-chat__tooltip),
+.pane :global(.str-chat__dropdown),
+.pane :global(.str-chat__modal) {
+  z-index: var(--z-index-tooltip) !important;
+}
+
+/* Send to channel checkbox styling */
+.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]) {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field label) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  padding-inline: 0;
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field label::before) {
+  content: '';
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border-medium);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  display: inline-block;
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field label::after) {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%) scale(1);
+  width: 18px;
+  height: 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::before) {
+  border-color: transparent;
+  background: var(--gradient-primary);
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:checked + label::after) {
+  opacity: 1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.pane :global(.str-chat__send-to-channel-checkbox__field input[type="checkbox"]:focus + label::before),
+.pane :global(.str-chat__send-to-channel-checkbox__field:hover input[type="checkbox"] + label::before) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-25, rgba(102, 126, 234, 0.25));
+}
 
 /* ChannelHeader title bar - full width */
 .pane :global(.str-chat__channel-header) {

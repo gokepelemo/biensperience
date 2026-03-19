@@ -68,8 +68,7 @@ export default function MessagesModal({
   show,
   onClose,
   initialChannelId,
-  targetUserId = null,
-  title = 'Messages'
+  targetUserId = null
 }) {
   const apiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
   const inRouterContext = useInRouterContext();
@@ -121,8 +120,9 @@ export default function MessagesModal({
     dismissedChannelIdsRef.current = dismissedChannelIds;
   }, [dismissedChannelIds]);
 
-  // Track if we've synced preferences to backend to avoid initial load sync
-  const hasSyncedPreferencesRef = useRef(false);
+  // Track how many effect runs to skip before syncing preferences to backend.
+  // Skip the first 2 runs: (1) initial mount and (2) loadChannels initializing activeChannelIds.
+  const prefSyncSkipsRef = useRef(2);
 
   const [loading, setLoading] = useState(false);
   const [channelSwitching, setChannelSwitching] = useState(false);
@@ -713,8 +713,12 @@ export default function MessagesModal({
         }
       }
 
+      // Compute remaining channels before any state updates so we avoid
+      // reading the stale `channels` closure later.
+      const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== channelId);
+
       // Remove from local channels list so it disappears from the sidebar
-      setChannels(prev => prev.filter(ch => (ch?.id || ch?.cid) !== channelId));
+      setChannels(remaining);
 
       // Add to dismissed channels list so it appears in the hidden section
       setDismissedChannels(prev => {
@@ -724,7 +728,6 @@ export default function MessagesModal({
 
       // If the removed channel was active, switch to the first available channel
       if (activeChannel?.id === channel?.id) {
-        const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== channelId);
         const next = remaining.length > 0 ? remaining[0] : null;
         setActiveChannel(next);
       }
@@ -734,8 +737,7 @@ export default function MessagesModal({
       setActiveChannelIds(prev => {
         if (prev === null) {
           // If no preference set yet, create one excluding this channel
-          const allChannelIds = channels.map(ch => ch?.id || ch?.cid).filter(id => id !== channelId);
-          return allChannelIds;
+          return remaining.map(ch => ch?.id || ch?.cid);
         } else if (Array.isArray(prev)) {
           // Remove this channel from the active list
           return prev.filter(id => id !== channelId);
@@ -805,9 +807,9 @@ export default function MessagesModal({
 
   // Sync activeChannelIds and dismissedChannelIds to backend when they change (after initial load)
   useEffect(() => {
-    if (!user?._id || !hasSyncedPreferencesRef.current) {
-      // Skip initial load
-      hasSyncedPreferencesRef.current = true;
+    if (!user?._id || prefSyncSkipsRef.current > 0) {
+      // Skip initial mount and loadChannels initialization
+      prefSyncSkipsRef.current = Math.max(0, prefSyncSkipsRef.current - 1);
       return;
     }
 
@@ -944,7 +946,7 @@ export default function MessagesModal({
       label: safeLabel,
       linkTo,
     };
-  }, [activeChannel, currentUser?.id, planExperienceCache, title]);
+  }, [activeChannel, currentUser?.id, planExperienceCache]);
 
   // Handle clicking on entity link in modal title
   const handleEntityLinkClick = useCallback((event) => {
@@ -1089,9 +1091,11 @@ export default function MessagesModal({
               />
             )}
 
-            {mergedError && <Alert type="danger" message={mergedError} />}
+            <div aria-live="polite" aria-atomic="true">
+              {mergedError && <Alert type="danger" message={mergedError} />}
 
-            {mergedLoading && <div className={styles.loadingState}>Loading messages…</div>}
+              {mergedLoading && <div className={styles.loadingState} role="status">Loading messages…</div>}
+            </div>
 
             {!mergedLoading && client && (
               <div className={styles.messagesContainer}>
@@ -1118,7 +1122,7 @@ export default function MessagesModal({
                           // while waiting for the layout-effect pass.
                           const nextStyle = computeMobileDropdownStyle();
                           if (nextStyle) setMobileDropdownStyle(nextStyle);
-                        } catch (e) {
+                        } catch (_err) {
                           // ignore
                         }
                       }}
@@ -1303,5 +1307,4 @@ MessagesModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   initialChannelId: PropTypes.string,
   targetUserId: PropTypes.string,
-  title: PropTypes.node
 };

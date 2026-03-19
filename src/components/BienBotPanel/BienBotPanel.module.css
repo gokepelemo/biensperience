@@ -1,0 +1,384 @@
+/* BienBotPanel — Chat drawer (desktop) / bottom sheet (mobile) */
+
+/* ---------------------------------------------------------------------------
+   Backdrop
+   --------------------------------------------------------------------------- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-popover, 1060);
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Panel (desktop: right drawer, mobile: bottom sheet)
+   --------------------------------------------------------------------------- */
+.panel {
+  position: fixed;
+  z-index: var(--z-index-tooltip, 1070);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary, #fff);
+  box-shadow: var(--shadow-xl, 0 8px 24px rgba(0, 0, 0, 0.2));
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Desktop: right-side drawer */
+  top: 0;
+  right: 0;
+  width: 420px;
+  max-width: 100vw;
+  height: 100dvh;
+  transform: translateX(100%);
+
+  @mixin dark {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.panel.open {
+  transform: translateX(0);
+}
+
+/* Mobile: bottom sheet */
+@media (max-width: 767px) {
+  .panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    transform: translateY(100%);
+  }
+
+  .panel.open {
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Header
+   --------------------------------------------------------------------------- */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.headerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--btn-height-sm, 36px);
+  height: var(--btn-height-sm, 36px);
+  min-width: var(--btn-height-sm, 36px);
+  min-height: var(--btn-height-sm, 36px);
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.closeButton:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+  color: var(--color-text-primary, #1e293b);
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--color-primary, #6c63ff);
+  outline-offset: -2px;
+}
+
+.newChatButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--btn-height-sm, 36px);
+  height: var(--btn-height-sm, 36px);
+  min-width: var(--btn-height-sm, 36px);
+  min-height: var(--btn-height-sm, 36px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.newChatButton:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+  border-color: var(--color-primary, #6c63ff);
+  color: var(--color-primary, #6c63ff);
+}
+
+.newChatButton:focus-visible {
+  outline: 2px solid var(--color-primary, #6c63ff);
+  outline-offset: -2px;
+}
+
+.newChatButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Messages area
+   --------------------------------------------------------------------------- */
+.messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4, 1rem) var(--space-5, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+}
+
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-text-tertiary, #94a3b8);
+  padding: var(--space-8, 2rem);
+}
+
+/* ---------------------------------------------------------------------------
+   Message bubbles
+   --------------------------------------------------------------------------- */
+.message {
+  max-width: 85%;
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-radius: var(--radius-lg, 12px);
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: var(--line-height-relaxed, 1.625);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.messageUser {
+  align-self: flex-end;
+  background: var(--color-primary, #6c63ff);
+  color: #fff;
+  border-bottom-right-radius: var(--radius-sm, 4px);
+}
+
+.messageAssistant {
+  align-self: flex-start;
+  background: var(--color-bg-secondary, #f8fafc);
+  color: var(--color-text-primary, #1e293b);
+  border-bottom-left-radius: var(--radius-sm, 4px);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.messageError {
+  border: 1px solid var(--color-danger, #ef4444);
+  opacity: 0.8;
+}
+
+/* Streaming cursor */
+.streaming::after {
+  content: "\25CF"; /* ● */
+  display: inline;
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  color: var(--color-primary, #6c63ff);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   Pending action cards
+   --------------------------------------------------------------------------- */
+.actionsContainer {
+  padding: 0 var(--space-5, 1.25rem) var(--space-3, 0.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+  flex-shrink: 0;
+}
+
+.actionCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-primary, #fff);
+
+  @mixin dark {
+    background: var(--color-bg-secondary, #1e293b);
+  }
+}
+
+.actionInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.actionType {
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary, #6c63ff);
+}
+
+.actionDescription {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-primary, #1e293b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actionButtons {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Suggested next-step chips
+   --------------------------------------------------------------------------- */
+.chipsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+  padding: 0 var(--space-5, 1.25rem) var(--space-3, 0.75rem);
+  flex-shrink: 0;
+}
+
+.chip {
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  border: 1px solid var(--color-primary, #6c63ff);
+  border-radius: var(--radius-full, 9999px);
+  background: transparent;
+  color: var(--color-primary, #6c63ff);
+  font-size: var(--font-size-xs, 0.75rem);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: var(--color-primary, #6c63ff);
+  color: #fff;
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--color-primary, #6c63ff);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Input area
+   --------------------------------------------------------------------------- */
+.inputArea {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-3, 0.75rem) var(--space-5, 1.25rem);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.textInput {
+  flex: 1;
+  min-height: var(--btn-height-md, 44px);
+  max-height: 120px;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-primary, #fff);
+  color: var(--color-text-primary, #1e293b);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-family: inherit;
+  line-height: var(--line-height-normal, 1.5);
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s ease;
+
+  @mixin dark {
+    background: var(--color-bg-secondary, #1e293b);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.textInput:focus {
+  border-color: var(--color-primary, #6c63ff);
+}
+
+.textInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sendButton {
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Loading indicator
+   --------------------------------------------------------------------------- */
+.loadingDots {
+  display: flex;
+  gap: 4px;
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  align-self: flex-start;
+}
+
+.loadingDots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-tertiary, #94a3b8);
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.loadingDots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loadingDots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}

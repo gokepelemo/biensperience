@@ -173,6 +173,15 @@ const FEATURE_FLAGS = {
     tier: 'beta'
   },
 
+  // BienBot AI Assistant
+  BIENBOT: {
+    key: 'bienbot',
+    description: 'BienBot AI travel planning assistant',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'premium'
+  },
+
   // Plan Access Requests - token-based one-click approval flow
   PLAN_ACCESS_REQUESTS: {
     key: 'plan_access_requests',

@@ -392,6 +392,7 @@ app.use("/api/dashboard", require("./routes/api/dashboard"));
 app.use("/api/follows", require("./routes/api/follows"));
 app.use("/api/ai", require("./routes/api/ai"));
 app.use("/api/chat", require("./routes/api/chat"));
+app.use("/api/bienbot", require("./routes/api/bienbot"));
 
 // Apply stricter rate limiting to external API routes
 app.use("/api/geocode", externalApiLimiter, require("./routes/api/geocode"));

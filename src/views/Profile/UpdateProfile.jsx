@@ -1,8 +1,7 @@
 import styles from "./Profile.module.css";
-import { useState, useEffect } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash, FaFacebook, FaGoogle, FaKey, FaUnlink } from "react-icons/fa";
-import { FaXTwitter } from "react-icons/fa6";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate, useParams, useLocation, useBlocker } from "react-router-dom";
+import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash, FaKey } from "react-icons/fa";
 import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Loading from "../../components/Loading/Loading";
@@ -24,6 +23,7 @@ import Autocomplete from "../../components/Autocomplete/Autocomplete";
 import DeleteAccountModal from "../../components/DeleteAccountModal/DeleteAccountModal";
 import { logger } from "../../utilities/logger";
 import { getLinkedAccounts, unlinkAccount, linkAccount } from "../../utilities/oauth-service";
+import { LinkedAccountRow } from "./components";
 
 // Demo mode detection
 const isDemoMode = process.env.REACT_APP_DEMO_MODE === 'true';
@@ -57,6 +57,20 @@ export default function UpdateProfile() {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId } = useParams();
+
+  // Track link changes against original user links
+  const trackLinkChanges = useCallback((newLinks) => {
+    const originalLinks = originalUser?.links || [];
+    const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
+    if (linksChanged) {
+      setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
+    } else {
+      setChanges(prev => {
+        const { links, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [originalUser, setChanges]);
 
   // Determine if this is admin mode (editing another user)
   const isAdminMode = !!userId && userId !== user._id;
@@ -528,6 +542,27 @@ export default function UpdateProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, originalUser, isInitialLoad]);
 
+  // Warn about unsaved changes on browser/tab close
+  const hasUnsavedChanges = !isInitialLoad && Object.keys(changes).length > 0;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
+
+  // Warn about unsaved changes on in-app navigation
+  useBlocker(
+    useCallback(
+      ({ currentLocation, nextLocation }) =>
+        hasUnsavedChanges &&
+        currentLocation.pathname !== nextLocation.pathname &&
+        !window.confirm(lang.current.alert.unsavedChangesMessage),
+      [hasUnsavedChanges]
+    )
+  );
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -594,6 +629,7 @@ export default function UpdateProfile() {
       if (isAdminMode) {
         // Admin mode: use admin API
         response = await updateUserAsAdmin(userId, dataToUpdate);
+        setChanges({});
         success(lang.current.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
         navigate(`/profile/${userId}`);
       } else {
@@ -610,6 +646,7 @@ export default function UpdateProfile() {
         }
 
         updateUserContext(updatedUser); // Instant UI update!
+        setChanges({});
         success(lang.current.notification?.profile?.updated || "Your profile has been updated. Changes are now visible to others.");
         navigate('/profile');
       }
@@ -885,149 +922,17 @@ export default function UpdateProfile() {
                     ) : linkedAccounts ? (
                       <>
                         <div className={styles.linkedAccountsList}>
-                          {/* Facebook */}
-                          <div className={styles.linkedAccountItem}>
-                            <div className={styles.linkedAccountInfo}>
-                              <div className={`${styles.linkedAccountIcon} ${linkedAccounts.facebook ? styles.facebook : styles.disabled}`}>
-                                <FaFacebook />
-                              </div>
-                              <div className={styles.linkedAccountDetails}>
-                                <span className={styles.linkedAccountName}>{lang.current.profile.linkedFacebook}</span>
-                                <span className={`${styles.linkedAccountStatus} ${linkedAccounts.facebook ? styles.linked : styles.notLinked}`}>
-                                  {linkedAccounts.facebook ? (
-                                    <><FaCheckCircle /> {lang.current.profile.linked}</>
-                                  ) : (
-                                    lang.current.profile.notLinked
-                                  )}
-                                </span>
-                                {linkedAccounts.facebook && linkedAccounts.accounts?.find(a => a.provider === 'facebook')?.linkedAt && (
-                                  <span className={styles.linkedAccountDate}>
-                                    {lang.current.profile.accountLinkedAt.replace('{date}', new Date(linkedAccounts.accounts.find(a => a.provider === 'facebook').linkedAt).toLocaleDateString())}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className={styles.linkedAccountActions}>
-                              {linkedAccounts.facebook ? (
-                                <button
-                                  type="button"
-                                  className={`${styles.linkedAccountBtn} ${styles.unlink}`}
-                                  onClick={() => handleUnlinkAccount('facebook')}
-                                  disabled={unlinkingProvider === 'facebook'}
-                                >
-                                  {unlinkingProvider === 'facebook' ? (
-                                    <span className={styles.linkedAccountSpinner} />
-                                  ) : (
-                                    <><FaUnlink /> {lang.current.profile.unlinkAccount}</>
-                                  )}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className={`${styles.linkedAccountBtn} ${styles.link}`}
-                                  onClick={() => handleLinkAccount('facebook')}
-                                >
-                                  {lang.current.profile.linkAccount}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Google */}
-                          <div className={styles.linkedAccountItem}>
-                            <div className={styles.linkedAccountInfo}>
-                              <div className={`${styles.linkedAccountIcon} ${linkedAccounts.google ? styles.google : styles.disabled}`}>
-                                <FaGoogle />
-                              </div>
-                              <div className={styles.linkedAccountDetails}>
-                                <span className={styles.linkedAccountName}>{lang.current.profile.linkedGoogle}</span>
-                                <span className={`${styles.linkedAccountStatus} ${linkedAccounts.google ? styles.linked : styles.notLinked}`}>
-                                  {linkedAccounts.google ? (
-                                    <><FaCheckCircle /> {lang.current.profile.linked}</>
-                                  ) : (
-                                    lang.current.profile.notLinked
-                                  )}
-                                </span>
-                                {linkedAccounts.google && linkedAccounts.accounts?.find(a => a.provider === 'google')?.linkedAt && (
-                                  <span className={styles.linkedAccountDate}>
-                                    {lang.current.profile.accountLinkedAt.replace('{date}', new Date(linkedAccounts.accounts.find(a => a.provider === 'google').linkedAt).toLocaleDateString())}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className={styles.linkedAccountActions}>
-                              {linkedAccounts.google ? (
-                                <button
-                                  type="button"
-                                  className={`${styles.linkedAccountBtn} ${styles.unlink}`}
-                                  onClick={() => handleUnlinkAccount('google')}
-                                  disabled={unlinkingProvider === 'google'}
-                                >
-                                  {unlinkingProvider === 'google' ? (
-                                    <span className={styles.linkedAccountSpinner} />
-                                  ) : (
-                                    <><FaUnlink /> {lang.current.profile.unlinkAccount}</>
-                                  )}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className={`${styles.linkedAccountBtn} ${styles.link}`}
-                                  onClick={() => handleLinkAccount('google')}
-                                >
-                                  {lang.current.profile.linkAccount}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* X (Twitter) */}
-                          <div className={styles.linkedAccountItem}>
-                            <div className={styles.linkedAccountInfo}>
-                              <div className={`${styles.linkedAccountIcon} ${linkedAccounts.twitter ? styles.twitter : styles.disabled}`}>
-                                <FaXTwitter />
-                              </div>
-                              <div className={styles.linkedAccountDetails}>
-                                <span className={styles.linkedAccountName}>{lang.current.profile.linkedTwitter}</span>
-                                <span className={`${styles.linkedAccountStatus} ${linkedAccounts.twitter ? styles.linked : styles.notLinked}`}>
-                                  {linkedAccounts.twitter ? (
-                                    <><FaCheckCircle /> {lang.current.profile.linked}</>
-                                  ) : (
-                                    lang.current.profile.notLinked
-                                  )}
-                                </span>
-                                {linkedAccounts.twitter && linkedAccounts.accounts?.find(a => a.provider === 'twitter')?.linkedAt && (
-                                  <span className={styles.linkedAccountDate}>
-                                    {lang.current.profile.accountLinkedAt.replace('{date}', new Date(linkedAccounts.accounts.find(a => a.provider === 'twitter').linkedAt).toLocaleDateString())}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className={styles.linkedAccountActions}>
-                              {linkedAccounts.twitter ? (
-                                <button
-                                  type="button"
-                                  className={`${styles.linkedAccountBtn} ${styles.unlink}`}
-                                  onClick={() => handleUnlinkAccount('twitter')}
-                                  disabled={unlinkingProvider === 'twitter'}
-                                >
-                                  {unlinkingProvider === 'twitter' ? (
-                                    <span className={styles.linkedAccountSpinner} />
-                                  ) : (
-                                    <><FaUnlink /> {lang.current.profile.unlinkAccount}</>
-                                  )}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className={`${styles.linkedAccountBtn} ${styles.link}`}
-                                  onClick={() => handleLinkAccount('twitter')}
-                                >
-                                  {lang.current.profile.linkAccount}
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                          {['facebook', 'google', 'twitter'].map(provider => (
+                            <LinkedAccountRow
+                              key={provider}
+                              provider={provider}
+                              isLinked={!!linkedAccounts[provider]}
+                              linkedAt={linkedAccounts.accounts?.find(a => a.provider === provider)?.linkedAt}
+                              onLink={handleLinkAccount}
+                              onUnlink={handleUnlinkAccount}
+                              unlinking={unlinkingProvider === provider}
+                            />
+                          ))}
                         </div>
 
                         {/* Password status indicator */}
@@ -1107,17 +1012,7 @@ export default function UpdateProfile() {
                               };
 
                               setFormData(prev => ({ ...prev, links: newLinks }));
-                              // Track changes
-                              const originalLinks = originalUser?.links || [];
-                              const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
-                              if (linksChanged) {
-                                setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
-                              } else {
-                                setChanges(prev => {
-                                  const { links, ...rest } = prev;
-                                  return rest;
-                                });
-                              }
+                              trackLinkChanges(newLinks);
                             }}
                           >
                             {getSocialNetworkOptions().map(opt => {
@@ -1150,16 +1045,7 @@ export default function UpdateProfile() {
                                   const newLinks = [...(formData.links || [])];
                                   newLinks[index] = { ...newLinks[index], title: e.target.value };
                                   setFormData(prev => ({ ...prev, links: newLinks }));
-                                  const originalLinks = originalUser?.links || [];
-                                  const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
-                                  if (linksChanged) {
-                                    setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
-                                  } else {
-                                    setChanges(prev => {
-                                      const { links, ...rest } = prev;
-                                      return rest;
-                                    });
-                                  }
+                                  trackLinkChanges(newLinks);
                                 }}
                                 style={{ maxWidth: '150px' }}
                               />
@@ -1172,16 +1058,7 @@ export default function UpdateProfile() {
                                   const newLinks = [...(formData.links || [])];
                                   newLinks[index] = { ...newLinks[index], url: e.target.value };
                                   setFormData(prev => ({ ...prev, links: newLinks }));
-                                  const originalLinks = originalUser?.links || [];
-                                  const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
-                                  if (linksChanged) {
-                                    setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
-                                  } else {
-                                    setChanges(prev => {
-                                      const { links, ...rest } = prev;
-                                      return rest;
-                                    });
-                                  }
+                                  trackLinkChanges(newLinks);
                                 }}
                               />
                             </>
@@ -1203,16 +1080,7 @@ export default function UpdateProfile() {
                                   title: network.name
                                 };
                                 setFormData(prev => ({ ...prev, links: newLinks }));
-                                const originalLinks = originalUser?.links || [];
-                                const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
-                                if (linksChanged) {
-                                  setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
-                                } else {
-                                  setChanges(prev => {
-                                    const { links, ...rest } = prev;
-                                    return rest;
-                                  });
-                                }
+                                trackLinkChanges(newLinks);
                               }}
                             />
                           )}
@@ -1226,16 +1094,7 @@ export default function UpdateProfile() {
                           onClick={() => {
                             const newLinks = (formData.links || []).filter((_, i) => i !== index);
                             setFormData(prev => ({ ...prev, links: newLinks }));
-                            const originalLinks = originalUser?.links || [];
-                            const linksChanged = JSON.stringify(originalLinks) !== JSON.stringify(newLinks);
-                            if (linksChanged) {
-                              setChanges(prev => ({ ...prev, links: { from: originalLinks, to: newLinks } }));
-                            } else {
-                              setChanges(prev => {
-                                const { links, ...rest } = prev;
-                                return rest;
-                              });
-                            }
+                            trackLinkChanges(newLinks);
                           }}
                           title={lang.current.profile.removeLink}
                           className={styles.linkRemoveBtn}

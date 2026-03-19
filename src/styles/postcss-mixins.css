@@ -1,0 +1,26 @@
+/* PostCSS Mixins — shared across all CSS modules and stylesheets.
+   Processed by postcss-mixins before other PostCSS plugins. */
+
+/* Dark mode helper — emits both the explicit data-theme selector AND the
+   prefers-color-scheme media query in one shot, eliminating duplication.
+
+   Usage (inside a CSS Module or plain CSS):
+     .myComponent {
+       background: var(--color-bg-primary);
+
+       @mixin dark {
+         background: var(--color-bg-secondary);
+       }
+     }
+*/
+@define-mixin dark {
+  :root[data-theme="dark"] & {
+    @mixin-content;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      @mixin-content;
+    }
+  }
+}

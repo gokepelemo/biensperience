@@ -2,10 +2,11 @@
  * ProfileContentGrid Component
  *
  * Displays a grid of content (experiences or destinations) for the Profile view.
- * Includes built-in skeleton loaders and pagination support.
+ * Includes built-in skeleton loaders, placeholder support, and pagination.
  * Designed to match the Profile view's grid pattern for consistency.
  */
 
+import { forwardRef } from 'react';
 import ExperienceCard from '../../../components/ExperienceCard/ExperienceCard';
 import DestinationCard from '../../../components/DestinationCard/DestinationCard';
 import { SkeletonLoader, EmptyState } from '../../../components/design-system';
@@ -15,38 +16,43 @@ import styles from '../Profile.module.css';
 /**
  * @param {Object} props
  * @param {'experiences' | 'destinations'} props.type - Content type to display
- * @param {Array} props.items - Items to display
- * @param {boolean} props.isLoading - Whether content is loading
- * @param {boolean} props.isInitialLoad - Whether this is the initial load (shows full skeleton)
- * @param {number} props.itemsPerPage - Number of items per page
- * @param {Object} props.meta - Pagination metadata from API
+ * @param {Array} props.items - Items to display (null = initial load)
+ * @param {boolean} props.isLoading - Whether content is loading (shows opacity overlay)
+ * @param {number} props.skeletonCount - Number of skeleton items during initial load
+ * @param {number} props.itemsPerPage - Items per page (used for placeholder calculation)
+ * @param {Object} props.meta - Pagination metadata { totalPages }
  * @param {number} props.currentPage - Current page number
  * @param {Function} props.onPageChange - Page change callback
  * @param {boolean} props.showPagination - Whether to show pagination
- * @param {Array} props.userPlans - User's plans for ExperienceCard context
- * @param {Object} props.emptyState - Empty state configuration
+ * @param {Function} props.renderCard - Custom card renderer: (item, index) => ReactNode
+ * @param {Array} props.userPlans - User's plans for default ExperienceCard rendering
+ * @param {Object} props.emptyState - Empty state configuration { title, description, icon, primaryAction, onPrimaryAction }
+ * @param {boolean} props.showPlaceholders - Whether to show placeholder skeletons for partial pages
  */
-export default function ProfileContentGrid({
+const ProfileContentGrid = forwardRef(function ProfileContentGrid({
   type = 'experiences',
   items = null,
   isLoading = false,
-  isInitialLoad = false,
+  skeletonCount,
   itemsPerPage = 6,
   meta = null,
   currentPage = 1,
   onPageChange,
   showPagination = true,
+  renderCard,
   userPlans = [],
-  emptyState = {}
-}) {
+  emptyState = {},
+  showPlaceholders = false
+}, ref) {
   const isDestinations = type === 'destinations';
   const gridClassName = isDestinations ? styles.destinationsGrid : styles.profileGrid;
+  const effectiveSkeletonCount = skeletonCount ?? itemsPerPage;
 
   // Initial load - show skeleton loaders
-  if (items === null || isInitialLoad) {
+  if (items === null) {
     return (
-      <div className={gridClassName}>
-        <ProfileContentGridSkeleton type={type} count={itemsPerPage} />
+      <div ref={ref} className={gridClassName}>
+        <ProfileContentGridSkeleton type={type} count={effectiveSkeletonCount} />
       </div>
     );
   }
@@ -54,28 +60,38 @@ export default function ProfileContentGrid({
   // Empty state
   if (items.length === 0) {
     return (
-      <div className={gridClassName}>
-        <EmptyState
-          variant={isDestinations ? 'destinations' : 'experiences'}
-          title={emptyState.title || `No ${isDestinations ? 'Destinations' : 'Experiences'}`}
-          description={emptyState.description || ''}
-          primaryAction={emptyState.primaryAction}
-          onPrimaryAction={emptyState.onPrimaryAction}
-          size="md"
-        />
+      <div ref={ref} className={gridClassName}>
+        <div className={styles.emptyStateWrapper}>
+          <EmptyState
+            variant={isDestinations ? 'destinations' : 'experiences'}
+            icon={emptyState.icon}
+            title={emptyState.title || `No ${isDestinations ? 'Destinations' : 'Experiences'}`}
+            description={emptyState.description || ''}
+            primaryAction={emptyState.primaryAction}
+            onPrimaryAction={emptyState.onPrimaryAction}
+            size="md"
+          />
+        </div>
       </div>
     );
   }
+
+  // Compute placeholders for non-last pages to maintain consistent grid height
+  const totalPages = meta?.totalPages || 1;
+  const needsPlaceholders = showPlaceholders && currentPage < totalPages && items.length < itemsPerPage;
+  const placeholderCount = needsPlaceholders ? Math.max(0, itemsPerPage - items.length) : 0;
 
   // Content with loading overlay during page transitions
   return (
     <>
       <div
+        ref={ref}
         className={gridClassName}
         style={isLoading ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}
       >
-        {items.map((item, index) => (
-          isDestinations ? (
+        {items.map((item, index) => {
+          if (renderCard) return renderCard(item, index);
+          return isDestinations ? (
             <DestinationCard
               key={item._id || index}
               destination={item}
@@ -86,16 +102,23 @@ export default function ProfileContentGrid({
               experience={item}
               userPlans={userPlans}
             />
-          )
-        ))}
+          );
+        })}
+        {placeholderCount > 0 && (
+          <ProfileContentGridSkeleton
+            type={type}
+            count={placeholderCount}
+            keyPrefix="placeholder"
+          />
+        )}
       </div>
 
       {/* Pagination */}
-      {showPagination && meta && meta.totalPages > 1 && (
+      {showPagination && meta && totalPages > 1 && (
         <div className={styles.paginationContainer}>
           <Pagination
             currentPage={currentPage}
-            totalPages={meta.totalPages}
+            totalPages={totalPages}
             onPageChange={onPageChange}
             disabled={isLoading}
           />
@@ -103,20 +126,22 @@ export default function ProfileContentGrid({
       )}
     </>
   );
-}
+});
+
+export default ProfileContentGrid;
 
 /**
  * Skeleton loader for ProfileContentGrid
  * Provides accurate loading state that matches the actual grid layout
  */
-export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) {
+export function ProfileContentGridSkeleton({ type = 'experiences', count = 6, keyPrefix = 'skeleton' }) {
   const isDestinations = type === 'destinations';
 
   if (isDestinations) {
     // Destination cards are 12rem x 8rem
     return Array.from({ length: count }).map((_, i) => (
       <div
-        key={`skeleton-dest-${i}`}
+        key={`${keyPrefix}-dest-${i}`}
         style={{
           width: '12rem',
           height: '8rem',
@@ -132,7 +157,7 @@ export function ProfileContentGridSkeleton({ type = 'experiences', count = 6 }) 
   // Experience cards - match ExperienceCard dimensions (fills grid cell, min-height 12rem)
   return Array.from({ length: count }).map((_, i) => (
     <div
-      key={`skeleton-exp-${i}`}
+      key={`${keyPrefix}-exp-${i}`}
       style={{
         minHeight: '12rem',
         borderRadius: 'var(--radius-md)',

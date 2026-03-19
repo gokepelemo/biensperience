@@ -31,6 +31,7 @@ import { getDefaultPhoto } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import { updateDestination } from "../../utilities/destinations-api";
+import BienBotTrigger from "../../components/BienBotTrigger/BienBotTrigger";
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -872,6 +873,14 @@ export default function SingleDestination() {
           }
         }}
       />
+
+      {destination && (
+        <BienBotTrigger
+          entity="destination"
+          entityId={String(destination._id)}
+          entityLabel={destination.name}
+        />
+      )}
     </>
   );
 }

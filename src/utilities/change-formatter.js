@@ -63,6 +63,65 @@ export function getFieldIcon(fieldName, entityType = '') {
 }
 
 /**
+ * Explicit friendly labels for field names, keyed by entity type.
+ * Checked before generic formatting so users see clear, non-technical names.
+ */
+const FIELD_LABELS = {
+  profile: {
+    name: 'Name',
+    email: 'Email',
+    bio: 'Bio',
+    location: 'Location',
+    password: 'Password',
+    photos: 'Photos',
+    default_photo: 'Profile Photo',
+    emailConfirmed: 'Email Verified',
+    feature_flags: 'Feature Flags',
+    links: 'Links',
+  },
+  destination: {
+    name: 'Name',
+    description: 'Description',
+    country: 'Country',
+    state: 'State / Province',
+    city: 'City',
+    travel_tips: 'Travel Tips',
+    photos: 'Photos',
+    default_photo_id: 'Cover Photo',
+  },
+  experience: {
+    name: 'Name',
+    description: 'Description',
+    type: 'Type',
+    plan_items: 'Plan Items',
+    photo: 'Photo',
+    cost_estimate: 'Cost Estimate',
+    max_planning_days: 'Planning Days',
+    public: 'Visibility',
+  },
+  plan: {
+    planned_date: 'Planned Date',
+    cost_estimate: 'Cost Estimate',
+    planning_days: 'Planning Days',
+    completion_status: 'Completion Status',
+  },
+};
+
+/**
+ * Get the friendly label for a field, falling back to generic formatting.
+ * @param {string} fieldName - The raw field key
+ * @param {string} entityType - Entity type for context-specific labels
+ * @returns {string} Human-friendly label
+ */
+export function getFieldLabel(fieldName, entityType = '') {
+  const entityLabels = FIELD_LABELS[entityType];
+  if (entityLabels && entityLabels[fieldName]) {
+    return entityLabels[fieldName];
+  }
+  return formatFieldName(fieldName);
+}
+
+/**
  * Format field name from various formats (snake_case, camelCase, ALL_CAPS, etc.) to Title Case
  * @param {string} fieldName - Field name in any format
  * @returns {string} Formatted field name in Title Case
@@ -106,6 +165,7 @@ export function formatFieldName(fieldName) {
  */
 export function formatChanges(field, change, entityType = '') {
   const icon = getFieldIcon(field, entityType);
+  const label = getFieldLabel(field, entityType);
 
   // Special handling for feature_flags
   if (field === 'feature_flags' && change.added !== undefined && change.removed !== undefined) {
@@ -116,7 +176,7 @@ export function formatChanges(field, change, entityType = '') {
     if (change.removed && change.removed.length > 0) {
       changes.push(`🚩 Removed flags: ${change.removed.join(', ')}`);
     }
-    return changes.length > 0 ? changes.join('\n') : '🚩 Feature Flags updated';
+    return changes.length > 0 ? changes.join('\n') : `🚩 ${label} updated`;
   }
 
   // Handle numeric changes (costs, counts, etc.) with delta formatting
@@ -127,16 +187,16 @@ export function formatChanges(field, change, entityType = '') {
     // Special handling for cost fields
     if (field.includes('cost') || field.includes('price') || field.includes('budget')) {
       const formattedDelta = formatCurrency(Math.abs(delta));
-      return `${icon} ${formatFieldName(field)}: ${sign}${formattedDelta}`;
+      return `${icon} ${label}: ${sign}${formattedDelta}`;
     }
 
     // General numeric delta formatting
-    return `${icon} ${formatFieldName(field)}: ${sign}${delta}`;
+    return `${icon} ${label}: ${sign}${delta}`;
   }
 
   // Handle arrays
   if (Array.isArray(change.from) && Array.isArray(change.to)) {
-    return formatArrayChanges(field, change, icon);
+    return formatArrayChanges(field, change, icon, entityType);
   }
 
   // Handle objects (including nested objects)
@@ -148,7 +208,7 @@ export function formatChanges(field, change, entityType = '') {
   // Handle simple values
   const fromValue = formatValue(change.from, field);
   const toValue = formatValue(change.to, field);
-  return `${icon} ${formatFieldName(field)}: ${fromValue} → ${toValue}`;
+  return `${icon} ${label}: ${fromValue} → ${toValue}`;
 }
 
 /**
@@ -352,7 +412,8 @@ function formatTravelTipsChanges(change, icon) {
   return changes.join('\n');
 }
 
-function formatArrayChanges(field, change, icon) {
+function formatArrayChanges(field, change, icon, entityType = '') {
+  const label = getFieldLabel(field, entityType);
   const added = [];
   const removed = [];
 
@@ -387,17 +448,17 @@ function formatArrayChanges(field, change, icon) {
   const changes = [];
   if (added.length > 0) {
     if (added.length === 1) {
-      changes.push(`${icon} New ${formatFieldName(field).slice(0, -1)} → ${added[0]}`);
+      changes.push(`${icon} New ${label} → ${added[0]}`);
     } else {
-      changes.push(`${icon} New ${formatFieldName(field)} (${added.length}):`);
+      changes.push(`${icon} New ${label} (${added.length}):`);
       added.forEach(item => changes.push(`  • ${item}`));
     }
   }
   if (removed.length > 0) {
     if (removed.length === 1) {
-      changes.push(`${icon} Removed ${formatFieldName(field).slice(0, -1)} → ${removed[0]}`);
+      changes.push(`${icon} Removed ${label} → ${removed[0]}`);
     } else {
-      changes.push(`${icon} Removed ${formatFieldName(field)} (${removed.length}):`);
+      changes.push(`${icon} Removed ${label} (${removed.length}):`);
       removed.forEach(item => changes.push(`  • ${item}`));
     }
   }
@@ -432,11 +493,13 @@ function formatObjectArrayChanges(field, change, icon) {
   }
 
   const changes = [];
+  // Use generic formatting for pluralization (slice last char for singular, add 's' for plural)
+  const fieldLabel = formatFieldName(field);
   if (added.length > 0) {
-    changes.push(`${icon} Added ${added.length} ${formatFieldName(field).slice(0, -1)}${added.length > 1 ? 's' : ''}`);
+    changes.push(`${icon} Added ${added.length} ${fieldLabel.slice(0, -1)}${added.length > 1 ? 's' : ''}`);
   }
   if (removed.length > 0) {
-    changes.push(`${icon} Removed ${removed.length} ${formatFieldName(field).slice(0, -1)}${removed.length > 1 ? 's' : ''}`);
+    changes.push(`${icon} Removed ${removed.length} ${fieldLabel.slice(0, -1)}${removed.length > 1 ? 's' : ''}`);
   }
 
   return changes.join('\n');
@@ -463,15 +526,15 @@ function formatObjectChanges(field, change, icon, entityType) {
   const changes = [];
 
   if (addedKeys.length > 0) {
-    changes.push(`${icon} Added ${addedKeys.length} field${addedKeys.length > 1 ? 's' : ''}: ${addedKeys.map(k => formatFieldName(k)).join(', ')}`);
+    changes.push(`${icon} Added ${addedKeys.length} field${addedKeys.length > 1 ? 's' : ''}: ${addedKeys.map(k => getFieldLabel(k, entityType)).join(', ')}`);
   }
   if (removedKeys.length > 0) {
-    changes.push(`${icon} Removed ${removedKeys.length} field${removedKeys.length > 1 ? 's' : ''}: ${removedKeys.map(k => formatFieldName(k)).join(', ')}`);
+    changes.push(`${icon} Removed ${removedKeys.length} field${removedKeys.length > 1 ? 's' : ''}: ${removedKeys.map(k => getFieldLabel(k, entityType)).join(', ')}`);
   }
   if (changedKeys.length > 0) {
     const fieldChanges = changedKeys.map(key => {
       const subChange = { from: change.from[key], to: change.to[key] };
-      return `  • ${formatFieldName(key)}: ${formatValue(subChange.from, key)} → ${formatValue(subChange.to, key)}`;
+      return `  • ${getFieldLabel(key, entityType)}: ${formatValue(subChange.from, key)} → ${formatValue(subChange.to, key)}`;
     });
     changes.push(`${icon} Updated ${changedKeys.length} field${changedKeys.length > 1 ? 's' : ''}:\n${fieldChanges.join('\n')}`);
   }

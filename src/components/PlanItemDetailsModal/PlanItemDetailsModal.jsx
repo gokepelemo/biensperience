@@ -44,6 +44,7 @@ import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
+import BienBotTrigger from '../BienBotTrigger/BienBotTrigger';
 
 export default function PlanItemDetailsModal({
   show,
@@ -1307,11 +1308,12 @@ export default function PlanItemDetailsModal({
   );
 
   return (
-    <Modal
-      show={show}
-      onClose={onClose}
-      title={editableTitle}
-      size="fullscreen"
+    <>
+      <Modal
+        show={show}
+        onClose={onClose}
+        title={editableTitle}
+        size="fullscreen"
       centered={false}
       allowBodyScroll={isMobileViewport}
       bodyClassName={isMobileViewport ? styles.modalBodyDocumentScroll : styles.modalBodyFullscreen}
@@ -1952,5 +1954,16 @@ export default function PlanItemDetailsModal({
         onSelectType={handleSelectDetailType}
       />
     </Modal>
+
+    {/* BienBot trigger — always rendered alongside the plan item modal so the
+        FAB (z-index 1060) sits above the modal backdrop (z-index 1040/1050) */}
+    {show && planItem?._id && planItem?.content && (
+      <BienBotTrigger
+        entity="plan_item"
+        entityId={String(planItem._id)}
+        entityLabel={planItem.content}
+      />
+    )}
+    </>
   );
 }

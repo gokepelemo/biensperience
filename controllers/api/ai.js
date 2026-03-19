@@ -850,6 +850,10 @@ exports.status = async (req, res) => {
   });
 };
 
-// Export constants for use in routes
+// Export constants and helpers for use in routes and utilities
 exports.AI_PROVIDERS = AI_PROVIDERS;
 exports.AI_TASKS = AI_TASKS;
+exports.DEFAULT_MODELS = DEFAULT_MODELS;
+exports.callProvider = callProvider;
+exports.getApiKey = getApiKey;
+exports.getProviderForTask = getProviderForTask;

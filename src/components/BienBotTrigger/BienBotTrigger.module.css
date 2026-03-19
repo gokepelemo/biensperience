@@ -1,0 +1,58 @@
+/* BienBotTrigger — Floating Action Button */
+
+.fab {
+  position: fixed;
+  bottom: var(--space-6, 1.5rem);
+  right: var(--space-6, 1.5rem);
+  z-index: var(--z-index-popover, 1060);
+
+  /* WCAG 44px minimum tap target */
+  width: var(--btn-height-md, 44px);
+  height: var(--btn-height-md, 44px);
+  min-width: var(--btn-height-md, 44px);
+  min-height: var(--btn-height-md, 44px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 50%;
+  background: var(--color-primary-gradient, linear-gradient(135deg, var(--color-primary, #6c63ff), var(--color-primary-dark, #5a52d5)));
+  color: #fff;
+  cursor: pointer;
+
+  box-shadow: var(--shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.15));
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-xl, 0 8px 24px rgba(0, 0, 0, 0.2));
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+.fab:focus-visible {
+  outline: 2px solid var(--color-primary, #6c63ff);
+  outline-offset: 3px;
+}
+
+.fabIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+/* Desktop: slightly larger FAB */
+@media (min-width: 768px) {
+  .fab {
+    width: 56px;
+    height: 56px;
+    bottom: var(--space-8, 2rem);
+    right: var(--space-8, 2rem);
+  }
+}

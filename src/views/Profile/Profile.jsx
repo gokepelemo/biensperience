@@ -7,17 +7,16 @@ import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
 import { useApp } from "../../contexts/AppContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
-import DestinationCard from "./../../components/DestinationCard/DestinationCard";
 import ExperienceCard from "./../../components/ExperienceCard/ExperienceCard";
 import SkeletonLoader from "../../components/SkeletonLoader/SkeletonLoader";
-import Pagination from '../../components/Pagination/Pagination';
 import Loading from "../../components/Loading/Loading";
-import { ProfileSkeleton, ProfileHeaderSkeleton, ProfileContentGridSkeleton } from "./components";
+import { ProfileSkeleton, ProfileHeaderSkeleton, ProfileContentGrid } from "./components";
 import ApiTokenModal from "../../components/ApiTokenModal/ApiTokenModal";
 import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from '../../components/PhotoUploadModal/PhotoUploadModal';
 import MessagesModal from '../../components/ChatModal/MessagesModal';
+import BienBotTrigger from '../../components/BienBotTrigger/BienBotTrigger';
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { resendConfirmation } from "../../utilities/users-api";
@@ -37,10 +36,9 @@ import { eventBus } from "../../utilities/event-bus";
 import { broadcastEvent } from "../../utilities/event-bus";
 import { getOrCreateDmChannel } from "../../utilities/chat-api";
 import { storePreference, retrievePreference, expirePreference } from "../../utilities/preferences-utils";
-import { useWebSocketEvents } from "../../hooks/useWebSocketEvents";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
 import { isSystemUser, getSystemUserBySlug } from "../../utilities/system-users";
-import { followUser, unfollowUser, removeFollower, getFollowStatus, getFollowRelationship, getFollowCounts, getFollowers, getFollowing } from "../../utilities/follows-api";
+import { useFollowManager } from "../../hooks/useFollowManager";
 import { getActivityFeed } from "../../utilities/dashboard-api";
 import ActivityFeed from "../../components/ActivityFeed/ActivityFeed";
 import TabNav from "../../components/TabNav/TabNav";
@@ -58,11 +56,6 @@ export default function Profile() {
 
   // Check if this is a system user slug (e.g. /profile/bienbot, /profile/archive)
   const systemUser = useMemo(() => getSystemUserBySlug(profileId), [profileId]);
-
-  // Validate profileId format
-  if (profileId && !systemUser && (typeof profileId !== 'string' || profileId.length !== 24)) {
-    // Invalid profileId format - handled by validation below
-  }
 
   let userId = profileId && !systemUser ? profileId : user._id;
   const isOwner = !profileId || profileId === user._id || isSuperAdmin(user);
@@ -90,31 +83,43 @@ export default function Profile() {
   // We intentionally use refs (not state) to avoid introducing extra re-renders.
   const activeUserIdRef = useRef(userId);
   const latestProfileRequestIdRef = useRef(0);
-  const latestFollowDataRequestIdRef = useRef(0);
   const latestUserExperiencesRequestIdRef = useRef(0);
   const latestCreatedExperiencesRequestIdRef = useRef(0);
-  const latestFollowsListRequestIdRef = useRef(0);
-
-  // Follow feature state
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isPending, setIsPending] = useState(false); // Follow request pending (for private profiles)
-  const [followLoading, setFollowLoading] = useState(false);
-  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
-  const [followRelationship, setFollowRelationship] = useState(null); // { isFollowing, isFollowedBy, isMutual }
-  const [followButtonHovered, setFollowButtonHovered] = useState(false);
 
   // Activity tab state
   const [activityFeedType, setActivityFeedType] = useState('all'); // 'all' | 'own' | 'following'
 
-  // Follows tab state
-  const [followsFilter, setFollowsFilter] = useState('followers'); // 'followers' | 'following'
-  const [followsList, setFollowsList] = useState([]);
-  const [followsLoading, setFollowsLoading] = useState(false);
-  const [followsPagination, setFollowsPagination] = useState({ total: 0, hasMore: false, skip: 0 });
-
-  // Refs to avoid follow-event subscription churn when these values change
-  const followsFilterRef = useRef(followsFilter);
-  const followsListLoadedRef = useRef(false);
+  // Follow management (state, effects, actions)
+  const {
+    isFollowing,
+    isPending,
+    followLoading,
+    followCounts,
+    followRelationship,
+    followButtonHovered,
+    setFollowButtonHovered,
+    followButtonConfirming,
+    handleFollowButtonClick,
+    followsFilter,
+    followsList,
+    followsLoading,
+    followsPagination,
+    followActionInProgress,
+    handleFollow,
+    handleUnfollow,
+    handleWithdrawRequest,
+    handleRemoveFollower,
+    handleUnfollowFromList,
+    fetchFollowsList,
+    handleFollowsFilterChange,
+  } = useFollowManager({
+    userId,
+    currentUserId: user._id,
+    isOwnProfile,
+    currentProfile,
+    followsTabActive: uiState.follows,
+    profileId,
+  });
 
   const [showApiTokenModal, setShowApiTokenModal] = useState(false);
   const [showActivityMonitor, setShowActivityMonitor] = useState(false);
@@ -129,9 +134,6 @@ export default function Profile() {
   const [messagesModalTitle, setMessagesModalTitle] = useState('Messages');
   const [openingDirectMessage, setOpeningDirectMessage] = useState(false);
 
-  // Track previous userId for the follows tab - defined early so reset effect can access it
-  const prevFollowsUserIdRef = useRef(null);
-
   // Reset state immediately when navigating to a different profile
   // This prevents showing stale data from the previous profile
   useEffect(() => {
@@ -144,17 +146,9 @@ export default function Profile() {
       setUserExperiencesMeta(null);
       setCreatedExperiences(null);
       setCreatedExperiencesMeta(null);
-      setFollowCounts({ followers: 0, following: 0 });
-      setIsFollowing(false);
-      setIsPending(false);
       setActivityFeedType('own');
-      setFollowsList([]);
-      setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
-      setFollowRelationship(null);
       // Reset initial load tracking so context-sync effect waits for getProfile
       initialProfileLoadedRef.current = false;
-      // Reset follows userId tracking so the next effect correctly detects the change
-      // Note: We intentionally don't reset prevFollowsUserIdRef here - it's handled by the follows effect
       // Update ref to new value
       prevProfileIdRef.current = profileId;
     }
@@ -171,15 +165,6 @@ export default function Profile() {
       applyDestinationsFilter({}, { shuffle: false });
     }
   }, [destinations.length, dataLoading, applyDestinationsFilter]);
-
-  // Keep follow-event handler refs fresh without resubscribing
-  useEffect(() => {
-    followsFilterRef.current = followsFilter;
-  }, [followsFilter]);
-
-  useEffect(() => {
-    followsListLoadedRef.current = Array.isArray(followsList) && followsList.length > 0;
-  }, [followsList]);
 
   const applyHash = useCallback((rawHash) => {
     try {
@@ -213,7 +198,7 @@ export default function Profile() {
           created: false,
           destinations: false,
         });
-        setFollowsFilter(hash);
+        handleFollowsFilterChange(hash);
         return;
       }
 
@@ -237,7 +222,7 @@ export default function Profile() {
     } catch (e) {
       // ignore
     }
-  }, [navigate]);
+  }, [navigate, handleFollowsFilterChange]);
 
   // Initialize tab from hash (supports deep links like /profile#created)
   useEffect(() => {
@@ -936,428 +921,6 @@ export default function Profile() {
     };
   }, [userId]);
 
-  // Fetch follow status and counts when viewing another user's profile
-  useEffect(() => {
-    if (!userId || !user || isOwnProfile) return;
-
-    const fetchFollowData = async () => {
-      const requestId = ++latestFollowDataRequestIdRef.current;
-      const requestedUserId = userId;
-      const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
-
-      try {
-        // Get full relationship (isFollowing, isFollowedBy, isMutual) and pending status
-        const [relationship, counts, status] = await Promise.all([
-          getFollowRelationship(userId),
-          getFollowCounts(userId),
-          getFollowStatus(userId)
-        ]);
-
-        if (isStale()) return;
-
-        setIsFollowing(Boolean(relationship?.isFollowing));
-        setIsPending(Boolean(status?.isPending));
-        setFollowRelationship(relationship || null);
-        setFollowCounts(counts);
-      } catch (err) {
-        if (isStale()) return;
-        logger.error('[Profile] Failed to fetch follow data', { error: err.message });
-      }
-    };
-
-    fetchFollowData();
-  }, [userId, user, isOwnProfile]);
-
-  // Fetch follow counts for own profile (to display in metrics)
-  useEffect(() => {
-    if (!userId || !isOwnProfile) return;
-
-    const fetchOwnFollowCounts = async () => {
-      const requestId = ++latestFollowDataRequestIdRef.current;
-      const requestedUserId = userId;
-      const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowDataRequestIdRef.current !== requestId;
-
-      try {
-        const counts = await getFollowCounts(userId);
-        if (isStale()) return;
-        setFollowCounts(counts);
-      } catch (err) {
-        if (isStale()) return;
-        logger.error('[Profile] Failed to fetch follow counts', { error: err.message });
-      }
-    };
-
-    fetchOwnFollowCounts();
-  }, [userId, isOwnProfile]);
-
-  // WebSocket events for real-time profile updates (when others follow this profile)
-  const { subscribe: wsSubscribe, emit: wsEmit } = useWebSocketEvents();
-
-  // Join the user's profile room for real-time follow updates
-  useEffect(() => {
-    if (!userId || !wsEmit) return;
-
-    // Join the user's profile room to receive follow events
-    wsEmit('room:join', { roomId: `user:${userId}`, userId, type: 'user' }, { localOnly: false });
-
-    return () => {
-      // Leave room on cleanup
-      wsEmit('room:leave', { roomId: `user:${userId}`, userId, type: 'user' }, { localOnly: false });
-    };
-  }, [userId, wsEmit]);
-
-  // Listen for follow events to update UI
-  // Handles both local events (when current user follows) and WebSocket events (when others follow)
-  useEffect(() => {
-    if (!userId) return;
-
-    const handleFollowCreated = (event) => {
-      // Check event payload structure (local events vs WebSocket events)
-      const followingId = event.followingId || event.payload?.followingId;
-      const eventUserId = event.userId || event.payload?.userId;
-      const followerId = event.followerId || event.payload?.followerId;
-      const followerName = event.followerName || event.payload?.followerName;
-
-      // If this event is for the profile being viewed, update follower count
-      if (followingId === userId || eventUserId === userId) {
-        // Only update isFollowing if current user is the follower
-        if (followerId === user._id) {
-          setIsFollowing(true);
-        }
-        setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
-
-        // If we're on the followers tab and have loaded the list, add the new follower
-        if (followsFilterRef.current === 'followers' && followsListLoadedRef.current && followerId) {
-          // Add new follower to the list (at the beginning since it's most recent)
-          // Only add if we have follower details from the event
-          if (followerName) {
-            setFollowsList(prev => {
-              // Don't add if already in list
-              if (prev.some(f => f._id === followerId)) return prev;
-              return [{
-                _id: followerId,
-                name: followerName,
-                followedAt: new Date().toISOString()
-              }, ...prev];
-            });
-            setFollowsPagination(prev => ({ ...prev, total: prev.total + 1 }));
-          }
-        }
-
-        logger.debug('[Profile] Follower count incremented via event', { followingId, userId, followerId });
-      }
-    };
-
-    const handleFollowDeleted = (event) => {
-      // Check event payload structure (local events vs WebSocket events)
-      const followingId = event.followingId || event.payload?.followingId;
-      const eventUserId = event.userId || event.payload?.userId;
-      const followerId = event.followerId || event.payload?.followerId;
-
-      // If this event is for the profile being viewed, update follower count
-      if (followingId === userId || eventUserId === userId) {
-        // Only update isFollowing if current user is the unfollower
-        if (followerId === user._id) {
-          setIsFollowing(false);
-        }
-        setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-
-        // If we're on the followers tab, remove the unfollower from the list
-        if (followsFilterRef.current === 'followers' && followerId) {
-          setFollowsList(prev => prev.filter(f => f._id !== followerId));
-          setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
-        }
-
-        logger.debug('[Profile] Follower count decremented via event', { followingId, userId, followerId });
-      }
-    };
-
-    // Handle follower removed event (when profile owner removes a follower)
-    const handleFollowerRemoved = (event) => {
-      const removedFollowerId =
-        event.removedFollowerId ||
-        event.followerId ||
-        event.payload?.removedFollowerId ||
-        event.payload?.followerId;
-      const removedById =
-        event.removedById ||
-        event.userId ||
-        event.payload?.removedById ||
-        event.payload?.userId;
-
-      if (!removedFollowerId || !removedById) return;
-
-      // If this profile's owner removed a follower, update the followers list
-      if (removedById === userId && followsFilterRef.current === 'followers') {
-        setFollowsList(prev => prev.filter(f => f._id !== removedFollowerId));
-        setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
-        setFollowsPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
-        logger.debug('[Profile] Follower removed from list via event', { removedFollowerId, removedById });
-      }
-    };
-
-    // Handle follow request accepted (when profile owner accepts a follow request)
-    const handleFollowRequestAccepted = (event) => {
-      const followerId = event.followerId || event.payload?.followerId;
-      const followingId = event.followingId || event.payload?.followingId;
-
-      // If the current user's follow request to this profile was accepted
-      if (followerId === user._id && followingId === userId) {
-        setIsFollowing(true);
-        setIsPending(false);
-        setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
-        logger.debug('[Profile] Follow request accepted', { followerId, followingId });
-      }
-    };
-
-    // Subscribe to both local event bus and WebSocket events
-    const unsubCreate = eventBus.subscribe('follow:created', handleFollowCreated);
-    const unsubDelete = eventBus.subscribe('follow:deleted', handleFollowDeleted);
-    const unsubRemoved = eventBus.subscribe('follower:removed', handleFollowerRemoved);
-    const unsubAccepted = eventBus.subscribe('follow:request:accepted', handleFollowRequestAccepted);
-
-    // WebSocket subscriptions for remote events
-    const unsubWsCreate = wsSubscribe?.('follow:created', handleFollowCreated);
-    const unsubWsDelete = wsSubscribe?.('follow:deleted', handleFollowDeleted);
-    const unsubWsRemoved = wsSubscribe?.('follower:removed', handleFollowerRemoved);
-    const unsubWsAccepted = wsSubscribe?.('follow:request:accepted', handleFollowRequestAccepted);
-
-    return () => {
-      unsubCreate();
-      unsubDelete();
-      unsubRemoved();
-      unsubAccepted();
-      unsubWsCreate?.();
-      unsubWsDelete?.();
-      unsubWsRemoved?.();
-      unsubWsAccepted?.();
-    };
-  }, [userId, user._id, wsSubscribe]);
-
-  // Handle follow button click
-  const handleFollow = useCallback(async () => {
-    if (followLoading || !userId) return;
-
-    // Defensive check: Prevent following yourself
-    if (userId === user._id) {
-      showError('You cannot follow yourself');
-      return;
-    }
-
-    setFollowLoading(true);
-    try {
-      const result = await followUser(userId, user._id);
-
-      // Check if this is a pending request (for private profiles)
-      const profileName = currentProfile?.name ? getFirstName(currentProfile.name) : 'this user';
-      if (result.isPending) {
-        setIsPending(true);
-        setIsFollowing(false);
-        success(`Follow request sent to ${profileName}`);
-      } else {
-        setIsFollowing(true);
-        setIsPending(false);
-        // Follow count updates are handled via the `follow:created` event emitted by `followUser()`.
-        success(`Now following ${profileName}`);
-      }
-
-      try {
-        const rel = await getFollowRelationship(userId);
-        setFollowRelationship(rel || null);
-      } catch (e) {
-        // ignore relationship refresh errors
-      }
-    } catch (err) {
-      const message = handleError(err, { context: 'Follow user' });
-      showError(message || 'Failed to follow user');
-    } finally {
-      setFollowLoading(false);
-    }
-  }, [userId, user._id, currentProfile, followLoading, success, showError]);
-
-  // Handle unfollow button click
-  const handleUnfollow = useCallback(async () => {
-    if (followLoading || !userId) return;
-
-    // Defensive check: Prevent unfollowing yourself (should never happen but be safe)
-    if (userId === user._id) {
-      showError('Invalid operation');
-      return;
-    }
-
-    setFollowLoading(true);
-    try {
-      await unfollowUser(userId, user._id);
-      setIsFollowing(false);
-      // Follow count updates are handled via the `follow:deleted` event emitted by `unfollowUser()`.
-      const profileName = currentProfile?.name ? getFirstName(currentProfile.name) : 'this user';
-
-      undoable(`Unfollowed ${profileName}`, {
-        onUndo: async () => {
-          try {
-            await followUser(userId, user._id);
-            setIsFollowing(true);
-            setIsPending(false);
-          } catch (err) {
-            showError('Failed to re-follow user');
-          }
-        },
-        onExpire: () => {
-          // Already unfollowed, nothing to do
-        },
-      });
-
-      try {
-        const rel = await getFollowRelationship(userId);
-        setFollowRelationship(rel || null);
-      } catch (e) {
-        // ignore relationship refresh errors
-      }
-    } catch (err) {
-      const message = handleError(err, { context: 'Unfollow user' });
-      showError(message || 'Failed to unfollow user');
-    } finally {
-      setFollowLoading(false);
-    }
-  }, [userId, user._id, currentProfile, followLoading, undoable, showError]);
-
-  // Track which follow actions are in progress (by user ID)
-  const [followActionInProgress, setFollowActionInProgress] = useState({});
-
-  // Handle removing a follower from the followers list (when viewing own profile)
-  const handleRemoveFollower = useCallback(async (followerId, e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    if (followActionInProgress[followerId]) return;
-
-    setFollowActionInProgress(prev => ({ ...prev, [followerId]: true }));
-
-    // Optimistic update - remove from list immediately
-    const prevFollowsList = [...followsList];
-    setFollowsList(prev => prev.filter(u => u._id !== followerId));
-
-    try {
-      await removeFollower(followerId, user._id);
-      success(lang.current.success?.followerRemoved || 'Follower removed');
-    } catch (err) {
-      // Rollback on error
-      setFollowsList(prevFollowsList);
-      const message = handleError(err, { context: 'Remove follower' });
-      showError(message || 'Failed to remove follower');
-    } finally {
-      setFollowActionInProgress(prev => ({ ...prev, [followerId]: false }));
-    }
-  }, [followsList, followActionInProgress, success, showError, user._id]);
-
-  // Handle unfollowing a user from the following list (when viewing own profile)
-  const handleUnfollowFromList = useCallback(async (followingId, e) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    if (followActionInProgress[followingId]) return;
-
-    setFollowActionInProgress(prev => ({ ...prev, [followingId]: true }));
-
-    // Optimistic update - remove from list immediately
-    const prevFollowsList = [...followsList];
-    setFollowsList(prev => prev.filter(u => u._id !== followingId));
-    setFollowCounts(prev => ({ ...prev, following: Math.max(0, prev.following - 1) }));
-
-    try {
-      await unfollowUser(followingId, user._id);
-      success(lang.current.success?.unfollowed || 'Unfollowed');
-    } catch (err) {
-      // Rollback on error
-      setFollowsList(prevFollowsList);
-      setFollowCounts(prev => ({ ...prev, following: prev.following + 1 }));
-      const message = handleError(err, { context: 'Unfollow user' });
-      showError(message || 'Failed to unfollow user');
-    } finally {
-      setFollowActionInProgress(prev => ({ ...prev, [followingId]: false }));
-    }
-  }, [followsList, followActionInProgress, success, showError, user._id]);
-
-  // Fetch followers or following list for Follows tab
-  const fetchFollowsList = useCallback(async (filter = followsFilter, reset = false) => {
-    if (!userId) return;
-
-    const requestId = ++latestFollowsListRequestIdRef.current;
-    const requestedUserId = userId;
-    const isStale = () => activeUserIdRef.current !== requestedUserId || latestFollowsListRequestIdRef.current !== requestId;
-
-    setFollowsLoading(true);
-    try {
-      const skip = reset ? 0 : followsList.length;
-      const limit = 20;
-      const options = { limit, skip };
-
-      let response;
-      if (filter === 'followers') {
-        response = await getFollowers(userId, options);
-
-        if (isStale()) return;
-
-        const users = response.followers || [];
-        setFollowsList(prev => reset ? users : [...prev, ...users]);
-        setFollowsPagination({
-          total: response.total || 0,
-          hasMore: skip + users.length < (response.total || 0),
-          skip: skip + users.length
-        });
-      } else {
-        response = await getFollowing(userId, options);
-
-        if (isStale()) return;
-
-        const users = response.following || [];
-        setFollowsList(prev => reset ? users : [...prev, ...users]);
-        setFollowsPagination({
-          total: response.total || 0,
-          hasMore: skip + users.length < (response.total || 0),
-          skip: skip + users.length
-        });
-      }
-    } catch (err) {
-      if (isStale()) return;
-      logger.error('[Profile] Failed to fetch follows list', { error: err.message });
-    } finally {
-      if (!isStale()) setFollowsLoading(false);
-    }
-  }, [userId, followsFilter, followsList.length]);
-
-  // Handle follows filter change
-  const handleFollowsFilterChange = useCallback((filter) => {
-    setFollowsFilter(filter);
-    setFollowsList([]);
-    setFollowsPagination({ total: 0, hasMore: false, skip: 0 });
-    fetchFollowsList(filter, true);
-  }, [fetchFollowsList]);
-
-  // Fetch follows list when tab becomes active OR when profile changes while tab is active
-  useEffect(() => {
-    if (!uiState.follows || !userId) return;
-
-    // Detect if userId changed (navigated to different profile)
-    const userIdChanged = prevFollowsUserIdRef.current !== null && prevFollowsUserIdRef.current !== userId;
-
-    // Fetch if:
-    // 1. First time viewing follows tab (list is empty and not from a reset)
-    // 2. Profile changed while on follows tab (force refresh)
-    if (userIdChanged || followsList.length === 0) {
-      logger.debug('[Profile] Fetching follows list', {
-        userId,
-        prevUserId: prevFollowsUserIdRef.current,
-        userIdChanged,
-        listLength: followsList.length,
-        filter: followsFilter
-      });
-      fetchFollowsList(followsFilter, true);
-    }
-
-    // Update ref after handling
-    prevFollowsUserIdRef.current = userId;
-  }, [uiState.follows, userId, followsFilter, fetchFollowsList, followsList.length]);
 
   // Register h1 for navbar integration - clicking scrolls to top
   // Re-run when currentProfile loads so h1 element is available
@@ -1460,7 +1023,7 @@ export default function Profile() {
     if (isOwnProfile) {
       tabs.push({
         id: 'activity',
-        label: 'Activity',
+        label: lang.current.profile.activityTab,
         icon: <FaChartLine />,
       });
     }
@@ -1468,14 +1031,14 @@ export default function Profile() {
     // Follows tab
     tabs.push({
       id: 'follows',
-      label: 'Follows',
+      label: lang.current.profile.followsTab,
       icon: <FaUsers />,
     });
 
     // Planned (experiences) tab
     tabs.push({
       id: 'experiences',
-      label: 'Planned',
+      label: lang.current.profile.plannedTab,
       icon: <FaCalendarAlt />,
     });
 
@@ -1632,24 +1195,7 @@ export default function Profile() {
       }
     };
 
-    const profileFirstName = currentProfile?.name ? getFirstName(currentProfile.name) : 'This user';
-
-    // Handle withdrawing a pending follow request
-    const handleWithdrawRequest = async () => {
-      if (followLoading || !userId) return;
-      setFollowLoading(true);
-      try {
-        await unfollowUser(userId, user._id);
-        setIsPending(false);
-        setIsFollowing(false);
-        success('Follow request withdrawn');
-      } catch (err) {
-        const message = handleError(err, { context: 'Withdraw follow request' });
-        showError(message || 'Failed to withdraw follow request');
-      } finally {
-        setFollowLoading(false);
-      }
-    };
+    const profileFirstName = currentProfile?.name ? getFirstName(currentProfile.name) : lang.current.profile.thisUser;
 
     // Determine what to show based on follow state
     let primaryActionContent = null;
@@ -1657,11 +1203,11 @@ export default function Profile() {
 
     if (isPending) {
       // Request already sent - show disabled state
-      primaryActionContent = 'Requested';
+      primaryActionContent = lang.current.button.requested;
       onPrimaryActionHandler = null; // No action, effectively disabled
     } else if (!isFollowing) {
       // Not following - show follow button
-      primaryActionContent = `Follow ${profileFirstName}`;
+      primaryActionContent = lang.current.profile.followUserAction.replace('{name}', profileFirstName);
       onPrimaryActionHandler = handleFollow;
     }
 
@@ -1672,16 +1218,16 @@ export default function Profile() {
             variant="users"
             icon="🔒"
             title={lang.current.profile.privateProfileTitle}
-            description={`${profileFirstName}'s profile is private.`}
+            description={lang.current.profile.privateProfileDescriptionName.replace('{name}', profileFirstName)}
             primaryAction={primaryActionContent}
             onPrimaryAction={onPrimaryActionHandler}
-            secondaryAction={<><FaArrowLeft /> Back</>}
+            secondaryAction={<><FaArrowLeft /> {lang.current.button.back}</>}
             onSecondaryAction={handleBack}
             size="lg"
           />
           {isPending && (
             <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', marginTop: 'var(--space-4)' }}>
-              Your follow request is pending approval.{' '}
+              {lang.current.profile.followRequestPendingMessage}{' '}
               <button
                 type="button"
                 onClick={handleWithdrawRequest}
@@ -1697,7 +1243,7 @@ export default function Profile() {
                   opacity: followLoading ? 0.6 : 1,
                 }}
               >
-                {followLoading ? 'Withdrawing...' : 'Withdraw Request'}
+                {followLoading ? lang.current.button.withdrawing : lang.current.button.withdrawRequest}
               </button>
             </p>
           )}
@@ -1871,7 +1417,7 @@ export default function Profile() {
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('followers', 'followers'); } }}
                     >
-                      <strong>{followCounts.followers}</strong> {followCounts.followers === 1 ? 'Follower' : 'Followers'}
+                      <strong>{followCounts.followers}</strong> {followCounts.followers === 1 ? lang.current.profile.follower : lang.current.profile.followers}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
                     <span
@@ -1881,7 +1427,7 @@ export default function Profile() {
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('following', 'following'); } }}
                     >
-                      <strong>{followCounts.following}</strong> Following
+                      <strong>{followCounts.following}</strong> {lang.current.profile.followingLabel}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
                     <span
@@ -1891,10 +1437,10 @@ export default function Profile() {
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('experiences'); } }}
                     >
-                      <strong>{planCounts.total}</strong> {planCounts.total === 1 ? 'Plan' : 'Plans'}
+                      <strong>{planCounts.total}</strong> {planCounts.total === 1 ? lang.current.profile.plan : lang.current.profile.plans}
                       {planCounts.shared > 0 && (
                         <span className={styles.profileMetricSecondary}>
-                          {' '}({planCounts.shared} shared)
+                          {' '}({planCounts.shared} {lang.current.profile.shared})
                         </span>
                       )}
                     </span>
@@ -1906,7 +1452,7 @@ export default function Profile() {
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('created'); } }}
                     >
-                      <strong>{uniqueCreatedExperiencesCount}</strong> {uniqueCreatedExperiencesCount === 1 ? 'Experience' : 'Experiences'}
+                      <strong>{uniqueCreatedExperiencesCount}</strong> {uniqueCreatedExperiencesCount === 1 ? lang.current.profile.experience : lang.current.profile.experiences}
                     </span>
                     <span className={styles.profileMetricDivider}>·</span>
                     <span
@@ -1916,7 +1462,7 @@ export default function Profile() {
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMetricClick('destinations'); } }}
                     >
-                      <strong>{favoriteDestinationsCount}</strong> {favoriteDestinationsCount === 1 ? 'Destination' : 'Destinations'}
+                      <strong>{favoriteDestinationsCount}</strong> {favoriteDestinationsCount === 1 ? lang.current.profile.destination : lang.current.profile.destinations}
                     </span>
                   </div>
                 </div>
@@ -1947,13 +1493,13 @@ export default function Profile() {
                           setShowMessagesModal(true);
                         } catch (err) {
                           logger.error('[Profile] Failed to open DM from profile', err);
-                          showError(err?.message || 'Failed to open message');
+                          showError(err?.message || lang.current.profile.failedToOpenMessage);
                         } finally {
                           setOpeningDirectMessage(false);
                         }
                       }}
                     >
-                      <FaEnvelope /> {openingDirectMessage ? 'Opening…' : 'Message'}
+                      <FaEnvelope /> {openingDirectMessage ? lang.current.button.opening : lang.current.button.message}
                     </Button>
                   )}
                   {/* Follow/Unfollow buttons: show for any non-owner */}
@@ -1961,15 +1507,14 @@ export default function Profile() {
                     <>
                       {isFollowing ? (
                         <Button
-                          variant={followButtonHovered ? 'danger' : 'outline'}
+                          variant={(followButtonHovered || followButtonConfirming) ? 'danger' : 'outline'}
                           style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
-                          onClick={handleUnfollow}
+                          onClick={handleFollowButtonClick}
                           disabled={followLoading}
                           onMouseEnter={() => setFollowButtonHovered(true)}
-                          onMouseLeave={() => setFollowButtonHovered(false)}
-                          className={styles.followButton}
+                          onMouseLeave={() => { setFollowButtonHovered(false); setFollowButtonConfirming(false); }}
                         >
-                          {followLoading ? lang.current.loading.default : followButtonHovered ? 'Unfollow' : 'Following'}
+                          {followLoading ? lang.current.loading.default : (followButtonHovered || followButtonConfirming) ? lang.current.button.unfollow : lang.current.button.following}
                         </Button>
                       ) : isPending ? (
                         <Button
@@ -1978,7 +1523,7 @@ export default function Profile() {
                           disabled={true}
                           className={styles.followButton}
                         >
-                          Requested
+                          {lang.current.button.requested}
                         </Button>
                       ) : (
                         <Button
@@ -1988,7 +1533,7 @@ export default function Profile() {
                           disabled={followLoading}
                           className={styles.followButton}
                         >
-                          {followLoading ? lang.current.loading.default : 'Follow'}
+                          {followLoading ? lang.current.loading.default : lang.current.button.follow}
                         </Button>
                       )}
                     </>
@@ -2006,7 +1551,7 @@ export default function Profile() {
                     >
                       <SplitButton.Item value="photos" onClick={() => setShowPhotoUploadModal(true)}>
                         <FaCamera className={styles.dropdownIcon} />
-                        Manage Photos
+                        {lang.current.button.managePhotos}
                       </SplitButton.Item>
                       {currentProfile && !currentProfile.emailConfirmed && (
                         <SplitButton.Item
@@ -2081,16 +1626,16 @@ export default function Profile() {
                     <div className={styles.activityFilterDropdown}>
                       <SearchableSelectBasic
                         options={[
-                          { value: 'all', label: lang.current.profile?.activityFilterAll || 'All', icon: FaList },
-                          { value: 'own', label: lang.current.profile?.activityFilterOwn || 'Mine', icon: FaList },
-                          { value: 'following', label: lang.current.profile?.activityFilterFollowing || 'Following', icon: FaUserFriends }
+                          { value: 'all', label: lang.current.profile.activityFilterAll, icon: FaList },
+                          { value: 'own', label: lang.current.profile.activityFilterOwn, icon: FaList },
+                          { value: 'following', label: lang.current.profile.activityFilterFollowing, icon: FaUserFriends }
                         ]}
                         value={activityFeedType}
                         onChange={setActivityFeedType}
-                        placeholder={lang.current.profile?.filterActivity || 'Filter activity'}
+                        placeholder={lang.current.profile.filterActivity}
                         searchable={false}
                         size="md"
-                        aria-label={lang.current.profile?.filterActivity || 'Filter activity'}
+                        aria-label={lang.current.profile.filterActivity}
                       />
                     </div>
                   )}
@@ -2106,13 +1651,13 @@ export default function Profile() {
                     className={`${styles.followsFilterPill} ${followsFilter === 'followers' ? styles.followsFilterPillActive : ''}`}
                     onClick={() => handleFollowsFilterChange('followers')}
                   >
-                    Followers ({followCounts.followers})
+                    {lang.current.profile.followers} ({followCounts.followers})
                   </button>
                   <button
                     className={`${styles.followsFilterPill} ${followsFilter === 'following' ? styles.followsFilterPillActive : ''}`}
                     onClick={() => handleFollowsFilterChange('following')}
                   >
-                    Following ({followCounts.following})
+                    {lang.current.profile.followingLabel} ({followCounts.following})
                   </button>
                 </div>
 
@@ -2133,10 +1678,10 @@ export default function Profile() {
                     // Empty state
                     <EmptyState
                       variant="users"
-                      title={followsFilter === 'followers' ? 'No Followers Yet' : 'Not Following Anyone'}
+                      title={followsFilter === 'followers' ? lang.current.profile.noFollowersYet : lang.current.profile.notFollowingAnyone}
                       description={followsFilter === 'followers'
-                        ? (isOwnProfile ? "You don't have any followers yet." : `${getFirstName(currentProfile?.name)} doesn't have any followers yet.`)
-                        : (isOwnProfile ? "You're not following anyone yet." : `${getFirstName(currentProfile?.name)} isn't following anyone yet.`)}
+                        ? (isOwnProfile ? lang.current.profile.noFollowersOwnProfile : lang.current.profile.noFollowersOtherProfile.replace('{name}', getFirstName(currentProfile?.name)))
+                        : (isOwnProfile ? lang.current.profile.notFollowingOwnProfile : lang.current.profile.notFollowingOtherProfile.replace('{name}', getFirstName(currentProfile?.name)))}
                       size="md"
                     />
                   ) : (
@@ -2167,8 +1712,8 @@ export default function Profile() {
                                 : handleUnfollowFromList(followUserItem._id, e)
                               }
                               disabled={followActionInProgress[followUserItem._id]}
-                              title={followsFilter === 'followers' ? 'Remove follower' : 'Unfollow'}
-                              aria-label={followsFilter === 'followers' ? `Remove ${followUserItem.name} as follower` : `Unfollow ${followUserItem.name}`}
+                              title={followsFilter === 'followers' ? lang.current.aria.removeFollower : lang.current.aria.unfollowUser}
+                              aria-label={followsFilter === 'followers' ? lang.current.aria.removeFollowerName.replace('{name}', followUserItem.name) : lang.current.aria.unfollowUserName.replace('{name}', followUserItem.name)}
                             >
                               {followActionInProgress[followUserItem._id] ? (
                                 <span className={styles.followsItemActionSpinner} />
@@ -2198,230 +1743,120 @@ export default function Profile() {
               </div>
             )}
 
-            {activeTab === 'destinations' && (
-              <div ref={reservedRef} className={styles.destinationsGrid}>
-                {(() => {
-                  if (favoriteDestinations === null) {
-                    // Loading state - show skeleton loaders for one row of destinations (12rem x 8rem each)
-                    const skeletonCount = Math.min(6, Math.max(3, Math.floor(itemsPerPageComputed / 2)));
-                    return Array.from({ length: skeletonCount }).map((_, i) => (
-                      <div key={`skeleton-dest-${i}`} style={{ width: '12rem', height: '8rem', borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </div>
-                    ));
-                  }
+            {activeTab === 'destinations' && (() => {
+              const displayedDestinations = favoriteDestinations === null ? null
+                : showAllDestinations ? favoriteDestinations
+                : favoriteDestinations.slice((destinationsPage - 1) * itemsPerPageComputed, (destinationsPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+              const destTotalPages = favoriteDestinations ? Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed)) : 1;
 
-                  const displayedDestinations = showAllDestinations
-                    ? favoriteDestinations
-                    : favoriteDestinations.slice((destinationsPage - 1) * itemsPerPageComputed, (destinationsPage - 1) * itemsPerPageComputed + itemsPerPageComputed);
+              return (
+                <ProfileContentGrid
+                  ref={reservedRef}
+                  type="destinations"
+                  items={displayedDestinations}
+                  skeletonCount={Math.min(6, Math.max(3, Math.floor(itemsPerPageComputed / 2)))}
+                  itemsPerPage={itemsPerPageComputed}
+                  currentPage={destinationsPage}
+                  onPageChange={setDestinationsPage}
+                  showPagination={!showAllDestinations}
+                  meta={{ totalPages: destTotalPages }}
+                  showPlaceholders={!showAllDestinations}
+                  emptyState={{
+                    title: isOwnProfile ? "No Destinations Yet" : "No Destinations",
+                    description: isOwnProfile
+                      ? `You haven't favorited any destinations yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Browse destinations and add some to your favorites.`
+                      : `${getFirstName(currentProfile?.name)} hasn't favorited any destinations yet.`,
+                    primaryAction: isOwnProfile ? "Browse Destinations" : null,
+                    onPrimaryAction: isOwnProfile ? () => navigate('/destinations') : null
+                  }}
+                />
+              );
+            })()}
 
-                  const destTotalPages = Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed));
+            {activeTab === 'experiences' && (() => {
+              const displayedExperiences = uniqueUserExperiences === null ? null
+                : isOwnProfile && !showAllPlanned
+                  ? uniqueUserExperiences.slice((experiencesPage - 1) * itemsPerPageComputed, experiencesPage * itemsPerPageComputed)
+                  : uniqueUserExperiences;
+              const expTotalPages = uniqueUserExperiences
+                ? (isOwnProfile ? Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed)) : (userExperiencesMeta?.totalPages || 1))
+                : 1;
 
-                  return favoriteDestinations.length > 0 ? (
-                    <>
-                      {displayedDestinations.map((destination, index) => (
-                        <DestinationCard
-                          key={destination._id || index}
-                          destination={destination}
-                        />
-                      ))}
-                      {/* Only show placeholders on non-last pages to reserve space */}
-                      {!showAllDestinations && destinationsPage < destTotalPages && displayedDestinations.length < itemsPerPageComputed && (
-                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedDestinations.length) }).map((_, i) => (
-                          <div key={`placeholder-dest-${i}`} style={{ width: '12rem', height: '8rem', borderRadius: 'var(--radius-2xl)', overflow: 'hidden' }}>
-                            <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                          </div>
-                        ))
-                      )}
-                    </>
-                  ) : (
-                    <div className={styles.emptyStateWrapper}>
-                      <EmptyState
-                        variant="destinations"
-                        title={isOwnProfile ? "No Destinations Yet" : "No Destinations"}
-                        description={isOwnProfile
-                          ? `You haven't favorited any destinations yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Browse destinations and add some to your favorites.`
-                          : `${getFirstName(currentProfile?.name)} hasn't favorited any destinations yet.`}
-                        primaryAction={isOwnProfile ? "Browse Destinations" : null}
-                        onPrimaryAction={isOwnProfile ? () => window.location.href = '/destinations' : null}
-                        size="md"
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {activeTab === 'experiences' && (
-              <div className={styles.profileGrid} style={experiencesLoading && uniqueUserExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
-                {(() => {
-                  // Initial load - show skeleton loaders
-                  if (uniqueUserExperiences === null) {
-                    return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
-                      <div key={`skeleton-exp-${i}`} style={{ minHeight: '12rem', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
-                      </div>
-                    ));
-                  }
-
-                  // For own profile: plans are fully loaded, use client-side pagination
-                  // For other profiles: API returns paginated data directly
-                  const displayedExperiences = isOwnProfile && !showAllPlanned
-                    ? uniqueUserExperiences.slice(
-                        (experiencesPage - 1) * itemsPerPageComputed,
-                        experiencesPage * itemsPerPageComputed
-                      )
-                    : uniqueUserExperiences;
-
-                  const expTotalPages = isOwnProfile
-                    ? Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed))
-                    : (userExperiencesMeta?.totalPages || 1);
-
-                  return displayedExperiences.length > 0 ? (
-                    <>
-                      {displayedExperiences.map((experience, index) => (
-                        <ExperienceCard
-                          experience={experience}
-                          key={experience._planId || experience._id || index}
-                          userPlans={plans}
-                          showSharedIcon={experience._isCollaborative || false}
-                          planId={experience._planId}
-                        />
-                      ))}
-                      {/* Show placeholders on non-last pages to reserve space (own profile only) */}
-                      {isOwnProfile && !showAllPlanned && experiencesPage < expTotalPages && displayedExperiences.length < itemsPerPageComputed && (
-                        Array.from({ length: Math.max(0, itemsPerPageComputed - displayedExperiences.length) }).map((_, i) => (
-                          <div key={`placeholder-exp-${i}`} style={{ minHeight: '12rem', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                            <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
-                          </div>
-                        ))
-                      )}
-                    </>
-                  ) : (
-                    <div className={styles.emptyStateWrapper}>
-                      <EmptyState
-                        variant="experiences"
-                        title={isOwnProfile ? "No Planned Experiences" : "No Planned Experiences"}
-                        description={isOwnProfile
-                          ? `You haven't planned any experiences yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Browse experiences and start planning your next adventure.`
-                          : `${getFirstName(currentProfile?.name)} hasn't planned any experiences yet.`}
-                        primaryAction={isOwnProfile ? "Browse Experiences" : null}
-                        onPrimaryAction={isOwnProfile ? () => window.location.href = '/experiences' : null}
-                        size="md"
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+              return (
+                <ProfileContentGrid
+                  type="experiences"
+                  items={displayedExperiences}
+                  isLoading={experiencesLoading && uniqueUserExperiences !== null}
+                  skeletonCount={ITEMS_PER_PAGE}
+                  itemsPerPage={itemsPerPageComputed}
+                  currentPage={experiencesPage}
+                  onPageChange={setExperiencesPage}
+                  showPagination={!showAllPlanned}
+                  meta={{ totalPages: expTotalPages }}
+                  showPlaceholders={isOwnProfile && !showAllPlanned}
+                  userPlans={plans}
+                  renderCard={(experience, index) => (
+                    <ExperienceCard
+                      experience={experience}
+                      key={experience._planId || experience._id || index}
+                      userPlans={plans}
+                      showSharedIcon={experience._isCollaborative || false}
+                      planId={experience._planId}
+                    />
+                  )}
+                  emptyState={{
+                    title: lang.current.profile.noPlannedExperiences,
+                    description: isOwnProfile
+                      ? lang.current.profile.noPlannedOwnProfile.replace('{nameSuffix}', user?.name ? `, ${getFirstName(user.name)}` : '')
+                      : lang.current.profile.noPlannedOtherProfile.replace('{name}', getFirstName(currentProfile?.name)),
+                    primaryAction: isOwnProfile ? lang.current.button.browseExperiences : null,
+                    onPrimaryAction: isOwnProfile ? () => navigate('/experiences') : null
+                  }}
+                />
+              );
+            })()}
 
             {activeTab === 'created' && (
-              <div className={styles.profileGrid} style={createdLoading && uniqueCreatedExperiences !== null ? { opacity: 0.6, pointerEvents: 'none', transition: 'opacity 0.2s ease' } : undefined}>
-                {(() => {
-                  // Initial load - show skeleton loaders
-                  if (uniqueCreatedExperiences === null) {
-                    return Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
-                      <div key={`skeleton-created-${i}`} style={{ minHeight: '12rem', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" style={{ minHeight: '12rem' }} />
-                      </div>
-                    ));
-                  }
-
-                  // API returns the current page directly - no client-side slicing needed
-                  // Keep existing content visible during page transitions (createdLoading)
-                  const displayedCreated = uniqueCreatedExperiences;
-
-                  return displayedCreated.length > 0 ? (
-                    <>
-                      {displayedCreated.map((experience, index) => (
-                        <ExperienceCard
-                          experience={experience}
-                          key={experience._id || index}
-                          userPlans={plans}
-                        />
-                      ))}
-                    </>
-                  ) : (
-                    <div className={styles.emptyStateWrapper}>
-                      <EmptyState
-                        variant="experiences"
-                        icon="✨"
-                        title={isOwnProfile ? "No Created Experiences" : "No Created Experiences"}
-                        description={isOwnProfile
-                          ? `You haven't created any experiences yet${user?.name ? `, ${getFirstName(user.name)}` : ''}. Share your travel knowledge with the community.`
-                          : `${getFirstName(currentProfile?.name)} hasn't created any experiences yet.`}
-                        primaryAction={isOwnProfile ? "Create an Experience" : null}
-                        onPrimaryAction={isOwnProfile ? () => openExperienceWizard() : null}
-                        size="md"
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
+              <ProfileContentGrid
+                type="experiences"
+                items={uniqueCreatedExperiences}
+                isLoading={createdLoading && uniqueCreatedExperiences !== null}
+                skeletonCount={ITEMS_PER_PAGE}
+                itemsPerPage={itemsPerPageComputed}
+                currentPage={createdPage}
+                onPageChange={setCreatedPage}
+                showPagination={!showAllCreated}
+                meta={createdExperiencesMeta}
+                userPlans={plans}
+                emptyState={{
+                  icon: "✨",
+                  title: lang.current.profile.noCreatedExperiences,
+                  description: isOwnProfile
+                    ? lang.current.profile.noCreatedOwnProfile.replace('{nameSuffix}', user?.name ? `, ${getFirstName(user.name)}` : '')
+                    : lang.current.profile.noCreatedOtherProfile.replace('{name}', getFirstName(currentProfile?.name)),
+                  primaryAction: isOwnProfile ? lang.current.button.createExperience : null,
+                  onPrimaryAction: isOwnProfile ? () => openExperienceWizard() : null
+                }}
+              />
             )}
 
-            {/* Pagination - rendered inside active tab container for consistency */}
-            <div className={styles.paginationContainer}>
-              {activeTab === 'destinations' && !showAllDestinations && favoriteDestinations && favoriteDestinations.length > itemsPerPageComputed && (
-                <Pagination
-                  currentPage={destinationsPage}
-                  totalPages={Math.max(1, Math.ceil(favoriteDestinations.length / itemsPerPageComputed))}
-                  onPageChange={setDestinationsPage}
-                />
-              )}
-
-              {activeTab === 'experiences' && !showAllPlanned && (() => {
-                // Don't show pagination if there are no experiences at all
-                if (!uniqueUserExperiences || uniqueUserExperiences.length === 0) {
-                  return null;
-                }
-
-                const expTotalPages = isOwnProfile
-                  ? Math.max(1, Math.ceil(uniqueUserExperiences.length / itemsPerPageComputed))
-                  : (userExperiencesMeta?.totalPages || 1);
-
-                return expTotalPages > 1 ? (
-                  <Pagination
-                    currentPage={experiencesPage}
-                    totalPages={expTotalPages}
-                    onPageChange={setExperiencesPage}
-                    disabled={experiencesLoading}
-                  />
-                ) : null;
-              })()}
-
-              {activeTab === 'created' && !showAllCreated && uniqueCreatedExperiences && uniqueCreatedExperiences.length > 0 && createdExperiencesMeta && createdExperiencesMeta.totalPages > 1 && (
-                <Pagination
-                  currentPage={createdPage}
-                  totalPages={createdExperiencesMeta.totalPages}
-                  onPageChange={setCreatedPage}
-                  disabled={createdLoading}
-                />
-              )}
-            </div>
           </Col>
         </Row>
 
         {/* Super Admin Permissions Section */}
       {isSuperAdmin(user) && !isOwner && currentProfile && (
-        <div style={{ display: 'flex', margin: 'var(--space-16) 0', animation: 'fadeIn var(--transition-normal)' }}>
-          <div style={{ flex: 1 }}>
+        <div className={styles.superAdminPanel}>
             <Card>
               <Card.Header>
-                <h5 style={{ marginBottom: 0 }}>Super Admin Permissions</h5>
+                <h5>{lang.current.profile.superAdminPermissions}</h5>
               </Card.Header>
               <Card.Body>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
-                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
-                    <p style={{ marginBottom: 'var(--space-2)' }}>
-                      <strong>Current Role:</strong> {USER_ROLE_DISPLAY_NAMES[currentProfile.role] || 'Unknown'}
-                    </p>
-                    <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 0, color: 'var(--color-text-muted)' }}>
-                      Change this user's role. Super admins have full access to all resources and user management.
-                    </p>
+                <div className={styles.adminSectionRow}>
+                  <div className={styles.adminSectionLabel}>
+                    <strong>{lang.current.profile.currentRoleLabel} {USER_ROLE_DISPLAY_NAMES[currentProfile.role] || lang.current.profile.unknownRole}</strong>
+                    <p>{lang.current.profile.roleChangeDescription}</p>
                   </div>
-                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
-                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                  <div className={styles.adminSectionActions}>
                       <Button
                         variant={currentProfile.role === USER_ROLES.SUPER_ADMIN ? "success" : "outline"}
                         onClick={() => handleRoleUpdate(USER_ROLES.SUPER_ADMIN)}
@@ -2436,29 +1871,24 @@ export default function Profile() {
                       >
                         {isUpdatingRole ? lang.current.button.updating : lang.current.admin.makeRegularUser}
                       </Button>
-                    </div>
                   </div>
                 </div>
-                <hr />
-                <div style={{ display: 'flex', alignItems: 'center', marginTop: 'var(--space-6)' }}>
-                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
-                    <p style={{ marginBottom: 'var(--space-2)' }}>
-                      <strong>Email Status:</strong>{' '}
+                <div className={styles.adminSectionRow}>
+                  <div className={styles.adminSectionLabel}>
+                    <strong>
+                      {lang.current.profile.emailStatusLabel}{' '}
                       {currentProfile.emailConfirmed ? (
-                        <span style={{ color: 'var(--color-success)' }}>
-                          <FaCheckCircle style={{ marginRight: 'var(--space-1)' }} />
-                          Confirmed
+                        <span className={`${styles.statusBadge} ${styles.confirmed}`}>
+                          <FaCheckCircle />
+                          {lang.current.profile.confirmed}
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--color-warning)' }}>Not Confirmed</span>
+                        <span className={`${styles.statusBadge} ${styles.unconfirmed}`}>{lang.current.profile.notConfirmed}</span>
                       )}
-                    </p>
-                    <p style={{ fontSize: 'var(--font-size-sm)', marginBottom: 0, color: 'var(--color-text-muted)' }}>
-                      Manually confirm or unconfirm this user's email address.
-                    </p>
+                    </strong>
+                    <p>{lang.current.profile.emailConfirmDescription}</p>
                   </div>
-                  <div style={{ flex: '0 0 50%', maxWidth: '50%' }}>
-                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                  <div className={styles.adminSectionActions}>
                       <Button
                         variant={currentProfile.emailConfirmed ? "success" : "outline"}
                         onClick={() => handleEmailConfirmationUpdate(true)}
@@ -2473,12 +1903,10 @@ export default function Profile() {
                       >
                         {isUpdatingRole ? lang.current.button.updating : lang.current.admin.unconfirmEmail}
                       </Button>
-                    </div>
                   </div>
                 </div>
               </Card.Body>
             </Card>
-          </div>
         </div>
       )}
 
@@ -2543,8 +1971,8 @@ export default function Profile() {
                   try { mergeProfile(resp); } catch (e) { /* ignore merge errors */ }
                 }
               } catch (err) {
-                // Log but don't interrupt UI
                 try { logger.error('[Profile] Failed to persist photo changes', err); } catch (e) {}
+                showError(lang.current.photoUploadModal.failedToSave);
               }
             }, 800);
           }}
@@ -2557,6 +1985,7 @@ export default function Profile() {
                 mergeProfile(updated);
               }
             } catch (err) {
+              showError(lang.current.photoUploadModal.failedToSave);
               throw err;
             }
           }}
@@ -2578,6 +2007,14 @@ export default function Profile() {
         />
       )}
       </Container>
+
+      {currentProfile && (
+        <BienBotTrigger
+          entity="user"
+          entityId={String(currentProfile._id)}
+          entityLabel={currentProfile.name}
+        />
+      )}
     </div>
   );
 }

@@ -123,7 +123,10 @@ BaseFormGroup.propTypes = {
 };
 
 /**
- * BaseFormLabel — Chakra Field.Label with native typography
+ * BaseFormLabel — Form label with native typography
+ *
+ * Renders as a styled Box rather than Field.Label to avoid requiring
+ * a Field.Root ancestor (which causes useFieldStyles errors when used standalone).
  */
 export function BaseFormLabel({
   children,
@@ -134,7 +137,8 @@ export function BaseFormLabel({
   ...props
 }) {
   return (
-    <Field.Label
+    <Box
+      as="label"
       htmlFor={htmlFor}
       fontSize="sm"
       fontWeight="medium"
@@ -145,14 +149,16 @@ export function BaseFormLabel({
     >
       {children}
       {required && (
-        <Field.RequiredIndicator
+        <Box
+          as="span"
           aria-label={lang.current.aria.required}
-          fallback="*"
           color="fg.error"
           marginLeft="1"
-        />
+        >
+          *
+        </Box>
       )}
-    </Field.Label>
+    </Box>
   );
 }
 

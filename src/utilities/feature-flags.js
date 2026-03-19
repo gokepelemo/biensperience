@@ -143,6 +143,11 @@ export const FEATURE_FLAGS = {
     key: 'plan_access_requests',
     description: 'Token-based plan access request flow with one-click email approval',
     tier: 'beta'
+  },
+  BIENBOT: {
+    key: 'bienbot',
+    description: 'BienBot AI travel planning assistant',
+    tier: 'premium'
   }
 };
 

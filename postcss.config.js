@@ -1,5 +1,12 @@
+const path = require('path');
+
 module.exports = {
   plugins: {
+    // Expand @mixin / @define-mixin BEFORE other transforms so that
+    // the emitted selectors are processed by nesting-rules, autoprefixer, etc.
+    'postcss-mixins': {
+      mixinsFiles: [path.join(__dirname, 'src/styles/postcss-mixins.css')],
+    },
     // Ensure consistent CSS processing across environments
     'postcss-preset-env': {
       stage: 1, // Enable modern CSS features

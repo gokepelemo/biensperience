@@ -100,7 +100,17 @@
     font-size: 4rem;
   }
 
-  @media (max-width: 767.98px) {
+  @media (max-width: 991px) and (min-width: 576px) {
+    --user-avatar-size: 120px;
+    width: 120px;
+    height: 120px;
+
+    .avatarInitials {
+      font-size: 3rem;
+    }
+  }
+
+  @media (max-width: 575px) {
     --user-avatar-size: 120px;
     width: 120px;
     height: 120px;

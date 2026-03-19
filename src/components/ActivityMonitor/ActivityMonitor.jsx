@@ -430,9 +430,9 @@ export default function ActivityMonitor({ show, onHide }) {
                       <TableRow>
                         <TableCell><strong>Action:</strong></TableCell>
                         <TableCell>
-                          <Badge className={`badge ${getActionBadgeVariant(selectedActivity.action)}`}>
+                          <Pill className={`badge ${getActionBadgeVariant(selectedActivity.action)}`}>
                             {selectedActivity.action.replace(/_/g, ' ')}
-                          </Badge>
+                          </Pill>
                         </TableCell>
                       </TableRow>
                       <TableRow>
