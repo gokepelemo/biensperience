@@ -98,11 +98,12 @@ function PlanTabsNavigation({
     return idEquals(planUserId, user._id);
   };
 
-  // Dropdown menu styles
+  // Dropdown menu styles — use `style` (not Chakra `css`) so the background
+  // is applied as a plain inline style and cannot be overridden by Chakra.
   const dropdownMenuStyle = {
     position: 'absolute', top: 'calc(100% + 4px)', left: '50%',
-    transform: 'translateX(-50%)', zIndex: 100, minWidth: '160px',
-    padding: 'var(--space-2) 0', background: 'var(--color-bg-primary, #ffffff)',
+    transform: 'translateX(-50%)', zIndex: 1000, minWidth: '160px',
+    padding: 'var(--space-2) 0',
     backgroundColor: 'var(--color-bg-primary, #ffffff)',
     border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-md)',
     boxShadow: 'var(--shadow-lg)',
@@ -111,13 +112,13 @@ function PlanTabsNavigation({
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     width: '100%', padding: 'var(--space-2) var(--space-4)',
     fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)',
-    background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
+    background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
     transition: 'background-color var(--transition-fast), color var(--transition-fast)',
-    '&:hover': { background: 'var(--color-bg-hover)', color: 'var(--color-text-primary)' },
+    _hover: { background: 'var(--color-bg-hover)', color: 'var(--color-text-primary)' },
   };
   const dropdownItemSelectedAdditions = {
     color: 'var(--color-primary)', fontWeight: 'var(--font-weight-medium)',
-    '&:hover': { color: 'var(--color-primary)' },
+    _hover: { color: 'var(--color-primary)' },
   };
   const checkmarkStyle = {
     marginLeft: 'var(--space-2)', fontSize: '0.75rem', color: 'var(--color-primary)',
@@ -231,7 +232,7 @@ function PlanTabsNavigation({
       </Box>
 
       {/* Desktop: Tab triggers (hidden below md) */}
-      <Tabs.List aria-label={lang.current.aria.planTabs} display={{ base: 'none', md: 'flex' }}>
+      <Tabs.List aria-label={lang.current.aria.planTabs} display={{ base: 'none', md: 'flex' }} position="relative" zIndex={10}>
         {/* Activity Tab */}
         <Tabs.Trigger value="activity">
           <FaRss />
@@ -283,7 +284,7 @@ function PlanTabsNavigation({
 
             {/* Dropdown menu */}
             {dropdownOpen && (
-              <Box css={dropdownMenuStyle} bg="var(--color-bg-primary, #ffffff)">
+              <Box style={dropdownMenuStyle}>
                 {allPlans.map((plan, ci) => {
                   const planId = normalizeId(plan._id);
                   const optionKey = planId != null ? planId : `plan-${ci}`;
@@ -296,6 +297,7 @@ function PlanTabsNavigation({
                       type="button"
                       css={{ ...dropdownItemBase, ...(isSelected ? dropdownItemSelectedAdditions : {}) }}
                       onClick={() => {
+                        setSelectedPlanId(planId);
                         handlePlanChange(planId, { reason: 'dropdown/select-plan' });
                         setActiveTab('myplan');
                         setDropdownOpen(false);
