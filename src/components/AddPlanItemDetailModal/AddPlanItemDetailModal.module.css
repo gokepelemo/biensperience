@@ -746,6 +746,13 @@
   color: var(--color-text-secondary);
 }
 
+.uploadProgressSection {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
 .skipHint {
   text-align: center;
   font-size: clamp(0.875rem, 1.25vw, 1rem);

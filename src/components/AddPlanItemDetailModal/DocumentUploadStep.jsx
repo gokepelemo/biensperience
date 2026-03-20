@@ -6,7 +6,8 @@
 import { useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import styles from './AddPlanItemDetailModal.module.css';
-import { Tooltip } from '../design-system';
+import { Tooltip, ProgressBar } from '../design-system';
+import { useUploadProgress } from '../../contexts/UploadProgressContext';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { validateDocument, ALL_SUPPORTED_MIMES, MAX_FILE_SIZES, formatFileSize as formatFileSizeUtil } from '../../utilities/document-upload';
@@ -44,6 +45,10 @@ export default function DocumentUploadStep({
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
+
+  // Global upload progress (shows when document is being uploaded by parent)
+  const { uploads: activeUploads } = useUploadProgress();
+  const docUploads = activeUploads.filter(u => u.type === 'document' && u.status === 'uploading');
 
   // Handle file selection
   const handleFileSelect = useCallback((selectedFile) => {
@@ -244,6 +249,23 @@ export default function DocumentUploadStep({
           <span className={styles.formatBadge}>🖼️ WebP</span>
         </div>
       </div>
+
+      {/* Upload progress (shown when parent triggers upload) */}
+      {docUploads.length > 0 && (
+        <div className={styles.uploadProgressSection} aria-busy="true">
+          {docUploads.map((upload, i) => (
+            <ProgressBar
+              key={i}
+              value={upload.percent}
+              color="primary"
+              size="sm"
+              showPercentage
+              animated
+              label={upload.fileName}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Skip option */}
       <p className={styles.skipHint}>

@@ -45,6 +45,7 @@ import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import BienBotTrigger from '../BienBotTrigger/BienBotTrigger';
+import CollaboratorDetailsSection from './CollaboratorDetailsSection';
 
 export default function PlanItemDetailsModal({
   show,
@@ -1752,6 +1753,14 @@ export default function PlanItemDetailsModal({
                   fillContainer
                 />
               )}
+
+              {/* Per-collaborator details */}
+              <CollaboratorDetailsSection
+                collaborators={collaborators}
+                plan={plan}
+                currentUser={currentUser}
+                styles={styles}
+              />
             </div>
           )}
 

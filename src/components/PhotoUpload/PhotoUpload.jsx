@@ -427,8 +427,16 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             formData.append("photo_credit_url", uploadForm.photo_credit_url);
           if (data.name) formData.append("name", data.name);
 
-          // Note: uploadPhotoBatch doesn't support progress yet, but we show indeterminate progress
-          const response = await uploadPhotoBatch(formData);
+          const response = await uploadPhotoBatch(formData, {
+            onProgress: (progress) => {
+              setUploadProgress(prev => ({
+                ...prev,
+                loaded: progress.loaded,
+                total: progress.total,
+                percent: progress.percent
+              }));
+            }
+          });
 
           // API returns { success: true, data: [array of photos] }
           uploadedPhotos = response.data || response.uploads || response;

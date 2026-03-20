@@ -11,8 +11,10 @@ import { PlanExperienceProvider } from "../../contexts/PlanExperienceContext";
 import { NavigationIntentProvider } from "../../contexts/NavigationIntentContext";
 import { ExperienceWizardProvider } from "../../contexts/ExperienceWizardContext";
 import { DestinationWizardProvider } from "../../contexts/DestinationWizardContext";
+import { UploadProgressProvider } from "../../contexts/UploadProgressContext";
 import { lang } from "../../lang.constants";
 import NavBar from "../../components/NavBar/NavBar";
+import UploadProgressIndicator from "../../components/UploadProgressIndicator/UploadProgressIndicator";
 import Loading from "../../components/LoadingWrapper/LoadingWrapper";
 import ScrollToTop from "../../components/ScrollToTop/ScrollToTop";
 import SkipLink from "../../components/SkipLink/SkipLink";
@@ -123,7 +125,9 @@ export default function App() {
                     <NavigationIntentProvider>
                       <ExperienceWizardProvider>
                         <DestinationWizardProvider>
-                          <AppContent />
+                          <UploadProgressProvider>
+                            <AppContent />
+                          </UploadProgressProvider>
                         </DestinationWizardProvider>
                       </ExperienceWizardProvider>
                     </NavigationIntentProvider>
@@ -549,6 +553,7 @@ function AppContent() {
           ) : isAuthenticated ? (
             <>
               <NavBar />
+              <UploadProgressIndicator />
               <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
                 <ErrorBoundary
                   title={lang.current.modal.pageError}

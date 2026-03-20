@@ -610,18 +610,14 @@ export default function DocumentsTab({
       {/* Upload progress indicator */}
       {uploadProgress && (
         <div className={styles.uploadProgressContainer} aria-busy="true">
-          <div className={styles.uploadProgressInfo}>
-            <span className={styles.uploadFileName}>{uploadProgress.fileName}</span>
-            <span className={styles.uploadSize}>
-              {formatFileSize(uploadProgress.loaded)} / {formatFileSize(uploadProgress.total)}
-            </span>
-          </div>
           <ProgressBar
             value={uploadProgress.percent}
             color="primary"
             size="sm"
             showPercentage
             animated
+            label={uploadProgress.fileName}
+            secondaryLabel={`${formatFileSize(uploadProgress.loaded)} / ${formatFileSize(uploadProgress.total)}`}
           />
           {uploadProgress.percent === 100 && (
             <span className={styles.uploadProcessing}>Processing document...</span>

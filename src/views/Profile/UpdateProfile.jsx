@@ -1,6 +1,6 @@
 import styles from "./Profile.module.css";
 import { useState, useEffect, useCallback } from "react";
-import { Link, useNavigate, useParams, useLocation, useBlocker } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFlag, FaLink, FaUser, FaCamera, FaUserShield, FaCheckCircle, FaTrash, FaKey } from "react-icons/fa";
 import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
@@ -552,16 +552,21 @@ export default function UpdateProfile() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
-  // Warn about unsaved changes on in-app navigation
-  useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }) =>
-        hasUnsavedChanges &&
-        currentLocation.pathname !== nextLocation.pathname &&
-        !window.confirm(lang.current.alert.unsavedChangesMessage),
-      [hasUnsavedChanges]
-    )
-  );
+  // Warn about unsaved changes on in-app back/forward navigation
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e) => {
+      if (!window.confirm(lang.current.alert.unsavedChangesMessage)) {
+        e.preventDefault();
+        // Push state back to counteract the popstate
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+    // Push a duplicate entry so we can intercept back navigation
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [hasUnsavedChanges]);
 
   async function handleSubmit(e) {
     e.preventDefault();

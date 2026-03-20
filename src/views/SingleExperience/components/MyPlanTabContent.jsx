@@ -471,7 +471,7 @@ export default function MyPlanTabContent({
   }, [planItemsView, flattenedItems, allUnpinnedItems, currentPlan?.plan]);
 
   // Drag-and-drop functionality via custom hook
-  const { sensors, handleDragEnd } = usePlanItemDragDrop({
+  const { sensors, handleDragStart, handleDragMove, handleDragEnd, handleDragCancel } = usePlanItemDragDrop({
     planItems: currentPlan?.plan || [],
     parentItemMap,
     flattenPlanItemsFn,
@@ -926,7 +926,10 @@ export default function MyPlanTabContent({
         activityGroups={activityGroups}
         timelineGroups={timelineGroups}
         sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
         sharedItemHandlers={sharedItemHandlers}
         sharedSortablePlanItemProps={sharedSortablePlanItemProps}
         getItemProps={getItemProps}

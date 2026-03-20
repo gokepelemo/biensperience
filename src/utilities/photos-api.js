@@ -1,6 +1,6 @@
 import { uploadFile, uploadFileWithProgress, sendRequest } from "./send-request.js";
 import { logger } from "./logger.js";
-import { broadcastEvent } from "./event-bus.js";
+import { broadcastEvent, generateOptimisticId } from "./event-bus.js";
 
 const BASE_URL = `/api/photos/`
 
@@ -38,44 +38,92 @@ export function getPhotoSizeLimit() {
  */
 export async function uploadPhoto(request, options = {}) {
     const { onProgress, signal } = options;
+    const uploadId = generateOptimisticId('photo-upload');
 
-    // Use uploadFileWithProgress if onProgress callback is provided
-    const uploadFn = onProgress ? uploadFileWithProgress : uploadFile;
-    const result = await uploadFn(`${BASE_URL}`, "POST", request, {
-        onProgress,
-        signal
-    });
+    // Extract filename from FormData for progress display
+    const file = request.get?.('image');
+    const fileName = file?.name || 'photo';
+    const fileSize = file?.size || 0;
 
-    // Emit event via event bus (handles local + cross-tab dispatch)
-    // Standardized payload: { entity, entityId } for created events
+    // Emit global upload started event
+    broadcastEvent('upload:started', { uploadId, fileName, fileSize, type: 'photo' });
+
+    // Use uploadFileWithProgress for progress tracking
+    const wrappedProgress = (progress) => {
+        broadcastEvent('upload:progress', { uploadId, loaded: progress.loaded, total: progress.total, percent: progress.percent });
+        if (onProgress) onProgress(progress);
+    };
+
     try {
-        if (result) {
-            broadcastEvent('photo:created', { photo: result, photoId: result._id });
-            logger.debug('[photos-api] Photo created event dispatched', { id: result._id });
-        }
-    } catch (e) {
-        // ignore
-    }
+        const result = await uploadFileWithProgress(`${BASE_URL}`, "POST", request, {
+            onProgress: wrappedProgress,
+            signal
+        });
 
-    return result;
+        broadcastEvent('upload:completed', { uploadId });
+
+        // Emit entity event (handles local + cross-tab dispatch)
+        try {
+            if (result) {
+                broadcastEvent('photo:created', { photo: result, photoId: result._id });
+                logger.debug('[photos-api] Photo created event dispatched', { id: result._id });
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        return result;
+    } catch (err) {
+        broadcastEvent('upload:failed', { uploadId, error: err.message });
+        throw err;
+    }
 }
 
-export async function uploadPhotoBatch(request) {
-    const result = await uploadFile(`${BASE_URL}batch`, "POST", request);
+export async function uploadPhotoBatch(request, options = {}) {
+    const { onProgress, signal } = options;
+    const uploadId = generateOptimisticId('photo-batch');
 
-    // Emit event via event bus (handles local + cross-tab dispatch)
-    // Standardized payload: { entities, entityIds } for batch created events
-    try {
-        if (result) {
-            const photoIds = Array.isArray(result) ? result.map(p => p._id) : [];
-            broadcastEvent('photos:created', { photos: result, photoIds });
-            logger.debug('[photos-api] Photos batch created event dispatched', { count: result?.length });
-        }
-    } catch (e) {
-        // ignore
+    // Count files in FormData for display
+    let fileCount = 0;
+    let totalSize = 0;
+    if (request.getAll) {
+        const files = request.getAll('images');
+        fileCount = files.length;
+        totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
     }
 
-    return result;
+    const fileName = `${fileCount} photos`;
+    broadcastEvent('upload:started', { uploadId, fileName, fileSize: totalSize, type: 'photo' });
+
+    const wrappedProgress = (progress) => {
+        broadcastEvent('upload:progress', { uploadId, loaded: progress.loaded, total: progress.total, percent: progress.percent });
+        if (onProgress) onProgress(progress);
+    };
+
+    try {
+        const result = await uploadFileWithProgress(`${BASE_URL}batch`, "POST", request, {
+            onProgress: wrappedProgress,
+            signal
+        });
+
+        broadcastEvent('upload:completed', { uploadId });
+
+        // Emit entity event (handles local + cross-tab dispatch)
+        try {
+            if (result) {
+                const photoIds = Array.isArray(result) ? result.map(p => p._id) : [];
+                broadcastEvent('photos:created', { photos: result, photoIds });
+                logger.debug('[photos-api] Photos batch created event dispatched', { count: result?.length });
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        return result;
+    } catch (err) {
+        broadcastEvent('upload:failed', { uploadId, error: err.message });
+        throw err;
+    }
 }
 
 export async function uploadPhotoUrl(data) {

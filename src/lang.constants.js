@@ -511,7 +511,10 @@ const en = {
     plans: "Plans",
     collaborators: "Collaborators",
     experiencesIn: "Experiences in {destinationName}",
-    dashboardUnavailable: "Dashboard Unavailable"
+    dashboardUnavailable: "Dashboard Unavailable",
+    details: "Details",
+    planDetails: "Plan Details",
+    collaboratorDetails: "Collaborator Details"
   },
 
   label: {
@@ -559,6 +562,16 @@ const en = {
     person: "person",
     people: "people",
     collaborators: "Collaborators",
+    profileLocation: "Location",
+    travelOriginLabel: "Travel Origin",
+    memberSince: "Member since",
+    role: "Role",
+    owner: "Owner",
+    collaborator: "Collaborator",
+    contributor: "Contributor",
+    noLocationSet: "No location set",
+    noTravelOriginSet: "No travel origin set",
+    noCollaborators: "No collaborators yet. Invite people to plan together.",
     itemDescription: "Item Description",
     urlOptional: "URL",
     cost: "Cost",

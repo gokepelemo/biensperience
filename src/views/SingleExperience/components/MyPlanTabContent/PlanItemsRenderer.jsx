@@ -26,7 +26,10 @@ import './plan-item-views.css';
  * @param {Object|null} props.activityGroups - Grouped data for activity view
  * @param {Object|null} props.timelineGroups - Grouped data for timeline view
  * @param {Array} props.sensors - DnD sensors from usePlanItemDragDrop
+ * @param {Function} props.onDragStart - Drag start handler (initializes visual feedback)
+ * @param {Function} props.onDragMove - Drag move handler (real-time nesting/promotion preview)
  * @param {Function} props.onDragEnd - Drag end handler
+ * @param {Function} props.onDragCancel - Drag cancel handler (cleans up visual feedback)
  * @param {Object} props.sharedItemHandlers - Shared handlers for all item types
  * @param {Object} props.sharedSortablePlanItemProps - Card view specific props
  * @param {Function} props.getItemProps - Function to get per-item props
@@ -40,7 +43,10 @@ function PlanItemsRenderer({
   activityGroups = null,
   timelineGroups = null,
   sensors,
+  onDragStart,
+  onDragMove,
   onDragEnd,
+  onDragCancel,
   sharedItemHandlers,
   sharedSortablePlanItemProps = {},
   getItemProps,
@@ -54,7 +60,10 @@ function PlanItemsRenderer({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={onDragStart}
+      onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onDragCancel={onDragCancel}
     >
       <SortableContext
         items={itemsToRender.map(item => (item.plan_item_id || item._id).toString())}
@@ -86,7 +95,10 @@ function PlanItemsRenderer({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={onDragStart}
+      onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onDragCancel={onDragCancel}
     >
       <SortableContext
         items={itemsToRender.map(item => (item.plan_item_id || item._id).toString())}
@@ -381,7 +393,10 @@ PlanItemsRenderer.propTypes = {
     })
   }),
   sensors: PropTypes.array.isRequired,
+  onDragStart: PropTypes.func.isRequired,
+  onDragMove: PropTypes.func.isRequired,
   onDragEnd: PropTypes.func.isRequired,
+  onDragCancel: PropTypes.func.isRequired,
   sharedItemHandlers: PropTypes.object.isRequired,
   sharedSortablePlanItemProps: PropTypes.object,
   getItemProps: PropTypes.func.isRequired,

@@ -329,8 +329,9 @@
   border-radius: 0.5rem;
   font-size: clamp(0.875rem, 1.25vw, 1rem);
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal;
   max-width: min(300px, calc(100vw - 32px));
+  overflow-wrap: break-word;
   transform: translateX(-50%);
   box-shadow: var(--shadow-lg);
   pointer-events: none;

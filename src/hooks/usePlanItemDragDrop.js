@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useRef } from 'react';
 import {
   KeyboardSensor,
   PointerSensor,
@@ -63,6 +63,13 @@ export function usePlanItemDragDrop({
     animationDuration: HIERARCHY_ANIMATION_DURATION = DEFAULT_HIERARCHY_ANIMATION_DURATION_MS
   } = thresholds;
 
+  // Ref-based drag state to avoid re-renders during drag move
+  const dragStateRef = useRef({
+    activeId: null,
+    lastPreview: null,
+    lastParentId: null
+  });
+
   // Setup sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -116,10 +123,141 @@ export function usePlanItemDragDrop({
   }, [maxPlanItemNestingLevel, parentItemMap, getPlanItemDepth]);
 
   /**
+   * Clear all drag preview CSS classes from the DOM.
+   */
+  const clearDragVisuals = useCallback(() => {
+    document.querySelectorAll('.nesting-target-preview').forEach(el => {
+      el.classList.remove('nesting-target-preview');
+    });
+    document.querySelectorAll('.drag-nest-preview, .drag-promote-preview').forEach(el => {
+      el.classList.remove('drag-nest-preview', 'drag-promote-preview');
+    });
+    dragStateRef.current = { activeId: null, lastPreview: null, lastParentId: null };
+  }, []);
+
+  /**
+   * Handle drag start - initialize drag state.
+   */
+  const handleDragStart = useCallback((event) => {
+    dragStateRef.current = {
+      activeId: event.active.id.toString(),
+      lastPreview: null,
+      lastParentId: null
+    };
+  }, []);
+
+  /**
+   * Handle drag move - show real-time visual feedback for nesting/promotion.
+   * Uses direct DOM manipulation to avoid re-renders during drag.
+   */
+  const handleDragMove = useCallback((event) => {
+    const { active, over } = event;
+    if (!active) return;
+
+    const horizontalOffset = event.delta?.x || 0;
+    const nestingIntent = horizontalOffset > NESTING_THRESHOLD;
+    const promotionIntent = horizontalOffset < PROMOTION_THRESHOLD;
+
+    const activeId = active.id.toString();
+    const draggedItem = planItems.find(
+      item => (item.plan_item_id || item._id).toString() === activeId
+    );
+    if (!draggedItem) return;
+
+    const draggedIsChild = !!draggedItem.parent;
+    const draggedHasChildren = planItems.some(
+      item => item.parent?.toString() === activeId
+    );
+
+    let preview = null;
+    let potentialParentId = null;
+
+    if (nestingIntent && !draggedHasChildren) {
+      // Determine potential parent
+      const overId = over?.id?.toString();
+      const overItem = overId ? planItems.find(
+        item => (item.plan_item_id || item._id).toString() === overId
+      ) : null;
+
+      if (overItem && !overItem.parent && activeId !== overId) {
+        potentialParentId = overId;
+      } else {
+        const flattenedItems = flattenPlanItemsFn(planItems);
+        const draggedFlatIndex = flattenedItems.findIndex(
+          item => (item.plan_item_id || item._id).toString() === activeId
+        );
+        const itemAbove = draggedFlatIndex > 0 ? flattenedItems[draggedFlatIndex - 1] : null;
+        if (itemAbove) {
+          const itemAboveId = (itemAbove.plan_item_id || itemAbove._id).toString();
+          if (!itemAbove.isChild && !itemAbove.parent) {
+            potentialParentId = itemAboveId;
+          } else if (itemAbove.parent) {
+            potentialParentId = itemAbove.parent.toString();
+          }
+        }
+      }
+
+      if (potentialParentId && canNestUnder(potentialParentId)) {
+        preview = 'nest';
+      } else {
+        potentialParentId = null;
+      }
+    } else if (promotionIntent && draggedIsChild) {
+      preview = 'promote';
+    }
+
+    // Only update DOM if preview state changed
+    const prev = dragStateRef.current;
+    if (prev.lastPreview === preview && prev.lastParentId === potentialParentId) return;
+
+    // Clear previous parent highlight
+    if (prev.lastParentId && prev.lastParentId !== potentialParentId) {
+      const prevParentItem = planItems.find(
+        item => (item.plan_item_id || item._id).toString() === prev.lastParentId
+      );
+      if (prevParentItem) {
+        const el = document.querySelector(`[data-plan-item-id="${prevParentItem._id}"]`);
+        if (el) el.classList.remove('nesting-target-preview');
+      }
+    }
+
+    // Clear previous dragged item preview
+    const draggedEl = document.querySelector(`[data-plan-item-id="${draggedItem._id}"]`);
+    if (draggedEl) {
+      draggedEl.classList.remove('drag-nest-preview', 'drag-promote-preview');
+    }
+
+    // Apply new preview
+    if (preview === 'nest' && potentialParentId) {
+      const parentItem = planItems.find(
+        item => (item.plan_item_id || item._id).toString() === potentialParentId
+      );
+      if (parentItem) {
+        const parentEl = document.querySelector(`[data-plan-item-id="${parentItem._id}"]`);
+        if (parentEl) parentEl.classList.add('nesting-target-preview');
+      }
+      if (draggedEl) draggedEl.classList.add('drag-nest-preview');
+    } else if (preview === 'promote') {
+      if (draggedEl) draggedEl.classList.add('drag-promote-preview');
+    }
+
+    dragStateRef.current = { activeId, lastPreview: preview, lastParentId: potentialParentId };
+  }, [planItems, flattenPlanItemsFn, canNestUnder, NESTING_THRESHOLD, PROMOTION_THRESHOLD]);
+
+  /**
+   * Handle drag cancel - clean up visual feedback.
+   */
+  const handleDragCancel = useCallback(() => {
+    clearDragVisuals();
+  }, [clearDragVisuals]);
+
+  /**
    * Handle drag end event with hierarchy support.
    * Manages reordering, nesting, and promotion of plan items.
    */
   const handleDragEnd = useCallback((event) => {
+    // Clean up visual feedback from drag move
+    clearDragVisuals();
     const { active, over } = event;
 
     debug.log('[Drag] Full event structure', {
@@ -130,7 +268,16 @@ export function usePlanItemDragDrop({
       deltaY: event.delta?.y
     });
 
-    if (!active || !over || active.id === over.id) {
+    // Check for horizontal nesting/promotion intent before early-returning
+    const horizontalDelta = event.delta?.x || 0;
+    const hasHierarchyIntent = horizontalDelta > NESTING_THRESHOLD || horizontalDelta < PROMOTION_THRESHOLD;
+
+    if (!active || !over) {
+      return;
+    }
+
+    // Allow same-position drops when there's a horizontal hierarchy intent
+    if (active.id === over.id && !hasHierarchyIntent) {
       return;
     }
 
@@ -209,7 +356,7 @@ export function usePlanItemDragDrop({
       // Explicit promotion: dragged left outside container alignment
       delete draggedItemCopy.parent;
       promotedToParentPosition = true;
-      debug.log('[Drag] Promoting child to root (drag left intent), will position above parent');
+      debug.log('[Drag] Promoting child to root (drag left intent), will position below former parent');
     } else if (nestingIntent && !draggedHasChildren) {
       // Nesting intent detected (drag right)
       const itemAbove = draggedFlatIndex > 0 ? flattenedItems[draggedFlatIndex - 1] : null;
@@ -263,13 +410,27 @@ export function usePlanItemDragDrop({
       (item) => (item.plan_item_id || item._id).toString() === draggedId
     );
 
-    // For promotion by drag-left, position above the former parent item
+    // For promotion by drag-left, position right after the former parent and its children
     let newIndex;
     if (promotedToParentPosition && draggedParentId) {
-      newIndex = reorderedItems.findIndex(
+      const parentIndex = reorderedItems.findIndex(
         (item) => (item.plan_item_id || item._id).toString() === draggedParentId
       );
-      debug.log('[Drag] Positioning promoted item above former parent', { parentId: draggedParentId, newIndex });
+      // Find the last sibling (child of the same parent) after the parent
+      let lastChildIndex = parentIndex;
+      for (let i = parentIndex + 1; i < reorderedItems.length; i++) {
+        const item = reorderedItems[i];
+        if (item.parent?.toString() === draggedParentId &&
+            (item.plan_item_id || item._id).toString() !== draggedId) {
+          lastChildIndex = i;
+        } else if (!item.parent || item.parent?.toString() !== draggedParentId) {
+          break;
+        }
+      }
+      newIndex = lastChildIndex + 1;
+      // Clamp to valid range
+      if (newIndex > reorderedItems.length - 1) newIndex = reorderedItems.length - 1;
+      debug.log('[Drag] Positioning promoted item below former parent', { parentId: draggedParentId, parentIndex, newIndex });
     } else {
       newIndex = reorderedItems.findIndex(
         (item) => (item.plan_item_id || item._id).toString() === targetId
@@ -331,6 +492,7 @@ export function usePlanItemDragDrop({
     canNestUnder,
     onReorderPlanItems,
     selectedPlanId,
+    clearDragVisuals,
     NESTING_THRESHOLD,
     PROMOTION_THRESHOLD,
     HIERARCHY_ANIMATION_DURATION
@@ -338,7 +500,10 @@ export function usePlanItemDragDrop({
 
   return {
     sensors,
+    handleDragStart,
+    handleDragMove,
     handleDragEnd,
+    handleDragCancel,
     isDragEnabled: canEdit
   };
 }

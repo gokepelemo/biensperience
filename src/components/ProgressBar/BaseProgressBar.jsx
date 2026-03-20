@@ -27,6 +27,8 @@ export default function BaseProgressBar({
   size = 'md',
   showPercentage = false,
   animated = false,
+  label = null,
+  secondaryLabel = null,
 }) {
   const clamped = Math.min(100, Math.max(0, value));
   const palette = COLOR_PALETTE_MAP[color] || color;
@@ -35,29 +37,46 @@ export default function BaseProgressBar({
   const SIZE_MAP = { sm: 'sm', md: 'md', lg: 'lg' };
   const recipeSize = SIZE_MAP[size] || 'md';
 
+  const hasLabel = label || secondaryLabel;
+
   return (
-    <Flex align="center" gap="3" width="100%">
-      <Progress.Root
-        value={clamped}
-        max={100}
-        min={0}
-        size={recipeSize}
-        colorPalette={palette}
-        striped={animated}
-        animated={animated}
-        flex="1"
-      >
-        <Progress.Track>
+    <Progress.Root
+      value={clamped}
+      max={100}
+      min={0}
+      size={recipeSize}
+      colorPalette={palette}
+      striped={animated}
+      animated={animated}
+      width="100%"
+    >
+      {hasLabel && (
+        <Flex justify="space-between" mb="1">
+          {label && (
+            <Progress.Label>
+              <Text fontSize="xs" fontWeight="semibold" color="fg.muted" truncate>
+                {label}
+              </Text>
+            </Progress.Label>
+          )}
+          {secondaryLabel && (
+            <Text fontSize="xs" color="fg.muted" flexShrink={0}>
+              {secondaryLabel}
+            </Text>
+          )}
+        </Flex>
+      )}
+
+      <Flex align="center" gap="3" width="100%">
+        <Progress.Track flex="1">
           <Progress.Range />
         </Progress.Track>
-      </Progress.Root>
 
-      {showPercentage && (
-        <Text fontSize="sm" fontWeight="semibold" minW="45px" textAlign="end">
-          {clamped}%
-        </Text>
-      )}
-    </Flex>
+        {showPercentage && (
+          <Progress.ValueText fontSize="sm" fontWeight="semibold" minW="45px" textAlign="end" />
+        )}
+      </Flex>
+    </Progress.Root>
   );
 }
 
@@ -67,4 +86,8 @@ BaseProgressBar.propTypes = {
   size: PropTypes.oneOf(['sm', 'md', 'lg']),
   showPercentage: PropTypes.bool,
   animated: PropTypes.bool,
+  /** Optional label displayed above the track (e.g. filename) */
+  label: PropTypes.node,
+  /** Optional secondary label displayed on the right above the track (e.g. "2 MB / 10 MB") */
+  secondaryLabel: PropTypes.node,
 };

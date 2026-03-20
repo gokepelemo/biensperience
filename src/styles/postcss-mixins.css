@@ -24,3 +24,28 @@
     }
   }
 }
+
+/* Tab wrapper base — critical flex chain for modal tab content areas.
+   Every tab wrapper that must fill available modal height MUST include this.
+   Provides a flex column container that grows to fill remaining space,
+   with min-height: 0 to allow shrinking below intrinsic size (Safari fix).
+*/
+@define-mixin tabWrapperBase {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Tab wrapper mobile reset — applied on mobile/tablet (≤991px) where the
+   modal switches to document-scroll mode. Clears fixed height so the
+   wrapper sizes to content; the .documentScrollMode parent class then
+   applies per-tab overrides via !important as needed.
+*/
+@define-mixin tabWrapperMobile {
+  @media (max-width: 991px) {
+    height: auto;
+    min-height: 0;
+  }
+}

@@ -45,4 +45,6 @@ ProgressBarWrapper.propTypes = {
   size: PropTypes.oneOf(['sm', 'md', 'lg']),
   showPercentage: PropTypes.bool,
   animated: PropTypes.bool,
+  label: PropTypes.node,
+  secondaryLabel: PropTypes.node,
 };

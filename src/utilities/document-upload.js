@@ -7,6 +7,7 @@
 
 import { sendRequest, uploadFile, uploadFileWithProgress } from './send-request';
 import { logger } from './logger';
+import { broadcastEvent, generateOptimisticId } from './event-bus';
 
 // Supported document types (must match backend)
 export const SUPPORTED_DOCUMENT_TYPES = {
@@ -361,6 +362,14 @@ export async function uploadDocument(file, options = {}) {
     visibility
   });
 
+  const uploadId = generateOptimisticId('doc-upload');
+  broadcastEvent('upload:started', { uploadId, fileName: file.name, fileSize: file.size, type: 'document' });
+
+  const wrappedProgress = (progress) => {
+    broadcastEvent('upload:progress', { uploadId, loaded: progress.loaded, total: progress.total, percent: progress.percent });
+    if (onProgress) onProgress(progress);
+  };
+
   try {
     // Documents can be large and processing can be slow (OCR + AI parsing).
     // If not provided, compute a size-aware timeout with a reasonable upper bound.
@@ -376,14 +385,14 @@ export async function uploadDocument(file, options = {}) {
         )
       );
 
-    // Use uploadFileWithProgress if onProgress callback is provided for real-time progress updates
-    // Otherwise fall back to uploadFile which uses fetch() (simpler but no progress)
-    const uploadFn = onProgress ? uploadFileWithProgress : uploadFile;
-    const result = await uploadFn('/api/documents', 'POST', formData, {
+    // Always use uploadFileWithProgress for global progress tracking
+    const result = await uploadFileWithProgress('/api/documents', 'POST', formData, {
       timeoutMs: computedTimeoutMs,
-      onProgress,
+      onProgress: wrappedProgress,
       signal
     });
+
+    broadcastEvent('upload:completed', { uploadId });
 
     logger.info('[document-upload] Document uploaded successfully', {
       entityType,
@@ -394,6 +403,7 @@ export async function uploadDocument(file, options = {}) {
 
     return result.document;
   } catch (error) {
+    broadcastEvent('upload:failed', { uploadId, error: error.message });
     logger.error('[document-upload] Upload failed', {
       error: error.message,
       entityType,

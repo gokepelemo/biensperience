@@ -221,9 +221,9 @@ async function getBulkUsers(req, res) {
     }
 
     // Fetch all users in one query
-    // Include feature_flags and bio for curator status detection
+    // Include feature_flags, bio, and location for collaborator profile display
     const users = await User.find({ _id: { $in: validIds } })
-      .select('name email photos default_photo_id oauthProfilePhoto photo createdAt feature_flags bio')
+      .select('name email photos default_photo_id oauthProfilePhoto photo createdAt feature_flags bio location')
       .populate("photos", "url caption")
       .lean();
 

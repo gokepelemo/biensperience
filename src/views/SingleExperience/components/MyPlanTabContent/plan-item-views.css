@@ -1362,6 +1362,32 @@
   100% { transform: translateX(0); opacity: 1; }
 }
 
+/* ── Drag preview visual feedback ── */
+
+/* Potential parent item highlight during drag */
+.nesting-target-preview {
+  border-color: var(--color-success) !important;
+  background: var(--color-success-alpha-10, rgba(40, 167, 69, 0.08)) !important;
+  box-shadow: inset 0 0 0 2px var(--color-success-alpha-30, rgba(40, 167, 69, 0.3));
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+/* Dragged item nesting preview (will become a child) */
+.drag-nest-preview {
+  transform: translateX(1.5rem) !important;
+  border-left: 3px solid var(--color-success) !important;
+  opacity: 0.85;
+  transition: transform 150ms ease, border-left 150ms ease;
+}
+
+/* Dragged item promotion preview (will become root) */
+.drag-promote-preview {
+  transform: translateX(-0.5rem) !important;
+  border-left: 3px solid var(--color-info) !important;
+  opacity: 0.85;
+  transition: transform 150ms ease, border-left 150ms ease;
+}
+
 .plan-item-header {
   display: flex;
   align-items: flex-start;
