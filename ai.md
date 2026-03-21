@@ -72,8 +72,6 @@ This document covers the full AI stack powering the platform: the shared AI Gate
       - [Token Budget Management](#token-budget-management)
       - [Summary Caching and Staleness](#summary-caching-and-staleness)
     - [Messages Integration](#messages-integration)
-      - [BienBot as a Messages Channel](#bienbot-as-a-messages-channel)
-      - [Standalone Chat Mode](#standalone-chat-mode)
     - [Chat Drawer](#chat-drawer)
       - [BienBotTrigger (FAB)](#bienbottrigger-fab)
       - [BienBotPanel (Drawer/Sheet)](#bienbotpanel-drawersheet)
@@ -1076,30 +1074,13 @@ The TTL is defined as `SUMMARY_CACHE_TTL_MS = 6 * 60 * 60 * 1000` (6 hours).
 
 ### Messages Integration
 
-#### BienBot as a Messages Channel
+> **BienBot is no longer available through the Messages tab.** All BienBot interactions happen exclusively through the **in-context chat drawer** (floating BienBotTrigger button), which uses SSE streaming via `POST /api/bienbot/chat`.
 
-BienBot is accessible through two surfaces in the app:
+The Messages tab (`MessagesModal`) uses Stream Chat for user-to-user and group messaging (DMs, plan channels, plan-item channels). BienBot does not appear as a channel in Messages.
 
-1. **In-context chat drawer** — Triggered by the floating BienBotTrigger button on entity pages. Opens a slide-out panel with entity-aware context.
+#### Chat Drawer (Only BienBot Entry Point)
 
-2. **Messages tab (standalone)** — BienBot appears as a dedicated channel in the Messages view, alongside user-to-user messaging channels. In this mode:
-   - No `invokeContext` is provided — the session starts open-ended
-   - The user can ask about any destination, experience, or plan
-   - Entity context accumulates naturally through the conversation
-   - The BienBot channel can be dismissed via `DELETE /chat/channels/bienbot`
-
-The Messages integration uses the same `useBienBot` hook and `bienbot-api.js` utilities as the chat drawer. The only difference is the absence of `invokeContext` on the first message.
-
-#### Standalone Chat Mode
-
-In standalone mode (Messages tab), the conversation flow adapts:
-
-1. User sends an open-ended message (e.g., "I want to plan a trip to Tokyo")
-2. Intent classifier identifies `QUERY_DESTINATION` with `destination_name: "Tokyo"`
-3. Context builder runs `buildSearchContext("Tokyo", userId)` — fuzzy-searches destinations and experiences
-4. The LLM responds with search results and suggestions
-5. As the user narrows down to specific entities, the session context accumulates IDs
-6. Subsequent turns have full entity context, identical to in-context mode
+BienBot is triggered by the floating BienBotTrigger button on entity pages. It opens a slide-out panel with entity-aware context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
 
 ---
 

@@ -16,7 +16,6 @@ import ActivityMonitor from "../../components/ActivityMonitor/ActivityMonitor";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from '../../components/PhotoUploadModal/PhotoUploadModal';
 import MessagesModal from '../../components/ChatModal/MessagesModal';
-import BienBotTrigger from '../../components/BienBotTrigger/BienBotTrigger';
 import { showUserExperiences, showUserCreatedExperiences } from "../../utilities/experiences-api";
 import { getUserData, updateUserRole, updateUser as updateUserApi } from "../../utilities/users-api";
 import { resendConfirmation } from "../../utilities/users-api";
@@ -2008,13 +2007,6 @@ export default function Profile() {
       )}
       </Container>
 
-      {currentProfile && (
-        <BienBotTrigger
-          entity="user"
-          entityId={String(currentProfile._id)}
-          entityLabel={currentProfile.name}
-        />
-      )}
     </div>
   );
 }

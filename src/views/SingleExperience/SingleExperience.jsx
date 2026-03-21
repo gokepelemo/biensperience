@@ -104,7 +104,6 @@ import './components/MyPlanTabContent/plan-item-views.css';
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
 import { idEquals, normalizeId, findById, findIndexById, filterOutById } from "../../utilities/id-utils";
-import BienBotTrigger from '../../components/BienBotTrigger/BienBotTrigger';
 
 export default function SingleExperience() {
   // ============================================================================
@@ -4143,20 +4142,6 @@ export default function SingleExperience() {
         }}
       />
 
-      {/* BienBot trigger — context switches between experience and plan */}
-      {activeTab === 'myplan' && selectedPlan?._id && experience?.name ? (
-        <BienBotTrigger
-          entity="plan"
-          entityId={String(selectedPlan._id)}
-          entityLabel={experience.name}
-        />
-      ) : experience?._id && experience?.name ? (
-        <BienBotTrigger
-          entity="experience"
-          entityId={String(experience._id)}
-          entityLabel={experience.name}
-        />
-      ) : null}
     </>
   );
 }

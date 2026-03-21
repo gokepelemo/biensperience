@@ -179,7 +179,8 @@ function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
     '  add_plan_item_note, add_plan_item_detail, assign_plan_item, unassign_plan_item,',
     '  add_plan_cost, update_plan_cost, delete_plan_cost,',
     '  invite_collaborator, remove_collaborator, sync_plan,',
-    '  toggle_favorite_destination, set_member_location, remove_member_location',
+    '  toggle_favorite_destination, set_member_location, remove_member_location,',
+    '  navigate_to_entity',
     '',
     'Action payload schemas:',
     '',
@@ -224,6 +225,15 @@ function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
     '- set_member_location: { plan_id, location: { address?, city?, state?, country?, postalCode?, geo?: { coordinates: [lng, lat] } }, travel_cost_estimate?, currency? }',
     '- remove_member_location: { plan_id }  (always uses logged-in user)',
     '',
+    '--- Navigation ---',
+    '- navigate_to_entity: { entity ("destination"|"experience"|"plan"), entityId, url }',
+    '  Use this when the user asks to see/show/go to an entity. The url must follow these patterns:',
+    '    Destination: /destinations/<destinationId>',
+    '    Experience: /experiences/<experienceId>',
+    '    Plan: /experiences/<experienceId>#plan-<planId>',
+    '  When the user\'s intent is explicitly to view an entity (e.g. "show me", "take me to", "I\'m feeling lucky"),',
+    '  propose a navigate_to_entity action alongside your response.',
+    '',
     'If no actions are needed (e.g. asking a clarifying question), return an empty pending_actions array.',
     'The "id" field must be unique per action — use "action_" followed by 8 random alphanumeric characters.'
   );
@@ -246,6 +256,16 @@ async function buildContextBlocks(intent, entities, session, userId) {
     // Intent-specific context
     if (intent === 'QUERY_DESTINATION' && entities.destination_name) {
       promises.push(buildSearchContext(entities.destination_name, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Navigation intent — resolve entity search so LLM can propose navigate_to_entity action with correct IDs/URLs
+    if (intent === 'NAVIGATE_TO_ENTITY') {
+      if (entities.destination_name) {
+        promises.push(buildSearchContext(entities.destination_name, userId).then(b => b && blocks.push(b)));
+      }
+      if (entities.experience_name) {
+        promises.push(buildSearchContext(entities.experience_name, userId).then(b => b && blocks.push(b)));
+      }
     }
 
     // Session-level context (already resolved entities)
@@ -541,7 +561,7 @@ exports.chat = async (req, res) => {
   const provider = getProviderForTask(AI_TASKS.GENERAL);
 
   if (!getApiKey(provider)) {
-    return errorResponse(res, null, 'AI service not available', 503);
+    return errorResponse(res, null, 'The AI service is not configured yet.', 503);
   }
 
   let llmResult;

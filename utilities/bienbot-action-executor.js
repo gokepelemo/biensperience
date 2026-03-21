@@ -55,7 +55,9 @@ const ALLOWED_ACTION_TYPES = [
   'delete_plan_cost',
   'remove_collaborator',
   'set_member_location',
-  'remove_member_location'
+  'remove_member_location',
+  // Client-only navigation
+  'navigate_to_entity'
 ];
 
 // ---------------------------------------------------------------------------
@@ -766,6 +768,15 @@ async function executeRemoveMemberLocation(payload, user) {
 // Handler dispatch map
 // ---------------------------------------------------------------------------
 
+/**
+ * navigate_to_entity — client-only action.
+ * The frontend handles navigation; the backend just marks it as successful.
+ * payload: { entity, entityId, url }
+ */
+async function executeNavigateToEntity(payload) {
+  return { statusCode: 200, body: { data: { url: payload.url, entity: payload.entity, entityId: payload.entityId } } };
+}
+
 const ACTION_HANDLERS = {
   create_destination: executeCreateDestination,
   create_experience: executeCreateExperience,
@@ -795,7 +806,9 @@ const ACTION_HANDLERS = {
   delete_plan_cost: executeDeletePlanCost,
   remove_collaborator: executeRemoveCollaborator,
   set_member_location: executeSetMemberLocation,
-  remove_member_location: executeRemoveMemberLocation
+  remove_member_location: executeRemoveMemberLocation,
+  // Client-only: handled by frontend, no-op on backend
+  navigate_to_entity: executeNavigateToEntity
 };
 
 // ---------------------------------------------------------------------------

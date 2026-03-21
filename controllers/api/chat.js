@@ -6,8 +6,7 @@ const User = require('../../models/user');
 const Follow = require('../../models/follow');
 const {
   createUserToken,
-  upsertMessagingChannel,
-  deleteBienBotChannelForUser
+  upsertMessagingChannel
 } = require('../../utilities/stream-chat');
 const {
   createFlagDenialResponse,
@@ -429,32 +428,11 @@ async function planItemChannel(req, res) {
   }
 }
 
-async function cancelBienBot(req, res) {
-  try {
-    const userId = req.user?._id;
-    if (!userId) {
-      return errorResponse(res, null, 'Authentication required', 401);
-    }
-
-    const result = await deleteBienBotChannelForUser(userId);
-    return successResponse(res, result, 'BienBot channel cancelled');
-  } catch (err) {
-    backendLogger.error('Failed to cancel BienBot channel', { error: err.message, code: err.code });
-
-    if (err.code === 'STREAM_CHAT_NOT_CONFIGURED') {
-      return errorResponse(res, err, 'Chat service not configured', 501);
-    }
-
-    return errorResponse(res, err, 'Failed to cancel BienBot channel', 500);
-  }
-}
-
 module.exports = {
   token,
   dmChannel,
   planChannel,
   planItemChannel,
-  cancelBienBot,
   // Exported for testing and potential reuse
   checkDmEligibility
 };

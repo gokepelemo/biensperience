@@ -2,9 +2,6 @@ const backendLogger = require('./backend-logger');
 
 let cachedClient = null;
 
-const DEFAULT_BIENBOT_USER_ID = 'bienbot';
-const DEFAULT_BIENBOT_USER_NAME = '🤖 BienBot';
-
 function isProbablyMongoObjectId(value) {
   return typeof value === 'string' && /^[a-f\d]{24}$/i.test(value);
 }
@@ -251,121 +248,10 @@ function createUserToken(userId, options = {}) {
   return client.createToken(userId.toString(), expiresAt);
 }
 
-function getBienBotUserId() {
-  const configured = process.env.STREAM_CHAT_BIENBOT_USER_ID;
-  return (configured && configured.trim()) || DEFAULT_BIENBOT_USER_ID;
-}
-
-function getBienBotChannelName() {
-  const configured = process.env.STREAM_CHAT_BIENBOT_CHANNEL_NAME;
-  return (configured && configured.trim()) || DEFAULT_BIENBOT_USER_NAME;
-}
-
-function getBienBotChannelIdForUser(userId) {
-  const id = userId?.toString();
-  return id ? `bienbot_${id}` : null;
-}
-
-async function ensureBienBotUserExists() {
-  const client = getStreamServerClient();
-  const bienBotId = getBienBotUserId();
-  try {
-    await client.upsertUsers([
-      {
-        id: bienBotId,
-        name: DEFAULT_BIENBOT_USER_NAME
-      }
-    ]);
-  } catch (err) {
-    backendLogger.warn('Failed to upsert BienBot Stream user (continuing)', {
-      error: err.message
-    });
-  }
-}
-
-async function upsertBienBotChannelForUser(userId) {
-  const userIdStr = userId?.toString();
-  if (!userIdStr) {
-    const err = new Error('Missing userId for BienBot channel');
-    err.code = 'STREAM_CHAT_INVALID_USER_ID';
-    throw err;
-  }
-
-  const bienBotId = getBienBotUserId();
-  const channelId = getBienBotChannelIdForUser(userIdStr);
-  const name = getBienBotChannelName();
-
-  await ensureBienBotUserExists();
-
-  return upsertMessagingChannel({
-    channelId,
-    members: [userIdStr, bienBotId],
-    createdById: bienBotId,
-    name,
-    isBienBot: true,
-    channelKind: 'bienbot'
-  });
-}
-
-async function sendBienBotMessageToUser({ userId, text, data = {} }) {
-  const userIdStr = userId?.toString();
-  if (!userIdStr) {
-    const err = new Error('Missing userId for BienBot message');
-    err.code = 'STREAM_CHAT_INVALID_USER_ID';
-    throw err;
-  }
-
-  if (!text || typeof text !== 'string') {
-    const err = new Error('Missing text for BienBot message');
-    err.code = 'STREAM_CHAT_INVALID_MESSAGE';
-    throw err;
-  }
-
-  const bienBotId = getBienBotUserId();
-  const channel = await upsertBienBotChannelForUser(userIdStr);
-
-  await channel.sendMessage({
-    text,
-    user_id: bienBotId,
-    ...(data && typeof data === 'object' ? { data } : {})
-  });
-
-  return { sent: true, channelId: channel?.id };
-}
-
-async function deleteBienBotChannelForUser(userId) {
-  const userIdStr = userId?.toString();
-  if (!userIdStr) {
-    const err = new Error('Missing userId for BienBot delete');
-    err.code = 'STREAM_CHAT_INVALID_USER_ID';
-    throw err;
-  }
-
-  const client = getStreamServerClient();
-  const channelId = getBienBotChannelIdForUser(userIdStr);
-  const channel = client.channel('messaging', channelId);
-
-  try {
-    await channel.delete({ hard_delete: true });
-  } catch (err) {
-    const status = err?.response?.status;
-    if (status === 404) {
-      return { deleted: false, reason: 'not_found', channelId };
-    }
-    throw err;
-  }
-
-  return { deleted: true, channelId };
-}
-
 module.exports = {
   getStreamChatConfig,
   getStreamServerClient,
   upsertMessagingChannel,
   syncChannelMembers,
-  createUserToken,
-  getBienBotChannelIdForUser,
-  upsertBienBotChannelForUser,
-  sendBienBotMessageToUser,
-  deleteBienBotChannelForUser
+  createUserToken
 };

@@ -44,7 +44,6 @@ import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
-import BienBotTrigger from '../BienBotTrigger/BienBotTrigger';
 import CollaboratorDetailsSection from './CollaboratorDetailsSection';
 
 export default function PlanItemDetailsModal({
@@ -1964,15 +1963,6 @@ export default function PlanItemDetailsModal({
       />
     </Modal>
 
-    {/* BienBot trigger — always rendered alongside the plan item modal so the
-        FAB (z-index 1060) sits above the modal backdrop (z-index 1040/1050) */}
-    {show && planItem?._id && planItem?.content && (
-      <BienBotTrigger
-        entity="plan_item"
-        entityId={String(planItem._id)}
-        entityLabel={planItem.content}
-      />
-    )}
     </>
   );
 }

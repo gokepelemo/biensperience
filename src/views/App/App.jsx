@@ -26,6 +26,7 @@ import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import MultiStepPlanModal from "../../components/MultiStepPlanModal/MultiStepPlanModal";
 import LegalModalsHandler from "../../components/LegalModalsHandler/LegalModalsHandler";
+import BienBotTrigger from "../../components/BienBotTrigger/BienBotTrigger";
 import { Helmet } from 'react-helmet-async';
 import { Box, Container } from '@chakra-ui/react';
 import ProfileSkeleton from "../Profile/components/ProfileSkeleton";
@@ -552,6 +553,7 @@ function AppContent() {
           <LegalModalsHandler />
           {/* Multi-step Plan Experience Modal - globally accessible */}
           {isAuthenticated && <MultiStepPlanModal />}
+          {isAuthenticated && <BienBotTrigger />}
           {isProcessingOAuth ? (
             <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
               <Loading variant="centered" size="lg" message="Completing sign in..." />

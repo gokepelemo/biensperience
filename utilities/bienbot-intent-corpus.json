@@ -923,6 +923,37 @@
         "Remove my travel origin",
         "Clear my departure location"
       ]
+    },
+    {
+      "intent": "NAVIGATE_TO_ENTITY",
+      "utterances": [
+        "Navigate to the Tokyo destination",
+        "Navigate to the Paris Food Tour experience",
+        "Take me to the Bali experience",
+        "Go to the hiking adventure experience",
+        "Show me the Barcelona destination",
+        "Open the budget explorer experience",
+        "Show me that destination",
+        "Take me to that experience",
+        "Go to the plan",
+        "Navigate to my plan",
+        "Open the destination page",
+        "Show me the experience page",
+        "Take me there",
+        "Navigate to it",
+        "Go to the experience",
+        "Go to the destination",
+        "I want to see the experience",
+        "I want to see the destination",
+        "Bring me to that experience",
+        "Can you open that destination",
+        "Let me see the experience",
+        "Open that plan",
+        "Direct me to the destination",
+        "Navigate to the local markets experience",
+        "Show me the solo traveler's guide",
+        "Go to the adventure experience in Whistler"
+      ]
     }
   ]
 }

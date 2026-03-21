@@ -7,10 +7,17 @@
  * @module components/BienBotPanel
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
+import { useNavigate } from 'react-router-dom';
 import { Button, Text, Heading } from '../design-system';
+import { Tag } from '@chakra-ui/react';
 import useBienBot from '../../hooks/useBienBot';
+import {
+  getSuggestionsForContext,
+  getPlaceholderForContext,
+  getEmptyStateForContext
+} from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
 import styles from './BienBotPanel.module.css';
 
@@ -144,13 +151,16 @@ ActionCard.propTypes = {
  * @param {Object} props
  * @param {boolean} props.open - Whether the panel is visible
  * @param {Function} props.onClose - Callback to close the panel
- * @param {Object} props.invokeContext - Entity context ({ entity, id, label })
+ * @param {Object|null} props.invokeContext - Entity context ({ entity, id, label }) or null for non-entity views
+ * @param {string|null} props.currentView - View identifier for non-entity pages
+ * @param {boolean} props.isEntityView - Whether current page is an entity detail page
  */
-export default function BienBotPanel({ open, onClose, invokeContext }) {
+export default function BienBotPanel({ open, onClose, invokeContext, currentView, isEntityView }) {
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
+  const navigate = useNavigate();
 
   const {
     messages,
@@ -173,6 +183,30 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
     clearSession();
   }, [clearSession]);
 
+  // ── Context-aware text ──────────────────────────────────────────────────
+  const entityType = invokeContext?.entity || null;
+
+  const placeholderText = useMemo(
+    () => getPlaceholderForContext(invokeContext, currentView),
+    [invokeContext, currentView]
+  );
+
+  const emptyStateText = useMemo(
+    () => getEmptyStateForContext(invokeContext, currentView),
+    [invokeContext, currentView]
+  );
+
+  // Initial suggestion chips — shown when no messages and no server-provided steps
+  const initialSuggestions = useMemo(
+    () => getSuggestionsForContext(entityType, currentView),
+    [entityType, currentView]
+  );
+
+  // Show server-provided steps if available, otherwise initial suggestions
+  const visibleChips = suggestedNextSteps.length > 0
+    ? suggestedNextSteps
+    : (messages.length === 0 ? initialSuggestions : []);
+
   // ── Focus input when panel opens ──────────────────────────────────────────
   useEffect(() => {
     if (open && inputRef.current) {
@@ -194,7 +228,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
 
     // Only push context update when context actually changed (not on first mount)
     if (changed && messages.length > 0) {
-      updateContext(invokeContext.entity, invokeContext.id);
+      updateContext(invokeContext.entity, invokeContext.id, invokeContext.contextDescription);
     }
   }, [open, invokeContext?.entity, invokeContext?.id, updateContext, messages.length]);
 
@@ -246,7 +280,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
     [handleSend]
   );
 
-  // ── Chip click ────────────────────────────────────────────────────────────
+  // ── Chip click — fill textarea with template ───────────────────────────
   const handleChipClick = useCallback(
     (step) => {
       const text = step.label || step.text || step;
@@ -264,9 +298,22 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
   const handleExecuteAction = useCallback(
     (actionId) => {
       logger.debug('[BienBotPanel] Executing action', { actionId });
+
+      // Check if it's a navigate action
+      const action = pendingActions.find(a => (a._id || a.id) === actionId);
+      if (action && action.type === 'navigate_to_entity') {
+        const url = action.payload?.url;
+        if (url) {
+          navigate(url);
+          // Remove from pending without server call
+          cancelAction(actionId);
+          return;
+        }
+      }
+
       executeActions([actionId]);
     },
-    [executeActions]
+    [executeActions, pendingActions, cancelAction, navigate]
   );
 
   const handleCancelAction = useCallback(
@@ -356,11 +403,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
         <div className={styles.messages} aria-live="polite" aria-atomic="false">
           {messages.length === 0 && !isLoading ? (
             <div className={styles.emptyState}>
-              <Text size="sm">
-                {invokeContext?.label
-                  ? `Ask me anything about "${invokeContext.label}".`
-                  : 'How can I help you today?'}
-              </Text>
+              <Text size="sm">{emptyStateText}</Text>
             </div>
           ) : (
             messages.map((msg) => {
@@ -415,23 +458,33 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
           </div>
         )}
 
-        {/* ── Suggested next-step chips ───────────────────────── */}
-        {suggestedNextSteps.length > 0 && (
+        {/* ── Suggested action chips ───────────────────────────── */}
+        {visibleChips.length > 0 && (
           <div className={styles.chipsContainer}>
-            {suggestedNextSteps.map((step, idx) => {
+            {visibleChips.map((step, idx) => {
               const label =
                 typeof step === 'string'
                   ? step
                   : step.label || step.text || '';
               return (
-                <button
+                <Tag.Root
                   key={idx}
-                  type="button"
+                  variant="outline"
+                  colorPalette="purple"
+                  size="lg"
                   className={styles.chip}
                   onClick={() => handleChipClick(step)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleChipClick(step);
+                    }
+                  }}
                 >
-                  {label}
-                </button>
+                  <Tag.Label>{label}</Tag.Label>
+                </Tag.Root>
               );
             })}
           </div>
@@ -442,7 +495,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
           <textarea
             ref={inputRef}
             className={styles.textInput}
-            placeholder="Message BienBot…"
+            placeholder={placeholderText}
             rows={1}
             disabled={isStreaming}
             onKeyDown={handleKeyDown}
@@ -470,6 +523,9 @@ BienBotPanel.propTypes = {
   invokeContext: PropTypes.shape({
     entity: PropTypes.string.isRequired,
     id: PropTypes.string.isRequired,
-    label: PropTypes.string.isRequired
-  }).isRequired
+    label: PropTypes.string.isRequired,
+    contextDescription: PropTypes.string
+  }),
+  currentView: PropTypes.string,
+  isEntityView: PropTypes.bool
 };

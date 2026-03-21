@@ -108,9 +108,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // Determine whether to send invokeContext
+    // Determine whether to send invokeContext (only when present and not yet sent)
     const sid = sessionIdRef.current;
-    const shouldSendContext = !sid && invokeContext && !invokeContextSentRef.current;
+    const shouldSendContext = !sid && invokeContext?.entity && invokeContext?.id && !invokeContextSentRef.current;
 
     try {
       await postMessage(sid, text, {
@@ -163,7 +163,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
           setMessages(prev =>
             prev.map(m =>
               m._id === assistantMessageId
-                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true }
+                ? { ...m, content: streamedContent || error.message || 'Something went wrong. Please try again.', error: true }
                 : m
             )
           );
@@ -175,6 +175,13 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         logger.debug('[useBienBot] Message send aborted');
       } else {
         logger.error('[useBienBot] Failed to send message', { error: err.message });
+        setMessages(prev =>
+          prev.map(m =>
+            m._id === assistantMessageId
+              ? { ...m, content: err.message || 'Something went wrong. Please try again.', error: true }
+              : m
+          )
+        );
       }
       batchedUpdates(() => {
         setIsStreaming(false);
@@ -254,9 +261,10 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
    *
    * @param {string} entity - Entity type (e.g. 'plan_item')
    * @param {string} entityId - Entity ID
+   * @param {string} [contextDescription] - Rich description for display (e.g. "My Plan on \"Paris Trip\"")
    * @returns {Promise<string|null>} Resolved entity label, or null on error
    */
-  const updateContext = useCallback(async (entity, entityId) => {
+  const updateContext = useCallback(async (entity, entityId, contextDescription) => {
     const sid = sessionIdRef.current;
     if (!sid || !entity || !entityId) return null;
 
@@ -265,11 +273,12 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       const label = result?.entityLabel;
 
       if (label) {
-        // Inject a context-switch acknowledgment message into the local chat
+        // Build ack message — prefer rich contextDescription over bare label
+        const displayText = contextDescription || `"${label}"`;
         const ackMessage = {
           _id: `ctx-${Date.now()}`,
           role: 'assistant',
-          content: `I'm now viewing "${label}". You can ask me anything about it or tell me to take actions on it.`,
+          content: `My context has been enriched with information about ${displayText}. You can ask me anything about it or tell me to take actions on it.`,
           createdAt: new Date().toISOString(),
           isContextAck: true
         };

@@ -1,0 +1,170 @@
+/**
+ * BienBot suggested action chips — static templates per view/entity context.
+ *
+ * Each suggestion is a string template that gets placed in the textarea
+ * when the user clicks it. Templates use {placeholders} that the user
+ * can edit before sending.
+ *
+ * @module utilities/bienbot-suggestions
+ */
+
+// ── Entity-page suggestions ─────────────────────────────────────────────────
+
+const EXPERIENCE_SUGGESTIONS = [
+  'What should I know before planning this experience?',
+  'Add a plan item for {activity, e.g. "a walking tour"}',
+  'Estimate the total cost for this experience',
+];
+
+const DESTINATION_SUGGESTIONS = [
+  'Show me experiences in this destination',
+  'What are the must-see attractions here?',
+  'Create an experience for {type, e.g. "a food tour"} here',
+];
+
+const PLAN_SUGGESTIONS = [
+  'What items still need to be planned?',
+  'Add a plan item for {activity, e.g. "lunch at a local restaurant"}',
+  'Estimate total costs for this plan',
+];
+
+const PLAN_ITEM_SUGGESTIONS = [
+  'Add a note about {detail, e.g. "reservation time"}',
+  'What should I know about this activity?',
+  'Suggest similar alternatives',
+];
+
+const USER_SUGGESTIONS = [
+  'Show me experiences created by this user',
+  'What destinations has this user explored?',
+];
+
+// ── View-page suggestions (non-entity) ──────────────────────────────────────
+
+const HOME_SUGGESTIONS = [
+  'Find an experience in {destination, e.g. "Tokyo"}',
+  'Show me a budget-friendly adventure experience',
+  'Create a new destination for {place, e.g. "Lisbon, Portugal"}',
+  'What can I plan next?',
+];
+
+const EXPERIENCES_LIST_SUGGESTIONS = [
+  'Find an experience that involves {activity, e.g. "hiking"}',
+  'Show me experiences under {budget, e.g. "$200"}',
+  'Create a new experience in {destination, e.g. "Barcelona"}',
+];
+
+const DESTINATIONS_LIST_SUGGESTIONS = [
+  'Show me destinations with food and culture experiences',
+  'Create a new destination for {place, e.g. "Marrakech, Morocco"}',
+  'Which destinations have the most experiences?',
+];
+
+const DASHBOARD_SUGGESTIONS = [
+  'What are my upcoming plans?',
+  'Show me my most recent experience',
+  'Create a new experience for my next trip',
+];
+
+const EXPERIENCE_TYPES_SUGGESTIONS = [
+  'Show me the top-rated experiences in this category',
+  'Find a budget-friendly option in this category',
+  'Create an experience like these in {destination, e.g. "Paris"}',
+];
+
+const DEFAULT_SUGGESTIONS = [
+  'Help me plan a trip to {destination, e.g. "Bali"}',
+  'Show me popular experiences',
+  'Create a new destination',
+  'What can BienBot help me with?',
+];
+
+// ── Mapping ─────────────────────────────────────────────────────────────────
+
+const ENTITY_SUGGESTIONS = {
+  experience: EXPERIENCE_SUGGESTIONS,
+  destination: DESTINATION_SUGGESTIONS,
+  plan: PLAN_SUGGESTIONS,
+  plan_item: PLAN_ITEM_SUGGESTIONS,
+  user: USER_SUGGESTIONS,
+};
+
+const VIEW_SUGGESTIONS = {
+  home: HOME_SUGGESTIONS,
+  experiences: EXPERIENCES_LIST_SUGGESTIONS,
+  destinations: DESTINATIONS_LIST_SUGGESTIONS,
+  dashboard: DASHBOARD_SUGGESTIONS,
+  'experience-types': EXPERIENCE_TYPES_SUGGESTIONS,
+  countries: DESTINATIONS_LIST_SUGGESTIONS,
+};
+
+/**
+ * Get suggested action chips for the current context.
+ *
+ * @param {string|null} entityType - Entity type if on an entity page
+ * @param {string|null} currentView - View identifier if on a non-entity page
+ * @returns {string[]} Array of suggestion templates
+ */
+export function getSuggestionsForContext(entityType, currentView) {
+  if (entityType && ENTITY_SUGGESTIONS[entityType]) {
+    return ENTITY_SUGGESTIONS[entityType];
+  }
+  if (currentView && VIEW_SUGGESTIONS[currentView]) {
+    return VIEW_SUGGESTIONS[currentView];
+  }
+  return DEFAULT_SUGGESTIONS;
+}
+
+// ── Placeholder text ────────────────────────────────────────────────────────
+
+const VIEW_PLACEHOLDERS = {
+  home: 'Discover destinations, plan experiences, or ask me anything...',
+  experiences: 'Search experiences, get recommendations, or create something new...',
+  destinations: 'Explore destinations, find experiences, or add a new place...',
+  dashboard: 'Check your plans, get updates, or start something new...',
+  'experience-types': 'Find experiences in this category or explore others...',
+  countries: 'Explore destinations in this country or find experiences...',
+  settings: 'Need help with your account or profile settings?',
+  invites: 'Need help managing your invitations?',
+  admin: 'How can I help with administration?',
+};
+
+/**
+ * Get placeholder text for the BienBot input based on current context.
+ *
+ * @param {Object|null} invokeContext - Entity context if on entity page
+ * @param {string|null} currentView - View identifier
+ * @returns {string} Placeholder text
+ */
+export function getPlaceholderForContext(invokeContext, currentView) {
+  if (invokeContext?.contextDescription) {
+    return `Ask me anything about ${invokeContext.contextDescription}.`;
+  }
+  if (invokeContext?.label) {
+    return `Ask me anything about "${invokeContext.label}".`;
+  }
+  if (currentView && VIEW_PLACEHOLDERS[currentView]) {
+    return VIEW_PLACEHOLDERS[currentView];
+  }
+  return 'Discover destinations, plan experiences, or ask me anything...';
+}
+
+/**
+ * Get empty-state text for the BienBot panel based on current context.
+ *
+ * @param {Object|null} invokeContext - Entity context if on entity page
+ * @param {string|null} currentView - View identifier
+ * @returns {string} Empty state text
+ */
+export function getEmptyStateForContext(invokeContext, currentView) {
+  if (invokeContext?.contextDescription) {
+    return `Ask me anything about ${invokeContext.contextDescription}.`;
+  }
+  if (invokeContext?.label) {
+    return `Ask me anything about "${invokeContext.label}".`;
+  }
+  if (currentView && VIEW_PLACEHOLDERS[currentView]) {
+    return VIEW_PLACEHOLDERS[currentView];
+  }
+  return 'Plan your next adventure, explore destinations, create experiences, and more. Just ask!';
+}

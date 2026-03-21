@@ -21,7 +21,7 @@ import useStreamChat from '../../hooks/useStreamChat';
 import ChannelTitle from './ChannelTitle';
 import StreamChatAvatar from './StreamChatAvatar';
 
-import { cancelBienBotChannel, getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
+import { getChatToken, getOrCreateDmChannel } from '../../utilities/chat-api';
 import { getPlanById } from '../../utilities/plans-api';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import { logger } from '../../utilities/logger';
@@ -699,20 +699,8 @@ export default function MessagesModal({
     e.stopPropagation();
 
     const channelId = channel?.id || channel?.cid;
-    const isBienBot = typeof channelId === 'string' && channelId.startsWith('bienbot_');
 
     try {
-      // BienBot cancellation must also delete the channel on Stream Chat.
-      // Other channel removals remain local-only (existing UX).
-      if (isBienBot) {
-        try {
-          await cancelBienBotChannel();
-        } catch (err) {
-          logger.error('[MessagesModal] Failed to cancel BienBot channel', err);
-          // Continue with local removal to honor the user's intent.
-        }
-      }
-
       // Compute remaining channels before any state updates so we avoid
       // reading the stale `channels` closure later.
       const remaining = channels.filter(ch => (ch?.id || ch?.cid) !== channelId);
@@ -756,7 +744,7 @@ export default function MessagesModal({
       try {
         broadcastEvent('channel:removed', {
           channelId,
-          channelType: channelId?.startsWith('dm_') ? 'dm' : (isBienBot ? 'bienbot' : 'group')
+          channelType: channelId?.startsWith('dm_') ? 'dm' : 'group'
         });
         logger.debug('[MessagesModal] Channel removed event dispatched', { channelId });
       } catch (eventErr) {

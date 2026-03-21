@@ -8,14 +8,14 @@ const { sendWebhookNotification } = require('./webhook-notifications');
  *
  * User prefs live at user.preferences.notifications:
  * - enabled: boolean
- * - channels: ['email','push','sms','bienbot','webhook']
+ * - channels: ['email','push','sms','webhook']
  * - types: ['activity','reminder','marketing','updates']
  * - webhooks: ['https://example.com/hook']
  */
 function getNotificationPrefs(user) {
   return user?.preferences?.notifications || {
     enabled: true,
-    channels: ['email', 'bienbot'],
+    channels: ['email'],
     types: ['activity', 'reminder'],
     webhooks: []
   };
@@ -26,19 +26,13 @@ function shouldNotifyUser(user, { channel, type } = {}) {
 
   if (!prefs?.enabled) return false;
 
-  // BienBot is enabled by default unless explicitly disabled.
-  // Do not require it to be present in channels[] to support older records.
-  if (channel === 'bienbot' && prefs?.bienbotDisabled === true) {
-    return false;
-  }
-
   // SMS is never allowed unless the user has a verified phone number.
   if (channel === 'sms' && user?.phone?.verified !== true) {
     return false;
   }
 
-  // For BienBot, channel membership is not required unless disabled above.
-  if (channel && channel !== 'bienbot' && Array.isArray(prefs.channels) && !prefs.channels.includes(channel)) {
+  // For channels other than email/sms, check membership in channels list.
+  if (channel && Array.isArray(prefs.channels) && !prefs.channels.includes(channel)) {
     return false;
   }
 
@@ -51,23 +45,6 @@ function shouldNotifyUser(user, { channel, type } = {}) {
 
 function generateNotificationId() {
   return crypto.randomBytes(16).toString('hex');
-}
-
-async function sendViaBienBot({ user, message, data, logContext }) {
-  // Lazy require to avoid pulling Stream Chat in tests/contexts that don't need it.
-  // eslint-disable-next-line global-require
-  const { sendBienBotMessageToUser } = require('./stream-chat');
-
-  await sendBienBotMessageToUser({
-    userId: user._id,
-    text: message,
-    data
-  });
-
-  backendLogger.debug('[notifications:bienbot] Delivered', {
-    ...logContext,
-    userId: user._id
-  });
 }
 
 async function sendViaWebhook({ user, notificationId, channel, type, message, data, logContext }) {
@@ -164,11 +141,6 @@ async function notifyUser({ user, channel, type = 'activity', message, data = {}
       return { sent: true, channel, type, notificationId };
     }
 
-    if (channel === 'bienbot') {
-      await sendViaBienBot({ user, message, data, logContext: { ...logContext, notificationId } });
-      return { sent: true, channel, type, notificationId };
-    }
-
     if (channel === 'sms') {
       // Prefer explicit callback (lets callers control formatting/provider).
       if (typeof send === 'function') {
@@ -256,7 +228,7 @@ async function notifyUser({ user, channel, type = 'activity', message, data = {}
  *
  * @param {Object} options
  * @param {Object} options.user - User document (must include preferences)
- * @param {string} options.channel - 'email' | 'sms' | 'push' | 'bienbot'
+ * @param {string} options.channel - 'email' | 'sms' | 'push'
  * @param {string} options.type - 'activity' | 'reminder' | 'marketing' | 'updates'
  * @param {Function} options.send - async function that performs the actual send
  * @param {Object} [options.logContext] - optional logging context
