@@ -2998,6 +2998,51 @@ async function archiveExperience(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Entity AI Config
+// ---------------------------------------------------------------------------
+
+async function getAIConfig(req, res) {
+  try {
+    const experience = await Experience.findById(req.params.id).select('ai_config');
+    if (!experience) return errorResponse(res, null, 'Experience not found', 404);
+
+    const enforcer = getEnforcer({ Experience, Destination, User, Plan });
+    const canView = await enforcer.canView({ userId: req.user._id, resource: experience });
+    if (!canView.allowed) return errorResponse(res, null, canView.reason, 403);
+
+    return successResponse(res, { ai_config: experience.ai_config || null });
+  } catch (err) {
+    return errorResponse(res, err, 'Failed to get AI config', 500);
+  }
+}
+
+async function updateAIConfig(req, res) {
+  try {
+    if (!hasFeatureFlag(req.user, 'ai_features')) {
+      return errorResponse(res, null, 'AI features not available', 403);
+    }
+
+    const experience = await Experience.findById(req.params.id);
+    if (!experience) return errorResponse(res, null, 'Experience not found', 404);
+
+    const enforcer = getEnforcer({ Experience, Destination, User, Plan });
+    const canEdit = await enforcer.canEdit({ userId: req.user._id, resource: experience });
+    if (!canEdit.allowed) return errorResponse(res, null, canEdit.reason, 403);
+
+    const allowed = ['preferred_provider', 'preferred_model', 'system_prompt_override', 'temperature', 'max_tokens', 'language', 'disabled'];
+    const update = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) update[`ai_config.${key}`] = req.body[key];
+    }
+
+    const updated = await Experience.findByIdAndUpdate(req.params.id, { $set: update }, { new: true, runValidators: true }).select('ai_config');
+    return successResponse(res, { ai_config: updated.ai_config });
+  } catch (err) {
+    return errorResponse(res, err, 'Failed to update AI config', 500);
+  }
+}
+
 module.exports = {
   create: createExperience,
   show: showExperience,
@@ -3023,4 +3068,6 @@ module.exports = {
   removeExperiencePermission,
   updateExperiencePermission,
   getExperiencePermissions,
+  getAIConfig,
+  updateAIConfig,
 };

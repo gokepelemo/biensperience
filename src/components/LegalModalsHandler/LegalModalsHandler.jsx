@@ -5,6 +5,7 @@ import PrivacyPolicyModal from '../PrivacyPolicyModal/PrivacyPolicyModal';
 import CookiePolicyModal from '../CookiePolicyModal/CookiePolicyModal';
 import { logger } from '../../utilities/logger';
 import { STORAGE_KEYS } from '../../utilities/storage-keys';
+import { isLegalHash } from '../../utilities/hash-navigation';
 import {
   setConsentGiven,
   setConsentDeclined
@@ -40,17 +41,7 @@ export default function LegalModalsHandler() {
   const [cookieConsentMode, setCookieConsentMode] = useState(false);
   const closingRef = useRef(false);
 
-  const isLegalHash = useCallback((hash) => {
-    const h = (hash || '').toLowerCase();
-    return (
-      h === '#terms' ||
-      h === '#terms-of-service' ||
-      h === '#privacy' ||
-      h === '#privacy-policy' ||
-      h.startsWith('#cookies') ||
-      h === '#cookie-policy'
-    );
-  }, []);
+  // isLegalHash is imported from hash-navigation.js
 
   // Handle hash changes to show/hide modals
   useEffect(() => {
@@ -109,7 +100,7 @@ export default function LegalModalsHandler() {
     } catch (e) {
       // Silently ignore storage errors
     }
-  }, [isLegalHash, location.hash, location.pathname, location.search, navigate]);
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   const handleTermsClose = useCallback(() => {
     logger.debug('[LegalModalsHandler] Closing Terms of Service modal');

@@ -657,6 +657,19 @@ const planSchema = new Schema(
         }
       }, { timestamps: true })],
       default: []
+    },
+    // AI configuration overrides for this entity
+    ai_config: {
+      type: new Schema({
+        preferred_provider: { type: String, trim: true, lowercase: true, default: null },
+        preferred_model: { type: String, trim: true, default: null },
+        system_prompt_override: { type: String, maxlength: 2000, default: null },
+        temperature: { type: Number, min: 0, max: 2, default: null },
+        max_tokens: { type: Number, min: 1, default: null },
+        language: { type: String, trim: true, default: null },
+        disabled: { type: Boolean, default: false }
+      }, { _id: false }),
+      default: null
     }
   },
   {

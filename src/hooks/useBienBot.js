@@ -7,7 +7,8 @@ import {
   resumeSession as resumeSessionAPI,
   executeActions as executeActionsAPI,
   cancelAction as cancelActionAPI,
-  deleteSession as deleteSessionAPI
+  deleteSession as deleteSessionAPI,
+  updateSessionContext as updateSessionContextAPI
 } from '../utilities/bienbot-api';
 import { eventBus } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
@@ -243,6 +244,47 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, []);
 
   // ---------------------------------------------------------------------------
+  // updateContext — inject entity context mid-session
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Update the session context when the user opens a new entity (e.g. a plan
+   * item modal) while the BienBot drawer is already open. Injects a visible
+   * acknowledgment message so the user knows BienBot is now aware of the entity.
+   *
+   * @param {string} entity - Entity type (e.g. 'plan_item')
+   * @param {string} entityId - Entity ID
+   * @returns {Promise<string|null>} Resolved entity label, or null on error
+   */
+  const updateContext = useCallback(async (entity, entityId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !entity || !entityId) return null;
+
+    try {
+      const result = await updateSessionContextAPI(sid, entity, entityId);
+      const label = result?.entityLabel;
+
+      if (label) {
+        // Inject a context-switch acknowledgment message into the local chat
+        const ackMessage = {
+          _id: `ctx-${Date.now()}`,
+          role: 'assistant',
+          content: `I'm now viewing "${label}". You can ask me anything about it or tell me to take actions on it.`,
+          createdAt: new Date().toISOString(),
+          isContextAck: true
+        };
+
+        setMessages(prev => [...prev, ackMessage]);
+      }
+
+      return label;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to update context', { error: err.message, entity, entityId });
+      return null;
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Session management
   // ---------------------------------------------------------------------------
 
@@ -406,6 +448,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     sendMessage,
     executeActions,
     cancelAction,
+    updateContext,
     loadSession,
     clearSession,
     fetchSessions

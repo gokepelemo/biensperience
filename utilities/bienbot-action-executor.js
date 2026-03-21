@@ -33,7 +33,29 @@ const ALLOWED_ACTION_TYPES = [
   'add_plan_items',
   'update_plan_item',
   'invite_collaborator',
-  'sync_plan'
+  'sync_plan',
+  'add_plan_item_note',
+  'add_plan_item_detail',
+  'assign_plan_item',
+  'unassign_plan_item',
+  // Experience-level
+  'update_experience',
+  'add_experience_plan_item',
+  'update_experience_plan_item',
+  'delete_experience_plan_item',
+  // Destination-level
+  'update_destination',
+  'toggle_favorite_destination',
+  // Plan-level
+  'update_plan',
+  'delete_plan',
+  'delete_plan_item',
+  'add_plan_cost',
+  'update_plan_cost',
+  'delete_plan_cost',
+  'remove_collaborator',
+  'set_member_location',
+  'remove_member_location'
 ];
 
 // ---------------------------------------------------------------------------
@@ -390,6 +412,357 @@ async function executeSyncPlan(payload, user) {
 }
 
 // ---------------------------------------------------------------------------
+// Plan item sub-resource handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * add_plan_item_note
+ * payload: { plan_id, item_id, content, visibility? }
+ */
+async function executeAddPlanItemNote(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {
+      content: payload.content,
+      visibility: payload.visibility || 'contributors'
+    },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.addPlanItemNote(req, res);
+  return getResult();
+}
+
+/**
+ * add_plan_item_detail
+ * payload: { plan_id, item_id, type, data }
+ */
+async function executeAddPlanItemDetail(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {
+      type: payload.type,
+      data: payload.data || {}
+    },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.addPlanItemDetail(req, res);
+  return getResult();
+}
+
+/**
+ * assign_plan_item
+ * payload: { plan_id, item_id, assigned_to }
+ */
+async function executeAssignPlanItem(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { assignedTo: payload.assigned_to },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.assignPlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * unassign_plan_item
+ * payload: { plan_id, item_id }
+ */
+async function executeUnassignPlanItem(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.unassignPlanItem(req, res);
+  return getResult();
+}
+
+// ---------------------------------------------------------------------------
+// Experience-level handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * update_experience
+ * payload: { experience_id, name?, overview?, destination?, experience_type?, visibility?, map_location? }
+ */
+async function executeUpdateExperience(payload, user) {
+  loadControllers();
+  const body = {};
+  const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'map_location'];
+  for (const field of updateFields) {
+    if (payload[field] !== undefined) {
+      body[field] = payload[field];
+    }
+  }
+  const req = buildMockReq(user, body, { id: payload.experience_id });
+  const { res, getResult } = buildMockRes();
+  await experiencesController.update(req, res);
+  return getResult();
+}
+
+/**
+ * add_experience_plan_item
+ * payload: { experience_id, text, url?, cost_estimate?, planning_days?, parent?, activity_type?, location? }
+ */
+async function executeAddExperiencePlanItem(payload, user) {
+  loadControllers();
+  const body = {
+    text: payload.text,
+    url: payload.url,
+    cost_estimate: payload.cost_estimate,
+    planning_days: payload.planning_days,
+    parent: payload.parent,
+    activity_type: payload.activity_type,
+    location: payload.location
+  };
+  const req = buildMockReq(user, body, { experienceId: payload.experience_id });
+  const { res, getResult } = buildMockRes();
+  await experiencesController.createPlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * update_experience_plan_item
+ * payload: { experience_id, plan_item_id, text?, url?, cost_estimate?, planning_days?, parent?, activity_type?, location? }
+ */
+async function executeUpdateExperiencePlanItem(payload, user) {
+  loadControllers();
+  const body = {};
+  const updateFields = ['text', 'url', 'cost_estimate', 'planning_days', 'parent', 'activity_type', 'location'];
+  for (const field of updateFields) {
+    if (payload[field] !== undefined) {
+      body[field] = payload[field];
+    }
+  }
+  const req = buildMockReq(user, body, { experienceId: payload.experience_id, planItemId: payload.plan_item_id });
+  const { res, getResult } = buildMockRes();
+  await experiencesController.updatePlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * delete_experience_plan_item
+ * payload: { experience_id, plan_item_id }
+ */
+async function executeDeleteExperiencePlanItem(payload, user) {
+  loadControllers();
+  const req = buildMockReq(user, {}, { experienceId: payload.experience_id, planItemId: payload.plan_item_id });
+  const { res, getResult } = buildMockRes();
+  await experiencesController.deletePlanItem(req, res);
+  return getResult();
+}
+
+// ---------------------------------------------------------------------------
+// Destination-level handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * update_destination
+ * payload: { destination_id, name?, country?, state?, overview?, location?, map_location?, travel_tips? }
+ */
+async function executeUpdateDestination(payload, user) {
+  loadControllers();
+  const body = {};
+  const updateFields = ['name', 'country', 'state', 'overview', 'location', 'map_location', 'travel_tips'];
+  for (const field of updateFields) {
+    if (payload[field] !== undefined) {
+      body[field] = payload[field];
+    }
+  }
+  const req = buildMockReq(user, body, { id: payload.destination_id });
+  const { res, getResult } = buildMockRes();
+  await destinationsController.update(req, res);
+  return getResult();
+}
+
+/**
+ * toggle_favorite_destination
+ * payload: { destination_id }
+ *
+ * Uses the logged-in user's ID exclusively — never accepts an external user_id.
+ */
+async function executeToggleFavoriteDestination(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { destinationId: payload.destination_id, userId: user._id.toString() }
+  );
+  const { res, getResult } = buildMockRes();
+  await destinationsController.toggleUserFavoriteDestination(req, res);
+  return getResult();
+}
+
+// ---------------------------------------------------------------------------
+// Plan-level handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * update_plan
+ * payload: { plan_id, planned_date?, currency?, notes? }
+ */
+async function executeUpdatePlan(payload, user) {
+  loadControllers();
+  const body = {};
+  if (payload.planned_date !== undefined) body.planned_date = payload.planned_date;
+  if (payload.currency !== undefined) body.currency = payload.currency;
+  if (payload.notes !== undefined) body.notes = payload.notes;
+  const req = buildMockReq(user, body, { id: payload.plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlan(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan
+ * payload: { plan_id }
+ */
+async function executeDeletePlan(payload, user) {
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: payload.plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.deletePlan(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan_item
+ * payload: { plan_id, item_id }
+ */
+async function executeDeletePlanItem(payload, user) {
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: payload.plan_id, itemId: payload.item_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.deletePlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * add_plan_cost
+ * payload: { plan_id, title, cost, currency?, category?, description?, date?, plan_item?, collaborator? }
+ */
+async function executeAddPlanCost(payload, user) {
+  loadControllers();
+  const body = {
+    title: payload.title,
+    cost: payload.cost,
+    currency: payload.currency,
+    category: payload.category,
+    description: payload.description,
+    date: payload.date,
+    plan_item: payload.plan_item,
+    collaborator: payload.collaborator
+  };
+  const req = buildMockReq(user, body, { id: payload.plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.addCost(req, res);
+  return getResult();
+}
+
+/**
+ * update_plan_cost
+ * payload: { plan_id, cost_id, title?, cost?, currency?, category?, description?, date?, plan_item?, collaborator? }
+ */
+async function executeUpdatePlanCost(payload, user) {
+  loadControllers();
+  const body = {};
+  const updateFields = ['title', 'cost', 'currency', 'category', 'description', 'date', 'plan_item', 'collaborator'];
+  for (const field of updateFields) {
+    if (payload[field] !== undefined) {
+      body[field] = payload[field];
+    }
+  }
+  const req = buildMockReq(user, body, { id: payload.plan_id, costId: payload.cost_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.updateCost(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan_cost
+ * payload: { plan_id, cost_id }
+ */
+async function executeDeletePlanCost(payload, user) {
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: payload.plan_id, costId: payload.cost_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.deleteCost(req, res);
+  return getResult();
+}
+
+/**
+ * remove_collaborator
+ * payload: { plan_id?, experience_id?, user_id }
+ */
+async function executeRemoveCollaborator(payload, user) {
+  loadControllers();
+
+  if (payload.plan_id) {
+    const req = buildMockReq(user, {}, { id: payload.plan_id, userId: payload.user_id });
+    const { res, getResult } = buildMockRes();
+    await plansController.removeCollaborator(req, res);
+    return getResult();
+  }
+
+  if (payload.experience_id) {
+    const req = buildMockReq(user, {}, {
+      id: payload.experience_id,
+      entityId: payload.user_id,
+      entityType: 'user'
+    });
+    const { res, getResult } = buildMockRes();
+    await experiencesController.removeExperiencePermission(req, res);
+    return getResult();
+  }
+
+  return {
+    statusCode: 400,
+    body: { success: false, error: 'remove_collaborator requires plan_id or experience_id' }
+  };
+}
+
+/**
+ * set_member_location
+ * payload: { plan_id, location, travel_cost_estimate?, currency? }
+ */
+async function executeSetMemberLocation(payload, user) {
+  loadControllers();
+  const body = {
+    location: payload.location,
+    travel_cost_estimate: payload.travel_cost_estimate,
+    currency: payload.currency
+  };
+  const req = buildMockReq(user, body, { id: payload.plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.setMemberLocation(req, res);
+  return getResult();
+}
+
+/**
+ * remove_member_location
+ * payload: { plan_id }
+ *
+ * Only removes the logged-in user's own location — no user_id accepted.
+ */
+async function executeRemoveMemberLocation(payload, user) {
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: payload.plan_id });
+  // removeMemberLocation uses req.query for optional userId; we only allow self
+  req.query = {};
+  const { res, getResult } = buildMockRes();
+  await plansController.removeMemberLocation(req, res);
+  return getResult();
+}
+
+// ---------------------------------------------------------------------------
 // Handler dispatch map
 // ---------------------------------------------------------------------------
 
@@ -400,7 +773,29 @@ const ACTION_HANDLERS = {
   add_plan_items: executeAddPlanItems,
   update_plan_item: executeUpdatePlanItem,
   invite_collaborator: executeInviteCollaborator,
-  sync_plan: executeSyncPlan
+  sync_plan: executeSyncPlan,
+  add_plan_item_note: executeAddPlanItemNote,
+  add_plan_item_detail: executeAddPlanItemDetail,
+  assign_plan_item: executeAssignPlanItem,
+  unassign_plan_item: executeUnassignPlanItem,
+  // Experience-level
+  update_experience: executeUpdateExperience,
+  add_experience_plan_item: executeAddExperiencePlanItem,
+  update_experience_plan_item: executeUpdateExperiencePlanItem,
+  delete_experience_plan_item: executeDeleteExperiencePlanItem,
+  // Destination-level
+  update_destination: executeUpdateDestination,
+  toggle_favorite_destination: executeToggleFavoriteDestination,
+  // Plan-level
+  update_plan: executeUpdatePlan,
+  delete_plan: executeDeletePlan,
+  delete_plan_item: executeDeletePlanItem,
+  add_plan_cost: executeAddPlanCost,
+  update_plan_cost: executeUpdatePlanCost,
+  delete_plan_cost: executeDeletePlanCost,
+  remove_collaborator: executeRemoveCollaborator,
+  set_member_location: executeSetMemberLocation,
+  remove_member_location: executeRemoveMemberLocation
 };
 
 // ---------------------------------------------------------------------------

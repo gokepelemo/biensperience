@@ -206,6 +206,18 @@
   opacity: 0.8;
 }
 
+.messageContextAck {
+  align-self: center;
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  font-size: var(--font-size-sm, 0.8125rem);
+  font-style: italic;
+  text-align: center;
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  border-radius: var(--radius-md, 8px);
+  border: 1px dashed var(--color-border-secondary, #e2e8f0);
+}
+
 /* Streaming cursor */
 .streaming::after {
   content: "\25CF"; /* ● */

@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
+const { canManageFeatureFlags } = require("../../utilities/feature-flags");
 const { isSystemUser } = require("../../utilities/system-users");
 const backendLogger = require("../../utilities/backend-logger");
 const { geocodeAddress } = require("../../utilities/geocoding-utils");
@@ -598,11 +599,17 @@ async function updateUser(req, res, next) {
 
     // Validate feature_flags if provided (super admin only)
     if (updateData.feature_flags !== undefined && isSuperAdmin(req.user)) {
+      // Check if this super admin can manage feature flags
+      const canManageFlags = await canManageFeatureFlags(req.user, User);
+      if (!canManageFlags) {
+        return errorResponse(res, null, 'You do not have permission to manage feature flags. The feature_admin flag is required.', 403);
+      }
+
       if (!Array.isArray(updateData.feature_flags)) {
         validatedUpdateData.feature_flags = [];
       } else {
         // Known valid flags
-        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'plan_access_requests', 'bienbot'];
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'plan_access_requests', 'bienbot', 'ai_admin', 'feature_admin'];
 
         const validatedFlags = updateData.feature_flags
           .filter(flag => {
@@ -772,11 +779,17 @@ async function updateUserAsAdmin(req, res) {
 
     // Validate and add feature_flags if provided
     if (updateData.feature_flags !== undefined) {
+      // Check if this super admin can manage feature flags
+      const canManageFlags = await canManageFeatureFlags(req.user, User);
+      if (!canManageFlags) {
+        return errorResponse(res, null, 'You do not have permission to manage feature flags. The feature_admin flag is required.', 403);
+      }
+
       if (!Array.isArray(updateData.feature_flags)) {
         validatedUpdateData.feature_flags = [];
       } else {
         // Known valid flags
-        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'plan_access_requests', 'bienbot'];
+        const validFlagKeys = ['ai_features', 'beta_ui', 'advanced_analytics', 'real_time_collaboration', 'document_ai_parsing', 'bulk_export', 'curator', 'chat', 'chakra_ui', 'plan_access_requests', 'bienbot', 'ai_admin', 'feature_admin'];
 
         const validatedFlags = updateData.feature_flags
           .filter(flag => {
@@ -1980,6 +1993,24 @@ async function getAvatars(req, res) {
   }
 }
 
+/**
+ * Check if the current user can manage feature flags.
+ * Returns { canManageFeatureFlags: boolean }
+ */
+async function checkFeatureFlagAdmin(req, res) {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return successResponse(res, { canManageFeatureFlags: false }, 'Not a super admin');
+    }
+
+    const allowed = await canManageFeatureFlags(req.user, User);
+    return successResponse(res, { canManageFeatureFlags: allowed }, 'Feature flag admin check');
+  } catch (err) {
+    backendLogger.error('Error checking feature flag admin', { error: err.message, userId: req.user?._id });
+    return errorResponse(res, err, 'Failed to check feature flag admin', 500);
+  }
+}
+
 module.exports = {
   create,
   login,
@@ -2003,4 +2034,5 @@ module.exports = {
   confirmEmail,
   resendConfirmation,
   deleteAccount,
+  checkFeatureFlagAdmin,
 };

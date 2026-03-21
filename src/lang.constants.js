@@ -652,6 +652,7 @@ const en = {
     viewYourProfile: "View your profile",
     trackYourInviteCodes: "Track your invite codes",
     adminPanelManageUsers: "Admin panel - manage all users",
+    adminPanelManageAI: "Admin panel - manage AI configuration",
     createNewDestination: "Create a new destination",
     createNewExperience: "Create a new experience",
     logOutOfAccount: "Log out of your account",

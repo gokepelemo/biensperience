@@ -36,6 +36,7 @@ import {
   setObfuscatedJson
 } from '../../utilities/secure-storage-lite';
 import { STORAGE_KEYS } from '../../utilities/storage-keys';
+import { isLegalHash } from '../../utilities/hash-navigation';
 import { useNavigationCleanup } from '../../hooks/useNavigationCleanup';
 
 // Lazy load components for better performance
@@ -53,6 +54,7 @@ const NewDestination = lazy(() => import("../../components/NewDestination/NewDes
 const UpdateDestination = lazy(() => import("../../components/UpdateDestination/UpdateDestination"));
 const Profile = lazy(() => import("../Profile/Profile"));
 const AllUsers = lazy(() => import("../AllUsers/AllUsers"));
+const AIAdmin = lazy(() => import("../AIAdmin/AIAdmin"));
 const InviteTracking = lazy(() => import("../InviteTracking/InviteTracking"));
 const ResetPassword = lazy(() => import("../ResetPassword/ResetPassword"));
 const ConfirmEmail = lazy(() => import("../ConfirmEmail/ConfirmEmail"));
@@ -241,8 +243,10 @@ function AppContent() {
   // This effect captures and restores hashes for deep linking
   useEffect(() => {
     // Store hash on initial load (handles direct URL paste)
+    // Skip legal/policy hashes — they are transient modal triggers handled by
+    // LegalModalsHandler and should not survive login redirects.
     const initialHash = window.location.hash;
-    if (initialHash) {
+    if (initialHash && !isLegalHash(initialHash)) {
       logger.info('[Hash Preservation] Initial hash detected:', initialHash);
       // Store in localStorage to survive React Router navigation that may strip hashes
       // Save origin pathname so we only restore on the same view when possible
@@ -263,6 +267,8 @@ function AppContent() {
       if (href && href.includes('#')) {
         const hashIndex = href.indexOf('#');
         const hash = href.substring(hashIndex);
+        // Skip legal/policy hashes — handled by LegalModalsHandler, not deep linking
+        if (isLegalHash(hash)) return;
         const targetPath = href.substring(0, hashIndex) || null;
         logger.info('[Hash Preservation] Captured hash from link:', hash);
         try {
@@ -580,6 +586,7 @@ function AppContent() {
                       <Route path="/profile/:userId/update" element={<UpdateProfile />} />
                       <Route path="/invites" element={<InviteTracking />} />
                       <Route path="/admin/users" element={<AllUsers />} />
+                      <Route path="/admin/ai" element={<AIAdmin />} />
                       <Route path="/experiences" element={<Experiences />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/destinations" element={<Destinations />} />

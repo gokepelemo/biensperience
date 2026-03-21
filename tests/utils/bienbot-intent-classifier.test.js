@@ -1,53 +1,27 @@
 /**
- * Unit tests for bienbot-intent-classifier
+ * Unit tests for bienbot-intent-classifier (NLP.js-based)
  *
  * Tests:
- * - classifyIntent() with valid AI responses
- * - classifyIntent() fallback when AI unavailable
- * - classifyIntent() fallback on malformed AI response
- * - classifyIntent() confidence clamping
- * - classifyIntent() entity normalisation
+ * - classifyIntent() correctly classifies all intent types
+ * - classifyIntent() fallback on empty/null input
+ * - classifyIntent() entity extraction (email, destination, plan items)
+ * - classifyIntent() confidence scores
  * - INTENTS enum is exported correctly
+ * - resetManager() resets the NLP singleton
  */
 
-// Mock the AI provider layer before requiring the classifier
-jest.mock('../../controllers/api/ai', () => ({
-  callProvider: jest.fn(),
-  getApiKey: jest.fn(),
-  getProviderForTask: jest.fn().mockReturnValue('openai'),
-  AI_TASKS: { GENERAL: 'general', FAST: 'fast' }
-}));
-
-const { classifyIntent, INTENTS } = require('../../utilities/bienbot-intent-classifier');
-const { callProvider, getApiKey } = require('../../controllers/api/ai');
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function mockLLMResponse(payload) {
-  callProvider.mockResolvedValueOnce({
-    content: typeof payload === 'string' ? payload : JSON.stringify(payload),
-    usage: { prompt_tokens: 10, completion_tokens: 10 }
-  });
-}
-
-function aiAvailable() {
-  getApiKey.mockReturnValue('test-key');
-}
-
-function aiUnavailable() {
-  getApiKey.mockReturnValue(null);
-}
+const { classifyIntent, INTENTS, resetManager } = require('../../utilities/bienbot-intent-classifier');
 
 // ---------------------------------------------------------------------------
 // Suite
 // ---------------------------------------------------------------------------
 
 describe('bienbot-intent-classifier', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    aiAvailable();
+  // Train the model once before all tests
+  beforeAll(async () => {
+    resetManager();
+    // Warm up the model with a single classification
+    await classifyIntent('hello');
   });
 
   // -------------------------------------------------------------------------
@@ -73,99 +47,153 @@ describe('bienbot-intent-classifier', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Valid classification
+  // Intent classification
   // -------------------------------------------------------------------------
 
-  describe('classifyIntent() — valid responses', () => {
-    it('returns correct intent from LLM JSON response', async () => {
-      mockLLMResponse({
-        intent: 'QUERY_DESTINATION',
-        entities: { destination_name: 'Kyoto', experience_name: null, user_email: null, plan_item_texts: [] },
-        confidence: 0.92
-      });
-
+  describe('classifyIntent() — intent classification', () => {
+    it('classifies QUERY_DESTINATION intent', async () => {
       const result = await classifyIntent('Tell me about Kyoto');
-
       expect(result.intent).toBe('QUERY_DESTINATION');
-      expect(result.entities.destination_name).toBe('Kyoto');
-      expect(result.confidence).toBe(0.92);
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_DESTINATION for weather questions', async () => {
+      const result = await classifyIntent('What is the weather like in Paris');
+      expect(result.intent).toBe('QUERY_DESTINATION');
+    });
+
+    it('classifies QUERY_DESTINATION for visa questions', async () => {
+      const result = await classifyIntent('Do I need a visa for Brazil');
+      expect(result.intent).toBe('QUERY_DESTINATION');
     });
 
     it('classifies PLAN_EXPERIENCE intent', async () => {
-      mockLLMResponse({
-        intent: 'PLAN_EXPERIENCE',
-        entities: { destination_name: 'Tokyo', experience_name: 'Cherry Blossom Tour', user_email: null, plan_item_texts: null },
-        confidence: 0.88
-      });
-
-      const result = await classifyIntent('I want to plan the Cherry Blossom Tour in Tokyo');
+      const result = await classifyIntent('I want to plan the Cherry Blossom Tour');
       expect(result.intent).toBe('PLAN_EXPERIENCE');
-      expect(result.entities.experience_name).toBe('Cherry Blossom Tour');
+      expect(result.confidence).toBeGreaterThan(0.5);
     });
 
-    it('classifies ADD_PLAN_ITEMS with plan_item_texts', async () => {
-      mockLLMResponse({
-        intent: 'ADD_PLAN_ITEMS',
-        entities: {
-          destination_name: null,
-          experience_name: null,
-          user_email: null,
-          plan_item_texts: ['Visit Senso-ji temple', 'Try street food']
-        },
-        confidence: 0.95
-      });
+    it('classifies PLAN_EXPERIENCE for trip planning', async () => {
+      const result = await classifyIntent('Help me plan my trip');
+      expect(result.intent).toBe('PLAN_EXPERIENCE');
+    });
 
+    it('classifies CREATE_EXPERIENCE intent', async () => {
+      const result = await classifyIntent('Create a new experience for Tokyo');
+      expect(result.intent).toBe('CREATE_EXPERIENCE');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies ADD_PLAN_ITEMS intent', async () => {
       const result = await classifyIntent('Add visit Senso-ji temple and try street food to my plan');
       expect(result.intent).toBe('ADD_PLAN_ITEMS');
-      expect(result.entities.plan_item_texts).toHaveLength(2);
+      expect(result.confidence).toBeGreaterThan(0.5);
     });
 
-    it('classifies INVITE_COLLABORATOR with user email', async () => {
-      mockLLMResponse({
-        intent: 'INVITE_COLLABORATOR',
-        entities: { destination_name: null, experience_name: null, user_email: 'alice@example.com', plan_item_texts: null },
-        confidence: 0.97
-      });
+    it('classifies ADD_PLAN_ITEMS for simple add requests', async () => {
+      const result = await classifyIntent('Add an activity to my plan');
+      expect(result.intent).toBe('ADD_PLAN_ITEMS');
+    });
 
+    it('classifies INVITE_COLLABORATOR intent', async () => {
       const result = await classifyIntent('Invite alice@example.com to collaborate on my plan');
       expect(result.intent).toBe('INVITE_COLLABORATOR');
-      expect(result.entities.user_email).toBe('alice@example.com');
+      expect(result.confidence).toBeGreaterThan(0.5);
     });
 
-    it('strips markdown fences from JSON response', async () => {
-      const jsonPayload = JSON.stringify({
-        intent: 'ANSWER_QUESTION',
-        entities: { destination_name: null, experience_name: null, user_email: null, plan_item_texts: null },
-        confidence: 0.8
-      });
-      mockLLMResponse(`\`\`\`json\n${jsonPayload}\n\`\`\``);
+    it('classifies INVITE_COLLABORATOR for sharing', async () => {
+      const result = await classifyIntent('Share this plan with someone');
+      expect(result.intent).toBe('INVITE_COLLABORATOR');
+    });
 
-      const result = await classifyIntent('What is the best time to visit Japan?');
+    it('classifies SYNC_PLAN intent', async () => {
+      const result = await classifyIntent('Sync my plan');
+      expect(result.intent).toBe('SYNC_PLAN');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies SYNC_PLAN for outdated plan', async () => {
+      const result = await classifyIntent('My plan is out of date');
+      expect(result.intent).toBe('SYNC_PLAN');
+    });
+
+    it('classifies ANSWER_QUESTION for greetings', async () => {
+      const result = await classifyIntent('Hello');
+      expect(result.intent).toBe('ANSWER_QUESTION');
+    });
+
+    it('classifies ANSWER_QUESTION for general questions', async () => {
+      const result = await classifyIntent('What can you do');
+      expect(result.intent).toBe('ANSWER_QUESTION');
+    });
+
+    it('classifies ANSWER_QUESTION for help requests', async () => {
+      const result = await classifyIntent('How does this work');
       expect(result.intent).toBe('ANSWER_QUESTION');
     });
   });
 
   // -------------------------------------------------------------------------
-  // Confidence clamping
+  // Confidence scores
   // -------------------------------------------------------------------------
 
-  describe('classifyIntent() — confidence clamping', () => {
-    it('clamps confidence above 1 to 1', async () => {
-      mockLLMResponse({ intent: 'ANSWER_QUESTION', entities: {}, confidence: 1.5 });
-      const result = await classifyIntent('Hello');
-      expect(result.confidence).toBe(1);
+  describe('classifyIntent() — confidence scores', () => {
+    it('returns confidence between 0 and 1', async () => {
+      const result = await classifyIntent('Tell me about Tokyo');
+      expect(result.confidence).toBeGreaterThanOrEqual(0);
+      expect(result.confidence).toBeLessThanOrEqual(1);
     });
 
-    it('clamps confidence below 0 to 0', async () => {
-      mockLLMResponse({ intent: 'ANSWER_QUESTION', entities: {}, confidence: -0.3 });
-      const result = await classifyIntent('Hello');
+    it('returns high confidence for clear intents', async () => {
+      const result = await classifyIntent('Sync my plan');
+      expect(result.confidence).toBeGreaterThan(0.8);
+    });
+
+    it('returns zero confidence for fallback results', async () => {
+      const result = await classifyIntent('');
       expect(result.confidence).toBe(0);
     });
+  });
 
-    it('defaults confidence to 0.5 when not a number', async () => {
-      mockLLMResponse({ intent: 'ANSWER_QUESTION', entities: {}, confidence: 'high' });
+  // -------------------------------------------------------------------------
+  // Entity extraction
+  // -------------------------------------------------------------------------
+
+  describe('classifyIntent() — entity extraction', () => {
+    it('extracts email entity from INVITE_COLLABORATOR message', async () => {
+      const result = await classifyIntent('Invite alice@example.com to collaborate');
+      expect(result.entities.user_email).toBe('alice@example.com');
+    });
+
+    it('extracts email from share messages', async () => {
+      const result = await classifyIntent('Share this plan with bob@test.com');
+      expect(result.entities.user_email).toBe('bob@test.com');
+    });
+
+    it('extracts destination name from query messages', async () => {
+      const result = await classifyIntent('Tell me about Kyoto');
+      expect(result.entities.destination_name).toBeTruthy();
+    });
+
+    it('extracts plan_item_texts from ADD_PLAN_ITEMS messages', async () => {
+      const result = await classifyIntent('Add visit Senso-ji temple and try street food to my plan');
+      expect(result.entities.plan_item_texts).toBeTruthy();
+      expect(Array.isArray(result.entities.plan_item_texts)).toBe(true);
+      expect(result.entities.plan_item_texts.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns null entities when no entities in message', async () => {
       const result = await classifyIntent('Hello');
-      expect(result.confidence).toBe(0.5);
+      expect(result.entities.user_email).toBeNull();
+      expect(result.entities.plan_item_texts).toBeNull();
+    });
+
+    it('always returns all entity fields', async () => {
+      const result = await classifyIntent('Hello');
+      expect(result.entities).toHaveProperty('destination_name');
+      expect(result.entities).toHaveProperty('experience_name');
+      expect(result.entities).toHaveProperty('user_email');
+      expect(result.entities).toHaveProperty('plan_item_texts');
     });
   });
 
@@ -174,93 +202,69 @@ describe('bienbot-intent-classifier', () => {
   // -------------------------------------------------------------------------
 
   describe('classifyIntent() — fallback', () => {
-    it('returns ANSWER_QUESTION fallback when AI key not configured', async () => {
-      aiUnavailable();
-
-      const result = await classifyIntent('Hello BienBot');
-
-      expect(result.intent).toBe(INTENTS.ANSWER_QUESTION);
-      expect(result.confidence).toBe(0);
-      expect(callProvider).not.toHaveBeenCalled();
-    });
-
     it('returns ANSWER_QUESTION fallback when message is empty', async () => {
       const result = await classifyIntent('');
       expect(result.intent).toBe(INTENTS.ANSWER_QUESTION);
-      expect(callProvider).not.toHaveBeenCalled();
+      expect(result.confidence).toBe(0);
     });
 
     it('returns ANSWER_QUESTION fallback when message is whitespace only', async () => {
       const result = await classifyIntent('   ');
       expect(result.intent).toBe(INTENTS.ANSWER_QUESTION);
+      expect(result.confidence).toBe(0);
     });
 
-    it('returns ANSWER_QUESTION fallback when message is null/undefined', async () => {
-      const r1 = await classifyIntent(null);
-      const r2 = await classifyIntent(undefined);
-      expect(r1.intent).toBe(INTENTS.ANSWER_QUESTION);
-      expect(r2.intent).toBe(INTENTS.ANSWER_QUESTION);
-    });
-
-    it('returns ANSWER_QUESTION fallback when LLM returns malformed JSON', async () => {
-      callProvider.mockResolvedValueOnce({ content: 'I cannot classify this', usage: {} });
-
-      const result = await classifyIntent('Plan a trip');
+    it('returns ANSWER_QUESTION fallback when message is null', async () => {
+      const result = await classifyIntent(null);
       expect(result.intent).toBe(INTENTS.ANSWER_QUESTION);
       expect(result.confidence).toBe(0);
     });
 
-    it('returns ANSWER_QUESTION fallback when LLM returns unknown intent', async () => {
-      mockLLMResponse({ intent: 'DO_SOMETHING_UNKNOWN', entities: {}, confidence: 0.9 });
-
-      const result = await classifyIntent('Do something unknown');
-      expect(result.intent).toBe(INTENTS.ANSWER_QUESTION);
-    });
-
-    it('returns fallback when callProvider throws', async () => {
-      callProvider.mockRejectedValueOnce(new Error('Network timeout'));
-
-      const result = await classifyIntent('Plan my trip');
+    it('returns ANSWER_QUESTION fallback when message is undefined', async () => {
+      const result = await classifyIntent(undefined);
       expect(result.intent).toBe(INTENTS.ANSWER_QUESTION);
       expect(result.confidence).toBe(0);
     });
-  });
 
-  // -------------------------------------------------------------------------
-  // Entity normalisation
-  // -------------------------------------------------------------------------
-
-  describe('classifyIntent() — entity normalisation', () => {
-    it('normalises non-array plan_item_texts to null', async () => {
-      mockLLMResponse({
-        intent: 'ADD_PLAN_ITEMS',
-        entities: { plan_item_texts: 'Visit temple' }, // string, not array
-        confidence: 0.8
-      });
-
-      const result = await classifyIntent('Add visit temple to my plan');
-      expect(result.entities.plan_item_texts).toBeNull();
-    });
-
-    it('filters non-string entries from plan_item_texts array', async () => {
-      mockLLMResponse({
-        intent: 'ADD_PLAN_ITEMS',
-        entities: { plan_item_texts: ['Visit temple', 42, null, 'Try ramen'] },
-        confidence: 0.8
-      });
-
-      const result = await classifyIntent('Add items to my plan');
-      expect(result.entities.plan_item_texts).toEqual(['Visit temple', 'Try ramen']);
-    });
-
-    it('returns null entities when entities field is missing', async () => {
-      mockLLMResponse({ intent: 'ANSWER_QUESTION', confidence: 0.7 });
-
-      const result = await classifyIntent('Hello');
+    it('returns null entities for fallback results', async () => {
+      const result = await classifyIntent('');
       expect(result.entities.destination_name).toBeNull();
       expect(result.entities.experience_name).toBeNull();
       expect(result.entities.user_email).toBeNull();
       expect(result.entities.plan_item_texts).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // resetManager
+  // -------------------------------------------------------------------------
+
+  describe('resetManager()', () => {
+    it('resets the NLP manager singleton', async () => {
+      // First classification should work
+      const r1 = await classifyIntent('Hello');
+      expect(r1.intent).toBe(INTENTS.ANSWER_QUESTION);
+
+      // Reset and classify again (should retrain)
+      resetManager();
+      const r2 = await classifyIntent('Hello');
+      expect(r2.intent).toBe(INTENTS.ANSWER_QUESTION);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Return shape
+  // -------------------------------------------------------------------------
+
+  describe('classifyIntent() — return shape', () => {
+    it('always returns intent, entities, and confidence', async () => {
+      const result = await classifyIntent('Plan my trip to Bali');
+      expect(result).toHaveProperty('intent');
+      expect(result).toHaveProperty('entities');
+      expect(result).toHaveProperty('confidence');
+      expect(typeof result.intent).toBe('string');
+      expect(typeof result.entities).toBe('object');
+      expect(typeof result.confidence).toBe('number');
     });
   });
 });

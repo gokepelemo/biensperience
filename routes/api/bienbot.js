@@ -92,4 +92,11 @@ router.post('/sessions/:id/resume', bienbotCtrl.resume);
  */
 router.delete('/sessions/:id/pending/:actionId', bienbotCtrl.deletePendingAction);
 
+/**
+ * @route   POST /api/bienbot/sessions/:id/context
+ * @desc    Update session context mid-conversation (e.g. plan item opened)
+ * @access  Private (requires ai_features flag)
+ */
+router.post('/sessions/:id/context', bienbotCtrl.updateContext);
+
 module.exports = router;

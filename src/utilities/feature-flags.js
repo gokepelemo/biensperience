@@ -148,6 +148,16 @@ export const FEATURE_FLAGS = {
     key: 'bienbot',
     description: 'BienBot AI travel planning assistant',
     tier: 'premium'
+  },
+  AI_ADMIN: {
+    key: 'ai_admin',
+    description: 'AI gateway administration: provider management, policies, usage analytics, and routing configuration',
+    tier: 'admin'
+  },
+  FEATURE_ADMIN: {
+    key: 'feature_admin',
+    description: 'Manage feature flags for users. The first super admin always has this ability; other super admins require this flag.',
+    tier: 'admin'
   }
 };
 

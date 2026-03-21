@@ -1,0 +1,411 @@
+/**
+ * AI Admin Policies Tab
+ *
+ * CRUD for global and per-user AI policies including rate limits,
+ * token budgets, provider restrictions, and content filtering.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { Box, Flex, Badge, Stack, Input, Textarea } from '@chakra-ui/react';
+import { FaPlus, FaEdit, FaTrash, FaGlobe, FaUser } from 'react-icons/fa';
+import { Button, Card, CardHeader, CardBody, Alert, Modal } from '../../components/design-system';
+import { Text, Heading } from '../../components/design-system';
+import { Form, FormGroup, FormLabel, FormControl } from '../../components/design-system';
+import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
+import { getPolicies, createPolicy, updatePolicy, deletePolicy } from '../../utilities/ai-admin-api';
+import { useToast } from '../../contexts/ToastContext';
+import { logger } from '../../utilities/logger';
+
+const EMPTY_POLICY = {
+  name: '',
+  scope: 'global',
+  target: '',
+  allowed_providers: '',
+  blocked_providers: '',
+  rate_limits: { requests_per_minute: '', requests_per_hour: '', requests_per_day: '' },
+  token_budget: { daily_input_tokens: '', daily_output_tokens: '', monthly_input_tokens: '', monthly_output_tokens: '' },
+  content_filtering: { enabled: false, block_patterns: '', redact_patterns: '' },
+  max_tokens_per_request: 4000
+};
+
+export default function AIAdminPolicies() {
+  const [policies, setPolicies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_POLICY);
+  const [saving, setSaving] = useState(false);
+  const { success: showSuccess, error: showError } = useToast();
+
+  const fetchPolicies = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await getPolicies();
+      setPolicies(result?.data?.policies || []);
+    } catch (err) {
+      logger.error('[AIAdminPolicies] Failed to load policies', { error: err.message });
+      setError('Failed to load policies');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchPolicies(); }, [fetchPolicies]);
+
+  const handleCreate = useCallback(() => {
+    setEditingPolicy(null);
+    setFormData(EMPTY_POLICY);
+    setShowForm(true);
+  }, []);
+
+  const handleEdit = useCallback((policy) => {
+    setEditingPolicy(policy);
+    setFormData({
+      name: policy.name || '',
+      scope: policy.scope || 'global',
+      target: policy.target?._id || policy.target || '',
+      allowed_providers: (policy.allowed_providers || []).join(', '),
+      blocked_providers: (policy.blocked_providers || []).join(', '),
+      rate_limits: {
+        requests_per_minute: policy.rate_limits?.requests_per_minute ?? '',
+        requests_per_hour: policy.rate_limits?.requests_per_hour ?? '',
+        requests_per_day: policy.rate_limits?.requests_per_day ?? ''
+      },
+      token_budget: {
+        daily_input_tokens: policy.token_budget?.daily_input_tokens ?? '',
+        daily_output_tokens: policy.token_budget?.daily_output_tokens ?? '',
+        monthly_input_tokens: policy.token_budget?.monthly_input_tokens ?? '',
+        monthly_output_tokens: policy.token_budget?.monthly_output_tokens ?? ''
+      },
+      content_filtering: {
+        enabled: policy.content_filtering?.enabled || false,
+        block_patterns: (policy.content_filtering?.block_patterns || []).join('\n'),
+        redact_patterns: (policy.content_filtering?.redact_patterns || []).join('\n')
+      },
+      max_tokens_per_request: policy.max_tokens_per_request || 4000
+    });
+    setShowForm(true);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    try {
+      setSaving(true);
+      const parseNum = (v) => v === '' || v == null ? null : parseInt(v, 10);
+      const data = {
+        name: formData.name,
+        scope: formData.scope,
+        target: formData.scope === 'user' ? formData.target : null,
+        allowed_providers: formData.allowed_providers ? formData.allowed_providers.split(',').map(s => s.trim()).filter(Boolean) : [],
+        blocked_providers: formData.blocked_providers ? formData.blocked_providers.split(',').map(s => s.trim()).filter(Boolean) : [],
+        rate_limits: {
+          requests_per_minute: parseNum(formData.rate_limits.requests_per_minute),
+          requests_per_hour: parseNum(formData.rate_limits.requests_per_hour),
+          requests_per_day: parseNum(formData.rate_limits.requests_per_day)
+        },
+        token_budget: {
+          daily_input_tokens: parseNum(formData.token_budget.daily_input_tokens),
+          daily_output_tokens: parseNum(formData.token_budget.daily_output_tokens),
+          monthly_input_tokens: parseNum(formData.token_budget.monthly_input_tokens),
+          monthly_output_tokens: parseNum(formData.token_budget.monthly_output_tokens)
+        },
+        content_filtering: {
+          enabled: formData.content_filtering.enabled,
+          block_patterns: formData.content_filtering.block_patterns ? formData.content_filtering.block_patterns.split('\n').map(s => s.trim()).filter(Boolean) : [],
+          redact_patterns: formData.content_filtering.redact_patterns ? formData.content_filtering.redact_patterns.split('\n').map(s => s.trim()).filter(Boolean) : []
+        },
+        max_tokens_per_request: parseInt(formData.max_tokens_per_request, 10) || 4000
+      };
+
+      if (editingPolicy) {
+        await updatePolicy(editingPolicy._id, data);
+        showSuccess('Policy updated');
+      } else {
+        await createPolicy(data);
+        showSuccess('Policy created');
+      }
+      setShowForm(false);
+      fetchPolicies();
+    } catch (err) {
+      showError(err.message || 'Failed to save policy');
+    } finally {
+      setSaving(false);
+    }
+  }, [formData, editingPolicy, fetchPolicies, showSuccess, showError]);
+
+  const handleDelete = useCallback(async (policyId, policyName) => {
+    if (!window.confirm(`Deactivate policy "${policyName}"? This can be reversed by re-enabling it.`)) return;
+    try {
+      await deletePolicy(policyId);
+      setPolicies(prev => prev.filter(p => p._id !== policyId));
+      showSuccess('Policy deactivated');
+    } catch (err) {
+      showError('Failed to deactivate policy');
+    }
+  }, [showSuccess, showError]);
+
+  const updateFormField = useCallback((field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const updateNestedField = useCallback((parent, field, value) => {
+    setFormData(prev => ({ ...prev, [parent]: { ...prev[parent], [field]: value } }));
+  }, []);
+
+  if (loading) {
+    return <Stack gap="var(--space-4)">{[1, 2].map(i => <SkeletonLoader key={i} height="100px" />)}</Stack>;
+  }
+
+  if (error) {
+    return <Alert variant="danger">{error}</Alert>;
+  }
+
+  return (
+    <Stack gap="var(--space-4)">
+      <Flex justify="space-between" align="center">
+        <Box>
+          <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
+            AI Policies
+          </Heading>
+          <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)">
+            Configure guardrails, rate limits, and token budgets per user or globally.
+          </Text>
+        </Box>
+        <Button variant="gradient" size="sm" onClick={handleCreate}>
+          <FaPlus /> New Policy
+        </Button>
+      </Flex>
+
+      {policies.length === 0 && (
+        <Alert variant="info">No policies configured. Create a global policy to set default guardrails.</Alert>
+      )}
+
+      {policies.map(policy => (
+        <Card key={policy._id}>
+          <CardHeader>
+            <Flex justify="space-between" align="center" width="100%">
+              <Flex align="center" gap="var(--space-3)">
+                {policy.scope === 'global' ? <FaGlobe /> : <FaUser />}
+                <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
+                  {policy.name}
+                </Heading>
+                <Badge colorPalette={policy.active ? 'green' : 'gray'} variant="subtle" fontSize="var(--font-size-xs)">
+                  {policy.active ? 'Active' : 'Inactive'}
+                </Badge>
+                <Badge variant="outline" fontSize="var(--font-size-xs)">
+                  {policy.scope}
+                </Badge>
+              </Flex>
+              <Flex gap="var(--space-2)">
+                <Button variant="outline" size="sm" onClick={() => handleEdit(policy)}>
+                  <FaEdit />
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => handleDelete(policy._id, policy.name)}>
+                  <FaTrash />
+                </Button>
+              </Flex>
+            </Flex>
+          </CardHeader>
+          <CardBody>
+            <Flex gap="var(--space-6)" wrap="wrap">
+              {policy.scope === 'user' && policy.target && (
+                <Box>
+                  <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Target User</Text>
+                  <Text fontSize="var(--font-size-sm)">{policy.target.name || policy.target.email || policy.target}</Text>
+                </Box>
+              )}
+              {policy.rate_limits?.requests_per_day != null && (
+                <Box>
+                  <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Daily Requests</Text>
+                  <Text fontSize="var(--font-size-sm)">{policy.rate_limits.requests_per_day}</Text>
+                </Box>
+              )}
+              {policy.token_budget?.daily_input_tokens != null && (
+                <Box>
+                  <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Daily Input Tokens</Text>
+                  <Text fontSize="var(--font-size-sm)">{policy.token_budget.daily_input_tokens.toLocaleString()}</Text>
+                </Box>
+              )}
+              <Box>
+                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Max Tokens/Request</Text>
+                <Text fontSize="var(--font-size-sm)">{policy.max_tokens_per_request}</Text>
+              </Box>
+              <Box>
+                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Content Filtering</Text>
+                <Text fontSize="var(--font-size-sm)">{policy.content_filtering?.enabled ? 'Enabled' : 'Disabled'}</Text>
+              </Box>
+            </Flex>
+          </CardBody>
+        </Card>
+      ))}
+
+      <Modal
+        show={showForm}
+        onClose={() => setShowForm(false)}
+        size="lg"
+        centered
+      >
+        <Box p="var(--space-4)">
+          <Heading as="h3" fontSize="var(--font-size-lg)" mb="var(--space-4)">
+            {editingPolicy ? 'Edit Policy' : 'Create Policy'}
+          </Heading>
+
+          <Stack gap="var(--space-4)">
+            <FormGroup>
+              <FormLabel>Policy Name</FormLabel>
+              <Input
+                value={formData.name}
+                onChange={(e) => updateFormField('name', e.target.value)}
+                placeholder="e.g., Global Default, Premium User"
+              />
+            </FormGroup>
+
+            {!editingPolicy && (
+              <FormGroup>
+                <FormLabel>Scope</FormLabel>
+                <Flex gap="var(--space-3)">
+                  <Button
+                    variant={formData.scope === 'global' ? 'gradient' : 'outline'}
+                    size="sm"
+                    onClick={() => updateFormField('scope', 'global')}
+                  >
+                    <FaGlobe /> Global
+                  </Button>
+                  <Button
+                    variant={formData.scope === 'user' ? 'gradient' : 'outline'}
+                    size="sm"
+                    onClick={() => updateFormField('scope', 'user')}
+                  >
+                    <FaUser /> User
+                  </Button>
+                </Flex>
+              </FormGroup>
+            )}
+
+            {formData.scope === 'user' && !editingPolicy && (
+              <FormGroup>
+                <FormLabel>Target User ID</FormLabel>
+                <Input
+                  value={formData.target}
+                  onChange={(e) => updateFormField('target', e.target.value)}
+                  placeholder="MongoDB User ID"
+                />
+              </FormGroup>
+            )}
+
+            <FormGroup>
+              <FormLabel>Allowed Providers (comma-separated, empty = all)</FormLabel>
+              <Input
+                value={formData.allowed_providers}
+                onChange={(e) => updateFormField('allowed_providers', e.target.value)}
+                placeholder="openai, anthropic"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>Blocked Providers (comma-separated)</FormLabel>
+              <Input
+                value={formData.blocked_providers}
+                onChange={(e) => updateFormField('blocked_providers', e.target.value)}
+                placeholder="mistral"
+              />
+            </FormGroup>
+
+            <Heading as="h4" fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-semibold)">
+              Rate Limits
+            </Heading>
+
+            <Flex gap="var(--space-3)" wrap="wrap">
+              <Box flex="1" minW="120px">
+                <FormLabel>Per Minute</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.rate_limits.requests_per_minute}
+                  onChange={(e) => updateNestedField('rate_limits', 'requests_per_minute', e.target.value)}
+                  placeholder="No limit"
+                />
+              </Box>
+              <Box flex="1" minW="120px">
+                <FormLabel>Per Hour</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.rate_limits.requests_per_hour}
+                  onChange={(e) => updateNestedField('rate_limits', 'requests_per_hour', e.target.value)}
+                  placeholder="No limit"
+                />
+              </Box>
+              <Box flex="1" minW="120px">
+                <FormLabel>Per Day</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.rate_limits.requests_per_day}
+                  onChange={(e) => updateNestedField('rate_limits', 'requests_per_day', e.target.value)}
+                  placeholder="No limit"
+                />
+              </Box>
+            </Flex>
+
+            <Heading as="h4" fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-semibold)">
+              Token Budget
+            </Heading>
+
+            <Flex gap="var(--space-3)" wrap="wrap">
+              <Box flex="1" minW="140px">
+                <FormLabel>Daily Input</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.token_budget.daily_input_tokens}
+                  onChange={(e) => updateNestedField('token_budget', 'daily_input_tokens', e.target.value)}
+                  placeholder="Unlimited"
+                />
+              </Box>
+              <Box flex="1" minW="140px">
+                <FormLabel>Daily Output</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.token_budget.daily_output_tokens}
+                  onChange={(e) => updateNestedField('token_budget', 'daily_output_tokens', e.target.value)}
+                  placeholder="Unlimited"
+                />
+              </Box>
+              <Box flex="1" minW="140px">
+                <FormLabel>Monthly Input</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.token_budget.monthly_input_tokens}
+                  onChange={(e) => updateNestedField('token_budget', 'monthly_input_tokens', e.target.value)}
+                  placeholder="Unlimited"
+                />
+              </Box>
+              <Box flex="1" minW="140px">
+                <FormLabel>Monthly Output</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.token_budget.monthly_output_tokens}
+                  onChange={(e) => updateNestedField('token_budget', 'monthly_output_tokens', e.target.value)}
+                  placeholder="Unlimited"
+                />
+              </Box>
+            </Flex>
+
+            <FormGroup>
+              <FormLabel>Max Tokens Per Request</FormLabel>
+              <Input
+                type="number"
+                value={formData.max_tokens_per_request}
+                onChange={(e) => updateFormField('max_tokens_per_request', e.target.value)}
+              />
+            </FormGroup>
+
+            <Flex gap="var(--space-3)" pt="var(--space-2)" justify="flex-end">
+              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button variant="gradient" onClick={handleSave} disabled={saving || !formData.name}>
+                {saving ? 'Saving...' : (editingPolicy ? 'Update Policy' : 'Create Policy')}
+              </Button>
+            </Flex>
+          </Stack>
+        </Box>
+      </Modal>
+    </Stack>
+  );
+}

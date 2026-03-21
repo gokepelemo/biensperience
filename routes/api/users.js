@@ -9,6 +9,7 @@ router.get('/bulk', ensureLoggedIn, usersCtrl.getBulkUsers); // Bulk fetch users
 router.get('/avatars', ensureLoggedIn, usersCtrl.getAvatars); // Batch avatar URL resolution
 router.get('/search', ensureLoggedIn, usersCtrl.searchUsers);
 router.get('/all', ensureLoggedIn, usersCtrl.getAllUsers);
+router.get('/feature-admin-check', ensureLoggedIn, usersCtrl.checkFeatureFlagAdmin);
 router.get('/profile', ensureLoggedIn, usersCtrl.getProfile); // Get current user's profile
 router.get('/:id', ensureLoggedIn, usersCtrl.getUser);
 router.put('/:id', ensureLoggedIn, modificationLimiter, usersCtrl.updateUser);

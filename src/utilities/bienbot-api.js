@@ -359,8 +359,26 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
+          case 'update_destination':
+          case 'toggle_favorite_destination':
+            broadcastEvent('destination:updated', {
+              destination: entity,
+              destinationId: entity._id
+            });
+            break;
+
           case 'create_experience':
             broadcastEvent('experience:created', {
+              experience: entity,
+              experienceId: entity._id
+            });
+            break;
+
+          case 'update_experience':
+          case 'add_experience_plan_item':
+          case 'update_experience_plan_item':
+          case 'delete_experience_plan_item':
+            broadcastEvent('experience:updated', {
               experience: entity,
               experienceId: entity._id
             });
@@ -375,9 +393,28 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
+          case 'delete_plan':
+            broadcastEvent('plan:deleted', {
+              planId: actionResult.planId || entity?._id,
+              version: Date.now()
+            });
+            break;
+
           case 'add_plan_items':
           case 'update_plan_item':
+          case 'delete_plan_item':
           case 'sync_plan':
+          case 'add_plan_item_note':
+          case 'add_plan_item_detail':
+          case 'assign_plan_item':
+          case 'unassign_plan_item':
+          case 'update_plan':
+          case 'add_plan_cost':
+          case 'update_plan_cost':
+          case 'delete_plan_cost':
+          case 'remove_collaborator':
+          case 'set_member_location':
+          case 'remove_member_location':
             broadcastEvent('plan:updated', {
               plan: entity,
               planId: entity._id || actionResult.planId,
@@ -432,6 +469,41 @@ export async function cancelAction(sessionId, actionId) {
       version: Date.now()
     });
     logger.debug('[bienbot-api] bienbot:action_cancelled event dispatched', { sessionId, actionId });
+  } catch (e) {
+    // Silently ignore
+  }
+
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
+// Context update (mid-session)
+// ---------------------------------------------------------------------------
+
+/**
+ * Update session context mid-conversation (e.g. when user opens a plan item
+ * modal while the BienBot drawer is already open).
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} entity - Entity type (destination|experience|plan|plan_item|user)
+ * @param {string} entityId - Entity ID
+ * @returns {Promise<Object>} { entityLabel, context }
+ */
+export async function updateSessionContext(sessionId, entity, entityId) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/context`,
+    "POST",
+    { entity, entityId }
+  );
+
+  try {
+    broadcastEvent('bienbot:context_updated', {
+      sessionId,
+      entity,
+      entityId,
+      version: Date.now()
+    });
+    logger.debug('[bienbot-api] bienbot:context_updated event dispatched', { sessionId, entity, entityId });
   } catch (e) {
     // Silently ignore
   }

@@ -29,6 +29,20 @@ export const AI_TASKS = {
 };
 
 /**
+ * BienBot intents from the intent corpus.
+ * Used for intent-based routing rules.
+ */
+export const BIENBOT_INTENTS = {
+  QUERY_DESTINATION: 'QUERY_DESTINATION',
+  PLAN_EXPERIENCE: 'PLAN_EXPERIENCE',
+  CREATE_EXPERIENCE: 'CREATE_EXPERIENCE',
+  ADD_PLAN_ITEMS: 'ADD_PLAN_ITEMS',
+  INVITE_COLLABORATOR: 'INVITE_COLLABORATOR',
+  SYNC_PLAN: 'SYNC_PLAN',
+  ANSWER_QUESTION: 'ANSWER_QUESTION'
+};
+
+/**
  * Default models for each provider
  */
 export const DEFAULT_MODELS = {

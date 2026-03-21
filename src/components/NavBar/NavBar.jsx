@@ -27,7 +27,8 @@ import { eventBus } from "../../utilities/event-bus";
 import { lang } from "../../lang.constants";
 import {
   FaUser, FaTicketAlt, FaUsers, FaMapMarkerAlt, FaStar,
-  FaSignOutAlt, FaUserPlus, FaBars, FaTimes, FaChevronDown
+  FaSignOutAlt, FaUserPlus, FaBars, FaTimes, FaChevronDown,
+  FaCog, FaRobot
 } from "react-icons/fa";
 import styles from "./NavBar.module.css";
 
@@ -223,14 +224,6 @@ export default function NavBar() {
             )}
           </Menu.Item>
         )}
-        {isSuper() && (
-          <Menu.Item value="admin-users" asChild className={styles.dropdownItem}>
-            <NavLink to="/admin/users" onClick={closeMenu} aria-label={lang.current.aria.adminPanelManageUsers}>
-              <FaUsers className={styles.dropdownIcon} />
-              <span>All Users</span>
-            </NavLink>
-          </Menu.Item>
-        )}
         <Menu.Item
           value="new-destination"
           className={styles.dropdownItem}
@@ -249,6 +242,29 @@ export default function NavBar() {
           <FaStar className={styles.dropdownIcon} />
           <span>New Experience</span>
         </Menu.Item>
+        {isSuper() && (
+          <>
+            <Menu.Separator className={styles.dropdownDivider} />
+            <Menu.ItemGroup>
+              <Menu.ItemGroupLabel className={styles.dropdownGroupLabel}>
+                <FaCog className={styles.dropdownIcon} />
+                <span>Admin</span>
+              </Menu.ItemGroupLabel>
+              <Menu.Item value="admin-users" asChild className={styles.dropdownItem}>
+                <NavLink to="/admin/users" onClick={closeMenu} aria-label={lang.current.aria.adminPanelManageUsers}>
+                  <FaUsers className={styles.dropdownIcon} />
+                  <span>Users</span>
+                </NavLink>
+              </Menu.Item>
+              <Menu.Item value="admin-ai" asChild className={styles.dropdownItem}>
+                <NavLink to="/admin/ai" onClick={closeMenu} aria-label={lang.current.aria.adminPanelManageAI}>
+                  <FaRobot className={styles.dropdownIcon} />
+                  <span>AI</span>
+                </NavLink>
+              </Menu.Item>
+            </Menu.ItemGroup>
+          </>
+        )}
         <Menu.Separator className={styles.dropdownDivider} />
         <Menu.Item
           value="logout"
@@ -359,17 +375,6 @@ export default function NavBar() {
           )}
         </button>
       )}
-      {isSuper() && (
-        <NavLink
-          to="/admin/users"
-          onClick={closeMobile}
-          className={styles.mobileNavLink}
-          aria-label={lang.current.aria.adminPanelManageUsers}
-        >
-          <FaUsers className={styles.mobileIcon} />
-          All Users
-        </NavLink>
-      )}
       <button
         type="button"
         onClick={() => { closeMobile(); openDestinationWizard(); }}
@@ -388,6 +393,37 @@ export default function NavBar() {
         <FaStar className={styles.mobileIcon} />
         New Experience
       </button>
+      {isSuper() && (
+        <>
+          <Box h="1px" bg="border" mx="4" my="2" />
+          <Box px="4" py="1">
+            <Flex align="center" gap="2" className={styles.mobileGroupLabel}>
+              <FaCog className={styles.mobileIcon} />
+              <span>Admin</span>
+            </Flex>
+          </Box>
+          <NavLink
+            to="/admin/users"
+            onClick={closeMobile}
+            className={styles.mobileNavLink}
+            aria-label={lang.current.aria.adminPanelManageUsers}
+            style={{ paddingLeft: '2.5rem' }}
+          >
+            <FaUsers className={styles.mobileIcon} />
+            Users
+          </NavLink>
+          <NavLink
+            to="/admin/ai"
+            onClick={closeMobile}
+            className={styles.mobileNavLink}
+            aria-label={lang.current.aria.adminPanelManageAI}
+            style={{ paddingLeft: '2.5rem' }}
+          >
+            <FaRobot className={styles.mobileIcon} />
+            AI
+          </NavLink>
+        </>
+      )}
 
       <Box h="1px" bg="border" mx="4" my="2" />
 

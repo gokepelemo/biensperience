@@ -258,6 +258,25 @@ export function restoreHashToUrl(hash, options = {}) {
   }
 }
 
+/**
+ * Check if a hash corresponds to a legal/policy modal (terms, privacy, cookies).
+ * These hashes are transient UI triggers and should NOT be persisted across navigation.
+ *
+ * @param {string} hash - Hash fragment (e.g., "#terms", "#privacy-policy")
+ * @returns {boolean}
+ */
+export function isLegalHash(hash) {
+  const h = (hash || '').toLowerCase();
+  return (
+    h === '#terms' ||
+    h === '#terms-of-service' ||
+    h === '#privacy' ||
+    h === '#privacy-policy' ||
+    h.startsWith('#cookies') ||
+    h === '#cookie-policy'
+  );
+}
+
 export default {
   storeHash,
   getStoredHash,
@@ -265,5 +284,6 @@ export default {
   parseHash,
   scrollToElement,
   handleStoredHash,
-  restoreHashToUrl
+  restoreHashToUrl,
+  isLegalHash
 };

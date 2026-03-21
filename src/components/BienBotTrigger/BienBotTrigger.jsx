@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useUser } from '../../contexts/UserContext';
@@ -43,7 +44,9 @@ export default function BienBotTrigger({ entity, entityId, entityLabel }) {
 
   const invokeContext = { entity, id: entityId, label: entityLabel };
 
-  return (
+  // Render FAB and Panel via portal to document.body so they always sit above
+  // any intervening stacking context (e.g. fullscreen modals with z-index 1050).
+  return createPortal(
     <>
       {!panelOpen && (
         <button
@@ -69,7 +72,8 @@ export default function BienBotTrigger({ entity, entityId, entityLabel }) {
           invokeContext={invokeContext}
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }
 

@@ -4,7 +4,7 @@
   position: fixed;
   bottom: var(--space-6, 1.5rem);
   right: var(--space-6, 1.5rem);
-  z-index: var(--z-index-popover, 1060);
+  z-index: var(--z-index-tooltip, 1070);
 
   /* WCAG 44px minimum tap target */
   width: var(--btn-height-md, 44px);

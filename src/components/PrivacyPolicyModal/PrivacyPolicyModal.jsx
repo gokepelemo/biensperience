@@ -58,7 +58,7 @@ export default function PrivacyPolicyModal({
       show={show}
       onClose={onClose}
       title="Privacy Policy"
-      size="sm"
+      size="lg"
       scrollable
       icon={<FaShieldAlt />}
       footer={customFooter}

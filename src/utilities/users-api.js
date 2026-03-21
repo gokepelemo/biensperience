@@ -139,6 +139,11 @@ export async function getAllUsers() {
   return Array.isArray(response) ? response : [];
 }
 
+export async function checkCanManageFeatureFlags() {
+  const response = await sendRequest(`${BASE_URL}feature-admin-check`, "GET");
+  return response?.data?.canManageFeatureFlags === true;
+}
+
 export async function requestPasswordReset(email) {
   return await sendRequest(`${BASE_URL}forgot-password`, "POST", { email });
 }

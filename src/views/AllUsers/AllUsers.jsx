@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Card, Pill } from "../../components/design-system";
-import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserPlus } from "react-icons/fa";
+import { Box, Flex, SimpleGrid, NativeSelect } from "@chakra-ui/react";
+import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserPlus, FaTimes } from "react-icons/fa";
 import { useUser } from "../../contexts/UserContext";
 import { useData } from "../../contexts/DataContext";
-import { useApp } from "../../contexts/AppContext";
 import { useToast } from "../../contexts/ToastContext";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
+import PageWrapper from "../../components/PageWrapper/PageWrapper";
 import InviteCodeModal from "../../components/InviteCodeModal/InviteCodeModal";
 import Pagination from "../../components/Pagination/Pagination";
-import { Button, Container, FlexBetween, Table, TableHead, TableBody, TableRow, TableCell, EmptyState, Alert, SearchInput } from "../../components/design-system";
+import { Button, Card, Pill, Container, Table, TableHead, TableBody, TableRow, TableCell, EmptyState, Alert, SearchInput, Desktop, Mobile } from "../../components/design-system";
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { getAllUsers, updateUserRole } from "../../utilities/users-api";
 import { handleError } from "../../utilities/error-handler";
@@ -21,10 +21,57 @@ import { createFilter } from "../../utilities/trie";
 import { lang } from "../../lang.constants";
 import styles from "./AllUsers.module.css";
 
+function StatCard({ icon, value, label, colorScheme }) {
+  const bgMap = { primary: 'var(--color-primary)', success: 'var(--color-success)', info: 'var(--color-info)' };
+
+  return (
+    <Flex
+      align="center"
+      gap={{ base: '3', md: '4' }}
+      bg="var(--color-bg-primary)"
+      borderRadius="var(--radius-lg)"
+      p={{ base: '3', md: '4', lg: '6' }}
+      boxShadow="var(--shadow-sm)"
+      transition="var(--transition-normal)"
+      _hover={{ transform: 'translateY(-2px)', boxShadow: 'var(--shadow-md)' }}
+    >
+      <Flex
+        align="center"
+        justify="center"
+        flexShrink={0}
+        w={{ base: '45px', md: '50px', lg: '60px' }}
+        h={{ base: '45px', md: '50px', lg: '60px' }}
+        borderRadius="full"
+        bg={bgMap[colorScheme]}
+        color="white"
+        fontSize={{ base: 'var(--font-size-lg)', lg: 'var(--font-size-xl)' }}
+      >
+        {icon}
+      </Flex>
+      <Box flex="1">
+        <Box
+          fontSize={{ base: 'var(--font-size-lg)', md: 'var(--font-size-xl)', lg: 'var(--font-size-2xl)' }}
+          fontWeight="700"
+          color="var(--color-text-primary)"
+          lineHeight="1"
+        >
+          {value}
+        </Box>
+        <Box
+          fontSize="clamp(0.875rem, 1.25vw, 1rem)"
+          color="var(--color-text-muted)"
+          mt="1"
+        >
+          {label}
+        </Box>
+      </Box>
+    </Flex>
+  );
+}
+
 export default function AllUsers() {
   const { user } = useUser();
   const { experiences, destinations } = useData();
-  const { registerH1, clearActionButtons } = useApp();
   const { success: showSuccess } = useToast();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -62,12 +109,10 @@ export default function AllUsers() {
     }).buildIndex(users);
   }, [users]);
 
-  // Define helper functions
-  const fetchAllUsers = async () => {
+  const fetchAllUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
       const allUsers = await getAllUsers();
       setUsers(allUsers);
     } catch (err) {
@@ -77,7 +122,7 @@ export default function AllUsers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const filterAndSortUsers = useCallback(() => {
     let result = [...users];
@@ -86,7 +131,6 @@ export default function AllUsers() {
     if (searchTerm && userTrieFilter) {
       result = userTrieFilter.filter(searchTerm, { rankResults: true });
     } else if (searchTerm) {
-      // Fallback to linear search if trie not available
       const term = searchTerm.toLowerCase();
       result = result.filter(u =>
         u.name.toLowerCase().includes(term) ||
@@ -104,7 +148,6 @@ export default function AllUsers() {
       let aVal = a[sortField];
       let bVal = b[sortField];
 
-      // Handle date sorting
       if (sortField === 'createdAt') {
         aVal = new Date(aVal || 0).getTime();
         bVal = new Date(bVal || 0).getTime();
@@ -119,7 +162,6 @@ export default function AllUsers() {
     });
 
     setFilteredUsers(result);
-    // Reset to page 1 when filters change
     setCurrentPage(1);
   }, [users, searchTerm, roleFilter, sortField, sortDirection, userTrieFilter]);
 
@@ -129,10 +171,16 @@ export default function AllUsers() {
     return filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredUsers, currentPage]);
 
-  // Calculate total pages
   const totalPages = useMemo(() => {
     return Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
   }, [filteredUsers.length]);
+
+  // Memoize role stats to avoid recalculating on every render
+  const stats = useMemo(() => {
+    const superAdmins = users.filter(u => u.role === USER_ROLES.SUPER_ADMIN).length;
+    const regularUsers = users.filter(u => u.role === USER_ROLES.REGULAR_USER).length;
+    return { superAdmins, regularUsers, total: users.length };
+  }, [users]);
 
   // Effects
   useEffect(() => {
@@ -143,38 +191,27 @@ export default function AllUsers() {
     }
 
     fetchAllUsers();
-  }, [isCurrentUserSuperAdmin]);
+  }, [isCurrentUserSuperAdmin, fetchAllUsers]);
 
   useEffect(() => {
     filterAndSortUsers();
-  }, [users, searchTerm, roleFilter, sortField, sortDirection, filterAndSortUsers]);
-
-  // Register h1 for navbar integration
-  useEffect(() => {
-    const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
-
-    return () => clearActionButtons();
-  }, [registerH1, clearActionButtons]);
+  }, [filterAndSortUsers]);
 
   // Listen for user events for real-time updates
   useEffect(() => {
     if (!isCurrentUserSuperAdmin) return;
 
-    // Handle user created - add new user to the list
     const handleUserCreated = (event) => {
       const newUser = event.user;
       if (!newUser) return;
 
       logger.debug('[AllUsers] User created event received', { userId: newUser._id });
       setUsers(prev => {
-        // Avoid duplicates
         if (prev.some(u => u._id === newUser._id)) return prev;
         return [newUser, ...prev];
       });
     };
 
-    // Handle user updated - update user in the list
     const handleUserUpdated = (event) => {
       const updatedUser = event.user;
       if (!updatedUser) return;
@@ -182,10 +219,7 @@ export default function AllUsers() {
       logger.debug('[AllUsers] User updated event received', { userId: updatedUser._id });
       setUsers(prev => {
         const index = prev.findIndex(u => u._id === updatedUser._id);
-        if (index === -1) {
-          // User not in list yet - might be a new user, add them
-          return [updatedUser, ...prev];
-        }
+        if (index === -1) return [updatedUser, ...prev];
         const updated = [...prev];
         updated[index] = { ...updated[index], ...updatedUser };
         return updated;
@@ -211,14 +245,13 @@ export default function AllUsers() {
   };
 
   const getSortIcon = (field) => {
-    if (sortField !== field) return <FaSort className={styles.sortIconMuted} />;
+    if (sortField !== field) return <FaSort style={{ marginLeft: '0.25rem', color: 'var(--color-text-muted)' }} />;
     return sortDirection === 'asc' ?
-      <FaSortUp className={styles.sortIcon} /> :
-      <FaSortDown className={styles.sortIcon} />;
+      <FaSortUp style={{ marginLeft: '0.25rem' }} /> :
+      <FaSortDown style={{ marginLeft: '0.25rem' }} />;
   };
 
   const handleRoleUpdate = async (userId, newRole) => {
-    // Prevent changing own role
     if (userId === user._id) {
       setError(lang.current.admin.cannotChangeOwnRole);
       setTimeout(() => setError(null), 3000);
@@ -231,7 +264,6 @@ export default function AllUsers() {
     try {
       await updateUserRole(userId, { role: newRole });
 
-      // Update local state
       setUsers(prevUsers =>
         prevUsers.map(u =>
           u._id === userId
@@ -252,13 +284,6 @@ export default function AllUsers() {
     }
   };
 
-  const getRoleStats = () => {
-    const superAdmins = users.filter(u => u.role === USER_ROLES.SUPER_ADMIN).length;
-    const regularUsers = users.filter(u => u.role === USER_ROLES.REGULAR_USER).length;
-    return { superAdmins, regularUsers, total: users.length };
-  };
-
-  // Helper function for singular/plural labels
   const getUserLabel = (count, singular, plural) => {
     return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
   };
@@ -270,14 +295,14 @@ export default function AllUsers() {
           title={lang.current.modal.accessDenied}
           description={lang.current.admin.accessDenied}
         />
-        <div className={`container ${styles.accessDeniedWrapper}`}>
-          <Alert type="danger" message={lang.current.admin.accessDenied} />
-        </div>
+        <Container>
+          <Box mt="12">
+            <Alert type="danger" message={lang.current.admin.accessDenied} />
+          </Box>
+        </Container>
       </>
     );
   }
-
-  const stats = getRoleStats();
 
   return (
     <>
@@ -287,313 +312,320 @@ export default function AllUsers() {
         keywords="admin panel, user management, super admin, user roles"
       />
 
-      <div className="profile-dropdown-view">
-        <Container className="view-header">
-          <FlexBetween className={styles.headerRow}>
-            <div>
-              <h1 className={styles.pageTitle}>
-                <FaUserShield className={styles.titleIcon} />
-                {lang.current.admin.userManagement}
-              </h1>
-              <p className="header-description">{lang.current.admin.superAdminPanel}</p>
-            </div>
-            <div className="header-actions">
-              <Button
-                variant="primary"
-                onClick={() => setShowInviteModal(true)}
-                className={styles.inviteButton}
-              >
-                <FaUserPlus className={styles.iconGapSm} />
-                {lang.current.invite.heading}
-              </Button>
-              <Button as={Link} to="/" variant="outline-secondary">
-                {lang.current.admin.backToHome}
-              </Button>
-            </div>
-          </FlexBetween>
-        </Container>
+      <PageWrapper title={lang.current.admin.userManagement}>
+        <Box className="profile-dropdown-view">
+          <Container className="view-header">
+            <Flex
+              justify="space-between"
+              align={{ base: 'stretch', md: 'center' }}
+              direction={{ base: 'column', md: 'row' }}
+              gap="3"
+              mb="6"
+            >
+              <Box>
+                <h1 style={{ marginBottom: 'var(--space-2)' }}>
+                  <FaUserShield style={{ marginRight: '0.5rem', color: 'var(--color-success)', verticalAlign: 'middle' }} />
+                  {lang.current.admin.userManagement}
+                </h1>
+                <Box as="p" color="var(--color-text-muted)" mb="0" fontSize="clamp(0.8125rem, 1.5vw, 0.9375rem)">
+                  {lang.current.admin.superAdminPanel}
+                </Box>
+              </Box>
+              <Flex gap="2" align="center" justify={{ base: 'stretch', md: 'flex-end' }} direction={{ base: 'column', sm: 'row' }}>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowInviteModal(true)}
+                >
+                  <FaUserPlus style={{ marginRight: '0.25rem' }} />
+                  {lang.current.invite.heading}
+                </Button>
+                <Button as={Link} to="/" variant="outline-secondary">
+                  {lang.current.admin.backToHome}
+                </Button>
+              </Flex>
+            </Flex>
+          </Container>
 
-        {/* Stats Cards */}
-        <Container className={styles.statsSection}>
-          <div className={styles.statsGrid}>
-            <div>
-              <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
-                <div className={styles.statCardIcon}>
-                  <FaUser />
-                </div>
-                <div className={styles.statCardContent}>
-                  <div className={styles.statCardValue}>{stats.total}</div>
-                  <div className={styles.statCardLabel}>{getUserLabel(stats.total, 'Total User', 'Total Users')}</div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className={`${styles.statCard} ${styles.statCardSuccess}`}>
-                <div className={styles.statCardIcon}>
-                  <FaUserShield />
-                </div>
-                <div className={styles.statCardContent}>
-                  <div className={styles.statCardValue}>{stats.superAdmins}</div>
-                  <div className={styles.statCardLabel}>{getUserLabel(stats.superAdmins, 'Super Admin', 'Super Admins')}</div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className={`${styles.statCard} ${styles.statCardInfo}`}>
-                <div className={styles.statCardIcon}>
-                  <FaUser />
-                </div>
-                <div className={styles.statCardContent}>
-                  <div className={styles.statCardValue}>{stats.regularUsers}</div>
-                  <div className={styles.statCardLabel}>{getUserLabel(stats.regularUsers, 'Regular User', 'Regular Users')}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Container>
+          {/* Stats Cards */}
+          <Container>
+            <SimpleGrid columns={{ base: 1, md: 3 }} gap="4" mb="6">
+              <StatCard
+                icon={<FaUser />}
+                value={stats.total}
+                label={getUserLabel(stats.total, 'Total User', 'Total Users')}
+                colorScheme="primary"
+              />
+              <StatCard
+                icon={<FaUserShield />}
+                value={stats.superAdmins}
+                label={getUserLabel(stats.superAdmins, 'Super Admin', 'Super Admins')}
+                colorScheme="success"
+              />
+              <StatCard
+                icon={<FaUser />}
+                value={stats.regularUsers}
+                label={getUserLabel(stats.regularUsers, 'Regular User', 'Regular Users')}
+                colorScheme="info"
+              />
+            </SimpleGrid>
 
-          {/* Alerts */}
-          {error && <Alert type="danger" message={error} dismissible className={styles.alertSpacing} />}
+            {/* Alerts */}
+            {error && <Box mb="6"><Alert type="danger" message={error} dismissible /></Box>}
 
-          {/* Users Table */}
-          {loading ? (
-            <Card>
-              <Card.Body className={styles.cardBodyFlush}>
-                <Table hover striped responsive>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell header>Name</TableCell>
-                      <TableCell header>Email</TableCell>
-                      <TableCell header>Role</TableCell>
-                      <TableCell header>Joined</TableCell>
-                      <TableCell header className={styles.textEnd}>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {/* Skeleton table rows */}
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <SkeletonLoader variant="text" width="120px" height="16px" />
-                        </TableCell>
-                        <TableCell>
-                          <SkeletonLoader variant="text" width="180px" height="16px" />
-                        </TableCell>
-                        <TableCell>
-                          <SkeletonLoader variant="text" width="100px" height="20px" />
-                        </TableCell>
-                        <TableCell>
-                          <SkeletonLoader variant="text" width="80px" height="16px" />
-                        </TableCell>
-                        <TableCell className={styles.textEnd}>
-                          <div className={styles.actionsCell}>
-                            <SkeletonLoader variant="rectangle" width="80px" height="32px" />
-                            <SkeletonLoader variant="rectangle" width="80px" height="32px" />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card.Body>
-            </Card>
-          ) : (
-            <Card>
-              <div className={styles.searchFilterBar}>
-                <SearchInput
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onClear={() => setSearchTerm('')}
-                  placeholder={lang.current.admin.searchPlaceholder}
-                  size="sm"
-                  className={styles.searchInputWrapper}
-                />
-
-                <div className={styles.filterWrapper}>
-                  <FaFilter className={styles.filterIcon} />
-                  <select
-                    className={styles.filterSelect}
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    aria-label="Filter by role"
-                  >
-                    <option value="all">All Roles</option>
-                    <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
-                    <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
-                  </select>
-                </div>
-
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    className={styles.clearFiltersButton}
-                    onClick={handleClearFilters}
-                    aria-label="Clear all filters"
-                  >
-                    <FaTimes />
-                    Clear
-                  </button>
-                )}
-              </div>
-              <Card.Body className={styles.cardBodyFlush}>
-                {filteredUsers.length === 0 ? (
-                  <EmptyState
-                    variant="users"
-                    title={searchTerm || roleFilter !== 'all' ? lang.current.admin.noUsersMatch : lang.current.admin.noUsersFound}
-                    description={searchTerm || roleFilter !== 'all'
-                      ? "Try adjusting your search terms or filters to find more users."
-                      : "No users have been registered yet."}
-                    primaryAction={searchTerm || roleFilter !== 'all' ? "Clear Filters" : null}
-                    onPrimaryAction={searchTerm || roleFilter !== 'all' ? handleClearFilters : null}
-                    size="md"
-                    compact
-                  />
-                ) : (
+            {/* Users Table */}
+            {loading ? (
+              <Card>
+                <Card.Body p="0">
                   <Table hover striped responsive>
                     <TableHead>
                       <TableRow>
-                        <TableCell header onClick={() => handleSort('name')} className="sortable">
-                          Name {getSortIcon('name')}
-                        </TableCell>
-                        <TableCell header onClick={() => handleSort('email')} className="sortable">
-                          Email {getSortIcon('email')}
-                        </TableCell>
-                        <TableCell header onClick={() => handleSort('role')} className="sortable">
-                          Role {getSortIcon('role')}
-                        </TableCell>
-                        <TableCell header onClick={() => handleSort('createdAt')} className="sortable">
-                          Joined {getSortIcon('createdAt')}
-                        </TableCell>
-                        <TableCell header className={styles.textEnd}>Actions</TableCell>
+                        <TableCell header>Name</TableCell>
+                        <TableCell header>Email</TableCell>
+                        <TableCell header>Role</TableCell>
+                        <TableCell header>Joined</TableCell>
+                        <TableCell header style={{ textAlign: 'end' }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {paginatedUsers.map((userData) => {
-                        const isCurrentUser = userData._id === user._id;
-                        return (
-                          <TableRow key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
-                            <TableCell>
-                              <div className={styles.userNameCell}>
-                                <Link
-                                  to={`/profile/${userData._id}`}
-                                  className={styles.userNameLink}
-                                >
-                                  {userData.name}
-                                </Link>
-                                {isCurrentUser && (
-                                  <Pill className="badge badge-info">You</Pill>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className={styles.mutedInfoCell}>
-                                <FaEnvelope size={14} />
-                                {userData.email}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`${styles.roleBadge} ${
-                                userData.role === USER_ROLES.SUPER_ADMIN
-                                  ? styles.roleBadgeAdmin
-                                  : styles.roleBadgeUser
-                              }`}>
-                                {userData.role === USER_ROLES.SUPER_ADMIN ? (
-                                  <><FaUserShield /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
-                                ) : (
-                                  <><FaUser /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
-                                )}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className={styles.mutedInfoCell}>
-                                <FaCalendarAlt size={14} />
-                                {userData.createdAt
-                                  ? new Date(userData.createdAt).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })
-                                  : 'Unknown'
-                                }
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className={styles.actionsCell}>
-                                <Button
-                                  variant={userData.role === USER_ROLES.SUPER_ADMIN ? "success" : "outline-success"}
-                                  size="sm"
-                                  onClick={() => handleRoleUpdate(userData._id, USER_ROLES.SUPER_ADMIN)}
-                                  disabled={
-                                    updatingUser === userData._id ||
-                                    userData.role === USER_ROLES.SUPER_ADMIN ||
-                                    isCurrentUser
-                                  }
-                                  title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeSuperAdmin}
-                                >
-                                  {updatingUser === userData._id ? (
-                                    <SkeletonLoader variant="rectangle" width="80px" height="32px" />
-                                  ) : (
-                                    <>
-                                      <FaUserShield className={styles.iconGapSm} />
-                                      <span className={styles.desktopOnly}>Super Admin</span>
-                                      <span className={styles.mobileOnly}>SA</span>
-                                    </>
-                                  )}
-                                </Button>
-                                <Button
-                                  variant={userData.role === USER_ROLES.REGULAR_USER ? "primary" : "outline-primary"}
-                                  size="sm"
-                                  onClick={() => handleRoleUpdate(userData._id, USER_ROLES.REGULAR_USER)}
-                                  disabled={
-                                    updatingUser === userData._id ||
-                                    userData.role === USER_ROLES.REGULAR_USER ||
-                                    isCurrentUser
-                                  }
-                                  title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeRegularUser}
-                                >
-                                  {updatingUser === userData._id ? (
-                                    <SkeletonLoader variant="rectangle" width="80px" height="32px" />
-                                  ) : (
-                                    <>
-                                      <FaUser className={styles.iconGapSm} />
-                                      <span className={styles.desktopOnly}>Regular User</span>
-                                      <span className={styles.mobileOnly}>RU</span>
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <SkeletonLoader variant="text" width="120px" height="16px" />
+                          </TableCell>
+                          <TableCell>
+                            <SkeletonLoader variant="text" width="180px" height="16px" />
+                          </TableCell>
+                          <TableCell>
+                            <SkeletonLoader variant="text" width="100px" height="20px" />
+                          </TableCell>
+                          <TableCell>
+                            <SkeletonLoader variant="text" width="80px" height="16px" />
+                          </TableCell>
+                          <TableCell style={{ textAlign: 'end' }}>
+                            <Flex gap="2" justify="flex-end" align="center">
+                              <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+                              <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+                            </Flex>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
-                )}
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className={styles.paginationWrapper}>
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={setCurrentPage}
-                      totalResults={filteredUsers.length}
-                      resultsPerPage={ITEMS_PER_PAGE}
-                      variant="numbers"
+                </Card.Body>
+              </Card>
+            ) : (
+              <Card>
+                <Flex
+                  align={{ base: 'stretch', md: 'center' }}
+                  direction={{ base: 'column', md: 'row' }}
+                  gap={{ base: '2', md: '3' }}
+                  p="4"
+                  bg="var(--color-bg-secondary)"
+                  borderBottom="1px solid var(--color-border-light)"
+                >
+                  <Box flex="1" minW={{ base: '100%', md: '200px' }}>
+                    <SearchInput
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onClear={() => setSearchTerm('')}
+                      placeholder={lang.current.admin.searchPlaceholder}
+                      size="sm"
                     />
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          )}
-        </div>
+                  </Box>
 
-        {/* Invite Code Modal */}
-        <InviteCodeModal
-          show={showInviteModal}
-          onHide={() => setShowInviteModal(false)}
-          experiences={experiences}
-          destinations={destinations}
-        />
+                  <Box position="relative" w={{ base: '100%', md: 'auto' }}>
+                    <Box
+                      as={FaFilter}
+                      position="absolute"
+                      left="3"
+                      top="50%"
+                      transform="translateY(-50%)"
+                      color="var(--color-text-tertiary)"
+                      pointerEvents="none"
+                      zIndex="1"
+                    />
+                    <NativeSelect.Root size="sm" w={{ base: '100%', md: 'auto' }}>
+                      <NativeSelect.Field
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        aria-label="Filter by role"
+                        pl="calc(var(--space-3) + 20px)"
+                        minW="150px"
+                        className={styles.filterSelect}
+                      >
+                        <option value="all">All Roles</option>
+                        <option value={USER_ROLES.SUPER_ADMIN}>Super Admins Only</option>
+                        <option value={USER_ROLES.REGULAR_USER}>Regular Users Only</option>
+                      </NativeSelect.Field>
+                    </NativeSelect.Root>
+                  </Box>
+
+                  {hasActiveFilters && (
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={handleClearFilters}
+                      aria-label="Clear all filters"
+                    >
+                      <FaTimes style={{ marginRight: '0.25rem' }} />
+                      Clear
+                    </Button>
+                  )}
+                </Flex>
+                <Card.Body p="0">
+                  {filteredUsers.length === 0 ? (
+                    <EmptyState
+                      variant="users"
+                      title={searchTerm || roleFilter !== 'all' ? lang.current.admin.noUsersMatch : lang.current.admin.noUsersFound}
+                      description={searchTerm || roleFilter !== 'all'
+                        ? "Try adjusting your search terms or filters to find more users."
+                        : "No users have been registered yet."}
+                      primaryAction={searchTerm || roleFilter !== 'all' ? "Clear Filters" : null}
+                      onPrimaryAction={searchTerm || roleFilter !== 'all' ? handleClearFilters : null}
+                      size="md"
+                      compact
+                    />
+                  ) : (
+                    <Table hover striped responsive>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell header onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                            Name {getSortIcon('name')}
+                          </TableCell>
+                          <TableCell header onClick={() => handleSort('email')} style={{ cursor: 'pointer' }}>
+                            Email {getSortIcon('email')}
+                          </TableCell>
+                          <TableCell header onClick={() => handleSort('role')} style={{ cursor: 'pointer' }}>
+                            Role {getSortIcon('role')}
+                          </TableCell>
+                          <TableCell header onClick={() => handleSort('createdAt')} style={{ cursor: 'pointer' }}>
+                            Joined {getSortIcon('createdAt')}
+                          </TableCell>
+                          <TableCell header style={{ textAlign: 'end' }}>Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {paginatedUsers.map((userData) => {
+                          const isCurrentUser = userData._id === user._id;
+                          return (
+                            <TableRow key={userData._id} className={isCurrentUser ? 'highlight' : ''}>
+                              <TableCell>
+                                <Flex align="center" gap="2">
+                                  <Link to={`/profile/${userData._id}`} className={styles.userNameLink}>
+                                    {userData.name}
+                                  </Link>
+                                  {isCurrentUser && (
+                                    <Pill variant="info">You</Pill>
+                                  )}
+                                </Flex>
+                              </TableCell>
+                              <TableCell>
+                                <Flex align="center" gap="2" color="var(--color-text-muted)">
+                                  <FaEnvelope size={14} />
+                                  {userData.email}
+                                </Flex>
+                              </TableCell>
+                              <TableCell>
+                                <Pill variant={userData.role === USER_ROLES.SUPER_ADMIN ? 'success' : 'secondary'}>
+                                  {userData.role === USER_ROLES.SUPER_ADMIN ? (
+                                    <><FaUserShield style={{ marginRight: '0.25rem' }} /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                  ) : (
+                                    <><FaUser style={{ marginRight: '0.25rem' }} /> {USER_ROLE_DISPLAY_NAMES[userData.role]}</>
+                                  )}
+                                </Pill>
+                              </TableCell>
+                              <TableCell>
+                                <Flex align="center" gap="2" color="var(--color-text-muted)">
+                                  <FaCalendarAlt size={14} />
+                                  {userData.createdAt
+                                    ? new Date(userData.createdAt).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                      })
+                                    : 'Unknown'
+                                  }
+                                </Flex>
+                              </TableCell>
+                              <TableCell>
+                                <Flex gap="2" justify="flex-end" align="center">
+                                  <Button
+                                    variant={userData.role === USER_ROLES.SUPER_ADMIN ? "success" : "outline-success"}
+                                    size="sm"
+                                    onClick={() => handleRoleUpdate(userData._id, USER_ROLES.SUPER_ADMIN)}
+                                    disabled={
+                                      updatingUser === userData._id ||
+                                      userData.role === USER_ROLES.SUPER_ADMIN ||
+                                      isCurrentUser
+                                    }
+                                    title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeSuperAdmin}
+                                  >
+                                    {updatingUser === userData._id ? (
+                                      <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+                                    ) : (
+                                      <>
+                                        <FaUserShield style={{ marginRight: '0.25rem' }} />
+                                        <Desktop>Super Admin</Desktop>
+                                        <Mobile>SA</Mobile>
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant={userData.role === USER_ROLES.REGULAR_USER ? "primary" : "outline-primary"}
+                                    size="sm"
+                                    onClick={() => handleRoleUpdate(userData._id, USER_ROLES.REGULAR_USER)}
+                                    disabled={
+                                      updatingUser === userData._id ||
+                                      userData.role === USER_ROLES.REGULAR_USER ||
+                                      isCurrentUser
+                                    }
+                                    title={isCurrentUser ? lang.current.admin.cannotChangeOwnRole : lang.current.admin.makeRegularUser}
+                                  >
+                                    {updatingUser === userData._id ? (
+                                      <SkeletonLoader variant="rectangle" width="80px" height="32px" />
+                                    ) : (
+                                      <>
+                                        <FaUser style={{ marginRight: '0.25rem' }} />
+                                        <Desktop>Regular User</Desktop>
+                                        <Mobile>RU</Mobile>
+                                      </>
+                                    )}
+                                  </Button>
+                                </Flex>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <Flex justify="center" align="center" py="4" px="4">
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        totalResults={filteredUsers.length}
+                        resultsPerPage={ITEMS_PER_PAGE}
+                        variant="numbers"
+                      />
+                    </Flex>
+                  )}
+                </Card.Body>
+              </Card>
+            )}
+          </Container>
+        </Box>
+      </PageWrapper>
+
+      {/* Invite Code Modal */}
+      <InviteCodeModal
+        show={showInviteModal}
+        onHide={() => setShowInviteModal(false)}
+        experiences={experiences}
+        destinations={destinations}
+      />
     </>
   );
 }

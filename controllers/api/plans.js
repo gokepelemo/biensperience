@@ -5357,6 +5357,51 @@ const removeMemberLocation = asyncHandler(async (req, res) => {
   return successResponse(res, { member_locations: updated }, 'Travel origin removed');
 });
 
+// ---------------------------------------------------------------------------
+// Entity AI Config
+// ---------------------------------------------------------------------------
+
+async function getPlanAIConfig(req, res) {
+  try {
+    const plan = await Plan.findById(req.params.id).select('ai_config');
+    if (!plan) return errorResponse(res, null, 'Plan not found', 404);
+
+    const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+    const canView = await enforcer.canView({ userId: req.user._id, resource: plan });
+    if (!canView.allowed) return errorResponse(res, null, canView.reason, 403);
+
+    return successResponse(res, { ai_config: plan.ai_config || null });
+  } catch (err) {
+    return errorResponse(res, err, 'Failed to get AI config', 500);
+  }
+}
+
+async function updatePlanAIConfig(req, res) {
+  try {
+    if (!hasFeatureFlag(req.user, 'ai_features')) {
+      return errorResponse(res, null, 'AI features not available', 403);
+    }
+
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) return errorResponse(res, null, 'Plan not found', 404);
+
+    const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+    const canEdit = await enforcer.canEdit({ userId: req.user._id, resource: plan });
+    if (!canEdit.allowed) return errorResponse(res, null, canEdit.reason, 403);
+
+    const allowed = ['preferred_provider', 'preferred_model', 'system_prompt_override', 'temperature', 'max_tokens', 'language', 'disabled'];
+    const update = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) update[`ai_config.${key}`] = req.body[key];
+    }
+
+    const updated = await Plan.findByIdAndUpdate(req.params.id, { $set: update }, { new: true, runValidators: true }).select('ai_config');
+    return successResponse(res, { ai_config: updated.ai_config });
+  } catch (err) {
+    return errorResponse(res, err, 'Failed to update AI config', 500);
+  }
+}
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -5397,5 +5442,8 @@ module.exports = {
   removeMemberLocation,
   // Plan access request (token-based)
   approveByToken,
-  getPlanPreview
+  getPlanPreview,
+  // Entity AI config
+  getPlanAIConfig,
+  updatePlanAIConfig,
 };

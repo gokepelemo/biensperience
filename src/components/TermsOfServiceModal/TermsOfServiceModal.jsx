@@ -58,7 +58,7 @@ export default function TermsOfServiceModal({
       show={show}
       onClose={onClose}
       title="Terms of Service"
-      size="sm"
+      size="lg"
       scrollable
       icon={<FaFileContract />}
       footer={customFooter}

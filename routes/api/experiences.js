@@ -29,6 +29,10 @@ router.post('/:id/photos', ensureLoggedIn, modificationLimiter, experiencesCtrl.
 router.delete('/:id/photos/:photoIndex', ensureLoggedIn, modificationLimiter, experiencesCtrl.removePhoto);
 router.put('/:id/photos/default', ensureLoggedIn, modificationLimiter, experiencesCtrl.setDefaultPhoto);
 
+// Entity AI config routes
+router.get('/:id/ai-config', ensureLoggedIn, experiencesCtrl.getAIConfig);
+router.put('/:id/ai-config', ensureLoggedIn, modificationLimiter, experiencesCtrl.updateAIConfig);
+
 // Permission management routes (rate limited to prevent abuse)
 router.post('/:id/permissions', ensureLoggedIn, collaboratorLimiter, experiencesCtrl.addExperiencePermission);
 router.get('/:id/permissions', ensureLoggedIn, experiencesCtrl.getExperiencePermissions);

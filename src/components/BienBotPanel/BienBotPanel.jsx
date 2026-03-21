@@ -150,6 +150,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputValueRef = useRef('');
+  const prevContextRef = useRef(null);
 
   const {
     messages,
@@ -160,6 +161,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
     sendMessage,
     executeActions,
     cancelAction,
+    updateContext,
     clearSession
   } = useBienBot({ invokeContext });
 
@@ -179,6 +181,22 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
       return () => clearTimeout(t);
     }
   }, [open]);
+
+  // ── Detect invokeContext changes (e.g. plan item opened mid-chat) ────────
+  useEffect(() => {
+    if (!open || !invokeContext?.id) return;
+
+    const prev = prevContextRef.current;
+    const changed = prev && (prev.id !== invokeContext.id || prev.entity !== invokeContext.entity);
+
+    // Store current as previous for next comparison
+    prevContextRef.current = { entity: invokeContext.entity, id: invokeContext.id };
+
+    // Only push context update when context actually changed (not on first mount)
+    if (changed && messages.length > 0) {
+      updateContext(invokeContext.entity, invokeContext.id);
+    }
+  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, messages.length]);
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
@@ -358,6 +376,7 @@ export default function BienBotPanel({ open, onClose, invokeContext }) {
                     styles.message,
                     isUser ? styles.messageUser : styles.messageAssistant,
                     msg.error ? styles.messageError : '',
+                    msg.isContextAck ? styles.messageContextAck : '',
                     isCurrentlyStreaming ? styles.streaming : ''
                   ]
                     .filter(Boolean)

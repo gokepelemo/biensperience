@@ -30,6 +30,7 @@ info:
     - **Modification endpoints**: 100 requests per 15 minutes
     - **Collaborator management**: 50 requests per 15 minutes
     - **AI endpoints**: 100 requests per 15 minutes
+    - **BienBot endpoints**: 30 requests per 15 minutes (super admins exempt)
 
     ## Feature Flags
 
@@ -45,6 +46,7 @@ info:
     | `bulk_export` | Bulk export of plans and experiences |
     | `curator` | Curator designation for creating curated experiences with bio and links |
     | `chat` | In-app messaging (provider-agnostic) |
+    | `bienbot` | BienBot AI assistant (alias for ai_features in some contexts) |
 
     Requests to feature-gated endpoints without the required flag return 403 Forbidden.
     Super admins bypass all feature flag requirements.
@@ -1471,6 +1473,250 @@ components:
               description: Map of provider name to configured status
               additionalProperties:
                 type: boolean
+
+    BienBotSession:
+      type: object
+      description: BienBot AI assistant conversation session
+      properties:
+        _id:
+          type: string
+          description: Session ID
+        user:
+          type: string
+          description: User ID (session owner)
+        title:
+          type: string
+          description: Auto-generated from first user message (max 80 chars)
+        invoke_context:
+          type: object
+          description: Entity page where BienBot was opened (set at session creation)
+          properties:
+            entity:
+              type: string
+              enum: [destination, experience, plan, plan_item, user]
+              nullable: true
+            entity_id:
+              type: string
+              nullable: true
+            entity_label:
+              type: string
+              description: Resolved from DB (never trusts client)
+              nullable: true
+        context:
+          type: object
+          description: Accumulated entity IDs as conversation progresses
+          properties:
+            destination_id:
+              type: string
+              nullable: true
+            experience_id:
+              type: string
+              nullable: true
+            plan_id:
+              type: string
+              nullable: true
+            plan_item_id:
+              type: string
+              nullable: true
+        messages:
+          type: array
+          description: Multi-turn conversation history
+          items:
+            $ref: '#/components/schemas/BienBotMessage'
+        summary:
+          type: object
+          description: Cached resume summary (6-hour TTL)
+          properties:
+            text:
+              type: string
+              nullable: true
+            suggested_next_steps:
+              type: array
+              items:
+                type: string
+            generated_at:
+              type: string
+              format: date-time
+              nullable: true
+        pending_actions:
+          type: array
+          description: Proposed actions awaiting user confirmation
+          items:
+            $ref: '#/components/schemas/BienBotPendingAction'
+        status:
+          type: string
+          enum: [active, archived]
+          default: active
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - user
+        - status
+
+    BienBotMessage:
+      type: object
+      description: A single conversation turn in a BienBot session
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        intent:
+          type: string
+          nullable: true
+          description: Intent classification from the classifier
+        actions_taken:
+          type: array
+          items:
+            type: string
+          description: Action types executed in this turn
+      required:
+        - role
+        - content
+
+    BienBotPendingAction:
+      type: object
+      description: A proposed action awaiting user confirmation
+      properties:
+        id:
+          type: string
+          description: Unique action ID (action_<8_random_chars>)
+        type:
+          type: string
+          enum: [create_destination, create_experience, create_plan, add_plan_items, update_plan_item, invite_collaborator, sync_plan]
+        payload:
+          type: object
+          description: Action-specific parameters
+        description:
+          type: string
+          description: Human-readable description shown in UI
+        executed:
+          type: boolean
+          default: false
+        result:
+          type: object
+          nullable: true
+          description: Result of execution (populated after execution)
+      required:
+        - id
+        - type
+        - payload
+        - description
+
+    BienBotChatRequest:
+      type: object
+      description: Request body for the BienBot chat endpoint
+      properties:
+        message:
+          type: string
+          maxLength: 8000
+          description: User message text
+        sessionId:
+          type: string
+          nullable: true
+          description: Existing session ID, or omit to create a new session
+        invokeContext:
+          type: object
+          nullable: true
+          description: Entity context (only sent on first message when sessionId is null)
+          properties:
+            entity:
+              type: string
+              enum: [destination, experience, plan, plan_item, user]
+            id:
+              type: string
+              description: Entity ID
+            label:
+              type: string
+              description: Display label (resolved server-side, client value ignored)
+          required:
+            - entity
+            - id
+      required:
+        - message
+
+    BienBotExecuteRequest:
+      type: object
+      description: Request body for executing pending actions
+      properties:
+        actionIds:
+          type: array
+          items:
+            type: string
+          description: Array of pending action IDs to execute
+          minItems: 1
+      required:
+        - actionIds
+
+    BienBotExecuteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items:
+                type: object
+                properties:
+                  actionId:
+                    type: string
+                  type:
+                    type: string
+                  success:
+                    type: boolean
+                  result:
+                    type: object
+                    nullable: true
+                  errors:
+                    type: array
+                    items:
+                      type: string
+            contextUpdates:
+              type: object
+              description: Entity IDs added to session context from execution results
+            session:
+              type: object
+              properties:
+                id:
+                  type: string
+                context:
+                  type: object
+
+    BienBotResumeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              $ref: '#/components/schemas/BienBotSession'
+            greeting:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [assistant]
+                content:
+                  type: string
+                  description: Welcome back greeting with session recap
+                suggested_next_steps:
+                  type: array
+                  items:
+                    type: string
+                  description: 2-3 actionable follow-up suggestions
 
   parameters:
     experienceId:
@@ -6243,6 +6489,328 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # BienBot AI Assistant Endpoints
+  # All endpoints require authentication, the 'ai_features' feature flag, and are rate limited (30 req/15 min)
+
+  /bienbot/chat:
+    post:
+      summary: BienBot Chat
+      description: |
+        Main chat endpoint for the BienBot AI assistant. Runs the full pipeline:
+        classify intent, build context, call LLM, parse structured response, store session,
+        and stream the response via Server-Sent Events (SSE).
+
+        **SSE Events:**
+        - `session` — `{ sessionId, title }` (sent first)
+        - `token` — `{ text }` (repeated, ~50 char chunks)
+        - `actions` — `{ pending_actions }` (if LLM proposes actions)
+        - `done` — `{ usage, intent, confidence }` (signals completion)
+
+        Rate limited to 30 requests per 15 minutes. Super admins bypass rate limiting.
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BienBotChatRequest'
+      responses:
+        '200':
+          description: SSE stream of chat response
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream with session, token, actions, and done events
+        '400':
+          description: Invalid request (missing message, invalid sessionId, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Feature flag not enabled or no permission to view entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: AI service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bienbot/sessions:
+    get:
+      summary: List BienBot Sessions
+      description: |
+        List BienBot sessions for the authenticated user, most recent first.
+        Optionally filter by status (active or archived).
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, archived]
+          description: Filter sessions by status
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      sessions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BienBotSession'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Feature flag not enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bienbot/sessions/{id}:
+    get:
+      summary: Get BienBot Session
+      description: Get a single BienBot session by ID. Only the session owner can access it.
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      session:
+                        $ref: '#/components/schemas/BienBotSession'
+        '400':
+          description: Invalid session ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete BienBot Session
+      description: |
+        Archive a BienBot session (soft delete). The session is not permanently deleted
+        but set to 'archived' status and excluded from default session listing.
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+      responses:
+        '200':
+          description: Session archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid session ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bienbot/sessions/{id}/resume:
+    post:
+      summary: Resume BienBot Session
+      description: |
+        Resume a past BienBot session. Generates or returns a cached summary of the
+        conversation history and a greeting message with suggested next steps.
+
+        - Sessions with < 3 messages return a static "Welcome back!" greeting.
+        - Longer sessions run the session summarizer (LLM call).
+        - Summaries are cached with a 6-hour TTL.
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+      responses:
+        '200':
+          description: Session resumed with greeting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BienBotResumeResponse'
+        '400':
+          description: Invalid session ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bienbot/sessions/{id}/execute:
+    post:
+      summary: Execute BienBot Pending Actions
+      description: |
+        Execute one or more pending actions from a BienBot session. Each action is
+        validated against the session's pending_actions list and delegated to the
+        appropriate controller (destinations, experiences, plans, etc.).
+
+        Results include per-action success/failure status and any entity IDs added
+        to the session context.
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BienBotExecuteRequest'
+      responses:
+        '200':
+          description: Actions executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BienBotExecuteResponse'
+        '400':
+          description: Invalid action IDs or already executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bienbot/sessions/{id}/pending/{actionId}:
+    delete:
+      summary: Cancel BienBot Pending Action
+      description: Remove a specific pending action from a BienBot session without executing it.
+      tags:
+        - BienBot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session ID
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Pending action ID to remove
+      responses:
+        '200':
+          description: Pending action removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid session ID or action ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Session or action not found
           content:
             application/json:
               schema:

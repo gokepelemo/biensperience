@@ -5,7 +5,7 @@ import { FaCrosshairs, FaPlus, FaTimes, FaStar, FaGlobe, FaExternalLinkAlt, FaFl
 import { getSocialNetworkOptions, getSocialNetwork, buildLinkUrl, getLinkIcon } from "../../utilities/social-links";
 import PhotoUpload from "../../components/PhotoUpload/PhotoUpload";
 import Loading from "../../components/Loading/Loading";
-import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData } from "../../utilities/users-api";
+import { updateUser as updateUserAPI, updateUserAsAdmin, getUserData, checkCanManageFeatureFlags } from "../../utilities/users-api";
 import { updateToken, logout } from "../../utilities/users-service";
 import { useUser } from "../../contexts/UserContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -50,6 +50,7 @@ export default function UpdateProfile() {
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [geolocating, setGeolocating] = useState(false);
   const [flagSearchValue, setFlagSearchValue] = useState("");
+  const [canManageFlags, setCanManageFlags] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [linkedAccounts, setLinkedAccounts] = useState(null);
   const [linkedAccountsLoading, setLinkedAccountsLoading] = useState(true);
@@ -106,6 +107,18 @@ export default function UpdateProfile() {
 
     fetchLinkedAccounts();
   }, [user, isEditingSelf, showError]);
+
+  // Check if current super admin can manage feature flags
+  useEffect(() => {
+    if (!isSuperAdmin(user)) return;
+    let cancelled = false;
+    checkCanManageFeatureFlags().then(result => {
+      if (!cancelled) setCanManageFlags(result);
+    }).catch(() => {
+      if (!cancelled) setCanManageFlags(false);
+    });
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Handle linking an account (redirect to OAuth flow)
   const handleLinkAccount = (provider) => {
@@ -1240,6 +1253,7 @@ export default function UpdateProfile() {
                     </div>
 
                     {/* Feature Flags Section */}
+                    {canManageFlags && (
                     <div className={styles.adminSectionRow} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                       <div className={styles.adminSectionLabel} style={{ marginBottom: 'var(--space-4)' }}>
                         <strong style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -1306,6 +1320,7 @@ export default function UpdateProfile() {
                           : lang.current.profile.flagSelectHelp}
                       </Form.Text>
                     </div>
+                    )}
                   </div>
                 </div>
               )}

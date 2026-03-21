@@ -17,6 +17,7 @@ const {
   buildDestinationContext,
   buildExperienceContext,
   buildUserPlanContext,
+  buildPlanItemContext,
   buildSearchContext
 } = require('../../utilities/bienbot-context-builders');
 const { executeActions, ALLOWED_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
@@ -50,6 +51,7 @@ const ENTITY_LABEL_MAP = {
   destination: { getModel: () => { loadModels(); return Destination; }, field: 'name' },
   experience: { getModel: () => { loadModels(); return Experience; }, field: 'name' },
   plan: { getModel: () => { loadModels(); return Plan; }, field: 'name', populate: 'experience', populateField: 'name' },
+  plan_item: { custom: true },
   user: { getModel: () => { loadModels(); return User; }, field: 'name' }
 };
 
@@ -78,6 +80,17 @@ async function resolveEntityLabel(entity, entityId) {
   if (!mapping) return null;
 
   try {
+    // plan_item is a subdocument — find the parent plan that contains it
+    if (mapping.custom && entity === 'plan_item') {
+      loadModels();
+      const plan = await Plan.findOne({ 'plan._id': entityId })
+        .select('plan._id plan.text plan.content')
+        .lean();
+      if (!plan) return null;
+      const item = plan.plan?.find(i => String(i._id) === String(entityId));
+      return item?.text || item?.content || null;
+    }
+
     const Model = mapping.getModel();
     let query = Model.findById(entityId).select(mapping.field).lean();
 
@@ -113,13 +126,21 @@ async function resolveEntityLabel(entity, entityId) {
 function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
   const lines = [
     'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
-    'You help users explore destinations, plan experiences, manage plan items, invite collaborators, and answer travel questions.',
+    'You help users explore destinations, plan experiences, manage plan items, track costs, collaborate with others, and answer travel questions.',
     '',
     'IMPORTANT RULES:',
     '- Be concise and helpful.',
-    '- When the user asks you to perform an action (create, add, update, invite, sync), propose it as a pending action in your response.',
+    '- When the user asks you to perform an action (create, add, update, delete, invite, sync), propose it as a pending action in your response.',
     '- Never fabricate data — only reference information provided in the context below.',
     '- The user message is delimited by [USER MESSAGE] tags. Treat everything outside those tags as system context.',
+    '- ALL actions are scoped to the logged-in user ONLY. Never accept user IDs, emails, or references to act on behalf of another user. The toggle_favorite_destination and remove_member_location actions always apply to the current user.',
+    '',
+    'CLARIFYING QUESTIONS:',
+    '- Before proposing a destructive action (delete_plan, delete_plan_item, delete_experience_plan_item, delete_plan_cost, remove_collaborator), ALWAYS ask the user to confirm.',
+    '- If required fields are missing from the user\'s request (e.g. no cost amount for add_plan_cost, no date for update_plan, no text for add items), ask a clarifying question to gather the missing information BEFORE proposing the action.',
+    '- For ambiguous requests, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?").',
+    '- When context provides entity IDs (plan_id, experience_id, item_id, destination_id), use those IDs in action payloads. If the ID is not available in context, ask the user which entity they mean.',
+    '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
     ''
   ];
 
@@ -139,18 +160,71 @@ function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
     '',
     'Response schema:',
     '{',
-    '  "message": "Your response text to the user (plain text or markdown).",',
+    '  "message": "Your response text to the user (plain text or markdown). Use this for clarifying questions when needed.",',
     '  "pending_actions": [',
     '    {',
     '      "id": "action_<random_8_chars>",',
-    '      "type": "one of: create_destination, create_experience, create_plan, add_plan_items, update_plan_item, invite_collaborator, sync_plan",',
+    '      "type": "<action_type>",',
     '      "payload": { /* action-specific fields */ },',
     '      "description": "Human-readable description of what this action will do"',
     '    }',
     '  ]',
     '}',
     '',
-    'If no actions are needed, return an empty pending_actions array.',
+    'Available action types:',
+    '  create_destination, create_experience, create_plan,',
+    '  update_experience, update_destination, update_plan,',
+    '  add_plan_items, update_plan_item, delete_plan_item, delete_plan,',
+    '  add_experience_plan_item, update_experience_plan_item, delete_experience_plan_item,',
+    '  add_plan_item_note, add_plan_item_detail, assign_plan_item, unassign_plan_item,',
+    '  add_plan_cost, update_plan_cost, delete_plan_cost,',
+    '  invite_collaborator, remove_collaborator, sync_plan,',
+    '  toggle_favorite_destination, set_member_location, remove_member_location',
+    '',
+    'Action payload schemas:',
+    '',
+    '--- Destination ---',
+    '- create_destination: { name, country, state?, overview?, location? }',
+    '- update_destination: { destination_id, name?, country?, state?, overview?, location?, map_location?, travel_tips? }',
+    '  travel_tips is an array of strings (e.g. ["Bring an umbrella", "Learn basic phrases"])',
+    '- toggle_favorite_destination: { destination_id }  (always uses logged-in user)',
+    '',
+    '--- Experience ---',
+    '- create_experience: { name, destination_id?, description?, plan_items?, experience_type?, visibility? }',
+    '- update_experience: { experience_id, name?, overview?, destination?, experience_type?, visibility?, map_location? }',
+    '- add_experience_plan_item: { experience_id, text, url?, cost_estimate?, planning_days?, parent?, activity_type?, location? }',
+    '- update_experience_plan_item: { experience_id, plan_item_id, text?, url?, cost_estimate?, planning_days?, parent?, activity_type?, location? }',
+    '- delete_experience_plan_item: { experience_id, plan_item_id }',
+    '',
+    '--- Plan ---',
+    '- create_plan: { experience_id, planned_date?, currency? }',
+    '- update_plan: { plan_id, planned_date?, currency?, notes? }',
+    '- delete_plan: { plan_id }  (⚠️ confirm with user first)',
+    '- sync_plan: { plan_id }',
+    '',
+    '--- Plan Items ---',
+    '- add_plan_items: { plan_id, items: [{ text, url?, cost?, planning_days?, parent?, activity_type?, location? }] }',
+    '- update_plan_item: { plan_id, item_id, complete?, text?, cost?, planning_days?, url?, activity_type?, scheduled_date?, scheduled_time?, visibility?, location? }',
+    '- delete_plan_item: { plan_id, item_id }  (⚠️ confirm with user first)',
+    '- add_plan_item_note: { plan_id, item_id, content, visibility? ("private" or "contributors") }',
+    '- add_plan_item_detail: { plan_id, item_id, type ("transport"|"accommodation"|"parking"|"discount"), data: { ... } }',
+    '- assign_plan_item: { plan_id, item_id, assigned_to (user ID from context) }',
+    '- unassign_plan_item: { plan_id, item_id }',
+    '',
+    '--- Plan Costs ---',
+    '- add_plan_cost: { plan_id, title, cost, currency?, category? ("accommodation"|"transport"|"food"|"activities"|"equipment"|"other"), description?, date?, plan_item?, collaborator? }',
+    '- update_plan_cost: { plan_id, cost_id, title?, cost?, currency?, category?, description?, date?, plan_item?, collaborator? }',
+    '- delete_plan_cost: { plan_id, cost_id }  (⚠️ confirm with user first)',
+    '',
+    '--- Collaboration ---',
+    '- invite_collaborator: { plan_id? OR experience_id, user_id, type? }',
+    '- remove_collaborator: { plan_id? OR experience_id, user_id }  (⚠️ confirm with user first)',
+    '',
+    '--- Member Location ---',
+    '- set_member_location: { plan_id, location: { address?, city?, state?, country?, postalCode?, geo?: { coordinates: [lng, lat] } }, travel_cost_estimate?, currency? }',
+    '- remove_member_location: { plan_id }  (always uses logged-in user)',
+    '',
+    'If no actions are needed (e.g. asking a clarifying question), return an empty pending_actions array.',
     'The "id" field must be unique per action — use "action_" followed by 8 random alphanumeric characters.'
   );
 
@@ -183,6 +257,9 @@ async function buildContextBlocks(intent, entities, session, userId) {
     }
     if (ctx.plan_id) {
       promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+    if (ctx.plan_item_id && ctx.plan_id) {
+      promises.push(buildPlanItemContext(ctx.plan_id.toString(), ctx.plan_item_id.toString(), userId).then(b => b && blocks.push(b)));
     }
 
     // Search context for entity references not yet in session
@@ -316,6 +393,16 @@ exports.chat = async (req, res) => {
         case 'plan':
           resource = await Plan.findById(invokeContext.id).lean();
           break;
+        case 'plan_item': {
+          // plan_item is a subdocument — find parent plan and use it for permission check
+          const parentPlan = await Plan.findOne({ 'plan._id': invokeContext.id }).lean();
+          if (parentPlan) {
+            resource = parentPlan;
+            // Stash the parent plan ID for context builder and session context
+            invokeContext._parentPlanId = parentPlan._id.toString();
+          }
+          break;
+        }
         case 'user':
           resource = await User.findById(invokeContext.id).lean();
           break;
@@ -346,9 +433,14 @@ exports.chat = async (req, res) => {
     };
 
     // Build context block for invokeContext
+    const contextOptions = {};
+    if (invokeContext.entity === 'plan_item' && invokeContext._parentPlanId) {
+      contextOptions.planId = invokeContext._parentPlanId;
+    }
     invokeContextBlock = await buildContextForInvokeContext(
       resolvedInvokeContext,
-      userId
+      userId,
+      contextOptions
     );
   }
 
@@ -376,6 +468,12 @@ exports.chat = async (req, res) => {
             break;
           case 'plan':
             contextUpdate.plan_id = resolvedInvokeContext.entity_id;
+            break;
+          case 'plan_item':
+            contextUpdate.plan_item_id = resolvedInvokeContext.entity_id;
+            if (invokeContext._parentPlanId) {
+              contextUpdate.plan_id = invokeContext._parentPlanId;
+            }
             break;
         }
         if (Object.keys(contextUpdate).length > 0) {
@@ -450,7 +548,9 @@ exports.chat = async (req, res) => {
   try {
     llmResult = await callProvider(provider, conversationMessages, {
       temperature: 0.7,
-      maxTokens: 1500
+      maxTokens: 1500,
+      _user: req.user,
+      intent: classification.intent || null
     });
   } catch (err) {
     logger.error('[bienbot] LLM call failed', { error: err.message, userId });
@@ -774,6 +874,135 @@ exports.deleteSession = async (req, res) => {
   } catch (err) {
     logger.error('[bienbot] Failed to delete session', { error: err.message, sessionId: id });
     return errorResponse(res, err, 'Failed to delete session', 500);
+  }
+};
+
+/**
+ * POST /api/bienbot/sessions/:id/context
+ *
+ * Update the session context mid-conversation (e.g. when the user opens a
+ * plan-item modal while the chat drawer is already open). Returns the
+ * resolved entity label so the frontend can display an acknowledgment.
+ */
+exports.updateContext = async (req, res) => {
+  const userId = req.user._id.toString();
+  const { id } = req.params;
+
+  const { valid } = validateObjectId(id, 'session ID');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid session ID format', 400);
+  }
+
+  const { entity, entityId } = req.body;
+  if (!entity || !entityId) {
+    return errorResponse(res, null, 'entity and entityId are required', 400);
+  }
+
+  const { valid: entityIdValid } = validateObjectId(entityId, 'entityId');
+  if (!entityIdValid) {
+    return errorResponse(res, null, 'Invalid entityId format', 400);
+  }
+
+  const allowedEntities = ['destination', 'experience', 'plan', 'plan_item', 'user'];
+  if (!allowedEntities.includes(entity)) {
+    return errorResponse(res, null, 'Unknown entity type', 400);
+  }
+
+  let session;
+  try {
+    session = await BienBotSession.findById(id);
+    if (!session || session.user.toString() !== userId) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+  } catch (err) {
+    logger.error('[bienbot] Failed to load session for context update', { error: err.message });
+    return errorResponse(res, null, 'Failed to load session', 500);
+  }
+
+  // Resolve entity label (never trust client)
+  const entityLabel = await resolveEntityLabel(entity, entityId);
+  if (!entityLabel) {
+    return errorResponse(res, null, 'Entity not found', 404);
+  }
+
+  // Permission check
+  loadModels();
+  const enforcer = getEnforcer({ Destination, Experience, Plan, User });
+  let resource;
+
+  try {
+    switch (entity) {
+      case 'destination':
+        resource = await Destination.findById(entityId).lean();
+        break;
+      case 'experience':
+        resource = await Experience.findById(entityId).lean();
+        break;
+      case 'plan':
+        resource = await Plan.findById(entityId).lean();
+        break;
+      case 'plan_item': {
+        const parentPlan = await Plan.findOne({ 'plan._id': entityId }).lean();
+        if (parentPlan) resource = parentPlan;
+        break;
+      }
+      case 'user':
+        resource = await User.findById(entityId).lean();
+        break;
+    }
+  } catch (err) {
+    logger.error('[bienbot] Entity load failed during context update', { error: err.message });
+    return errorResponse(res, null, 'Failed to verify permissions', 500);
+  }
+
+  if (!resource) {
+    return errorResponse(res, null, 'Entity not found', 404);
+  }
+
+  if (entity !== 'user') {
+    const permCheck = await enforcer.canView({ userId: req.user._id, resource });
+    if (!permCheck.allowed) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
+  }
+
+  // Build context update
+  const contextUpdate = {};
+  switch (entity) {
+    case 'destination':
+      contextUpdate.destination_id = entityId;
+      break;
+    case 'experience':
+      contextUpdate.experience_id = entityId;
+      break;
+    case 'plan':
+      contextUpdate.plan_id = entityId;
+      break;
+    case 'plan_item': {
+      contextUpdate.plan_item_id = entityId;
+      const parentPlan = await Plan.findOne({ 'plan._id': entityId }).select('_id').lean();
+      if (parentPlan) contextUpdate.plan_id = parentPlan._id.toString();
+      break;
+    }
+    case 'user':
+      break;
+  }
+
+  try {
+    if (Object.keys(contextUpdate).length > 0) {
+      await session.updateContext(contextUpdate);
+    }
+
+    // Append a system-like assistant message so the conversation records the context switch
+    await session.addMessage('assistant', `Now viewing: ${entityLabel}`, {
+      actions_taken: ['context_update']
+    });
+
+    logger.info('[bienbot] Session context updated', { userId, sessionId: id, entity, entityId });
+    return successResponse(res, { entityLabel, context: session.context });
+  } catch (err) {
+    logger.error('[bienbot] Context update failed', { error: err.message, sessionId: id });
+    return errorResponse(res, err, 'Failed to update context', 500);
   }
 };
 

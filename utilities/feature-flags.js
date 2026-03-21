@@ -189,6 +189,24 @@ const FEATURE_FLAGS = {
     defaultEnabled: false,
     requiresAuth: true,
     tier: 'beta'
+  },
+
+  // AI Admin - gateway management, policies, usage analytics
+  AI_ADMIN: {
+    key: 'ai_admin',
+    description: 'AI gateway administration: provider management, policies, usage analytics, and routing configuration',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'admin'
+  },
+
+  // Feature Flag Administration - required for non-primary super admins to manage feature flags
+  FEATURE_ADMIN: {
+    key: 'feature_admin',
+    description: 'Manage feature flags for users. The first super admin always has this ability; other super admins require this flag.',
+    defaultEnabled: false,
+    requiresAuth: true,
+    tier: 'admin'
   }
 };
 
@@ -460,6 +478,37 @@ function createFlagDenialResponse(flagKey, options = {}) {
   };
 }
 
+/**
+ * Check if a super admin can manage feature flags for other users.
+ *
+ * Rules:
+ * - The first super admin (oldest by createdAt) can ALWAYS manage flags
+ * - Other super admins require the `feature_admin` flag explicitly enabled
+ * - Non-super-admins can never manage feature flags
+ *
+ * @param {Object} actingUser - The user attempting to manage flags
+ * @param {Object} UserModel - The Mongoose User model (for DB query)
+ * @returns {Promise<boolean>} Whether the user can manage feature flags
+ */
+async function canManageFeatureFlags(actingUser, UserModel) {
+  if (!actingUser) return false;
+
+  const isAdmin = actingUser.role === 'super_admin' || actingUser.isSuperAdmin;
+  if (!isAdmin) return false;
+
+  // Check if this user is the first (oldest) super admin
+  const firstAdmin = await UserModel.findOne({
+    $or: [{ role: 'super_admin' }, { isSuperAdmin: true }]
+  }).sort({ createdAt: 1 }).select('_id').lean();
+
+  if (firstAdmin && firstAdmin._id.toString() === actingUser._id.toString()) {
+    return true;
+  }
+
+  // Otherwise, require the feature_admin flag explicitly (no super admin bypass)
+  return hasFeatureFlag(actingUser, 'feature_admin', { allowSuperAdmin: false });
+}
+
 // Export constants and functions
 module.exports = {
   // Constants
@@ -475,6 +524,9 @@ module.exports = {
   addFeatureFlag,
   removeFeatureFlag,
   disableFeatureFlag,
+
+  // Admin functions
+  canManageFeatureFlags,
 
   // Global flag functions
   hasGlobalFlag,

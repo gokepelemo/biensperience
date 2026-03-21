@@ -18,9 +18,21 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER === 'true') {
 }
 const backendLogger = require('./utilities/backend-logger');
 const { updateExchangeRates } = require('./utilities/exchange-rate-updater');
+const { seedAIProviders } = require('./utilities/ai-seed-providers');
 
 const port = process.env.PORT || 3001;
 const wsEnabled = process.env.WEBSOCKET_ENABLED === 'true';
+
+// Seed AI provider configs and default policy on startup (async, non-blocking)
+seedAIProviders()
+  .then(({ providers, policyCreated }) => {
+    if (providers > 0 || policyCreated) {
+      backendLogger.info('AI providers seeded', { providers, policyCreated });
+    }
+  })
+  .catch(err => {
+    backendLogger.warn('AI provider seed skipped', { error: err.message });
+  });
 
 // Update exchange rates on server start (async, non-blocking)
 updateExchangeRates()
