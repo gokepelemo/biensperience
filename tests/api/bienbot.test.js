@@ -624,6 +624,27 @@ describe('BienBot API', () => {
       expect(summarizeSession).not.toHaveBeenCalled();
     });
 
+    it('returns 429 when summarizer hits rate limit', async () => {
+      const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
+      const { GatewayError } = require('../../utilities/ai-gateway');
+      summarizeSession.mockClear();
+      summarizeSession.mockRejectedValueOnce(
+        new GatewayError('Rate limit exceeded (per minute)', 'RATE_LIMIT_EXCEEDED', 429)
+      );
+
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      await session.addMessage('user', 'msg1');
+      await session.addMessage('assistant', 'reply1');
+      await session.addMessage('user', 'msg2');
+
+      const res = await request(app)
+        .post(`/api/bienbot/sessions/${session._id}/resume`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(429);
+      expect(summarizeSession).toHaveBeenCalled();
+    });
+
     it('returns 404 for another user\'s session', async () => {
       const otherUser = await createAIUser({ email: `other5_${Date.now()}@test.com` });
       const otherSession = await BienBotSession.createSession(otherUser._id.toString(), {});

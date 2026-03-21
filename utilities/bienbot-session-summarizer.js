@@ -5,13 +5,16 @@
  * and 2-3 suggested next steps. Called by the /resume controller endpoint
  * when a user opens a past session.
  *
- * Never throws — always returns a usable summary object.
+ * Routes LLM calls through the AI gateway for rate limiting and token budget
+ * enforcement. Throws GatewayError on rate limit / token budget / AI-disabled
+ * violations; returns a static fallback for all other errors.
  *
  * @module utilities/bienbot-session-summarizer
  */
 
 const logger = require('./backend-logger');
-const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('../controllers/api/ai');
+const { executeAIRequest, GatewayError } = require('./ai-gateway');
+const { getApiKey, getProviderForTask, AI_TASKS } = require('../controllers/api/ai');
 
 /**
  * Rough token budget for the compressed message history sent to the model.
@@ -48,10 +51,11 @@ Guidelines:
  * @param {Array<{ role: string, content: string }>} params.messages - Session messages.
  * @param {object} [params.context] - Session entity context IDs.
  * @param {object} [params.session] - Full session object (used for title/invoke_context).
+ * @param {object} [params.user] - Authenticated user object (for usage tracking).
  * @param {object} [options] - Provider/model overrides.
  * @returns {Promise<{ summary: string, next_steps: string[] }>}
  */
-async function summarizeSession({ messages, context, session } = {}, options = {}) {
+async function summarizeSession({ messages, context, session, user } = {}, options = {}) {
   // Guard: never summarise sessions with fewer than 3 messages
   if (!messages || !Array.isArray(messages) || messages.length < 3) {
     return buildFallback(session, context);
@@ -79,10 +83,20 @@ async function summarizeSession({ messages, context, session } = {}, options = {
   ];
 
   try {
-    const result = await callProvider(provider, llmMessages, {
-      model: options.model || undefined,
-      temperature: 0.2,
-      max_tokens: 300
+    const result = await executeAIRequest({
+      messages: llmMessages,
+      task: AI_TASKS.BIENBOT_SUMMARIZE,
+      user: user || null,
+      options: {
+        provider,
+        model: options.model || undefined,
+        temperature: 0.2,
+        maxTokens: 300
+      },
+      entityContext: session?.invoke_context?.entity ? {
+        entityType: session.invoke_context.entity,
+        entityId: session.invoke_context.entity_id?.toString()
+      } : null
     });
 
     const text = (result.content || '').trim();
@@ -100,6 +114,11 @@ async function summarizeSession({ messages, context, session } = {}, options = {
       next_steps: parsed.next_steps.filter(s => typeof s === 'string').slice(0, 3)
     };
   } catch (err) {
+    // Let security-related gateway errors (rate limit, token budget, AI disabled)
+    // propagate to the controller so it can return proper status codes.
+    if (err instanceof GatewayError) {
+      throw err;
+    }
     logger.error('[bienbot-summarizer] Summarization failed', { error: err.message });
     return buildFallback(session, context);
   }

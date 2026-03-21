@@ -22,6 +22,7 @@ const {
 } = require('../../utilities/bienbot-context-builders');
 const { executeActions, ALLOWED_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
+const { GatewayError } = require('../../utilities/ai-gateway');
 const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
 const BienBotSession = require('../../models/bienbot-session');
 
@@ -570,7 +571,15 @@ exports.chat = async (req, res) => {
       temperature: 0.7,
       maxTokens: 1500,
       _user: req.user,
-      intent: classification.intent || null
+      task: AI_TASKS.BIENBOT_CHAT,
+      intent: classification.intent || null,
+      entityContext: resolvedInvokeContext ? {
+        entityType: resolvedInvokeContext.entity,
+        entityId: resolvedInvokeContext.entity_id
+      } : (session.invoke_context?.entity ? {
+        entityType: session.invoke_context.entity,
+        entityId: session.invoke_context.entity_id?.toString()
+      } : null)
     });
   } catch (err) {
     logger.error('[bienbot] LLM call failed', { error: err.message, userId });
@@ -783,11 +792,20 @@ exports.resume = async (req, res) => {
     };
   } else {
     // Generate new summary
-    summaryData = await summarizeSession({
-      messages: session.messages,
-      context: session.context,
-      session: session.toObject()
-    });
+    try {
+      summaryData = await summarizeSession({
+        messages: session.messages,
+        context: session.context,
+        session: session.toObject(),
+        user: req.user
+      });
+    } catch (err) {
+      if (err instanceof GatewayError) {
+        const status = err.statusCode || 429;
+        return errorResponse(res, null, err.message, status);
+      }
+      throw err;
+    }
 
     // Cache the result
     try {
