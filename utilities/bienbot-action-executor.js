@@ -57,7 +57,9 @@ const ALLOWED_ACTION_TYPES = [
   'set_member_location',
   'remove_member_location',
   // Client-only navigation
-  'navigate_to_entity'
+  'navigate_to_entity',
+  // Workflow (multi-step composition)
+  'workflow'
 ];
 
 // ---------------------------------------------------------------------------
@@ -777,6 +779,159 @@ async function executeNavigateToEntity(payload) {
   return { statusCode: 200, body: { data: { url: payload.url, entity: payload.entity, entityId: payload.entityId } } };
 }
 
+// ---------------------------------------------------------------------------
+// Workflow (multi-step composition with dependency resolution)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve `$ref` placeholders in a payload using outputs from earlier steps.
+ *
+ * A `$ref` placeholder has the form `$step_<N>.<path>`, where N is the 1-based
+ * step index and path is a dot-delimited property path into that step's result.
+ * For example, `$step_1._id` resolves to the `_id` of step 1's result.
+ *
+ * @param {*} value - Payload value to resolve (may be string, array, or nested object).
+ * @param {Map<number, object>} stepResults - Map of step index → result data.
+ * @returns {*} Resolved value.
+ */
+function resolveRefs(value, stepResults) {
+  if (typeof value === 'string') {
+    const refMatch = value.match(/^\$step_(\d+)\.(.+)$/);
+    if (refMatch) {
+      const stepIdx = parseInt(refMatch[1], 10);
+      const path = refMatch[2];
+      const stepResult = stepResults.get(stepIdx);
+      if (!stepResult) return value; // unresolvable — leave as-is
+      return path.split('.').reduce((obj, key) => obj?.[key], stepResult) ?? value;
+    }
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(v => resolveRefs(v, stepResults));
+  }
+  if (value && typeof value === 'object') {
+    const resolved = {};
+    for (const [k, v] of Object.entries(value)) {
+      resolved[k] = resolveRefs(v, stepResults);
+    }
+    return resolved;
+  }
+  return value;
+}
+
+/**
+ * Execute a workflow — a sequence of steps with dependency resolution.
+ *
+ * payload: {
+ *   steps: [{
+ *     step: 1,
+ *     type: "<action_type>",
+ *     payload: { ... may contain $step_N.field refs ... },
+ *     description: "Human-readable step description"
+ *   }, ...]
+ * }
+ *
+ * Steps are executed sequentially in `step` order.  Each step's result is
+ * stored so that later steps can reference earlier outputs via `$ref` syntax
+ * in their payloads (e.g. `"destination_id": "$step_1._id"`).
+ *
+ * If any step fails, execution halts and partial results are returned.
+ */
+async function executeWorkflow(payload, user) {
+  const steps = Array.isArray(payload.steps) ? payload.steps : [];
+
+  if (steps.length === 0) {
+    return { statusCode: 400, body: { success: false, error: 'Workflow has no steps' } };
+  }
+
+  if (steps.length > 10) {
+    return { statusCode: 400, body: { success: false, error: 'Workflow exceeds maximum of 10 steps' } };
+  }
+
+  // Sort by step number (ascending)
+  const sorted = [...steps].sort((a, b) => (a.step || 0) - (b.step || 0));
+
+  const stepResults = new Map(); // step index → result data
+  const results = [];
+
+  for (const step of sorted) {
+    const stepType = step.type;
+    if (!stepType || stepType === 'workflow') {
+      // Prevent nested workflows and invalid types
+      results.push({ step: step.step, type: stepType, success: false, errors: ['Invalid step type'] });
+      break;
+    }
+
+    if (!ALLOWED_ACTION_TYPES.includes(stepType)) {
+      results.push({ step: step.step, type: stepType, success: false, errors: [`Unknown action type: ${stepType}`] });
+      break;
+    }
+
+    // Resolve $ref placeholders in the step's payload
+    const resolvedPayload = resolveRefs(step.payload || {}, stepResults);
+
+    const handler = ACTION_HANDLERS[stepType];
+    if (!handler) {
+      results.push({ step: step.step, type: stepType, success: false, errors: [`No handler for: ${stepType}`] });
+      break;
+    }
+
+    try {
+      logger.info('[bienbot-action-executor] Workflow step executing', {
+        step: step.step,
+        type: stepType,
+        userId: user._id.toString()
+      });
+
+      const response = await handler(resolvedPayload, user);
+      const isSuccess = response.statusCode >= 200 && response.statusCode < 300;
+      const resultData = response.body?.data || response.body || null;
+
+      results.push({
+        step: step.step,
+        type: stepType,
+        success: isSuccess,
+        result: resultData,
+        errors: isSuccess ? [] : [response.body?.error || `Step failed with status ${response.statusCode}`]
+      });
+
+      if (isSuccess && resultData) {
+        stepResults.set(step.step, resultData);
+      } else {
+        // Stop on failure
+        logger.warn('[bienbot-action-executor] Workflow step failed, halting', {
+          step: step.step,
+          type: stepType,
+          statusCode: response.statusCode
+        });
+        break;
+      }
+    } catch (err) {
+      logger.error('[bienbot-action-executor] Workflow step threw exception', {
+        step: step.step,
+        type: stepType,
+        error: err.message
+      });
+      results.push({ step: step.step, type: stepType, success: false, errors: [err.message] });
+      break;
+    }
+  }
+
+  const allSucceeded = results.length === sorted.length && results.every(r => r.success);
+
+  return {
+    statusCode: allSucceeded ? 200 : 207,
+    body: {
+      success: allSucceeded,
+      data: {
+        steps_completed: results.filter(r => r.success).length,
+        steps_total: sorted.length,
+        results
+      }
+    }
+  };
+}
+
 const ACTION_HANDLERS = {
   create_destination: executeCreateDestination,
   create_experience: executeCreateExperience,
@@ -808,7 +963,9 @@ const ACTION_HANDLERS = {
   set_member_location: executeSetMemberLocation,
   remove_member_location: executeRemoveMemberLocation,
   // Client-only: handled by frontend, no-op on backend
-  navigate_to_entity: executeNavigateToEntity
+  navigate_to_entity: executeNavigateToEntity,
+  // Workflow (multi-step composition)
+  workflow: executeWorkflow
 };
 
 // ---------------------------------------------------------------------------
@@ -926,6 +1083,28 @@ async function executeActions(actions, user, session) {
           break;
         case 'invite_collaborator':
           // No context change needed
+          break;
+        case 'workflow':
+          // Extract context from workflow step results
+          if (data.results && Array.isArray(data.results)) {
+            for (const stepResult of data.results) {
+              if (!stepResult.success || !stepResult.result) continue;
+              const sData = stepResult.result;
+              switch (stepResult.type) {
+                case 'create_destination':
+                  if (sData._id) contextUpdates.destination_id = sData._id;
+                  break;
+                case 'create_experience':
+                  if (sData._id) contextUpdates.experience_id = sData._id;
+                  if (sData.destination) contextUpdates.destination_id = sData.destination;
+                  break;
+                case 'create_plan':
+                  if (sData._id) contextUpdates.plan_id = sData._id;
+                  if (sData.experience?._id) contextUpdates.experience_id = sData.experience._id;
+                  break;
+              }
+            }
+          }
           break;
       }
     }

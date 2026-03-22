@@ -56,6 +56,13 @@ router.get('/providers/:id', aiAdminCtrl.getProvider);
 router.post('/providers', modificationLimiter, aiAdminCtrl.createProvider);
 
 /**
+ * @route   PUT /api/ai-admin/providers/reorder
+ * @desc    Reorder providers by drag priority (must come before /:id to avoid param clash)
+ * @access  Private (requires ai_admin flag)
+ */
+router.put('/providers/reorder', modificationLimiter, aiAdminCtrl.reorderProviders);
+
+/**
  * @route   PUT /api/ai-admin/providers/:id
  * @desc    Update a provider configuration
  * @access  Private (requires ai_admin flag)
@@ -143,5 +150,101 @@ router.get('/routing', aiAdminCtrl.getRouting);
  * @access  Private (requires ai_admin flag)
  */
 router.put('/routing', modificationLimiter, aiAdminCtrl.updateRouting);
+
+// ---------------------------------------------------------------------------
+// Intent Corpus
+// ---------------------------------------------------------------------------
+
+/**
+ * @route   GET /api/ai-admin/corpus
+ * @desc    List all intents with utterance counts
+ * @access  Private (requires ai_admin flag)
+ */
+router.get('/corpus', aiAdminCtrl.listCorpus);
+
+/**
+ * @route   POST /api/ai-admin/corpus/retrain
+ * @desc    Trigger NLP model retraining (must come before /:intent)
+ * @access  Private (requires ai_admin flag)
+ */
+router.post('/corpus/retrain', modificationLimiter, aiAdminCtrl.retrainClassifier);
+
+/**
+ * @route   GET /api/ai-admin/corpus/:intent
+ * @desc    Get a single intent with utterances
+ * @access  Private (requires ai_admin flag)
+ */
+router.get('/corpus/:intent', aiAdminCtrl.getCorpusIntent);
+
+/**
+ * @route   POST /api/ai-admin/corpus
+ * @desc    Create a new intent
+ * @access  Private (requires ai_admin flag)
+ */
+router.post('/corpus', modificationLimiter, aiAdminCtrl.createCorpusIntent);
+
+/**
+ * @route   PUT /api/ai-admin/corpus/:intent
+ * @desc    Update an intent (utterances, description, enabled)
+ * @access  Private (requires ai_admin flag)
+ */
+router.put('/corpus/:intent', modificationLimiter, aiAdminCtrl.updateCorpusIntent);
+
+/**
+ * @route   DELETE /api/ai-admin/corpus/:intent
+ * @desc    Delete a custom intent
+ * @access  Private (requires ai_admin flag)
+ */
+router.delete('/corpus/:intent', modificationLimiter, aiAdminCtrl.deleteCorpusIntent);
+
+// ---------------------------------------------------------------------------
+// Classification Logs
+// ---------------------------------------------------------------------------
+
+/**
+ * @route   GET /api/ai-admin/classifications/summary
+ * @desc    Classification stats summary (must come before /:id)
+ * @access  Private (requires ai_admin flag)
+ */
+router.get('/classifications/summary', aiAdminCtrl.getClassificationSummary);
+
+/**
+ * @route   GET /api/ai-admin/classifications
+ * @desc    List classification logs with filters
+ * @access  Private (requires ai_admin flag)
+ */
+router.get('/classifications', aiAdminCtrl.listClassifications);
+
+/**
+ * @route   PUT /api/ai-admin/classifications/:id/review
+ * @desc    Mark a classification as reviewed
+ * @access  Private (requires ai_admin flag)
+ */
+router.put('/classifications/:id/review', modificationLimiter, aiAdminCtrl.reviewClassification);
+
+/**
+ * @route   POST /api/ai-admin/classifications/batch-add
+ * @desc    Add reviewed corrections as utterances to corpus
+ * @access  Private (requires ai_admin flag)
+ */
+router.post('/classifications/batch-add', modificationLimiter, aiAdminCtrl.batchAddToCorpus);
+
+// ---------------------------------------------------------------------------
+// Classifier Config
+// ---------------------------------------------------------------------------
+
+/**
+ * @route   GET /api/ai-admin/classifier-config
+ * @desc    Get classifier configuration
+ * @access  Private (requires ai_admin flag)
+ */
+router.get('/classifier-config', aiAdminCtrl.getClassifierConfig);
+
+/**
+ * @route   PUT /api/ai-admin/classifier-config
+ * @desc    Update classifier configuration
+ * @access  Private (requires ai_admin flag)
+ */
+router.put('/classifier-config', modificationLimiter, aiAdminCtrl.updateClassifierConfig);
 
 module.exports = router;

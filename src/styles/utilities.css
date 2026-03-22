@@ -488,7 +488,9 @@
   border: 2px solid var(--color-border-medium);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-3), 2vw, var(--space-4));
+  padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-4));
+  min-height: var(--input-height-md);
+  height: var(--input-height-md);
   font-size: var(--font-size-base);
   transition: all var(--transition-base);
   line-height: var(--line-height-normal);

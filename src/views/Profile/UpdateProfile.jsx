@@ -510,11 +510,15 @@ export default function UpdateProfile() {
       return id.toString();
     };
 
-    // If original had no default_photo_id but had photos, treat first photo as the implicit default
-    let normalizedOriginalDefault = normalizeId(originalDefaultId);
-    if (!normalizedOriginalDefault && originalPhotos.length > 0) {
-      normalizedOriginalDefault = normalizeId(originalPhotos[0]);
-    }
+    // Check if original default_photo_id is actually in the photos array (valid reference)
+    const originalDefaultRaw = normalizeId(originalDefaultId);
+    const isOriginalDefaultValid = originalDefaultRaw !== null &&
+      originalPhotoIds.includes(originalDefaultRaw);
+
+    // If original default was invalid or missing, fall back to first photo as implicit default
+    let normalizedOriginalDefault = isOriginalDefaultValid
+      ? originalDefaultRaw
+      : (originalPhotoIds[0] || null);
 
     let normalizedCurrentDefault = normalizeId(currentDefaultId);
     // Treat first photo as implicit default when current default is not set but photos exist
@@ -523,11 +527,13 @@ export default function UpdateProfile() {
     }
 
     // Don't consider it a change if PhotoUpload automatically set the first photo as default
-    // when no default was originally set and photos haven't changed
-    const isAutoDefaultSet = !originalDefaultId && // No original default
+    // when there was no valid original default (null or pointing to a photo outside the array)
+    // and photos themselves haven't changed
+    const firstCurrentPhotoId = currentPhotos.length > 0 ? normalizeId(currentPhotos[0]) : null;
+    const isAutoDefaultSet = !isOriginalDefaultValid && // No valid original default
                              currentDefaultId && // Current has default set
-                             JSON.stringify(originalPhotos) === JSON.stringify(currentPhotos) && // Photos haven't changed
-                             normalizedCurrentDefault === normalizeId(currentPhotos[0]); // Default is first photo
+                             JSON.stringify(originalPhotoIds) === JSON.stringify(currentPhotoIds) && // Photos haven't changed
+                             normalizedCurrentDefault === firstCurrentPhotoId; // Default is first photo (what PhotoUpload auto-selects)
 
     if (normalizedOriginalDefault !== normalizedCurrentDefault && currentPhotos.length > 0 && !isAutoDefaultSet) {
       // Find the index of the default photo for description

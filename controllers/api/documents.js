@@ -12,8 +12,6 @@
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
-const http = require('http');
 const slugify = require('slugify');
 const mime = require('mime-types');
 const sanitizeFileName = require('../../uploads/sanitize-filename');
@@ -21,7 +19,7 @@ const sanitizeFileName = require('../../uploads/sanitize-filename');
 const Document = require('../../models/document');
 const Plan = require('../../models/plan');
 const User = require('../../models/user');
-const { s3Upload, s3Delete, s3GetSignedUrl } = require('../../uploads/aws-s3');
+const { s3Upload, s3Delete, s3GetSignedUrl, s3DownloadBuffer } = require('../../uploads/aws-s3');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const { isOwner, isCollaborator, isSuperAdmin } = require('../../utilities/permissions');
 const { broadcastEvent } = require('../../utilities/websocket-server');
@@ -141,6 +139,7 @@ function sanitizeObjectId(id) {
  */
 async function uploadDocument(req, res) {
   let localFilePath = null;
+  let uploadedS3Key = null;
 
   try {
     // Validate request
@@ -300,6 +299,7 @@ async function uploadDocument(req, res) {
     // Upload to protected bucket - documents require signed URLs to access
     const uploadResult = await s3Upload(localFilePath, req.file.originalname, s3KeyBase, { protected: true });
     const s3Key = uploadResult.key;
+    uploadedS3Key = s3Key;
     const s3Url = uploadResult.Location;
 
     backendLogger.info('[Document] Uploaded to S3', { s3Url, s3Key });
@@ -342,6 +342,9 @@ async function uploadDocument(req, res) {
       processAttempts: 1
     });
 
+    // DB record created successfully — S3 object is no longer orphaned
+    uploadedS3Key = null;
+
     backendLogger.info('[Document] Record created', {
       documentId: document._id,
       status: document.status
@@ -383,6 +386,19 @@ async function uploadDocument(req, res) {
       stack: error.stack,
       userId: req.user?._id
     });
+
+    // Cleanup S3 object if uploaded but DB record creation failed
+    if (uploadedS3Key) {
+      try {
+        await s3Delete(uploadedS3Key, { protected: true });
+        backendLogger.info('[Document] Rolled back orphaned S3 object', { s3Key: uploadedS3Key });
+      } catch (s3Err) {
+        backendLogger.error('[Document] Failed to rollback S3 object', {
+          s3Key: uploadedS3Key,
+          error: s3Err.message
+        });
+      }
+    }
 
     // Cleanup local file on error
     if (localFilePath) {
@@ -565,8 +581,10 @@ async function reprocessDocument(req, res) {
     // Mark as reprocessing
     await document.queueReprocess(options);
 
-    // Download from S3
-    localFilePath = await downloadFromS3(document.s3Url, document.originalFilename);
+    // Download from S3 via AWS SDK (supports protected bucket)
+    localFilePath = await downloadFromS3ViaSDK(document.s3Key, document.originalFilename, {
+      protected: document.isProtected || document.bucketType === 'protected'
+    });
 
     backendLogger.debug('[Document] Downloaded from S3 for reprocessing', { localFilePath });
 
@@ -747,9 +765,11 @@ async function permanentDeleteDocument(req, res) {
       adminUserId: req.user._id
     });
 
-    // Delete from S3
+    // Delete from S3 (pass protected flag for correct bucket targeting)
     try {
-      await s3Delete(document.s3Url);
+      await s3Delete(document.s3Url, {
+        protected: document.isProtected || document.bucketType === 'protected'
+      });
       backendLogger.debug('[Document] Deleted from S3');
     } catch (s3Error) {
       backendLogger.error('[Document] S3 delete failed', { error: s3Error.message });
@@ -1125,37 +1145,30 @@ async function canAccessDocument(userId, document) {
 }
 
 /**
- * Download file from S3 URL to local temp directory
+ * Download file from S3 using AWS SDK to local temp directory.
+ * Works with both public and protected buckets.
+ * @param {string} s3Key - The S3 object key
+ * @param {string} originalFilename - Original filename for local file naming
+ * @param {Object} [options] - Options passed to s3DownloadBuffer
+ * @param {boolean} [options.protected] - Whether to download from protected bucket
+ * @returns {Promise<string>} Local file path
  */
-async function downloadFromS3(url, originalFilename) {
-  return new Promise((resolve, reject) => {
-    const timestamp = Date.now();
-    const sanitizedName = path.basename(originalFilename).replace(/[^a-zA-Z0-9.-]/g, '_');
-    const localPath = path.join(TEMP_DIR, `${timestamp}-${sanitizedName}`);
+async function downloadFromS3ViaSDK(s3Key, originalFilename, options = {}) {
+  const timestamp = Date.now();
+  const sanitizedName = path.basename(originalFilename).replace(/[^a-zA-Z0-9.-]/g, '_');
+  const localPath = path.join(TEMP_DIR, `${timestamp}-${sanitizedName}`);
 
-    const file = fs.createWriteStream(localPath);
-    const protocol = url.startsWith('https') ? https : http;
-
-    protocol.get(url, (response) => {
-      if (response.statusCode !== 200) {
-        file.close();
-        fs.unlink(localPath, () => {}); // Cleanup
-        reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
-        return;
-      }
-
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close();
-        resolve(localPath);
-      });
-    }).on('error', (err) => {
-      file.close();
-      fs.unlink(localPath, () => {}); // Cleanup
-      reject(err);
-    });
-  });
+  try {
+    const { buffer } = await s3DownloadBuffer(s3Key, options);
+    fs.writeFileSync(localPath, buffer);
+    return localPath;
+  } catch (err) {
+    // Clean up partial file if it exists
+    if (fs.existsSync(localPath)) {
+      fs.unlinkSync(localPath);
+    }
+    throw err;
+  }
 }
 
 module.exports = {

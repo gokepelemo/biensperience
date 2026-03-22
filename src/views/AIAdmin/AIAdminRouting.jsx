@@ -206,9 +206,76 @@ export default function AIAdminRouting() {
 
   if (loading) {
     return (
-      <Stack gap="var(--space-4)">
-        <SkeletonLoader height="60px" />
-        <SkeletonLoader height="200px" />
+      <Stack gap="var(--space-5)">
+        {/* Header */}
+        <Flex justify="space-between" align="center" wrap="wrap" gap="var(--space-3)">
+          <Box>
+            <SkeletonLoader width="200px" height="24px" />
+            <SkeletonLoader width="100%" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+            <SkeletonLoader width="70%" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+          </Box>
+          <SkeletonLoader width="100px" height="32px" variant="rectangle" />
+        </Flex>
+        {/* Priority badges */}
+        <Flex gap="var(--space-2)" align="center">
+          <SkeletonLoader width="50px" height="14px" />
+          <SkeletonLoader width="140px" height="24px" variant="rectangle" />
+          <SkeletonLoader width="80px" height="24px" variant="rectangle" />
+        </Flex>
+        {/* Section label */}
+        <Flex align="center" gap="var(--space-2)">
+          <SkeletonLoader width="120px" height="14px" />
+          <SkeletonLoader width="160px" height="12px" />
+        </Flex>
+        {/* Rule cards */}
+        {[1, 2, 3].map(i => (
+          <Box
+            key={i}
+            p="var(--space-4)"
+            borderRadius="var(--space-3)"
+            border="1px solid"
+            borderColor="var(--color-border)"
+          >
+            {/* Row 1: Task → Provider */}
+            <Flex gap="var(--space-3)" wrap="wrap" align="flex-end">
+              <Box flex="1" minW="150px">
+                <SkeletonLoader width="30px" height="12px" />
+                <SkeletonLoader width="100%" height="36px" variant="rectangle" style={{ marginTop: 'var(--space-1)' }} />
+              </Box>
+              <Box pb="var(--space-1)">
+                <SkeletonLoader width="14px" height="14px" />
+              </Box>
+              <Box flex="1" minW="140px">
+                <SkeletonLoader width="50px" height="12px" />
+                <SkeletonLoader width="100%" height="36px" variant="rectangle" style={{ marginTop: 'var(--space-1)' }} />
+              </Box>
+              <SkeletonLoader width="36px" height="32px" variant="rectangle" />
+            </Flex>
+            {/* Separator */}
+            <Box my="var(--space-3)" borderTop="1px solid" borderColor="var(--color-border)" />
+            {/* Row 2: Model / Max Tokens / Temperature */}
+            <Flex gap="var(--space-3)" wrap="wrap" align="flex-end">
+              <Box flex="2" minW="160px">
+                <SkeletonLoader width="100px" height="12px" />
+                <SkeletonLoader width="100%" height="32px" variant="rectangle" style={{ marginTop: 'var(--space-1)' }} />
+              </Box>
+              <Box flex="1" minW="100px">
+                <SkeletonLoader width="75px" height="12px" />
+                <SkeletonLoader width="100%" height="32px" variant="rectangle" style={{ marginTop: 'var(--space-1)' }} />
+              </Box>
+              <Box flex="1" minW="100px">
+                <SkeletonLoader width="80px" height="12px" />
+                <SkeletonLoader width="100%" height="32px" variant="rectangle" style={{ marginTop: 'var(--space-1)' }} />
+              </Box>
+            </Flex>
+            {/* Summary badge */}
+            <Flex mt="var(--space-3)" gap="var(--space-2)" align="center">
+              <SkeletonLoader width="90px" height="20px" variant="rectangle" />
+              <SkeletonLoader width="10px" height="14px" />
+              <SkeletonLoader width="110px" height="20px" variant="rectangle" />
+            </Flex>
+          </Box>
+        ))}
       </Stack>
     );
   }

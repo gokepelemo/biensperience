@@ -1342,13 +1342,14 @@ class DataGenerator {
         permissions.push({ _id: contributor._id, entity: 'user', type: 'contributor', granted_at: new Date(), granted_by: owner._id });
       });
 
+      const featuredPhoto = getRandomElement(photos);
       experiences.push({
         name: this.generateExperienceName(destination.name, experienceTypes),
         destination: destination._id,
         experience_type: experienceTypes,
         permissions,
-        photos: [getRandomElement(photos)._id],
-        default_photo_id: getRandomElement(photos)._id,
+        photos: [featuredPhoto._id],
+        default_photo_id: featuredPhoto._id,
         plan_items: planItems
       });
     }

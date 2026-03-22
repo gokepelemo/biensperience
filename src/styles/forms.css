@@ -73,11 +73,28 @@ input[type="password"],
 input[type="number"],
 input[type="date"],
 input[type="url"],
-textarea,
 select {
   font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
-  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-3), 2vw, var(--space-5));
-  min-height: clamp(2.5rem, 6vw, 3.5rem);
+  padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5));
+  min-height: var(--input-height-md);
+  height: var(--input-height-md);
+  line-height: 1.5;
+  border-radius: clamp(var(--radius-md), 1vw, var(--radius-lg));
+  border: 2px solid var(--color-border-medium);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: all 300ms;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+textarea.form-control,
+textarea {
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
+  padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5));
+  /* Textareas don't have a fixed height — only min-height */
+  min-height: calc(var(--input-height-md) * 2);
+  height: auto;
   line-height: 1.5;
   border-radius: clamp(var(--radius-md), 1vw, var(--radius-lg));
   border: 2px solid var(--color-border-medium);
@@ -101,13 +118,15 @@ textarea::placeholder {
 .update-experience-form .form-control,
 .update-experience-form .form-select {
   font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
-  padding: clamp(var(--space-2), 1.5vw, var(--space-3)) clamp(var(--space-3), 2vw, var(--space-5)) !important;
-  min-height: clamp(2.5rem, 6vw, 3.5rem);
+  padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5)) !important;
+  min-height: var(--input-height-md) !important;
+  height: var(--input-height-md) !important;
 }
 
-/* Textareas - additional height consideration */
+/* Textareas - override the fixed height so they can grow */
 textarea.form-control {
-  min-height: clamp(4rem, 10vw, 8rem);
+  min-height: calc(var(--input-height-md) * 2);
+  height: auto;
   resize: vertical;
 }
 
@@ -134,12 +153,14 @@ textarea.form-control {
 }
 
 .input-group .btn {
-  /* Use standardized button sizing */
-  min-height: var(--btn-height-md);
+  /* Exact same height as form controls so they align perfectly */
+  min-height: var(--input-height-md);
+  height: var(--input-height-md);
   padding: var(--btn-padding-y-md) var(--btn-padding-x-md);
   font-size: var(--btn-font-size-md);
   font-weight: var(--btn-font-weight);
   white-space: nowrap;
+  align-self: stretch;
 }
 
 .new-experience-form .input-group,

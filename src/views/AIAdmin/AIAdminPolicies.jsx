@@ -153,7 +153,47 @@ export default function AIAdminPolicies() {
   }, []);
 
   if (loading) {
-    return <Stack gap="var(--space-4)">{[1, 2].map(i => <SkeletonLoader key={i} height="100px" />)}</Stack>;
+    return (
+      <Stack gap="var(--space-4)">
+        {/* Header row */}
+        <Flex justify="space-between" align="center">
+          <Box>
+            <SkeletonLoader width="120px" height="24px" />
+            <SkeletonLoader width="320px" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+          </Box>
+          <SkeletonLoader width="110px" height="36px" variant="rectangle" />
+        </Flex>
+        {/* Policy cards */}
+        {[1, 2].map(i => (
+          <Card key={i}>
+            <CardHeader>
+              <Flex justify="space-between" align="center" width="100%">
+                <Flex align="center" gap="var(--space-3)">
+                  <SkeletonLoader width="16px" height="16px" />
+                  <SkeletonLoader width="140px" height="18px" />
+                  <SkeletonLoader width="50px" height="20px" variant="rectangle" />
+                  <SkeletonLoader width="50px" height="20px" variant="rectangle" />
+                </Flex>
+                <Flex gap="var(--space-2)">
+                  <SkeletonLoader width="36px" height="32px" variant="rectangle" />
+                  <SkeletonLoader width="36px" height="32px" variant="rectangle" />
+                </Flex>
+              </Flex>
+            </CardHeader>
+            <CardBody>
+              <Flex gap="var(--space-6)" wrap="wrap">
+                {['Daily Requests', 'Daily Input Tokens', 'Max Tokens/Req', 'Content Filtering'].map(label => (
+                  <Box key={label}>
+                    <SkeletonLoader width="90px" height="12px" />
+                    <SkeletonLoader width="60px" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+                  </Box>
+                ))}
+              </Flex>
+            </CardBody>
+          </Card>
+        ))}
+      </Stack>
+    );
   }
 
   if (error) {

@@ -8,7 +8,9 @@ import {
   executeActions as executeActionsAPI,
   cancelAction as cancelActionAPI,
   deleteSession as deleteSessionAPI,
-  updateSessionContext as updateSessionContextAPI
+  updateSessionContext as updateSessionContextAPI,
+  addSessionCollaborator as addCollaboratorAPI,
+  removeSessionCollaborator as removeCollaboratorAPI
 } from '../utilities/bienbot-api';
 import { eventBus } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
@@ -69,8 +71,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
    * invokeContext is forwarded only on the very first send.
    *
    * @param {string} text - User message text
+   * @param {File} [attachment] - Optional file attachment to extract text from
    */
-  const sendMessage = useCallback(async (text) => {
+  const sendMessage = useCallback(async (text, attachment) => {
     if (!text?.trim()) return;
 
     // Clear suggested next steps when user sends a new message
@@ -81,7 +84,8 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       _id: `temp-${Date.now()}`,
       role: 'user',
       content: text,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      attachments: attachment ? [{ filename: attachment.name, mimeType: attachment.type, fileSize: attachment.size }] : []
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -115,6 +119,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     try {
       await postMessage(sid, text, {
         invokeContext: shouldSendContext ? invokeContext : undefined,
+        attachment: attachment || undefined,
         signal: controller.signal,
 
         onSession: ({ sessionId: newSessionId, title }) => {
@@ -435,6 +440,55 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, [clearSession]);
 
   // ---------------------------------------------------------------------------
+  // Session sharing
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Share the current session with another user.
+   *
+   * @param {string} userId - User ID to share with
+   * @param {string} [role='viewer'] - 'viewer' or 'editor'
+   * @returns {Promise<Object|null>} Updated shared_with list, or null on error
+   */
+  const shareSession = useCallback(async (userId, role = 'viewer') => {
+    const sid = sessionIdRef.current;
+    if (!sid || !userId) return null;
+
+    try {
+      const result = await addCollaboratorAPI(sid, userId, role);
+      if (result?.shared_with) {
+        setCurrentSession(prev => prev ? { ...prev, shared_with: result.shared_with } : prev);
+      }
+      return result;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to share session', { error: err.message });
+      return null;
+    }
+  }, []);
+
+  /**
+   * Remove a collaborator from the current session.
+   *
+   * @param {string} userId - User ID to remove
+   * @returns {Promise<Object|null>} Updated shared_with list, or null on error
+   */
+  const unshareSession = useCallback(async (userId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !userId) return null;
+
+    try {
+      const result = await removeCollaboratorAPI(sid, userId);
+      if (result?.shared_with) {
+        setCurrentSession(prev => prev ? { ...prev, shared_with: result.shared_with } : prev);
+      }
+      return result;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to unshare session', { error: err.message });
+      return null;
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Cleanup: cancel in-flight stream on unmount
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -460,6 +514,8 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     updateContext,
     loadSession,
     clearSession,
-    fetchSessions
+    fetchSessions,
+    shareSession,
+    unshareSession
   };
 }

@@ -97,6 +97,7 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     allowed_providers: [],
     blocked_providers: [],
     allowed_models: [],
+    fallback_providers: [],
     rate_limits: {
       requests_per_minute: null,
       requests_per_hour: null,
@@ -159,6 +160,9 @@ function mergePolicy(target, source) {
   }
   if (source.blocked_providers && source.blocked_providers.length > 0) {
     target.blocked_providers = source.blocked_providers;
+  }
+  if (source.fallback_providers && source.fallback_providers.length > 0) {
+    target.fallback_providers = source.fallback_providers;
   }
   if (source.allowed_models && source.allowed_models.length > 0) {
     target.allowed_models = source.allowed_models;
@@ -554,12 +558,6 @@ async function executeAIRequest(params) {
   // Step 5: Route to provider/model
   const route = await routeRequest(task, policy, options);
 
-  // Check provider has an API key
-  const apiKey = getApiKeyForProvider(route.provider);
-  if (!apiKey) {
-    throw new GatewayError(`AI provider ${route.provider} is not configured`, 'PROVIDER_NOT_CONFIGURED', 503);
-  }
-
   // Step 6: Build call options
   const callOptions = {
     model: route.model || undefined,
@@ -590,17 +588,81 @@ async function executeAIRequest(params) {
     if (taskRoute.max_tokens != null) callOptions.maxTokens = Math.min(callOptions.maxTokens, taskRoute.max_tokens);
   }
 
-  // Step 7: Call the provider
-  let result;
-  try {
-    // Record rate limit entry before the call
-    if (userId) recordRateEntry(userId);
+  // Step 7: Call the provider with retry logic and failover
+  // Use explicit policy fallbacks when set, otherwise default to enabled providers sorted by priority
+  let resolvedFallbacks = policy.fallback_providers || [];
+  if (resolvedFallbacks.length === 0) {
+    const allConfigs = await getAllProviderConfigs();
+    resolvedFallbacks = [...allConfigs.values()]
+      .filter(c => c.enabled && c.provider !== route.provider)
+      .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999))
+      .map(c => c.provider);
+  }
+  const providerChain = [route.provider, ...resolvedFallbacks.filter(p => p !== route.provider)];
 
-    result = await callProvider(route.provider, filterResult.messages, callOptions);
-  } catch (err) {
-    // Track failed request
-    await trackUsage(userId, task, route.provider, callOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext);
-    throw err;
+  // Record rate limit entry once per user request
+  if (userId) recordRateEntry(userId);
+
+  let result;
+  let lastError;
+  for (let i = 0; i < providerChain.length; i++) {
+    const currentProvider = providerChain[i];
+    const currentApiKey = getApiKeyForProvider(currentProvider);
+
+    if (!currentApiKey) {
+      logger.warn('[ai-gateway] Skipping provider (no API key configured)', { provider: currentProvider });
+      continue;
+    }
+
+    // For fallback providers, reset the model (models are provider-specific)
+    const currentCallOptions = i === 0
+      ? callOptions
+      : { ...callOptions, model: undefined };
+
+    try {
+      result = await callWithRetry(
+        () => callProvider(currentProvider, filterResult.messages, currentCallOptions),
+        options.retryConfig,
+        `${currentProvider}/${task || 'unknown'}`
+      );
+
+      if (i > 0) {
+        logger.info('[ai-gateway] Failover succeeded', {
+          primaryProvider: route.provider,
+          usedProvider: currentProvider,
+          failoverIndex: i
+        });
+      }
+
+      break; // success – exit provider loop
+    } catch (err) {
+      lastError = err;
+
+      if (!isRetryableError(err)) {
+        // Non-retryable error (auth failure, content policy, etc.) — do not failover
+        await trackUsage(userId, task, currentProvider, currentCallOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext);
+        throw err;
+      }
+
+      if (i < providerChain.length - 1) {
+        logger.warn('[ai-gateway] Provider failed after retries, trying fallback', {
+          failedProvider: currentProvider,
+          nextProvider: providerChain[i + 1],
+          error: err.message
+        });
+      }
+    }
+  }
+
+  if (!result) {
+    // All providers exhausted (either all failed or all skipped due to missing API keys)
+    const finalError = lastError || new GatewayError(
+      `No configured AI providers available for this request (tried: ${providerChain.join(', ')})`,
+      'PROVIDER_NOT_CONFIGURED',
+      503
+    );
+    await trackUsage(userId, task, route.provider, callOptions.model, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
+    throw finalError;
   }
 
   // Step 8: Track usage
@@ -657,6 +719,135 @@ async function trackUsage(userId, task, provider, model, inputTokens, outputToke
 }
 
 // ---------------------------------------------------------------------------
+// Retry with exponential backoff
+// ---------------------------------------------------------------------------
+
+/**
+ * Default retry configuration.
+ */
+const DEFAULT_RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000
+};
+
+/**
+ * HTTP status codes that indicate transient errors worth retrying.
+ */
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
+
+/**
+ * Error message patterns that indicate transient / retryable failures.
+ */
+const RETRYABLE_PATTERNS = [
+  /rate limit/i,
+  /timeout/i,
+  /timed out/i,
+  /ETIMEDOUT/,
+  /ECONNRESET/,
+  /ECONNREFUSED/,
+  /socket hang up/i,
+  /network/i,
+  /temporarily unavailable/i,
+  /overloaded/i,
+  /capacity/i,
+  /too many requests/i,
+  /service unavailable/i,
+  /internal server error/i,
+  /bad gateway/i,
+  /gateway timeout/i
+];
+
+/**
+ * Determine whether an error from a provider call is transient and safe to retry.
+ *
+ * @param {Error} err
+ * @returns {boolean}
+ */
+function isRetryableError(err) {
+  // Check HTTP status code (may be set by provider handlers)
+  if (err.statusCode && RETRYABLE_STATUS_CODES.has(err.statusCode)) return true;
+  if (err.status && RETRYABLE_STATUS_CODES.has(err.status)) return true;
+
+  // Check error message against known patterns
+  const msg = err.message || '';
+  return RETRYABLE_PATTERNS.some(pattern => pattern.test(msg));
+}
+
+/**
+ * Calculate delay for a retry attempt using exponential backoff with full jitter.
+ *
+ * Formula: random(0, min(maxDelay, baseDelay * 2^attempt))
+ *
+ * @param {number} attempt - Zero-based attempt index
+ * @param {number} baseDelayMs
+ * @param {number} maxDelayMs
+ * @returns {number} Delay in milliseconds
+ */
+function calculateRetryDelay(attempt, baseDelayMs, maxDelayMs) {
+  const exponentialDelay = Math.min(maxDelayMs, baseDelayMs * Math.pow(2, attempt));
+  // Full jitter: uniform random in [0, exponentialDelay]
+  return Math.floor(Math.random() * exponentialDelay);
+}
+
+/**
+ * Sleep for a given number of milliseconds.
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Call a provider with retry logic using exponential backoff and jitter.
+ *
+ * Only transient errors (rate limits, timeouts, 5xx) are retried.
+ * Non-retryable errors (auth failures, validation, content blocked) are thrown immediately.
+ *
+ * @param {Function} callFn - () => Promise<result> — the provider call to execute
+ * @param {Object} [retryConfig] - Override default retry configuration
+ * @param {string} [context] - Logging context (provider name, task)
+ * @returns {Promise<Object>} Provider response
+ */
+async function callWithRetry(callFn, retryConfig = {}, context = '') {
+  const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
+  let lastError;
+
+  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    try {
+      return await callFn();
+    } catch (err) {
+      lastError = err;
+
+      // Don't retry on non-transient errors
+      if (!isRetryableError(err)) {
+        throw err;
+      }
+
+      // Don't retry if we've exhausted all attempts
+      if (attempt >= config.maxRetries) {
+        break;
+      }
+
+      const delayMs = calculateRetryDelay(attempt, config.baseDelayMs, config.maxDelayMs);
+      logger.warn('[ai-gateway] Retrying LLM call after transient error', {
+        attempt: attempt + 1,
+        maxRetries: config.maxRetries,
+        delayMs,
+        error: err.message,
+        context
+      });
+
+      await sleep(delayMs);
+    }
+  }
+
+  // All retries exhausted
+  throw lastError;
+}
+
+// ---------------------------------------------------------------------------
 // Custom error class
 // ---------------------------------------------------------------------------
 
@@ -677,5 +868,10 @@ module.exports = {
   executeAIRequest,
   resolvePolicy,
   invalidatePolicyCache,
-  GatewayError
+  GatewayError,
+  // Exported for testing
+  callWithRetry,
+  isRetryableError,
+  calculateRetryDelay,
+  DEFAULT_RETRY_CONFIG
 };

@@ -357,6 +357,13 @@
   --btn-height-md: 44px;
   --btn-height-lg: 52px;
 
+  /* INPUT/FORM CONTROL HEIGHT TOKENS
+     Mirror button heights so inputs and buttons align when side-by-side.
+     Use these on all single-line form controls (input, select, .form-control). */
+  --input-height-sm: var(--btn-height-sm);   /* 36px */
+  --input-height-md: var(--btn-height-md);   /* 44px */
+  --input-height-lg: var(--btn-height-lg);   /* 52px */
+
   /* Padding - tightened for more compact buttons while maintaining WCAG touch targets */
   --btn-padding-y-sm: var(--space-1);    /* 4px */
   --btn-padding-x-sm: var(--space-2);    /* 8px */
@@ -468,23 +475,23 @@
   /* Form Field Container (InputGroup wrapper) */
   --form-field-border: 2px solid var(--color-border-medium);
   --form-field-border-radius: var(--radius-xl);
-  --form-field-min-height: 56px;
+  --form-field-min-height: var(--input-height-md);
   --form-field-overflow: hidden;
 
   /* Form Field Input Group Text (prefix/suffix) */
   --form-field-addon-bg: var(--color-bg-secondary);
   --form-field-addon-border: none;
   --form-field-addon-color: var(--color-text-muted);
-  --form-field-addon-padding: var(--space-3) var(--space-4);
-  --form-field-addon-min-height: 56px;
+  --form-field-addon-padding: var(--btn-padding-y-md) var(--space-4);
+  --form-field-addon-min-height: var(--input-height-md);
 
   /* Form Field Control (input/select/textarea) */
   --form-field-control-bg: var(--color-bg-primary);
   --form-field-control-border: none;
   --form-field-control-color: var(--color-text-primary);
   --form-field-control-font-size: var(--font-size-base);
-  --form-field-control-padding: var(--space-3) var(--space-4);
-  --form-field-control-min-height: 56px;
+  --form-field-control-padding: var(--btn-padding-y-md) var(--space-4);
+  --form-field-control-min-height: var(--input-height-md);
   --form-field-control-outline: none;
   --form-field-control-box-shadow: none;
 

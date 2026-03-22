@@ -12,10 +12,13 @@ const logger = require('../../utilities/backend-logger');
 const { successResponse, errorResponse, validateObjectId } = require('../../utilities/controller-helpers');
 const { invalidateConfigCache } = require('../../utilities/ai-provider-registry');
 const { invalidatePolicyCache } = require('../../utilities/ai-gateway');
-const { INTENTS } = require('../../utilities/bienbot-intent-classifier');
+const { INTENTS, retrainManager, invalidateConfigCache: invalidateClassifierConfigCache } = require('../../utilities/bienbot-intent-classifier');
 const AIProviderConfig = require('../../models/ai-provider-config');
 const AIPolicy = require('../../models/ai-policy');
 const AIUsage = require('../../models/ai-usage');
+const IntentCorpus = require('../../models/intent-corpus');
+const IntentClassificationLog = require('../../models/intent-classification-log');
+const IntentClassifierConfig = require('../../models/intent-classifier-config');
 const { DEFAULT_PROVIDERS } = require('../../utilities/ai-seed-providers');
 
 // ============================================================================
@@ -127,6 +130,51 @@ exports.updateProvider = async (req, res) => {
   } catch (err) {
     logger.error('[ai-admin] Failed to update provider', { error: err.message, id });
     return errorResponse(res, err, 'Failed to update provider', 500);
+  }
+};
+
+/**
+ * PUT /api/ai-admin/providers/reorder
+ * Set provider priority by drag order. Accepts { orderedProviders: ['openai', 'anthropic', ...] }.
+ * Priority is assigned as array index (0 = highest priority / first fallback).
+ */
+exports.reorderProviders = async (req, res) => {
+  const { orderedProviders } = req.body;
+  if (!Array.isArray(orderedProviders) || orderedProviders.length === 0) {
+    return errorResponse(res, null, 'orderedProviders must be a non-empty array', 400);
+  }
+
+  try {
+    const bulkOps = orderedProviders.map((providerKey, index) => {
+      const defaultDef = DEFAULT_PROVIDERS.find(d => d.provider === providerKey) || {};
+      return {
+        updateOne: {
+          filter: { provider: providerKey },
+          update: {
+            $set: { priority: index, updated_by: req.user._id },
+            $setOnInsert: {
+              display_name: defaultDef.display_name || providerKey,
+              endpoint: defaultDef.endpoint || '',
+              default_model: defaultDef.default_model || '',
+              valid_models: defaultDef.valid_models || [],
+              enabled: defaultDef.enabled !== undefined ? defaultDef.enabled : true,
+              env_key_name: defaultDef.env_key_name || `${providerKey.toUpperCase()}_API_KEY`,
+              created_by: req.user._id
+            }
+          },
+          upsert: true
+        }
+      };
+    });
+
+    await AIProviderConfig.bulkWrite(bulkOps);
+    invalidateConfigCache();
+
+    logger.info('[ai-admin] Providers reordered', { order: orderedProviders, by: req.user._id });
+    return successResponse(res, { orderedProviders });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to reorder providers', { error: err.message });
+    return errorResponse(res, err, 'Failed to reorder providers', 500);
   }
 };
 
@@ -492,5 +540,435 @@ exports.updateRouting = async (req, res) => {
   } catch (err) {
     logger.error('[ai-admin] Failed to update routing', { error: err.message });
     return errorResponse(res, err, 'Failed to update routing', 500);
+  }
+};
+
+// ============================================================================
+// Intent Corpus
+// ============================================================================
+
+/**
+ * GET /api/ai-admin/corpus
+ * List all intents with utterance counts.
+ */
+exports.listCorpus = async (req, res) => {
+  try {
+    const intents = await IntentCorpus.find({})
+      .sort({ intent: 1 })
+      .lean();
+
+    const result = intents.map(i => ({
+      _id: i._id,
+      intent: i.intent,
+      description: i.description,
+      utterance_count: i.utterances.length,
+      is_custom: i.is_custom,
+      enabled: i.enabled,
+      updatedAt: i.updatedAt
+    }));
+
+    return successResponse(res, { intents: result, total: result.length });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to list corpus', { error: err.message });
+    return errorResponse(res, err, 'Failed to list corpus', 500);
+  }
+};
+
+/**
+ * GET /api/ai-admin/corpus/:intent
+ * Get a single intent with all utterances.
+ */
+exports.getCorpusIntent = async (req, res) => {
+  try {
+    const doc = await IntentCorpus.findOne({ intent: req.params.intent.toUpperCase() }).lean();
+    if (!doc) {
+      return errorResponse(res, null, 'Intent not found', 404);
+    }
+    return successResponse(res, { intent: doc });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to get corpus intent', { error: err.message });
+    return errorResponse(res, err, 'Failed to get corpus intent', 500);
+  }
+};
+
+/**
+ * POST /api/ai-admin/corpus
+ * Create a new intent.
+ */
+exports.createCorpusIntent = async (req, res) => {
+  try {
+    const { intent, utterances, description } = req.body;
+
+    if (!intent || typeof intent !== 'string') {
+      return errorResponse(res, null, 'Intent name is required', 400);
+    }
+
+    const intentKey = intent.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+    if (!intentKey || intentKey.length < 2) {
+      return errorResponse(res, null, 'Invalid intent name', 400);
+    }
+
+    const existing = await IntentCorpus.findOne({ intent: intentKey });
+    if (existing) {
+      return errorResponse(res, null, 'Intent already exists', 409);
+    }
+
+    const doc = await IntentCorpus.create({
+      intent: intentKey,
+      utterances: Array.isArray(utterances) ? utterances.filter(u => typeof u === 'string' && u.trim()) : [],
+      description: description || '',
+      is_custom: true,
+      enabled: true,
+      created_by: req.user._id,
+      updated_by: req.user._id
+    });
+
+    logger.info('[ai-admin] Corpus intent created', { intent: intentKey, by: req.user._id });
+    return successResponse(res, { intent: doc });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to create corpus intent', { error: err.message });
+    return errorResponse(res, err, 'Failed to create corpus intent', 500);
+  }
+};
+
+/**
+ * PUT /api/ai-admin/corpus/:intent
+ * Update an intent (utterances, description, enabled).
+ */
+exports.updateCorpusIntent = async (req, res) => {
+  try {
+    const intentKey = req.params.intent.toUpperCase();
+    const doc = await IntentCorpus.findOne({ intent: intentKey });
+    if (!doc) {
+      return errorResponse(res, null, 'Intent not found', 404);
+    }
+
+    const { utterances, description, enabled } = req.body;
+
+    if (utterances !== undefined) {
+      if (!Array.isArray(utterances)) {
+        return errorResponse(res, null, 'utterances must be an array', 400);
+      }
+      doc.utterances = utterances.filter(u => typeof u === 'string' && u.trim());
+    }
+    if (description !== undefined) {
+      doc.description = String(description).slice(0, 500);
+    }
+    if (enabled !== undefined) {
+      doc.enabled = !!enabled;
+    }
+    doc.updated_by = req.user._id;
+
+    await doc.save();
+
+    logger.info('[ai-admin] Corpus intent updated', { intent: intentKey, by: req.user._id });
+    return successResponse(res, { intent: doc });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to update corpus intent', { error: err.message });
+    return errorResponse(res, err, 'Failed to update corpus intent', 500);
+  }
+};
+
+/**
+ * DELETE /api/ai-admin/corpus/:intent
+ * Delete a custom intent. Seeded intents can only be disabled, not deleted.
+ */
+exports.deleteCorpusIntent = async (req, res) => {
+  try {
+    const intentKey = req.params.intent.toUpperCase();
+    const doc = await IntentCorpus.findOne({ intent: intentKey });
+    if (!doc) {
+      return errorResponse(res, null, 'Intent not found', 404);
+    }
+
+    if (!doc.is_custom) {
+      return errorResponse(res, null, 'Seeded intents cannot be deleted. Disable them instead.', 400);
+    }
+
+    await IntentCorpus.deleteOne({ _id: doc._id });
+
+    logger.info('[ai-admin] Corpus intent deleted', { intent: intentKey, by: req.user._id });
+    return successResponse(res, { deleted: true, intent: intentKey });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to delete corpus intent', { error: err.message });
+    return errorResponse(res, err, 'Failed to delete corpus intent', 500);
+  }
+};
+
+/**
+ * POST /api/ai-admin/corpus/retrain
+ * Trigger NLP model retraining from current DB corpus.
+ */
+exports.retrainClassifier = async (req, res) => {
+  try {
+    const stats = await retrainManager();
+    logger.info('[ai-admin] Classifier retrained', { ...stats, by: req.user._id });
+    return successResponse(res, { retrained: true, ...stats });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to retrain classifier', { error: err.message });
+    return errorResponse(res, err, 'Failed to retrain classifier', 500);
+  }
+};
+
+// ============================================================================
+// Classification Logs
+// ============================================================================
+
+/**
+ * GET /api/ai-admin/classifications
+ * List classification logs with filters.
+ */
+exports.listClassifications = async (req, res) => {
+  try {
+    const {
+      low_confidence,
+      reviewed,
+      intent,
+      start_date,
+      end_date,
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    const filter = {};
+
+    if (low_confidence === 'true') filter.is_low_confidence = true;
+    if (reviewed === 'true') filter.reviewed = true;
+    if (reviewed === 'false') filter.reviewed = false;
+    if (intent) filter.intent = intent.toUpperCase();
+
+    if (start_date || end_date) {
+      filter.createdAt = {};
+      if (start_date) filter.createdAt.$gte = new Date(start_date);
+      if (end_date) filter.createdAt.$lte = new Date(end_date);
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    const skip = (pageNum - 1) * pageSize;
+
+    const [logs, total] = await Promise.all([
+      IntentClassificationLog.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      IntentClassificationLog.countDocuments(filter)
+    ]);
+
+    return successResponse(res, {
+      logs,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / pageSize)
+    });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to list classifications', { error: err.message });
+    return errorResponse(res, err, 'Failed to list classifications', 500);
+  }
+};
+
+/**
+ * GET /api/ai-admin/classifications/summary
+ * Aggregated classification stats.
+ */
+exports.getClassificationSummary = async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 30));
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const [totals, intentBreakdown, lowConfidenceIntents] = await Promise.all([
+      IntentClassificationLog.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            low_confidence: { $sum: { $cond: ['$is_low_confidence', 1, 0] } },
+            unreviewed: { $sum: { $cond: [{ $and: ['$is_low_confidence', { $not: '$reviewed' }] }, 1, 0] } },
+            llm_reclassified: { $sum: { $cond: ['$llm_reclassified', 1, 0] } },
+            avg_confidence: { $avg: '$confidence' }
+          }
+        }
+      ]),
+      IntentClassificationLog.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: '$intent', count: { $sum: 1 }, avg_confidence: { $avg: '$confidence' } } },
+        { $sort: { count: -1 } },
+        { $limit: 20 }
+      ]),
+      IntentClassificationLog.aggregate([
+        { $match: { createdAt: { $gte: since }, is_low_confidence: true } },
+        { $group: { _id: '$intent', count: { $sum: 1 }, avg_confidence: { $avg: '$confidence' } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ])
+    ]);
+
+    const summary = totals[0] || { total: 0, low_confidence: 0, unreviewed: 0, llm_reclassified: 0, avg_confidence: 0 };
+
+    return successResponse(res, {
+      days,
+      ...summary,
+      intent_breakdown: intentBreakdown,
+      low_confidence_intents: lowConfidenceIntents
+    });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to get classification summary', { error: err.message });
+    return errorResponse(res, err, 'Failed to get classification summary', 500);
+  }
+};
+
+/**
+ * PUT /api/ai-admin/classifications/:id/review
+ * Mark a classification as reviewed, optionally set corrected intent.
+ */
+exports.reviewClassification = async (req, res) => {
+  try {
+    if (!validateObjectId(req.params.id)) {
+      return errorResponse(res, null, 'Invalid classification ID', 400);
+    }
+
+    const log = await IntentClassificationLog.findById(req.params.id);
+    if (!log) {
+      return errorResponse(res, null, 'Classification log not found', 404);
+    }
+
+    const { corrected_intent } = req.body;
+
+    log.reviewed = true;
+    log.reviewed_by = req.user._id;
+    log.reviewed_at = new Date();
+    if (corrected_intent) {
+      log.admin_corrected_intent = corrected_intent.toUpperCase();
+    }
+
+    await log.save();
+
+    logger.info('[ai-admin] Classification reviewed', {
+      logId: log._id,
+      corrected: corrected_intent || null,
+      by: req.user._id
+    });
+    return successResponse(res, { log });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to review classification', { error: err.message });
+    return errorResponse(res, err, 'Failed to review classification', 500);
+  }
+};
+
+/**
+ * POST /api/ai-admin/classifications/batch-add
+ * Add reviewed corrections as utterances to the corpus.
+ * Expects { corrections: [{ log_id, intent, utterance }] }
+ */
+exports.batchAddToCorpus = async (req, res) => {
+  try {
+    const { corrections } = req.body;
+    if (!Array.isArray(corrections) || corrections.length === 0) {
+      return errorResponse(res, null, 'corrections array is required', 400);
+    }
+
+    const results = [];
+    for (const { log_id, intent, utterance } of corrections) {
+      if (!intent || !utterance) continue;
+
+      const intentKey = intent.toUpperCase();
+      const doc = await IntentCorpus.findOne({ intent: intentKey });
+      if (!doc) {
+        results.push({ intent: intentKey, utterance, status: 'intent_not_found' });
+        continue;
+      }
+
+      const trimmed = utterance.trim();
+      if (doc.utterances.includes(trimmed)) {
+        results.push({ intent: intentKey, utterance: trimmed, status: 'duplicate' });
+        continue;
+      }
+
+      doc.utterances.push(trimmed);
+      doc.updated_by = req.user._id;
+      await doc.save();
+
+      // Mark log as reviewed if log_id provided
+      if (log_id && validateObjectId(log_id)) {
+        await IntentClassificationLog.findByIdAndUpdate(log_id, {
+          reviewed: true,
+          reviewed_by: req.user._id,
+          reviewed_at: new Date(),
+          admin_corrected_intent: intentKey
+        });
+      }
+
+      results.push({ intent: intentKey, utterance: trimmed, status: 'added' });
+    }
+
+    logger.info('[ai-admin] Batch corpus add', {
+      total: corrections.length,
+      added: results.filter(r => r.status === 'added').length,
+      by: req.user._id
+    });
+
+    return successResponse(res, { results });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to batch add to corpus', { error: err.message });
+    return errorResponse(res, err, 'Failed to batch add to corpus', 500);
+  }
+};
+
+// ============================================================================
+// Classifier Config
+// ============================================================================
+
+/**
+ * GET /api/ai-admin/classifier-config
+ * Get the singleton classifier config.
+ */
+exports.getClassifierConfig = async (req, res) => {
+  try {
+    const config = await IntentClassifierConfig.getConfig();
+    return successResponse(res, { config });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to get classifier config', { error: err.message });
+    return errorResponse(res, err, 'Failed to get classifier config', 500);
+  }
+};
+
+/**
+ * PUT /api/ai-admin/classifier-config
+ * Update classifier config (thresholds, toggles).
+ */
+exports.updateClassifierConfig = async (req, res) => {
+  try {
+    const allowedFields = [
+      'low_confidence_threshold',
+      'llm_fallback_enabled',
+      'llm_fallback_threshold',
+      'log_all_classifications',
+      'log_retention_days'
+    ];
+
+    const update = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        update[field] = req.body[field];
+      }
+    }
+    update.updated_by = req.user._id;
+
+    const config = await IntentClassifierConfig.findOneAndUpdate(
+      {},
+      update,
+      { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true }
+    );
+
+    invalidateClassifierConfigCache();
+
+    logger.info('[ai-admin] Classifier config updated', { fields: Object.keys(update), by: req.user._id });
+    return successResponse(res, { config });
+  } catch (err) {
+    logger.error('[ai-admin] Failed to update classifier config', { error: err.message });
+    return errorResponse(res, err, 'Failed to update classifier config', 500);
   }
 };

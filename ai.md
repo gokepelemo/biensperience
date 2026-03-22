@@ -1074,13 +1074,11 @@ The TTL is defined as `SUMMARY_CACHE_TTL_MS = 6 * 60 * 60 * 1000` (6 hours).
 
 ### Messages Integration
 
-> **BienBot is no longer available through the Messages tab.** All BienBot interactions happen exclusively through the **in-context chat drawer** (floating BienBotTrigger button), which uses SSE streaming via `POST /api/bienbot/chat`.
+The Messages tab (`MessagesModal`) uses Stream Chat for user-to-user and group messaging (DMs, plan channels, plan-item channels).
 
-The Messages tab (`MessagesModal`) uses Stream Chat for user-to-user and group messaging (DMs, plan channels, plan-item channels). BienBot does not appear as a channel in Messages.
+#### Chat Drawer
 
-#### Chat Drawer (Only BienBot Entry Point)
-
-BienBot is triggered by the floating BienBotTrigger button on entity pages. It opens a slide-out panel with entity-aware context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
+BienBot is accessed via the floating BienBotTrigger button on entity pages. It opens a slide-out panel with entity-aware context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
 
 ---
 

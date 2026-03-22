@@ -148,6 +148,8 @@ export default function NavigationBreadcrumb({
     );
   };
 
+  const mobileBreadcrumbs = renderMobileBreadcrumbs();
+
   return (
     <>
       {/* Desktop breadcrumbs */}
@@ -156,9 +158,11 @@ export default function NavigationBreadcrumb({
       </Hide>
 
       {/* Mobile breadcrumbs */}
-      <Show on="mobile">
-        {renderMobileBreadcrumbs()}
-      </Show>
+      {mobileBreadcrumbs && (
+        <Show on="mobile">
+          {mobileBreadcrumbs}
+        </Show>
+      )}
     </>
   );
 }

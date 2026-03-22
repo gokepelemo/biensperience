@@ -54,7 +54,7 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
   try {
-    const destination = await Destination.findById(destinationId).lean();
+    const destination = await Destination.findById(destinationId);
     if (!destination) return null;
 
     const perm = await enforcer.canView({ userId, resource: destination });
@@ -87,7 +87,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
   try {
-    const experience = await Experience.findById(experienceId).populate('destination', 'name country').lean();
+    const experience = await Experience.findById(experienceId).populate('destination', 'name country');
     if (!experience) return null;
 
     const perm = await enforcer.canView({ userId, resource: experience });
@@ -105,7 +105,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       experience.difficulty ? `Difficulty: ${experience.difficulty}/10` : null,
       experience.rating ? `Rating: ${experience.rating}/5` : null,
       experience.visibility ? `Visibility: ${experience.visibility}` : null,
-      itemCount > 0 ? `Items: ${experience.plan_items.slice(0, 10).map(i => i.content || i.name || '(unnamed)').join(', ')}` : null
+      itemCount > 0 ? `Items: ${experience.plan_items.slice(0, 10).map(i => i.content || i.text || i.name || '(unnamed)').join(', ')}` : null
     ];
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
@@ -124,15 +124,15 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planId)
-      .populate('experience', 'name')
-      .lean();
+      .populate('experience', 'name');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
     if (!perm.allowed) return null;
 
-    const totalItems = plan.plan?.length || 0;
-    const completedItems = plan.plan?.filter(i => i.complete).length || 0;
+    const planItems = plan.plan || [];
+    const totalItems = planItems.length;
+    const completedItems = planItems.filter(i => i.complete).length;
     const completionPct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
     const lines = [
@@ -141,7 +141,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       `Completion: ${completedItems}/${totalItems} items (${completionPct}%)`,
       plan.currency ? `Currency: ${plan.currency}` : null,
       plan.costs?.length ? `Costs tracked: ${plan.costs.length}` : null,
-      totalItems > 0 ? `Items: ${plan.plan.slice(0, 10).map(i => `${i.complete ? '[x]' : '[ ]'} ${i.content || i.name || '(unnamed)'}`).join(', ')}` : null
+      totalItems > 0 ? `Items: ${planItems.slice(0, 10).map(i => `${i.complete ? '[x]' : '[ ]'} ${i.content || i.text || i.name || '(unnamed)'}`).join(', ')}` : null
     ];
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
@@ -160,19 +160,19 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planId)
-      .populate('experience', 'name')
-      .lean();
+      .populate('experience', 'name');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
     if (!perm.allowed) return null;
 
+    const planItems = plan.plan || [];
     const itemIdStr = String(itemId);
-    const item = plan.plan?.find(i => String(i._id) === itemIdStr);
+    const item = planItems.find(i => String(i._id) === itemIdStr);
     if (!item) return null;
 
     const lines = [
-      `[Plan Item] ${item.content || item.name || '(unnamed)'}`,
+      `[Plan Item] ${item.content || item.text || item.name || '(unnamed)'}`,
       `Plan: "${plan.experience?.name || '(unknown)'}"`,
       `Status: ${item.complete ? 'completed' : 'pending'}`,
       item.scheduled_date ? `Scheduled: ${new Date(item.scheduled_date).toISOString().split('T')[0]}` : null,
@@ -196,8 +196,7 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
 
   try {
     const user = await User.findById(targetUserId)
-      .select('name email preferences bio links feature_flags')
-      .lean();
+      .select('name email preferences bio links feature_flags');
     if (!user) return null;
 
     const lines = [

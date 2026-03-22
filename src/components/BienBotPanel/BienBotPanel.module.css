@@ -24,6 +24,7 @@
 .panel {
   position: fixed;
   z-index: var(--z-index-tooltip, 1070);
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary, #fff);
@@ -284,6 +285,43 @@
   flex-shrink: 0;
 }
 
+/* Workflow step list inside action card */
+.workflowSteps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+  margin-top: var(--space-2, 0.5rem);
+  padding-left: var(--space-1, 0.25rem);
+}
+
+.workflowStep {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary, #64748b);
+}
+
+.workflowStepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary, #6c63ff);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-semibold, 600);
+  flex-shrink: 0;
+}
+
+.workflowStepText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------------------------------------------------------------------------
    Suggested next-step chips
    --------------------------------------------------------------------------- */
@@ -317,28 +355,35 @@
    --------------------------------------------------------------------------- */
 .inputArea {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: var(--space-2, 0.5rem);
-  padding: var(--space-3, 0.75rem) var(--space-5, 1.25rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
   border-top: 1px solid var(--color-border, #e2e8f0);
   flex-shrink: 0;
+  background: var(--color-bg-primary, #fff);
+
+  @mixin dark {
+    background: var(--color-bg-primary, #0f172a);
+    border-top-color: var(--color-border-dark, #475569);
+  }
 }
 
 .textInput {
   flex: 1;
-  min-height: var(--btn-height-md, 44px);
-  max-height: 120px;
+  min-height: 42px;
+  max-height: 160px;
   padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-md, 6px);
-  background: var(--color-bg-primary, #fff);
+  border: 1.5px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--color-bg-secondary, #f8fafc);
   color: var(--color-text-primary, #1e293b);
   font-size: var(--font-size-sm, 0.875rem);
   font-family: inherit;
   line-height: var(--line-height-normal, 1.5);
   resize: none;
   outline: none;
-  transition: border-color 0.15s ease;
+  overflow-y: auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 
   @mixin dark {
     background: var(--color-bg-secondary, #1e293b);
@@ -348,15 +393,29 @@
 
 .textInput:focus {
   border-color: var(--color-primary, #6c63ff);
+  background: var(--color-bg-primary, #fff);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.2);
+  }
+}
+
+.textInput::placeholder {
+  color: var(--color-text-tertiary, #94a3b8);
 }
 
 .textInput:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .sendButton {
   flex-shrink: 0;
+  border-radius: var(--radius-lg, 12px) !important;
+  min-width: 42px;
+  min-height: 42px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -388,4 +447,236 @@
 @keyframes dotPulse {
   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
   40% { opacity: 1; transform: scale(1); }
+}
+
+/* ---------------------------------------------------------------------------
+   Notification list (notification-only mode)
+   --------------------------------------------------------------------------- */
+.notificationList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+}
+
+.notificationItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-radius: var(--radius-md, 6px);
+  transition: background 0.15s ease;
+}
+
+.notificationItem:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.notificationIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary-lightest, #ede9fe);
+  color: var(--color-primary, #6c63ff);
+  margin-top: 2px;
+
+  @mixin dark {
+    background: rgba(108, 99, 255, 0.15);
+  }
+}
+
+.notificationContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.notificationViewButton {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary, #6c63ff);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  margin-top: var(--space-1, 0.25rem);
+}
+
+.notificationViewButton:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Notification banner (chat mode — non-intrusive)
+   --------------------------------------------------------------------------- */
+.notificationBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-5, 1.25rem);
+  background: var(--color-primary-lightest, #ede9fe);
+  color: var(--color-primary-dark, #5a52d5);
+  flex-shrink: 0;
+
+  @mixin dark {
+    background: rgba(108, 99, 255, 0.12);
+    color: var(--color-primary-light, #a78bfa);
+  }
+}
+
+.notificationBannerIcon {
+  flex-shrink: 0;
+}
+
+.notificationBannerText {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--font-weight-medium, 500);
+}
+
+.notificationBannerDismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.notificationBannerDismiss:hover {
+  opacity: 1;
+}
+
+.notificationBannerDismiss svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   Attachment UI
+   --------------------------------------------------------------------------- */
+.hiddenFileInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.attachButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  background: none;
+  border: 1.5px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.attachButton:hover:not(:disabled) {
+  color: var(--color-primary, #6c63ff);
+  border-color: var(--color-primary, #6c63ff);
+}
+
+.attachButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.attachmentPreview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-5, 1.25rem);
+  background: var(--color-primary-lightest, #ede9fe);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+.attachmentPreviewName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 0.25rem);
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-primary-dark, #5a52d5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: calc(100% - 40px);
+}
+
+.attachmentPreviewName svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.attachmentRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.attachmentRemove:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.messageAttachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 0.25rem);
+  margin-bottom: var(--space-1, 0.25rem);
+}
+
+.attachmentBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  background: rgba(255, 255, 255, 0.15);
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
+.attachmentBadge svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.attachmentFilename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
 }

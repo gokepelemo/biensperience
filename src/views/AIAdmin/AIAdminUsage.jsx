@@ -117,8 +117,54 @@ export default function AIAdminUsage() {
   if (loading) {
     return (
       <Stack gap="var(--space-4)">
-        <SkeletonLoader height="80px" />
-        <SkeletonLoader height="200px" />
+        {/* Header row */}
+        <Flex justify="space-between" align="center" wrap="wrap" gap="var(--space-3)">
+          <Box>
+            <SkeletonLoader width="160px" height="24px" />
+            <SkeletonLoader width="280px" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+          </Box>
+          <Flex gap="var(--space-2)">
+            {[1, 2, 3, 4].map(i => (
+              <SkeletonLoader key={i} width="60px" height="32px" variant="rectangle" />
+            ))}
+            <SkeletonLoader width="80px" height="32px" variant="rectangle" />
+          </Flex>
+        </Flex>
+        {/* Stat cards */}
+        <Flex gap="var(--space-4)" wrap="wrap">
+          {[1, 2, 3, 4, 5].map(i => (
+            <Card key={i} flex="1" minW="150px">
+              <CardBody>
+                <SkeletonLoader width="80px" height="12px" />
+                <SkeletonLoader width="60px" height="28px" style={{ marginTop: 'var(--space-1)' }} />
+              </CardBody>
+            </Card>
+          ))}
+        </Flex>
+        {/* Daily breakdown table */}
+        <Card>
+          <CardHeader>
+            <SkeletonLoader width="140px" height="18px" />
+          </CardHeader>
+          <CardBody>
+            <Stack gap="var(--space-3)">
+              {/* Table header */}
+              <Flex gap="var(--space-4)">
+                {[80, 70, 90, 90, 70].map((w, i) => (
+                  <SkeletonLoader key={i} width={`${w}px`} height="14px" />
+                ))}
+              </Flex>
+              {/* Table rows */}
+              {[1, 2, 3, 4, 5].map(i => (
+                <Flex key={i} gap="var(--space-4)">
+                  {[80, 50, 60, 60, 50].map((w, j) => (
+                    <SkeletonLoader key={j} width={`${w}px`} height="14px" />
+                  ))}
+                </Flex>
+              ))}
+            </Stack>
+          </CardBody>
+        </Card>
       </Stack>
     );
   }

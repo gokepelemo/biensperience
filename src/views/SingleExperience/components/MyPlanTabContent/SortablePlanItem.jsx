@@ -127,12 +127,11 @@ const SortablePlanItem = memo(function SortablePlanItem({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, marginBottom: 'var(--space-3)', overflow: 'hidden' }}
       data-plan-item-id={planItem._id}
       className={`plan-item-card ${
         planItem.isVisible ? "" : "collapsed"
       } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
-      style={{ marginBottom: 'var(--space-3)', overflow: 'hidden' }}
     >
       <div className="plan-item-header" style={{ padding: 'var(--space-4)' }}>
         <div className="plan-item-title-row">

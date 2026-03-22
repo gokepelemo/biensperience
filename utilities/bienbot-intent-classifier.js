@@ -3,8 +3,14 @@
  *
  * Uses NLP.js (node-nlp-rn) for fast, local intent classification
  * without requiring an LLM API call. The classifier is trained on
- * startup from a corpus of utterances and uses a neural network
- * to classify user messages into intents.
+ * startup from the MongoDB corpus (seeded from JSON on first boot)
+ * and uses a neural network to classify user messages into intents.
+ *
+ * Supports:
+ * - DB-backed corpus with admin management
+ * - Configurable confidence thresholds
+ * - LLM fallback for low-confidence classifications
+ * - Classification logging for admin review
  *
  * Entity extraction uses NLP.js built-in NER for emails and
  * regex-based heuristics for destination/experience names.
@@ -64,9 +70,67 @@ const INTENTS = {
 let manager = null;
 let trainingPromise = null;
 
+// Cached classifier config (refreshed on demand)
+let configCache = null;
+let configCacheTime = 0;
+const CONFIG_CACHE_TTL = 60_000; // 1 minute
+
 /**
- * Build and train the NLP manager from the intent corpus.
- * Runs once at startup and caches the result.
+ * Load classifier config with caching.
+ * @returns {Promise<object>}
+ */
+async function getClassifierConfig() {
+  const now = Date.now();
+  if (configCache && (now - configCacheTime) < CONFIG_CACHE_TTL) {
+    return configCache;
+  }
+  try {
+    const IntentClassifierConfig = require('../models/intent-classifier-config');
+    configCache = await IntentClassifierConfig.getConfig();
+    configCacheTime = now;
+    return configCache;
+  } catch {
+    return {
+      low_confidence_threshold: 0.65,
+      llm_fallback_enabled: false,
+      llm_fallback_threshold: 0.4,
+      log_all_classifications: false,
+      log_retention_days: 90
+    };
+  }
+}
+
+/**
+ * Invalidate the cached classifier config.
+ */
+function invalidateConfigCache() {
+  configCache = null;
+  configCacheTime = 0;
+}
+
+/**
+ * Load corpus data from MongoDB, falling back to JSON file.
+ * @returns {Promise<Array<{ intent: string, utterances: string[] }>>}
+ */
+async function loadCorpusData() {
+  try {
+    const IntentCorpus = require('../models/intent-corpus');
+    const docs = await IntentCorpus.find({ enabled: true }).lean();
+    if (docs.length > 0) {
+      return docs.map(d => ({ intent: d.intent, utterances: d.utterances }));
+    }
+  } catch (err) {
+    logger.warn('[bienbot-intent-classifier] DB corpus unavailable, using JSON fallback', {
+      error: err.message
+    });
+  }
+  const corpus = require('./bienbot-intent-corpus.json');
+  return corpus.data;
+}
+
+/**
+ * Build and train the NLP manager from the corpus.
+ * Loads from DB first, falls back to JSON.
  */
 async function getManager() {
   if (manager) return manager;
@@ -80,16 +144,17 @@ async function getManager() {
       autoSave: false
     });
 
-    // Load corpus
-    const corpus = require('./bienbot-intent-corpus.json');
+    const corpusData = await loadCorpusData();
 
     // Add named entity for email detection
     nlp.addRegexEntity('user_email', 'en', /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
 
     // Add utterances from corpus
-    for (const intentData of corpus.data) {
+    let totalUtterances = 0;
+    for (const intentData of corpusData) {
       for (const utterance of intentData.utterances) {
         nlp.addDocument('en', utterance, intentData.intent);
+        totalUtterances++;
       }
     }
 
@@ -97,8 +162,8 @@ async function getManager() {
     await nlp.train();
 
     logger.info('[bienbot-intent-classifier] NLP model trained', {
-      intents: Object.keys(INTENTS).length,
-      utterances: corpus.data.reduce((sum, d) => sum + d.utterances.length, 0)
+      intents: corpusData.length,
+      utterances: totalUtterances
     });
 
     manager = nlp;
@@ -109,21 +174,49 @@ async function getManager() {
 }
 
 /**
+ * Force retrain the NLP model from current DB corpus.
+ * Called after admin corpus changes.
+ * @returns {Promise<{ intents: number, utterances: number }>}
+ */
+async function retrainManager() {
+  manager = null;
+  trainingPromise = null;
+  const nlp = await getManager();
+  const IntentCorpus = require('../models/intent-corpus');
+  const docs = await IntentCorpus.find({ enabled: true }).lean();
+  return {
+    intents: docs.length,
+    utterances: docs.reduce((sum, d) => sum + d.utterances.length, 0)
+  };
+}
+
+/**
  * Classify user intent from a message string.
  *
+ * Flow:
+ * 1. NLP.js classification
+ * 2. Check confidence against thresholds
+ * 3. If below LLM threshold and fallback enabled → call LLM
+ * 4. Log classification async (fire-and-forget)
+ * 5. Return result with source indicator
+ *
  * @param {string} message - The raw user message text.
- * @returns {Promise<{ intent: string, entities: object, confidence: number }>}
+ * @param {object} [opts] - Options.
+ * @param {string} [opts.userId] - User ID for logging.
+ * @param {string} [opts.sessionId] - Session ID for logging.
+ * @param {object} [opts.user] - Full user object (for LLM fallback via AI gateway).
+ * @returns {Promise<{ intent: string, entities: object, confidence: number, source: string }>}
  */
-async function classifyIntent(message) {
+async function classifyIntent(message, opts = {}) {
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
-    return fallbackResult();
+    return { ...fallbackResult(), source: 'nlp' };
   }
 
   try {
     const nlp = await getManager();
     const result = await nlp.process('en', message.trim());
 
-    const intent = result.intent && result.intent !== 'None'
+    let intent = result.intent && result.intent !== 'None'
       ? result.intent
       : INTENTS.ANSWER_QUESTION;
 
@@ -131,21 +224,126 @@ async function classifyIntent(message) {
       logger.warn('[bienbot-intent-classifier] Unknown intent from NLP, using fallback', {
         raw: result.intent
       });
-      return fallbackResult();
+      return { ...fallbackResult(), source: 'nlp' };
     }
 
-    // Extract entities from NLP.js result + heuristic extraction
     const entities = extractEntities(result, message.trim());
 
     const confidence = typeof result.score === 'number'
       ? Math.min(1, Math.max(0, result.score))
       : 0;
 
-    return { intent, entities, confidence };
+    let source = 'nlp';
+    let llmIntent = null;
+
+    // Check thresholds and potentially call LLM fallback
+    const config = await getClassifierConfig();
+    const isLowConfidence = confidence < config.low_confidence_threshold;
+
+    if (isLowConfidence && config.llm_fallback_enabled && confidence < config.llm_fallback_threshold && opts.user) {
+      try {
+        const llmResult = await classifyWithLLM(message.trim(), opts.user);
+        if (llmResult && llmResult.intent && isValidIntent(llmResult.intent)) {
+          llmIntent = llmResult.intent;
+          intent = llmResult.intent;
+          source = 'llm';
+        }
+      } catch (err) {
+        logger.warn('[bienbot-intent-classifier] LLM fallback failed, using NLP result', {
+          error: err.message
+        });
+      }
+    }
+
+    // Log classification async (fire-and-forget)
+    if (config.log_all_classifications || isLowConfidence) {
+      logClassification({
+        message: message.trim().slice(0, 500),
+        intent: source === 'llm' ? llmIntent : intent,
+        confidence,
+        userId: opts.userId,
+        sessionId: opts.sessionId,
+        isLowConfidence,
+        llmReclassified: source === 'llm',
+        llmIntent
+      }).catch(() => {});
+    }
+
+    return { intent, entities, confidence, source };
   } catch (err) {
     logger.error('[bienbot-intent-classifier] Classification failed', { error: err.message });
-    return fallbackResult();
+    return { ...fallbackResult(), source: 'nlp' };
   }
+}
+
+// ---------------------------------------------------------------------------
+// LLM Fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * Use the LLM to classify an ambiguous message.
+ * Routes through the AI gateway for policy/rate-limit enforcement.
+ *
+ * @param {string} message - User message.
+ * @param {object} user - User object for AI gateway.
+ * @returns {Promise<{ intent: string, confidence: number }|null>}
+ */
+async function classifyWithLLM(message, user) {
+  const { executeAIRequest } = require('./ai-gateway');
+
+  const allIntents = Object.values(INTENTS);
+  const intentList = allIntents.map(i => `- ${i}`).join('\n');
+
+  const systemPrompt = `You are an intent classifier for a travel planning assistant called BienBot. Given a user message, classify it into exactly one of the following intents:\n\n${intentList}\n\nRespond with ONLY a JSON object: {"intent": "INTENT_NAME", "confidence": 0.0-1.0}\nDo not include any other text.`;
+
+  const result = await executeAIRequest({
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message }
+    ],
+    task: 'intent_classification',
+    user,
+    options: { maxTokens: 100, temperature: 0 }
+  });
+
+  if (!result || !result.content) return null;
+
+  try {
+    const parsed = JSON.parse(result.content.trim());
+    if (parsed.intent && typeof parsed.confidence === 'number') {
+      return { intent: parsed.intent, confidence: Math.min(1, Math.max(0, parsed.confidence)) };
+    }
+  } catch {
+    // Try to extract intent from non-JSON response
+    const match = result.content.match(/"intent"\s*:\s*"([A-Z_]+)"/);
+    if (match && allIntents.includes(match[1])) {
+      return { intent: match[1], confidence: 0.5 };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Classification Logging
+// ---------------------------------------------------------------------------
+
+/**
+ * Log an intent classification to the database for admin review.
+ * Async, non-blocking — errors are silently caught.
+ */
+async function logClassification({ message, intent, confidence, userId, sessionId, isLowConfidence, llmReclassified, llmIntent }) {
+  const IntentClassificationLog = require('../models/intent-classification-log');
+  await IntentClassificationLog.create({
+    message,
+    intent,
+    confidence,
+    user: userId || undefined,
+    session_id: sessionId || undefined,
+    is_low_confidence: isLowConfidence,
+    llm_reclassified: llmReclassified || false,
+    llm_intent: llmIntent || null
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -415,7 +613,9 @@ function extractPlanItems(message) {
 // ---------------------------------------------------------------------------
 
 function isValidIntent(intent) {
-  return Object.values(INTENTS).includes(intent);
+  // Check built-in intents first, then allow any uppercase intent
+  // (custom intents from DB are uppercase by schema constraint)
+  return Object.values(INTENTS).includes(intent) || /^[A-Z][A-Z0-9_]+$/.test(intent);
 }
 
 function fallbackResult() {
@@ -437,5 +637,8 @@ function resetManager() {
 module.exports = {
   classifyIntent,
   INTENTS,
-  resetManager
+  resetManager,
+  retrainManager,
+  getClassifierConfig,
+  invalidateConfigCache
 };

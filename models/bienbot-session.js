@@ -8,6 +8,7 @@
 
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { ALLOWED_ACTION_TYPES } = require('../utilities/bienbot-action-executor');
 
 /**
  * Invoke context sub-schema — records which entity page the user
@@ -56,6 +57,37 @@ const contextSchema = new Schema({
 }, { _id: false });
 
 /**
+ * Attachment sub-schema — files uploaded with a user message.
+ * Stored in S3 (protected bucket) and processed for text extraction.
+ */
+const attachmentSchema = new Schema({
+  filename: {
+    type: String,
+    required: true
+  },
+  mimeType: {
+    type: String,
+    required: true
+  },
+  fileSize: {
+    type: Number,
+    default: null
+  },
+  s3Key: {
+    type: String,
+    default: null
+  },
+  extractedText: {
+    type: String,
+    default: null
+  },
+  extractionMethod: {
+    type: String,
+    default: null
+  }
+}, { _id: false });
+
+/**
  * Message sub-schema — individual conversation turns.
  */
 const messageSchema = new Schema({
@@ -78,7 +110,8 @@ const messageSchema = new Schema({
   },
   actions_taken: [{
     type: String
-  }]
+  }],
+  attachments: [attachmentSchema]
 }, { _id: false });
 
 /**
@@ -109,15 +142,7 @@ const pendingActionSchema = new Schema({
   type: {
     type: String,
     required: true,
-    enum: [
-      'create_destination',
-      'create_experience',
-      'create_plan',
-      'add_plan_items',
-      'update_plan_item',
-      'invite_collaborator',
-      'sync_plan'
-    ]
+    enum: ALLOWED_ACTION_TYPES
   },
   payload: {
     type: Schema.Types.Mixed,
@@ -138,6 +163,32 @@ const pendingActionSchema = new Schema({
 }, { _id: false });
 
 /**
+ * Collaborator sub-schema — tracks users who have been granted access
+ * to a session by the owner.
+ */
+const collaboratorSchema = new Schema({
+  user_id: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  role: {
+    type: String,
+    enum: ['viewer', 'editor'],
+    default: 'viewer'
+  },
+  granted_at: {
+    type: Date,
+    default: Date.now
+  },
+  granted_by: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  }
+}, { _id: false });
+
+/**
  * Main BienBot Session schema
  */
 const bienBotSessionSchema = new Schema({
@@ -146,6 +197,10 @@ const bienBotSessionSchema = new Schema({
     ref: 'User',
     required: true,
     index: true
+  },
+  shared_with: {
+    type: [collaboratorSchema],
+    default: []
   },
   title: {
     type: String,
@@ -180,6 +235,7 @@ const bienBotSessionSchema = new Schema({
 // Compound indexes for efficient querying
 bienBotSessionSchema.index({ user: 1, status: 1 });
 bienBotSessionSchema.index({ updatedAt: 1 });
+bienBotSessionSchema.index({ 'shared_with.user_id': 1 });
 
 // ----- Static methods -----
 
@@ -208,14 +264,14 @@ bienBotSessionSchema.statics.findActiveSession = async function (userId) {
 };
 
 /**
- * List sessions for a user, most recent first.
+ * List sessions for a user (owned + shared), most recent first.
  */
 bienBotSessionSchema.statics.listSessions = async function (userId, options = {}) {
-  const query = { user: userId };
+  const baseFilter = { $or: [{ user: userId }, { 'shared_with.user_id': userId }] };
   if (options.status) {
-    query.status = options.status;
+    baseFilter.status = options.status;
   }
-  return this.find(query)
+  return this.find(baseFilter)
     .sort({ updatedAt: -1 })
     .limit(options.limit || 50)
     .lean();
@@ -226,14 +282,18 @@ bienBotSessionSchema.statics.listSessions = async function (userId, options = {}
 /**
  * Append a message to the conversation history.
  */
-bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [] } = {}) {
-  this.messages.push({
+bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [] } = {}) {
+  const msg = {
     role,
     content,
     timestamp: new Date(),
     intent,
     actions_taken
-  });
+  };
+  if (attachments.length > 0) {
+    msg.attachments = attachments;
+  }
+  this.messages.push(msg);
   return this.save();
 };
 
@@ -303,6 +363,57 @@ bienBotSessionSchema.methods.isSummaryStale = function (ttlMs = 6 * 60 * 60 * 10
  */
 bienBotSessionSchema.methods.archive = async function () {
   this.status = 'archived';
+  return this.save();
+};
+
+/**
+ * Check whether a user has access to this session (owner or shared collaborator).
+ * @param {string} userId - The user ID to check.
+ * @returns {{ hasAccess: boolean, role: 'owner'|'editor'|'viewer'|null }}
+ */
+bienBotSessionSchema.methods.checkAccess = function (userId) {
+  const uid = userId.toString();
+  if (this.user.toString() === uid) {
+    return { hasAccess: true, role: 'owner' };
+  }
+  const collab = (this.shared_with || []).find(c => c.user_id.toString() === uid);
+  if (collab) {
+    return { hasAccess: true, role: collab.role };
+  }
+  return { hasAccess: false, role: null };
+};
+
+/**
+ * Add a collaborator to the session. Idempotent — updates role if already present.
+ * @param {string} userId - User ID to add.
+ * @param {string} role - 'viewer' or 'editor'.
+ * @param {string} grantedBy - User ID of the granter.
+ */
+bienBotSessionSchema.methods.addCollaborator = async function (userId, role = 'viewer', grantedBy = null) {
+  const uid = userId.toString();
+  const existing = (this.shared_with || []).find(c => c.user_id.toString() === uid);
+  if (existing) {
+    existing.role = role;
+    this.markModified('shared_with');
+  } else {
+    this.shared_with.push({
+      user_id: userId,
+      role,
+      granted_at: new Date(),
+      granted_by: grantedBy
+    });
+  }
+  return this.save();
+};
+
+/**
+ * Remove a collaborator from the session.
+ * @param {string} userId - User ID to remove.
+ */
+bienBotSessionSchema.methods.removeCollaborator = async function (userId) {
+  const uid = userId.toString();
+  this.shared_with = (this.shared_with || []).filter(c => c.user_id.toString() !== uid);
+  this.markModified('shared_with');
   return this.save();
 };
 

@@ -174,6 +174,10 @@ function AppContent() {
   const [isProcessingOAuth, setIsProcessingOAuth] = React.useState(false);
   const oauthProcessedRef = React.useRef(false);
 
+  // Notification state for BienBotTrigger
+  const [notifications, setNotifications] = React.useState([]);
+  const [unseenNotificationIds, setUnseenNotificationIds] = React.useState([]);
+
   const PENDING_HASH_STORAGE_KEY = STORAGE_KEYS.pendingHash;
 
   const applyHashToUrl = useCallback((hash, { mode } = {}) => {
@@ -357,6 +361,16 @@ function AppContent() {
   // timing detection is no longer needed for Chakra components. Remaining SCSS
   // files still load via Vite but don't require explicit detection.
 
+  // Mark notification IDs as seen in localStorage and state
+  const markNotificationsSeen = useCallback((ids) => {
+    if (!user?._id || !ids?.length) return;
+    const seenKey = `bien:seenActivities:${user._id}`;
+    const cur = getObfuscatedJson(localStorage, seenKey, []);
+    const merged = Array.from(new Set([...(Array.isArray(cur) ? cur : []), ...ids]));
+    setObfuscatedJson(localStorage, seenKey, merged);
+    setUnseenNotificationIds(prev => prev.filter(id => !ids.includes(id)));
+  }, [user?._id]);
+
   // Effect: fetch collaborator notifications on login/hard refresh
   useEffect(() => {
     let mounted = true;
@@ -391,6 +405,16 @@ function AppContent() {
         }
         if (!Array.isArray(seen)) seen = [];
 
+        // Track all activities and unseen IDs for BienBotTrigger
+        if (mounted) {
+          setNotifications(activities);
+          const unseen = activities
+            .filter(act => act?._id && !seen.includes(act._id))
+            .map(act => act._id);
+          setUnseenNotificationIds(unseen);
+        }
+
+        // Show toasts for unseen notifications
         const newIds = [];
 
         activities.forEach(act => {
@@ -412,9 +436,7 @@ function AppContent() {
                     const id = act.resource.id || act.resource._id;
                     navigate(`/experiences/${id}`);
                   }
-                  const cur = getObfuscatedJson(localStorage, seenKey, []);
-                  const next = Array.from(new Set([...(Array.isArray(cur) ? cur : []), act._id]));
-                  setObfuscatedJson(localStorage, seenKey, next);
+                  markNotificationsSeen([act._id]);
                 },
                 variant: 'primary'
               }
@@ -437,7 +459,7 @@ function AppContent() {
     fetchNotifications();
 
     return () => { mounted = false; };
-  }, [isAuthenticated, user?._id, addToast, navigate]);
+  }, [isAuthenticated, user?._id, addToast, navigate, markNotificationsSeen]);
 
 
 
@@ -553,7 +575,13 @@ function AppContent() {
           <LegalModalsHandler />
           {/* Multi-step Plan Experience Modal - globally accessible */}
           {isAuthenticated && <MultiStepPlanModal />}
-          {isAuthenticated && <BienBotTrigger />}
+          {isAuthenticated && (
+            <BienBotTrigger
+              notifications={notifications}
+              unseenNotificationIds={unseenNotificationIds}
+              onMarkNotificationsSeen={markNotificationsSeen}
+            />
+          )}
           {isProcessingOAuth ? (
             <Container as="main" id="main-content" role="main" aria-label={lang.current.aria.mainContent}>
               <Loading variant="centered" size="lg" message="Completing sign in..." />

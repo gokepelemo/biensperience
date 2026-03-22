@@ -19,6 +19,8 @@ if (process.env.NODE_ENV === 'production' || process.env.RENDER === 'true') {
 const backendLogger = require('./utilities/backend-logger');
 const { updateExchangeRates } = require('./utilities/exchange-rate-updater');
 const { seedAIProviders } = require('./utilities/ai-seed-providers');
+const { cleanOrphanedTempFiles } = require('./utilities/temp-cleanup');
+const { seedIntentCorpus } = require('./utilities/intent-corpus-seeder');
 
 const port = process.env.PORT || 3001;
 const wsEnabled = process.env.WEBSOCKET_ENABLED === 'true';
@@ -34,6 +36,17 @@ seedAIProviders()
     backendLogger.warn('AI provider seed skipped', { error: err.message });
   });
 
+// Seed intent corpus from JSON on first boot (async, non-blocking)
+seedIntentCorpus()
+  .then(({ seeded }) => {
+    if (seeded > 0) {
+      backendLogger.info('Intent corpus seeded', { intents: seeded });
+    }
+  })
+  .catch(err => {
+    backendLogger.warn('Intent corpus seed skipped', { error: err.message });
+  });
+
 // Update exchange rates on server start (async, non-blocking)
 updateExchangeRates()
   .then(success => {
@@ -45,6 +58,17 @@ updateExchangeRates()
   })
   .catch(err => {
     backendLogger.error('Exchange rates update error', { error: err.message });
+  });
+
+// Clean orphaned temp files on startup (async, non-blocking)
+cleanOrphanedTempFiles()
+  .then(({ removed, errors }) => {
+    if (removed > 0 || errors > 0) {
+      backendLogger.info('Orphaned temp file cleanup complete', { removed, errors });
+    }
+  })
+  .catch(err => {
+    backendLogger.warn('Temp file cleanup failed', { error: err.message });
   });
 
 // Create HTTP server from Express app

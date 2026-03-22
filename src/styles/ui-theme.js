@@ -212,8 +212,8 @@ const config = defineConfig({
         'btn.widthLg':   { value: '200px' },
 
         // Form field
-        'form.fieldMinHeight':       { value: '56px' },
-        'form.fieldMinHeightMobile': { value: '52px' },
+        'form.fieldMinHeight':       { value: '44px' },
+        'form.fieldMinHeightMobile': { value: '44px' },
 
         // Container max-widths
         'container.sm':  { value: '640px' },
@@ -239,8 +239,8 @@ const config = defineConfig({
         'auth.large':   { value: '560px' },
 
         // Auth input heights
-        'auth.inputHeight':       { value: '56px' },
-        'auth.inputHeightMobile': { value: '52px' },
+        'auth.inputHeight':       { value: '44px' },
+        'auth.inputHeightMobile': { value: '44px' },
 
         // Bottom nav
         'bottomNav.height': { value: '64px' },

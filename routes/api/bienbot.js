@@ -10,9 +10,39 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const bienbotCtrl = require('../../controllers/api/bienbot');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware');
+
+// Ensure upload temp directory exists
+const BIENBOT_UPLOAD_DIR = path.join(__dirname, '../../uploads/temp');
+if (!fs.existsSync(BIENBOT_UPLOAD_DIR)) {
+  fs.mkdirSync(BIENBOT_UPLOAD_DIR, { recursive: true });
+}
+
+// Multer configuration for BienBot attachments (images + documents)
+const bienbotUpload = multer({
+  dest: BIENBOT_UPLOAD_DIR,
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff',
+      'application/pdf',
+      'text/plain', 'text/csv'
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max for BienBot attachments
+    files: 1
+  }
+});
 
 // Helper: skip rate limiting for super admins
 function skipIfSuperAdmin(req) {
@@ -46,9 +76,22 @@ router.use(bienbotRateLimiter);
 /**
  * @route   POST /api/bienbot/chat
  * @desc    Main chat endpoint — runs full BienBot pipeline with SSE streaming
+ *          Supports optional file attachment via multipart/form-data
  * @access  Private (requires ai_features flag)
  */
-router.post('/chat', bienbotCtrl.chat);
+router.post('/chat', bienbotUpload.single('attachment'), (err, req, res, next) => {
+  // Handle multer errors gracefully
+  if (err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
+      }
+      return res.status(400).json({ error: `Upload error: ${err.message}` });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+  next();
+}, bienbotCtrl.chat);
 
 /**
  * @route   GET /api/bienbot/sessions
@@ -98,5 +141,40 @@ router.delete('/sessions/:id/pending/:actionId', bienbotCtrl.deletePendingAction
  * @access  Private (requires ai_features flag)
  */
 router.post('/sessions/:id/context', bienbotCtrl.updateContext);
+
+/**
+ * @route   POST /api/bienbot/sessions/:id/collaborators
+ * @desc    Share a session with another user (owner only)
+ * @access  Private (requires ai_features flag)
+ */
+router.post('/sessions/:id/collaborators', bienbotCtrl.addSessionCollaborator);
+
+/**
+ * @route   DELETE /api/bienbot/sessions/:id/collaborators/:userId
+ * @desc    Remove a collaborator from a session (owner or self)
+ * @access  Private (requires ai_features flag)
+ */
+router.delete('/sessions/:id/collaborators/:userId', bienbotCtrl.removeSessionCollaborator);
+
+/**
+ * @route   GET /api/bienbot/memory
+ * @desc    Get cross-session memory entries for the authenticated user
+ * @access  Private (requires ai_features flag)
+ */
+router.get('/memory', bienbotCtrl.getMemory);
+
+/**
+ * @route   DELETE /api/bienbot/memory
+ * @desc    Clear all cross-session memory for the authenticated user
+ * @access  Private (requires ai_features flag)
+ */
+router.delete('/memory', bienbotCtrl.clearMemory);
+
+/**
+ * @route   POST /api/bienbot/analyze
+ * @desc    Proactively analyze an entity and return suggestions without starting a conversation
+ * @access  Private (requires ai_features flag)
+ */
+router.post('/analyze', bienbotCtrl.analyze);
 
 module.exports = router;

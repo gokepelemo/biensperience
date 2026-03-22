@@ -6,11 +6,27 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Box, Flex, Badge, Switch, Stack, Input, Textarea } from '@chakra-ui/react';
-import { FaEdit, FaSave } from 'react-icons/fa';
+import { FaEdit, FaSave, FaGripVertical } from 'react-icons/fa';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button, Card, CardHeader, CardBody, Alert } from '../../components/design-system';
 import { Text, Heading } from '../../components/design-system';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
-import { getProviders, updateProvider } from '../../utilities/ai-admin-api';
+import { getProviders, updateProvider, reorderProviders } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 
@@ -80,6 +96,26 @@ const PROVIDER_BRANDS = {
 
 const getProviderBrand = (key) => PROVIDER_BRANDS[key] || { color: '#666', bg: 'transparent', border: '#ddd', logo: null };
 
+/* ------------------------------------------------------------------ */
+/* Sortable card wrapper                                                */
+/* ------------------------------------------------------------------ */
+
+function SortableProviderCard({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 999 : 'auto'
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  );
+}
+
 export default function AIAdminProviders() {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +124,11 @@ export default function AIAdminProviders() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const { success: showSuccess, error: showError } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const fetchProviders = useCallback(async () => {
     try {
@@ -124,8 +165,7 @@ export default function AIAdminProviders() {
     setEditForm({
       default_model: provider.default_model,
       valid_models: (provider.valid_models || []).join(', '),
-      endpoint: provider.endpoint,
-      priority: provider.priority || 0
+      endpoint: provider.endpoint
     });
   }, []);
 
@@ -135,8 +175,7 @@ export default function AIAdminProviders() {
       const data = {
         default_model: editForm.default_model,
         valid_models: editForm.valid_models.split(',').map(m => m.trim()).filter(Boolean),
-        endpoint: editForm.endpoint,
-        priority: parseInt(editForm.priority, 10) || 0
+        endpoint: editForm.endpoint
       };
       const result = await updateProvider(providerId, data);
       setProviders(prev => prev.map(p =>
@@ -151,11 +190,73 @@ export default function AIAdminProviders() {
     }
   }, [editForm, showSuccess, showError]);
 
+  const handleDragEnd = useCallback(async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = providers.findIndex(p => (p._id || p.provider) === active.id);
+    const newIndex = providers.findIndex(p => (p._id || p.provider) === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newProviders = arrayMove(providers, oldIndex, newIndex);
+    setProviders(newProviders);
+
+    try {
+      await reorderProviders(newProviders.map(p => p.provider));
+    } catch (err) {
+      logger.error('[AIAdminProviders] Failed to save provider order', { error: err.message });
+      showError('Failed to save provider order');
+      setProviders(providers);
+    }
+  }, [providers, showError]);
+
   if (loading) {
     return (
       <Stack gap="var(--space-4)">
+        {/* Header */}
+        <Box>
+          <SkeletonLoader width="220px" height="24px" />
+          <Box mt="var(--space-1)">
+            <SkeletonLoader width="100%" height="14px" />
+            <SkeletonLoader width="60%" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+          </Box>
+        </Box>
+        {/* Provider cards */}
         {[1, 2, 3, 4].map(i => (
-          <SkeletonLoader key={i} height="120px" />
+          <Card key={i} borderLeft="4px solid" borderLeftColor="var(--color-border)">
+            <CardHeader py="var(--space-2)" px="var(--space-3)">
+              <Flex justify="space-between" align="center" width="100%">
+                <Flex align="center" gap="var(--space-3)">
+                  <SkeletonLoader width="16px" height="16px" />
+                  <SkeletonLoader variant="circle" width="28px" height="28px" />
+                  <SkeletonLoader width="100px" height="18px" />
+                  <SkeletonLoader width="60px" height="20px" variant="rectangle" />
+                </Flex>
+                <Flex align="center" gap="var(--space-3)">
+                  <SkeletonLoader width="36px" height="20px" variant="rectangle" />
+                  <SkeletonLoader width="64px" height="32px" variant="rectangle" />
+                </Flex>
+              </Flex>
+            </CardHeader>
+            <CardBody py="var(--space-2)" px="var(--space-3)">
+              <Flex gap="var(--space-6)" wrap="wrap">
+                {['Provider Key', 'Default Model', 'API Key Env Var', 'Fallback Order'].map(label => (
+                  <Box key={label}>
+                    <SkeletonLoader width="80px" height="12px" />
+                    <SkeletonLoader width="110px" height="14px" style={{ marginTop: 'var(--space-1)' }} />
+                  </Box>
+                ))}
+              </Flex>
+              <Box mt="var(--space-2)">
+                <SkeletonLoader width="90px" height="12px" />
+                <Flex gap="var(--space-1)" mt="var(--space-1)" wrap="wrap">
+                  {Array.from({ length: 3 + i }, (_, j) => (
+                    <SkeletonLoader key={j} width={`${60 + j * 20}px`} height="20px" variant="rectangle" />
+                  ))}
+                </Flex>
+              </Box>
+            </CardBody>
+          </Card>
         ))}
       </Stack>
     );
@@ -165,177 +266,192 @@ export default function AIAdminProviders() {
     return <Alert variant="danger">{error}</Alert>;
   }
 
+  const sortableIds = providers.map(p => p._id || p.provider);
+
   return (
     <Stack gap="var(--space-4)">
-      <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
-        Provider Configurations
-      </Heading>
-      <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)">
-        Manage AI providers, enable/disable access, and configure allowed models.
-        API keys are stored in environment variables for security.
-      </Text>
+      <Box>
+        <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
+          Provider Configurations
+        </Heading>
+        <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
+          Manage AI providers, enable/disable access, and configure allowed models.
+          Drag to reorder — top-to-bottom sets the default fallback priority.
+          API keys are stored in environment variables for security.
+        </Text>
+      </Box>
 
-      {providers.map(provider => {
-        const brand = getProviderBrand(provider.provider);
-        return (
-        <Card
-          key={provider._id || provider.provider}
-          opacity={provider.configured ? 1 : 0.5}
-          borderLeft="4px solid"
-          borderLeftColor={brand.color}
-          bg={provider.configured ? brand.bg : 'transparent'}
-          overflow="hidden"
-        >
-          <CardHeader py="var(--space-2)" px="var(--space-3)">
-            <Flex justify="space-between" align="center" width="100%">
-              <Flex align="center" gap="var(--space-3)">
-                <Box color={brand.color} flexShrink={0}>{brand.logo}</Box>
-                <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
-                  {provider.display_name}
-                </Heading>
-                {!provider.configured ? (
-                  <Badge
-                    colorPalette="gray"
-                    variant="subtle"
-                    fontSize="var(--font-size-xs)"
-                  >
-                    Not Configured
-                  </Badge>
-                ) : (
-                  <Badge
-                    colorPalette={provider.enabled ? 'green' : 'red'}
-                    variant="subtle"
-                    fontSize="var(--font-size-xs)"
-                  >
-                    {provider.enabled ? 'Enabled' : 'Disabled'}
-                  </Badge>
-                )}
-              </Flex>
-              <Flex align="center" gap="var(--space-3)">
-                {provider.configured && provider._id && (
-                  <>
-                    <Switch.Root
-                      checked={provider.enabled}
-                      onCheckedChange={() => handleToggleEnabled(provider)}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+          <Stack gap="var(--space-3)">
+            {providers.map((provider, index) => {
+              const brand = getProviderBrand(provider.provider);
+              const sortableId = provider._id || provider.provider;
+              return (
+                <SortableProviderCard key={sortableId} id={sortableId}>
+                  {({ dragHandleProps }) => (
+                    <Card
+                      opacity={provider.configured ? 1 : 0.5}
+                      borderLeft="4px solid"
+                      borderLeftColor={brand.color}
+                      bg={provider.configured ? brand.bg : 'transparent'}
+                      overflow="hidden"
                     >
-                      <Switch.HiddenInput />
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                    </Switch.Root>
-                    {editingId !== provider._id && (
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(provider)}>
-                        <FaEdit /> Edit
-                      </Button>
-                    )}
-                  </>
-                )}
-              </Flex>
-            </Flex>
-          </CardHeader>
+                      <CardHeader py="var(--space-2)" px="var(--space-3)">
+                        <Flex justify="space-between" align="center" width="100%">
+                          <Flex align="center" gap="var(--space-3)">
+                            <Box
+                              color="var(--color-text-secondary)"
+                              cursor="grab"
+                              display="flex"
+                              alignItems="center"
+                              px="var(--space-1)"
+                              flexShrink={0}
+                              title={`Drag to reprioritize — currently #${index + 1}`}
+                              {...dragHandleProps}
+                            >
+                              <FaGripVertical />
+                            </Box>
+                            <Box color={brand.color} flexShrink={0}>{brand.logo}</Box>
+                            <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
+                              {provider.display_name}
+                            </Heading>
+                            {!provider.configured ? (
+                              <Badge
+                                colorPalette="gray"
+                                variant="subtle"
+                                fontSize="var(--font-size-xs)"
+                              >
+                                Not Configured
+                              </Badge>
+                            ) : (
+                              <Badge
+                                colorPalette={provider.enabled ? 'green' : 'red'}
+                                variant="subtle"
+                                fontSize="var(--font-size-xs)"
+                              >
+                                {provider.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </Flex>
+                          <Flex align="center" gap="var(--space-3)">
+                            {provider.configured && provider._id && (
+                              <>
+                                <Switch.Root
+                                  checked={provider.enabled}
+                                  onCheckedChange={() => handleToggleEnabled(provider)}
+                                >
+                                  <Switch.HiddenInput />
+                                  <Switch.Control>
+                                    <Switch.Thumb />
+                                  </Switch.Control>
+                                </Switch.Root>
+                                {editingId !== provider._id && (
+                                  <Button variant="outline" size="sm" onClick={() => handleEdit(provider)}>
+                                    <FaEdit /> Edit
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </Flex>
+                        </Flex>
+                      </CardHeader>
 
-          <CardBody py="var(--space-2)" px="var(--space-3)">
-            {!provider.configured ? (
-              <Text fontSize="var(--font-size-sm)" color="var(--color-text-secondary)">
-                Set the <Text as="span" fontFamily="mono" fontWeight="var(--font-weight-medium)">{provider.env_key_name}</Text> environment variable to enable this provider.
-              </Text>
-            ) : editingId === provider._id ? (
-              <Stack gap="var(--space-3)">
-                <Box>
-                  <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                    Endpoint
-                  </Text>
-                  <Input
-                    value={editForm.endpoint}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, endpoint: e.target.value }))}
-                    size="sm"
-                  />
-                </Box>
-                <Box>
-                  <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                    Default Model
-                  </Text>
-                  <Input
-                    value={editForm.default_model}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, default_model: e.target.value }))}
-                    size="sm"
-                  />
-                </Box>
-                <Box>
-                  <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                    Valid Models (comma-separated)
-                  </Text>
-                  <Textarea
-                    value={editForm.valid_models}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, valid_models: e.target.value }))}
-                    size="sm"
-                    rows={3}
-                  />
-                </Box>
-                <Box>
-                  <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                    Priority (lower = higher priority)
-                  </Text>
-                  <Input
-                    type="number"
-                    value={editForm.priority}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, priority: e.target.value }))}
-                    size="sm"
-                    min={0}
-                  />
-                </Box>
-                <Flex gap="var(--space-2)" pt="var(--space-2)">
-                  <Button
-                    variant="gradient"
-                    size="sm"
-                    onClick={() => handleSaveEdit(provider._id)}
-                    disabled={saving}
-                  >
-                    <FaSave /> {saving ? 'Saving...' : 'Save'}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
-                    Cancel
-                  </Button>
-                </Flex>
-              </Stack>
-            ) : (
-              <Stack gap="var(--space-2)">
-                <Flex gap="var(--space-6)" wrap="wrap">
-                  <Box>
-                    <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Provider Key</Text>
-                    <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.provider}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Default Model</Text>
-                    <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.default_model}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">API Key Env Var</Text>
-                    <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.env_key_name}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Priority</Text>
-                    <Text fontSize="var(--font-size-sm)">{provider.priority}</Text>
-                  </Box>
-                </Flex>
-                <Box>
-                  <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)" mb="var(--space-1)">
-                    Valid Models ({(provider.valid_models || []).length})
-                  </Text>
-                  <Flex gap="var(--space-1)" wrap="wrap">
-                    {(provider.valid_models || []).map(model => (
-                      <Badge key={model} variant="outline" fontSize="var(--font-size-xs)">
-                        {model}
-                      </Badge>
-                    ))}
-                  </Flex>
-                </Box>
-              </Stack>
-            )}
-          </CardBody>
-        </Card>
-        );
-      })}
+                      <CardBody py="var(--space-2)" px="var(--space-3)">
+                        {!provider.configured ? (
+                          <Text fontSize="var(--font-size-sm)" color="var(--color-text-secondary)">
+                            Set the <Text as="span" fontFamily="mono" fontWeight="var(--font-weight-medium)">{provider.env_key_name}</Text> environment variable to enable this provider.
+                          </Text>
+                        ) : editingId === provider._id ? (
+                          <Stack gap="var(--space-3)">
+                            <Box>
+                              <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
+                                Endpoint
+                              </Text>
+                              <Input
+                                value={editForm.endpoint}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, endpoint: e.target.value }))}
+                                size="sm"
+                              />
+                            </Box>
+                            <Box>
+                              <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
+                                Default Model
+                              </Text>
+                              <Input
+                                value={editForm.default_model}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, default_model: e.target.value }))}
+                                size="sm"
+                              />
+                            </Box>
+                            <Box>
+                              <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
+                                Valid Models (comma-separated)
+                              </Text>
+                              <Textarea
+                                value={editForm.valid_models}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, valid_models: e.target.value }))}
+                                size="sm"
+                                rows={3}
+                              />
+                            </Box>
+                            <Flex gap="var(--space-2)" pt="var(--space-2)">
+                              <Button
+                                variant="gradient"
+                                size="sm"
+                                onClick={() => handleSaveEdit(provider._id)}
+                                disabled={saving}
+                              >
+                                <FaSave /> {saving ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
+                                Cancel
+                              </Button>
+                            </Flex>
+                          </Stack>
+                        ) : (
+                          <Stack gap="var(--space-2)">
+                            <Flex gap="var(--space-6)" wrap="wrap">
+                              <Box>
+                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Provider Key</Text>
+                                <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.provider}</Text>
+                              </Box>
+                              <Box>
+                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Default Model</Text>
+                                <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.default_model}</Text>
+                              </Box>
+                              <Box>
+                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">API Key Env Var</Text>
+                                <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.env_key_name}</Text>
+                              </Box>
+                              <Box>
+                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Fallback Order</Text>
+                                <Text fontSize="var(--font-size-sm)">#{index + 1}</Text>
+                              </Box>
+                            </Flex>
+                            <Box>
+                              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)" mb="var(--space-1)">
+                                Valid Models ({(provider.valid_models || []).length})
+                              </Text>
+                              <Flex gap="var(--space-1)" wrap="wrap">
+                                {(provider.valid_models || []).map(model => (
+                                  <Badge key={model} variant="outline" fontSize="var(--font-size-xs)">
+                                    {model}
+                                  </Badge>
+                                ))}
+                              </Flex>
+                            </Box>
+                          </Stack>
+                        )}
+                      </CardBody>
+                    </Card>
+                  )}
+                </SortableProviderCard>
+              );
+            })}
+          </Stack>
+        </SortableContext>
+      </DndContext>
     </Stack>
   );
 }

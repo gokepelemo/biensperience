@@ -27,7 +27,7 @@ jest.mock('../../controllers/api/ai', () => ({
   getApiKey: jest.fn().mockReturnValue('test-api-key'),
   getProviderForTask: jest.fn().mockReturnValue('openai'),
   AI_PROVIDERS: { OPENAI: 'openai' },
-  AI_TASKS: { GENERAL: 'general', FAST: 'fast' },
+  AI_TASKS: { GENERAL: 'general', FAST: 'fast', BIENBOT_ANALYZE: 'bienbot_analyze' },
   // Route handlers referenced in routes/api/ai.js
   status: jest.fn((req, res) => res.json({ success: true, available: true })),
   complete: jest.fn((req, res) => res.json({ success: true })),
@@ -81,12 +81,22 @@ jest.mock('../../utilities/bienbot-session-summarizer', () => ({
   })
 }));
 
+// ---- Mock document parsing (skip OCR/PDF in tests) -------------------------
+jest.mock('../../utilities/ai-document-utils', () => ({
+  validateDocument: jest.fn().mockReturnValue({ valid: true, type: 'image' }),
+  extractText: jest.fn().mockResolvedValue({
+    text: 'Flight from London to Paris on April 10 2026. Confirmation: ABC123.',
+    metadata: { method: 'llm-vision', characterCount: 67 }
+  })
+}));
+
 const app = require('../../app');
 const BienBotSession = require('../../models/bienbot-session');
 const {
   createTestUser,
   createTestDestination,
   createTestExperience,
+  createTestPlan,
   generateAuthToken,
   clearTestData
 } = require('../utils/testHelpers');
@@ -145,7 +155,7 @@ function parseSSEEvents(text) {
 // ---------------------------------------------------------------------------
 
 describe('BienBot API', () => {
-  let user, authToken, destination, experience;
+  let user, authToken, destination, experience, plan;
 
   beforeAll(async () => {
     await dbSetup.connect();
@@ -160,6 +170,7 @@ describe('BienBot API', () => {
 
     destination = await createTestDestination(user, { name: 'Test City', country: 'Test Country' });
     experience = await createTestExperience(user, destination, { name: 'Test Experience' });
+    plan = await createTestPlan(user, experience);
   });
 
   afterAll(async () => {
@@ -377,6 +388,37 @@ describe('BienBot API', () => {
       expect(res.status).toBe(200);
       const events = parseSSEEvents(res.body);
       expect(events.some(e => e.event === 'done')).toBe(true);
+    });
+
+    it('includes contextDescription in system prompt when provided', async () => {
+      const { callProvider } = require('../../controllers/api/ai');
+      callProvider.mockClear();
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .send({
+          message: 'What should I do here?',
+          invokeContext: {
+            entity: 'destination',
+            id: destination._id.toString(),
+            contextDescription: 'Viewing destination "Test City"'
+          }
+        });
+
+      expect(res.status).toBe(200);
+
+      // Verify the system prompt sent to callProvider includes contextDescription
+      expect(callProvider).toHaveBeenCalled();
+      const messages = callProvider.mock.calls[0][1];
+      const systemMessage = messages.find(m => m.role === 'system');
+      expect(systemMessage.content).toContain('Page context: Viewing destination "Test City"');
     });
 
     it('includes pending_actions event when LLM returns actions', async () => {
@@ -809,6 +851,553 @@ describe('BienBot API', () => {
         .set('Authorization', adminToken);
 
       expect(res.status).toBe(200);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/bienbot/analyze — Proactive Plan Analysis
+  // -------------------------------------------------------------------------
+
+  describe('POST /api/bienbot/analyze', () => {
+    const { callProvider, getApiKey } = require('../../controllers/api/ai');
+    const {
+      buildDestinationContext,
+      buildExperienceContext,
+      buildUserPlanContext
+    } = require('../../utilities/bienbot-context-builders');
+
+    const ANALYZE_SUGGESTIONS = [
+      { type: 'warning', message: 'This plan has no budget items.' },
+      { type: 'tip', message: 'Consider adding travel insurance.' },
+      { type: 'info', message: '3 of 8 items completed (38%).' }
+    ];
+
+    beforeEach(() => {
+      callProvider.mockClear();
+      getApiKey.mockClear();
+      buildDestinationContext.mockClear();
+      buildExperienceContext.mockClear();
+      buildUserPlanContext.mockClear();
+
+      // Default: analyze returns JSON suggestion array
+      callProvider.mockResolvedValue({
+        content: JSON.stringify(ANALYZE_SUGGESTIONS),
+        usage: { prompt_tokens: 40, completion_tokens: 60 }
+      });
+      getApiKey.mockReturnValue('test-api-key');
+    });
+
+    // --- Input validation ---
+
+    it('returns 400 when entity is missing', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entityId: plan._id.toString() });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/entity is required/i);
+    });
+
+    it('returns 400 when entity is not a string', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 123, entityId: plan._id.toString() });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/entity is required/i);
+    });
+
+    it('returns 400 for unsupported entity type', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'user', entityId: user._id.toString() });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/unsupported entity type/i);
+    });
+
+    it('returns 400 when entityId is missing', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/entityId is required/i);
+    });
+
+    it('returns 400 when entityId is not a string', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: 12345 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/entityId is required/i);
+    });
+
+    it('returns 400 for invalid ObjectId format', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: 'not-an-objectid' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/invalid entityId/i);
+    });
+
+    // --- Entity not found ---
+
+    it('returns 404 when entity does not exist', async () => {
+      const fakeId = '507f1f77bcf86cd799439011';
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: fakeId });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/not found/i);
+    });
+
+    // --- Permission checks ---
+
+    it('returns 403 when user lacks view permission on another user\'s plan', async () => {
+      const otherUser = await createAIUser({ email: `other_${Date.now()}@test.com` });
+      const otherExp = await createTestExperience(otherUser, destination, { name: 'Other Exp' });
+      const otherPlan = await createTestPlan(otherUser, otherExp);
+
+      // Create a non-admin user without permissions
+      const noPermUser = await createTestUser({
+        email: `noperm_${Date.now()}@test.com`,
+        emailConfirmed: true,
+        feature_flags: [{ flag: 'ai_features', enabled: true, granted_at: new Date() }]
+      });
+      const noPermToken = generateAuthToken(noPermUser);
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', noPermToken)
+        .send({ entity: 'plan', entityId: otherPlan._id.toString() });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/permission/i);
+    });
+
+    // --- Success flow ---
+
+    it('analyzes a plan and returns suggestions', async () => {
+      buildUserPlanContext.mockResolvedValueOnce('Plan: Test Experience\nItems: 8\nCompleted: 3');
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.entity).toBe('plan');
+      expect(res.body.data.entityId).toBe(plan._id.toString());
+      expect(res.body.data.suggestions).toHaveLength(3);
+      expect(res.body.data.suggestions[0]).toMatchObject({ type: 'warning', message: expect.any(String) });
+      expect(res.body.data.suggestions[1]).toMatchObject({ type: 'tip', message: expect.any(String) });
+      expect(res.body.data.suggestions[2]).toMatchObject({ type: 'info', message: expect.any(String) });
+
+      // Verify correct context builder was called
+      expect(buildUserPlanContext).toHaveBeenCalled();
+      const [planArg, userArg] = buildUserPlanContext.mock.calls[0];
+      expect(planArg.toString()).toBe(plan._id.toString());
+      expect(typeof userArg).toBe('string');
+    });
+
+    it('analyzes an experience and returns suggestions', async () => {
+      buildExperienceContext.mockResolvedValueOnce('Experience: Test Experience\nDestination: Test City');
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'experience', entityId: experience._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.entity).toBe('experience');
+      expect(res.body.data.suggestions).toHaveLength(3);
+      expect(buildExperienceContext).toHaveBeenCalled();
+      const [expArg, userArgExp] = buildExperienceContext.mock.calls[0];
+      expect(expArg.toString()).toBe(experience._id.toString());
+      expect(typeof userArgExp).toBe('string');
+    });
+
+    it('analyzes a destination and returns suggestions', async () => {
+      buildDestinationContext.mockResolvedValueOnce('Destination: Test City, Test Country');
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'destination', entityId: destination._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.entity).toBe('destination');
+      expect(res.body.data.suggestions).toHaveLength(3);
+      expect(buildDestinationContext).toHaveBeenCalled();
+      const [destArg, userArgDest] = buildDestinationContext.mock.calls[0];
+      expect(destArg.toString()).toBe(destination._id.toString());
+      expect(typeof userArgDest).toBe('string');
+    });
+
+    // --- Context builder failure (non-fatal) ---
+
+    it('returns suggestions even when context builder fails', async () => {
+      buildUserPlanContext.mockRejectedValueOnce(new Error('DB timeout'));
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions).toBeDefined();
+      // LLM is still called with fallback context
+      expect(callProvider).toHaveBeenCalled();
+    });
+
+    // --- LLM failures ---
+
+    it('returns 503 when LLM call fails', async () => {
+      callProvider.mockRejectedValueOnce(new Error('Service unavailable'));
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(503);
+      expect(res.body.error).toMatch(/ai service/i);
+    });
+
+    it('returns 503 when API key is not configured', async () => {
+      getApiKey.mockReturnValueOnce(null);
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(503);
+      expect(res.body.error).toMatch(/not configured/i);
+    });
+
+    // --- Malformed LLM response handling ---
+
+    it('returns empty suggestions when LLM returns non-JSON', async () => {
+      callProvider.mockResolvedValueOnce({
+        content: 'Sorry, I cannot analyze this right now.',
+        usage: { prompt_tokens: 20, completion_tokens: 10 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions).toEqual([]);
+    });
+
+    it('returns empty suggestions when LLM returns non-array JSON', async () => {
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify({ message: 'Not an array' }),
+        usage: { prompt_tokens: 20, completion_tokens: 10 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions).toEqual([]);
+    });
+
+    it('filters out suggestions with invalid types', async () => {
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify([
+          { type: 'warning', message: 'Valid suggestion' },
+          { type: 'invalid_type', message: 'Bad type' },
+          { type: 'tip', message: '' },
+          { type: 'info', message: 'Another valid one' },
+          null,
+          { message: 'Missing type field' }
+        ]),
+        usage: { prompt_tokens: 20, completion_tokens: 30 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions).toHaveLength(2);
+      expect(res.body.data.suggestions[0].type).toBe('warning');
+      expect(res.body.data.suggestions[1].type).toBe('info');
+    });
+
+    it('strips markdown fences from LLM response', async () => {
+      callProvider.mockResolvedValueOnce({
+        content: '```json\n' + JSON.stringify(ANALYZE_SUGGESTIONS) + '\n```',
+        usage: { prompt_tokens: 20, completion_tokens: 30 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions).toHaveLength(3);
+    });
+
+    it('truncates suggestions to max 10 items', async () => {
+      const manySuggestions = Array.from({ length: 15 }, (_, i) => ({
+        type: 'tip',
+        message: `Suggestion ${i + 1}`
+      }));
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify(manySuggestions),
+        usage: { prompt_tokens: 20, completion_tokens: 100 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions.length).toBeLessThanOrEqual(10);
+    });
+
+    it('truncates suggestion messages to max 200 characters', async () => {
+      const longMessage = 'A'.repeat(300);
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify([{ type: 'warning', message: longMessage }]),
+        usage: { prompt_tokens: 20, completion_tokens: 100 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions[0].message.length).toBeLessThanOrEqual(200);
+    });
+
+    // --- Auth & feature flag ---
+
+    it('returns 401 without auth token', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when user lacks ai_features flag', async () => {
+      const noFlagUser = await createTestUser({
+        email: `noflag_${Date.now()}@test.com`,
+        emailConfirmed: true
+      });
+      const noFlagToken = generateAuthToken(noFlagUser);
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', noFlagToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(403);
+    });
+
+    // --- Does NOT create a session ---
+
+    it('does not create any BienBot session', async () => {
+      const countBefore = await BienBotSession.countDocuments();
+
+      await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      const countAfter = await BienBotSession.countDocuments();
+      expect(countAfter).toBe(countBefore);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/bienbot/chat — file attachment handling
+  // -------------------------------------------------------------------------
+
+  describe('POST /api/bienbot/chat — file attachments', () => {
+
+    it('accepts multipart/form-data with a valid image attachment', async () => {
+      // Create a small 1x1 valid PNG buffer
+      const pngBuf = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de' +
+        '0000000c4944415408d76360f8cfc00000000200014fd2a8640000000049454e44ae426082',
+        'hex'
+      );
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'What is in this image?')
+        .attach('attachment', pngBuf, { filename: 'test.png', contentType: 'image/png' });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/event-stream');
+
+      const events = parseSSEEvents(res.body);
+      const eventTypes = events.map(e => e.event);
+      expect(eventTypes).toContain('session');
+      expect(eventTypes).toContain('token');
+      expect(eventTypes).toContain('done');
+    });
+
+    it('accepts multipart/form-data with a plain text attachment', async () => {
+      const textContent = Buffer.from('Day 1: Arrive in Paris\nDay 2: Visit the Louvre\n');
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'Extract the itinerary from this file')
+        .attach('attachment', textContent, { filename: 'itinerary.txt', contentType: 'text/plain' });
+
+      expect(res.status).toBe(200);
+
+      const events = parseSSEEvents(res.body);
+      const sessionEvent = events.find(e => e.event === 'session');
+      expect(sessionEvent).toBeTruthy();
+      expect(sessionEvent.data).toHaveProperty('sessionId');
+
+      // Verify the session was saved with attachment metadata in the user message
+      const session = await BienBotSession.findById(sessionEvent.data.sessionId);
+      expect(session).toBeTruthy();
+      const userMsg = session.messages.find(m => m.role === 'user');
+      expect(userMsg).toBeTruthy();
+      expect(Array.isArray(userMsg.attachments)).toBe(true);
+      expect(userMsg.attachments.length).toBe(1);
+      expect(userMsg.attachments[0].filename).toBe('itinerary.txt');
+    });
+
+    it('stores attachment metadata in the session user message', async () => {
+      const pngBuf = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de' +
+        '0000000c4944415408d76360f8cfc00000000200014fd2a8640000000049454e44ae426082',
+        'hex'
+      );
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'Analyze this booking confirmation')
+        .attach('attachment', pngBuf, { filename: 'booking.png', contentType: 'image/png' });
+
+      const events = parseSSEEvents(res.body);
+      const sessionEvent = events.find(e => e.event === 'session');
+      expect(sessionEvent?.data?.sessionId).toBeTruthy();
+
+      const session = await BienBotSession.findById(sessionEvent.data.sessionId);
+      const userMsg = session.messages.find(m => m.role === 'user');
+      expect(userMsg.attachments[0]).toMatchObject({
+        filename: 'booking.png',
+        mimeType: 'image/png'
+      });
+    });
+
+    it('rejects unsupported file type (400)', async () => {
+      const exeBuf = Buffer.from('MZ\x90\x00'); // fake exe header
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .field('message', 'Process this file')
+        .attach('attachment', exeBuf, { filename: 'virus.exe', contentType: 'application/octet-stream' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects files exceeding 10MB limit (400)', async () => {
+      // Create a buffer > 10MB
+      const bigBuf = Buffer.alloc(11 * 1024 * 1024, 'a');
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .field('message', 'Process this huge file')
+        .attach('attachment', bigBuf, { filename: 'huge.png', contentType: 'image/png' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('works normally without attachment (JSON body still accepted)', async () => {
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .send({ message: 'Plan a trip to Tokyo' });
+
+      expect(res.status).toBe(200);
+
+      const events = parseSSEEvents(res.body);
+      expect(events.find(e => e.event === 'session')).toBeTruthy();
+      expect(events.find(e => e.event === 'done')).toBeTruthy();
+    });
+
+    it('accepts attachment alongside valid invokeContext via form fields', async () => {
+      const textBuf = Buffer.from('Booking reference: XYZ789 for Test City hotel.');
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'Link this booking to my plan')
+        .field('invokeContext', JSON.stringify({
+          entity: 'destination',
+          id: destination._id.toString()
+        }))
+        .attach('attachment', textBuf, { filename: 'hotel.txt', contentType: 'text/plain' });
+
+      expect(res.status).toBe(200);
+      const events = parseSSEEvents(res.body);
+      expect(events.find(e => e.event === 'session')).toBeTruthy();
     });
   });
 });

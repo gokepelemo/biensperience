@@ -6,6 +6,10 @@
   right: var(--space-6, 1.5rem);
   z-index: var(--z-index-tooltip, 1070);
 
+  /* Override pointer-events: none inherited from document.body when a modal
+     dialog is open (Chakra/Ark disablePointerEventsOutside sets body to none) */
+  pointer-events: auto;
+
   /* WCAG 44px minimum tap target */
   width: var(--btn-height-md, 44px);
   height: var(--btn-height-md, 44px);
@@ -47,6 +51,40 @@
   line-height: 0;
 }
 
+/* Notification-only variant (bell icon, no AI) */
+.fabNotification {
+  background: var(--color-bg-secondary, #f8fafc);
+  color: var(--color-text-primary, #1e293b);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.12));
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+    color: var(--color-text-primary-dark, #f1f5f9);
+  }
+}
+
+.fabNotification:hover {
+  box-shadow: var(--shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.15));
+}
+
+/* Notification badge */
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--color-danger, #ef4444);
+  color: #fff;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold, 700);
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+
 /* Desktop: slightly larger FAB */
 @media (min-width: 768px) {
   .fab {
@@ -54,5 +92,15 @@
     height: 56px;
     bottom: var(--space-8, 2rem);
     right: var(--space-8, 2rem);
+  }
+
+  .badge {
+    top: -2px;
+    right: -2px;
+    min-width: 20px;
+    height: 20px;
+    font-size: 12px;
+    line-height: 20px;
+    border-radius: 10px;
   }
 }

@@ -8,6 +8,7 @@
  * @module controllers/api/bienbot
  */
 
+const fs = require('fs');
 const logger = require('../../utilities/backend-logger');
 const { validateObjectId, successResponse, errorResponse } = require('../../utilities/controller-helpers');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
@@ -22,6 +23,8 @@ const {
 } = require('../../utilities/bienbot-context-builders');
 const { executeActions, ALLOWED_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
+const { extractMemoryFromSession, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
+const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
 const { GatewayError } = require('../../utilities/ai-gateway');
 const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
 const BienBotSession = require('../../models/bienbot-session');
@@ -43,6 +46,34 @@ function loadModels() {
 
 const MAX_MESSAGE_LENGTH = 8000;
 const SUMMARY_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/**
+ * Token budget for the conversation history window sent to the LLM.
+ * ~3 000 tokens leaves headroom for the system prompt, context blocks, and
+ * the model's response (maxTokens = 1 500).
+ */
+const HISTORY_TOKEN_BUDGET = 3000;
+const HISTORY_CHARS_PER_TOKEN = 4; // rough approximation (1 token ≈ 4 chars)
+const HISTORY_MAX_CHARS = HISTORY_TOKEN_BUDGET * HISTORY_CHARS_PER_TOKEN; // 12 000 chars
+
+/**
+ * Hard cap (tokens) on the combined context blocks injected into the system
+ * prompt.  Each individual context builder is soft-capped at 1 500 tokens, but
+ * when multiple builders run in parallel (invoke + intent) the aggregate can
+ * easily exceed 5 000 tokens and push the full prompt past the model's window.
+ *
+ * Budget breakdown (conservative 16 K token window):
+ *   Static system prompt text  ~1 200 tokens
+ *   History window             ~3 000 tokens  (HISTORY_TOKEN_BUDGET)
+ *   LLM output reservation     ~1 500 tokens  (maxTokens)
+ *   ── remaining for context ──  ≥10 000 tokens for larger models
+ *
+ * We cap context at 4 000 tokens so the controller stays comfortably within
+ * smaller-window models (GPT-4 8 K, etc.) without sacrificing quality on
+ * larger ones.
+ */
+const CONTEXT_TOKEN_BUDGET = 4000;
+const CONTEXT_CHAR_BUDGET = CONTEXT_TOKEN_BUDGET * HISTORY_CHARS_PER_TOKEN; // 16 000 chars
 
 /**
  * Entity type → { model getter, label field }
@@ -120,11 +151,13 @@ async function resolveEntityLabel(entity, entityId) {
  *
  * @param {object} params
  * @param {string|null} params.invokeLabel - Resolved entity label if invokeContext is present
+ * @param {string|null} params.contextDescription - Rich page description from the client (e.g. "My Plan on 'Paris Trip'")
  * @param {string|null} params.contextBlock - Pre-built context text from context builders
  * @param {object} params.session - The BienBot session
+ * @param {string|null} params.userMemoryBlock - Pre-formatted user memory block from past sessions
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
+function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock }) {
   const lines = [
     'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
     'You help users explore destinations, plan experiences, manage plan items, track costs, collaborate with others, and answer travel questions.',
@@ -145,8 +178,16 @@ function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
     ''
   ];
 
+  if (userMemoryBlock) {
+    lines.push(userMemoryBlock);
+    lines.push('');
+  }
+
   if (invokeLabel) {
     lines.push(`Viewing: ${invokeLabel}`);
+    if (contextDescription) {
+      lines.push(`Page context: ${contextDescription}`);
+    }
     lines.push('');
   }
 
@@ -234,6 +275,24 @@ function buildSystemPrompt({ invokeLabel, contextBlock, session }) {
     '    Plan: /experiences/<experienceId>#plan-<planId>',
     '  When the user\'s intent is explicitly to view an entity (e.g. "show me", "take me to", "I\'m feeling lucky"),',
     '  propose a navigate_to_entity action alongside your response.',
+    '',
+    '--- Workflow (multi-step) ---',
+    '- workflow: { steps: [{ step: <number>, type: "<action_type>", payload: { ... }, description: "..." }] }',
+    '  Use this when the user\'s request requires MULTIPLE sequential actions that depend on each other.',
+    '  For example: "Create a destination Paris, an experience, and add 3 items" requires:',
+    '    1. create_destination (produces a destination ID)',
+    '    2. create_experience (needs the destination ID from step 1)',
+    '    3. add_plan_items (needs IDs from step 2)',
+    '  Each step has a `step` number (1-based). Later steps can reference earlier step outputs using',
+    '  `$step_N.<field>` syntax in their payload. For example:',
+    '    { "step": 2, "type": "create_experience", "payload": { "name": "Visit Paris", "destination_id": "$step_1._id" } }',
+    '  Rules:',
+    '    - Max 10 steps per workflow.',
+    '    - Steps execute sequentially in step-number order.',
+    '    - If a step fails, execution halts (partial results are returned).',
+    '    - Do NOT nest workflows inside workflows.',
+    '    - Use workflows ONLY when steps have dependencies. For independent actions, propose them as separate pending_actions.',
+    '    - Common $ref paths: $step_N._id, $step_N.destination, $step_N.experience._id',
     '',
     'If no actions are needed (e.g. asking a clarifying question), return an empty pending_actions array.',
     'The "id" field must be unique per action — use "action_" followed by 8 random alphanumeric characters.'
@@ -326,10 +385,160 @@ function parseLLMResponse(text) {
 }
 
 /**
+ * Enforce a hard character budget on context blocks before they are joined
+ * into the system prompt.
+ *
+ * If the combined length of all non-empty blocks exceeds CONTEXT_CHAR_BUDGET,
+ * each block is proportionally truncated so that larger blocks give up more
+ * characters — keeping all context sources represented rather than silently
+ * dropping entire blocks.
+ *
+ * @param {Array<string|null|undefined>} blocks - Raw context block strings
+ * @returns {string|null} Combined context string within budget, or null if empty
+ */
+function enforceContextBudget(blocks) {
+  const validBlocks = blocks.filter(Boolean);
+  if (validBlocks.length === 0) return null;
+
+  const separator = '\n\n';
+  const separatorTotal = (validBlocks.length - 1) * separator.length;
+  const combined = validBlocks.join(separator);
+
+  if (combined.length <= CONTEXT_CHAR_BUDGET) return combined;
+
+  // Proportionally shrink each block so the largest contributors sacrifice
+  // the most characters while every block retains some representation.
+  const availableForBlocks = Math.max(0, CONTEXT_CHAR_BUDGET - separatorTotal);
+  const totalBlockChars = validBlocks.reduce((sum, b) => sum + b.length, 0);
+
+  logger.warn('[bienbot] Combined context exceeds budget — truncating blocks proportionally', {
+    originalChars: combined.length,
+    budgetChars: CONTEXT_CHAR_BUDGET,
+    blockCount: validBlocks.length
+  });
+
+  const truncated = validBlocks.map(block => {
+    const allocated = Math.floor((block.length / totalBlockChars) * availableForBlocks);
+    if (block.length <= allocated) return block;
+    const cutoff = Math.max(0, allocated - 45); // reserve space for truncation suffix
+    return block.substring(0, cutoff) + '\n[... context truncated to fit token budget ...]';
+  });
+
+  return truncated.join(separator);
+}
+
+/**
+ * Build a token-aware slice of the session's conversation history.
+ *
+ * Works backwards from the newest message, accumulating the approximate
+ * character size of each formatted message until HISTORY_MAX_CHARS is
+ * exhausted.  If older messages are excluded the caller receives the count
+ * of excluded messages and any cached summary text so it can be prepended
+ * as context for the LLM.
+ *
+ * @param {Array<{ role: string, content: string }>} messages - All session messages
+ * @param {object} [sessionSummary] - Cached summary from session.summary
+ * @returns {{ windowedMessages: Array, olderMessageCount: number, summaryText: string|null }}
+ */
+function buildTokenAwareHistory(messages, sessionSummary) {
+  if (!messages || messages.length === 0) {
+    return { windowedMessages: [], olderMessageCount: 0, summaryText: null };
+  }
+
+  // Walk backwards, keeping messages that fit within the token budget.
+  // Use the same formatting that will be applied when building conversationMessages
+  // so the size estimate is as accurate as possible.
+  let totalChars = 0;
+  const kept = [];
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    const formatted = msg.role === 'user'
+      ? `[USER MESSAGE]\n${msg.content}\n[/USER MESSAGE]`
+      : msg.content;
+
+    // Always include at least one message; then stop if budget would be exceeded.
+    if (kept.length > 0 && totalChars + formatted.length > HISTORY_MAX_CHARS) {
+      break;
+    }
+
+    totalChars += formatted.length;
+    kept.unshift(msg);
+  }
+
+  const olderMessageCount = messages.length - kept.length;
+  const summaryText = olderMessageCount > 0 ? (sessionSummary?.text || null) : null;
+
+  return { windowedMessages: kept, olderMessageCount, summaryText };
+}
+
+/**
  * Send an SSE event to the client.
  */
 function sendSSE(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * Split text into adaptive SSE chunks at word boundaries.
+ *
+ * Prefers sentence/clause boundaries (., !, ?, newline) when the accumulation
+ * has reached MIN_CHUNK characters.  Forces a flush before MAX_CHUNK to avoid
+ * enormous single events.  Any leftover fragment shorter than MIN_CHUNK is
+ * merged into the previous chunk so the client never receives a lonely tiny
+ * token event.
+ *
+ * @param {string} text - The full message text to split.
+ * @returns {string[]} An ordered array of non-empty chunk strings.
+ */
+function adaptiveChunks(text) {
+  const MIN_CHUNK = 20;
+  const MAX_CHUNK = 200;
+  const SENTENCE_BREAKS = new Set(['.', '!', '?', '\n']);
+
+  const chunks = [];
+  // Split preserving whitespace tokens so we can reassemble exactly.
+  const tokens = text.split(/(\s+)/);
+  let current = '';
+
+  for (const token of tokens) {
+    // Flush before adding this token if doing so would exceed MAX_CHUNK
+    // (only when we already have enough content to make a valid chunk).
+    if (current.length > 0 && current.length + token.length > MAX_CHUNK && current.length >= MIN_CHUNK) {
+      chunks.push(current);
+      current = '';
+    }
+
+    current += token;
+
+    // Hard flush when a single token pushed us over the maximum.
+    if (current.length >= MAX_CHUNK) {
+      chunks.push(current);
+      current = '';
+      continue;
+    }
+
+    // Prefer natural breaks (sentence / line endings) once we have enough content.
+    if (current.length >= MIN_CHUNK) {
+      const lastNonSpace = current.trimEnd().slice(-1);
+      if (SENTENCE_BREAKS.has(lastNonSpace)) {
+        chunks.push(current);
+        current = '';
+      }
+    }
+  }
+
+  // Flush the final fragment.
+  if (current.length > 0) {
+    if (current.trim().length > 0 && current.length < MIN_CHUNK && chunks.length > 0) {
+      // Merge tiny trailing fragment into the previous chunk.
+      chunks[chunks.length - 1] += current;
+    } else {
+      chunks.push(current);
+    }
+  }
+
+  return chunks;
 }
 
 // ---------------------------------------------------------------------------
@@ -354,7 +563,17 @@ exports.chat = async (req, res) => {
   const userId = req.user._id.toString();
 
   // --- Input validation ---
+  // When multipart/form-data is used (file attachment), fields are strings in req.body
   let { message, sessionId, invokeContext } = req.body;
+
+  // Parse invokeContext from string when sent as multipart form data
+  if (typeof invokeContext === 'string') {
+    try {
+      invokeContext = JSON.parse(invokeContext);
+    } catch {
+      invokeContext = null;
+    }
+  }
 
   if (!message || typeof message !== 'string') {
     return errorResponse(res, null, 'Message is required', 400);
@@ -377,6 +596,63 @@ exports.chat = async (req, res) => {
     }
   }
 
+  // --- Attachment processing ---
+  let attachmentData = null; // { filename, mimeType, fileSize, extractedText, extractionMethod }
+  const uploadedFile = req.file;
+
+  if (uploadedFile) {
+    try {
+      // Validate the uploaded file
+      const validation = validateDocument({
+        mimetype: uploadedFile.mimetype,
+        size: uploadedFile.size
+      });
+
+      if (!validation.valid) {
+        // Clean up file before returning error
+        try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
+        return errorResponse(res, null, validation.error, 400);
+      }
+
+      logger.info('[bienbot] Processing attachment', {
+        filename: uploadedFile.originalname,
+        mimeType: uploadedFile.mimetype,
+        size: uploadedFile.size,
+        userId
+      });
+
+      // Extract text from the file
+      const extraction = await extractText(uploadedFile.path, uploadedFile.mimetype);
+
+      attachmentData = {
+        filename: uploadedFile.originalname,
+        mimeType: uploadedFile.mimetype,
+        fileSize: uploadedFile.size,
+        extractedText: extraction.text || null,
+        extractionMethod: extraction.metadata?.method || null
+      };
+
+      logger.info('[bienbot] Attachment text extracted', {
+        method: attachmentData.extractionMethod,
+        textLength: attachmentData.extractedText?.length || 0,
+        userId
+      });
+    } catch (err) {
+      logger.error('[bienbot] Attachment processing failed', { error: err.message, userId });
+      // Continue without the attachment rather than failing the whole request
+      attachmentData = {
+        filename: uploadedFile.originalname,
+        mimeType: uploadedFile.mimetype,
+        fileSize: uploadedFile.size,
+        extractedText: null,
+        extractionMethod: 'failed'
+      };
+    } finally {
+      // Always clean up the local temp file
+      try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
+    }
+  }
+
   // --- Step 0: Handle invokeContext ---
   let invokeLabel = null;
   let invokeContextBlock = null;
@@ -386,6 +662,9 @@ exports.chat = async (req, res) => {
     // Strip null bytes from invoke context fields
     invokeContext.id = stripNullBytes(invokeContext.id);
     invokeContext.entity = stripNullBytes(invokeContext.entity);
+    if (invokeContext.contextDescription) {
+      invokeContext.contextDescription = stripNullBytes(String(invokeContext.contextDescription)).slice(0, 200);
+    }
 
     const { valid } = validateObjectId(invokeContext.id, 'invokeContext.id');
     if (!valid) {
@@ -471,8 +750,16 @@ exports.chat = async (req, res) => {
   try {
     if (sessionId) {
       session = await BienBotSession.findById(sessionId);
-      if (!session || session.user.toString() !== userId) {
+      if (!session) {
         return errorResponse(res, null, 'Session not found', 404);
+      }
+      const access = session.checkAccess(userId);
+      if (!access.hasAccess) {
+        return errorResponse(res, null, 'Session not found', 404);
+      }
+      // Viewers cannot send messages — only owner and editors can
+      if (access.role === 'viewer') {
+        return errorResponse(res, null, 'You have view-only access to this session', 403);
       }
     } else {
       session = await BienBotSession.createSession(userId, resolvedInvokeContext || {});
@@ -508,13 +795,18 @@ exports.chat = async (req, res) => {
   }
 
   // --- Step 2: Classify intent ---
-  const classification = await classifyIntent(message);
+  const classification = await classifyIntent(message, {
+    userId,
+    sessionId: session._id.toString(),
+    user: req.user
+  });
 
   logger.info('[bienbot] Intent classified', {
     userId,
     sessionId: session._id.toString(),
     intent: classification.intent,
-    confidence: classification.confidence
+    confidence: classification.confidence,
+    source: classification.source
   });
 
   // --- Step 3: Build context blocks ---
@@ -525,16 +817,41 @@ exports.chat = async (req, res) => {
     userId
   );
 
-  // Merge invokeContext block with intent-based blocks
-  const combinedContext = [invokeContextBlock, intentContextBlock]
-    .filter(Boolean)
-    .join('\n\n') || null;
+  // Merge invokeContext block with intent-based blocks, enforcing hard token cap
+  // Include attachment extracted text as a context block if available
+  let attachmentContextBlock = null;
+  if (attachmentData?.extractedText) {
+    // Cap extracted text to prevent blowing the context budget
+    const maxAttachmentChars = 4000;
+    const trimmedText = attachmentData.extractedText.length > maxAttachmentChars
+      ? attachmentData.extractedText.substring(0, maxAttachmentChars) + '\n[... text truncated ...]'
+      : attachmentData.extractedText;
+    attachmentContextBlock = `--- Attached Document: ${attachmentData.filename} ---\n${trimmedText}`;
+  } else if (attachmentData && !attachmentData.extractedText) {
+    attachmentContextBlock = `--- Attached Document: ${attachmentData.filename} ---\n[Text extraction failed or yielded no content. The file was a ${attachmentData.mimeType} file.]`;
+  }
+  const combinedContext = enforceContextBudget([invokeContextBlock, intentContextBlock, attachmentContextBlock]);
+
+  // --- Step 3b: Load user memory for cross-session context injection ---
+  let userMemoryBlock = null;
+  try {
+    loadModels();
+    const userDoc = await User.findById(userId).select('bienbot_memory.entries').lean();
+    const memoryEntries = userDoc?.bienbot_memory?.entries;
+    if (memoryEntries && memoryEntries.length > 0) {
+      userMemoryBlock = formatMemoryBlock(memoryEntries);
+    }
+  } catch (err) {
+    logger.warn('[bienbot] Failed to load user memory, continuing without it', { error: err.message });
+  }
 
   // --- Step 4: Build system prompt and call LLM ---
   const systemPrompt = buildSystemPrompt({
     invokeLabel,
+    contextDescription: invokeContext?.contextDescription || null,
     contextBlock: combinedContext,
-    session
+    session,
+    userMemoryBlock
   });
 
   // Build conversation history for multi-turn
@@ -542,9 +859,21 @@ exports.chat = async (req, res) => {
     { role: 'system', content: systemPrompt }
   ];
 
-  // Include recent conversation history (last 10 turns)
-  const recentMessages = (session.messages || []).slice(-10);
-  for (const msg of recentMessages) {
+  // Build token-aware conversation history (trims oldest messages when over budget)
+  const { windowedMessages, olderMessageCount, summaryText } = buildTokenAwareHistory(
+    session.messages || [],
+    session.summary
+  );
+
+  // If older messages were excluded, inject a context note so the LLM is aware
+  if (olderMessageCount > 0) {
+    const summaryContent = summaryText
+      ? `[EARLIER CONTEXT]\nSummary of the ${olderMessageCount} earlier message(s) in this conversation not included below due to context limits:\n${summaryText}\n[/EARLIER CONTEXT]`
+      : `[EARLIER CONTEXT]\nThis conversation has ${olderMessageCount} earlier message(s) not shown due to context limits.\n[/EARLIER CONTEXT]`;
+    conversationMessages.push({ role: 'system', content: summaryContent });
+  }
+
+  for (const msg of windowedMessages) {
     conversationMessages.push({
       role: msg.role,
       content: msg.role === 'user'
@@ -554,9 +883,14 @@ exports.chat = async (req, res) => {
   }
 
   // Add the current user message with delimiter
+  // If there's an attachment, note it in the message so the LLM is aware
+  let userContent = `[USER MESSAGE]\n${message}\n[/USER MESSAGE]`;
+  if (attachmentData) {
+    userContent += `\n[ATTACHMENT: ${attachmentData.filename} (${attachmentData.mimeType})]`;
+  }
   conversationMessages.push({
     role: 'user',
-    content: `[USER MESSAGE]\n${message}\n[/USER MESSAGE]`
+    content: userContent
   });
 
   const provider = getProviderForTask(AI_TASKS.GENERAL);
@@ -591,10 +925,20 @@ exports.chat = async (req, res) => {
 
   // --- Step 6: Store in session ---
   try {
-    // Add user message
-    await session.addMessage('user', message, {
+    // Add user message (with attachment metadata if present)
+    const userMessageOpts = {
       intent: classification.intent
-    });
+    };
+    if (attachmentData) {
+      userMessageOpts.attachments = [{
+        filename: attachmentData.filename,
+        mimeType: attachmentData.mimeType,
+        fileSize: attachmentData.fileSize,
+        extractedText: attachmentData.extractedText,
+        extractionMethod: attachmentData.extractionMethod
+      }];
+    }
+    await session.addMessage('user', message, userMessageOpts);
 
     // Add assistant response
     const actionsTaken = parsed.pending_actions.map(a => a.type);
@@ -628,12 +972,12 @@ exports.chat = async (req, res) => {
     title: session.title
   });
 
-  // Stream the message in chunks for progressive rendering
+  // Stream the message in adaptive chunks for progressive rendering.
+  // Chunks split at word/sentence boundaries (min ~20 chars, max ~200 chars).
   const messageText = parsed.message;
-  const chunkSize = 50; // ~50 chars per chunk for smooth streaming feel
+  const tokenChunks = adaptiveChunks(messageText);
 
-  for (let i = 0; i < messageText.length; i += chunkSize) {
-    const chunk = messageText.substring(i, i + chunkSize);
+  for (const chunk of tokenChunks) {
     sendSSE(res, 'token', { text: chunk });
   }
 
@@ -648,7 +992,8 @@ exports.chat = async (req, res) => {
   sendSSE(res, 'done', {
     usage: llmResult.usage,
     intent: classification.intent,
-    confidence: classification.confidence
+    confidence: classification.confidence,
+    source: classification.source || 'nlp'
   });
 
   res.end();
@@ -680,8 +1025,16 @@ exports.execute = async (req, res) => {
   let session;
   try {
     session = await BienBotSession.findById(id);
-    if (!session || session.user.toString() !== userId) {
+    if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
+    }
+    const access = session.checkAccess(userId);
+    if (!access.hasAccess) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    // Only owner and editors can execute actions
+    if (access.role === 'viewer') {
+      return errorResponse(res, null, 'You have view-only access to this session', 403);
     }
   } catch (err) {
     logger.error('[bienbot] Failed to load session for execute', { error: err.message });
@@ -759,7 +1112,11 @@ exports.resume = async (req, res) => {
   let session;
   try {
     session = await BienBotSession.findById(id);
-    if (!session || session.user.toString() !== userId) {
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    const access = session.checkAccess(userId);
+    if (!access.hasAccess) {
       return errorResponse(res, null, 'Session not found', 404);
     }
   } catch (err) {
@@ -875,7 +1232,13 @@ exports.getSession = async (req, res) => {
 
   try {
     const session = await BienBotSession.findById(id).lean();
-    if (!session || session.user.toString() !== userId) {
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    // Inline access check (lean documents don't have instance methods)
+    const isOwner = session.user.toString() === userId;
+    const isCollaborator = (session.shared_with || []).some(c => c.user_id.toString() === userId);
+    if (!isOwner && !isCollaborator) {
       return errorResponse(res, null, 'Session not found', 404);
     }
     return successResponse(res, { session });
@@ -901,11 +1264,19 @@ exports.deleteSession = async (req, res) => {
 
   try {
     const session = await BienBotSession.findById(id);
-    if (!session || session.user.toString() !== userId) {
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    // Only the session owner can delete (archive) it
+    if (session.user.toString() !== userId) {
       return errorResponse(res, null, 'Session not found', 404);
     }
 
     await session.archive();
+
+    // Trigger async memory extraction — fire-and-forget, never delays the response
+    extractMemoryFromSession({ session: session.toObject(), user: req.user })
+      .catch(err => logger.error('[bienbot] Async memory extraction failed', { error: err.message, sessionId: id }));
 
     logger.info('[bienbot] Session archived', { userId, sessionId: id });
     return successResponse(res, { message: 'Session deleted' });
@@ -949,8 +1320,16 @@ exports.updateContext = async (req, res) => {
   let session;
   try {
     session = await BienBotSession.findById(id);
-    if (!session || session.user.toString() !== userId) {
+    if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
+    }
+    const access = session.checkAccess(userId);
+    if (!access.hasAccess) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    // Only owner and editors can update context
+    if (access.role === 'viewer') {
+      return errorResponse(res, null, 'You have view-only access to this session', 403);
     }
   } catch (err) {
     logger.error('[bienbot] Failed to load session for context update', { error: err.message });
@@ -1065,8 +1444,16 @@ exports.deletePendingAction = async (req, res) => {
 
   try {
     const session = await BienBotSession.findById(id);
-    if (!session || session.user.toString() !== userId) {
+    if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
+    }
+    const access = session.checkAccess(userId);
+    if (!access.hasAccess) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    // Only owner and editors can cancel actions
+    if (access.role === 'viewer') {
+      return errorResponse(res, null, 'You have view-only access to this session', 403);
     }
 
     const actionIndex = (session.pending_actions || []).findIndex(a => a.id === actionId);
@@ -1084,4 +1471,368 @@ exports.deletePendingAction = async (req, res) => {
     logger.error('[bienbot] Failed to remove pending action', { error: err.message, sessionId: id, actionId });
     return errorResponse(res, err, 'Failed to remove pending action', 500);
   }
+};
+
+// ---------------------------------------------------------------------------
+// Session sharing
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/bienbot/sessions/:id/collaborators
+ *
+ * Share a session with another user. Only the session owner can share.
+ * The target user must have the 'ai_features' flag.
+ *
+ * Body: { userId: string, role?: 'viewer' | 'editor' }
+ */
+exports.addSessionCollaborator = async (req, res) => {
+  const ownerId = req.user._id.toString();
+  const { id } = req.params;
+  const { userId: targetUserId, role = 'viewer' } = req.body;
+
+  const { valid } = validateObjectId(id, 'session ID');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid session ID format', 400);
+  }
+
+  if (!targetUserId) {
+    return errorResponse(res, null, 'userId is required', 400);
+  }
+  const { valid: targetValid } = validateObjectId(targetUserId, 'userId');
+  if (!targetValid) {
+    return errorResponse(res, null, 'Invalid userId format', 400);
+  }
+
+  if (!['viewer', 'editor'].includes(role)) {
+    return errorResponse(res, null, 'Role must be "viewer" or "editor"', 400);
+  }
+
+  if (targetUserId === ownerId) {
+    return errorResponse(res, null, 'Cannot share a session with yourself', 400);
+  }
+
+  try {
+    const session = await BienBotSession.findById(id);
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+
+    // Only the session owner can share
+    if (session.user.toString() !== ownerId) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+
+    // Verify target user exists and has ai_features
+    loadModels();
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return errorResponse(res, null, 'User not found', 404);
+    }
+
+    const { hasFeatureFlag } = require('../../utilities/feature-flags');
+    if (!hasFeatureFlag(targetUser, 'ai_features')) {
+      return errorResponse(res, null, 'Target user does not have access to AI features', 403);
+    }
+
+    await session.addCollaborator(targetUserId, role, ownerId);
+
+    logger.info('[bienbot] Session collaborator added', {
+      sessionId: id,
+      ownerId,
+      targetUserId,
+      role
+    });
+
+    return successResponse(res, {
+      message: 'Collaborator added',
+      shared_with: session.shared_with
+    });
+  } catch (err) {
+    logger.error('[bienbot] Failed to add session collaborator', { error: err.message, sessionId: id });
+    return errorResponse(res, err, 'Failed to add collaborator', 500);
+  }
+};
+
+/**
+ * DELETE /api/bienbot/sessions/:id/collaborators/:userId
+ *
+ * Remove a collaborator from a session. The session owner can remove anyone;
+ * a collaborator can remove themselves.
+ */
+exports.removeSessionCollaborator = async (req, res) => {
+  const actorId = req.user._id.toString();
+  const { id, userId: targetUserId } = req.params;
+
+  const { valid } = validateObjectId(id, 'session ID');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid session ID format', 400);
+  }
+  const { valid: targetValid } = validateObjectId(targetUserId, 'userId');
+  if (!targetValid) {
+    return errorResponse(res, null, 'Invalid userId format', 400);
+  }
+
+  try {
+    const session = await BienBotSession.findById(id);
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+
+    const isOwner = session.user.toString() === actorId;
+    const isSelf = targetUserId === actorId;
+
+    // Only owner can remove others; collaborators can remove themselves
+    if (!isOwner && !isSelf) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+
+    await session.removeCollaborator(targetUserId);
+
+    logger.info('[bienbot] Session collaborator removed', {
+      sessionId: id,
+      actorId,
+      targetUserId
+    });
+
+    return successResponse(res, {
+      message: 'Collaborator removed',
+      shared_with: session.shared_with
+    });
+  } catch (err) {
+    logger.error('[bienbot] Failed to remove session collaborator', { error: err.message, sessionId: id });
+    return errorResponse(res, err, 'Failed to remove collaborator', 500);
+  }
+};
+
+/**
+ * GET /api/bienbot/memory
+ *
+ * Return the authenticated user's cross-session BienBot memory entries.
+ * Each entry contains facts extracted from a past conversation session.
+ */
+exports.getMemory = async (req, res) => {
+  const userId = req.user._id;
+  loadModels();
+
+  try {
+    const user = await User.findById(userId).select('bienbot_memory').lean();
+    const entries = user?.bienbot_memory?.entries || [];
+    const updatedAt = user?.bienbot_memory?.updated_at || null;
+
+    return successResponse(res, { entries, updated_at: updatedAt });
+  } catch (err) {
+    logger.error('[bienbot] Failed to get memory', { error: err.message, userId });
+    return errorResponse(res, err, 'Failed to retrieve memory', 500);
+  }
+};
+
+/**
+ * DELETE /api/bienbot/memory
+ *
+ * Clear all cross-session memory for the authenticated user.
+ * Irreversible — the user must confirm this action in the UI.
+ */
+exports.clearMemory = async (req, res) => {
+  const userId = req.user._id;
+  loadModels();
+
+  try {
+    await User.findByIdAndUpdate(userId, {
+      $set: {
+        'bienbot_memory.entries': [],
+        'bienbot_memory.updated_at': new Date()
+      }
+    });
+
+    logger.info('[bienbot] User memory cleared', { userId });
+    return successResponse(res, { message: 'Memory cleared' });
+  } catch (err) {
+    logger.error('[bienbot] Failed to clear memory', { error: err.message, userId });
+    return errorResponse(res, err, 'Failed to clear memory', 500);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Proactive Analysis
+// ---------------------------------------------------------------------------
+
+/**
+ * Map of entity type to { load, permCheck } helpers.
+ * Used by the analyze endpoint to resolve entities and check view permission.
+ */
+const ANALYZE_ENTITY_MAP = {
+  destination:  { load: (id) => { loadModels(); return Destination.findById(id); } },
+  experience:   { load: (id) => { loadModels(); return Experience.findById(id).populate('destination', 'name country'); } },
+  plan:         { load: (id) => { loadModels(); return Plan.findById(id).populate('experience', 'name'); } }
+};
+
+/**
+ * Build the system prompt for proactive plan analysis.
+ * The LLM must return a JSON array only — no prose.
+ *
+ * @returns {string}
+ */
+function buildAnalyzeSystemPrompt() {
+  return [
+    'You are BienBot, a proactive travel planning assistant for the Biensperience platform.',
+    '',
+    'Analyze the entity data provided and return concise, actionable suggestions.',
+    '',
+    'RULES:',
+    '- Return ONLY a valid JSON array. No markdown fences, no explanation outside JSON.',
+    '- Each suggestion must have: { "type": "<warning|tip|info>", "message": "<text>" }',
+    '  - warning: Something important that may affect the plan (e.g. missing budget, no date set)',
+    '  - tip: A helpful improvement the user could make (e.g. add travel insurance, more detail)',
+    '  - info: A neutral observation (e.g. completion percentage, plan size)',
+    '- Produce 2–6 suggestions. Do not pad with trivial observations.',
+    '- Never fabricate data. Base suggestions only on the context provided.',
+    '- Keep each message under 120 characters.',
+    '- Do not repeat the same observation using different wording.',
+    '',
+    'Example response:',
+    '[',
+    '  { "type": "warning", "message": "This plan has no budget items — costs may add up unexpectedly." },',
+    '  { "type": "tip", "message": "Consider adding travel insurance for international trips." },',
+    '  { "type": "info", "message": "3 of 8 plan items are completed (38%)." }',
+    ']'
+  ].join('\n');
+}
+
+/**
+ * POST /api/bienbot/analyze
+ *
+ * Stateless proactive analysis of an entity. Returns a list of suggestions
+ * without creating or modifying any BienBot session.
+ *
+ * Request body: { entity: 'plan'|'experience'|'destination', entityId: <ObjectId> }
+ *
+ * Response: { suggestions: [{ type: 'warning'|'tip'|'info', message: string }] }
+ */
+exports.analyze = async (req, res) => {
+  const userId = req.user._id.toString();
+
+  // --- Input validation ---
+  const { entity, entityId } = req.body;
+
+  if (!entity || typeof entity !== 'string') {
+    return errorResponse(res, null, 'entity is required', 400);
+  }
+
+  const allowedEntities = Object.keys(ANALYZE_ENTITY_MAP);
+  if (!allowedEntities.includes(entity)) {
+    return errorResponse(res, null, `Unsupported entity type. Must be one of: ${allowedEntities.join(', ')}`, 400);
+  }
+
+  if (!entityId || typeof entityId !== 'string') {
+    return errorResponse(res, null, 'entityId is required', 400);
+  }
+
+  const { valid, objectId: validatedId } = validateObjectId(entityId, 'entityId');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid entityId format', 400);
+  }
+
+  // --- Load entity and check permission ---
+  let resource;
+  try {
+    resource = await ANALYZE_ENTITY_MAP[entity].load(validatedId);
+  } catch (err) {
+    logger.error('[bienbot] analyze: entity load failed', { entity, entityId, error: err.message });
+    return errorResponse(res, null, 'Failed to load entity', 500);
+  }
+
+  if (!resource) {
+    return errorResponse(res, null, 'Entity not found', 404);
+  }
+
+  loadModels();
+  const enforcer = getEnforcer({ Destination, Experience, Plan, User });
+  const permCheck = await enforcer.canView({ userId: req.user._id, resource });
+  if (!permCheck.allowed) {
+    return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+  }
+
+  // --- Build context block ---
+  let contextBlock = null;
+  try {
+    switch (entity) {
+      case 'destination':
+        contextBlock = await buildDestinationContext(validatedId, userId);
+        break;
+      case 'experience':
+        contextBlock = await buildExperienceContext(validatedId, userId);
+        break;
+      case 'plan':
+        contextBlock = await buildUserPlanContext(validatedId, userId);
+        break;
+    }
+  } catch (err) {
+    logger.warn('[bienbot] analyze: context build failed', { entity, entityId, error: err.message });
+    // Non-fatal — proceed with minimal context
+  }
+
+  if (!contextBlock) {
+    // Fallback: stringify a minimal summary so the LLM has something to work with
+    contextBlock = `[${entity.charAt(0).toUpperCase() + entity.slice(1)}] Entity ID: ${validatedId}`;
+  }
+
+  // --- Call LLM ---
+  const provider = getProviderForTask(AI_TASKS.BIENBOT_ANALYZE);
+
+  if (!getApiKey(provider)) {
+    return errorResponse(res, null, 'The AI service is not configured yet.', 503);
+  }
+
+  let llmResult;
+  try {
+    llmResult = await callProvider(provider, [
+      { role: 'system', content: buildAnalyzeSystemPrompt() },
+      { role: 'user', content: contextBlock }
+    ], {
+      temperature: 0.4,
+      maxTokens: 600,
+      _user: req.user,
+      task: AI_TASKS.BIENBOT_ANALYZE,
+      entityContext: { entityType: entity, entityId: validatedId }
+    });
+  } catch (err) {
+    logger.error('[bienbot] analyze: LLM call failed', { error: err.message, userId, entity, entityId });
+    return errorResponse(res, null, 'AI service temporarily unavailable', 503);
+  }
+
+  // --- Parse suggestions ---
+  let suggestions = [];
+  try {
+    const cleaned = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    if (Array.isArray(parsed)) {
+      const VALID_TYPES = new Set(['warning', 'tip', 'info']);
+      suggestions = parsed
+        .filter(s => s && VALID_TYPES.has(s.type) && typeof s.message === 'string' && s.message.trim())
+        .slice(0, 10)
+        .map(s => ({ type: s.type, message: s.message.trim().slice(0, 200) }));
+    }
+  } catch (err) {
+    logger.warn('[bienbot] analyze: failed to parse LLM suggestions', {
+      entity,
+      entityId,
+      raw: (llmResult.content || '').slice(0, 200),
+      error: err.message
+    });
+    // Return empty suggestions rather than 500 — analysis is best-effort
+  }
+
+  logger.info('[bienbot] analyze: completed', {
+    userId,
+    entity,
+    entityId,
+    suggestionCount: suggestions.length
+  });
+
+  return successResponse(res, {
+    entity,
+    entityId: validatedId,
+    suggestions
+  });
 };

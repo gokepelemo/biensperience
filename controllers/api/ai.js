@@ -34,7 +34,10 @@ const AI_TASKS = {
   SUMMARIZE: 'summarize',
   GENERATE_TIPS: 'generate_tips',
   TRANSLATE: 'translate',
-  GENERAL: 'general'
+  GENERAL: 'general',
+  BIENBOT_CHAT: 'bienbot_chat',
+  BIENBOT_SUMMARIZE: 'bienbot_summarize',
+  BIENBOT_ANALYZE: 'bienbot_analyze'
 };
 
 const DEFAULT_MODELS = {

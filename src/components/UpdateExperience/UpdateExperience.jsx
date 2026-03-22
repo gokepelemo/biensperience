@@ -168,8 +168,12 @@ export default function UpdateExperience() {
       const originalDefaultId = originalExperience.default_photo_id;
       const currentDefaultId = experience.default_photo_id;
 
-      const normalizedOriginalDefault = originalDefaultId
-        ? String(getId(originalDefaultId))
+      // Check if original default_photo_id is actually in the photos array (valid reference)
+      const originalDefaultRaw = originalDefaultId ? String(getId(originalDefaultId)) : null;
+      const isOriginalDefaultValid = originalDefaultRaw !== null && originalPhotoIds.includes(originalDefaultRaw);
+
+      const normalizedOriginalDefault = isOriginalDefaultValid
+        ? originalDefaultRaw
         : (originalPhotoIds[0] || null);
       let normalizedCurrentDefault = currentDefaultId
         ? String(getId(currentDefaultId))
@@ -179,11 +183,13 @@ export default function UpdateExperience() {
       if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
 
       // Don't consider it a change if PhotoUpload automatically set the first photo as default
-      // when no default was originally set and photos haven't changed
-      const isAutoDefaultSet = !originalDefaultId && // No original default
+      // when there was no valid original default (null or pointing to a photo outside the array)
+      // and photos themselves haven't changed
+      const firstCurrentPhotoId = currentPhotos.length > 0 ? String(getId(currentPhotos[0])) : null;
+      const isAutoDefaultSet = !isOriginalDefaultValid && // No valid original default (null or invalid ref)
                                currentDefaultId && // Current has default set
                                !photosChanged && // Photos haven't changed
-                               normalizedCurrentDefault === currentPhotoIds[0]; // Default is first photo
+                               normalizedCurrentDefault === firstCurrentPhotoId; // Default is first photo (what PhotoUpload auto-selects)
 
       const defaultPhotoChanged = normalizedOriginalDefault !== normalizedCurrentDefault &&
                                   currentPhotoIds.length > 0 &&

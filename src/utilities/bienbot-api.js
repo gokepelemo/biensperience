@@ -95,6 +95,7 @@ async function fetchCsrfToken() {
  * @param {string} message - User message text
  * @param {Object} [options={}]
  * @param {Object} [options.invokeContext] - Entity context ({ entity, id, label }), only sent when sessionId is null
+ * @param {File} [options.attachment] - Optional file attachment to process and include in context
  * @param {Function} [options.onToken] - Called with each text chunk: (text: string) => void
  * @param {Function} [options.onSession] - Called with session info: ({ sessionId, title }) => void
  * @param {Function} [options.onActions] - Called with pending actions: (actions: Array) => void
@@ -106,6 +107,7 @@ async function fetchCsrfToken() {
 export async function postMessage(sessionId, message, options = {}) {
   const {
     invokeContext,
+    attachment,
     onToken,
     onSession,
     onActions,
@@ -122,15 +124,32 @@ export async function postMessage(sessionId, message, options = {}) {
     headers['x-csrf-token'] = csrfToken;
   }
 
-  const body = { message };
+  let requestBody;
 
-  if (sessionId) {
-    body.sessionId = sessionId;
-  }
-
-  // invokeContext is only forwarded on the first message (when sessionId is null)
-  if (!sessionId && invokeContext) {
-    body.invokeContext = invokeContext;
+  if (attachment) {
+    // Use FormData when a file attachment is present
+    const formData = new FormData();
+    formData.append('message', message);
+    if (sessionId) {
+      formData.append('sessionId', sessionId);
+    }
+    if (!sessionId && invokeContext) {
+      formData.append('invokeContext', JSON.stringify(invokeContext));
+    }
+    formData.append('attachment', attachment);
+    requestBody = formData;
+    // Remove Content-Type header — browser sets it automatically with boundary for multipart
+    delete headers['Content-Type'];
+  } else {
+    // Standard JSON body
+    const bodyObj = { message };
+    if (sessionId) {
+      bodyObj.sessionId = sessionId;
+    }
+    if (!sessionId && invokeContext) {
+      bodyObj.invokeContext = invokeContext;
+    }
+    requestBody = JSON.stringify(bodyObj);
   }
 
   let response;
@@ -139,7 +158,7 @@ export async function postMessage(sessionId, message, options = {}) {
       method: 'POST',
       headers,
       credentials: 'include',
-      body: JSON.stringify(body),
+      body: requestBody,
       signal
     });
   } catch (err) {
@@ -429,6 +448,47 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
+          case 'workflow':
+            // Broadcast events for each successful workflow step
+            if (entity?.results && Array.isArray(entity.results)) {
+              for (const stepResult of entity.results) {
+                if (!stepResult.success || !stepResult.result) continue;
+                const stepEntity = stepResult.result;
+                switch (stepResult.type) {
+                  case 'create_destination':
+                    broadcastEvent('destination:created', { destination: stepEntity, destinationId: stepEntity._id });
+                    break;
+                  case 'update_destination':
+                  case 'toggle_favorite_destination':
+                    broadcastEvent('destination:updated', { destination: stepEntity, destinationId: stepEntity._id });
+                    break;
+                  case 'create_experience':
+                    broadcastEvent('experience:created', { experience: stepEntity, experienceId: stepEntity._id });
+                    break;
+                  case 'update_experience':
+                  case 'add_experience_plan_item':
+                  case 'update_experience_plan_item':
+                  case 'delete_experience_plan_item':
+                    broadcastEvent('experience:updated', { experience: stepEntity, experienceId: stepEntity._id });
+                    break;
+                  case 'create_plan':
+                    broadcastEvent('plan:created', { plan: stepEntity, planId: stepEntity._id, experienceId: stepEntity.experience, version: Date.now() });
+                    break;
+                  case 'delete_plan':
+                    broadcastEvent('plan:deleted', { planId: stepEntity._id, version: Date.now() });
+                    break;
+                  case 'invite_collaborator':
+                    broadcastEvent('invite:created', { invite: stepEntity, inviteId: stepEntity._id });
+                    break;
+                  default:
+                    if (stepResult.type?.includes('plan')) {
+                      broadcastEvent('plan:updated', { plan: stepEntity, planId: stepEntity._id, version: Date.now() });
+                    }
+                }
+              }
+            }
+            break;
+
           default:
             logger.debug('[bienbot-api] No event mapping for action type', { type: actionResult.type });
         }
@@ -508,5 +568,122 @@ export async function updateSessionContext(sessionId, entity, entityId) {
     // Silently ignore
   }
 
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
+// Session sharing
+// ---------------------------------------------------------------------------
+
+/**
+ * Share a BienBot session with another user.
+ * Only the session owner can call this.
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} userId - User ID to share with
+ * @param {string} [role='viewer'] - 'viewer' or 'editor'
+ * @returns {Promise<Object>} { message, shared_with }
+ */
+export async function addSessionCollaborator(sessionId, userId, role = 'viewer') {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/collaborators`,
+    "POST",
+    { userId, role }
+  );
+
+  try {
+    broadcastEvent('bienbot:collaborator_added', {
+      sessionId,
+      userId,
+      role,
+      version: Date.now()
+    });
+    logger.debug('[bienbot-api] bienbot:collaborator_added event dispatched', { sessionId, userId });
+  } catch (e) {
+    // Silently ignore
+  }
+
+  return extractData(result);
+}
+
+/**
+ * Remove a collaborator from a BienBot session.
+ * The session owner can remove anyone; collaborators can remove themselves.
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} userId - User ID to remove
+ * @returns {Promise<Object>} { message, shared_with }
+ */
+export async function removeSessionCollaborator(sessionId, userId) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/collaborators/${userId}`,
+    "DELETE"
+  );
+
+  try {
+    broadcastEvent('bienbot:collaborator_removed', {
+      sessionId,
+      userId,
+      version: Date.now()
+    });
+    logger.debug('[bienbot-api] bienbot:collaborator_removed event dispatched', { sessionId, userId });
+  } catch (e) {
+    // Silently ignore
+  }
+
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
+// Cross-session memory
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the authenticated user's cross-session BienBot memory entries.
+ * Each entry contains facts extracted from a past conversation session.
+ *
+ * @returns {Promise<{ entries: Array, updated_at: string|null }>}
+ */
+export async function getMemory() {
+  const result = await sendRequest(`${BASE_URL}/memory`, 'GET');
+  return extractData(result);
+}
+
+/**
+ * Clear all cross-session BienBot memory for the authenticated user.
+ * This is irreversible — prompt the user for confirmation before calling.
+ *
+ * @returns {Promise<{ message: string }>}
+ */
+export async function clearMemory() {
+  const result = await sendRequest(`${BASE_URL}/memory`, 'DELETE');
+
+  try {
+    broadcastEvent('bienbot:memory_cleared', {
+      version: Date.now()
+    });
+    logger.debug('[bienbot-api] bienbot:memory_cleared event dispatched');
+  } catch (e) {
+    // Silently ignore
+  }
+
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
+// Proactive Analysis
+// ---------------------------------------------------------------------------
+
+/**
+ * Request a proactive analysis of an entity from BienBot.
+ *
+ * Returns a list of suggestions without creating or modifying any session.
+ *
+ * @param {string} entity - Entity type: 'plan' | 'experience' | 'destination'
+ * @param {string} entityId - MongoDB ObjectId of the entity
+ * @returns {Promise<{ entity: string, entityId: string, suggestions: Array<{ type: 'warning'|'tip'|'info', message: string }> }>}
+ */
+export async function analyzeEntity(entity, entityId) {
+  const result = await sendRequest(`${BASE_URL}/analyze`, 'POST', { entity, entityId });
   return extractData(result);
 }

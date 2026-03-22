@@ -550,6 +550,66 @@ const userSchema = new Schema(
          */
         geocodedAt: { type: Date }
       }, { _id: false })
+    },
+
+    /**
+     * Cross-session conversation memory extracted from past BienBot sessions.
+     * Stores key facts, entity references, and preferences for injection into
+     * future session system prompts, giving BienBot continuity across sessions.
+     *
+     * @type {Object}
+     */
+    bienbot_memory: {
+      type: new Schema({
+        /**
+         * Extracted memory entries (most recent MAX_MEMORY_ENTRIES kept).
+         * Oldest entries are automatically pruned via $push.$slice in MongoDB.
+         */
+        entries: {
+          type: [new Schema({
+            /** Reference to the source session */
+            session_id: {
+              type: Schema.Types.ObjectId,
+              ref: 'BienBotSession',
+              default: null
+            },
+            /** Title of the source session for display */
+            session_title: {
+              type: String,
+              default: null
+            },
+            /** When memory was extracted from this session */
+            extracted_at: {
+              type: Date,
+              default: Date.now
+            },
+            /** Key facts about the user extracted from the conversation */
+            facts: {
+              type: [String],
+              default: []
+            },
+            /**
+             * Named entities mentioned in the session.
+             * Stored as names (not IDs) so they survive entity deletion.
+             */
+            entities: {
+              type: new Schema({
+                destination_names: { type: [String], default: [] },
+                experience_names: { type: [String], default: [] },
+                plan_names: { type: [String], default: [] }
+              }, { _id: false }),
+              default: () => ({})
+            }
+          }, { _id: false })],
+          default: []
+        },
+        /** Timestamp of the last memory update */
+        updated_at: {
+          type: Date,
+          default: null
+        }
+      }, { _id: false }),
+      default: () => ({})
     }
   },
   {

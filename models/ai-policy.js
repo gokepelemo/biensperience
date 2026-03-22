@@ -98,6 +98,13 @@ const aiPolicySchema = new Schema({
     default: []
   },
 
+  // Ordered list of fallback providers to try when the primary provider fails
+  // with a transient error (5xx, timeout) after all retries are exhausted.
+  fallback_providers: {
+    type: [String],
+    default: []
+  },
+
   // Model restrictions
   allowed_models: {
     type: [allowedModelSchema],

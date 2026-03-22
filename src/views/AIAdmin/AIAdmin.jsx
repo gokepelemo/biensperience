@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Box, Tabs, Flex, Text as ChakraText } from '@chakra-ui/react';
-import { FaRobot, FaShieldAlt, FaChartBar, FaRoute } from 'react-icons/fa';
+import { FaRobot, FaShieldAlt, FaChartBar, FaRoute, FaBrain } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext';
 import { useApp } from '../../contexts/AppContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -21,6 +21,7 @@ import AIAdminProviders from './AIAdminProviders';
 import AIAdminPolicies from './AIAdminPolicies';
 import AIAdminUsage from './AIAdminUsage';
 import AIAdminRouting from './AIAdminRouting';
+import AIAdminClassifier from './AIAdminClassifier';
 import { logger } from '../../utilities/logger';
 
 export default function AIAdmin() {
@@ -52,7 +53,8 @@ export default function AIAdmin() {
     { value: 'providers', label: 'Providers', icon: <FaRobot /> },
     { value: 'policies', label: 'Policies', icon: <FaShieldAlt /> },
     { value: 'usage', label: 'Usage', icon: <FaChartBar /> },
-    { value: 'routing', label: 'Routing', icon: <FaRoute /> }
+    { value: 'routing', label: 'Routing', icon: <FaRoute /> },
+    { value: 'classifier', label: 'Classifier', icon: <FaBrain /> }
   ];
 
   return (
@@ -90,6 +92,9 @@ export default function AIAdmin() {
             </Tabs.Content>
             <Tabs.Content value="routing">
               <AIAdminRouting />
+            </Tabs.Content>
+            <Tabs.Content value="classifier">
+              <AIAdminClassifier />
             </Tabs.Content>
           </Box>
         </Tabs.Root>

@@ -106,8 +106,6 @@ const en = {
     opening: "Opening…",
     managePhotos: "Manage Photos",
     back: "Back",
-    browseExperiences: "Browse Experiences",
-    createExperience: "Create an Experience",
   },
 
   // Dialog / overlay strings
@@ -1586,16 +1584,6 @@ const en = {
     noCreatedExperiences: "No Created Experiences",
     noCreatedOwnProfile: "You haven't created any experiences yet{nameSuffix}. Share your travel knowledge with the community.",
     noCreatedOtherProfile: "{name} hasn't created any experiences yet.",
-
-    // Super admin section on profile
-    superAdminPermissions: "Super Admin Permissions",
-    currentRoleLabel: "Current Role:",
-    roleChangeDescription: "Change this user's role. Super admins have full access to all resources and user management.",
-    emailStatusLabel: "Email Status:",
-    confirmed: "Confirmed",
-    notConfirmed: "Not Confirmed",
-    emailConfirmDescription: "Manually confirm or unconfirm this user's email address.",
-    unknownRole: "Unknown",
     failedToOpenMessage: "Failed to open message",
   },
 
