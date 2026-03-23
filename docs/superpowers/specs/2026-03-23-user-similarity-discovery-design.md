@@ -103,11 +103,14 @@ async function findSimilarUsers(filters, userId)
 
 **Input**: Expanded activity types from `SEMANTIC_ACTIVITY_MAP`, optional destination filter, optional cost filter.
 
+**Data source**: Uses Plan's `plan` array (the snapshot of items the user actually planned), not Experience's `plan_items` (the template). This reflects real user behavior. The Plan model field is `plan` (not `plan_items`), and each item has `plan.activity_type`.
+
 **Query**: Aggregation on Plans collection:
-1. `$lookup` to Experience collection
-2. `$match`: plan items with matching activity types, exclude querying user, optional destination filter (omitted if cross-destination), optional cost ceiling
-3. `$group` by user: count matching plans, collect experience IDs
-4. `$sort` by matching plan count descending
+1. `$match`: `plan.activity_type: { $in: expandedActivityTypes }`, exclude querying user (`user: { $ne: userId }`)
+2. `$lookup` to Experience collection (for destination filtering and visibility check)
+3. `$match`: optional destination filter on joined Experience (omitted if cross-destination), optional cost ceiling via `$reduce` on `plan.cost` (the Plan snapshot field is `cost`, not `cost_estimate` — the Experience template uses `cost_estimate` but the Plan snapshot copies it as `cost`)
+4. `$group` by user: count matching plans, collect experience IDs
+5. `$sort` by matching plan count descending
 
 **Destination filter logic**:
 ```javascript
@@ -128,16 +131,21 @@ async function findCoOccurringExperiences(similarUsers, filters, userId)
 
 **Query**: Aggregation on Plans collection:
 1. `$match`: plans by similar users, excluding Stage 1 experience IDs
-2. `$lookup` to Experience (name, activity_type, cost_estimate, destination, visibility)
-3. `$match`: visibility = 'public'
-4. `$group` by experience:
+2. `$lookup` to Experience (name, plan_items.activity_type, destination, visibility)
+3. `$match`: Experience visibility `{ $ne: 'private' }` (includes both `public` and `contributors`, matching existing `buildDiscoveryContext` pattern)
+4. Compute cost via `$reduce` on Plan's `plan[].cost` (the Plan snapshot field is `cost`, not `cost_estimate`; the Experience virtual `cost_estimate` is not available in aggregation pipelines)
+5. `$group` by experience:
    - `co_occurrence_count`: number of similar users who planned this
-   - `avg_completion_rate`: average of plan completion percentage across those plans
-   - `total_collaborator_count`: count of unique collaborators across plans (from permissions array)
-   - `latest_planned_date`: most recent planned_date (for recency scoring)
-5. `$lookup` destination name
-6. `$lookup` default photo (first photo from experience or its plan items)
-7. `$limit`: top 20 raw candidates
+   - `avg_completion_rate`: average of `{ completed items / total items }` per plan (computed via `$avg` of `$divide` on plan items with `complete: true`)
+   - `total_collaborator_count`: count of unique user-type permissions across plans (`$addToSet` on `permissions._id` where `permissions.entity === 'user'`)
+   - `latest_planned_date`: `$max` of `planned_date` (for recency scoring)
+6. `$lookup` destination name
+7. `$lookup` default photo: join Experience.`default_photo_id` (or first of Experience.`photos[]`) to Photo collection, project `url` field for `default_photo_url`
+8. `$limit`: top 20 raw candidates
+
+**Known pre-existing issue**: The current `buildDiscoveryContext` (line ~710) references `experience_populated.cost_estimate` in its aggregation pipeline, but `cost_estimate` is a virtual on the Experience model and not available in aggregation. This means the existing `max_cost` filter silently does nothing. The new pipeline fixes this by using `$reduce` on `plan[].cost`. The old code path is being replaced entirely, so the bug is resolved as a side effect.
+
+**Permission model**: Discovery results are filtered by Experience `visibility` (not per-result `enforcer.canView()`). This is an intentional design choice — running permission checks per aggregation result would be prohibitively expensive. The `{ $ne: 'private' }` filter ensures only publicly-visible or contributor-visible content surfaces.
 
 **Returns**: Raw candidate array with all computed signals.
 
@@ -180,7 +188,32 @@ function computeCostAlignment(experienceCost, signals) {
 }
 ```
 
-`normalizeCostToPercentile` maps the experience cost against the distribution within the current candidate set (relative, not global).
+`normalizeCostToPercentile` maps the experience cost against the distribution within the current candidate set (relative, not global):
+
+```javascript
+function normalizeCostToPercentile(cost, allCandidateCosts) {
+  if (!allCandidateCosts.length || allCandidateCosts.length === 1) return 0.5;
+  const sorted = [...allCandidateCosts].sort((a, b) => a - b);
+  const rank = sorted.indexOf(cost);
+  return rank / (sorted.length - 1); // 0.0 = cheapest, 1.0 = most expensive
+}
+```
+
+Note: uses `indexOf` and divides by `length - 1` to produce a true [0.0, 1.0] range. Single-element sets return 0.5 (neutral).
+
+### Weight Floors
+
+To prevent any signal from being completely ignored when multiple shifts compound, enforce a minimum weight of 0.05:
+
+```javascript
+// After all shifts applied
+Object.keys(weights).forEach(k => {
+  weights[k] = Math.max(weights[k], 0.05);
+});
+// Re-normalize to sum to 1.0
+const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+Object.keys(weights).forEach(k => { weights[k] /= sum; });
+```
 
 ### Recency Score
 
@@ -252,16 +285,19 @@ Provider selection: `process.env.REDIS_URL` present -> Redis, else MongoDB.
 
 ```javascript
 function getCacheKey(filters) {
+  const destPart = filters.destination_id
+    || (filters.destination_name || '').toLowerCase().trim()
+    || 'all';
   const parts = [
     (filters.activity_types || []).sort().join(','),
-    filters.destination_id || filters.destination_name || 'all',
+    destPart,
     filters.max_cost || 'none'
   ];
-  return `discovery:${parts.join('|')}`;
+  return `bien:discovery:${parts.join('|')}`;
 }
 ```
 
-Cross-destination queries (no destination + `cross_destination: true`) both resolve to `'all'` in the key.
+The `bien:` prefix is used consistently for both Redis keys and MongoDB `_id` values. Destination names are lowercased and trimmed for cache key normalization. Cross-destination queries (no destination + `cross_destination: true`) both resolve to `'all'` in the key.
 
 ### Cache Scope
 
@@ -280,7 +316,7 @@ Caches raw candidates (pre-ranking). Per-user signal-adaptive ranking is always 
       destination_name: String,
       destination_id: String,
       activity_types: [String],
-      cost_estimate: Number,
+      cost_estimate: Number,      // derived from $reduce on plan[].cost in Stage 2
       plan_count: Number,
       completion_rate: Number,
       collaborator_count: Number,
@@ -312,12 +348,48 @@ discover_content: Search for popular experiences.
   - Omit destination fields OR pass cross_destination: true for platform-wide results
 ```
 
+## Signal Feedback from Discovery
+
+When a user runs a discovery query, emit a signal event to feed back into the hidden signals system. This allows the system to learn from discovery behavior (e.g., a user who frequently queries culinary experiences drifts their `food_focus` signal upward).
+
+```javascript
+// After returning results, fire-and-forget
+// processSignalEvent expects metadata.activity_type (singular string) for ACTIVITY_TYPE_SIGNAL_MAP lookup.
+// Pass the first expanded activity type as the dominant signal; remaining types go in metadata for context.
+const expandedTypes = expandActivityTypes(filters.activity_types);
+processSignalEvent(userId, {
+  type: 'search',
+  metadata: {
+    source: 'discovery',
+    activity_type: expandedTypes[0] || null,
+    all_activity_types: expandedTypes,
+    result_count: results.length
+  }
+});
+```
+
+This uses the existing `processSignalEvent` infrastructure with `type: 'search'` (already a valid event type, weight `0.2` in `EVENT_WEIGHT_MAP`). The `metadata.activity_type` field (singular) is what `processSignalEvent` reads for dimension updates via `ACTIVITY_TYPE_SIGNAL_MAP`.
+
+## Feature Flag Gating
+
+Discovery runs through BienBot, which already requires the `ai_features` feature flag via `requireFeatureFlag('ai_features')` middleware on all `/api/bienbot/*` routes. The collaborative filtering is an enhancement to existing discovery behavior, not a new surface area. No additional feature flag is needed — the existing `ai_features` gate is sufficient.
+
+## Environment Variables
+
+Add `REDIS_URL` to `.env.example`:
+
+```env
+# Redis (optional - used for discovery cache; falls back to MongoDB if not set)
+REDIS_URL=redis://localhost:6379
+```
+
 ## Files Changed
 
 | File | Changes |
 |------|---------|
-| `utilities/bienbot-context-builders.js` | Expand `SEMANTIC_ACTIVITY_MAP` (5 -> 13). Rewrite `buildDiscoveryContext` with two-stage pipeline + cache + ranking. Add helpers: `findSimilarUsers`, `findCoOccurringExperiences`, `rankWithSignals`, `computeAdaptiveWeights`, `computeCostAlignment`, `generateMatchReason`, `getCacheKey`. |
-| `utilities/bienbot-action-executor.js` | Update `executeDiscoverContent` to return structured results + text context + `query_metadata`. |
+| `utilities/bienbot-context-builders.js` | Expand `SEMANTIC_ACTIVITY_MAP` (5 -> 13). Rewrite `buildDiscoveryContext` with two-stage pipeline + cache + ranking. Add helpers: `findSimilarUsers`, `findCoOccurringExperiences`, `rankWithSignals`, `computeAdaptiveWeights`, `computeCostAlignment`, `normalizeCostToPercentile`, `generateMatchReason`, `getCacheKey`. |
+| `utilities/bienbot-action-executor.js` | Update `executeDiscoverContent` to return structured results + text context + `query_metadata`. Emit signal event after discovery. |
+| `.env.example` | Add `REDIS_URL` entry. |
 
 ## New Files
 
@@ -326,17 +398,28 @@ discover_content: Search for popular experiences.
 | `utilities/discovery-cache.js` | Cache provider abstraction. `RedisDiscoveryCache` (primary) and `MongoDiscoveryCache` (fallback). Provider selection based on `REDIS_URL` env var. Failover logic. |
 | `models/discovery-cache.js` | Mongoose schema for MongoDB fallback cache collection with TTL index. |
 
+## Logging
+
+All new functions use the existing `[bienbot-context]` logger tag for consistency with the rest of `bienbot-context-builders.js`:
+
+```javascript
+logger.info('[bienbot-context] findSimilarUsers', { userId, activityTypes, resultCount });
+logger.debug('[bienbot-context] Cache hit for discovery', { cacheKey });
+logger.warn('[bienbot-context] Redis unavailable, falling back to MongoDB cache', { error: err.message });
+```
+
 ## Testing
 
 | Test | Type | Validates |
 |------|------|-----------|
-| `computeAdaptiveWeights` | Unit | Weights sum to 1.0; correct signals trigger correct shifts; low-confidence returns defaults |
+| `computeAdaptiveWeights` | Unit | Weights sum to 1.0; correct signals trigger correct shifts; low-confidence returns defaults; weight floors enforced at 0.05 |
 | `computeCostAlignment` | Unit | 1.0 for perfect match, 0.0 for worst mismatch, 0.5 for neutral/missing |
+| `normalizeCostToPercentile` | Unit | Correct percentile ranking; handles empty array; handles single-element |
 | `generateMatchReason` | Unit | Readable strings; dominant signal selection correct |
-| `getCacheKey` | Unit | Deterministic; cross-destination normalization; sort stability |
-| `findSimilarUsers` | Integration | Correct users for activity filters; destination scoping; excludes querying user |
-| `findCoOccurringExperiences` | Integration | Excludes Stage 1 experiences; computes signals correctly; public-only |
-| `executeDiscoverContent` | Integration | End-to-end structured response shape; cache hit/miss paths; cross-destination mode |
+| `getCacheKey` | Unit | Deterministic; cross-destination normalization; sort stability; case-insensitive destination names |
+| `findSimilarUsers` | Integration | Correct users for activity filters; destination scoping; excludes querying user; uses Plan.plan field (not plan_items) |
+| `findCoOccurringExperiences` | Integration | Excludes Stage 1 experiences; computes signals correctly; visibility `{ $ne: 'private' }`; cost computed via $reduce; photo URL resolved via Photo collection |
+| `executeDiscoverContent` | Integration | End-to-end structured response shape; cache hit/miss paths; cross-destination mode; signal event emitted |
 | `DiscoveryCache` | Integration | Redis works; MongoDB fallback works; TTL eviction; Redis -> MongoDB failover |
 
 Test files:
