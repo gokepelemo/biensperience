@@ -377,7 +377,7 @@
   border-radius: var(--radius-lg, 12px);
   background: var(--color-bg-secondary, #f8fafc);
   color: var(--color-text-primary, #1e293b);
-  font-size: var(--font-size-sm, 0.875rem);
+  font-size: var(--font-size-xs, 0.75rem);
   font-family: inherit;
   line-height: var(--line-height-normal, 1.5);
   resize: none;
@@ -679,4 +679,470 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 150px;
+}
+
+.attachmentPreviewThumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 4px);
+  flex-shrink: 0;
+}
+
+.imageAttachment {
+  display: inline-block;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  max-width: 200px;
+}
+
+.imageAttachmentThumb {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* ---------------------------------------------------------------------------
+   Session sharing
+   --------------------------------------------------------------------------- */
+.shareWrapper {
+  position: relative;
+}
+
+.shareBadge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--color-primary, #6c63ff);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-bold, 700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.sharePopover {
+  position: absolute;
+  top: calc(100% + var(--space-2, 0.5rem));
+  right: 0;
+  width: 280px;
+  background: var(--color-bg-primary, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-lg, 0 4px 16px rgba(0, 0, 0, 0.12));
+  padding: var(--space-3, 0.75rem);
+  z-index: 10;
+
+  @mixin dark {
+    background: var(--color-bg-secondary, #1e293b);
+    border-color: var(--color-border-dark, #475569);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.sharePopoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3, 0.75rem);
+}
+
+.sharePopoverClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+}
+
+.sharePopoverClose:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+}
+
+.sharePopoverClose svg {
+  width: 12px;
+  height: 12px;
+}
+
+.shareForm {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+  margin-bottom: var(--space-3, 0.75rem);
+}
+
+.shareInput {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+  border: 1.5px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-secondary, #f8fafc);
+  color: var(--color-text-primary, #1e293b);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-family: inherit;
+  outline: none;
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.shareInput:focus {
+  border-color: var(--color-primary, #6c63ff);
+}
+
+.shareRoleSelect {
+  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+  border: 1.5px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-secondary, #f8fafc);
+  color: var(--color-text-primary, #1e293b);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-family: inherit;
+  cursor: pointer;
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.shareError {
+  color: var(--color-danger, #ef4444);
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
+.shareList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+}
+
+.shareListItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+  border-radius: var(--radius-md, 6px);
+}
+
+.shareListItem:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.shareListUser {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+}
+
+.shareRemoveButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-tertiary, #94a3b8);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.shareRemoveButton:hover {
+  color: var(--color-danger, #ef4444);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.shareRemoveButton svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+   Suggestion list (structured content)
+   --------------------------------------------------------------------------- */
+.suggestionList {
+  margin-top: var(--space-2, 0.5rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
+
+  @mixin dark {
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.suggestionHeader {
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  background: var(--color-bg-secondary, #f8fafc);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.suggestionTitle {
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1e293b);
+}
+
+.suggestionMeta {
+  color: var(--color-text-tertiary, #94a3b8);
+  margin-top: 2px;
+}
+
+.suggestionSelectAll {
+  display: block;
+  width: 100%;
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  border: none;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  background: transparent;
+  color: var(--color-primary, #6c63ff);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+
+  @mixin dark {
+    border-bottom-color: var(--color-border-dark, #475569);
+  }
+}
+
+.suggestionSelectAll:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.suggestionSelectAll:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.suggestionItems {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.suggestionItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: none;
+  border-bottom: 1px solid var(--color-border-light, #f1f5f9);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--color-text-primary, #1e293b);
+  font-size: var(--font-size-sm, 0.875rem);
+  transition: background 0.15s ease;
+  width: 100%;
+
+  @mixin dark {
+    border-bottom-color: var(--color-border-dark, #475569);
+  }
+}
+
+.suggestionItem:last-child {
+  border-bottom: none;
+}
+
+.suggestionItem:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.suggestionItem:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.suggestionItemSelected {
+  background: var(--color-primary-lightest, #ede9fe);
+
+  @mixin dark {
+    background: rgba(108, 99, 255, 0.1);
+  }
+}
+
+.suggestionCheckbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 2px solid var(--color-border, #cbd5e1);
+  border-radius: var(--radius-sm, 4px);
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.suggestionCheckboxChecked {
+  background: var(--color-primary, #6c63ff);
+  border-color: var(--color-primary, #6c63ff);
+  color: #fff;
+}
+
+.suggestionItemContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.suggestionItemText {
+  line-height: var(--line-height-normal, 1.5);
+}
+
+.suggestionItemSource {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+}
+
+.suggestionItemFrequency {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-primary, #6c63ff);
+  background: var(--color-primary-lightest, #ede9fe);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm, 4px);
+  margin-top: 1px;
+
+  @mixin dark {
+    background: rgba(108, 99, 255, 0.15);
+  }
+}
+
+.suggestionActions {
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  display: flex;
+  justify-content: flex-end;
+
+  @mixin dark {
+    border-top-color: var(--color-border-dark, #475569);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tip category badges (used by TipSuggestionList inside suggestion list)
+   --------------------------------------------------------------------------- */
+.tipIcon {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.tipBadge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: var(--font-weight-semibold, 600);
+  padding: 0 5px;
+  border-radius: var(--radius-sm, 4px);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.6;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tipBadge_info {
+  background: #dbeafe;
+  color: #1e40af;
+
+  @mixin dark {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+  }
+}
+
+.tipBadge_primary {
+  background: #ede9fe;
+  color: #5b21b6;
+
+  @mixin dark {
+    background: rgba(139, 92, 246, 0.2);
+    color: #c4b5fd;
+  }
+}
+
+.tipBadge_success {
+  background: #dcfce7;
+  color: #166534;
+
+  @mixin dark {
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+  }
+}
+
+.tipBadge_warning {
+  background: #fef3c7;
+  color: #92400e;
+
+  @mixin dark {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
+  }
+}
+
+.tipBadge_danger {
+  background: #fee2e2;
+  color: #991b1b;
+
+  @mixin dark {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+  }
+}
+
+.tipBadge_neutral {
+  background: #f1f5f9;
+  color: #475569;
+
+  @mixin dark {
+    background: rgba(100, 116, 139, 0.2);
+    color: #cbd5e1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Structured content wrapper (inside message bubbles)
+   --------------------------------------------------------------------------- */
+.structuredContent {
+  margin-top: var(--space-2, 0.5rem);
 }

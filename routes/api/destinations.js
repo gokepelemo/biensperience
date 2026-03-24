@@ -12,6 +12,9 @@ router.put('/:id', ensureLoggedIn, requireEmailVerification, modificationLimiter
 router.get('/:id', destinationsCtrl.show);
 router.post('/:destinationId/user/:userId', ensureLoggedIn, destinationsCtrl.toggleUserFavoriteDestination);
 
+// External data enrichment
+router.get('/:id/enrich', ensureLoggedIn, destinationsCtrl.enrich);
+
 // Photo management routes
 router.post('/:id/photos', ensureLoggedIn, modificationLimiter, destinationsCtrl.addPhoto);
 router.delete('/:id/photos/:photoIndex', ensureLoggedIn, modificationLimiter, destinationsCtrl.removePhoto);

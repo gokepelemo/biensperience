@@ -262,11 +262,15 @@ function checkRateLimit(userId, rateLimits) {
 
 /**
  * Record a request timestamp for rate limiting.
+ * Caps entries at 10,000 per user to prevent unbounded memory growth.
  */
 function recordRateEntry(userId) {
   const key = `rate:${userId}`;
-  const entries = rateLimitStore.get(key) || [];
+  let entries = rateLimitStore.get(key) || [];
   entries.push(Date.now());
+  if (entries.length > 10000) {
+    entries = entries.slice(-5000);
+  }
   rateLimitStore.set(key, entries);
 }
 
@@ -276,11 +280,18 @@ function recordRateEntry(userId) {
 
 /**
  * Check token budget for a user.
+ *
+ * Uses a headroom factor to preemptively block requests that would likely
+ * exceed the budget once the response arrives. The estimate is conservative:
+ * we assume the request will consume `maxTokens` output tokens and roughly
+ * the same number of input tokens (messages + context).
+ *
  * @param {string} userId
  * @param {Object} tokenBudget
+ * @param {number} [estimatedMaxTokens=1000] - Expected max output tokens for the upcoming request
  * @returns {Promise<{ allowed: boolean, reason: string|null }>}
  */
-async function checkTokenBudget(userId, tokenBudget) {
+async function checkTokenBudget(userId, tokenBudget, estimatedMaxTokens = 1000) {
   if (!userId || !tokenBudget) return { allowed: true, reason: null };
 
   const hasDailyLimit = tokenBudget.daily_input_tokens != null || tokenBudget.daily_output_tokens != null;
@@ -288,16 +299,19 @@ async function checkTokenBudget(userId, tokenBudget) {
 
   if (!hasDailyLimit && !hasMonthlyLimit) return { allowed: true, reason: null };
 
+  // Conservative headroom: assume the request will use up to this many tokens
+  const headroom = Math.max(estimatedMaxTokens, 100);
+
   try {
     loadModels();
 
     if (hasDailyLimit) {
       const daily = await AIUsage.getDailyUsage(userId);
       if (daily) {
-        if (tokenBudget.daily_input_tokens != null && daily.total_input_tokens >= tokenBudget.daily_input_tokens) {
+        if (tokenBudget.daily_input_tokens != null && (daily.total_input_tokens + headroom) >= tokenBudget.daily_input_tokens) {
           return { allowed: false, reason: 'Daily input token budget exceeded' };
         }
-        if (tokenBudget.daily_output_tokens != null && daily.total_output_tokens >= tokenBudget.daily_output_tokens) {
+        if (tokenBudget.daily_output_tokens != null && (daily.total_output_tokens + headroom) >= tokenBudget.daily_output_tokens) {
           return { allowed: false, reason: 'Daily output token budget exceeded' };
         }
       }
@@ -305,10 +319,10 @@ async function checkTokenBudget(userId, tokenBudget) {
 
     if (hasMonthlyLimit) {
       const monthly = await AIUsage.getMonthlyUsage(userId);
-      if (tokenBudget.monthly_input_tokens != null && monthly.total_input_tokens >= tokenBudget.monthly_input_tokens) {
+      if (tokenBudget.monthly_input_tokens != null && (monthly.total_input_tokens + headroom) >= tokenBudget.monthly_input_tokens) {
         return { allowed: false, reason: 'Monthly input token budget exceeded' };
       }
-      if (tokenBudget.monthly_output_tokens != null && monthly.total_output_tokens >= tokenBudget.monthly_output_tokens) {
+      if (tokenBudget.monthly_output_tokens != null && (monthly.total_output_tokens + headroom) >= tokenBudget.monthly_output_tokens) {
         return { allowed: false, reason: 'Monthly output token budget exceeded' };
       }
     }
@@ -345,8 +359,8 @@ function applyContentFiltering(messages, filtering) {
             if (regex.test(msg.content)) {
               return { blocked: true, reason: `Content blocked by policy filter`, messages };
             }
-          } catch {
-            // Invalid regex pattern, skip
+          } catch (regexErr) {
+            logger.warn('[ai-gateway] Invalid content filter regex pattern, skipping', { pattern, error: regexErr.message });
           }
         }
       }
@@ -548,8 +562,10 @@ async function executeAIRequest(params) {
   }
 
   // Step 4: Token budget check (super admins exempt)
+  // Pass estimated maxTokens so the check can preemptively block near-limit requests
   if (!isSuperAdmin && userId) {
-    const budgetCheck = await checkTokenBudget(userId, policy.token_budget);
+    const estimatedTokens = options.maxTokens || 1000;
+    const budgetCheck = await checkTokenBudget(userId, policy.token_budget, estimatedTokens);
     if (!budgetCheck.allowed) {
       throw new GatewayError(budgetCheck.reason, 'TOKEN_BUDGET_EXCEEDED', 429);
     }
@@ -558,14 +574,19 @@ async function executeAIRequest(params) {
   // Step 5: Route to provider/model
   const route = await routeRequest(task, policy, options);
 
-  // Step 6: Build call options
+  // Step 6: Build call options (with validated temperature and maxTokens)
+  const rawTemp = policy.temperature ?? options.temperature ?? 0.7;
+  const validatedTemp = Math.min(Math.max(Number(rawTemp) || 0.7, 0), 2);
+  const rawMaxTokens = policy.max_tokens || options.maxTokens || 1000;
+  const validatedMaxTokens = Math.max(Math.min(
+    Math.abs(parseInt(rawMaxTokens, 10)) || 1000,
+    policy.max_tokens_per_request
+  ), 1);
+
   const callOptions = {
     model: route.model || undefined,
-    temperature: policy.temperature ?? options.temperature,
-    maxTokens: Math.min(
-      policy.max_tokens || options.maxTokens || 1000,
-      policy.max_tokens_per_request
-    )
+    temperature: validatedTemp,
+    maxTokens: validatedMaxTokens
   };
 
   // Apply task-specific overrides from policy routing

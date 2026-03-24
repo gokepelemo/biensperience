@@ -1,0 +1,147 @@
+/* BienBotPhotoGallery — Selectable photo grid for chat messages */
+
+.gallery {
+  margin-top: var(--space-2, 0.5rem);
+}
+
+.galleryTitle {
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-secondary, #64748b);
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
+/* Grid layout for selectable photos */
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2, 0.5rem);
+}
+
+@media (max-width: 400px) {
+  .photoGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.photoThumb {
+  position: relative;
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  background: var(--color-bg-tertiary, #f1f5f9);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+.photoThumb:hover:not(:disabled) {
+  border-color: var(--color-primary, #6c63ff);
+  box-shadow: 0 0 0 1px var(--color-primary, #6c63ff);
+}
+
+.photoThumb:focus-visible {
+  outline: 2px solid var(--color-primary, #6c63ff);
+  outline-offset: 2px;
+}
+
+.photoThumb:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.photoThumbSelected {
+  border-color: var(--color-primary, #6c63ff);
+  box-shadow: 0 0 0 1px var(--color-primary, #6c63ff);
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.selectedBadge {
+  position: absolute;
+  top: var(--space-1, 0.25rem);
+  right: var(--space-1, 0.25rem);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-primary, #6c63ff);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.attribution {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2px var(--space-1, 0.25rem);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  color: #fff;
+  font-size: 0.625rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.addActions {
+  margin-top: var(--space-2, 0.5rem);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.unsplashCredit {
+  margin-top: var(--space-1, 0.25rem);
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+}
+
+/* Legacy horizontal strip (kept for non-selectable fallback) */
+.photoStrip {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: var(--space-1, 0.25rem);
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border, #e2e8f0) transparent;
+}
+
+.photoStrip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.photoStrip::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.photoStrip::-webkit-scrollbar-thumb {
+  background: var(--color-border, #e2e8f0);
+  border-radius: 2px;
+}
+
+.seeMore {
+  display: inline-block;
+  margin-top: var(--space-2, 0.5rem);
+  color: var(--color-primary, #6c63ff);
+  text-decoration: none;
+}
+
+.seeMore:hover {
+  text-decoration: underline;
+}

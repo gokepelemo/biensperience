@@ -13,6 +13,7 @@ import { useState, useEffect, useRef, useId, useCallback } from 'react';
 import { FaTimes, FaUserPlus, FaEnvelope, FaCheck } from 'react-icons/fa';
 import Autocomplete from '../../../components/Autocomplete/Autocomplete';
 import FormField from '../../../components/FormField/FormField';
+import InfoTooltip from '../../../components/InfoTooltip/InfoTooltip';
 import { Modal, Button as DSButton, Pill, Alert } from '../../../components/design-system';
 import { logger } from '../../../utilities/logger';
 import { lang } from '../../../lang.constants';
@@ -25,6 +26,10 @@ export default function CollaboratorModal({
   onAddCollaborators,
   onRemoveCollaborator,
   onSendEmailInvite,
+  onSelectEntity,
+  entityImportMessage = '',
+  onDismissImportMessage = () => {},
+  entityImportLoading = false,
   context = 'plan',
   searchTerm,
   onSearchTermChange,
@@ -369,13 +374,20 @@ export default function CollaboratorModal({
             {/* Search Mode */}
             {mode === 'search' && (
               <>
-                <div style={{ marginBottom: 'var(--space-3)' }}>
+                <div style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                   <Autocomplete
-                    placeholder={lang.current.placeholder.searchByNameOrEmail}
+                    inputId={`${id}-collaborator-search`}
+                    placeholder={lang.current.placeholder.searchCollaborators}
                     entityType="user"
                     items={searchResults}
-                    onSelect={(user) => {
-                      onToggleCollaborator(user);
+                    onSelect={(item) => {
+                      if (!item) return;
+                      if (item.type === 'experience' || item.type === 'destination') {
+                        if (onSelectEntity) onSelectEntity(item);
+                      } else {
+                        onToggleCollaborator(item);
+                      }
                       // Clear the search field after selection
                       onSearchTermChange('');
                     }}
@@ -393,7 +405,24 @@ export default function CollaboratorModal({
                     }
                     disableFilter={true}
                   />
+                  </div>
+                  <InfoTooltip
+                    id={`${id}-collab-search-tip`}
+                    content={lang.current.tooltip.collaboratorSearch}
+                  />
                 </div>
+
+                {/* Entity import feedback */}
+                {(entityImportMessage || entityImportLoading) && (
+                  <Alert
+                    type={entityImportLoading ? 'info' : (entityImportMessage.toLowerCase().includes('fail') || entityImportMessage.toLowerCase().includes('no collaborator') ? 'danger' : 'success')}
+                    dismissible
+                    onDismiss={onDismissImportMessage}
+                    style={{ marginBottom: 'var(--space-3)' }}
+                  >
+                    {entityImportLoading ? 'Importing collaborators…' : entityImportMessage}
+                  </Alert>
+                )}
 
                 {/* Selected NEW Collaborators Only */}
                 {newlySelectedCollaborators.length > 0 && (

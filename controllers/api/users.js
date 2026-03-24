@@ -1272,6 +1272,76 @@ async function searchUsers(req, res) {
   }
 }
 
+/**
+ * Search experiences and destinations owned by the current user
+ * GET /api/users/owned-entities/search?q=query
+ * Returns combined results for use in the collaborator modal entity search
+ */
+async function searchOwnedEntities(req, res) {
+  try {
+    const { q } = req.query;
+
+    if (!q || typeof q !== 'string' || q.length < 2) {
+      return errorResponse(res, null, 'Search query must be at least 2 characters', 400);
+    }
+
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sanitizedQuery = escapeRegex(q);
+    const userId = req.user._id;
+
+    const Experience = require('../../models/experience');
+    const Destination = require('../../models/destination');
+
+    const mongoose = require('mongoose');
+    let userObjectId;
+    try {
+      userObjectId = new mongoose.Types.ObjectId(userId);
+    } catch (_) {
+      userObjectId = userId;
+    }
+
+    const [experiences, destinations] = await Promise.all([
+      Experience.find({
+        $or: [
+          { permissions: { $elemMatch: { _id: userObjectId, entity: 'user', type: 'owner' } } },
+          { user: userObjectId }
+        ],
+        name: { $regex: sanitizedQuery, $options: 'i' }
+      }).select('_id name permissions user').limit(5).lean(),
+      Destination.find({
+        $or: [
+          { permissions: { $elemMatch: { _id: userObjectId, entity: 'user', type: 'owner' } } },
+          { user: userObjectId }
+        ],
+        name: { $regex: sanitizedQuery, $options: 'i' }
+      }).select('_id name permissions user').limit(5).lean()
+    ]);
+
+    const collaboratorCount = (permissions) =>
+      (permissions || []).filter(p => p.entity === 'user' && p.type !== 'owner').length;
+
+    const results = [
+      ...experiences.map(e => ({
+        _id: e._id,
+        name: e.name,
+        type: 'experience',
+        collaboratorCount: collaboratorCount(e.permissions)
+      })),
+      ...destinations.map(d => ({
+        _id: d._id,
+        name: d.name,
+        type: 'destination',
+        collaboratorCount: collaboratorCount(d.permissions)
+      }))
+    ];
+
+    return successResponse(res, results, 'Owned entities found');
+  } catch (err) {
+    backendLogger.error('Error searching owned entities', { error: err.message, userId: req.user._id });
+    return errorResponse(res, err, 'Failed to search owned entities', 500);
+  }
+}
+
 async function getAllUsers(req, res) {
   try {
     // Only super admins can get all users
@@ -1804,18 +1874,11 @@ async function deleteAccount(req, res) {
       // 1. Delete user's photos from S3 and database
       if (userToDelete.photos && userToDelete.photos.length > 0) {
         try {
-          const { s3Delete } = require('../../uploads/aws-s3');
+          const { deleteFileSafe } = require('../../utilities/upload-pipeline');
           for (const photoId of userToDelete.photos) {
             const photo = await Photo.findById(photoId);
             if (photo && photo.url) {
-              try {
-                await s3Delete(photo.url);
-              } catch (s3Err) {
-                backendLogger.warn('Failed to delete photo from S3', {
-                  photoId,
-                  error: s3Err.message
-                });
-              }
+              await deleteFileSafe(photo.url);
               await Photo.findByIdAndDelete(photoId);
             }
           }
@@ -1869,8 +1932,8 @@ async function deleteAccount(req, res) {
               try {
                 const photo = await Photo.findById(photoId);
                 if (photo && photo.url) {
-                  const { s3Delete } = require('../../uploads/aws-s3');
-                  await s3Delete(photo.url);
+                  const { deleteFileSafe } = require('../../utilities/upload-pipeline');
+                  await deleteFileSafe(photo.url);
                 }
                 await Photo.findByIdAndDelete(photoId);
               } catch (err) {
@@ -1886,15 +1949,8 @@ async function deleteAccount(req, res) {
       const userDocs = await Document.find({ user: id });
       for (const doc of userDocs) {
         if (doc.s3Key) {
-          try {
-            const { s3Delete } = require('../../uploads/aws-s3');
-            await s3Delete(doc.s3Key, { protected: doc.isProtected });
-          } catch (s3Err) {
-            backendLogger.warn('Failed to delete document from S3', {
-              docId: doc._id,
-              error: s3Err.message
-            });
-          }
+          const { deleteFileSafe } = require('../../utilities/upload-pipeline');
+          await deleteFileSafe(doc.s3Key, { protected: doc.isProtected });
         }
       }
       await Document.deleteMany({ user: id });
@@ -2027,6 +2083,7 @@ module.exports = {
   removePhoto,
   setDefaultPhoto,
   searchUsers,
+  searchOwnedEntities,
   updateUserRole,
   getAllUsers,
   requestPasswordReset,

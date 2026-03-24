@@ -11,90 +11,26 @@
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { createUploadMiddleware } = require('../../utilities/upload-middleware');
 const documentsCtrl = require('../../controllers/api/documents');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 
-// Ensure upload directories exist
-const UPLOAD_DIR = path.join(__dirname, '../../uploads/documents');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
-
-// Multer configuration for document uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, UPLOAD_DIR);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename with timestamp and random string
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    const ext = path.extname(file.originalname);
-    const sanitizedName = path.basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9-_]/g, '_')
-      .substring(0, 50);
-    cb(null, `${timestamp}-${random}-${sanitizedName}${ext}`);
-  }
-});
-
-// File filter to validate mime types
-const fileFilter = (req, file, cb) => {
-  const allowedMimes = [
+const { upload, handleError: handleMulterError } = createUploadMiddleware({
+  dest: 'uploads/documents',
+  maxSize: 50 * 1024 * 1024, // 50MB max (highest limit, individual types checked in controller)
+  allowedTypes: [
     // PDF
     'application/pdf',
     // Images
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/tiff',
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff',
     // Word
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     // Text
-    'text/plain',
-    'text/csv',
-    'text/markdown'
-  ];
-
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
-  }
-};
-
-// Configure multer with storage, file filter, and size limits
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max (highest limit, individual types checked in controller)
-    files: 1 // Single file upload only
-  }
+    'text/plain', 'text/csv', 'text/markdown'
+  ],
+  customFilename: true
 });
-
-// Error handling middleware for multer errors
-const handleMulterError = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
-    }
-    if (err.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: 'Too many files. Only single file upload is supported.' });
-    }
-    return res.status(400).json({ error: `Upload error: ${err.message}` });
-  }
-
-  if (err) {
-    return res.status(400).json({ error: err.message });
-  }
-
-  next();
-};
 
 /**
  * @route   GET /api/documents/supported-types

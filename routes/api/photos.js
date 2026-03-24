@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const multer  = require('multer')
-const path = require('path');
-const upload = multer({ dest: path.join(__dirname, '../../uploads/images') })
+const { createUploadMiddleware } = require('../../utilities/upload-middleware');
 const photosCtrl = require('../../controllers/api/photos');
 const ensureLoggedIn = require('../../config/ensureLoggedIn')
+
+const { upload } = createUploadMiddleware({ dest: 'uploads/images' });
 
 router.post('/', ensureLoggedIn, upload.single('image'), photosCtrl.create);
 router.post('/batch', ensureLoggedIn, upload.array('images', 10), photosCtrl.createBatch);

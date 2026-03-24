@@ -5,7 +5,7 @@ import PropTypes from "prop-types";
 import DOMPurify from "dompurify";
 import debug from "../../utilities/debug";
 import EntitySchema from "../OpenGraph/EntitySchema";
-import { resolveAvatarUrl, fetchAvatarUrl } from "../../utilities/avatar-cache";
+import { resolveAvatarUrl, fetchAvatarUrl, getCachedAvatarUrl } from "../../utilities/avatar-cache";
 import { eventBus } from "../../utilities/event-bus";
 import AvatarRenderer from "./AvatarRenderer";
 
@@ -119,7 +119,15 @@ const UserAvatar = ({
   // Multiple UserAvatar instances in the same render cycle are batched into
   // a single API request via microtask batching in avatar-cache.js.
   const [lazyUrl, setLazyUrl] = useState(null);
-  const [fetchDone, setFetchDone] = useState(false);
+  // Initialise from the module-level cache so remounts don't briefly show
+  // the skeleton when the avatar status is already known (URL or explicit null).
+  // resolvedUrl is safe to use here — it's computed above before any hooks.
+  const [fetchDone, setFetchDone] = useState(() => {
+    if (!user?._id || resolvedUrl !== null) return false;
+    // resolvedUrl is null; check whether we already fetched for this user.
+    const cached = getCachedAvatarUrl(user._id.toString());
+    return cached !== undefined; // true for both URL and explicit null in cache
+  });
 
   // Version counter bumped when the avatar cache is invalidated for this user.
   // Adding it to the fetch effect deps forces a re-fetch even when the other

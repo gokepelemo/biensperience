@@ -94,27 +94,38 @@ function getProviderForTask(task) {
  * @returns {Promise<{content, usage, model, provider}>}
  */
 async function callProvider(provider, messages, options = {}) {
-  const result = await executeAIRequest({
-    messages,
-    task: options.task || AI_TASKS.GENERAL,
-    user: options._user || null,
-    intent: options.intent || null,
-    options: {
-      provider,
-      model: options.model,
-      temperature: options.temperature,
-      maxTokens: options.maxTokens
-    },
-    entityContext: options.entityContext || null
-  });
+  try {
+    const result = await executeAIRequest({
+      messages,
+      task: options.task || AI_TASKS.GENERAL,
+      user: options._user || null,
+      intent: options.intent || null,
+      options: {
+        provider,
+        model: options.model,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens
+      },
+      entityContext: options.entityContext || null
+    });
 
-  // Return in the legacy format (without policyApplied)
-  return {
-    content: result.content,
-    usage: result.usage,
-    model: result.model,
-    provider: result.provider
-  };
+    // Return in the legacy format (without policyApplied)
+    return {
+      content: result.content,
+      usage: result.usage,
+      model: result.model,
+      provider: result.provider
+    };
+  } catch (err) {
+    // Convert GatewayError to plain Error for backward-compat callers
+    if (err instanceof GatewayError) {
+      const plainError = new Error(err.message);
+      plainError.code = err.code;
+      plainError.statusCode = err.statusCode;
+      throw plainError;
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +144,8 @@ function handleGatewayError(error, res, userId) {
   logger.error('AI request error', { error: error.message, userId });
   return res.status(500).json({
     success: false,
-    error: error.message || 'AI request failed'
+    error: error.message || 'AI request failed',
+    code: error.code || 'UNKNOWN'
   });
 }
 

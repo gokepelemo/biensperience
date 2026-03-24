@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Flex, Badge, Stack, Input } from '@chakra-ui/react';
+import { Box, Flex, Badge, Stack, Input, NativeSelect } from '@chakra-ui/react';
 import { FaSync } from 'react-icons/fa';
 import { Button, Card, CardHeader, CardBody, Alert } from '../../components/design-system';
 import { Text, Heading } from '../../components/design-system';
@@ -175,17 +175,6 @@ export default function AIAdminUsage() {
 
   const showCost = selectedProvider === ALL_PROVIDERS;
 
-  const selectStyle = {
-    height: 'var(--btn-height-sm)',
-    borderRadius: 'var(--space-2)',
-    border: '1px solid var(--color-border)',
-    background: 'var(--color-bg-primary)',
-    color: 'var(--color-text-primary)',
-    paddingLeft: 'var(--space-3)',
-    paddingRight: 'var(--space-3)',
-    fontSize: 'var(--font-size-sm)'
-  };
-
   return (
     <Stack gap="var(--space-4)">
       <Flex justify="space-between" align="center" wrap="wrap" gap="var(--space-3)">
@@ -199,17 +188,18 @@ export default function AIAdminUsage() {
         </Box>
         <Flex align="center" gap="var(--space-3)" wrap="wrap">
           {hasMultipleProviders && (
-            <select
-              value={selectedProvider}
-              onChange={(e) => setSelectedProvider(e.target.value)}
-              style={selectStyle}
-              aria-label="Filter by AI provider"
-            >
-              <option value={ALL_PROVIDERS}>All Providers</option>
-              {availableProviders.map(p => (
-                <option key={p} value={p}>{PROVIDER_LABELS[p] || p}</option>
-              ))}
-            </select>
+            <NativeSelect.Root size="sm" w="auto">
+              <NativeSelect.Field
+                value={selectedProvider}
+                onChange={(e) => setSelectedProvider(e.target.value)}
+                aria-label="Filter by AI provider"
+              >
+                <option value={ALL_PROVIDERS}>All Providers</option>
+                {availableProviders.map(p => (
+                  <option key={p} value={p}>{PROVIDER_LABELS[p] || p}</option>
+                ))}
+              </NativeSelect.Field>
+            </NativeSelect.Root>
           )}
           <Flex gap="var(--space-2)">
             {PERIOD_OPTIONS.map(opt => (

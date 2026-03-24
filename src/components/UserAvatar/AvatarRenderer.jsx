@@ -19,7 +19,7 @@
  * - Link-to-profile wrapping (handled by parent UserAvatar)
  */
 
-import { forwardRef, useState, useEffect } from 'react';
+import { forwardRef, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Avatar } from '@chakra-ui/react';
 import styles from './UserAvatar.module.css';
@@ -90,6 +90,16 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
     setImgError(false);
   }, [src]);
 
+  // Ref callback to handle images that load from browser cache before
+  // React attaches the onLoad handler — img.complete is already true,
+  // but onLoad never fires, leaving the image hidden behind the skeleton.
+  const imgRefCallback = useCallback((imgEl) => {
+    if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !imgError) {
+      markImageLoaded(src);
+      setImgLoaded(true);
+    }
+  }, [src, imgError]);
+
   // Show skeleton when: URL is still being resolved OR image is in flight (not loaded and not errored)
   const showSkeleton = loading || (src && !imgLoaded && !imgError);
   // Show initials fallback when not loading and either no src or the image failed
@@ -140,6 +150,8 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
           color: 'white',
           fontWeight: 'var(--font-weight-semibold)',
           textTransform: 'uppercase',
+          fontSize: 'calc(var(--user-avatar-size, 40px) * 0.4)',
+          lineHeight: 1,
         },
       }}
       {...rest}
@@ -159,8 +171,10 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
           The img is hidden until onLoad fires, while the skeleton covers it. */}
       {src && !imgError && (
         <img
+          ref={imgRefCallback}
           src={src}
           alt={name || 'User avatar'}
+          referrerPolicy="no-referrer"
           onLoad={() => { markImageLoaded(src); setImgLoaded(true); }}
           onError={() => { loadedImages.delete(src); setImgError(true); }}
           style={{

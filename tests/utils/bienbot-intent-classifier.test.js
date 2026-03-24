@@ -85,7 +85,7 @@ describe('bienbot-intent-classifier', () => {
     });
 
     it('classifies ADD_PLAN_ITEMS intent', async () => {
-      const result = await classifyIntent('Add visit Senso-ji temple and try street food to my plan');
+      const result = await classifyIntent('Add visit Senso-ji temple to my plan');
       expect(result.intent).toBe('ADD_PLAN_ITEMS');
       expect(result.confidence).toBeGreaterThan(0.5);
     });

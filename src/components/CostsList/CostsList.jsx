@@ -194,6 +194,10 @@ export default function CostsList({
     <Box className={styles.costsSection}>
       {/* Tracked Costs Accordion - collapsed by default */}
       {/* Contains: Cost Summary (Total/Export/Per Person) + Costs List */}
+      {/* NOTE: Add Cost button is rendered outside Accordion.Header (which is a <button>) to
+           avoid the invalid nested <button> DOM structure. It is absolutely positioned to
+           visually align with the header area. */}
+      <Box position="relative">
       <Accordion
         activeKey={isAccordionOpen ? accordionId : null}
         onSelect={(key) => setIsAccordionOpen(key === accordionId)}
@@ -219,26 +223,6 @@ export default function CostsList({
               </Text>
               <Pill variant="neutral" size="sm">{costs.length}</Pill>
             </HStack>
-            {canEdit && (
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddCost();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleAddCost();
-                  }
-                }}
-              >
-                <Icon as={FaPlus} marginRight="var(--space-1)" />
-                {costStrings.addCost}
-              </Button>
-            )}
           </Accordion.Header>
           <Accordion.Body className={styles.accordionBody}>
             {/* Cost Summary - Total/Export CSV/Per Person Share */}
@@ -410,6 +394,18 @@ export default function CostsList({
           </Accordion.Body>
         </Accordion.Item>
       </Accordion>
+      {canEdit && (
+        <Button
+          variant="outline-primary"
+          size="sm"
+          onClick={handleAddCost}
+          className={styles.accordionHeaderAction}
+        >
+          <Icon as={FaPlus} marginRight="var(--space-1)" />
+          {costStrings.addCost}
+        </Button>
+      )}
+      </Box>
 
       {/* Add/Edit Cost Modal */}
       <CostEntry

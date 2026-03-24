@@ -10,7 +10,7 @@
  * @module components/BienBotTrigger
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { FaBell } from 'react-icons/fa';
@@ -18,6 +18,7 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useUser } from '../../contexts/UserContext';
 import { isSuperAdmin } from '../../utilities/permissions';
 import useRouteContext from '../../hooks/useRouteContext';
+import { subscribeToEvent } from '../../utilities/event-bus';
 import { logger } from '../../utilities/logger';
 import styles from './BienBotTrigger.module.css';
 
@@ -49,6 +50,7 @@ export default function BienBotTrigger({
   const { user } = useUser();
   const { enabled: hasAI } = useFeatureFlag('ai_features');
   const [panelOpen, setPanelOpen] = useState(false);
+  const [initialMessage, setInitialMessage] = useState(null);
 
   const isAdmin = user && isSuperAdmin(user);
   const hasChatAccess = hasAI || isAdmin;
@@ -70,6 +72,18 @@ export default function BienBotTrigger({
     return routeContext;
   }, [entity, entityId, entityLabel, contextDescription, routeContext]);
 
+  // Subscribe to bienbot:open events (e.g. from post-plan toasts)
+  useEffect(() => {
+    if (!hasChatAccess) return;
+    const unsub = subscribeToEvent('bienbot:open', (event) => {
+      const msg = event.initialMessage || null;
+      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg });
+      setInitialMessage(msg);
+      setPanelOpen(true);
+    });
+    return unsub;
+  }, [hasChatAccess]);
+
   const handleOpen = useCallback(() => {
     const ctx = invokeContext || {};
     logger.debug('[BienBotTrigger] Opening panel', { entity: ctx.entity, entityId: ctx.id, currentView, hasChatAccess });
@@ -78,6 +92,7 @@ export default function BienBotTrigger({
 
   const handleClose = useCallback(() => {
     setPanelOpen(false);
+    setInitialMessage(null);
   }, []);
 
   // Do not render if user is not authenticated
@@ -136,6 +151,7 @@ export default function BienBotTrigger({
           notifications={notifications}
           unseenNotificationIds={unseenNotificationIds}
           onMarkNotificationsSeen={onMarkNotificationsSeen}
+          initialMessage={initialMessage}
         />
       )}
     </>,
@@ -166,7 +182,8 @@ function BienBotPanelLazy({
   notificationOnly,
   notifications,
   unseenNotificationIds,
-  onMarkNotificationsSeen
+  onMarkNotificationsSeen,
+  initialMessage
 }) {
   const [Panel, setPanel] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -199,6 +216,7 @@ function BienBotPanelLazy({
       notifications={notifications}
       unseenNotificationIds={unseenNotificationIds}
       onMarkNotificationsSeen={onMarkNotificationsSeen}
+      initialMessage={initialMessage}
     />
   );
 }
@@ -217,5 +235,6 @@ BienBotPanelLazy.propTypes = {
   notificationOnly: PropTypes.bool,
   notifications: PropTypes.array,
   unseenNotificationIds: PropTypes.array,
-  onMarkNotificationsSeen: PropTypes.func
+  onMarkNotificationsSeen: PropTypes.func,
+  initialMessage: PropTypes.string
 };

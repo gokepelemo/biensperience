@@ -29,6 +29,7 @@
     overflow-wrap: break-word !important;
     word-break: break-word !important;
     white-space: normal !important;
+    text-align: center !important;
     z-index: 1800 !important;
 
     /* Arrow styling */

@@ -77,6 +77,14 @@ const attachmentSchema = new Schema({
     type: String,
     default: null
   },
+  s3Bucket: {
+    type: String,
+    default: null
+  },
+  isProtected: {
+    type: Boolean,
+    default: false
+  },
   extractedText: {
     type: String,
     default: null
@@ -84,6 +92,11 @@ const attachmentSchema = new Schema({
   extractionMethod: {
     type: String,
     default: null
+  },
+  s3Status: {
+    type: String,
+    enum: ['pending', 'uploaded', 'failed'],
+    default: 'pending'
   }
 }, { _id: false });
 
@@ -111,7 +124,38 @@ const messageSchema = new Schema({
   actions_taken: [{
     type: String
   }],
-  attachments: [attachmentSchema]
+  attachments: [attachmentSchema],
+  /**
+   * Structured content blocks for rich rendering (photo galleries, suggestion
+   * lists, etc.). Each block has a `type` discriminator and type-specific
+   * fields stored in `data`. The frontend reads `type` to choose which
+   * component to render.
+   *
+   * Supported types:
+   *   - photo_gallery: { photos: [...], entity_type, entity_id, entity_name, total_count }
+   *   - suggestion_list: { suggestions: [...], destination_name, source_count }
+   */
+  structured_content: [{
+    type: {
+      type: String,
+      required: true,
+      enum: ['photo_gallery', 'suggestion_list']
+    },
+    data: {
+      type: Schema.Types.Mixed,
+      default: {}
+    }
+  }],
+  /**
+   * The user who sent this message. Only set for 'user' role messages in
+   * shared sessions so memory extraction can filter per-participant
+   * contributions. Null for assistant messages and legacy messages.
+   */
+  sent_by: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  }
 }, { _id: false });
 
 /**
@@ -133,6 +177,11 @@ const summarySchema = new Schema({
 
 /**
  * Pending action sub-schema — proposed actions awaiting user confirmation.
+ *
+ * Workflow fields (workflow_id, workflow_step, workflow_total, depends_on, status,
+ * error_message) support the sequential workflow confirmation UX where each
+ * workflow step is exploded into an individual pending action that users can
+ * approve, skip, or edit one at a time.
  */
 const pendingActionSchema = new Schema({
   id: {
@@ -158,6 +207,32 @@ const pendingActionSchema = new Schema({
   },
   result: {
     type: Schema.Types.Mixed,
+    default: null
+  },
+  // --- Workflow step fields ---
+  workflow_id: {
+    type: String,
+    default: null
+  },
+  workflow_step: {
+    type: Number,
+    default: null
+  },
+  workflow_total: {
+    type: Number,
+    default: null
+  },
+  depends_on: {
+    type: [String],
+    default: null
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'executing', 'completed', 'skipped', 'failed'],
+    default: 'pending'
+  },
+  error_message: {
+    type: String,
     default: null
   }
 }, { _id: false });
@@ -235,7 +310,7 @@ const bienBotSessionSchema = new Schema({
 // Compound indexes for efficient querying
 bienBotSessionSchema.index({ user: 1, status: 1 });
 bienBotSessionSchema.index({ updatedAt: 1 });
-bienBotSessionSchema.index({ 'shared_with.user_id': 1 });
+bienBotSessionSchema.index({ 'shared_with.user_id': 1, status: 1 });
 
 // ----- Static methods -----
 
@@ -281,8 +356,18 @@ bienBotSessionSchema.statics.listSessions = async function (userId, options = {}
 
 /**
  * Append a message to the conversation history.
+ *
+ * @param {string} role - 'user' or 'assistant'
+ * @param {string} content - Message content
+ * @param {object} [opts]
+ * @param {string|null} [opts.intent] - Classified intent
+ * @param {string[]} [opts.actions_taken] - Action types executed
+ * @param {object[]} [opts.attachments] - File attachments
+ * @param {string|object|null} [opts.sentBy] - User ID of the sender (for
+ *   'user' role messages in shared sessions). Enables per-participant memory
+ *   extraction when the session is archived.
  */
-bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [] } = {}) {
+bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [], sentBy = null, structured_content = [] } = {}) {
   const msg = {
     role,
     content,
@@ -292,6 +377,12 @@ bienBotSessionSchema.methods.addMessage = async function (role, content, { inten
   };
   if (attachments.length > 0) {
     msg.attachments = attachments;
+  }
+  if (structured_content.length > 0) {
+    msg.structured_content = structured_content;
+  }
+  if (sentBy && role === 'user') {
+    msg.sent_by = sentBy;
   }
   this.messages.push(msg);
   return this.save();

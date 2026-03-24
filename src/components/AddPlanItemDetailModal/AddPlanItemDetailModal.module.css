@@ -80,7 +80,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   padding: 0.5rem 1rem;
   background: transparent;
   border: 1px solid var(--color-border-medium);
@@ -104,7 +104,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   padding: 0.5rem 1rem;
   background: transparent;
   border: 1px solid var(--color-border-medium);
@@ -135,7 +135,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   padding: 0.5rem 1.25rem;
   background: var(--gradient-primary);
   border: none;
@@ -148,7 +148,7 @@
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  };
+  }
   }
 
   &:disabled {
@@ -317,7 +317,7 @@
   line-height: 1.5;
   transition: all 300ms ease;
   &:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   width: 100%;
   padding: 0.5rem 0.75rem;
   font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
@@ -376,7 +376,7 @@
   line-height: 1.5;
   transition: all 300ms ease;
   &:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   width: auto;
   min-width: 100px;
   padding: 0.5rem 0.75rem;
@@ -443,7 +443,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   width: 28px;
   height: 28px;
   padding: 0;
@@ -478,7 +478,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   padding: 0.5rem 0.75rem;
   font-size: clamp(0.875rem, 1.25vw, 1rem);
 }
@@ -511,7 +511,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   width: 100%;
   padding: 0.5rem 0.75rem;
   background: transparent;
@@ -685,7 +685,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   width: 32px;
   height: 32px;
   padding: 0;

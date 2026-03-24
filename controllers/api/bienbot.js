@@ -8,6 +8,7 @@
  * @module controllers/api/bienbot
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const logger = require('../../utilities/backend-logger');
 const { validateObjectId, successResponse, errorResponse } = require('../../utilities/controller-helpers');
@@ -19,12 +20,18 @@ const {
   buildExperienceContext,
   buildUserPlanContext,
   buildPlanItemContext,
-  buildSearchContext
+  buildSearchContext,
+  buildSuggestionContext,
+  buildDiscoveryContext,
+  buildPlanNextStepsContext
 } = require('../../utilities/bienbot-context-builders');
-const { executeActions, ALLOWED_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
+const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
+const { resolveEntities, formatResolutionBlock, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
-const { extractMemoryFromSession, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
+const { extractMemoryFromSession, extractMemoryForCollaborators, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
 const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
+const { uploadWithPipeline, retrieveFile } = require('../../utilities/upload-pipeline');
+const path = require('path');
 const { GatewayError } = require('../../utilities/ai-gateway');
 const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
 const BienBotSession = require('../../models/bienbot-session');
@@ -157,7 +164,7 @@ async function resolveEntityLabel(entity, entityId) {
  * @param {string|null} params.userMemoryBlock - Pre-formatted user memory block from past sessions
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock }) {
+function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock }) {
   const lines = [
     'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
     'You help users explore destinations, plan experiences, manage plan items, track costs, collaborate with others, and answer travel questions.',
@@ -194,6 +201,11 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
   if (contextBlock) {
     lines.push('--- Context ---');
     lines.push(contextBlock);
+    lines.push('');
+  }
+
+  if (entityResolutionBlock) {
+    lines.push(entityResolutionBlock);
     lines.push('');
   }
 
@@ -267,6 +279,27 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- set_member_location: { plan_id, location: { address?, city?, state?, country?, postalCode?, geo?: { coordinates: [lng, lat] } }, travel_cost_estimate?, currency? }',
     '- remove_member_location: { plan_id }  (always uses logged-in user)',
     '',
+    '--- External Data (read-only, auto-executed) ---',
+    '- suggest_plan_items: { destination_id, experience_id?, exclude_items?: [string], limit?: 10 }',
+    '  Fetches popular plan items from other travelers\' public experiences in the same destination.',
+    '  Returns suggestions ranked by frequency. The user can then pick which items to add.',
+    '  Use when the user asks for ideas, suggestions, or what others have done in a destination.',
+    '- fetch_entity_photos: { entity_type ("destination"|"experience"), entity_id, limit?: 6 }',
+    '  Fetches photos for a destination or experience. Returns photo URLs for inline display.',
+    '  Use when the user asks to see photos of a destination or experience.',
+    '- fetch_destination_tips: { destination_id, destination_name? }',
+    '  Fetches travel tips from external sources (Wikivoyage, Google Maps) for a destination.',
+    '  Returns categorized tips (Food, Safety, Transportation, Sightseeing, etc.) the user can select.',
+    '  Use when the user asks for travel tips, advice, or practical info about a destination.',
+    '  Also auto-triggered after create_destination — no need to propose it immediately after creation.',
+    '- discover_content: { activity_types?: [string], destination_name?: string, destination_id?: string, min_plans?: number, max_cost?: number }',
+    '  Discovers popular experiences matching filters. activity_types can be semantic categories',
+    '  (culinary, adventure, cultural, wellness, nightlife) or specific types (food, museum, etc.).',
+    '  Use when user asks to discover, explore, or find experiences by category or destination.',
+    '',
+    'NOTE: suggest_plan_items, fetch_entity_photos, fetch_destination_tips, and discover_content are READ-ONLY actions.',
+    'They execute immediately without user confirmation and return structured data.',
+    '',
     '--- Navigation ---',
     '- navigate_to_entity: { entity ("destination"|"experience"|"plan"), entityId, url }',
     '  Use this when the user asks to see/show/go to an entity. The url must follow these patterns:',
@@ -294,6 +327,49 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '    - Use workflows ONLY when steps have dependencies. For independent actions, propose them as separate pending_actions.',
     '    - Common $ref paths: $step_N._id, $step_N.destination, $step_N.experience._id',
     '',
+    '## Multi-Action Workflow Decomposition',
+    '',
+    'When the user\'s message implies MULTIPLE distinct actions, decompose it into a workflow with ordered steps.',
+    '',
+    'Decomposition rules:',
+    '1. **Dependency ordering**: Always create parent entities before children. Order: destination → experience → plan → plan items.',
+    '2. **Entity grouping**: Group related items into a single step. For example, multiple plan items should be one add_plan_items step, not separate steps.',
+    '3. **Disambiguation**: If creating a new entity AND the [Entity Resolution] block found a match, ask "Did you mean [matched entity] or would you like to create a new one?" Do NOT produce a workflow until disambiguated.',
+    '4. **Max 10 steps per workflow, no nesting.** For independent actions that don\'t depend on each other, propose them as separate pending_actions instead of a workflow.',
+    '5. **Use $step_N refs** for dependencies between steps. Common paths: $step_N._id, $step_N.destination, $step_N.experience._id.',
+    '',
+    'Examples:',
+    '',
+    'User: "Plan a weekend in Barcelona with tapas tour and Sagrada Familia"',
+    '→ workflow with 2 steps:',
+    '  Step 1: create_experience { name: "Weekend in Barcelona", destination_id: "<resolved_or_ask>" }',
+    '  Step 2: add_plan_items { plan_id: "$step_1._id", items: [{ text: "Tapas tour" }, { text: "Visit Sagrada Familia" }] }',
+    '',
+    'User: "Copy my Paris items to Rome"',
+    '→ First query the Paris items from context, then:',
+    '  Step 1: add_plan_items { plan_id: "<rome_plan_id>", items: [<copied items>] }',
+    '  (Single step — no workflow needed if IDs are already known)',
+    '',
+    'User: "Remove John and add Maria"',
+    '→ 2 separate pending_actions (independent, no dependencies):',
+    '  Action 1: remove_collaborator { plan_id: "<id>", user_id: "<john_id>" }',
+    '  Action 2: invite_collaborator { plan_id: "<id>", user_id: "<maria_id>" }',
+    '',
+    'User: "Create destination Paris, an experience, and add 3 items"',
+    '→ workflow with 3 steps:',
+    '  Step 1: create_destination { name: "Paris", country: "France" }',
+    '  Step 2: create_experience { name: "Explore Paris", destination_id: "$step_1._id" }',
+    '  Step 3: add_plan_items { plan_id: "$step_2._id", items: [{ text: "..." }, { text: "..." }, { text: "..." }] }',
+    '',
+    'User: "Set up a trip to Tokyo with activities and invite Sarah"',
+    '→ workflow with 4 steps:',
+    '  Step 1: create_destination { name: "Tokyo", country: "Japan" }',
+    '  Step 2: create_experience { name: "Trip to Tokyo", destination_id: "$step_1._id" }',
+    '  Step 3: add_plan_items { plan_id: "$step_2._id", items: [{ text: "..." }] }',
+    '  Step 4: invite_collaborator { experience_id: "$step_2._id", user_id: "<sarah_resolved_id>" }',
+    '',
+    'Key: Use a workflow ONLY when steps have dependencies. For independent actions (e.g. remove + add collaborator), use separate pending_actions.',
+    '',
     'If no actions are needed (e.g. asking a clarifying question), return an empty pending_actions array.',
     'The "id" field must be unique per action — use "action_" followed by 8 random alphanumeric characters.'
   );
@@ -318,6 +394,15 @@ async function buildContextBlocks(intent, entities, session, userId) {
       promises.push(buildSearchContext(entities.destination_name, userId).then(b => b && blocks.push(b)));
     }
 
+    // Discovery intents — build aggregation-based discovery context
+    if (intent === 'DISCOVER_EXPERIENCES' || intent === 'DISCOVER_DESTINATIONS') {
+      const discoveryFilters = {};
+      if (entities.destination_name) discoveryFilters.destination_name = entities.destination_name;
+      if (ctx.destination_id) discoveryFilters.destination_id = ctx.destination_id.toString();
+      if (entities.activity_type) discoveryFilters.activity_types = [entities.activity_type];
+      promises.push(buildDiscoveryContext(discoveryFilters, userId).then(b => b && blocks.push(b)));
+    }
+
     // Navigation intent — resolve entity search so LLM can propose navigate_to_entity action with correct IDs/URLs
     if (intent === 'NAVIGATE_TO_ENTITY') {
       if (entities.destination_name) {
@@ -337,6 +422,10 @@ async function buildContextBlocks(intent, entities, session, userId) {
     }
     if (ctx.plan_id) {
       promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+      // Add next-steps analysis for QUERY_PLAN intent
+      if (intent === 'QUERY_PLAN') {
+        promises.push(buildPlanNextStepsContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+      }
     }
     if (ctx.plan_item_id && ctx.plan_id) {
       promises.push(buildPlanItemContext(ctx.plan_id.toString(), ctx.plan_item_id.toString(), userId).then(b => b && blocks.push(b)));
@@ -345,6 +434,17 @@ async function buildContextBlocks(intent, entities, session, userId) {
     // Search context for entity references not yet in session
     if (entities.experience_name && !ctx.experience_id) {
       promises.push(buildSearchContext(entities.experience_name, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Suggestion context when destination is known (enables LLM to propose suggest_plan_items)
+    if (ctx.destination_id) {
+      promises.push(
+        buildSuggestionContext(
+          ctx.destination_id.toString(),
+          ctx.experience_id?.toString() || null,
+          userId
+        ).then(b => b && blocks.push(b))
+      );
     }
 
     await Promise.all(promises);
@@ -382,6 +482,72 @@ function parseLLMResponse(text) {
     // If parsing fails, treat the entire response as the message
     return { message: text, pending_actions: [] };
   }
+}
+
+/**
+ * Explode workflow actions into individual pending actions for step-by-step
+ * confirmation. Non-workflow actions pass through unchanged.
+ *
+ * Each workflow step becomes its own pending action linked by a shared
+ * workflow_id, with depends_on derived from $step_N references in payloads.
+ *
+ * @param {object[]} actions - Parsed pending_actions array from LLM response
+ * @returns {object[]} Exploded actions array
+ */
+function explodeWorkflows(actions) {
+  const result = [];
+
+  for (const action of actions) {
+    if (action.type !== 'workflow' || !Array.isArray(action.payload?.steps)) {
+      result.push(action);
+      continue;
+    }
+
+    const workflowId = `wf_${crypto.randomBytes(4).toString('hex')}`;
+    const steps = [...action.payload.steps].sort((a, b) => (a.step || 0) - (b.step || 0));
+    const total = steps.length;
+
+    // Build a map: step number → action ID (for depends_on resolution)
+    const stepIdMap = new Map();
+    for (const step of steps) {
+      const stepId = `action_${crypto.randomBytes(4).toString('hex')}`;
+      stepIdMap.set(step.step, stepId);
+    }
+
+    for (const step of steps) {
+      const stepId = stepIdMap.get(step.step);
+
+      // Detect $step_N references in payload to build depends_on
+      const dependsOn = [];
+      const refPattern = /\$step_(\d+)\./;
+      const payloadStr = JSON.stringify(step.payload || {});
+      const matches = payloadStr.matchAll(/\$step_(\d+)\./g);
+      for (const match of matches) {
+        const refStep = parseInt(match[1], 10);
+        const depId = stepIdMap.get(refStep);
+        if (depId && !dependsOn.includes(depId)) {
+          dependsOn.push(depId);
+        }
+      }
+
+      result.push({
+        id: stepId,
+        type: step.type,
+        payload: step.payload || {},
+        description: step.description || `Step ${step.step}: ${step.type}`,
+        executed: false,
+        result: null,
+        workflow_id: workflowId,
+        workflow_step: step.step,
+        workflow_total: total,
+        depends_on: dependsOn.length > 0 ? dependsOn : null,
+        status: 'pending',
+        error_message: null
+      });
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -541,6 +707,64 @@ function adaptiveChunks(text) {
   return chunks;
 }
 
+/**
+ * Map a read-only action result to a structured_content block for the frontend.
+ *
+ * @param {string} actionType - The read-only action type
+ * @param {object} result - The action result data
+ * @returns {object|null} Structured content block or null
+ */
+function mapReadOnlyResultToStructuredContent(actionType, result) {
+  switch (actionType) {
+    case 'suggest_plan_items':
+      if (result.suggestions && result.suggestions.length > 0) {
+        return {
+          type: 'suggestion_list',
+          data: {
+            suggestions: result.suggestions,
+            destination_name: result.destination_name || null,
+            source_count: result.source_count || 0
+          }
+        };
+      }
+      return null;
+
+    case 'fetch_entity_photos':
+      if (result.photos && result.photos.length > 0) {
+        return {
+          type: 'photo_gallery',
+          data: {
+            photos: result.photos,
+            entity_type: result.entity_type || null,
+            entity_id: result.entity_id || null,
+            entity_name: result.entity_name || null,
+            total_count: result.total_count || 0,
+            search_query: result.search_query || null,
+            selectable: true
+          }
+        };
+      }
+      return null;
+
+    case 'fetch_destination_tips':
+      if (result.tips && result.tips.length > 0) {
+        return {
+          type: 'tip_suggestion_list',
+          data: {
+            tips: result.tips,
+            destination_id: result.destination_id || null,
+            destination_name: result.destination_name || null,
+            provider_count: result.provider_count || 0
+          }
+        };
+      }
+      return null;
+
+    default:
+      return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Controller methods
 // ---------------------------------------------------------------------------
@@ -597,7 +821,8 @@ exports.chat = async (req, res) => {
   }
 
   // --- Attachment processing ---
-  let attachmentData = null; // { filename, mimeType, fileSize, extractedText, extractionMethod }
+  let attachmentData = null; // { filename, mimeType, fileSize, extractedText, extractionMethod, s3Key, ... }
+  let pendingLocalFile = null; // Local temp file path to upload to S3 after session creation
   const uploadedFile = req.file;
 
   if (uploadedFile) {
@@ -632,6 +857,9 @@ exports.chat = async (req, res) => {
         extractionMethod: extraction.metadata?.method || null
       };
 
+      // Keep local file for S3 upload after session is created (need session ID for key)
+      pendingLocalFile = uploadedFile.path;
+
       logger.info('[bienbot] Attachment text extracted', {
         method: attachmentData.extractionMethod,
         textLength: attachmentData.extractedText?.length || 0,
@@ -647,8 +875,7 @@ exports.chat = async (req, res) => {
         extractedText: null,
         extractionMethod: 'failed'
       };
-    } finally {
-      // Always clean up the local temp file
+      // Clean up on extraction failure
       try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
     }
   }
@@ -806,8 +1033,198 @@ exports.chat = async (req, res) => {
     sessionId: session._id.toString(),
     intent: classification.intent,
     confidence: classification.confidence,
-    source: classification.source
+    source: classification.source,
+    isMultiAction: classification.isMultiAction || false,
+    multiActionVerbs: classification.multiActionVerbs || null
   });
+
+  // --- Step 2b: Resolve entity names ---
+  let entityResolutionBlock = null;
+  try {
+    // Extract only the fields the resolver knows about
+    const extractedNames = {};
+    if (classification.entities) {
+      for (const [key, value] of Object.entries(classification.entities)) {
+        if (FIELD_TYPE_MAP[key] && value) {
+          extractedNames[key] = value;
+        }
+      }
+    }
+
+    // Enrich with multi-action entity names when detected
+    if (classification.isMultiAction && classification.multiActionEntities) {
+      const mae = classification.multiActionEntities;
+      if (mae.destination_names?.length && !extractedNames.destination_name) {
+        extractedNames.destination_name = mae.destination_names[0];
+      }
+      if (mae.experience_names?.length && !extractedNames.experience_name) {
+        extractedNames.experience_name = mae.experience_names[0];
+      }
+      if (mae.user_refs?.length && !extractedNames.user_email && !extractedNames.assignee_name) {
+        // Check if it looks like an email
+        const emailRef = mae.user_refs.find(r => r.includes('@'));
+        if (emailRef) {
+          extractedNames.user_email = emailRef;
+        } else {
+          extractedNames.assignee_name = mae.user_refs[0];
+        }
+      }
+    }
+
+    if (Object.keys(extractedNames).length > 0) {
+      const resolutionResult = await resolveEntities(extractedNames, req.user, {
+        destinationId: session.context?.destination_id?.toString() || null,
+      });
+
+      entityResolutionBlock = formatResolutionBlock(resolutionResult, extractedNames);
+
+      logger.info('[bienbot] Entity resolution complete', {
+        userId,
+        sessionId: session._id.toString(),
+        resolved: Object.keys(resolutionResult.resolved),
+        ambiguous: Object.keys(resolutionResult.ambiguous),
+        unresolved: resolutionResult.unresolved,
+      });
+    }
+  } catch (err) {
+    logger.warn('[bienbot] Entity resolution failed, continuing without it', { error: err.message });
+  }
+
+  // --- Step 2c: Plan disambiguation ---
+  // If a plan-related intent is detected but no plan_id in session context,
+  // find matching plans. 1 match → auto-inject; 2+ → stream disambiguation.
+  const PLAN_RELATED_INTENTS = new Set([
+    'QUERY_PLAN', 'ADD_PLAN_ITEMS', 'UPDATE_PLAN_ITEM', 'COMPLETE_PLAN_ITEM',
+    'UNCOMPLETE_PLAN_ITEM', 'SCHEDULE_PLAN_ITEM', 'ADD_PLAN_ITEM_NOTE',
+    'SET_PLAN_ITEM_LOCATION', 'UPDATE_PLAN_ITEM_COST', 'ADD_PLAN_ITEM_DETAIL',
+    'ASSIGN_PLAN_ITEM', 'UPDATE_PLAN_ITEM_TEXT', 'UPDATE_PLAN_ITEM_URL',
+    'UPDATE_PLAN', 'DELETE_PLAN', 'DELETE_PLAN_ITEM', 'ADD_PLAN_COST',
+    'SYNC_PLAN'
+  ]);
+
+  const ctx = session.context || {};
+  if (PLAN_RELATED_INTENTS.has(classification.intent) && !ctx.plan_id) {
+    try {
+      loadModels();
+      const userPlans = await Plan.find({ user: userId })
+        .populate('experience', 'name destination')
+        .populate({ path: 'experience', populate: { path: 'destination', select: 'name' } })
+        .select('experience planned_date plan')
+        .lean();
+
+      if (userPlans.length > 0) {
+        // Fuzzy-filter by destination/experience name if user mentioned one
+        const nameHint = classification.entities?.destination_name
+          || classification.entities?.experience_name
+          || null;
+        let matchedPlans = userPlans;
+
+        if (nameHint) {
+          const hint = nameHint.toLowerCase();
+          matchedPlans = userPlans.filter(p => {
+            const expName = (p.experience?.name || '').toLowerCase();
+            const destName = (p.experience?.destination?.name || '').toLowerCase();
+            return expName.includes(hint) || destName.includes(hint)
+              || hint.includes(expName) || hint.includes(destName);
+          });
+          if (matchedPlans.length === 0) matchedPlans = userPlans;
+        }
+
+        if (matchedPlans.length === 1) {
+          // Auto-inject the single matching plan into session context
+          const plan = matchedPlans[0];
+          await session.updateContext({
+            plan_id: plan._id.toString(),
+            experience_id: plan.experience?._id?.toString() || null,
+            destination_id: plan.experience?.destination?._id?.toString()
+              || plan.experience?.destination?.toString() || null
+          });
+          logger.info('[bienbot] Auto-injected single matching plan', {
+            planId: plan._id.toString(),
+            userId
+          });
+        } else if (matchedPlans.length >= 2) {
+          // Stream disambiguation: return select_plan actions without LLM call
+          const disambActions = matchedPlans.slice(0, 8).map(p => ({
+            id: `action_${crypto.randomBytes(4).toString('hex')}`,
+            type: 'select_plan',
+            payload: {
+              plan_id: p._id.toString(),
+              experience_name: p.experience?.name || '(unnamed)',
+              destination_name: p.experience?.destination?.name || '',
+              planned_date: p.planned_date || null,
+              item_count: (p.plan || []).length
+            },
+            description: `${p.experience?.name || 'Plan'}${p.experience?.destination?.name ? ` in ${p.experience.destination.name}` : ''}${p.planned_date ? ` (${new Date(p.planned_date).toISOString().split('T')[0]})` : ''}`
+          }));
+
+          // Build clarifying message with date-aware grouping
+          const destDateGroups = {};
+          for (const p of matchedPlans) {
+            const dest = p.experience?.destination?.name || 'unknown destination';
+            if (!destDateGroups[dest]) destDateGroups[dest] = {};
+            const monthKey = p.planned_date
+              ? new Date(p.planned_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+              : 'unscheduled';
+            destDateGroups[dest][monthKey] = (destDateGroups[dest][monthKey] || 0) + 1;
+          }
+          const groupDesc = Object.entries(destDateGroups)
+            .map(([dest, months]) => {
+              const totalForDest = Object.values(months).reduce((s, c) => s + c, 0);
+              const monthEntries = Object.entries(months);
+              // If only one time group or too many (>4), keep it concise
+              if (monthEntries.length <= 1) {
+                const [monthLabel] = monthEntries[0];
+                const suffix = monthLabel === 'unscheduled' ? ' (unscheduled)' : ` in ${monthLabel}`;
+                return `${totalForDest} plan${totalForDest !== 1 ? 's' : ''} to ${dest}${suffix}`;
+              }
+              // Multiple time groups — show breakdown
+              const monthParts = monthEntries.map(([month, count]) => {
+                if (month === 'unscheduled') return `${count} unscheduled`;
+                return `${count} in ${month}`;
+              });
+              // For >4 date groups, summarize to avoid overly long messages
+              if (monthParts.length > 4) {
+                return `${totalForDest} plan${totalForDest !== 1 ? 's' : ''} to ${dest} across ${monthParts.length} different months`;
+              }
+              return `${totalForDest} plan${totalForDest !== 1 ? 's' : ''} to ${dest} (${monthParts.join(', ')})`;
+            })
+            .join('; ');
+          const clarifyMsg = `I found ${matchedPlans.length} plans — ${groupDesc}. Which plan would you like to work on?`;
+
+          // Store in session
+          await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+          await session.addMessage('assistant', clarifyMsg);
+          await session.setPendingActions(disambActions);
+          await session.generateTitle();
+
+          // SSE-stream the disambiguation response
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          });
+          sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+          const chunks = adaptiveChunks(clarifyMsg);
+          for (const chunk of chunks) {
+            sendSSE(res, 'token', { text: chunk });
+          }
+          sendSSE(res, 'actions', { pending_actions: disambActions });
+          sendSSE(res, 'done', {
+            intent: classification.intent,
+            confidence: classification.confidence,
+            source: 'disambiguation'
+          });
+          res.end();
+          return;
+        }
+      }
+      // 0 matches → continue normal LLM flow
+    } catch (err) {
+      logger.warn('[bienbot] Plan disambiguation failed, continuing normally', { error: err.message });
+    }
+  }
 
   // --- Step 3: Build context blocks ---
   const intentContextBlock = await buildContextBlocks(
@@ -851,7 +1268,8 @@ exports.chat = async (req, res) => {
     contextDescription: invokeContext?.contextDescription || null,
     contextBlock: combinedContext,
     session,
-    userMemoryBlock
+    userMemoryBlock,
+    entityResolutionBlock
   });
 
   // Build conversation history for multi-turn
@@ -921,32 +1339,120 @@ exports.chat = async (req, res) => {
   }
 
   // --- Step 5: Parse structured response ---
-  const parsed = parseLLMResponse(llmResult.content || '');
+  const rawParsed = parseLLMResponse(llmResult.content || '');
+
+  // Explode workflow actions into individual step-by-step pending actions
+  const explodedActions = explodeWorkflows(rawParsed.pending_actions);
+
+  // --- Step 5b: Auto-execute read-only actions ---
+  // Read-only actions (suggest_plan_items, fetch_entity_photos) execute
+  // immediately without confirmation and produce structured_content blocks.
+  const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
+  const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
+  const structuredContent = [];
+
+  if (readOnlyActions.length > 0) {
+    const { executeAction } = require('../../utilities/bienbot-action-executor');
+
+    for (const action of readOnlyActions) {
+      try {
+        const outcome = await executeAction(action, req.user);
+
+        if (outcome.success && outcome.result) {
+          const contentBlock = mapReadOnlyResultToStructuredContent(action.type, outcome.result);
+          if (contentBlock) {
+            structuredContent.push(contentBlock);
+          }
+        } else {
+          logger.warn('[bienbot] Read-only action failed', {
+            type: action.type,
+            actionId: action.id,
+            errors: outcome.errors
+          });
+        }
+      } catch (err) {
+        logger.error('[bienbot] Read-only action threw', {
+          type: action.type,
+          actionId: action.id,
+          error: err.message
+        });
+      }
+    }
+  }
+
+  const parsed = {
+    message: rawParsed.message,
+    pending_actions: confirmableActions
+  };
 
   // --- Step 6: Store in session ---
   try {
     // Add user message (with attachment metadata if present)
     const userMessageOpts = {
-      intent: classification.intent
+      intent: classification.intent,
+      sentBy: req.user._id
     };
     if (attachmentData) {
+      // Upload to S3 protected bucket now that we have the session ID
+      if (pendingLocalFile) {
+        try {
+          const timestamp = Date.now();
+          const originalExt = path.extname(attachmentData.filename);
+          const originalBase = path.basename(attachmentData.filename, originalExt);
+          const sanitizedBase = String(originalBase).replace(/[^a-zA-Z0-9.-]/g, '_');
+          const s3KeyBase = `bienbot/${userId}/${session._id}/${timestamp}-${sanitizedBase}`;
+
+          const { s3Result } = await uploadWithPipeline(pendingLocalFile, attachmentData.filename, s3KeyBase, {
+            protected: true,
+            deleteLocal: true
+          });
+          attachmentData.s3Key = s3Result.key;
+          attachmentData.s3Bucket = s3Result.bucket;
+          attachmentData.isProtected = true;
+          pendingLocalFile = null;
+
+          logger.info('[bienbot] Attachment uploaded to S3', {
+            s3Key: s3Result.key,
+            bucket: s3Result.bucket,
+            userId
+          });
+        } catch (s3Err) {
+          logger.error('[bienbot] S3 upload failed, continuing without persistence', {
+            error: s3Err.message,
+            userId
+          });
+          // Pipeline handles local cleanup on success; clean up on failure too
+          if (pendingLocalFile) {
+            try { await fs.promises.unlink(pendingLocalFile); } catch { /* ignore */ }
+            pendingLocalFile = null;
+          }
+        }
+      }
+
       userMessageOpts.attachments = [{
         filename: attachmentData.filename,
         mimeType: attachmentData.mimeType,
         fileSize: attachmentData.fileSize,
         extractedText: attachmentData.extractedText,
-        extractionMethod: attachmentData.extractionMethod
+        extractionMethod: attachmentData.extractionMethod,
+        s3Key: attachmentData.s3Key || null,
+        s3Bucket: attachmentData.s3Bucket || null,
+        isProtected: attachmentData.isProtected || false
       }];
     }
     await session.addMessage('user', message, userMessageOpts);
 
-    // Add assistant response
-    const actionsTaken = parsed.pending_actions.map(a => a.type);
+    // Add assistant response (with structured_content from read-only actions)
+    const actionsTaken = [
+      ...readOnlyActions.map(a => a.type),
+      ...parsed.pending_actions.map(a => a.type)
+    ];
     await session.addMessage('assistant', parsed.message, {
-      actions_taken: actionsTaken
+      actions_taken: actionsTaken,
+      structured_content: structuredContent
     });
 
-    // Store pending actions
+    // Store confirmable pending actions (read-only already executed)
     if (parsed.pending_actions.length > 0) {
       await session.setPendingActions(parsed.pending_actions);
     }
@@ -966,11 +1472,19 @@ exports.chat = async (req, res) => {
     'X-Accel-Buffering': 'no'
   });
 
-  // Stream session info
-  sendSSE(res, 'session', {
+  // Stream session info (include attachment data for frontend rendering)
+  const sessionEvent = {
     sessionId: session._id.toString(),
     title: session.title
-  });
+  };
+  if (attachmentData?.s3Key) {
+    sessionEvent.attachment = {
+      s3Key: attachmentData.s3Key,
+      s3Bucket: attachmentData.s3Bucket,
+      isProtected: attachmentData.isProtected || false
+    };
+  }
+  sendSSE(res, 'session', sessionEvent);
 
   // Stream the message in adaptive chunks for progressive rendering.
   // Chunks split at word/sentence boundaries (min ~20 chars, max ~200 chars).
@@ -981,7 +1495,14 @@ exports.chat = async (req, res) => {
     sendSSE(res, 'token', { text: chunk });
   }
 
-  // Stream pending actions if any
+  // Stream structured content from read-only actions
+  if (structuredContent.length > 0) {
+    sendSSE(res, 'structured_content', {
+      blocks: structuredContent
+    });
+  }
+
+  // Stream pending actions if any (only confirmable actions)
   if (parsed.pending_actions.length > 0) {
     sendSSE(res, 'actions', {
       pending_actions: parsed.pending_actions
@@ -1076,9 +1597,48 @@ exports.execute = async (req, res) => {
       successCount: results.filter(r => r.success).length
     });
 
+    // --- Contextual enrichment: auto-fetch tips after destination creation ---
+    let enrichmentContent = null;
+    const destCreation = results.find(
+      r => r.success && r.type === 'create_destination' && r.result?._id
+    );
+    // Also check workflow steps that created a destination
+    const workflowDestCreation = !destCreation && results.find(r => {
+      if (!r.success || r.type !== 'workflow' || !r.result?.results) return false;
+      return r.result.results.some(
+        s => s.success && s.type === 'create_destination' && s.result?._id
+      );
+    });
+    const createdDest = destCreation?.result
+      || workflowDestCreation?.result?.results?.find(
+        s => s.success && s.type === 'create_destination'
+      )?.result;
+
+    if (createdDest?._id) {
+      try {
+        const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
+        const tipResult = await fetchDestinationTips(
+          { destination_id: createdDest._id.toString(), destination_name: createdDest.name },
+          req.user
+        );
+        if (tipResult.statusCode === 200 && tipResult.body?.success) {
+          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+          if (block) {
+            enrichmentContent = block;
+          }
+        }
+      } catch (enrichErr) {
+        logger.warn('[bienbot] Post-creation tip enrichment failed', {
+          destinationId: createdDest._id,
+          error: enrichErr.message
+        });
+      }
+    }
+
     return successResponse(res, {
       results,
       contextUpdates,
+      ...(enrichmentContent ? { enrichment: enrichmentContent } : {}),
       session: {
         id: session._id.toString(),
         context: session.context
@@ -1274,9 +1834,17 @@ exports.deleteSession = async (req, res) => {
 
     await session.archive();
 
+    const archivedSession = session.toObject();
+
     // Trigger async memory extraction — fire-and-forget, never delays the response
-    extractMemoryFromSession({ session: session.toObject(), user: req.user })
+    extractMemoryFromSession({ session: archivedSession, user: req.user })
       .catch(err => logger.error('[bienbot] Async memory extraction failed', { error: err.message, sessionId: id }));
+
+    // Extract memory for collaborators who contributed to this shared session
+    if ((archivedSession.shared_with || []).length > 0) {
+      extractMemoryForCollaborators(archivedSession)
+        .catch(err => logger.error('[bienbot] Async collaborator memory extraction failed', { error: err.message, sessionId: id }));
+    }
 
     logger.info('[bienbot] Session archived', { userId, sessionId: id });
     return successResponse(res, { message: 'Session deleted' });
@@ -1835,4 +2403,334 @@ exports.analyze = async (req, res) => {
     entityId: validatedId,
     suggestions
   });
+};
+
+// ---------------------------------------------------------------------------
+// Workflow step management
+// ---------------------------------------------------------------------------
+
+/**
+ * PATCH /api/bienbot/sessions/:id/pending/:actionId
+ *
+ * Update status of a single pending action (skip, edit payload, approve).
+ * Used by the sequential workflow confirmation UX.
+ *
+ * Body: { status: 'approved' | 'skipped', payload?: object }
+ */
+exports.updatePendingAction = async (req, res) => {
+  const userId = req.user._id.toString();
+  const { id, actionId } = req.params;
+  const { status: newStatus, payload: newPayload } = req.body;
+
+  const { valid } = validateObjectId(id, 'session ID');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid session ID format', 400);
+  }
+
+  if (!actionId || typeof actionId !== 'string') {
+    return errorResponse(res, null, 'Action ID is required', 400);
+  }
+
+  const allowedStatuses = ['approved', 'skipped'];
+  if (!newStatus || !allowedStatuses.includes(newStatus)) {
+    return errorResponse(res, null, `Status must be one of: ${allowedStatuses.join(', ')}`, 400);
+  }
+
+  let session;
+  try {
+    session = await BienBotSession.findById(id);
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    const access = session.checkAccess(userId);
+    if (!access.hasAccess) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    if (access.role === 'viewer') {
+      return errorResponse(res, null, 'You have view-only access to this session', 403);
+    }
+  } catch (err) {
+    logger.error('[bienbot] Failed to load session for updatePendingAction', { error: err.message });
+    return errorResponse(res, null, 'Failed to load session', 500);
+  }
+
+  const action = (session.pending_actions || []).find(a => a.id === actionId);
+  if (!action) {
+    return errorResponse(res, null, 'Pending action not found', 404);
+  }
+
+  if (action.status === 'completed' || (action.executed && action.status !== 'failed')) {
+    return errorResponse(res, null, 'Action has already been completed', 400);
+  }
+
+  // If retrying a failed step, reset it and un-cascade dependents
+  if (action.status === 'failed' && newStatus === 'approved') {
+    action.error_message = null;
+    action.executed = false;
+    action.result = null;
+    // Reset dependent steps that were cascade-failed due to this step
+    if (action.workflow_id) {
+      const siblings = (session.pending_actions || []).filter(
+        a => a.workflow_id === action.workflow_id
+      );
+      for (const sibling of siblings) {
+        if (
+          sibling.status === 'failed' &&
+          Array.isArray(sibling.depends_on) &&
+          sibling.depends_on.includes(actionId)
+        ) {
+          sibling.status = 'pending';
+          sibling.error_message = null;
+        }
+      }
+    }
+  }
+
+  // Update status
+  action.status = newStatus;
+
+  // Optionally update payload (for edit)
+  if (newPayload && typeof newPayload === 'object') {
+    action.payload = newPayload;
+  }
+
+  // If skipped, cascade: mark dependent workflow steps as failed
+  if (newStatus === 'skipped' && action.workflow_id) {
+    const workflowActions = (session.pending_actions || []).filter(
+      a => a.workflow_id === action.workflow_id
+    );
+    for (const sibling of workflowActions) {
+      if (Array.isArray(sibling.depends_on) && sibling.depends_on.includes(actionId)) {
+        if (sibling.status === 'pending') {
+          sibling.status = 'failed';
+          sibling.error_message = `Skipped dependency: "${action.description || actionId}"`;
+        }
+      }
+    }
+  }
+
+  // If approved, execute the step immediately
+  let executionResult = null;
+  if (newStatus === 'approved') {
+    action.status = 'executing';
+    session.markModified('pending_actions');
+    await session.save();
+
+    const workflowActions = action.workflow_id
+      ? (session.pending_actions || []).filter(a => a.workflow_id === action.workflow_id)
+      : [];
+
+    const outcome = await executeSingleWorkflowStep(action, workflowActions, req.user);
+    executionResult = outcome;
+
+    if (outcome.success) {
+      action.status = 'completed';
+      action.executed = true;
+      action.result = { success: true, data: outcome.result, errors: [] };
+    } else {
+      action.status = 'failed';
+      action.error_message = outcome.errors?.[0] || 'Execution failed';
+      action.result = { success: false, errors: outcome.errors };
+
+      // Cascade failure to dependents
+      if (action.workflow_id) {
+        const siblings = (session.pending_actions || []).filter(
+          a => a.workflow_id === action.workflow_id
+        );
+        for (const sibling of siblings) {
+          if (Array.isArray(sibling.depends_on) && sibling.depends_on.includes(actionId)) {
+            if (sibling.status === 'pending') {
+              sibling.status = 'failed';
+              sibling.error_message = `Depends on failed step: "${action.description || actionId}"`;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  session.markModified('pending_actions');
+  await session.save();
+
+  logger.info('[bienbot] Pending action updated', {
+    userId,
+    sessionId: id,
+    actionId,
+    newStatus: action.status,
+    isWorkflow: !!action.workflow_id
+  });
+
+  // --- Contextual enrichment: auto-fetch tips after destination creation step ---
+  let enrichmentContent = null;
+  if (
+    action.status === 'completed' &&
+    action.type === 'create_destination' &&
+    executionResult?.success &&
+    executionResult?.result?._id
+  ) {
+    try {
+      const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
+      const tipResult = await fetchDestinationTips(
+        { destination_id: executionResult.result._id.toString(), destination_name: executionResult.result.name },
+        req.user
+      );
+      if (tipResult.statusCode === 200 && tipResult.body?.success) {
+        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+        if (block) {
+          enrichmentContent = block;
+        }
+      }
+    } catch (enrichErr) {
+      logger.warn('[bienbot] Post-step tip enrichment failed', {
+        destinationId: executionResult.result._id,
+        error: enrichErr.message
+      });
+    }
+  }
+
+  return successResponse(res, {
+    action: {
+      id: action.id,
+      type: action.type,
+      status: action.status,
+      error_message: action.error_message,
+      result: action.result,
+      workflow_id: action.workflow_id,
+      workflow_step: action.workflow_step,
+      workflow_total: action.workflow_total
+    },
+    execution: executionResult,
+    ...(enrichmentContent ? { enrichment: enrichmentContent } : {}),
+    pending_actions: session.pending_actions
+  });
+};
+
+/**
+ * GET /api/bienbot/sessions/:id/workflow/:workflowId
+ *
+ * Get the full state of a workflow — all actions sharing the same workflow_id.
+ */
+exports.getWorkflowState = async (req, res) => {
+  const userId = req.user._id.toString();
+  const { id, workflowId } = req.params;
+
+  const { valid } = validateObjectId(id, 'session ID');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid session ID format', 400);
+  }
+
+  if (!workflowId || typeof workflowId !== 'string') {
+    return errorResponse(res, null, 'Workflow ID is required', 400);
+  }
+
+  let session;
+  try {
+    session = await BienBotSession.findById(id).lean();
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+    const uid = userId;
+    const isOwner = session.user.toString() === uid;
+    const isCollab = (session.shared_with || []).some(c => c.user_id.toString() === uid);
+    if (!isOwner && !isCollab) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+  } catch (err) {
+    logger.error('[bienbot] Failed to load session for getWorkflowState', { error: err.message });
+    return errorResponse(res, null, 'Failed to load session', 500);
+  }
+
+  const workflowActions = (session.pending_actions || []).filter(
+    a => a.workflow_id === workflowId
+  );
+
+  if (workflowActions.length === 0) {
+    return errorResponse(res, null, 'Workflow not found', 404);
+  }
+
+  // Sort by step number
+  workflowActions.sort((a, b) => (a.workflow_step || 0) - (b.workflow_step || 0));
+
+  const completed = workflowActions.filter(a => a.status === 'completed').length;
+  const skipped = workflowActions.filter(a => a.status === 'skipped').length;
+  const failed = workflowActions.filter(a => a.status === 'failed').length;
+  const pending = workflowActions.filter(a => a.status === 'pending').length;
+
+  return successResponse(res, {
+    workflow_id: workflowId,
+    total: workflowActions.length,
+    completed,
+    skipped,
+    failed,
+    pending,
+    actions: workflowActions
+  });
+};
+
+/**
+ * Get a signed URL for a BienBot session attachment stored in S3.
+ * GET /api/bienbot/sessions/:id/attachments/:messageIndex/:attachmentIndex
+ */
+exports.getAttachmentUrl = async (req, res) => {
+  const userId = req.user._id.toString();
+  const { id, messageIndex, attachmentIndex } = req.params;
+
+  const { valid } = validateObjectId(id, 'session ID');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid session ID format', 400);
+  }
+
+  const msgIdx = parseInt(messageIndex, 10);
+  const attIdx = parseInt(attachmentIndex, 10);
+  if (isNaN(msgIdx) || msgIdx < 0 || isNaN(attIdx) || attIdx < 0) {
+    return errorResponse(res, null, 'Invalid message or attachment index', 400);
+  }
+
+  try {
+    const session = await BienBotSession.findById(id).lean();
+    if (!session) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+
+    // Verify access: owner or collaborator
+    const isOwner = session.user.toString() === userId;
+    const isCollab = (session.shared_with || []).some(c => c.user_id.toString() === userId);
+    if (!isOwner && !isCollab) {
+      return errorResponse(res, null, 'Session not found', 404);
+    }
+
+    const messages = session.messages || [];
+    if (msgIdx >= messages.length) {
+      return errorResponse(res, null, 'Message not found', 404);
+    }
+
+    const attachments = messages[msgIdx].attachments || [];
+    if (attIdx >= attachments.length) {
+      return errorResponse(res, null, 'Attachment not found', 404);
+    }
+
+    const attachment = attachments[attIdx];
+    if (!attachment.s3Key) {
+      return errorResponse(res, null, 'Attachment not stored in S3', 404);
+    }
+
+    const fileResult = await retrieveFile(attachment.s3Key, {
+      protected: attachment.isProtected !== false,
+      expiresIn: 3600
+    });
+
+    if (!fileResult || !fileResult.signedUrl) {
+      return errorResponse(res, null, 'Attachment not available', 404);
+    }
+
+    return successResponse(res, {
+      url: fileResult.signedUrl,
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      fileSize: attachment.fileSize
+    }, 'Attachment URL generated');
+  } catch (err) {
+    logger.error('[bienbot] Failed to get attachment URL', { error: err.message, sessionId: id, userId });
+    return errorResponse(res, null, 'Failed to get attachment URL', 500);
+  }
 };

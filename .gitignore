@@ -1,6 +1,9 @@
 # screenshots
 /screenshots/
+
+# documentation (generated, not tracked in git)
 /documentation/
+/docs/
 
 # uploads (user-generated content, not tracked in git)
 /uploads/images/

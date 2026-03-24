@@ -79,6 +79,40 @@ const DEFAULT_SUGGESTIONS = [
   'What can BienBot help me with?',
 ];
 
+// ── Dynamic template builders (entity-name-aware) ───────────────────────────
+
+function buildDynamicSuggestions(entityType, entityData) {
+  if (!entityData) return null;
+  const { name, destinationName } = entityData;
+
+  switch (entityType) {
+    case 'destination':
+      if (!name) return null;
+      return [
+        `Plan an experience in ${name}`,
+        `What are the best experiences in ${name}?`,
+        `What should I know before visiting ${name}?`
+      ];
+    case 'experience':
+      if (!name) return null;
+      return [
+        `Plan ${name}`,
+        `What do I need for ${name}?`,
+        'What do people do on similar experiences?'
+      ];
+    case 'plan':
+      if (!name) return null;
+      return [
+        `What are next steps for my ${name} plan?`,
+        destinationName
+          ? `What experiences in ${destinationName} do people recommend?`
+          : 'What experiences do people recommend near here?'
+      ];
+    default:
+      return null;
+  }
+}
+
 // ── Mapping ─────────────────────────────────────────────────────────────────
 
 const ENTITY_SUGGESTIONS = {
@@ -103,9 +137,16 @@ const VIEW_SUGGESTIONS = {
  *
  * @param {string|null} entityType - Entity type if on an entity page
  * @param {string|null} currentView - View identifier if on a non-entity page
+ * @param {object|null} [entityData] - Entity data for dynamic templates { name, id, destinationName, destinationId }
  * @returns {string[]} Array of suggestion templates
  */
-export function getSuggestionsForContext(entityType, currentView) {
+export function getSuggestionsForContext(entityType, currentView, entityData) {
+  // Try dynamic (entity-name-aware) suggestions first
+  if (entityType && entityData) {
+    const dynamic = buildDynamicSuggestions(entityType, entityData);
+    if (dynamic) return dynamic;
+  }
+
   if (entityType && ENTITY_SUGGESTIONS[entityType]) {
     return ENTITY_SUGGESTIONS[entityType];
   }
@@ -167,4 +208,68 @@ export function getEmptyStateForContext(invokeContext, currentView) {
     return VIEW_PLACEHOLDERS[currentView];
   }
   return 'Plan your next adventure, explore destinations, create experiences, and more. Just ask!';
+}
+
+// ── Auto-navigation after entity creation ───────────────────────────────────
+
+/**
+ * Entity creation action types that should trigger auto-navigation.
+ * Priority order: experience > plan > destination (highest = navigate to).
+ */
+const CREATION_ACTIONS = {
+  create_destination: { priority: 1, getUrl: (entity) => entity?._id ? `/destinations/${entity._id}` : null },
+  create_experience: { priority: 3, getUrl: (entity) => entity?._id ? `/experiences/${entity._id}` : null },
+  create_plan: { priority: 2, getUrl: (entity) => {
+    const expId = entity?.experience?._id || entity?.experience;
+    const planId = entity?._id;
+    return expId && planId ? `/experiences/${expId}#plan-${planId}` : null;
+  }},
+};
+
+/**
+ * Determine the navigation URL after executing BienBot action(s).
+ *
+ * For standalone creation actions, returns the URL of the created entity.
+ * For workflows, returns the URL of the highest-priority created entity
+ * (only if all steps succeeded).
+ *
+ * @param {Object} actionResult - Single action result from executeActions API
+ * @returns {string|null} URL to navigate to, or null if no navigation needed
+ */
+export function getNavigationUrlForResult(actionResult) {
+  if (!actionResult?.success) return null;
+
+  const entity = actionResult.result || actionResult.entity || actionResult.data;
+
+  // Standalone creation action
+  if (CREATION_ACTIONS[actionResult.type]) {
+    return CREATION_ACTIONS[actionResult.type].getUrl(entity);
+  }
+
+  // Workflow — find the highest-priority creation step
+  if (actionResult.type === 'workflow' && entity?.results && Array.isArray(entity.results)) {
+    // Only auto-navigate if all steps succeeded
+    const allSucceeded = entity.results.every(r => r.success);
+    if (!allSucceeded) return null;
+
+    let bestUrl = null;
+    let bestPriority = 0;
+
+    for (const stepResult of entity.results) {
+      if (!stepResult.success || !CREATION_ACTIONS[stepResult.type]) continue;
+      const stepEntity = stepResult.result;
+      const config = CREATION_ACTIONS[stepResult.type];
+      if (config.priority > bestPriority) {
+        const url = config.getUrl(stepEntity);
+        if (url) {
+          bestUrl = url;
+          bestPriority = config.priority;
+        }
+      }
+    }
+
+    return bestUrl;
+  }
+
+  return null;
 }

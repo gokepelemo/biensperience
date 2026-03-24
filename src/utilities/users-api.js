@@ -108,6 +108,17 @@ export async function searchUsers(query) {
   return await sendRequest(`${BASE_URL}search?q=${encodeURIComponent(query)}`, "GET");
 }
 
+/**
+ * Search experiences and destinations owned by the current user by name.
+ * Used in the collaborator modal to allow replicating permissions from owned entities.
+ * @param {string} query - Search query (min 2 chars)
+ * @returns {Promise<Array>} Array of { _id, name, type: 'experience'|'destination', collaboratorCount }
+ */
+export async function searchOwnedEntities(query) {
+  const response = await sendRequest(`${BASE_URL}owned-entities/search?q=${encodeURIComponent(query)}`, "GET");
+  return (response && response.success && response.data) ? response.data : (response || []);
+}
+
 export async function updateUserRole(userId, roleData) {
   const response = await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
   // Handle standardized API response: { success: true, data: { user } }

@@ -87,9 +87,17 @@
   }
 
   select,
+  :global(.form-select) {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: var(--font-size-sm);
+    line-height: 1.25; /* Prevent text clipping in fixed-height single-line selects */
+  }
+
   input {
     width: 100%;
     box-sizing: border-box;
+    font-size: var(--font-size-sm);
   }
 }
 

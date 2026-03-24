@@ -63,6 +63,7 @@ import { storePreference, retrievePreference } from "../../utilities/preferences
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner, canEditPlan } from "../../utilities/permissions";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
+import { openWithPrefilledMessage } from "../../hooks/useBienBot";
 import { isArchiveUser, isExperienceArchived, getDisplayName as getSystemUserDisplayName } from "../../utilities/system-users";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
@@ -2681,7 +2682,22 @@ export default function SingleExperience() {
 
           // Success feedback
           try {
-            success(lang.current.notification?.plan?.created || "You're planning this experience!");
+            if (hasFeatureFlag(user, 'ai_features') && experience?.name) {
+              const destName = experience?.destination?.name || null;
+              const toastMsg = destName
+                ? `Make it yours! BienBot can suggest plan items people add for ${destName}`
+                : `Make it yours! BienBot can help you personalize your ${experience.name} plan`;
+              const prefilledMsg = `What should I add to my plan for ${experience.name}?`;
+              success(toastMsg, {
+                duration: 8000,
+                actions: [{
+                  label: 'Ask BienBot',
+                  onClick: () => openWithPrefilledMessage(prefilledMsg)
+                }]
+              });
+            } else {
+              success(lang.current.notification?.plan?.created || "You're planning this experience!");
+            }
           } catch (e) {
             // ignore toast failures
           }
@@ -2717,8 +2733,11 @@ export default function SingleExperience() {
     },
     [
       experience?._id,
+      experience?.name,
+      experience?.destination?.name,
       plannedDate,
       userHasExperience,
+      user,
       createPlan,
       success,
       showError,
@@ -3706,6 +3725,10 @@ export default function SingleExperience() {
         onAddCollaborators={collaboratorManager.handleAddCollaborator}
         onRemoveCollaborator={collaboratorManager.handleRemoveSelectedCollaborator}
         onSendEmailInvite={collaboratorManager.handleSendEmailInvite}
+        onSelectEntity={collaboratorManager.handleSelectEntity}
+        entityImportMessage={collaboratorManager.entityImportMessage}
+        onDismissImportMessage={() => collaboratorManager.setEntityImportMessage('')}
+        entityImportLoading={collaboratorManager.entityImportLoading}
         context={collaboratorManager.collaboratorContext}
         searchTerm={collaboratorManager.collaboratorSearch}
         onSearchTermChange={collaboratorManager.setCollaboratorSearch}

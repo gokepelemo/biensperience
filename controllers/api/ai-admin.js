@@ -268,7 +268,7 @@ exports.updatePolicy = async (req, res) => {
 
     invalidatePolicyCache();
 
-    logger.info('[ai-admin] Policy updated', { policyId: id, by: req.user._id });
+    logger.info('[ai-admin] Policy updated', { policyId: id, by: req.user._id, changedFields: Object.keys(req.body) });
     return successResponse(res, { policy });
   } catch (err) {
     logger.error('[ai-admin] Failed to update policy', { error: err.message, id });

@@ -232,11 +232,12 @@
 }
 
 .suggestionItem {
-  @inline-stack(0.5rem);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   cursor: pointer;
   transition: background-color var(--transition-fast);
-  align-items: center;
   border-bottom: 1px solid var(--color-border-light);
 
   &:last-child {
@@ -609,8 +610,9 @@
 }
 
 .paginationButtons {
-  @inline-stack(0.75rem);
+  display: flex;
   align-items: center;
+  gap: 0.75rem;
 }
 
 .pageIndicator {

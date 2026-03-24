@@ -9,11 +9,23 @@ import {
   cancelAction as cancelActionAPI,
   deleteSession as deleteSessionAPI,
   updateSessionContext as updateSessionContextAPI,
+  updateActionStatus as updateActionStatusAPI,
+  getWorkflowState as getWorkflowStateAPI,
   addSessionCollaborator as addCollaboratorAPI,
   removeSessionCollaborator as removeCollaboratorAPI
 } from '../utilities/bienbot-api';
-import { eventBus } from '../utilities/event-bus';
+import { eventBus, broadcastEvent } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
+
+/**
+ * Open the BienBot panel with a pre-filled message in the input.
+ * Can be called from anywhere in the component tree (e.g. post-plan toasts).
+ *
+ * @param {string} text - Message to pre-fill in the input
+ */
+export function openWithPrefilledMessage(text) {
+  broadcastEvent('bienbot:open', { initialMessage: text });
+}
 
 /**
  * useBienBot — manages BienBot conversation state, SSE streaming,
@@ -122,7 +134,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         attachment: attachment || undefined,
         signal: controller.signal,
 
-        onSession: ({ sessionId: newSessionId, title }) => {
+        onSession: ({ sessionId: newSessionId, title, attachment: attachmentInfo }) => {
           sessionIdRef.current = newSessionId;
           if (shouldSendContext) {
             invokeContextSentRef.current = true;
@@ -132,6 +144,23 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             _id: newSessionId,
             title: title || prev?.title
           }));
+          // Update optimistic user message with S3 attachment info from server
+          if (attachmentInfo?.s3Key) {
+            setMessages(prev =>
+              prev.map(m =>
+                m._id === userMessage._id && m.attachments?.length > 0
+                  ? {
+                      ...m,
+                      attachments: m.attachments.map((att, idx) =>
+                        idx === 0
+                          ? { ...att, s3Key: attachmentInfo.s3Key, s3Bucket: attachmentInfo.s3Bucket, isProtected: attachmentInfo.isProtected }
+                          : att
+                      )
+                    }
+                  : m
+              )
+            );
+          }
         },
 
         onToken: (tokenText) => {
@@ -148,6 +177,19 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
         onActions: (actions) => {
           setPendingActions(actions || []);
+        },
+
+        onStructuredContent: (blocks) => {
+          // Attach structured content blocks to the current assistant message
+          if (blocks && blocks.length > 0) {
+            setMessages(prev =>
+              prev.map(m =>
+                m._id === assistantMessageId
+                  ? { ...m, structured_content: [...(m.structured_content || []), ...blocks] }
+                  : m
+              )
+            );
+          }
         },
 
         onDone: () => {
@@ -489,6 +531,126 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Workflow step management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Approve a workflow step. Executes it immediately and updates local state.
+   *
+   * @param {string} actionId - Action ID to approve
+   * @returns {Promise<Object|null>} Updated action result, or null on error
+   */
+  const approveStep = useCallback(async (actionId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !actionId) return null;
+
+    setIsLoading(true);
+    try {
+      const data = await updateActionStatusAPI(sid, actionId, 'approved');
+
+      // Sync pending actions from server response
+      if (data?.pending_actions) {
+        setPendingActions(data.pending_actions);
+      }
+
+      return data;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to approve step', { error: err.message, actionId });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Skip a workflow step. Cascades failure to dependent steps.
+   *
+   * @param {string} actionId - Action ID to skip
+   * @returns {Promise<Object|null>} Updated action result, or null on error
+   */
+  const skipStep = useCallback(async (actionId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !actionId) return null;
+
+    try {
+      const data = await updateActionStatusAPI(sid, actionId, 'skipped');
+
+      if (data?.pending_actions) {
+        setPendingActions(data.pending_actions);
+      }
+
+      return data;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to skip step', { error: err.message, actionId });
+      return null;
+    }
+  }, []);
+
+  /**
+   * Edit a workflow step's payload and optionally approve it.
+   *
+   * @param {string} actionId - Action ID to edit
+   * @param {Object} newPayload - Updated payload
+   * @returns {Promise<Object|null>} Updated action result, or null on error
+   */
+  const editStep = useCallback(async (actionId, newPayload) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !actionId) return null;
+
+    setIsLoading(true);
+    try {
+      const data = await updateActionStatusAPI(sid, actionId, 'approved', newPayload);
+
+      if (data?.pending_actions) {
+        setPendingActions(data.pending_actions);
+      }
+
+      return data;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to edit step', { error: err.message, actionId });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Cancel an entire workflow (skip all remaining pending steps).
+   *
+   * @param {string} workflowId - Workflow ID to cancel
+   * @returns {Promise<void>}
+   */
+  const cancelWorkflow = useCallback(async (workflowId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !workflowId) return;
+
+    const workflowSteps = pendingActions.filter(
+      a => a.workflow_id === workflowId && a.status === 'pending'
+    );
+
+    for (const step of workflowSteps) {
+      try {
+        await updateActionStatusAPI(sid, step.id, 'skipped');
+      } catch (err) {
+        logger.error('[useBienBot] Failed to skip workflow step during cancel', {
+          error: err.message,
+          actionId: step.id
+        });
+      }
+    }
+
+    // Refresh pending actions from server
+    try {
+      const sessionData = await getSession(sid);
+      if (sessionData?.pending_actions) {
+        setPendingActions(sessionData.pending_actions);
+      }
+    } catch (err) {
+      logger.error('[useBienBot] Failed to refresh after workflow cancel', { error: err.message });
+    }
+  }, [pendingActions]);
+
+  // ---------------------------------------------------------------------------
   // Cleanup: cancel in-flight stream on unmount
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -496,6 +658,28 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       cancelStream();
     };
   }, [cancelStream]);
+
+  // ---------------------------------------------------------------------------
+  // appendStructuredContent — inject a structured content block into the last
+  // assistant message (used for post-action enrichment like tip suggestions)
+  // ---------------------------------------------------------------------------
+  const appendStructuredContent = useCallback((block) => {
+    if (!block) return;
+    setMessages(prev => {
+      // Find the last assistant message
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === 'assistant') {
+          const updated = [...prev];
+          updated[i] = {
+            ...updated[i],
+            structured_content: [...(updated[i].structured_content || []), block]
+          };
+          return updated;
+        }
+      }
+      return prev;
+    });
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Return API
@@ -516,6 +700,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     clearSession,
     fetchSessions,
     shareSession,
-    unshareSession
+    unshareSession,
+    approveStep,
+    skipStep,
+    editStep,
+    cancelWorkflow,
+    appendStructuredContent
   };
 }

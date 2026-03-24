@@ -109,6 +109,15 @@
   width: 100%;
 }
 
+/* Add Cost button rendered outside Accordion.Header to avoid nested <button>.
+   Absolutely positioned to visually align with the accordion trigger row. */
+.accordionHeaderAction {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 1;
+}
+
 .accordionIcon {
   transition: transform var(--transition-fast);
 }

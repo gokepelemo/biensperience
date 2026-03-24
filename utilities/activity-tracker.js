@@ -8,6 +8,7 @@
 const Activity = require('../models/activity');
 const backendLogger = require('./backend-logger');
 const { notifyUser } = require('./notifications');
+const { processSignalEvent } = require('./hidden-signals');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 
@@ -163,6 +164,17 @@ async function trackCreate(options) {
       resourceId: resource._id
     });
   });
+
+  // Fire-and-forget: hidden signal event for plan creation
+  if (resourceType === 'Plan' && resource.experience) {
+    const expId = typeof resource.experience === 'object' ? resource.experience._id : resource.experience;
+    processSignalEvent(actor?._id, {
+      type: 'save',
+      entity_type: 'experience',
+      entity_id: expId,
+      value: 0.7
+    });
+  }
 }
 
 /**
@@ -243,6 +255,16 @@ async function trackUpdate(options) {
       resourceId: resource._id
     });
   });
+
+  // Fire-and-forget: hidden signal event for rating changes
+  if (fieldsToTrack.includes('rating') && actor?._id && resource?._id) {
+    processSignalEvent(actor._id, {
+      type: 'vote',
+      entity_type: 'experience',
+      entity_id: resource._id,
+      value: 0.5
+    });
+  }
 }
 
 /**
@@ -305,6 +327,17 @@ async function trackDelete(options) {
       resourceId: resource._id
     });
   });
+
+  // Fire-and-forget: hidden signal event for plan deletion
+  if (resourceType === 'Plan' && resource.experience) {
+    const expId = typeof resource.experience === 'object' ? resource.experience._id : resource.experience;
+    processSignalEvent(actor?._id, {
+      type: 'dismiss',
+      entity_type: 'experience',
+      entity_id: expId,
+      value: 0.5
+    });
+  }
 }
 
 /**
@@ -447,6 +480,16 @@ async function trackPlanItemCompletion(options) {
         activityData: JSON.stringify(activityData, null, 2)
       });
     });
+
+    // Fire-and-forget: hidden signal event for plan item completion
+    if (completed && actor?._id) {
+      processSignalEvent(actor._id, {
+        type: 'edit_plan',
+        entity_type: 'plan_item',
+        entity_id: resolvedPlanItem._id,
+        value: 0.3
+      });
+    }
   } catch (err) {
     // Defensive: log unexpected errors in resolution logic
     backendLogger.error('Error in trackPlanItemCompletion', {

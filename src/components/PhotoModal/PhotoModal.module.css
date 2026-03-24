@@ -65,7 +65,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  @include transition-all(var(--btn-transition));
+  transition: var(--btn-transition);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 

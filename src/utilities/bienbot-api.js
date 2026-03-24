@@ -99,6 +99,7 @@ async function fetchCsrfToken() {
  * @param {Function} [options.onToken] - Called with each text chunk: (text: string) => void
  * @param {Function} [options.onSession] - Called with session info: ({ sessionId, title }) => void
  * @param {Function} [options.onActions] - Called with pending actions: (actions: Array) => void
+ * @param {Function} [options.onStructuredContent] - Called with structured content blocks: (blocks: Array) => void
  * @param {Function} [options.onDone] - Called on stream completion: ({ usage, intent, confidence }) => void
  * @param {Function} [options.onError] - Called on error: (error: Error) => void
  * @param {AbortSignal} [options.signal] - AbortSignal for cancellation
@@ -111,6 +112,7 @@ export async function postMessage(sessionId, message, options = {}) {
     onToken,
     onSession,
     onActions,
+    onStructuredContent,
     onDone,
     onError,
     signal
@@ -232,6 +234,10 @@ export async function postMessage(sessionId, message, options = {}) {
 
           case 'actions':
             if (onActions) onActions(eventData.pending_actions);
+            break;
+
+          case 'structured_content':
+            if (onStructuredContent) onStructuredContent(eventData.blocks);
             break;
 
           case 'done':
@@ -386,6 +392,15 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
+          case 'add_entity_photos':
+            // add_entity_photos returns the updated entity — broadcast the right event
+            if (actionResult.entity_type === 'destination' || entity.destination === undefined) {
+              broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
+            } else {
+              broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
+            }
+            break;
+
           case 'create_experience':
             broadcastEvent('experience:created', {
               experience: entity,
@@ -533,6 +548,100 @@ export async function cancelAction(sessionId, actionId) {
     // Silently ignore
   }
 
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
+// Workflow step management
+// ---------------------------------------------------------------------------
+
+/**
+ * Update a pending action's status (approve, skip) or edit its payload.
+ * Used by the sequential workflow confirmation UX.
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} actionId - Action ID to update
+ * @param {string} status - New status ('approved' or 'skipped')
+ * @param {Object} [payload] - Optional updated payload
+ * @returns {Promise<Object>} { action, execution, pending_actions }
+ */
+export async function updateActionStatus(sessionId, actionId, status, payload) {
+  const body = { status };
+  if (payload && typeof payload === 'object') {
+    body.payload = payload;
+  }
+
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/pending/${actionId}`,
+    "PATCH",
+    body
+  );
+
+  const data = extractData(result);
+
+  // Broadcast entity events for approved + executed actions
+  try {
+    if (data.execution?.success && data.action) {
+      const entity = data.execution.result;
+      const actionType = data.action.type;
+
+      if (entity) {
+        switch (actionType) {
+          case 'create_destination':
+            broadcastEvent('destination:created', { destination: entity, destinationId: entity._id });
+            break;
+          case 'update_destination':
+          case 'toggle_favorite_destination':
+            broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
+            break;
+          case 'create_experience':
+            broadcastEvent('experience:created', { experience: entity, experienceId: entity._id });
+            break;
+          case 'update_experience':
+          case 'add_experience_plan_item':
+          case 'update_experience_plan_item':
+          case 'delete_experience_plan_item':
+            broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
+            break;
+          case 'create_plan':
+            broadcastEvent('plan:created', { plan: entity, planId: entity._id, experienceId: entity.experience, version: Date.now() });
+            break;
+          case 'delete_plan':
+            broadcastEvent('plan:deleted', { planId: entity._id, version: Date.now() });
+            break;
+          default:
+            if (actionType?.includes('plan')) {
+              broadcastEvent('plan:updated', { plan: entity, planId: entity._id, version: Date.now() });
+            }
+        }
+      }
+    }
+
+    broadcastEvent('bienbot:action_updated', {
+      sessionId,
+      actionId,
+      status: data.action?.status,
+      version: Date.now()
+    });
+  } catch (e) {
+    // Silently ignore event emission errors
+  }
+
+  return data;
+}
+
+/**
+ * Get the full state of a workflow (all actions sharing a workflow_id).
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} workflowId - Workflow ID
+ * @returns {Promise<Object>} { workflow_id, total, completed, skipped, failed, pending, actions }
+ */
+export async function getWorkflowState(sessionId, workflowId) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/workflow/${workflowId}`,
+    "GET"
+  );
   return extractData(result);
 }
 
@@ -685,5 +794,20 @@ export async function clearMemory() {
  */
 export async function analyzeEntity(entity, entityId) {
   const result = await sendRequest(`${BASE_URL}/analyze`, 'POST', { entity, entityId });
+  return extractData(result);
+}
+
+/**
+ * Get a signed URL for a BienBot session attachment stored in S3.
+ * @param {string} sessionId - Session ID
+ * @param {number} messageIndex - Message index in the session
+ * @param {number} attachmentIndex - Attachment index within the message
+ * @returns {Promise<{ url: string, filename: string, mimeType: string, fileSize: number }>}
+ */
+export async function getAttachmentUrl(sessionId, messageIndex, attachmentIndex) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/attachments/${messageIndex}/${attachmentIndex}`,
+    'GET'
+  );
   return extractData(result);
 }

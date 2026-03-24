@@ -1,0 +1,169 @@
+/* PlanSelector – plan disambiguation picker */
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-primary, #fff);
+}
+
+.header {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1e293b);
+}
+
+/* ── Destination groups ─────────────────────────────────── */
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: var(--space-1, 0.25rem) 0;
+}
+
+.groupCount {
+  font-weight: var(--font-weight-normal, 400);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ── Selectable plan card ───────────────────────────────── */
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.card:hover:not(:disabled) {
+  border-color: var(--color-primary, #6c63ff);
+}
+
+.card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cardSelected {
+  border-color: var(--color-primary, #6c63ff);
+  box-shadow: 0 0 0 1px var(--color-primary, #6c63ff);
+  background: color-mix(in srgb, var(--color-primary, #6c63ff) 5%, transparent);
+}
+
+/* ── Radio indicator ────────────────────────────────────── */
+
+.radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-border, #e2e8f0);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.cardSelected .radio {
+  border-color: var(--color-primary, #6c63ff);
+}
+
+.radioDot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary, #6c63ff);
+}
+
+/* ── Card content ───────────────────────────────────────── */
+
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardName {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1e293b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary, #64748b);
+  margin-top: 2px;
+}
+
+/* ── Footer buttons ─────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2, 0.5rem);
+  padding-top: var(--space-2, 0.5rem);
+}
+
+.cancelBtn,
+.confirmBtn {
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cancelBtn {
+  background: transparent;
+  border: 1px solid var(--color-border, #e2e8f0);
+  color: var(--color-text-secondary, #64748b);
+}
+
+.cancelBtn:hover:not(:disabled) {
+  border-color: var(--color-text-secondary, #64748b);
+}
+
+.confirmBtn {
+  background: var(--color-primary, #6c63ff);
+  border: 1px solid var(--color-primary, #6c63ff);
+  color: #fff;
+}
+
+.confirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}

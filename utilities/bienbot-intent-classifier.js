@@ -60,7 +60,14 @@ const INTENTS = {
   REMOVE_COLLABORATOR: 'REMOVE_COLLABORATOR',
   SET_MEMBER_LOCATION: 'SET_MEMBER_LOCATION',
   // Navigation
-  NAVIGATE_TO_ENTITY: 'NAVIGATE_TO_ENTITY'
+  NAVIGATE_TO_ENTITY: 'NAVIGATE_TO_ENTITY',
+  // Composite
+  MULTI_ACTION: 'MULTI_ACTION',
+  // Plan queries
+  QUERY_PLAN: 'QUERY_PLAN',
+  // Discovery
+  DISCOVER_EXPERIENCES: 'DISCOVER_EXPERIENCES',
+  DISCOVER_DESTINATIONS: 'DISCOVER_DESTINATIONS'
 };
 
 // ---------------------------------------------------------------------------
@@ -269,7 +276,17 @@ async function classifyIntent(message, opts = {}) {
       }).catch(() => {});
     }
 
-    return { intent, entities, confidence, source };
+    // Detect multi-action messages
+    const multiAction = detectMultiAction(message.trim());
+    const result_obj = { intent, entities, confidence, source };
+
+    if (multiAction.isMultiAction) {
+      result_obj.isMultiAction = true;
+      result_obj.multiActionVerbs = multiAction.verbs;
+      result_obj.multiActionEntities = extractMultiActionEntities(message.trim());
+    }
+
+    return result_obj;
   } catch (err) {
     logger.error('[bienbot-intent-classifier] Classification failed', { error: err.message });
     return { ...fallbackResult(), source: 'nlp' };
@@ -424,7 +441,7 @@ function extractEntities(nlpResult, message) {
   }
 
   // Heuristic: extract plan item texts from comma/and-separated lists
-  if (nlpResult.intent === INTENTS.ADD_PLAN_ITEMS) {
+  if (nlpResult.intent === INTENTS.ADD_PLAN_ITEMS || nlpResult.intent === INTENTS.MULTI_ACTION) {
     entities.plan_item_texts = extractPlanItems(message);
   }
 
@@ -609,6 +626,103 @@ function extractPlanItems(message) {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-action detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Action-implying verbs used to detect multi-action messages.
+ * Each entry can match as a word boundary to avoid false positives
+ * (e.g. "address" should not match "add").
+ */
+const ACTION_VERBS = [
+  'create', 'add', 'invite', 'remove', 'show', 'suggest',
+  'delete', 'update', 'set', 'schedule', 'assign', 'share',
+  'sync', 'mark', 'rename', 'change', 'navigate',
+  'track', 'record', 'include', 'put', 'move', 'copy'
+];
+
+const ACTION_VERB_PATTERN = new RegExp(
+  `\\b(?:${ACTION_VERBS.join('|')})\\b`, 'gi'
+);
+
+/**
+ * Detect whether a message implies multiple distinct actions.
+ *
+ * Heuristic: count unique action-implying verbs in the message.
+ * If >= 2 distinct verbs are found, classify as MULTI_ACTION.
+ * Also checks for connector words ("and then", "also", "plus") that
+ * join clauses with action verbs.
+ *
+ * @param {string} message - Raw user message.
+ * @returns {{ isMultiAction: boolean, verbCount: number, verbs: string[] }}
+ */
+function detectMultiAction(message) {
+  const lower = message.toLowerCase();
+  const matches = lower.match(ACTION_VERB_PATTERN) || [];
+
+  // Deduplicate verbs
+  const uniqueVerbs = [...new Set(matches)];
+
+  // Also boost confidence if connector words join action clauses
+  const hasConnectors = /\b(?:and\s+then|then\s+also|also|plus|as\s+well\s+as|after\s+that)\b/i.test(message);
+
+  const verbCount = uniqueVerbs.length;
+  const isMultiAction = verbCount >= 2 || (verbCount >= 1 && hasConnectors);
+
+  return { isMultiAction, verbCount, verbs: uniqueVerbs };
+}
+
+/**
+ * Extract all entity names across all implied actions in a multi-action message.
+ * Collects destination names, experience names, and user emails/names.
+ *
+ * @param {string} message - Raw user message.
+ * @returns {{ destination_names: string[], experience_names: string[], user_refs: string[] }}
+ */
+function extractMultiActionEntities(message) {
+  const destination_names = [];
+  const experience_names = [];
+  const user_refs = [];
+
+  // Extract all quoted strings as potential entity names
+  const quotedMatches = message.matchAll(/["']([^"']+)["']/g);
+  for (const m of quotedMatches) {
+    experience_names.push(m[1]);
+  }
+
+  // Extract all emails
+  const emailMatches = message.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+  for (const m of emailMatches) {
+    user_refs.push(m[0]);
+  }
+
+  // Extract capitalized proper nouns after prepositions (likely destination/entity names)
+  const propNounMatches = message.matchAll(/(?:to|in|for|from|about)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/g);
+  for (const m of propNounMatches) {
+    const name = m[1].trim();
+    if (name.length >= 2 && name.length <= 80) {
+      destination_names.push(name);
+    }
+  }
+
+  // Extract names after "invite" or "add" + capitalized name (likely user references)
+  const nameMatches = message.matchAll(/(?:invite|add|remove|with)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b/g);
+  for (const m of nameMatches) {
+    const name = m[1].trim();
+    // Skip if it looks like an entity type keyword
+    if (!['Plan', 'Experience', 'Destination', 'Items', 'Cost'].includes(name)) {
+      user_refs.push(name);
+    }
+  }
+
+  return {
+    destination_names: [...new Set(destination_names)],
+    experience_names: [...new Set(experience_names)],
+    user_refs: [...new Set(user_refs)]
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -640,5 +754,7 @@ module.exports = {
   resetManager,
   retrainManager,
   getClassifierConfig,
-  invalidateConfigCache
+  invalidateConfigCache,
+  detectMultiAction,
+  extractMultiActionEntities
 };

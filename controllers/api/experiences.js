@@ -12,10 +12,33 @@ const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
 const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
+const { aggregateGroupSignals } = require('../../utilities/hidden-signals');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Fire-and-forget: re-aggregate destination hidden_signals from child experiences.
+ * @param {string} destinationId
+ */
+function reaggregateDestinationSignals(destinationId) {
+  if (!destinationId) return;
+  (async () => {
+    try {
+      const experiences = await Experience.find({ destination: destinationId })
+        .select('hidden_signals')
+        .lean();
+      const docsWithSignals = experiences.filter(e => e.hidden_signals && typeof e.hidden_signals.confidence === 'number' && e.hidden_signals.confidence > 0);
+      if (docsWithSignals.length === 0) return;
+      const aggregated = aggregateGroupSignals(docsWithSignals);
+      await Destination.findByIdAndUpdate(destinationId, { $set: { hidden_signals: aggregated } });
+      backendLogger.debug('[hidden-signals] Destination signals re-aggregated', { destinationId, experienceCount: docsWithSignals.length });
+    } catch (err) {
+      backendLogger.warn('[hidden-signals] Destination signal re-aggregation failed', { destinationId, error: err.message });
+    }
+  })();
 }
 
 /**
@@ -728,6 +751,9 @@ async function createExperience(req, res) {
       backendLogger.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
     }
 
+    // Fire-and-forget: re-aggregate destination signals
+    reaggregateDestinationSignals(experience.destination);
+
     return successResponse(res, experience, 'Experience created successfully', 201);
   } catch (err) {
     backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
@@ -1201,6 +1227,9 @@ async function updateExperience(req, res) {
     } catch (wsErr) {
       backendLogger.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
     }
+
+    // Fire-and-forget: re-aggregate destination signals
+    reaggregateDestinationSignals(experience.destination);
 
     return successResponse(res, experience, 'Experience updated successfully');
   } catch (err) {

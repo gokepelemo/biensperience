@@ -147,9 +147,10 @@ The Biensperience AI stack is designed as a layered architecture where **any fea
                                    │
                                    ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                   Data Layer (MongoDB)                                │
-│  AIPolicy  │  AIProviderConfig  │  AIUsage  │  BienBotSession        │
-└──────────────────────────────────────────────────────────────────────┘
+│                   Data Layer (MongoDB)                                            │
+│  AIPolicy │ AIProviderConfig │ AIUsage │ BienBotSession │ IntentCorpus │         │
+│  IntentClassificationLog │ IntentClassifierConfig                                │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Layer Responsibilities
@@ -159,7 +160,7 @@ The Biensperience AI stack is designed as a layered architecture where **any fea
 | **Feature Layer** | `controllers/api/ai.js`, `controllers/api/bienbot.js`, `utilities/ai-document-utils.js` | Individual AI-powered features make requests via the gateway |
 | **AI Gateway** | `utilities/ai-gateway.js` | Central entry point — resolves policies, enforces guardrails, routes to the right provider, tracks usage |
 | **Provider Registry** | `utilities/ai-provider-registry.js` | Manages provider handlers, DB-backed config, API key resolution, provider calling logic |
-| **Data Layer** | `models/ai-policy.js`, `models/ai-provider-config.js`, `models/ai-usage.js` | Persists policies, provider configs, and usage analytics |
+| **Data Layer** | `models/ai-policy.js`, `models/ai-provider-config.js`, `models/ai-usage.js`, `models/intent-corpus.js`, `models/intent-classification-log.js`, `models/intent-classifier-config.js` | Persists policies, provider configs, usage analytics, intent corpus, classification logs, and classifier configuration |
 
 **Key design principle**: Features never call LLM APIs directly. They call `executeAIRequest()` from the gateway, which handles all cross-cutting concerns uniformly.
 
@@ -179,9 +180,9 @@ executeAIRequest({ messages, task, user, options, entityContext })
     ├── 1. resolvePolicy()      → Merge entity + user + global + env policies
     ├── 2. applyContentFiltering() → Block/redact disallowed content
     ├── 3. checkRateLimit()      → In-memory sliding window (super admins exempt)
-    ├── 4. checkTokenBudget()    → Daily/monthly token limits via AIUsage model
+    ├── 4. checkTokenBudget()    → Daily/monthly token limits via AIUsage model (with headroom estimate)
     ├── 5. routeRequest()        → Determine provider + model
-    ├── 6. callProvider()        → Dispatch to registered provider handler
+    ├── 6. callProvider()        → Validate temperature/maxTokens, dispatch to registered provider handler
     └── 7. trackUsage()          → Record in AIUsage model
 ```
 
@@ -200,12 +201,19 @@ Policies merge from lowest to highest priority. Higher-priority settings overrid
 
 | Guardrail | Implementation | Bypass |
 |-----------|---------------|--------|
-| **Rate Limiting** | In-memory sliding window (per-minute, per-hour, per-day) | Super admins exempt |
-| **Token Budgets** | Daily/monthly input+output token limits checked against AIUsage | Super admins exempt |
-| **Content Filtering** | Regex-based block and redact patterns on user messages | N/A |
+| **Rate Limiting** | In-memory sliding window (per-minute, per-hour, per-day) with 5-minute cleanup interval; entries capped at 10,000 per user (slices to 5,000 when exceeded) to prevent unbounded memory growth | Super admins exempt |
+| **Token Budgets** | Daily/monthly input+output token limits checked against AIUsage with preemptive headroom check — blocks requests that would *likely* exceed the budget once the response arrives (adds `estimatedMaxTokens` to current usage before comparing) | Super admins exempt |
+| **Content Filtering** | Regex-based block and redact patterns on user messages; invalid regex patterns now log a warning with the pattern and error | N/A |
+| **Parameter Validation** | `temperature` clamped to 0–2 (default 0.7), `maxTokens` clamped between 1 and `policy.max_tokens_per_request` (default 1000) | N/A |
 | **Provider Restrictions** | `allowed_providers` and `blocked_providers` lists | N/A |
 | **Model Restrictions** | `allowed_models` per provider | N/A |
 | **Max Tokens Cap** | `max_tokens_per_request` (hard cap, default 4000) | N/A |
+| **Multi-Provider Failover** | Automatic fallback chain — if the primary provider is blocked or fails, the gateway tries the next enabled provider by priority | N/A |
+| **Retry with Backoff** | Transient failures (network errors, 5xx responses) trigger exponential backoff retries before falling through to the failover chain | N/A |
+
+### Policy Caching
+
+Resolved policies are cached in memory with a **5-minute TTL** to avoid repeated DB queries. The cache is automatically invalidated via `invalidatePolicyCache()` after admin updates through the AI Admin dashboard.
 
 ### Usage Tracking
 
@@ -245,6 +253,7 @@ async function myNewAIFeature(req, res) {
 
   return result.content;  // LLM response text
   // Also available: result.usage, result.model, result.provider, result.policyApplied
+  // On error: { error: string, code: string } (e.g. 'RATE_LIMITED', 'BUDGET_EXCEEDED', 'CONTENT_BLOCKED')
 }
 ```
 
@@ -263,7 +272,7 @@ Manages AI provider handlers with database-backed configuration and in-memory ca
 | **OpenAI** | `gpt-4o-mini` | `api.openai.com/v1/chat/completions` | Standard chat completions |
 | **Anthropic** | `claude-3-haiku-20240307` | `api.anthropic.com/v1/messages` | Anthropic messages API |
 | **Mistral** | `mistral-small-latest` | `api.mistral.ai/v1/chat/completions` | OpenAI-compatible |
-| **Gemini** | `gemini-1.5-flash` | `generativelanguage.googleapis.com` | Google generative API |
+| **Gemini** | `gemini-1.5-flash` | `@google/generative-ai` SDK | Google generative AI SDK (API key passed via constructor, not in URL) |
 
 All providers are registered at startup via `ai-seed-providers.js` and can be enabled/disabled through the Admin UI.
 
@@ -432,8 +441,9 @@ All admin endpoints require `super_admin` role + `ai_admin` feature flag.
 
 ## NLP.js — Local Intent Classification
 
-**File:** `utilities/bienbot-intent-classifier.js`  
-**Corpus:** `utilities/bienbot-intent-corpus.json`  
+**File:** `utilities/bienbot-intent-classifier.js`
+**Corpus (seed):** `utilities/bienbot-intent-corpus.json`
+**Corpus (runtime):** `IntentCorpus` model (MongoDB)
 **Package:** `node-nlp-rn` (NLP.js for React Native / Node.js runtime)
 
 ### Why NLP.js
@@ -448,27 +458,94 @@ NLP.js provides **zero-latency intent classification** without requiring an LLM 
 | **Accuracy** | Good for structured intents | Better for open-ended classification |
 | **Setup** | Train once on startup | No training needed |
 
-BienBot uses NLP.js as a lightweight first-pass classifier, reserving expensive LLM calls for response generation and complex reasoning.
+BienBot uses NLP.js as a lightweight first-pass classifier, reserving expensive LLM calls for response generation and complex reasoning. For ambiguous classifications, an optional **LLM fallback** can reclassify via the AI gateway.
 
 ### Architecture
 
 ```
 Server Start
     │
-    ├── 1. Load corpus from bienbot-intent-corpus.json
+    ├── 1. Load corpus from IntentCorpus model (DB) — fallback to JSON seed file
     ├── 2. Add regex entities (email detection)
     ├── 3. Train NLP.js neural network
     └── 4. Cache trained manager (singleton)
 
 Message Arrives
     │
-    ├── 1. classifyIntent(message)
+    ├── 1. classifyIntent(message, opts)
     ├── 2. NLP.js processes message through trained model
-    ├── 3. Returns { intent, entities, confidence }
-    └── 4. Low-confidence fallback → ANSWER_QUESTION
+    ├── 3. Returns { intent, entities, confidence, source }
+    ├── 4. If confidence < llm_fallback_threshold AND llm_fallback_enabled:
+    │       └── LLM reclassification via AI gateway → { intent, source: 'llm' }
+    ├── 5. Low-confidence fallback (no LLM) → ANSWER_QUESTION
+    └── 6. Log classification to IntentClassificationLog (if enabled)
 ```
 
-The NLP.js manager is trained **once on first use** and cached as a singleton. The training takes ~100ms and the model persists in memory for the lifetime of the server process. `resetManager()` is available for testing.
+The NLP.js manager is trained **once on first use** and cached as a singleton. The training takes ~100ms and the model persists in memory for the lifetime of the server process. `resetManager()` is available for testing. `retrainManager()` reloads the corpus from DB and retrains the model live (called after admin corpus changes).
+
+### MongoDB-Backed Corpus
+
+The runtime corpus is stored in the `IntentCorpus` model, enabling admins to add/edit utterances without code deploys:
+
+```javascript
+// models/intent-corpus.js
+{
+  intent: String,          // Required, unique, uppercase (max 100)
+  utterances: [String],    // Training utterances
+  description: String,     // Human-readable description (max 500)
+  is_custom: Boolean,      // false = seeded from JSON, true = admin-created
+  enabled: Boolean,        // Disabled intents excluded from training
+  created_by: ObjectId,
+  updated_by: ObjectId,
+  timestamps: true
+}
+```
+
+On startup, if the DB corpus is empty, `utilities/bienbot-corpus-seeder.js` populates it from the JSON seed file. The JSON file serves as the canonical seed; the DB is the runtime source of truth.
+
+### Classification Logging
+
+All classifications (or only low-confidence ones, based on config) are logged to `IntentClassificationLog`:
+
+```javascript
+// models/intent-classification-log.js
+{
+  message: String,                 // User message (max 500)
+  intent: String,                  // NLP.js classification result
+  confidence: Number,              // 0-1 confidence score
+  user: ObjectId,                  // Who sent the message
+  session_id: ObjectId,            // BienBot session
+  is_low_confidence: Boolean,      // Below threshold
+  llm_reclassified: Boolean,       // Was LLM fallback used?
+  llm_intent: String,              // LLM's reclassified intent (if different)
+  reviewed: Boolean,               // Admin reviewed this log
+  admin_corrected_intent: String,  // Admin's correction (if any)
+  reviewed_by: ObjectId,
+  reviewed_at: Date,
+  timestamps: true
+}
+```
+
+Logs auto-expire after 90 days (configurable via `IntentClassifierConfig.log_retention_days`) using a MongoDB TTL index.
+
+### Classifier Configuration
+
+A singleton `IntentClassifierConfig` model controls classifier behaviour:
+
+```javascript
+// models/intent-classifier-config.js
+{
+  low_confidence_threshold: Number,   // Default 0.65 — below this, flag as low confidence
+  llm_fallback_enabled: Boolean,      // Default false — enable LLM reclassification
+  llm_fallback_threshold: Number,     // Default 0.4 — below this, trigger LLM fallback
+  log_all_classifications: Boolean,   // Default false — log everything vs. only low-confidence
+  log_retention_days: Number,         // Default 90 — TTL for classification logs
+  updated_by: ObjectId,
+  timestamps: true
+}
+```
+
+Config is cached in memory with a **1-minute TTL**. Use `invalidateConfigCache()` after admin updates.
 
 ### Training Corpus
 
@@ -610,7 +687,7 @@ const handleAI = useGatedAction('ai_features', async () => {
 **File:** `src/views/AIAdmin/AIAdmin.jsx`  
 **Route:** `/admin/ai`
 
-The AI Admin dashboard (accessible via Admin > AI in the navigation) provides four tabs:
+The AI Admin dashboard (accessible via Admin > AI in the navigation) provides five tabs:
 
 | Tab | Component | Purpose |
 |-----|-----------|---------|
@@ -618,6 +695,7 @@ The AI Admin dashboard (accessible via Admin > AI in the navigation) provides fo
 | **Policies** | `AIAdminPolicies` | CRUD for global and user-scoped policies |
 | **Usage** | `AIAdminUsage` | Usage analytics, per-user/per-provider breakdowns |
 | **Routing** | `AIAdminRouting` | Configure task-to-provider routing rules |
+| **Classifier** | `AIAdminClassifier` | Manage intent corpus, review classification logs, retrain model |
 
 Requires `super_admin` role + `ai_admin` feature flag.
 
@@ -914,7 +992,9 @@ The frontend uses `fetch` + `ReadableStream` to parse SSE events. An `AbortContr
    │   ├── create_plan → 'plan:created'
    │   ├── add_plan_items/update_plan_item/sync_plan → 'plan:updated'
    │   └── invite_collaborator → 'invite:created'
-   └── broadcastEvent('bienbot:actions_executed', { sessionId, actionIds, results })
+   ├── broadcastEvent('bienbot:actions_executed', { sessionId, actionIds, results })
+   └── Auto-navigate to newly created entity (via getNavigationUrlForResult())
+       Priority: experience > plan > destination
 ```
 
 #### Event Emission After Mutations
@@ -928,6 +1008,8 @@ All BienBot mutations emit events through the event bus so the rest of the UI st
 | `executeActions()` | Entity-specific events + `bienbot:actions_executed` |
 | `cancelAction()` | `bienbot:action_cancelled` |
 | `deleteSession()` | `bienbot:session_deleted` |
+| `shareSession()` | `bienbot:collaborator_added` |
+| `unshareSession()` | `bienbot:collaborator_removed` |
 
 Entity-specific event mapping in `executeActions()` by action type:
 
@@ -999,9 +1081,26 @@ Context is merged (never replaced) via `session.updateContext()`. This ensures t
 - Can still be retrieved by ID for audit/debugging
 - Are never permanently deleted (data retention for compliance)
 
-#### Session Ownership
+#### Session Ownership & Sharing
 
-Every session operation verifies `session.user.toString() === userId`. There is no shared session access — each session belongs to exactly one user. Super admins do not have access to other users' BienBot sessions.
+Every session has a primary owner (`session.user`). Sessions can optionally be shared with collaborators via the `shared_with` array:
+
+```javascript
+shared_with: [{
+  user_id: ObjectId,
+  role: 'viewer' | 'editor',  // viewer = read-only, editor = can send messages & execute actions
+  granted_at: Date,
+  granted_by: ObjectId
+}]
+```
+
+- **Owner**: Full access — send messages, execute actions, share/unshare, delete
+- **Editor**: Can send messages and execute actions
+- **Viewer**: Read-only access to session history
+
+Session operations verify that the requesting user is either the owner or a collaborator with the appropriate role. Super admins do not have access to other users' BienBot sessions.
+
+Messages in shared sessions include a `sent_by` field (`ObjectId`) on user-role messages to track which participant sent each message.
 
 ---
 
@@ -1111,7 +1210,8 @@ The panel is **lazy-loaded** — the BienBotPanel module is dynamically imported
 
 | Element | Description |
 |---|---|
-| **Header** | BienBot icon, title, entity label breadcrumb, "New chat" button, close button |
+| **Header** | BienBot icon, title, entity label breadcrumb, share button, "New chat" button, close button |
+| **Share popover** | Popover triggered by share button — search collaborators, assign viewer/editor roles, remove sharing |
 | **Message thread** | Scrollable area with user/assistant messages, auto-scrolls to bottom |
 | **Loading dots** | Three animated dots shown between user message and first assistant token |
 | **Pending action cards** | Cards with action type, description, "Yes" and "Cancel" buttons |
@@ -1212,7 +1312,8 @@ The notification is suppressed if:
 
 | File | Purpose |
 |---|---|
-| `src/utilities/bienbot-api.js` | `postMessage`, `getSessions`, `executeActions`, `deleteSession` — emits events via `broadcastEvent` on mutations |
+| `src/utilities/bienbot-api.js` | `postMessage`, `getSessions`, `executeActions`, `deleteSession`, `shareSession`, `unshareSession` — emits events via `broadcastEvent` on mutations |
+| `src/utilities/bienbot-suggestions.js` | Context-aware suggestions and auto-navigation after entity creation (`getNavigationUrlForResult()`) |
 | `src/hooks/useBienBot.js` | Manages conversation state, streaming, pending actions, and session lifecycle |
 | `src/components/BienBotTrigger/BienBotTrigger.jsx` | Floating trigger button rendered on every entity view, passes `invokeContext` to `useBienBot` |
 | `src/components/BienBotPanel/BienBotPanel.jsx` | Sliding/modal panel rendering the chat UI — mounts on top of any view, receives the hook's state |
@@ -1226,6 +1327,12 @@ The notification is suppressed if:
 ```javascript
 {
   user: ObjectId,            // owner
+  shared_with: [{            // collaborators with shared access
+    user_id: ObjectId,
+    role: 'viewer' | 'editor',
+    granted_at: Date,
+    granted_by: ObjectId
+  }],
   title: String,             // auto-generated from first message
   invoke_context: {          // the surface from which the session was started
     entity: String,          // 'destination' | 'experience' | 'plan' | 'plan_item' | 'user' | null
@@ -1237,7 +1344,8 @@ The notification is suppressed if:
     content: String,
     timestamp: Date,
     intent: String,          // classifier output, stored for debugging
-    actions_taken: [String]  // IDs of actions executed in this turn
+    actions_taken: [String], // IDs of actions executed in this turn
+    sent_by: ObjectId        // (optional) user who sent this message — set for 'user' role in shared sessions
   }],
   context: {
     destination_id: ObjectId,
@@ -1665,7 +1773,9 @@ const {
   loadSession,        // GET /api/bienbot/sessions/:id (fetches history; does not greet)
   resumeSession,      // POST /api/bienbot/sessions/:id/resume — call when user opens a past session;
                       //   returns { session, greeting } and prepends greeting to messages state
-  clearSession        // DELETE /api/bienbot/sessions/:id
+  clearSession,       // DELETE /api/bienbot/sessions/:id
+  shareSession,       // POST /api/bienbot/sessions/:id/collaborators — share with a user (viewer/editor)
+  unshareSession      // DELETE /api/bienbot/sessions/:id/collaborators/:userId — remove collaborator
 } = useBienBot({ sessionId, invokeContext });
 ```
 

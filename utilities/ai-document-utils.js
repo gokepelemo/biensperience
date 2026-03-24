@@ -10,8 +10,9 @@ require('dotenv').config();
 
 const path = require('path');
 const fs = require('fs');
-const { s3Upload, s3Delete } = require('../uploads/aws-s3');
+const { uploadWithPipeline, deleteFile } = require('./upload-pipeline');
 const backendLogger = require('./backend-logger');
+const { executeAIRequest, GatewayError } = require('./ai-gateway');
 
 // Supported document types and their MIME types
 const SUPPORTED_DOCUMENT_TYPES = {
@@ -490,24 +491,11 @@ async function tryTesseractOCR(filePath, options = {}) {
 async function extractImageTextWithLLM(filePath, options = {}) {
   try {
     const safePath = sanitizePath(filePath);
-    const Anthropic = require('@anthropic-ai/sdk');
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      backendLogger.warn('ANTHROPIC_API_KEY not set. LLM vision extraction unavailable.');
-      return {
-        text: '',
-        metadata: {
-          method: 'llm-vision-unavailable',
-          error: 'ANTHROPIC_API_KEY not configured'
-        }
-      };
-    }
 
     // Read image and convert to base64
     const imageBuffer = await fs.promises.readFile(safePath);
 
-    // Check file size limit for Claude Vision
+    // Check file size limit for vision API
     if (imageBuffer.length > OCR_CONFIG.maxVisionImageSize) {
       backendLogger.warn('Image too large for LLM vision', {
         size: imageBuffer.length,
@@ -535,11 +523,10 @@ async function extractImageTextWithLLM(filePath, options = {}) {
     };
     const mediaType = mediaTypeMap[ext] || 'image/jpeg';
 
-    const client = new Anthropic({ apiKey });
-
-    const response = await client.messages.create({
-      model: options.model || 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
+    // Route through AI gateway for policy enforcement and usage tracking.
+    // Vision requests use multimodal message content (array of image + text blocks).
+    // The Anthropic provider handler passes array content through to the REST API unchanged.
+    const result = await executeAIRequest({
       messages: [
         {
           role: 'user',
@@ -569,25 +556,33 @@ Return the text content followed by any structured observations.`
             }
           ]
         }
-      ]
+      ],
+      task: 'document_vision',
+      user: options.user || null,
+      options: {
+        provider: 'anthropic',
+        model: options.model || 'claude-sonnet-4-20250514',
+        maxTokens: 4096
+      },
+      entityContext: options.entityContext || null
     });
 
-    const extractedText = response.content[0]?.text || '';
+    const extractedText = result.content;
 
     backendLogger.info('[extractImageTextWithLLM] LLM vision extraction complete', {
       textLength: extractedText.length,
-      model: response.model,
-      inputTokens: response.usage?.input_tokens,
-      outputTokens: response.usage?.output_tokens
+      model: result.model,
+      inputTokens: result.usage?.inputTokens,
+      outputTokens: result.usage?.outputTokens
     });
 
     return {
       text: extractedText,
       metadata: {
         method: 'llm-vision',
-        model: response.model,
+        model: result.model,
         characterCount: extractedText.length,
-        usage: response.usage
+        usage: result.usage
       }
     };
   } catch (error) {
@@ -666,20 +661,6 @@ async function parseWithAI(text, documentType = 'travel', options = {}) {
     };
   }
 
-  const Anthropic = require('@anthropic-ai/sdk');
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    backendLogger.warn('ANTHROPIC_API_KEY not set. AI parsing unavailable.');
-    return {
-      parsed: false,
-      error: 'AI parsing not configured',
-      rawText: text
-    };
-  }
-
-  const client = new Anthropic({ apiKey });
-
   // Build prompt based on document type. Allow callers to pass `options.prompts`
   // to override any of these defaults (useful for testing or A/B messaging).
   const promptsSource = options.prompts || require('./lang.constants').lang.current.prompts || {};
@@ -705,19 +686,26 @@ async function parseWithAI(text, documentType = 'travel', options = {}) {
   const prompt = mergedPrompts[documentType] || mergedPrompts.travel;
 
   try {
-    const response = await client.messages.create({
-      model: options.model || 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
+    // Route through AI gateway for policy enforcement and usage tracking
+    const result = await executeAIRequest({
       messages: [
         {
           role: 'user',
           content: `${prompt}\n\nDocument text:\n\`\`\`\n${text.substring(0, 10000)}\n\`\`\``
         }
-      ]
+      ],
+      task: 'document_parse',
+      user: options.user || null,
+      options: {
+        provider: 'anthropic',
+        model: options.model || 'claude-sonnet-4-20250514',
+        maxTokens: 2000
+      },
+      entityContext: options.entityContext || null
     });
 
     // Extract JSON from response
-    const content = response.content[0]?.text || '';
+    const content = result.content;
     let parsed = null;
 
     // Try to extract JSON from the response
@@ -735,8 +723,8 @@ async function parseWithAI(text, documentType = 'travel', options = {}) {
       data: parsed,
       rawText: text,
       aiResponse: content,
-      model: response.model,
-      usage: response.usage
+      model: result.model,
+      usage: result.usage
     };
   } catch (error) {
     backendLogger.error('AI parsing failed', { error: error.message, documentType });
@@ -782,8 +770,8 @@ async function processDocument(file, options = {}) {
       const sanitizedName = path.basename(file.originalname).replace(/[^a-zA-Z0-9.-]/g, '_');
       const s3Key = `${s3Prefix}/${timestamp}-${sanitizedName}`;
 
-      const uploadResult = await s3Upload(file.path, file.originalname, s3Key);
-      s3Url = uploadResult.Location;
+      const pipelineResult = await uploadWithPipeline(file.path, file.originalname, s3Key, { deleteLocal: false });
+      s3Url = pipelineResult.s3Result.Location;
 
       backendLogger.info('Document uploaded to S3', { url: s3Url, type: validation.type });
     }
@@ -836,7 +824,7 @@ async function deleteDocument(documentUrl) {
     throw new Error('Document URL is required');
   }
 
-  await s3Delete(documentUrl);
+  await deleteFile(documentUrl);
   backendLogger.info('Document deleted from S3', { url: documentUrl });
 }
 

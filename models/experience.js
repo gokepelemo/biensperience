@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
+const { hiddenSignalVectorSchema } = require('./hidden-signals');
 
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
@@ -203,6 +204,22 @@ const experienceSchema = new Schema(
       }, { _id: false }),
       default: null
     },
+    /**
+     * Intrinsic behavioral signal profile for this experience.
+     * Aggregated from plan_items activity types.
+     */
+    hidden_signals: {
+      type: hiddenSignalVectorSchema,
+      default: () => ({})
+    },
+    /**
+     * Auto-computed semantic tags derived from plan_items activity types.
+     * Updated via pre-save middleware when plan_items is modified.
+     */
+    signal_tags: {
+      type: [String],
+      default: []
+    },
   },
   {
     timestamps: true,
@@ -272,6 +289,21 @@ experienceSchema.index({ photos: 1 });
 experienceSchema.index({ default_photo_id: 1 });
 // Spatial index for experience location (GeoJSON Point)
 experienceSchema.index({ 'location.geo': '2dsphere' });
+
+/**
+ * Pre-save hook: compute signal_tags from plan_items when plan_items is modified.
+ */
+experienceSchema.pre('save', function (next) {
+  try {
+    if (this.isModified('plan_items')) {
+      const { computeExperienceSignalTags } = require('../utilities/hidden-signals');
+      this.signal_tags = computeExperienceSignalTags(this.plan_items);
+    }
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /**
  * Pre-save hook: ensure `experience_type_slugs` is populated from `experience_type`.

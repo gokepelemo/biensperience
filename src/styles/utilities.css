@@ -1178,6 +1178,29 @@ svg {
   padding-right: var(--space-1);
 }
 
+/* Chakra UI Tag — the global `svg { padding }` and `button svg { padding }` rules inflate
+   the close trigger icon. Chakra v3 slot recipes generate classes like chakra-tag__<slot>.
+   We reset padding with !important to win regardless of source order / layering,
+   and explicitly size the closeTrigger button + SVG using Chakra's own --tag-element-size
+   CSS variable (set on the root element and cascades down). */
+[class*="chakra-tag__"] svg {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+button.chakra-tag__closeTrigger {
+  width: var(--tag-element-size, 1rem);
+  height: var(--tag-element-size, 1rem);
+  min-width: unset;
+  min-height: unset;
+  padding: 0;
+}
+button.chakra-tag__closeTrigger svg {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  flex-shrink: 0;
+}
+
 /* SVG icons in pills - use gap property instead of padding */
 .pill svg {
   padding-left: 0;

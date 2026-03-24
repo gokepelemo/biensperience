@@ -14,12 +14,20 @@ import { FaBell } from 'react-icons/fa';
 import { Button, Text, Heading } from '../design-system';
 import { Tag } from '@chakra-ui/react';
 import useBienBot from '../../hooks/useBienBot';
+import { useUser } from '../../contexts/UserContext';
 import {
   getSuggestionsForContext,
   getPlaceholderForContext,
-  getEmptyStateForContext
+  getEmptyStateForContext,
+  getNavigationUrlForResult
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
+import WorkflowStepCard from './WorkflowStepCard';
+import PlanSelector from './PlanSelector';
+import SuggestionList from './SuggestionList';
+import TipSuggestionList from './TipSuggestionList';
+import BienBotPhotoGallery from './BienBotPhotoGallery';
+import { getAttachmentUrl } from '../../utilities/bienbot-api';
 import styles from './BienBotPanel.module.css';
 
 // ─── Close icon ──────────────────────────────────────────────────────────────
@@ -92,6 +100,138 @@ function SendIcon() {
     </svg>
   );
 }
+
+// ─── Share icon ─────────────────────────────────────────────────────────────
+
+function ShareIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="2" />
+      <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+// ─── Session share popover ──────────────────────────────────────────────────
+
+function SessionSharePopover({ open, onClose, sharedWith, onShare, onUnshare, isOwner }) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('viewer');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      const t = setTimeout(() => inputRef.current?.focus(), 100);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!email.trim() || isSubmitting) return;
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const result = await onShare(email.trim(), role);
+      if (result) {
+        setEmail('');
+      } else {
+        setError('Could not share session. Check the user ID and try again.');
+      }
+    } catch {
+      setError('Failed to share session.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className={styles.sharePopover}>
+      <div className={styles.sharePopoverHeader}>
+        <Text size="sm" style={{ fontWeight: 600 }}>Share session</Text>
+        <button type="button" className={styles.sharePopoverClose} onClick={onClose} aria-label="Close share popover">
+          <CloseIcon />
+        </button>
+      </div>
+
+      {isOwner && (
+        <form className={styles.shareForm} onSubmit={handleSubmit}>
+          <input
+            ref={inputRef}
+            type="text"
+            className={styles.shareInput}
+            placeholder="User ID"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isSubmitting}
+          />
+          <select
+            className={styles.shareRoleSelect}
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            disabled={isSubmitting}
+          >
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+          </select>
+          <Button type="submit" variant="primary" size="sm" disabled={!email.trim() || isSubmitting}>
+            Share
+          </Button>
+        </form>
+      )}
+
+      {error && <Text size="sm" className={styles.shareError}>{error}</Text>}
+
+      {(sharedWith || []).length > 0 && (
+        <div className={styles.shareList}>
+          {sharedWith.map((collab) => (
+            <div key={collab.user_id} className={styles.shareListItem}>
+              <Text size="sm" className={styles.shareListUser}>
+                {collab.user_id?.toString().slice(-6)}
+              </Text>
+              <Tag.Root size="sm" variant="subtle" colorPalette={collab.role === 'editor' ? 'blue' : 'gray'}>
+                <Tag.Label>{collab.role}</Tag.Label>
+              </Tag.Root>
+              {isOwner && (
+                <button
+                  type="button"
+                  className={styles.shareRemoveButton}
+                  onClick={() => onUnshare(collab.user_id)}
+                  aria-label="Remove collaborator"
+                  title="Remove"
+                >
+                  <CloseIcon />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(sharedWith || []).length === 0 && !isOwner && (
+        <Text size="sm" style={{ color: 'var(--color-text-tertiary)', padding: 'var(--space-2) 0' }}>
+          No collaborators yet.
+        </Text>
+      )}
+    </div>
+  );
+}
+
+SessionSharePopover.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  sharedWith: PropTypes.array,
+  onShare: PropTypes.func.isRequired,
+  onUnshare: PropTypes.func.isRequired,
+  isOwner: PropTypes.bool
+};
 
 // ─── Paperclip (attach) icon ──────────────────────────────────────────────────
 
@@ -175,6 +315,8 @@ ActionCard.propTypes = {
   disabled: PropTypes.bool
 };
 
+// PlanCard removed — plan disambiguation now handled by PlanSelector component
+
 // ─── Notification item ───────────────────────────────────────────────────────
 
 function NotificationItem({ notification, onView }) {
@@ -217,6 +359,74 @@ NotificationItem.propTypes = {
   onView: PropTypes.func.isRequired
 };
 
+// ─── Image attachment with signed URL ─────────────────────────────────────────
+
+function ImageAttachment({ attachment, sessionId, messageIndex, attachmentIndex }) {
+  const [imageUrl, setImageUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!sessionId || messageIndex < 0 || attachmentIndex < 0) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getAttachmentUrl(sessionId, messageIndex, attachmentIndex);
+        if (!cancelled && result?.url) {
+          setImageUrl(result.url);
+        }
+      } catch (err) {
+        logger.debug('[BienBotPanel] Failed to load attachment URL', { error: err.message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [sessionId, messageIndex, attachmentIndex]);
+
+  if (loading) {
+    return (
+      <span className={styles.attachmentBadge}>
+        <span className={styles.attachmentFilename}>{attachment.filename}</span>
+      </span>
+    );
+  }
+
+  if (imageUrl) {
+    return (
+      <div className={styles.imageAttachment}>
+        <img
+          src={imageUrl}
+          alt={attachment.filename}
+          className={styles.imageAttachmentThumb}
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <span className={styles.attachmentBadge}>
+      <span className={styles.attachmentFilename}>{attachment.filename}</span>
+    </span>
+  );
+}
+
+ImageAttachment.propTypes = {
+  attachment: PropTypes.shape({
+    filename: PropTypes.string.isRequired,
+    mimeType: PropTypes.string,
+    s3Key: PropTypes.string
+  }).isRequired,
+  sessionId: PropTypes.string,
+  messageIndex: PropTypes.number.isRequired,
+  attachmentIndex: PropTypes.number.isRequired
+};
+
 // ─── Main BienBotPanel component ──────────────────────────────────────────────
 
 /**
@@ -232,6 +442,7 @@ NotificationItem.propTypes = {
  * @param {Array} props.notifications - Notification activities
  * @param {Array} props.unseenNotificationIds - IDs of unseen notifications
  * @param {Function} props.onMarkNotificationsSeen - Callback to mark notification IDs as seen
+ * @param {string|null} [props.initialMessage] - Pre-fill the textarea with this text on open
  */
 export default function BienBotPanel({
   open,
@@ -242,7 +453,8 @@ export default function BienBotPanel({
   notificationOnly = false,
   notifications = [],
   unseenNotificationIds = [],
-  onMarkNotificationsSeen
+  onMarkNotificationsSeen,
+  initialMessage = null
 }) {
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -250,6 +462,10 @@ export default function BienBotPanel({
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
   const [attachment, setAttachment] = useState(null);
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const { user } = useUser();
 
   // ── Auto-resize textarea to fit content ──────────────────────────────────
   const resizeTextarea = useCallback(() => {
@@ -274,12 +490,61 @@ export default function BienBotPanel({
     suggestedNextSteps,
     isLoading,
     isStreaming,
+    currentSession,
     sendMessage,
     executeActions,
     cancelAction,
     updateContext,
-    clearSession
+    clearSession,
+    shareSession,
+    unshareSession,
+    approveStep,
+    skipStep,
+    editStep,
+    cancelWorkflow,
+    appendStructuredContent
   } = useBienBot({ invokeContext });
+
+  // ── Handle adding suggested plan items ─────────────────────────────────
+  const handleAddSuggestedItems = useCallback(
+    (items) => {
+      if (!items?.length || isStreaming || isLoading) return;
+      const itemNames = items.map(i => i.text || i.content).filter(Boolean);
+      if (!itemNames.length) return;
+      const msg = `Add these plan items: ${itemNames.join(', ')}`;
+      sendMessage(msg);
+    },
+    [sendMessage, isStreaming, isLoading]
+  );
+
+  // ── Handle adding selected Unsplash photos ──────────────────────────────
+  const handleAddPhotos = useCallback(
+    (photos, entityType, entityId) => {
+      if (!photos?.length || isStreaming || isLoading) return;
+      const photoPayload = photos.map(p => ({
+        url: p.url,
+        photographer: p.photographer,
+        photographer_url: p.photographer_url,
+        unsplash_url: p.unsplash_url
+      }));
+      const msg = `Add ${photos.length} selected photo${photos.length !== 1 ? 's' : ''} to the ${entityType}`;
+      sendMessage(msg);
+    },
+    [sendMessage, isStreaming, isLoading]
+  );
+
+  // ── Handle adding selected travel tips ─────────────────────────────────
+  const handleAddTips = useCallback(
+    (tips) => {
+      if (!tips?.length || isStreaming || isLoading) return;
+      const tipValues = tips.map(t => t.value).filter(Boolean);
+      if (!tipValues.length) return;
+      sendMessage(`Add these travel tips: ${tipValues.join('; ')}`);
+    },
+    [sendMessage, isStreaming, isLoading]
+  );
+
+  const isSessionOwner = currentSession && user?._id && currentSession.user?.toString() === user._id.toString();
 
   const handleNewChat = useCallback(() => {
     if (inputRef.current) {
@@ -303,10 +568,21 @@ export default function BienBotPanel({
     [invokeContext, currentView]
   );
 
+  // Entity data for dynamic suggestion chips (name-aware templates)
+  const entityData = useMemo(() => {
+    if (!invokeContext?.label) return null;
+    return {
+      name: invokeContext.label,
+      id: invokeContext.id,
+      destinationName: invokeContext.destinationName || null,
+      destinationId: invokeContext.destinationId || null,
+    };
+  }, [invokeContext?.label, invokeContext?.id, invokeContext?.destinationName, invokeContext?.destinationId]);
+
   // Initial suggestion chips — shown when no messages and no server-provided steps
   const initialSuggestions = useMemo(
-    () => getSuggestionsForContext(entityType, currentView),
-    [entityType, currentView]
+    () => getSuggestionsForContext(entityType, currentView, entityData),
+    [entityType, currentView, entityData]
   );
 
   // Show server-provided steps if available, otherwise initial suggestions
@@ -318,10 +594,19 @@ export default function BienBotPanel({
   useEffect(() => {
     if (open && inputRef.current) {
       // Small delay to wait for CSS transition
-      const t = setTimeout(() => inputRef.current?.focus(), 300);
+      const t = setTimeout(() => {
+        if (inputRef.current) {
+          // Pre-fill with initialMessage if provided
+          if (initialMessage) {
+            inputRef.current.value = initialMessage;
+            inputValueRef.current = initialMessage;
+          }
+          inputRef.current.focus();
+        }
+      }, 300);
       return () => clearTimeout(t);
     }
-  }, [open]);
+  }, [open, initialMessage]);
 
   // ── Detect invokeContext changes (e.g. plan item opened mid-chat) ────────
   useEffect(() => {
@@ -380,13 +665,24 @@ export default function BienBotPanel({
     }
 
     setAttachment(file);
+    // Generate local preview URL for images
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setAttachmentPreviewUrl(url);
+    } else {
+      setAttachmentPreviewUrl(null);
+    }
     // Reset the file input so the same file can be re-selected if removed
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
   const handleRemoveAttachment = useCallback(() => {
+    if (attachmentPreviewUrl) {
+      URL.revokeObjectURL(attachmentPreviewUrl);
+    }
     setAttachment(null);
-  }, []);
+    setAttachmentPreviewUrl(null);
+  }, [attachmentPreviewUrl]);
 
   // ── Send message handler ──────────────────────────────────────────────────
   const handleSend = useCallback(() => {
@@ -403,8 +699,12 @@ export default function BienBotPanel({
       inputValueRef.current = '';
     }
     resetTextareaHeight();
+    if (attachmentPreviewUrl) {
+      URL.revokeObjectURL(attachmentPreviewUrl);
+      setAttachmentPreviewUrl(null);
+    }
     setAttachment(null);
-  }, [isStreaming, isLoading, sendMessage, attachment, resetTextareaHeight]);
+  }, [isStreaming, isLoading, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl]);
 
   // Keyboard submit (Enter without Shift)
   const handleKeyDown = useCallback(
@@ -434,24 +734,39 @@ export default function BienBotPanel({
 
   // ── Action execute/cancel ─────────────────────────────────────────────────
   const handleExecuteAction = useCallback(
-    (actionId) => {
+    async (actionId) => {
       logger.debug('[BienBotPanel] Executing action', { actionId });
 
-      // Check if it's a navigate action
+      // Check if it's a navigate action (client-only, no server call)
       const action = pendingActions.find(a => (a._id || a.id) === actionId);
       if (action && action.type === 'navigate_to_entity') {
         const url = action.payload?.url;
         if (url) {
           navigate(url);
-          // Remove from pending without server call
           cancelAction(actionId);
           return;
         }
       }
 
-      executeActions([actionId]);
+      const result = await executeActions([actionId]);
+
+      // Auto-navigate to newly created entities (panel stays open)
+      if (result?.results) {
+        for (const actionResult of result.results) {
+          const navUrl = getNavigationUrlForResult(actionResult);
+          if (navUrl) {
+            navigate(navUrl);
+            break; // Only navigate once
+          }
+        }
+      }
+
+      // Contextual enrichment: render tip suggestions after destination creation
+      if (result?.enrichment) {
+        appendStructuredContent(result.enrichment);
+      }
     },
-    [executeActions, pendingActions, cancelAction, navigate]
+    [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent]
   );
 
   const handleCancelAction = useCallback(
@@ -460,6 +775,55 @@ export default function BienBotPanel({
       cancelAction(actionId);
     },
     [cancelAction]
+  );
+
+  // ── Workflow step handlers ────────────────────────────────────────────────
+  const handleApproveStep = useCallback(
+    async (actionId) => {
+      logger.debug('[BienBotPanel] Approving workflow step', { actionId });
+      const result = await approveStep(actionId);
+
+      // Auto-navigate when the step creates an entity
+      if (result?.action?.result) {
+        const navUrl = getNavigationUrlForResult(result.action);
+        if (navUrl) navigate(navUrl);
+      }
+
+      // Contextual enrichment from step execution (e.g. tips after destination creation)
+      if (result?.enrichment) {
+        appendStructuredContent(result.enrichment);
+      }
+    },
+    [approveStep, navigate, appendStructuredContent]
+  );
+
+  const handleSkipStep = useCallback(
+    (actionId) => {
+      logger.debug('[BienBotPanel] Skipping workflow step', { actionId });
+      skipStep(actionId);
+    },
+    [skipStep]
+  );
+
+  const handleEditStep = useCallback(
+    async (actionId, newPayload) => {
+      logger.debug('[BienBotPanel] Editing workflow step', { actionId });
+      const result = await editStep(actionId, newPayload);
+
+      if (result?.action?.result) {
+        const navUrl = getNavigationUrlForResult(result.action);
+        if (navUrl) navigate(navUrl);
+      }
+    },
+    [editStep, navigate]
+  );
+
+  const handleCancelWorkflow = useCallback(
+    (workflowId) => {
+      logger.debug('[BienBotPanel] Cancelling workflow', { workflowId });
+      cancelWorkflow(workflowId);
+    },
+    [cancelWorkflow]
   );
 
   // ── Backdrop click closes panel ───────────────────────────────────────────
@@ -536,6 +900,31 @@ export default function BienBotPanel({
               </Text>
             )}
           </div>
+
+          {!notificationOnly && currentSession && (
+            <div className={styles.shareWrapper}>
+              <button
+                type="button"
+                className={styles.newChatButton}
+                onClick={() => setShareOpen(prev => !prev)}
+                aria-label="Share session"
+                title="Share session"
+              >
+                <ShareIcon />
+                {(currentSession.shared_with || []).length > 0 && (
+                  <span className={styles.shareBadge}>{currentSession.shared_with.length}</span>
+                )}
+              </button>
+              <SessionSharePopover
+                open={shareOpen}
+                onClose={() => setShareOpen(false)}
+                sharedWith={currentSession.shared_with}
+                onShare={shareSession}
+                onUnshare={unshareSession}
+                isOwner={isSessionOwner}
+              />
+            </div>
+          )}
 
           {!notificationOnly && messages.length > 0 && (
             <button
@@ -628,15 +1017,66 @@ export default function BienBotPanel({
                     >
                       {isUser && msg.attachments?.length > 0 && (
                         <div className={styles.messageAttachments}>
-                          {msg.attachments.map((att, i) => (
-                            <span key={i} className={styles.attachmentBadge}>
-                              <AttachIcon />
-                              <span className={styles.attachmentFilename}>{att.filename}</span>
-                            </span>
-                          ))}
+                          {msg.attachments.map((att, i) => {
+                            const isImage = att.mimeType?.startsWith('image/');
+                            if (isImage && att.s3Key) {
+                              return (
+                                <ImageAttachment
+                                  key={i}
+                                  attachment={att}
+                                  sessionId={currentSession?._id}
+                                  messageIndex={messages.indexOf(msg)}
+                                  attachmentIndex={i}
+                                />
+                              );
+                            }
+                            return (
+                              <span key={i} className={styles.attachmentBadge}>
+                                <AttachIcon />
+                                <span className={styles.attachmentFilename}>{att.filename}</span>
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                       {msg.content}
+                      {msg.structured_content?.length > 0 && (
+                        <div className={styles.structuredContent}>
+                          {msg.structured_content.map((block, blockIdx) => {
+                            if (block.type === 'suggestion_list') {
+                              return (
+                                <SuggestionList
+                                  key={blockIdx}
+                                  data={block.data}
+                                  onAddSelected={handleAddSuggestedItems}
+                                  disabled={isLoading || isStreaming}
+                                />
+                              );
+                            }
+                            if (block.type === 'photo_gallery') {
+                              return (
+                                <BienBotPhotoGallery
+                                  key={blockIdx}
+                                  data={block.data}
+                                  onAddPhotos={handleAddPhotos}
+                                  disabled={isLoading || isStreaming}
+                                />
+                              );
+                            }
+                            if (block.type === 'tip_suggestion_list') {
+                              return (
+                                <TipSuggestionList
+                                  key={blockIdx}
+                                  data={block.data}
+                                  onAddSelected={handleAddTips}
+                                  disabled={isLoading || isStreaming}
+                                />
+                              );
+                            }
+                            return null;
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -655,19 +1095,63 @@ export default function BienBotPanel({
             </div>
 
             {/* ── Pending action cards ────────────────────────────── */}
-            {pendingActions.length > 0 && (
-              <div className={styles.actionsContainer}>
-                {pendingActions.map((action) => (
-                  <ActionCard
-                    key={action._id || action.id}
-                    action={action}
-                    onExecute={handleExecuteAction}
-                    onCancel={handleCancelAction}
-                    disabled={isLoading || isStreaming}
-                  />
-                ))}
-              </div>
-            )}
+            {pendingActions.length > 0 && (() => {
+              // Separate regular actions from workflow steps and plan pickers
+              const regularActions = [];
+              const planPickerActions = [];
+              const workflowGroups = new Map();
+
+              for (const action of pendingActions) {
+                if (action.workflow_id) {
+                  const group = workflowGroups.get(action.workflow_id) || [];
+                  group.push(action);
+                  workflowGroups.set(action.workflow_id, group);
+                } else if (action.type === 'select_plan') {
+                  planPickerActions.push(action);
+                } else {
+                  regularActions.push(action);
+                }
+              }
+
+              return (
+                <div className={styles.actionsContainer}>
+                  {/* Plan picker (select_plan disambiguation) */}
+                  {planPickerActions.length > 0 && (
+                    <PlanSelector
+                      actions={planPickerActions}
+                      onExecute={handleExecuteAction}
+                      onCancel={handleCancelAction}
+                      disabled={isLoading || isStreaming}
+                    />
+                  )}
+
+                  {/* Workflow step cards */}
+                  {[...workflowGroups.entries()].map(([wfId, steps]) => (
+                    <WorkflowStepCard
+                      key={wfId}
+                      workflowId={wfId}
+                      steps={steps}
+                      onApprove={handleApproveStep}
+                      onSkip={handleSkipStep}
+                      onEdit={handleEditStep}
+                      onCancelWorkflow={handleCancelWorkflow}
+                      disabled={isLoading || isStreaming}
+                    />
+                  ))}
+
+                  {/* Regular (non-workflow) action cards */}
+                  {regularActions.map((action) => (
+                    <ActionCard
+                      key={action._id || action.id}
+                      action={action}
+                      onExecute={handleExecuteAction}
+                      onCancel={handleCancelAction}
+                      disabled={isLoading || isStreaming}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* ── Suggested action chips ───────────────────────────── */}
             {visibleChips.length > 0 && (
@@ -704,8 +1188,15 @@ export default function BienBotPanel({
             {/* ── Input area ──────────────────────────────────────── */}
             {attachment && (
               <div className={styles.attachmentPreview}>
+                {attachmentPreviewUrl && (
+                  <img
+                    src={attachmentPreviewUrl}
+                    alt={attachment.name}
+                    className={styles.attachmentPreviewThumb}
+                  />
+                )}
                 <span className={styles.attachmentPreviewName}>
-                  <AttachIcon />
+                  {!attachmentPreviewUrl && <AttachIcon />}
                   {attachment.name}
                 </span>
                 <button
@@ -780,5 +1271,6 @@ BienBotPanel.propTypes = {
   notificationOnly: PropTypes.bool,
   notifications: PropTypes.array,
   unseenNotificationIds: PropTypes.array,
-  onMarkNotificationsSeen: PropTypes.func
+  onMarkNotificationsSeen: PropTypes.func,
+  initialMessage: PropTypes.string
 };
