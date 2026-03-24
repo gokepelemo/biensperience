@@ -851,119 +851,157 @@ function generateMatchReason(candidate, weights, categories) {
 /**
  * Build a discovery context block for cross-dimensional queries.
  *
- * Uses MongoDB aggregation on plans + experience activity types to find
- * popular experiences matching the given filters.
+ * Uses collaborative filtering to discover experiences planned by similar users.
+ * Two-stage pipeline: find similar users → find co-occurring experiences → rank.
  *
- * @param {object} filters - { activity_types?, destination_name?, destination_id?, min_plans?, max_cost?, sort_by? }
- * @param {string} userId
- * @param {object} [options]
- * @returns {Promise<string|null>}
+ * @param {Object} filters - { activity_types, destination_id, destination_name, max_cost, cross_destination, min_plans }
+ * @param {string} userId - Querying user's ID
+ * @param {Object} [options] - { limit }
+ * @returns {Promise<Object|null>} { contextBlock, results, query_metadata } or null if no results
  */
 async function buildDiscoveryContext(filters = {}, userId, options = {}) {
-  loadModels();
+  const { getCacheKey, createDiscoveryCache } = require('./discovery-cache');
+  const UserModel = require('../models/user');
+
+  const limit = options.limit || 8;
+  const cacheKey = getCacheKey(filters);
+  const cache = createDiscoveryCache();
 
   try {
-    // Expand semantic categories into activity types
-    let activityTypes = filters.activity_types || [];
-    const expanded = [];
-    for (const at of activityTypes) {
-      const mapped = SEMANTIC_ACTIVITY_MAP[at.toLowerCase()];
-      if (mapped) expanded.push(...mapped);
-      else expanded.push(at.toLowerCase());
-    }
-    activityTypes = [...new Set(expanded)];
+    // Check cache
+    let candidates = await cache.get(cacheKey);
+    let cacheHit = !!candidates;
 
-    // Build match stage for plans
-    const planMatch = {};
-
-    // Resolve destination filter
-    if (filters.destination_id) {
-      planMatch['experience_populated.destination'] = require('mongoose').Types.ObjectId.createFromHexString(filters.destination_id);
-    } else if (filters.destination_name) {
-      const destMatches = await Destination.find({
-        name: { $regex: filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
-      }).select('_id').limit(10).lean();
-      if (destMatches.length > 0) {
-        planMatch['experience_populated.destination'] = { $in: destMatches.map(d => d._id) };
+    if (!candidates) {
+      // Stage 1: Find similar users
+      const similarUsers = await findSimilarUsers(filters, userId);
+      if (!similarUsers.length) {
+        logger.debug('[bienbot-context] No similar users found', { filters, userId });
+        return null;
       }
-    }
 
-    // Aggregation pipeline
-    const pipeline = [
-      // Lookup experience data
-      { $lookup: {
-        from: 'experiences',
-        localField: 'experience',
-        foreignField: '_id',
-        as: 'experience_populated'
-      }},
-      { $unwind: '$experience_populated' },
-      // Only public experiences
-      { $match: { 'experience_populated.visibility': { $ne: 'private' }, ...planMatch } }
-    ];
-
-    // Filter by activity types if specified
-    if (activityTypes.length > 0) {
-      pipeline.push({
-        $match: {
-          'experience_populated.plan_items.activity_type': { $in: activityTypes }
-        }
-      });
-    }
-
-    // Max cost filter
-    if (filters.max_cost) {
-      pipeline.push({
-        $match: { 'experience_populated.cost_estimate': { $lte: filters.max_cost } }
-      });
-    }
-
-    // Group by experience, count plans
-    pipeline.push(
-      { $group: {
-        _id: '$experience_populated._id',
-        name: { $first: '$experience_populated.name' },
-        destination: { $first: '$experience_populated.destination' },
-        overview: { $first: '$experience_populated.overview' },
-        experience_type: { $first: '$experience_populated.experience_type' },
-        cost_estimate: { $first: '$experience_populated.cost_estimate' },
-        plan_count: { $sum: 1 }
-      }},
-      // Min plans filter
-      { $match: { plan_count: { $gte: filters.min_plans || 1 } } },
-      // Sort
-      { $sort: { plan_count: -1 } },
-      { $limit: 8 }
-    );
-
-    // Populate destination names
-    pipeline.push({
-      $lookup: {
-        from: 'destinations',
-        localField: 'destination',
-        foreignField: '_id',
-        as: 'destination_doc'
+      // Stage 2: Find co-occurring experiences
+      candidates = await findCoOccurringExperiences(similarUsers, filters, userId);
+      if (!candidates.length) {
+        logger.debug('[bienbot-context] No co-occurring experiences found', { filters, userId });
+        return null;
       }
+
+      await cache.set(cacheKey, candidates);
+    }
+
+    // Fetch user's hidden signals for personalized ranking
+    let signals = null;
+    try {
+      const user = await UserModel.findById(userId).select('hidden_signals').lean();
+      if (user?.hidden_signals) {
+        signals = applySignalDecay(user.hidden_signals);
+      }
+    } catch (err) {
+      logger.warn('[bienbot-context] Failed to fetch user signals for ranking', { userId, error: err.message });
+    }
+
+    // Compute adaptive weights
+    const weights = computeAdaptiveWeights(signals);
+
+    const allCosts = candidates.map(c => c.cost_estimate).filter(Boolean);
+    const maxCoOccurrence = Math.max(...candidates.map(c => c.co_occurrence_count), 1);
+    const maxCollaborators = Math.max(...candidates.map(c => c.collaborator_count), 1);
+
+    // Score and rank
+    const scored = candidates.map(c => {
+      const recencyScore = computeRecencyScore(c.latest_planned_date);
+      const relevanceScore =
+        weights.plan_count * normalizeCount(c.co_occurrence_count, maxCoOccurrence) +
+        weights.completion_rate * (c.avg_completion_rate || 0) +
+        weights.recency * recencyScore +
+        weights.collaborators * normalizeCount(c.collaborator_count, maxCollaborators) +
+        weights.cost_alignment * computeCostAlignment(c.cost_estimate, signals, allCosts);
+
+      const matchReason = generateMatchReason(
+        { ...c, recency_score: recencyScore },
+        weights,
+        filters.activity_types
+      );
+
+      return {
+        experience_id: c.experience_id.toString(),
+        experience_name: c.experience_name,
+        destination_name: c.destination_name,
+        destination_id: c.destination_id?.toString(),
+        activity_types: c.activity_types || [],
+        cost_estimate: c.cost_estimate,
+        plan_count: c.co_occurrence_count,
+        completion_rate: c.avg_completion_rate,
+        collaborator_count: c.collaborator_count,
+        relevance_score: Math.round(relevanceScore * 1000) / 1000,
+        match_reason: matchReason,
+        default_photo_url: c.default_photo_url
+      };
     });
 
-    const results = await Plan.aggregate(pipeline);
+    scored.sort((a, b) => b.relevance_score - a.relevance_score);
+    const results = scored.slice(0, limit);
 
-    if (results.length === 0) return null;
+    if (!results.length) return null;
 
-    const lines = ['[DISCOVERY RESULTS]'];
-    for (const r of results) {
-      const destName = r.destination_doc?.[0]?.name || '';
-      const types = r.experience_type?.join(', ') || '';
-      const costStr = r.cost_estimate ? ` ~$${r.cost_estimate}` : '';
-      lines.push(`- ${r.name}${destName ? ` (${destName})` : ''}${costStr} — ${r.plan_count} plan${r.plan_count !== 1 ? 's' : ''}${types ? ` [${types}]` : ''}`);
+    const contextBlock = formatDiscoveryContextBlock(results, filters);
+
+    // Signal feedback (fire-and-forget)
+    try {
+      const expandedTypes = expandActivityTypes(filters.activity_types);
+      const { processSignalEvent } = require('./hidden-signals');
+      processSignalEvent(userId, {
+        type: 'search',
+        metadata: {
+          source: 'discovery',
+          activity_type: expandedTypes[0] || null,
+          all_activity_types: expandedTypes,
+          result_count: results.length
+        }
+      });
+    } catch (e) {
+      // Silently ignore signal event errors
     }
-    lines.push('[/DISCOVERY RESULTS]');
 
-    return trimToTokenBudget(lines.join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
+    logger.info('[bienbot-context] buildDiscoveryContext completed', {
+      userId,
+      resultCount: results.length,
+      cacheHit,
+      crossDestination: !!(filters.cross_destination || (!filters.destination_id && !filters.destination_name))
+    });
+
+    return {
+      contextBlock,
+      results,
+      query_metadata: {
+        filters_applied: filters,
+        cache_hit: cacheHit,
+        result_count: results.length,
+        cross_destination: !!(filters.cross_destination || (!filters.destination_id && !filters.destination_name))
+      }
+    };
   } catch (err) {
     logger.error('[bienbot-context] buildDiscoveryContext failed', { error: err.message });
     return null;
   }
+}
+
+/**
+ * Format discovery results into a text context block for the LLM.
+ */
+function formatDiscoveryContextBlock(results, filters) {
+  const header = filters.activity_types?.length
+    ? `Discovery results for ${filters.activity_types.join(', ')} experiences`
+    : 'Discovery results';
+
+  const lines = results.map((r, i) =>
+    `${i + 1}. ${r.experience_name} (${r.destination_name}) - ` +
+    `${r.plan_count} plans, ${Math.round((r.completion_rate || 0) * 100)}% completion, ` +
+    `cost: ${r.cost_estimate || 'N/A'} - ${r.match_reason}`
+  );
+
+  return `[DISCOVERY RESULTS]\n${header}:\n${lines.join('\n')}\n[/DISCOVERY RESULTS]`;
 }
 
 /**
@@ -1242,5 +1280,6 @@ module.exports = {
   generateMatchReason,
   // Two-stage collaborative filtering pipeline
   findSimilarUsers,
-  findCoOccurringExperiences
+  findCoOccurringExperiences,
+  formatDiscoveryContextBlock
 };

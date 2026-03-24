@@ -256,3 +256,77 @@ describe('findCoOccurringExperiences', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildDiscoveryContext tests
+// ---------------------------------------------------------------------------
+
+const { buildDiscoveryContext } = require('../../utilities/bienbot-context-builders');
+const { resetDiscoveryCache } = require('../../utilities/discovery-cache');
+
+describe('buildDiscoveryContext (full pipeline)', () => {
+  beforeEach(async () => {
+    resetDiscoveryCache();
+    // Clear MongoDB cache collection so each test starts cold
+    const DiscoveryCacheModel = require('../../models/discovery-cache');
+    await DiscoveryCacheModel.deleteMany({});
+  });
+
+  test('returns structured results with text context', async () => {
+    const result = await buildDiscoveryContext(
+      { activity_types: ['culinary'] },
+      queryingUser._id.toString()
+    );
+    expect(result).toBeTruthy();
+    expect(result.results).toBeDefined();
+    expect(result.contextBlock).toBeDefined();
+    expect(result.query_metadata).toBeDefined();
+    expect(result.query_metadata.result_count).toBeGreaterThanOrEqual(0);
+  });
+
+  test('returns cache_hit: false on first call, true on second', async () => {
+    const result1 = await buildDiscoveryContext(
+      { activity_types: ['culinary'] },
+      queryingUser._id.toString()
+    );
+    expect(result1.query_metadata.cache_hit).toBe(false);
+
+    const result2 = await buildDiscoveryContext(
+      { activity_types: ['culinary'] },
+      queryingUser._id.toString()
+    );
+    expect(result2.query_metadata.cache_hit).toBe(true);
+  });
+
+  test('returns null when no matches found', async () => {
+    const result = await buildDiscoveryContext(
+      { activity_types: ['nonexistent_category'] },
+      queryingUser._id.toString()
+    );
+    expect(result).toBeNull();
+  });
+
+  test('supports cross-destination discovery', async () => {
+    const result = await buildDiscoveryContext(
+      { activity_types: ['culinary'], cross_destination: true },
+      queryingUser._id.toString()
+    );
+    expect(result).toBeTruthy();
+    expect(result.query_metadata.cross_destination).toBe(true);
+  });
+
+  test('results have required structured fields', async () => {
+    const result = await buildDiscoveryContext(
+      { activity_types: ['culinary'] },
+      queryingUser._id.toString()
+    );
+    if (result && result.results.length > 0) {
+      const item = result.results[0];
+      expect(item).toHaveProperty('experience_id');
+      expect(item).toHaveProperty('experience_name');
+      expect(item).toHaveProperty('destination_name');
+      expect(item).toHaveProperty('relevance_score');
+      expect(item).toHaveProperty('match_reason');
+    }
+  });
+});
