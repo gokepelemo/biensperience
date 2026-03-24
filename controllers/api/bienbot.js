@@ -760,6 +760,18 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
       }
       return null;
 
+    case 'discover_content':
+      if (result.results && result.results.length > 0) {
+        return {
+          type: 'discovery_result_list',
+          data: {
+            results: result.results,
+            query_metadata: result.query_metadata || {}
+          }
+        };
+      }
+      return null;
+
     default:
       return null;
   }
@@ -1349,6 +1361,7 @@ exports.chat = async (req, res) => {
   // immediately without confirmation and produce structured_content blocks.
   const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
   const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
+  const hasDiscoveryAction = readOnlyActions.some(a => a.type === 'discover_content');
   const structuredContent = [];
 
   if (readOnlyActions.length > 0) {
@@ -1485,6 +1498,14 @@ exports.chat = async (req, res) => {
     };
   }
   sendSSE(res, 'session', sessionEvent);
+
+  // Emit discovery skeleton sentinel before token chunks so the frontend can
+  // show placeholder cards while the assistant message streams in.
+  if (hasDiscoveryAction) {
+    sendSSE(res, 'structured_content', {
+      blocks: [{ type: 'discovery_result_list', data: null }]
+    });
+  }
 
   // Stream the message in adaptive chunks for progressive rendering.
   // Chunks split at word/sentence boundaries (min ~20 chars, max ~200 chars).

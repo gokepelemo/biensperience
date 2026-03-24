@@ -180,14 +180,32 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         },
 
         onStructuredContent: (blocks) => {
-          // Attach structured content blocks to the current assistant message
+          // Attach structured content blocks to the current assistant message.
+          // discovery_result_list blocks replace any existing sentinel (data===null)
+          // in-place so the skeleton transitions to real content without flickering.
           if (blocks && blocks.length > 0) {
             setMessages(prev =>
-              prev.map(m =>
-                m._id === assistantMessageId
-                  ? { ...m, structured_content: [...(m.structured_content || []), ...blocks] }
-                  : m
-              )
+              prev.map(m => {
+                if (m._id !== assistantMessageId) return m;
+                let existing = m.structured_content || [];
+                let updated = [...existing];
+                for (const block of blocks) {
+                  if (block.type === 'discovery_result_list') {
+                    const sentinelIdx = updated.findIndex(
+                      b => b.type === 'discovery_result_list' && b.data === null
+                    );
+                    if (sentinelIdx !== -1) {
+                      updated = [...updated];
+                      updated[sentinelIdx] = block;
+                    } else {
+                      updated = [...updated, block];
+                    }
+                  } else {
+                    updated = [...updated, block];
+                  }
+                }
+                return { ...m, structured_content: updated };
+              })
             );
           }
         },

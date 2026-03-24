@@ -27,6 +27,7 @@ import PlanSelector from './PlanSelector';
 import SuggestionList from './SuggestionList';
 import TipSuggestionList from './TipSuggestionList';
 import BienBotPhotoGallery from './BienBotPhotoGallery';
+import DiscoveryResultCard from './DiscoveryResultCard';
 import { getAttachmentUrl } from '../../utilities/bienbot-api';
 import styles from './BienBotPanel.module.css';
 
@@ -540,6 +541,24 @@ export default function BienBotPanel({
       const tipValues = tips.map(t => t.value).filter(Boolean);
       if (!tipValues.length) return;
       sendMessage(`Add these travel tips: ${tipValues.join('; ')}`);
+    },
+    [sendMessage, isStreaming, isLoading]
+  );
+
+  // ── Handle viewing a discovery result ──────────────────────────────────
+  const handleViewDiscoveryResult = useCallback(
+    (experienceId) => {
+      if (!experienceId) return;
+      navigate(`/experiences/${experienceId}`);
+    },
+    [navigate]
+  );
+
+  // ── Handle planning a discovery result ─────────────────────────────────
+  const handlePlanDiscoveryResult = useCallback(
+    (experienceName, experienceId) => {
+      if (!experienceName || isStreaming || isLoading) return;
+      sendMessage(`Plan \`${experienceName}\` (experience ID: ${experienceId})`);
     },
     [sendMessage, isStreaming, isLoading]
   );
@@ -1069,6 +1088,17 @@ export default function BienBotPanel({
                                   key={blockIdx}
                                   data={block.data}
                                   onAddSelected={handleAddTips}
+                                  disabled={isLoading || isStreaming}
+                                />
+                              );
+                            }
+                            if (block.type === 'discovery_result_list') {
+                              return (
+                                <DiscoveryResultCard
+                                  key={blockIdx}
+                                  data={block.data}
+                                  onView={handleViewDiscoveryResult}
+                                  onPlan={handlePlanDiscoveryResult}
                                   disabled={isLoading || isStreaming}
                                 />
                               );

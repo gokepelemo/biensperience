@@ -75,6 +75,8 @@ const {
   fetchEntityPhotos,
   addEntityPhotos,
   fetchWikivoyageTips,
+  fetchWikivoyagePlanItems,
+  extractPlanItemCandidates,
   fetchGoogleMapsTips,
   fetchTravelData,
   enrichDestination,
@@ -350,6 +352,113 @@ describe('bienbot-external-data', () => {
 
       const result = await suggestPlanItems({ destination_id: VALID_ID }, mockUser);
       expect(result.body.data.suggestions[0].sources.length).toBeLessThanOrEqual(3);
+    });
+
+    it('appends Wikivoyage items when community suggestions are fewer than limit', async () => {
+      Destination.findById.mockReturnValue(chainable({ _id: VALID_ID, name: 'Kyoto' }));
+      Experience.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            lean: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      });
+      delete process.env.GOOGLE_MAPS_API_KEY;
+
+      // Wikivoyage sections response
+      const sectionsResponse = { parse: { sections: [{ line: 'See', index: '1' }] } };
+      const seeContent = { parse: { text: { '*': '<span class="listing-name">Nijo Castle</span>' } } };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(seeContent));
+
+      const result = await suggestPlanItems({ destination_id: VALID_ID, limit: 5 }, mockUser);
+      expect(result.statusCode).toBe(200);
+      const wvSuggestions = result.body.data.suggestions.filter(s => s.source_type === 'wikivoyage');
+      expect(wvSuggestions.length).toBeGreaterThan(0);
+      expect(wvSuggestions[0]).toMatchObject({
+        sources: ['Wikivoyage'],
+        source_type: 'wikivoyage',
+        frequency: 0,
+      });
+    });
+
+    it('does not call Wikivoyage when community suggestions already fill the limit', async () => {
+      // 3 experiences each contributing a unique item → fills limit=3 from community
+      Destination.findById.mockReturnValue(chainable({ _id: VALID_ID, name: 'Tokyo' }));
+      const experiences = [
+        { name: 'Trip A', plan_items: [{ content: 'Shibuya Crossing' }] },
+        { name: 'Trip B', plan_items: [{ content: 'Senso-ji Temple' }] },
+        { name: 'Trip C', plan_items: [{ content: 'Akihabara Electric Town Walk' }] },
+      ];
+      Experience.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            lean: jest.fn().mockResolvedValue(experiences),
+          }),
+        }),
+      });
+      delete process.env.GOOGLE_MAPS_API_KEY;
+      global.fetch = jest.fn();
+
+      const result = await suggestPlanItems({ destination_id: VALID_ID, limit: 3 }, mockUser);
+      expect(result.statusCode).toBe(200);
+      // fetch should not have been called for Wikivoyage
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('deduplicates Wikivoyage items against community suggestions', async () => {
+      Destination.findById.mockReturnValue(chainable({ _id: VALID_ID, name: 'Kyoto' }));
+      const experiences = [
+        { name: 'Trip A', plan_items: [{ content: 'Nijo Castle' }] },
+      ];
+      Experience.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            lean: jest.fn().mockResolvedValue(experiences),
+          }),
+        }),
+      });
+      delete process.env.GOOGLE_MAPS_API_KEY;
+
+      // Wikivoyage returns the same item name as the community suggestion
+      const sectionsResponse = { parse: { sections: [{ line: 'See', index: '1' }] } };
+      const seeContent = { parse: { text: { '*': '<span class="listing-name">Nijo Castle</span>' } } };
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(seeContent));
+
+      const result = await suggestPlanItems({ destination_id: VALID_ID, limit: 10 }, mockUser);
+      const allNames = result.body.data.suggestions.map(s => s.text.toLowerCase());
+      const uniqueNames = new Set(allNames);
+      expect(allNames.length).toBe(uniqueNames.size);
+    });
+
+    it('deduplicates Wikivoyage items against exclude_items', async () => {
+      Destination.findById.mockReturnValue(chainable({ _id: VALID_ID, name: 'Kyoto' }));
+      Experience.find.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            lean: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      });
+      delete process.env.GOOGLE_MAPS_API_KEY;
+
+      const sectionsResponse = { parse: { sections: [{ line: 'See', index: '1' }] } };
+      const seeContent = { parse: { text: { '*': '<span class="listing-name">Kinkaku-ji</span>' } } };
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(seeContent));
+
+      const result = await suggestPlanItems({
+        destination_id: VALID_ID,
+        exclude_items: ['Kinkaku-ji'],
+        limit: 10
+      }, mockUser);
+      const names = result.body.data.suggestions.map(s => s.text.toLowerCase());
+      expect(names).not.toContain('kinkaku-ji');
     });
   });
 
@@ -743,6 +852,233 @@ describe('bienbot-external-data', () => {
 
       const tips = await fetchWikivoyageTips('Paris', { maxTotalTips: 3 });
       expect(tips.length).toBeLessThanOrEqual(3);
+    });
+  });
+
+  // =========================================================================
+  // extractPlanItemCandidates
+  // =========================================================================
+
+  describe('extractPlanItemCandidates()', () => {
+    it('extracts name and description from listing-name/listing-description spans (Tier 1)', () => {
+      const html = `
+        <ul>
+          <li><span class="listing-name">Fushimi Inari</span> — <span class="listing-description">Famous for thousands of vermilion torii gates lining forested trails</span></li>
+          <li><span class="listing-name">Kinkaku-ji</span> — <span class="listing-description">The iconic Golden Pavilion reflected in its surrounding pond</span></li>
+        </ul>`;
+      const results = extractPlanItemCandidates(html, 'see');
+      expect(results).toHaveLength(2);
+      expect(results[0]).toMatchObject({
+        name: 'Fushimi Inari',
+        description: 'Famous for thousands of vermilion torii gates lining forested trails',
+        activity_type: 'sightseeing',
+      });
+      expect(results[1].name).toBe('Kinkaku-ji');
+    });
+
+    it('falls back to separator split on plain text when no listing spans found (Tier 2)', () => {
+      const html = '<p>Nijo Castle – A UNESCO World Heritage Site with beautiful gardens and nightingale floors.</p>';
+      const results = extractPlanItemCandidates(html, 'see');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toMatch(/Nijo Castle/);
+      expect(results[0].description.length).toBeGreaterThan(10);
+    });
+
+    it('falls back to name-only when no separator is found in Tier 2 line', () => {
+      const html = '<p>Arashiyama Bamboo Grove</p>';
+      const results = extractPlanItemCandidates(html, 'do');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].name).toContain('Arashiyama Bamboo Grove');
+      expect(results[0].description).toBe('');
+    });
+
+    it('skips lines longer than 300 characters in Tier 2', () => {
+      const longLine = 'A'.repeat(301);
+      const html = `<p>${longLine}</p>`;
+      const results = extractPlanItemCandidates(html, 'see');
+      expect(results).toHaveLength(0);
+    });
+
+    it('caps results at PLAN_ITEM_MAX_PER_SECTION for the given section', () => {
+      // 'see' max is 6
+      const items = Array.from({ length: 10 }, (_, i) =>
+        `<span class="listing-name">Place ${i}</span>`);
+      const html = `<ul>${items.join('')}</ul>`;
+      const results = extractPlanItemCandidates(html, 'see');
+      expect(results.length).toBeLessThanOrEqual(6);
+    });
+
+    it('maps section key to correct activity_type', () => {
+      const html = '<span class="listing-name">Some Restaurant</span>';
+      expect(extractPlanItemCandidates(html, 'eat')[0].activity_type).toBe('food');
+      expect(extractPlanItemCandidates(html, 'do')[0].activity_type).toBe('adventure');
+      expect(extractPlanItemCandidates(html, 'drink')[0].activity_type).toBe('nightlife');
+      expect(extractPlanItemCandidates(html, 'buy')[0].activity_type).toBe('shopping');
+      expect(extractPlanItemCandidates(html, 'sleep')[0].activity_type).toBe('accommodation');
+    });
+
+    it('strips inner HTML tags from extracted name and description', () => {
+      const html = `
+        <span class="listing-name"><a href="/wiki/Kinkaku">Kinkaku-ji</a></span>
+        <span class="listing-description">See the <b>Golden Pavilion</b> at sunset</span>`;
+      const results = extractPlanItemCandidates(html, 'see');
+      expect(results[0].name).toBe('Kinkaku-ji');
+      expect(results[0].description).not.toMatch(/<[^>]+>/);
+    });
+  });
+
+  // =========================================================================
+  // fetchWikivoyagePlanItems
+  // =========================================================================
+
+  describe('fetchWikivoyagePlanItems()', () => {
+    beforeEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('returns structured items from See and Do sections', async () => {
+      const sectionsResponse = {
+        parse: {
+          sections: [
+            { line: 'See', index: '1' },
+            { line: 'Do', index: '2' },
+          ],
+        },
+      };
+      const seeContent = {
+        parse: {
+          text: {
+            '*': '<ul><li><span class="listing-name">Fushimi Inari</span><span class="listing-description">Famous torii gate trails on Mount Inari</span></li></ul>',
+          },
+        },
+      };
+      const doContent = {
+        parse: {
+          text: {
+            '*': '<ul><li><span class="listing-name">Tea Ceremony</span><span class="listing-description">Traditional matcha ceremony in a historic tea house</span></li></ul>',
+          },
+        },
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(seeContent))
+        .mockResolvedValueOnce(mockFetchResponse(doContent));
+
+      const items = await fetchWikivoyagePlanItems('Kyoto');
+
+      expect(items.length).toBe(2);
+      expect(items[0]).toMatchObject({
+        name: 'Fushimi Inari',
+        activity_type: 'sightseeing',
+        source_url: expect.stringContaining('Kyoto'),
+      });
+      expect(items[1]).toMatchObject({
+        name: 'Tea Ceremony',
+        activity_type: 'adventure',
+      });
+    });
+
+    it('ignores non-plan-item sections (get around, stay safe)', async () => {
+      const sectionsResponse = {
+        parse: {
+          sections: [
+            { line: 'Get around', index: '1' },
+            { line: 'Stay safe', index: '2' },
+            { line: 'See', index: '3' },
+          ],
+        },
+      };
+      const seeContent = {
+        parse: { text: { '*': '<span class="listing-name">Kyoto Tower</span>' } },
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(seeContent));
+
+      const items = await fetchWikivoyagePlanItems('Kyoto');
+
+      // Should only have the See section item, not Get around / Stay safe
+      expect(items).toHaveLength(1);
+      expect(items[0].activity_type).toBe('sightseeing');
+    });
+
+    it('deduplicates items appearing in multiple sections', async () => {
+      const sectionsResponse = {
+        parse: {
+          sections: [
+            { line: 'See', index: '1' },
+            { line: 'Do', index: '2' },
+          ],
+        },
+      };
+      // Same attraction name in both sections
+      const sharedContent = {
+        parse: { text: { '*': '<span class="listing-name">Nishiki Market</span>' } },
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(sharedContent))
+        .mockResolvedValueOnce(mockFetchResponse(sharedContent));
+
+      const items = await fetchWikivoyagePlanItems('Kyoto');
+      const names = items.map(i => i.name);
+      const unique = new Set(names.map(n => n.toLowerCase()));
+      expect(names.length).toBe(unique.size);
+    });
+
+    it('respects the maxTotal option', async () => {
+      const sectionsResponse = {
+        parse: {
+          sections: [{ line: 'See', index: '1' }, { line: 'Do', index: '2' }],
+        },
+      };
+      const manyItems = Array.from({ length: 10 }, (_, i) =>
+        `<span class="listing-name">Place ${i} with unique enough name</span>`).join('');
+      const content = { parse: { text: { '*': manyItems } } };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(content))
+        .mockResolvedValueOnce(mockFetchResponse(content));
+
+      const items = await fetchWikivoyagePlanItems('Paris', { maxTotal: 3 });
+      expect(items.length).toBeLessThanOrEqual(3);
+    });
+
+    it('returns empty array when destination page does not exist (404)', async () => {
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse({
+          error: { code: 'missingtitle', info: 'Page not found' },
+        }));
+
+      const items = await fetchWikivoyagePlanItems('NonexistentPlace99999');
+      expect(items).toEqual([]);
+    });
+
+    it('returns empty array on network failure without throwing', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      const items = await fetchWikivoyagePlanItems('Somewhere');
+      expect(items).toEqual([]);
+    });
+
+    it('includes section anchor in source_url', async () => {
+      const sectionsResponse = {
+        parse: { sections: [{ line: 'Eat', index: '1' }] },
+      };
+      const content = {
+        parse: { text: { '*': '<span class="listing-name">Nishiki Market</span>' } },
+      };
+
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(content));
+
+      const items = await fetchWikivoyagePlanItems('Kyoto');
+      expect(items[0].source_url).toContain('#Eat');
     });
   });
 

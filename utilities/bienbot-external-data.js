@@ -90,20 +90,6 @@ async function suggestPlanItems(payload, user) {
       .limit(50)
       .lean();
 
-    if (experiences.length === 0) {
-      return {
-        statusCode: 200,
-        body: {
-          success: true,
-          data: {
-            suggestions: [],
-            destination_name: destination.name,
-            source_count: 0
-          }
-        }
-      };
-    }
-
     // Aggregate plan items with frequency count and source attribution
     const itemFrequency = new Map(); // normalized text → { text, count, sources }
 
@@ -156,18 +142,104 @@ async function suggestPlanItems(payload, user) {
     // Rank by frequency (most commonly planned first)
     candidates.sort((a, b) => b.count - a.count);
 
-    // Return top N
+    // Build community-sourced suggestions
     const suggestions = candidates.slice(0, Math.min(limit, 20)).map(item => ({
       text: item.text,
       frequency: item.count,
       sources: item.sources.slice(0, 3), // Cap source names at 3
+      source_type: 'community',
       activity_type: item.activity_type,
       cost_estimate: item.cost_estimate
     }));
 
+    // Enrich with Google Maps POIs when a category is specified and slots remain
+    const { category } = payload;
+    let poiCount = 0;
+    if (category && process.env.GOOGLE_MAPS_API_KEY && suggestions.length < limit) {
+      const googlePlaces = await fetchGoogleMapsPlaces(destination.name, {
+        category,
+        maxResults: Math.min(10, limit - suggestions.length + 5)
+      });
+
+      const existingNormalized = candidates.map(c => c.normalized);
+      for (const place of googlePlaces) {
+        if (suggestions.length >= limit) break;
+        const norm = place.name.toLowerCase();
+        const isDuplicate =
+          existingNormalized.some(t =>
+            normalizedSimilarity(t, norm) > 0.8 || norm.includes(t) || t.includes(norm)
+          ) ||
+          excludeNormalized.some(ex =>
+            normalizedSimilarity(ex, norm) > 0.8 || norm.includes(ex) || ex.includes(norm)
+          );
+        if (!isDuplicate) {
+          suggestions.push({
+            text: place.name,
+            frequency: 0,
+            sources: ['Google Maps'],
+            source_type: 'google_maps',
+            activity_type: category,
+            cost_estimate: null,
+            metadata: {
+              rating: place.rating,
+              price_level: place.price_level,
+              address: place.address,
+              url: place.url
+            }
+          });
+          poiCount++;
+        }
+      }
+    }
+
+    // --- Tier 3: Wikivoyage structured plan items (no API key required) ---
+    let wikivoyageCount = 0;
+    if (suggestions.length < limit) {
+      const wvItems = await fetchWikivoyagePlanItems(destination.name, {
+        maxTotal: Math.min(10, limit - suggestions.length + 5)
+      });
+
+      const existingNormalized = [
+        ...candidates.map(c => c.normalized),
+        ...suggestions
+          .filter(s => s.source_type === 'google_maps')
+          .map(s => s.text.toLowerCase())
+      ];
+
+      for (const item of wvItems) {
+        if (suggestions.length >= limit) break;
+        const norm = item.name.toLowerCase();
+        const isDuplicate =
+          existingNormalized.some(t =>
+            normalizedSimilarity(t, norm) > 0.8 || norm.includes(t) || t.includes(norm)
+          ) ||
+          excludeNormalized.some(ex =>
+            normalizedSimilarity(ex, norm) > 0.8 || norm.includes(ex) || ex.includes(norm)
+          );
+        if (!isDuplicate) {
+          suggestions.push({
+            text: item.name,
+            frequency: 0,
+            sources: ['Wikivoyage'],
+            source_type: 'wikivoyage',
+            activity_type: item.activity_type,
+            cost_estimate: null,
+            metadata: {
+              description: item.description || null,
+              source_url: item.source_url
+            }
+          });
+          wikivoyageCount++;
+        }
+      }
+    }
+
     logger.info('[bienbot-external-data] Plan item suggestions generated', {
       destinationId: destination_id,
       candidateCount: candidates.length,
+      communityCount: suggestions.length - poiCount - wikivoyageCount,
+      poiCount,
+      wikivoyageCount,
       returnedCount: suggestions.length,
       sourceExperiences: experiences.length,
       userId: user._id.toString()
@@ -519,6 +591,54 @@ async function addEntityPhotos(payload, user) {
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// ---------------------------------------------------------------------------
+// Google Maps API budget tracking
+// ---------------------------------------------------------------------------
+
+/** Module-level counters for Google Maps API calls (reset daily). */
+const _googleMapsBudget = {
+  textSearch: 0,
+  photos: 0,
+  resetDate: null
+};
+
+/** Daily call limits — override via env vars to stay within billing budget. */
+const GOOGLE_MAPS_DAILY_LIMITS = {
+  textSearch: parseInt(process.env.GOOGLE_MAPS_DAILY_TEXT_SEARCH_LIMIT || '50', 10),
+  photos: parseInt(process.env.GOOGLE_MAPS_DAILY_PHOTO_LIMIT || '100', 10)
+};
+
+/**
+ * Check budget and increment the counter for a Google Maps API call type.
+ * Resets all counters at the start of each new calendar day.
+ *
+ * @param {'textSearch'|'photos'} type - Counter to check
+ * @returns {boolean} true if within budget, false if daily limit reached
+ */
+function checkAndBumpGoogleBudget(type) {
+  const today = new Date().toDateString();
+  if (_googleMapsBudget.resetDate !== today) {
+    _googleMapsBudget.textSearch = 0;
+    _googleMapsBudget.photos = 0;
+    _googleMapsBudget.resetDate = today;
+  }
+  const limit = GOOGLE_MAPS_DAILY_LIMITS[type];
+  if (limit && _googleMapsBudget[type] >= limit) {
+    return false;
+  }
+  _googleMapsBudget[type] = (_googleMapsBudget[type] || 0) + 1;
+  return true;
+}
+
+/**
+ * Get current Google Maps API budget usage for monitoring.
+ *
+ * @returns {{ textSearch: number, photos: number, resetDate: string|null, limits: { textSearch: number, photos: number } }}
+ */
+function getGoogleMapsBudget() {
+  return { ..._googleMapsBudget, limits: { ...GOOGLE_MAPS_DAILY_LIMITS } };
+}
+
 /**
  * Retry a function with exponential backoff.
  *
@@ -593,6 +713,40 @@ const WIKIVOYAGE_SECTION_MAP = {
 };
 
 /**
+ * Set of Wikivoyage section keys that map to actionable plan items.
+ * Sections not in this set (get around, stay safe, talk, etc.) produce travel
+ * tips via fetchWikivoyageTips but are not surfaced as plan item suggestions.
+ */
+const PLAN_ITEM_SECTIONS = new Set(['see', 'do', 'eat', 'drink', 'buy', 'sleep']);
+
+/**
+ * Maps plan-item Wikivoyage section keys to activity_type values used by the
+ * plan item data model. Kept separate from WIKIVOYAGE_SECTION_MAP to avoid
+ * coupling tip-rendering config (tipType, icon, maxTips) with plan semantics.
+ */
+const SECTION_ACTIVITY_TYPE = {
+  'see':   'sightseeing',
+  'do':    'adventure',
+  'eat':   'food',
+  'drink': 'nightlife',
+  'buy':   'shopping',
+  'sleep': 'accommodation',
+};
+
+/**
+ * Default maximum number of plan item candidates to extract per section.
+ * Prevents any one section from dominating the result set.
+ */
+const PLAN_ITEM_MAX_PER_SECTION = {
+  'see':   6,
+  'do':    6,
+  'eat':   5,
+  'drink': 3,
+  'buy':   3,
+  'sleep': 4,
+};
+
+/**
  * Strip HTML tags and decode common HTML entities.
  * Handles nested tags, self-closing tags, and common entities.
  *
@@ -641,6 +795,66 @@ function extractFragments(text, max) {
     .split(/(?<=[.!?])\s+/)
     .filter(s => s.length > 20 && s.length < 300)
     .slice(0, max);
+}
+
+/**
+ * Extract structured plan item candidates from a Wikivoyage section's HTML.
+ *
+ * Uses a two-tier strategy:
+ *   1. **Listing templates** (preferred): Wikivoyage's structured listing markup
+ *      uses `<span class="listing-name">` and `<span class="listing-description">`.
+ *      These are parsed with regex and paired positionally.
+ *   2. **Plain-text fallback**: When no listing spans are found, the HTML is
+ *      stripped to plain text, lines are split on common separators
+ *      (`. `, ` – `, ` — `, ` - `) and the left/right sides become name/description.
+ *
+ * @param {string} html        - Raw section HTML from the MediaWiki API
+ * @param {string} sectionKey  - Lowercase section name (e.g. 'see', 'do', 'eat')
+ * @returns {Array<{ name: string, description: string, activity_type: string|null }>}
+ */
+function extractPlanItemCandidates(html, sectionKey) {
+  const activityType = SECTION_ACTIVITY_TYPE[sectionKey] || null;
+  const maxItems = PLAN_ITEM_MAX_PER_SECTION[sectionKey] ?? 4;
+  const results = [];
+
+  // --- Tier 1: listing template extraction ---
+  const nameMatches = [...html.matchAll(/<span[^>]*class="listing-name"[^>]*>(.*?)<\/span>/gi)];
+  const descMatches = [...html.matchAll(/<span[^>]*class="listing-description"[^>]*>(.*?)<\/span>/gi)];
+
+  if (nameMatches.length > 0) {
+    for (let i = 0; i < nameMatches.length && results.length < maxItems; i++) {
+      const name = stripHtml(nameMatches[i][1]).trim();
+      if (!name) continue;
+      const description = descMatches[i] ? stripHtml(descMatches[i][1]).trim() : '';
+      results.push({ name, description, activity_type: activityType });
+    }
+    return results;
+  }
+
+  // --- Tier 2: plain-text line scan fallback ---
+  const plainText = stripHtml(html);
+  const lines = plainText
+    .split(/\n+/)
+    .map(l => l.replace(/^[\s•·\-–—*]+/, '').trim())
+    .filter(l => l.length >= 20 && l.length <= 300);
+
+  // Separator pattern: matches '. ', ' – ', ' — ', ' - ' as name/description split points
+  const SEPARATOR_RE = /^(.{1,80}?)(?:\.\s+|\s+[–—]\s+|\s+-\s+)(.{20,})$/;
+
+  for (const line of lines) {
+    if (results.length >= maxItems) break;
+    const match = line.match(SEPARATOR_RE);
+    if (match) {
+      const name = match[1].trim();
+      const description = match[2].trim();
+      if (name) results.push({ name, description, activity_type: activityType });
+    } else if (line.length <= 80) {
+      // Name-only line — no discernible description
+      results.push({ name: line, description: '', activity_type: activityType });
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -793,6 +1007,111 @@ async function fetchWikivoyageTips(destinationName, options = {}) {
   return summaryTips || [];
 }
 
+/**
+ * Fetch structured plan item candidates from Wikivoyage for a destination.
+ *
+ * Queries the MediaWiki section API (same endpoint as fetchWikivoyageTips) but
+ * limits processing to plan-item-relevant sections (See, Do, Eat, Drink, Buy,
+ * Sleep) and returns structured `{ name, description, activity_type, source_url }`
+ * objects rather than generic tip strings.
+ *
+ * Deduplicates across sections: if the same attraction name appears in both
+ * See and Do, only the first occurrence is kept.
+ *
+ * Free API — no API key required.
+ *
+ * @param {string} destinationName
+ * @param {object} [options]
+ * @param {number} [options.maxTotal=20] - Overall cap on items returned
+ * @returns {Promise<Array<{ name: string, description: string, activity_type: string|null, source_url: string }>>}
+ */
+async function fetchWikivoyagePlanItems(destinationName, options = {}) {
+  const { maxTotal = 20 } = options;
+  const encoded = encodeURIComponent(destinationName.replace(/\s+/g, '_'));
+  const pageUrl = `https://en.wikivoyage.org/wiki/${encoded}`;
+
+  const items = await withRetry(async (signal) => {
+    // Step 1: Fetch section index
+    const sectionsUrl = `https://en.wikivoyage.org/w/api.php?action=parse&page=${encoded}&prop=sections&format=json&redirects=1`;
+    const sectionsRes = await fetch(sectionsUrl, { signal, headers: { 'Accept': 'application/json' } });
+
+    if (!sectionsRes.ok) {
+      if (sectionsRes.status === 404) return [];
+      throw new Error(`Wikivoyage sections HTTP ${sectionsRes.status}`);
+    }
+
+    const sectionsData = await sectionsRes.json();
+    if (sectionsData.error) {
+      if (sectionsData.error.code === 'missingtitle') return [];
+      throw new Error(`Wikivoyage API error: ${sectionsData.error.info}`);
+    }
+
+    const sections = sectionsData.parse?.sections || [];
+    if (sections.length === 0) return [];
+
+    // Step 2: Filter to plan-item-relevant sections only
+    const relevantSections = sections
+      .filter(s => PLAN_ITEM_SECTIONS.has((s.line || '').toLowerCase().trim()))
+      .map(s => ({
+        sectionKey: s.line.toLowerCase().trim(),
+        sectionName: s.line,
+        sectionIndex: s.index
+      }));
+
+    if (relevantSections.length === 0) return [];
+
+    // Step 3: Fetch section content in batches (max 6 concurrent)
+    const batchSize = 6;
+    const allItems = [];
+    const seenNames = new Set(); // cross-section deduplication
+
+    for (let i = 0; i < relevantSections.length && allItems.length < maxTotal; i += batchSize) {
+      const batch = relevantSections.slice(i, i + batchSize);
+
+      const batchResults = await Promise.allSettled(
+        batch.map(async (sec) => {
+          const contentUrl = `https://en.wikivoyage.org/w/api.php?action=parse&page=${encoded}&prop=text&section=${sec.sectionIndex}&format=json&redirects=1&disabletoc=1`;
+          const contentRes = await fetch(contentUrl, { signal, headers: { 'Accept': 'application/json' } });
+
+          if (!contentRes.ok) return [];
+
+          const contentData = await contentRes.json();
+          const html = contentData.parse?.text?.['*'] || '';
+          if (!html) return [];
+
+          const candidates = extractPlanItemCandidates(html, sec.sectionKey);
+          const sectionAnchor = sec.sectionName.replace(/\s+/g, '_');
+          const sourceUrl = `${pageUrl}#${sectionAnchor}`;
+
+          return candidates
+            .filter(c => c.name.length > 0)
+            .map(c => ({ ...c, source_url: sourceUrl }));
+        })
+      );
+
+      for (const result of batchResults) {
+        if (result.status !== 'fulfilled' || !result.value) continue;
+        for (const item of result.value) {
+          if (allItems.length >= maxTotal) break;
+          const norm = item.name.toLowerCase();
+          // Cross-section deduplication using strict bigram similarity
+          const isDup = [...seenNames].some(seen =>
+            normalizedSimilarity(seen, norm) > 0.8 || norm.includes(seen) || seen.includes(norm)
+          );
+          if (!isDup) {
+            seenNames.add(norm);
+            allItems.push(item);
+          }
+        }
+      }
+    }
+
+    return allItems;
+  }, { label: 'wikivoyage-plan-items', timeoutMs: 12000 });
+
+  return items || [];
+}
+
 // ---------------------------------------------------------------------------
 // Unsplash provider (for destination enrichment)
 // ---------------------------------------------------------------------------
@@ -840,6 +1159,84 @@ async function fetchUnsplashPhotos(destinationName, count = 5) {
 // ---------------------------------------------------------------------------
 // Google Maps Places provider
 // ---------------------------------------------------------------------------
+
+/**
+ * Fetch specific POIs from Google Maps Text Search API for a destination.
+ *
+ * Uses the Places Text Search endpoint to find real points of interest
+ * (restaurants, museums, attractions, etc.) by category. Results are
+ * structured as plan-item-friendly objects with name, rating, address and
+ * a direct Google Maps URL.
+ *
+ * Subject to module-level daily budget limits controlled by
+ * GOOGLE_MAPS_DAILY_TEXT_SEARCH_LIMIT (default 50 calls/day).
+ *
+ * @param {string} destinationName - Destination to search within
+ * @param {object} [options]
+ * @param {string} [options.category] - Category filter (e.g. 'restaurants', 'museums', 'attractions')
+ * @param {number} [options.maxResults=10] - Max POIs to return (capped at 10)
+ * @returns {Promise<Array<{
+ *   place_id: string,
+ *   name: string,
+ *   rating: number|null,
+ *   user_ratings_total: number|null,
+ *   price_level: number|null,
+ *   address: string|null,
+ *   opening_hours_open_now: boolean|null,
+ *   photo_reference: string|null,
+ *   url: string,
+ *   types: string[],
+ *   category: string
+ * }>>}
+ */
+async function fetchGoogleMapsPlaces(destinationName, options = {}) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return [];
+
+  const { category = null, maxResults = 10 } = options;
+  const cappedMax = Math.min(maxResults, 10);
+
+  const query = category
+    ? `${category} in ${destinationName}`
+    : `top attractions in ${destinationName}`;
+
+  if (!checkAndBumpGoogleBudget('textSearch')) {
+    logger.warn('[bienbot-external-data] Google Maps Text Search daily budget reached, skipping', {
+      destination: destinationName,
+      category
+    });
+    return [];
+  }
+
+  const places = await withRetry(async (signal) => {
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
+
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new Error(`Google Maps Text Search HTTP ${res.status}`);
+
+    const data = await res.json();
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Maps Text Search error: ${data.status} — ${data.error_message || ''}`);
+    }
+
+    const results = (data.results || []).slice(0, cappedMax);
+    return results.map(place => ({
+      place_id: place.place_id,
+      name: place.name,
+      rating: place.rating ?? null,
+      user_ratings_total: place.user_ratings_total ?? null,
+      price_level: place.price_level ?? null,
+      address: place.formatted_address || null,
+      opening_hours_open_now: place.opening_hours?.open_now ?? null,
+      photo_reference: place.photos?.[0]?.photo_reference || null,
+      url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+      types: place.types || [],
+      category: category || 'attraction'
+    }));
+  }, { label: 'google-maps-text-search', timeoutMs: 10000 });
+
+  return places || [];
+}
 
 /**
  * Fetch travel-relevant reviews from Google Maps Places API.
@@ -902,27 +1299,41 @@ async function fetchGoogleMapsTips(destinationName) {
  * Runs providers in parallel. Each provider failing independently does not
  * affect others. Returns combined results from whichever providers succeed.
  *
+ * When `category` is specified, also runs fetchGoogleMapsPlaces to return
+ * a `places` array of specific POIs for that category.
+ *
  * @param {string} destinationName
  * @param {object} [options]
  * @param {boolean} [options.includePhotos=true] - Whether to fetch Unsplash photos
  * @param {number} [options.photoCount=5] - Number of photos to fetch
- * @returns {Promise<{ travel_tips: Array, photos: Array, providers_succeeded: string[], providers_failed: string[] }>}
+ * @param {string} [options.category] - POI category for Google Maps Places (e.g. 'restaurants', 'museums')
+ * @returns {Promise<{ travel_tips: Array, photos: Array, places: Array, providers_succeeded: string[], providers_failed: string[] }>}
  */
 async function fetchTravelData(destinationName, options = {}) {
-  const { includePhotos = true, photoCount = 5 } = options;
+  const { includePhotos = true, photoCount = 5, category = null } = options;
 
-  const providerResults = await Promise.allSettled([
+  const providers = [
     fetchWikivoyageTips(destinationName),
     fetchGoogleMapsTips(destinationName),
     includePhotos ? fetchUnsplashPhotos(destinationName, photoCount) : Promise.resolve([])
-  ]);
+  ];
+
+  // Optional category-filtered POI search via Text Search API
+  if (category) {
+    providers.push(fetchGoogleMapsPlaces(destinationName, { category }));
+  }
+
+  const providerResults = await Promise.allSettled(providers);
 
   const providerNames = ['wikivoyage', 'google_maps', 'unsplash'];
+  if (category) providerNames.push('google_maps_places');
+
   const succeeded = [];
   const failed = [];
 
   const travelTips = [];
   let photos = [];
+  let places = [];
 
   providerResults.forEach((result, idx) => {
     const name = providerNames[idx];
@@ -931,6 +1342,8 @@ async function fetchTravelData(destinationName, options = {}) {
       succeeded.push(name);
       if (name === 'unsplash') {
         photos = result.value;
+      } else if (name === 'google_maps_places') {
+        places = result.value;
       } else {
         travelTips.push(...result.value);
       }
@@ -950,11 +1363,12 @@ async function fetchTravelData(destinationName, options = {}) {
     destination: destinationName,
     tipsCount: travelTips.length,
     photosCount: photos.length,
+    placesCount: places.length,
     succeeded,
     failed
   });
 
-  return { travel_tips: travelTips, photos, providers_succeeded: succeeded, providers_failed: failed };
+  return { travel_tips: travelTips, photos, places, providers_succeeded: succeeded, providers_failed: failed };
 }
 
 // ---------------------------------------------------------------------------
@@ -1245,8 +1659,12 @@ module.exports = {
   fetchTravelData,
   enrichDestination,
   fetchWikivoyageTips,
+  fetchWikivoyagePlanItems,
+  extractPlanItemCandidates,
   fetchUnsplashPhotos,
   fetchGoogleMapsTips,
+  fetchGoogleMapsPlaces,
+  getGoogleMapsBudget,
   withRetry,
   normalizedSimilarity
 };

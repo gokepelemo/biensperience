@@ -1146,3 +1146,211 @@
 .structuredContent {
   margin-top: var(--space-2, 0.5rem);
 }
+
+/* ---------------------------------------------------------------------------
+   Discovery result cards
+   --------------------------------------------------------------------------- */
+
+.discoveryList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.discoveryMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-1);
+}
+
+.discoveryCard {
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+.discoveryThumb {
+  width: 100%;
+  height: 60px;
+  object-fit: cover;
+  display: block;
+}
+
+.discoveryBody {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.discoveryName {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.discoveryDestination {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.discoveryBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.discoveryBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.discoveryBadgeOverflow {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+}
+
+.discoveryStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.discoveryStatItem {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.discoveryStatItem + .discoveryStatItem::before {
+  content: '·';
+  margin-right: var(--space-2);
+}
+
+.discoveryMatchReason {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: var(--space-1);
+}
+
+.discoveryActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Scoped size overrides so design-system Button fits the compact card layout */
+.discoveryBtnView,
+.discoveryBtnPlan {
+  flex: 1;
+  min-height: unset !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  font-size: var(--font-size-xs) !important;
+  white-space: nowrap;
+}
+
+.discoveryShowMore {
+  width: 100%;
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px dashed var(--color-border-medium);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.discoveryShowMore:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+}
+
+.discoveryShowMore:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Skeleton cards */
+
+.discoverySkeletonCard {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.discoverySkeletonThumb {
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: discoverySkeleton 1.4s ease infinite;
+}
+
+.discoverySkeletonBody {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.discoverySkeletonLine {
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: discoverySkeleton 1.4s ease infinite;
+}
+
+.discoverySkeletonLineLg { width: 75%; }
+.discoverySkeletonLineMd { width: 55%; }
+.discoverySkeletonLineSm { width: 40%; }
+
+.discoverySkeletonBadgeRow {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.discoverySkeletonBadge {
+  width: 56px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: discoverySkeleton 1.4s ease infinite;
+}
+
+@keyframes discoverySkeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
