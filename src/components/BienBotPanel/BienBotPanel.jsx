@@ -28,6 +28,7 @@ import SuggestionList from './SuggestionList';
 import TipSuggestionList from './TipSuggestionList';
 import BienBotPhotoGallery from './BienBotPhotoGallery';
 import DiscoveryResultCard from './DiscoveryResultCard';
+import PendingActionCard from './PendingActionCard';
 import { getAttachmentUrl } from '../../utilities/bienbot-api';
 import styles from './BienBotPanel.module.css';
 
@@ -249,82 +250,6 @@ function AttachIcon() {
     </svg>
   );
 }
-
-// ─── Pending action card ──────────────────────────────────────────────────────
-
-function ActionCard({ action, onExecute, onCancel, disabled, executing }) {
-  const actionId = action._id || action.id;
-  const actionType = action.type || action.action_type || 'Action';
-  const description = action.description || action.summary || actionType;
-  const isWorkflow = actionType === 'workflow';
-  const steps = isWorkflow ? (action.payload?.steps || []) : [];
-  const isExecuting = executing === actionId;
-
-  return (
-    <div className={`${styles.actionCard} ${isExecuting ? styles.actionCardExecuting : ''}`}>
-      <div className={styles.actionInfo}>
-        <div className={styles.actionType}>
-          {isExecuting ? 'Executing…' : (isWorkflow ? `workflow (${steps.length} steps)` : actionType)}
-        </div>
-        <div className={styles.actionDescription} title={description}>
-          {description}
-        </div>
-        {isWorkflow && steps.length > 0 && (
-          <div className={styles.workflowSteps}>
-            {steps.map((step, idx) => (
-              <div key={step.step || idx} className={styles.workflowStep}>
-                <span className={styles.workflowStepNumber}>{step.step || idx + 1}</span>
-                <span className={styles.workflowStepText}>{step.description || step.type}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className={styles.actionButtons}>
-        {isExecuting ? (
-          <div className={styles.executingSpinner} aria-label="Executing action">
-            <span /><span /><span />
-          </div>
-        ) : (
-          <>
-            <Button
-              variant="success"
-              size="sm"
-              onClick={() => onExecute(actionId)}
-              disabled={disabled}
-            >
-              Yes
-            </Button>
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={() => onCancel(actionId)}
-              disabled={disabled}
-            >
-              Cancel
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-ActionCard.propTypes = {
-  action: PropTypes.shape({
-    _id: PropTypes.string,
-    id: PropTypes.string,
-    type: PropTypes.string,
-    action_type: PropTypes.string,
-    description: PropTypes.string,
-    summary: PropTypes.string,
-    payload: PropTypes.object
-  }).isRequired,
-  onExecute: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired,
-  disabled: PropTypes.bool,
-  executing: PropTypes.string
-};
 
 // PlanCard removed — plan disambiguation now handled by PlanSelector component
 
@@ -839,6 +764,20 @@ export default function BienBotPanel({
     [cancelAction]
   );
 
+  const handleUpdateAction = useCallback(
+    (actionId, description) => {
+      // Cancel the action so BienBot can propose a revised one
+      cancelAction(actionId);
+      // Pre-fill the input with a correction prompt
+      if (inputRef.current) {
+        inputRef.current.value = `Update this action: `;
+        inputRef.current.focus();
+        resizeTextarea();
+      }
+    },
+    [cancelAction, resizeTextarea]
+  );
+
   // ── Workflow step handlers ────────────────────────────────────────────────
   const handleApproveStep = useCallback(
     async (actionId) => {
@@ -1256,10 +1195,11 @@ export default function BienBotPanel({
 
                   {/* Regular (non-workflow) action cards */}
                   {regularActions.map((action) => (
-                    <ActionCard
+                    <PendingActionCard
                       key={action._id || action.id}
                       action={action}
                       onExecute={handleExecuteAction}
+                      onUpdate={handleUpdateAction}
                       onCancel={handleCancelAction}
                       disabled={isLoading || isStreaming}
                       executing={executingActionId}

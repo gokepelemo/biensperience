@@ -328,6 +328,95 @@
   flex-shrink: 0;
 }
 
+/* ── Rich pending action card ──────────────────────────────────────────────── */
+
+.pendingActionCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-primary, #fff);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+
+  @mixin dark {
+    background: var(--color-bg-secondary, #1e293b);
+  }
+}
+
+.pendingCardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+}
+
+.pendingCardIcon {
+  font-size: var(--font-size-md, 1rem);
+  line-height: 1;
+}
+
+.pendingCardLabel {
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary, #6c63ff);
+}
+
+.pendingCardBody {
+  padding-left: calc(var(--font-size-md, 1rem) + var(--space-2, 0.5rem));
+}
+
+.pendingCardFooter {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+  padding-top: var(--space-2, 0.5rem);
+  border-top: 1px solid var(--color-border-light, #f1f5f9);
+}
+
+.cardFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+}
+
+.cardFieldPrimary {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #1e293b);
+
+  @mixin dark {
+    color: var(--color-text-primary, #e2e8f0);
+  }
+}
+
+.cardFieldSecondary {
+  color: var(--color-text-secondary, #64748b);
+
+  @mixin dark {
+    color: var(--color-text-secondary, #94a3b8);
+  }
+}
+
+.cardItemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cardItemList li {
+  position: relative;
+  padding-left: var(--space-3, 0.75rem);
+}
+
+.cardItemList li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--color-text-secondary, #64748b);
+}
+
 /* Workflow step list inside action card */
 .workflowSteps {
   display: flex;
