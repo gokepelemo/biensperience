@@ -29,6 +29,7 @@ import TipSuggestionList from './TipSuggestionList';
 import BienBotPhotoGallery from './BienBotPhotoGallery';
 import DiscoveryResultCard from './DiscoveryResultCard';
 import PendingActionCard from './PendingActionCard';
+import SessionHistoryView from './SessionHistoryView';
 import { getAttachmentUrl } from '../../utilities/bienbot-api';
 import styles from './BienBotPanel.module.css';
 
@@ -83,6 +84,17 @@ function NewChatIcon() {
         strokeWidth="2"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+// ─── History icon ──────────────────────────────────────────────────────────
+
+function HistoryIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -402,6 +414,7 @@ export default function BienBotPanel({
   const [shareOpen, setShareOpen] = useState(false);
   const [executingActionId, setExecutingActionId] = useState(null);
   const [savedSession, setSavedSession] = useState(null);
+  const [viewMode, setViewMode] = useState('chat');
 
   const { user } = useUser();
 
@@ -429,6 +442,7 @@ export default function BienBotPanel({
     isLoading,
     isStreaming,
     currentSession,
+    sessions,
     sendMessage,
     executeActions,
     cancelAction,
@@ -444,7 +458,8 @@ export default function BienBotPanel({
     appendStructuredContent,
     appendMessage,
     getPersistedSession,
-    clearPersistedSession
+    clearPersistedSession,
+    fetchSessions
   } = useBienBot({ invokeContext, userId: user?._id });
 
   // ── Handle adding suggested plan items ─────────────────────────────────
@@ -513,6 +528,7 @@ export default function BienBotPanel({
     }
     resetTextareaHeight();
     clearSession();
+    setViewMode('chat');
   }, [clearSession, resetTextareaHeight]);
 
   // ── Context-aware text ──────────────────────────────────────────────────
@@ -952,6 +968,25 @@ export default function BienBotPanel({
             </button>
           )}
 
+          {!notificationOnly && (
+            <button
+              type="button"
+              className={styles.newChatButton}
+              onClick={() => {
+                if (viewMode === 'history') {
+                  setViewMode('chat');
+                } else {
+                  fetchSessions();
+                  setViewMode('history');
+                }
+              }}
+              aria-label={viewMode === 'history' ? 'Back to chat' : 'Chat history'}
+              title={viewMode === 'history' ? 'Back to chat' : 'Chat history'}
+            >
+              <HistoryIcon />
+            </button>
+          )}
+
           <button
             type="button"
             className={styles.closeButton}
@@ -981,6 +1016,17 @@ export default function BienBotPanel({
               </div>
             )}
           </div>
+        ) : viewMode === 'history' ? (
+          /* ── Session history view ────────────────────────────── */
+          <SessionHistoryView
+            sessions={sessions}
+            currentSessionId={currentSession?._id}
+            onSelectSession={(sid) => {
+              loadSession(sid);
+              setViewMode('chat');
+            }}
+            onBack={() => setViewMode('chat')}
+          />
         ) : (
           /* ── Chat mode ──────────────────────────────────────── */
           <>

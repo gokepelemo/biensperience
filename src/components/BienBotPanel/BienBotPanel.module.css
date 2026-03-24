@@ -1503,3 +1503,149 @@
   display: flex;
   gap: var(--space-3, 0.75rem);
 }
+
+/* ── Session history view ──────────────────────────────────────────────────── */
+
+.historyView {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+
+.historyBackButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-text-primary, #1e293b);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  @mixin dark {
+    color: var(--color-text-primary, #e2e8f0);
+  }
+}
+
+.historyBackButton:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-hover, #334155);
+  }
+}
+
+.historyList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2, 0.5rem);
+}
+
+.historyGroup {
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
+.historyGroupLabel {
+  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+  color: var(--color-text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.historyItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+  width: 100%;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: none;
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.historyItem:hover:not(:disabled) {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-hover, #334155);
+  }
+}
+
+.historyItemCurrent {
+  background: color-mix(in srgb, var(--color-primary, #6c63ff) 5%, var(--color-bg-primary, #fff));
+  cursor: default;
+
+  @mixin dark {
+    background: color-mix(in srgb, var(--color-primary, #6c63ff) 10%, var(--color-bg-secondary, #1e293b));
+  }
+}
+
+.historyItemTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 0.5rem);
+}
+
+.historyItemTitle {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #1e293b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+
+  @mixin dark {
+    color: var(--color-text-primary, #e2e8f0);
+  }
+}
+
+.historyItemTime {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary, #64748b);
+  flex-shrink: 0;
+
+  @mixin dark {
+    color: var(--color-text-secondary, #94a3b8);
+  }
+}
+
+.historyItemBottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+}
+
+.historyContextBadge {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyItemSnippet {
+  color: var(--color-text-secondary, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @mixin dark {
+    color: var(--color-text-secondary, #94a3b8);
+  }
+}
