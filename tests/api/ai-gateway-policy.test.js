@@ -677,7 +677,9 @@ describe('executeAIRequest — token budget enforcement', () => {
   }
 
   it('allows request when daily input tokens is within budget', async () => {
-    setupBudgetPolicy({ daily_input_tokens: 1000 });
+    // Budget must accommodate usage + conservative headroom (estimatedMaxTokens ≈ 1000)
+    // 500 used + 1000 headroom = 1500 < 2000 → allowed
+    setupBudgetPolicy({ daily_input_tokens: 2000 });
     AIUsage.getDailyUsage.mockResolvedValue({ total_input_tokens: 500, total_output_tokens: 0 });
 
     await expect(
