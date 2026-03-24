@@ -36,7 +36,8 @@ const Photo = require('../../models/photo');
 
 const {
   findSimilarUsers,
-  findCoOccurringExperiences
+  findCoOccurringExperiences,
+  findPopularExperiences
 } = require('../../utilities/bienbot-context-builders');
 
 // ---------------------------------------------------------------------------
@@ -298,12 +299,16 @@ describe('buildDiscoveryContext (full pipeline)', () => {
     expect(result2.query_metadata.cache_hit).toBe(true);
   });
 
-  test('returns null when no matches found', async () => {
+  test('falls back to popular results when no collaborative matches', async () => {
+    // 'nonexistent_category' won't expand to any plan-item activity_type,
+    // so collaborative filtering returns nothing. The popularity fallback
+    // should kick in and return results from other users' plans.
     const result = await buildDiscoveryContext(
       { activity_types: ['nonexistent_category'] },
       queryingUser._id.toString()
     );
-    expect(result).toBeNull();
+    expect(result).toBeTruthy();
+    expect(result.results.length).toBeGreaterThan(0);
   });
 
   test('supports cross-destination discovery', async () => {
@@ -350,13 +355,109 @@ describe('executeDiscoverContent (structured response)', () => {
     expect(outcome.result.query_metadata).toBeDefined();
   });
 
-  test('returns empty results with message when no matches', async () => {
+  test('falls back to popular results for unknown activity types', async () => {
     const outcome = await executeAction({
       type: 'discover_content',
       payload: { activity_types: ['zzz_nonexistent'] }
     }, queryingUser);
 
     expect(outcome.success).toBe(true);
-    expect(outcome.result.results).toEqual([]);
+    // Popularity fallback fires when collaborative filtering yields nothing,
+    // so results should be non-empty as long as any public plans exist.
+    expect(outcome.result.results).toBeDefined();
+    expect(outcome.result.results.length).toBeGreaterThan(0);
+  });
+
+  test('returns results even when no activity_types provided (popularity fallback)', async () => {
+    const outcome = await executeAction({
+      type: 'discover_content',
+      payload: {}
+    }, queryingUser);
+
+    expect(outcome.success).toBe(true);
+    expect(outcome.result.results).toBeDefined();
+    // Should return popularity-based results since other users have plans
+    expect(outcome.result.results.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findPopularExperiences tests
+// ---------------------------------------------------------------------------
+
+describe('findPopularExperiences', () => {
+  test('returns popular public experiences when no filters', async () => {
+    const results = await findPopularExperiences({}, queryingUser._id.toString());
+    expect(Array.isArray(results)).toBe(true);
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  test('excludes private experiences', async () => {
+    const results = await findPopularExperiences({}, queryingUser._id.toString());
+    const names = results.map(r => r.experience_name);
+    expect(names).not.toContain('Private Adventure');
+  });
+
+  test('filters by destination_name', async () => {
+    const results = await findPopularExperiences(
+      { destination_name: 'Paris' },
+      queryingUser._id.toString()
+    );
+    if (results.length > 0) {
+      results.forEach(r => {
+        expect(r.destination_name.toLowerCase()).toContain('paris');
+      });
+    }
+  });
+
+  test('result shape matches collaborative filtering shape', async () => {
+    const results = await findPopularExperiences({}, queryingUser._id.toString());
+    if (results.length > 0) {
+      const r = results[0];
+      expect(r).toHaveProperty('experience_id');
+      expect(r).toHaveProperty('experience_name');
+      expect(r).toHaveProperty('destination_name');
+      expect(r).toHaveProperty('co_occurrence_count');
+      expect(r).toHaveProperty('avg_completion_rate');
+      expect(r).toHaveProperty('collaborator_count');
+      expect(r).toHaveProperty('latest_planned_date');
+      expect(r).toHaveProperty('activity_types');
+      expect(r).toHaveProperty('cost_estimate');
+    }
+  });
+
+  test('sorted by co_occurrence_count descending', async () => {
+    const results = await findPopularExperiences({}, queryingUser._id.toString());
+    for (let i = 1; i < results.length; i++) {
+      expect(results[i - 1].co_occurrence_count).toBeGreaterThanOrEqual(results[i].co_occurrence_count);
+    }
+  });
+});
+
+describe('buildDiscoveryContext (no activity_types fallback)', () => {
+  beforeEach(async () => {
+    resetDiscoveryCache();
+    const DiscoveryCacheModel = require('../../models/discovery-cache');
+    await DiscoveryCacheModel.deleteMany({});
+  });
+
+  test('returns results when no activity_types provided', async () => {
+    const result = await buildDiscoveryContext({}, queryingUser._id.toString());
+    // Should use popularity fallback and return results
+    expect(result).toBeTruthy();
+    expect(result.results).toBeDefined();
+    expect(result.results.length).toBeGreaterThan(0);
+  });
+
+  test('returns destination-filtered results without activity_types', async () => {
+    const result = await buildDiscoveryContext(
+      { destination_name: 'Paris' },
+      queryingUser._id.toString()
+    );
+    if (result && result.results.length > 0) {
+      result.results.forEach(r => {
+        expect(r.destination_name.toLowerCase()).toContain('paris');
+      });
+    }
   });
 });

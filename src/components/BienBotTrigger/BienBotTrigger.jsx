@@ -50,6 +50,7 @@ export default function BienBotTrigger({
   const { user } = useUser();
   const { enabled: hasAI } = useFeatureFlag('ai_features');
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMounted, setPanelMounted] = useState(false);
   const [initialMessage, setInitialMessage] = useState(null);
 
   const isAdmin = user && isSuperAdmin(user);
@@ -79,6 +80,7 @@ export default function BienBotTrigger({
       const msg = event.initialMessage || null;
       logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg });
       setInitialMessage(msg);
+      setPanelMounted(true);
       setPanelOpen(true);
     });
     return unsub;
@@ -87,6 +89,7 @@ export default function BienBotTrigger({
   const handleOpen = useCallback(() => {
     const ctx = invokeContext || {};
     logger.debug('[BienBotTrigger] Opening panel', { entity: ctx.entity, entityId: ctx.id, currentView, hasChatAccess });
+    setPanelMounted(true);
     setPanelOpen(true);
   }, [invokeContext, currentView, hasChatAccess]);
 
@@ -140,7 +143,7 @@ export default function BienBotTrigger({
         </button>
       )}
 
-      {panelOpen && (
+      {panelMounted && (
         <BienBotPanelLazy
           open={panelOpen}
           onClose={handleClose}

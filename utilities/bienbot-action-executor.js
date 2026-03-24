@@ -803,8 +803,8 @@ async function executeSuggestPlanItems(payload, user) {
  * fetch_entity_photos — read-only, no confirmation.
  * payload: { entity_type, entity_id, query?, limit? }
  */
-async function executeFetchEntityPhotos(payload, user) {
-  return fetchEntityPhotos(payload, user);
+async function executeFetchEntityPhotos(payload, user, session) {
+  return fetchEntityPhotos(payload, user, session);
 }
 
 /**
@@ -854,8 +854,8 @@ async function executeDiscoverContent(payload, user) {
  * add_entity_photos — mutating, requires confirmation.
  * payload: { entity_type, entity_id, photos: [{ url, photographer, photographer_url }] }
  */
-async function executeAddEntityPhotos(payload, user) {
-  return addEntityPhotos(payload, user);
+async function executeAddEntityPhotos(payload, user, session) {
+  return addEntityPhotos(payload, user, session);
 }
 
 // ---------------------------------------------------------------------------
@@ -1131,9 +1131,10 @@ const ACTION_HANDLERS = {
  *
  * @param {object} action - { id, type, payload, description }
  * @param {object} user - Authenticated user object (must include _id, name, email).
+ * @param {object|null} [session] - Active BienBotSession document; forwarded to handlers that use it.
  * @returns {Promise<{ success: boolean, result: object|null, errors: string[] }>}
  */
-async function executeAction(action, user) {
+async function executeAction(action, user, session = null) {
   if (!action || !action.type) {
     return { success: false, result: null, errors: ['Missing action or action type'] };
   }
@@ -1156,7 +1157,7 @@ async function executeAction(action, user) {
       userId: user._id.toString()
     });
 
-    const response = await handler(action.payload || {}, user);
+    const response = await handler(action.payload || {}, user, session);
     const isSuccess = response.statusCode >= 200 && response.statusCode < 300;
 
     if (isSuccess) {
@@ -1203,7 +1204,7 @@ async function executeActions(actions, user, session) {
   const contextUpdates = {};
 
   for (const action of actions) {
-    const outcome = await executeAction(action, user);
+    const outcome = await executeAction(action, user, session);
     results.push({ actionId: action.id, type: action.type, ...outcome });
 
     // Mark action as executed on the session
