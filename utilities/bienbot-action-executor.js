@@ -10,6 +10,7 @@
  */
 
 const logger = require('./backend-logger');
+const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos, fetchDestinationTips } = require('./bienbot-external-data');
 
 // Lazy-loaded controllers (resolved on first use to avoid circular deps)
 let destinationsController, experiencesController, plansController;
@@ -59,8 +60,28 @@ const ALLOWED_ACTION_TYPES = [
   // Client-only navigation
   'navigate_to_entity',
   // Workflow (multi-step composition)
-  'workflow'
+  'workflow',
+  // Photo management
+  'add_entity_photos',
+  // Read-only data fetching (execute immediately, no confirmation)
+  'suggest_plan_items',
+  'fetch_entity_photos',
+  'fetch_destination_tips',
+  'discover_content',
+  // Plan selection (disambiguation)
+  'select_plan'
 ];
+
+/**
+ * Read-only action types that execute immediately without user confirmation.
+ * These actions only fetch data — they never mutate state.
+ */
+const READ_ONLY_ACTION_TYPES = new Set([
+  'suggest_plan_items',
+  'fetch_entity_photos',
+  'fetch_destination_tips',
+  'discover_content'
+]);
 
 // ---------------------------------------------------------------------------
 // Mock req/res for controller delegation
@@ -767,6 +788,77 @@ async function executeRemoveMemberLocation(payload, user) {
 }
 
 // ---------------------------------------------------------------------------
+// Read-only data handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * suggest_plan_items — read-only, no confirmation.
+ * payload: { destination_id, experience_id?, exclude_items?, limit? }
+ */
+async function executeSuggestPlanItems(payload, user) {
+  return suggestPlanItems(payload, user);
+}
+
+/**
+ * fetch_entity_photos — read-only, no confirmation.
+ * payload: { entity_type, entity_id, query?, limit? }
+ */
+async function executeFetchEntityPhotos(payload, user) {
+  return fetchEntityPhotos(payload, user);
+}
+
+/**
+ * fetch_destination_tips — read-only, no confirmation.
+ * Fetches travel tips from external sources (Wikivoyage, Google Maps) for user selection.
+ */
+async function executeFetchDestinationTips(payload, user) {
+  return fetchDestinationTips(payload, user);
+}
+
+/**
+ * discover_content — read-only, no confirmation.
+ * Uses buildDiscoveryContext to find popular experiences matching filters.
+ * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
+ */
+async function executeDiscoverContent(payload, user) {
+  const { buildDiscoveryContext } = require('./bienbot-context-builders');
+  const discoveryResult = await buildDiscoveryContext(payload, user._id.toString());
+
+  if (!discoveryResult) {
+    return {
+      statusCode: 200,
+      body: {
+        message: 'No matching experiences found for your search.',
+        results: [],
+        query_metadata: {
+          filters_applied: payload,
+          cache_hit: false,
+          result_count: 0,
+          cross_destination: !!(payload.cross_destination || (!payload.destination_id && !payload.destination_name))
+        }
+      }
+    };
+  }
+
+  return {
+    statusCode: 200,
+    body: {
+      message: discoveryResult.contextBlock,
+      results: discoveryResult.results,
+      query_metadata: discoveryResult.query_metadata
+    }
+  };
+}
+
+/**
+ * add_entity_photos — mutating, requires confirmation.
+ * payload: { entity_type, entity_id, photos: [{ url, photographer, photographer_url }] }
+ */
+async function executeAddEntityPhotos(payload, user) {
+  return addEntityPhotos(payload, user);
+}
+
+// ---------------------------------------------------------------------------
 // Handler dispatch map
 // ---------------------------------------------------------------------------
 
@@ -932,6 +1024,59 @@ async function executeWorkflow(payload, user) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// select_plan — Plan disambiguation handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Execute a select_plan action: loads the full plan, verifies permission,
+ * and returns plan data so the caller can update session context and make
+ * a follow-up LLM call.
+ *
+ * @param {object} payload - { plan_id }
+ * @param {object} user - Authenticated user
+ * @returns {Promise<{ statusCode: number, body: object }>}
+ */
+async function executeSelectPlan(payload, user) {
+  if (!payload.plan_id) {
+    return { statusCode: 400, body: { success: false, error: 'plan_id is required' } };
+  }
+
+  loadControllers();
+  const Plan = require('../models/plan');
+  const { getEnforcer } = require('./permission-enforcer');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const User = require('../models/user');
+
+  const plan = await Plan.findById(payload.plan_id).populate('experience', 'name destination');
+  if (!plan) {
+    return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
+  }
+
+  const enforcer = getEnforcer({ Plan, Destination, Experience, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) {
+    return { statusCode: 403, body: { success: false, error: 'Not authorized to view this plan' } };
+  }
+
+  return {
+    statusCode: 200,
+    body: {
+      success: true,
+      data: {
+        plan_id: plan._id.toString(),
+        experience_id: plan.experience?._id?.toString() || null,
+        experience_name: plan.experience?.name || null,
+        destination_id: plan.experience?.destination?.toString() || null,
+        planned_date: plan.planned_date || null,
+        item_count: (plan.plan || []).length,
+        completed_count: (plan.plan || []).filter(i => i.complete).length
+      }
+    }
+  };
+}
+
 const ACTION_HANDLERS = {
   create_destination: executeCreateDestination,
   create_experience: executeCreateExperience,
@@ -965,7 +1110,16 @@ const ACTION_HANDLERS = {
   // Client-only: handled by frontend, no-op on backend
   navigate_to_entity: executeNavigateToEntity,
   // Workflow (multi-step composition)
-  workflow: executeWorkflow
+  workflow: executeWorkflow,
+  // Photo management
+  add_entity_photos: executeAddEntityPhotos,
+  // Read-only data fetching
+  suggest_plan_items: executeSuggestPlanItems,
+  fetch_entity_photos: executeFetchEntityPhotos,
+  fetch_destination_tips: executeFetchDestinationTips,
+  discover_content: executeDiscoverContent,
+  // Plan disambiguation
+  select_plan: executeSelectPlan
 };
 
 // ---------------------------------------------------------------------------
@@ -1076,6 +1230,11 @@ async function executeActions(actions, user, session) {
           if (data._id) contextUpdates.plan_id = data._id;
           if (data.experience?._id) contextUpdates.experience_id = data.experience._id;
           break;
+        case 'select_plan':
+          if (data.plan_id) contextUpdates.plan_id = data.plan_id;
+          if (data.experience_id) contextUpdates.experience_id = data.experience_id;
+          if (data.destination_id) contextUpdates.destination_id = data.destination_id;
+          break;
         case 'add_plan_items':
         case 'update_plan_item':
         case 'sync_plan':
@@ -1120,8 +1279,94 @@ async function executeActions(actions, user, session) {
   return { results, contextUpdates };
 }
 
+/**
+ * Execute a single workflow step, resolving $step_N refs from the results of
+ * already-completed sibling actions.
+ *
+ * If the step depends on a skipped step, it auto-fails with a clear message.
+ *
+ * @param {object} action - The pending action to execute (must have workflow_id).
+ * @param {object[]} workflowActions - All pending_actions sharing the same workflow_id.
+ * @param {object} user - Authenticated user object.
+ * @returns {Promise<{ success: boolean, result: object|null, errors: string[] }>}
+ */
+async function executeSingleWorkflowStep(action, workflowActions, user) {
+  if (!action || !action.type) {
+    return { success: false, result: null, errors: ['Missing action or action type'] };
+  }
+
+  // Check if any depends_on actions were skipped or failed
+  if (Array.isArray(action.depends_on) && action.depends_on.length > 0) {
+    for (const depId of action.depends_on) {
+      const depAction = workflowActions.find(a => a.id === depId);
+      if (depAction && (depAction.status === 'skipped' || depAction.status === 'failed')) {
+        const reason = depAction.status === 'skipped'
+          ? `Depends on skipped step "${depAction.description || depAction.id}"`
+          : `Depends on failed step "${depAction.description || depAction.id}"`;
+        return { success: false, result: null, errors: [reason] };
+      }
+      // If dependency hasn't been completed yet, it's an ordering error
+      if (depAction && depAction.status !== 'completed') {
+        return {
+          success: false,
+          result: null,
+          errors: [`Dependency "${depAction.description || depAction.id}" has not been completed yet`]
+        };
+      }
+    }
+  }
+
+  // Build step results from completed sibling actions for $ref resolution
+  const stepResults = new Map();
+  for (const sibling of workflowActions) {
+    if (sibling.status === 'completed' && sibling.result && sibling.workflow_step != null) {
+      // Extract the data from the result (may be wrapped)
+      const data = sibling.result?.data || sibling.result;
+      stepResults.set(sibling.workflow_step, data);
+    }
+  }
+
+  // Resolve $step_N references in the payload
+  const resolvedPayload = resolveRefs(action.payload || {}, stepResults);
+
+  // Execute using the standard handler
+  const handler = ACTION_HANDLERS[action.type];
+  if (!handler) {
+    return { success: false, result: null, errors: [`No handler for: ${action.type}`] };
+  }
+
+  try {
+    logger.info('[bienbot-action-executor] Executing workflow step', {
+      type: action.type,
+      actionId: action.id,
+      workflowId: action.workflow_id,
+      step: action.workflow_step,
+      userId: user._id.toString()
+    });
+
+    const response = await handler(resolvedPayload, user);
+    const isSuccess = response.statusCode >= 200 && response.statusCode < 300;
+
+    return {
+      success: isSuccess,
+      result: response.body?.data || response.body || null,
+      errors: isSuccess ? [] : [response.body?.error || `Step failed with status ${response.statusCode}`]
+    };
+  } catch (err) {
+    logger.error('[bienbot-action-executor] Workflow step threw exception', {
+      type: action.type,
+      actionId: action.id,
+      error: err.message
+    });
+    return { success: false, result: null, errors: [err.message] };
+  }
+}
+
 module.exports = {
   executeAction,
   executeActions,
-  ALLOWED_ACTION_TYPES
+  executeSingleWorkflowStep,
+  resolveRefs,
+  ALLOWED_ACTION_TYPES,
+  READ_ONLY_ACTION_TYPES
 };

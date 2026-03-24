@@ -330,3 +330,33 @@ describe('buildDiscoveryContext (full pipeline)', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// executeDiscoverContent tests
+// ---------------------------------------------------------------------------
+
+const { executeAction } = require('../../utilities/bienbot-action-executor');
+
+describe('executeDiscoverContent (structured response)', () => {
+  test('returns structured results + text message + query_metadata', async () => {
+    const outcome = await executeAction({
+      type: 'discover_content',
+      payload: { activity_types: ['culinary'] }
+    }, queryingUser);
+
+    expect(outcome.success).toBe(true);
+    expect(outcome.result.message).toBeDefined();
+    expect(outcome.result.results).toBeDefined();
+    expect(outcome.result.query_metadata).toBeDefined();
+  });
+
+  test('returns empty results with message when no matches', async () => {
+    const outcome = await executeAction({
+      type: 'discover_content',
+      payload: { activity_types: ['zzz_nonexistent'] }
+    }, queryingUser);
+
+    expect(outcome.success).toBe(true);
+    expect(outcome.result.results).toEqual([]);
+  });
+});
