@@ -1018,6 +1018,207 @@ async function buildSimilarExperiencesContext(experienceId, destinationId, userI
   }
 }
 
+// ---------------------------------------------------------------------------
+// Stage 1: Find users who planned matching activity types
+// ---------------------------------------------------------------------------
+
+async function findSimilarUsers(filters, userId) {
+  const activityTypes = expandActivityTypes(filters.activity_types);
+  if (!activityTypes.length) return [];
+
+  const Plan = require('../models/plan');
+  const { Types } = require('mongoose');
+  const matchStage = {
+    'plan.activity_type': { $in: activityTypes },
+    user: { $ne: new Types.ObjectId(userId) }
+  };
+
+  const pipeline = [
+    { $match: matchStage },
+    // Lookup experience for destination filter + visibility
+    { $lookup: {
+      from: 'experiences',
+      localField: 'experience',
+      foreignField: '_id',
+      as: 'exp'
+    }},
+    { $unwind: '$exp' },
+    { $match: { 'exp.visibility': { $ne: 'private' } } }
+  ];
+
+  // Destination filter
+  const shouldFilterDestination = !filters.cross_destination &&
+    (filters.destination_id || filters.destination_name);
+
+  if (shouldFilterDestination) {
+    if (filters.destination_id) {
+      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
+    } else if (filters.destination_name) {
+      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      pipeline.push(
+        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest' } },
+        { $unwind: '$dest' },
+        { $match: { 'dest.name': nameRegex } }
+      );
+    }
+  }
+
+  // Cost filter via $reduce on plan[].cost
+  if (filters.max_cost) {
+    pipeline.push({
+      $addFields: {
+        _totalCost: { $reduce: {
+          input: '$plan',
+          initialValue: 0,
+          in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+        }}
+      }
+    });
+    pipeline.push({ $match: { _totalCost: { $lte: filters.max_cost } } });
+  }
+
+  // Group by user
+  pipeline.push(
+    { $group: {
+      _id: '$user',
+      matchingPlanCount: { $sum: 1 },
+      experienceIds: { $addToSet: '$experience' }
+    }},
+    { $sort: { matchingPlanCount: -1 } },
+    { $limit: 50 }
+  );
+
+  const results = await Plan.aggregate(pipeline);
+
+  logger.debug('[bienbot-context] findSimilarUsers', {
+    userId,
+    activityTypes,
+    resultCount: results.length
+  });
+
+  return results.map(r => ({
+    userId: r._id,
+    matchingPlanCount: r.matchingPlanCount,
+    experienceIds: r.experienceIds
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Stage 2: Find other experiences planned by similar users
+// ---------------------------------------------------------------------------
+
+async function findCoOccurringExperiences(similarUsers, filters, userId) {
+  if (!similarUsers.length) return [];
+
+  const Plan = require('../models/plan');
+  const userIds = similarUsers.map(u => u.userId);
+  const excludeExpIds = [...new Set(similarUsers.flatMap(u => u.experienceIds))];
+
+  const pipeline = [
+    { $match: {
+      user: { $in: userIds },
+      experience: { $nin: excludeExpIds }
+    }},
+    { $lookup: {
+      from: 'experiences',
+      localField: 'experience',
+      foreignField: '_id',
+      as: 'exp'
+    }},
+    { $unwind: '$exp' },
+    { $match: { 'exp.visibility': { $ne: 'private' } } },
+    { $addFields: {
+      _planCost: { $reduce: {
+        input: '$plan',
+        initialValue: 0,
+        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+      }},
+      _completedCount: { $size: { $filter: {
+        input: '$plan',
+        cond: { $eq: ['$$this.complete', true] }
+      }}},
+      _totalCount: { $size: '$plan' },
+      _userCollaborators: { $filter: {
+        input: '$permissions',
+        cond: { $eq: ['$$this.entity', 'user'] }
+      }}
+    }},
+    { $addFields: {
+      _completionRate: { $cond: {
+        if: { $gt: ['$_totalCount', 0] },
+        then: { $divide: ['$_completedCount', '$_totalCount'] },
+        else: 0
+      }}
+    }},
+    { $group: {
+      _id: '$experience',
+      co_occurrence_count: { $sum: 1 },
+      avg_completion_rate: { $avg: '$_completionRate' },
+      collaborator_ids: { $addToSet: '$_userCollaborators._id' },
+      latest_planned_date: { $max: '$planned_date' },
+      avg_cost: { $avg: '$_planCost' },
+      experience_name: { $first: '$exp.name' },
+      destination_id: { $first: '$exp.destination' },
+      activity_types: { $first: '$exp.experience_type' },
+      plan_item_types: { $first: '$exp.plan_items.activity_type' },
+      default_photo_id: { $first: '$exp.default_photo_id' },
+      photos: { $first: '$exp.photos' }
+    }},
+    { $lookup: {
+      from: 'destinations',
+      localField: 'destination_id',
+      foreignField: '_id',
+      as: 'dest'
+    }},
+    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
+    { $lookup: {
+      from: 'photos',
+      let: {
+        photoId: { $ifNull: ['$default_photo_id', { $arrayElemAt: ['$photos', 0] }] }
+      },
+      pipeline: [
+        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
+        { $project: { url: 1 } }
+      ],
+      as: 'photo'
+    }},
+    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
+    { $sort: { co_occurrence_count: -1 } },
+    { $limit: 20 }
+  ];
+
+  const results = await Plan.aggregate(pipeline);
+
+  logger.debug('[bienbot-context] findCoOccurringExperiences', {
+    similarUserCount: similarUsers.length,
+    resultCount: results.length
+  });
+
+  return results.map(r => {
+    const flatCollabs = (r.collaborator_ids || []).flat().flat();
+    const uniqueCollabs = [...new Set(flatCollabs.map(id => id?.toString()).filter(Boolean))];
+
+    const allTypes = [...new Set([
+      ...(r.activity_types || []),
+      ...(r.plan_item_types || []).filter(Boolean)
+    ])];
+
+    return {
+      experience_id: r._id,
+      experience_name: r.experience_name,
+      destination_name: r.dest?.name || 'Unknown',
+      destination_id: r.destination_id,
+      activity_types: allTypes,
+      cost_estimate: Math.round(r.avg_cost || 0),
+      co_occurrence_count: r.co_occurrence_count,
+      avg_completion_rate: r.avg_completion_rate || 0,
+      collaborator_count: uniqueCollabs.length,
+      latest_planned_date: r.latest_planned_date,
+      default_photo_url: r.photo?.url || null
+    };
+  });
+}
+
 module.exports = {
   buildDestinationContext,
   buildExperienceContext,
@@ -1038,5 +1239,8 @@ module.exports = {
   normalizeCostToPercentile,
   computeRecencyScore,
   normalizeCount,
-  generateMatchReason
+  generateMatchReason,
+  // Two-stage collaborative filtering pipeline
+  findSimilarUsers,
+  findCoOccurringExperiences
 };
