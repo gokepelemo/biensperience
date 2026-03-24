@@ -216,6 +216,21 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   const model = isValidModel('openai', requestedModel, dbConfig) ? requestedModel : defaultModel;
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 1000;
+  // Newer OpenAI models (o-series: o1/o3/o4, and gpt-5+) use max_completion_tokens instead of max_tokens.
+  // o-series models also do not support the temperature parameter.
+  const isOSeries = /^o\d/.test(model);
+  const isNewGenGPT = /^gpt-[5-9]/.test(model);
+  const isNewModel = isOSeries || isNewGenGPT;
+  const tokenLimitKey = isNewModel ? 'max_completion_tokens' : 'max_tokens';
+
+  const requestBody = {
+    model,
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+    [tokenLimitKey]: maxTokens,
+    stream: false
+  };
+  // o-series models do not support temperature (gpt-5+ still does)
+  if (!isOSeries) requestBody.temperature = temperature;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -223,13 +238,7 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model,
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-      temperature,
-      max_tokens: maxTokens,
-      stream: false
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
