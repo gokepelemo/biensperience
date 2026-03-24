@@ -164,7 +164,7 @@ async function resolveEntityLabel(entity, entityId) {
  * @param {string|null} params.userMemoryBlock - Pre-formatted user memory block from past sessions
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock }) {
+function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, userCurrency }) {
   const lines = [
     'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
     'You help users explore destinations, plan experiences, manage plan items, track costs, collaborate with others, and answer travel questions.',
@@ -182,6 +182,19 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- For ambiguous requests, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?").',
     '- When context provides entity IDs (plan_id, experience_id, item_id, destination_id), use those IDs in action payloads. If the ID is not available in context, ask the user which entity they mean.',
     '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
+    '',
+    'DATE AND TIME:',
+    `- Today's date is ${new Date().toISOString().split('T')[0]}.`,
+    '- When the user specifies a relative time (e.g. "in 3 months", "next week", "this summer"), calculate the exact date.',
+    '- Include the resolved date in the action payload (e.g. planned_date field).',
+    '- State the calculated date in your message so the user can confirm or correct it.',
+    '- Example: User says "in 3 months" on 2026-03-23 → planned_date: "2026-06-23". Message: "I\'ll set the date to June 23, 2026."',
+    '',
+    'ENTITY IDs:',
+    '- NEVER fabricate or use placeholder IDs like "<experience_id>" or "<destination_id>".',
+    '- Use real entity IDs from the context blocks provided above.',
+    '- If the needed entity is not in context, ask the user to clarify — do not guess.',
+    '- For creation actions (create_destination, create_experience, create_plan), do NOT include an _id field — MongoDB generates it automatically.',
     ''
   ];
 
@@ -195,6 +208,12 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     if (contextDescription) {
       lines.push(`Page context: ${contextDescription}`);
     }
+    lines.push('');
+  }
+
+  if (userCurrency) {
+    lines.push(`User's preferred currency: ${userCurrency}`);
+    lines.push('Use this currency as the default for cost-related actions unless the user explicitly specifies a different currency.');
     lines.push('');
   }
 
@@ -1281,7 +1300,8 @@ exports.chat = async (req, res) => {
     contextBlock: combinedContext,
     session,
     userMemoryBlock,
-    entityResolutionBlock
+    entityResolutionBlock,
+    userCurrency: req.user?.preferences?.currency || null
   });
 
   // Build conversation history for multi-turn
@@ -1369,7 +1389,7 @@ exports.chat = async (req, res) => {
 
     for (const action of readOnlyActions) {
       try {
-        const outcome = await executeAction(action, req.user);
+        const outcome = await executeAction(action, req.user, session);
 
         if (outcome.success && outcome.result) {
           const contentBlock = mapReadOnlyResultToStructuredContent(action.type, outcome.result);
@@ -1856,6 +1876,10 @@ exports.deleteSession = async (req, res) => {
     await session.archive();
 
     const archivedSession = session.toObject();
+
+    // Clean up any cached photos that were never assigned to an entity — fire-and-forget
+    require('../../utilities/bienbot-external-data').cleanupSessionPhotos(archivedSession)
+      .catch(err => logger.error('[bienbot] Session photo cleanup failed', { error: err.message, sessionId: id }));
 
     // Trigger async memory extraction — fire-and-forget, never delays the response
     extractMemoryFromSession({ session: archivedSession, user: req.user })
