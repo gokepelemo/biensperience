@@ -134,12 +134,14 @@ const messageSchema = new Schema({
    * Supported types:
    *   - photo_gallery: { photos: [...], entity_type, entity_id, entity_name, total_count }
    *   - suggestion_list: { suggestions: [...], destination_name, source_count }
+   *   - discovery_result_list: { experiences: [...], destination_name, total_count }
+   *   - tip_suggestion_list: { tips: [...], destination_name, categories }
    */
   structured_content: [{
     type: {
       type: String,
       required: true,
-      enum: ['photo_gallery', 'suggestion_list']
+      enum: ['photo_gallery', 'suggestion_list', 'discovery_result_list', 'tip_suggestion_list']
     },
     data: {
       type: Schema.Types.Mixed,
@@ -238,6 +240,40 @@ const pendingActionSchema = new Schema({
 }, { _id: false });
 
 /**
+ * Cached photo sub-schema — temporary holding area for photos fetched from
+ * Unsplash (or uploaded via the pipeline) during an active session.
+ *
+ * Uses the same fields as the Photo model so entries can be "moved" directly
+ * to a Photo document when the user assigns a photo to an entity. Any entries
+ * remaining when the session is archived are cleaned up in the background:
+ *   - url-only photos (Unsplash CDN) are simply discarded
+ *   - s3_key photos are deleted from S3 via the upload pipeline
+ *
+ * `meta` holds display-only fields from the source API (thumb_url, source ID,
+ * etc.) that are not persisted to the Photo model.
+ */
+const cachedPhotoSchema = new Schema({
+  // Core Photo model fields
+  url: { type: String, default: null },
+  s3_key: { type: String, default: null },
+  is_protected: { type: Boolean, default: false },
+  photo_credit: { type: String, default: null },
+  photo_credit_url: { type: String, default: null },
+  caption: { type: String, default: null },
+  width: { type: Number, default: null },
+  height: { type: Number, default: null },
+  // Source metadata
+  source: { type: String, enum: ['unsplash', 'upload', 'url'], default: 'url' },
+  source_url: { type: String, default: null },
+  // Display-only fields from the source API (not persisted to Photo model)
+  meta: { type: Schema.Types.Mixed, default: null },
+  // Cache scope — which entity this result was fetched for
+  entity_type: { type: String, enum: ['destination', 'experience', null], default: null },
+  entity_id: { type: Schema.Types.ObjectId, default: null },
+  cached_at: { type: Date, default: Date.now }
+}, { _id: true });
+
+/**
  * Collaborator sub-schema — tracks users who have been granted access
  * to a session by the owner.
  */
@@ -295,6 +331,16 @@ const bienBotSessionSchema = new Schema({
     default: () => ({})
   },
   pending_actions: [pendingActionSchema],
+  /**
+   * Temporary photo cache for this session. Populated by fetch_entity_photos
+   * (Unsplash results) and add_entity_photos (S3 uploads). Entries are removed
+   * when photos are assigned to an entity, and any survivors are cleaned up
+   * when the session is archived.
+   */
+  cached_photos: {
+    type: [cachedPhotoSchema],
+    default: []
+  },
   status: {
     type: String,
     required: true,
