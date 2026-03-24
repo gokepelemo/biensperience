@@ -112,8 +112,7 @@ export default function SessionHistoryView({ sessions, currentSessionId, onSelec
                     key={session._id}
                     type="button"
                     className={`${styles.historyItem} ${isCurrent ? styles.historyItemCurrent : ''}`}
-                    onClick={() => !isCurrent && onSelectSession(session._id)}
-                    disabled={isCurrent}
+                    onClick={() => isCurrent ? onBack() : onSelectSession(session._id)}
                   >
                     <div className={styles.historyItemTop}>
                       <span className={styles.historyItemTitle}>

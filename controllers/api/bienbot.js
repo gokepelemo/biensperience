@@ -162,13 +162,46 @@ async function resolveEntityLabel(entity, entityId) {
  * @param {string|null} params.contextBlock - Pre-built context text from context builders
  * @param {object} params.session - The BienBot session
  * @param {string|null} params.userMemoryBlock - Pre-formatted user memory block from past sessions
+ * @param {string|null} params.userName - User's first name for personalized greeting
+ * @param {string|null} params.userLanguage - User's preferred language code (e.g. 'en', 'fr')
+ * @param {string|null} params.userTimezone - User's timezone (e.g. 'America/New_York')
+ * @param {object|null} params.userHiddenSignals - User's behavioral signal vector
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, userCurrency }) {
+function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals }) {
+  // Build USER PROFILE block (personalization context)
+  const profileLines = [];
+  if (userName) {
+    profileLines.push(`The logged-in user's name is ${userName}. Address them by their first name when greeting or making the conversation feel personal.`);
+  }
+  if (userLanguage && userLanguage !== 'en') {
+    profileLines.push(`User's preferred language: ${userLanguage}. Respond in this language when possible unless the user writes in a different language.`);
+  }
+  if (userTimezone && userTimezone !== 'UTC') {
+    profileLines.push(`User's timezone: ${userTimezone}. Use this when presenting dates and times.`);
+  }
+  if (userHiddenSignals && typeof userHiddenSignals.confidence === 'number' && userHiddenSignals.confidence > 0.2) {
+    const signals = userHiddenSignals;
+    const signalDescriptions = [];
+    if (signals.cultural_depth >= 0.65) signalDescriptions.push('values cultural depth and immersive local experiences');
+    if (signals.food_focus >= 0.65) signalDescriptions.push('is food-focused and enjoys culinary experiences');
+    if (signals.energy >= 0.70) signalDescriptions.push('prefers high-energy, active travel');
+    else if (signals.energy <= 0.35) signalDescriptions.push('prefers relaxed, low-key travel');
+    if (signals.novelty >= 0.65) signalDescriptions.push('seeks novel, off-the-beaten-path experiences');
+    if (signals.budget_sensitivity >= 0.70) signalDescriptions.push('is budget-conscious');
+    if (signals.social >= 0.65) signalDescriptions.push('enjoys social or group travel experiences');
+    else if (signals.social <= 0.35) signalDescriptions.push('prefers solo or intimate travel');
+    if (signals.comfort_zone <= 0.35) signalDescriptions.push('is adventurous and open to stepping outside their comfort zone');
+    if (signalDescriptions.length > 0) {
+      profileLines.push(`Traveler personality (learned from behavior — confidence: ${Math.round(signals.confidence * 100)}%): This user ${signalDescriptions.join(', ')}. Tailor suggestions and tone to match these preferences.`);
+    }
+  }
+
   const lines = [
     'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
     'You help users explore destinations, plan experiences, manage plan items, track costs, collaborate with others, and answer travel questions.',
     '',
+    ...(profileLines.length > 0 ? ['USER PROFILE:', ...profileLines, ''] : []),
     'IMPORTANT RULES:',
     '- Be concise and helpful.',
     '- When the user asks you to perform an action (create, add, update, delete, invite, sync), propose it as a pending action in your response.',
@@ -192,7 +225,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '',
     'ENTITY IDs:',
     '- NEVER fabricate or use placeholder IDs like "<experience_id>" or "<destination_id>".',
-    '- Use real entity IDs from the context blocks provided above.',
+    '- Use real entity IDs from the context blocks provided below.',
     '- If the needed entity is not in context, ask the user to clarify — do not guess.',
     '- For creation actions (create_destination, create_experience, create_plan), do NOT include an _id field — MongoDB generates it automatically.',
     ''
@@ -1301,7 +1334,11 @@ exports.chat = async (req, res) => {
     session,
     userMemoryBlock,
     entityResolutionBlock,
-    userCurrency: req.user?.preferences?.currency || null
+    userCurrency: req.user?.preferences?.currency || null,
+    userName: req.user?.name ? req.user.name.split(' ')[0] : null,
+    userLanguage: req.user?.preferences?.language || null,
+    userTimezone: req.user?.preferences?.timezone || null,
+    userHiddenSignals: req.user?.hidden_signals || null
   });
 
   // Build conversation history for multi-turn

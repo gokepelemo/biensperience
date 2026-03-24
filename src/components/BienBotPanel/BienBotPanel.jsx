@@ -879,7 +879,7 @@ export default function BienBotPanel({
     if (!open || currentSession || messages.length > 0) return;
     let cancelled = false;
     getPersistedSession().then((saved) => {
-      if (!cancelled && saved?.sessionId && saved.userId === user?._id) {
+      if (!cancelled && saved?.sessionId && String(saved.userId) === String(user?._id)) {
         setSavedSession(saved);
       }
     });
@@ -1021,9 +1021,13 @@ export default function BienBotPanel({
           <SessionHistoryView
             sessions={sessions}
             currentSessionId={currentSession?._id}
-            onSelectSession={(sid) => {
-              loadSession(sid);
-              setViewMode('chat');
+            onSelectSession={async (sid) => {
+              try {
+                await loadSession(sid);
+                setViewMode('chat');
+              } catch {
+                // Session may have been deleted server-side; stay in history view
+              }
             }}
             onBack={() => setViewMode('chat')}
           />
