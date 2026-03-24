@@ -16,6 +16,9 @@ import {
 } from '../utilities/bienbot-api';
 import { eventBus, broadcastEvent } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
+import { encryptData, decryptData } from '../utilities/crypto-utils';
+
+const ACTIVE_SESSION_KEY = 'bien:bienbot_active_session';
 
 /**
  * Open the BienBot panel with a pre-filled message in the input.
@@ -36,7 +39,7 @@ export function openWithPrefilledMessage(text) {
  * @param {Object} [params.invokeContext] - Entity context ({ entity, id, label }) from the mounting component
  * @returns {Object} BienBot state and actions
  */
-export default function useBienBot({ sessionId: initialSessionId = null, invokeContext } = {}) {
+export default function useBienBot({ sessionId: initialSessionId = null, invokeContext, userId = null } = {}) {
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -73,6 +76,41 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       abortControllerRef.current = null;
     }
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Session persistence (localStorage) — AES-GCM encrypted
+  // ---------------------------------------------------------------------------
+
+  /** Persist active session ID to encrypted localStorage. */
+  const persistSessionId = useCallback(async (sid) => {
+    if (!sid || !userId) return;
+    try {
+      const encrypted = await encryptData({ sessionId: sid, userId }, userId);
+      localStorage.setItem(ACTIVE_SESSION_KEY, encrypted);
+    } catch (err) {
+      logger.debug('[useBienBot] Failed to persist session', { error: err?.message });
+    }
+  }, [userId]);
+
+  /** Clear persisted session ID from localStorage. */
+  const clearPersistedSession = useCallback(() => {
+    try {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  /** Read persisted session ID (returns Promise<{ sessionId, userId } | null>). */
+  const getPersistedSession = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (!raw || !userId) return null;
+      return await decryptData(raw, userId);
+    } catch {
+      return null;
+    }
+  }, [userId]);
 
   // ---------------------------------------------------------------------------
   // sendMessage
@@ -144,6 +182,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             _id: newSessionId,
             title: title || prev?.title
           }));
+          persistSessionId(newSessionId);
           // Update optimistic user message with S3 attachment info from server
           if (attachmentInfo?.s3Key) {
             setMessages(prev =>
@@ -254,7 +293,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       });
       abortControllerRef.current = null;
     }
-  }, [invokeContext, cancelStream]);
+  }, [invokeContext, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
   // executeActions
@@ -383,6 +422,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
       sessionIdRef.current = session._id;
       invokeContextSentRef.current = true; // Resumed sessions already have context
+      persistSessionId(session._id);
 
       batchedUpdates(() => {
         setCurrentSession(session);
@@ -419,13 +459,14 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [persistSessionId]);
 
   /**
    * Clear the current session state. Does NOT delete the session server-side.
    */
   const clearSession = useCallback(() => {
     cancelStream();
+    clearPersistedSession();
 
     batchedUpdates(() => {
       sessionIdRef.current = null;
@@ -437,7 +478,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       setIsLoading(false);
       setIsStreaming(false);
     });
-  }, [cancelStream]);
+  }, [cancelStream, clearPersistedSession]);
 
   // ---------------------------------------------------------------------------
   // Fetch sessions list
@@ -700,6 +741,14 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, []);
 
   // ---------------------------------------------------------------------------
+  // appendMessage — add a message to the conversation (used for action feedback)
+  // ---------------------------------------------------------------------------
+  const appendMessage = useCallback((msg) => {
+    if (!msg) return;
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Return API
   // ---------------------------------------------------------------------------
   return {
@@ -723,6 +772,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     skipStep,
     editStep,
     cancelWorkflow,
-    appendStructuredContent
+    appendStructuredContent,
+    appendMessage,
+    getPersistedSession,
+    clearPersistedSession
   };
 }

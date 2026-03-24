@@ -252,18 +252,19 @@ function AttachIcon() {
 
 // ─── Pending action card ──────────────────────────────────────────────────────
 
-function ActionCard({ action, onExecute, onCancel, disabled }) {
+function ActionCard({ action, onExecute, onCancel, disabled, executing }) {
   const actionId = action._id || action.id;
   const actionType = action.type || action.action_type || 'Action';
   const description = action.description || action.summary || actionType;
   const isWorkflow = actionType === 'workflow';
   const steps = isWorkflow ? (action.payload?.steps || []) : [];
+  const isExecuting = executing === actionId;
 
   return (
-    <div className={styles.actionCard}>
+    <div className={`${styles.actionCard} ${isExecuting ? styles.actionCardExecuting : ''}`}>
       <div className={styles.actionInfo}>
         <div className={styles.actionType}>
-          {isWorkflow ? `workflow (${steps.length} steps)` : actionType}
+          {isExecuting ? 'Executing…' : (isWorkflow ? `workflow (${steps.length} steps)` : actionType)}
         </div>
         <div className={styles.actionDescription} title={description}>
           {description}
@@ -280,22 +281,30 @@ function ActionCard({ action, onExecute, onCancel, disabled }) {
         )}
       </div>
       <div className={styles.actionButtons}>
-        <Button
-          variant="success"
-          size="sm"
-          onClick={() => onExecute(actionId)}
-          disabled={disabled}
-        >
-          Yes
-        </Button>
-        <Button
-          variant="outline-secondary"
-          size="sm"
-          onClick={() => onCancel(actionId)}
-          disabled={disabled}
-        >
-          Cancel
-        </Button>
+        {isExecuting ? (
+          <div className={styles.executingSpinner} aria-label="Executing action">
+            <span /><span /><span />
+          </div>
+        ) : (
+          <>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => onExecute(actionId)}
+              disabled={disabled}
+            >
+              Yes
+            </Button>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={() => onCancel(actionId)}
+              disabled={disabled}
+            >
+              Cancel
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -313,7 +322,8 @@ ActionCard.propTypes = {
   }).isRequired,
   onExecute: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
-  disabled: PropTypes.bool
+  disabled: PropTypes.bool,
+  executing: PropTypes.string
 };
 
 // PlanCard removed — plan disambiguation now handled by PlanSelector component
@@ -465,6 +475,8 @@ export default function BienBotPanel({
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [executingActionId, setExecutingActionId] = useState(null);
+  const [savedSession, setSavedSession] = useState(null);
 
   const { user } = useUser();
 
@@ -496,6 +508,7 @@ export default function BienBotPanel({
     executeActions,
     cancelAction,
     updateContext,
+    loadSession,
     clearSession,
     shareSession,
     unshareSession,
@@ -503,8 +516,11 @@ export default function BienBotPanel({
     skipStep,
     editStep,
     cancelWorkflow,
-    appendStructuredContent
-  } = useBienBot({ invokeContext });
+    appendStructuredContent,
+    appendMessage,
+    getPersistedSession,
+    clearPersistedSession
+  } = useBienBot({ invokeContext, userId: user?._id });
 
   // ── Handle adding suggested plan items ─────────────────────────────────
   const handleAddSuggestedItems = useCallback(
@@ -767,10 +783,37 @@ export default function BienBotPanel({
         }
       }
 
+      // Show executing state on the action card
+      setExecutingActionId(actionId);
+
       const result = await executeActions([actionId]);
 
-      // Auto-navigate to newly created entities (panel stays open)
+      setExecutingActionId(null);
+
+      // Build a feedback message summarizing what happened
       if (result?.results) {
+        const feedbackLines = [];
+        for (const actionResult of result.results) {
+          if (actionResult.success) {
+            const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
+            const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
+            feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
+          } else {
+            const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
+            feedbackLines.push(`\u274c ${typeLabel}: ${actionResult.error || 'failed'}`);
+          }
+        }
+        if (feedbackLines.length > 0) {
+          appendMessage({
+            _id: `exec-result-${Date.now()}`,
+            role: 'assistant',
+            content: feedbackLines.join('\n'),
+            createdAt: new Date().toISOString(),
+            isActionResult: true
+          });
+        }
+
+        // Auto-navigate to newly created entities (panel stays open)
         for (const actionResult of result.results) {
           const navUrl = getNavigationUrlForResult(actionResult);
           if (navUrl) {
@@ -785,7 +828,7 @@ export default function BienBotPanel({
         appendStructuredContent(result.enrichment);
       }
     },
-    [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent]
+    [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent, appendMessage]
   );
 
   const handleCancelAction = useCallback(
@@ -875,6 +918,18 @@ export default function BienBotPanel({
       onMarkNotificationsSeen(unseenNotificationIds);
     }
   }, [open, notificationOnly, unseenNotificationIds, onMarkNotificationsSeen]);
+
+  // Check for saved session on mount
+  useEffect(() => {
+    if (!open || currentSession || messages.length > 0) return;
+    let cancelled = false;
+    getPersistedSession().then((saved) => {
+      if (!cancelled && saved?.sessionId && saved.userId === user?._id) {
+        setSavedSession(saved);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [open, currentSession, messages.length, getPersistedSession, user?._id]);
 
   // Panel label from invokeContext
   const panelLabel = notificationOnly
@@ -1010,7 +1065,36 @@ export default function BienBotPanel({
 
             {/* ── Messages ───────────────────────────────────────── */}
             <div className={styles.messages} aria-live="polite" aria-atomic="false">
-              {messages.length === 0 && !isLoading ? (
+              {savedSession && !currentSession && messages.length === 0 && !isLoading ? (
+                <div className={styles.resumePrompt}>
+                  <Text size="sm">You have an unfinished conversation.</Text>
+                  <div className={styles.resumeButtons}>
+                    <Button
+                      variant="gradient"
+                      size="sm"
+                      onClick={() => {
+                        const sid = savedSession.sessionId;
+                        setSavedSession(null);
+                        loadSession(sid).catch(() => {
+                          clearPersistedSession();
+                        });
+                      }}
+                    >
+                      Continue
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSavedSession(null);
+                        clearPersistedSession();
+                      }}
+                    >
+                      New Chat
+                    </Button>
+                  </div>
+                </div>
+              ) : messages.length === 0 && !isLoading ? (
                 <div className={styles.emptyState}>
                   <Text size="sm">{emptyStateText}</Text>
                 </div>
@@ -1029,6 +1113,7 @@ export default function BienBotPanel({
                         isUser ? styles.messageUser : styles.messageAssistant,
                         msg.error ? styles.messageError : '',
                         msg.isContextAck ? styles.messageContextAck : '',
+                        msg.isActionResult ? styles.messageActionResult : '',
                         isCurrentlyStreaming ? styles.streaming : ''
                       ]
                         .filter(Boolean)
@@ -1177,6 +1262,7 @@ export default function BienBotPanel({
                       onExecute={handleExecuteAction}
                       onCancel={handleCancelAction}
                       disabled={isLoading || isStreaming}
+                      executing={executingActionId}
                     />
                   ))}
                 </div>

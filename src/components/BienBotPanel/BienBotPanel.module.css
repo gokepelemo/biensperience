@@ -252,10 +252,53 @@
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: var(--radius-md, 6px);
   background: var(--color-bg-primary, #fff);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 
   @mixin dark {
     background: var(--color-bg-secondary, #1e293b);
   }
+}
+
+.actionCardExecuting {
+  border-color: var(--color-primary, #6c63ff);
+  background: color-mix(in srgb, var(--color-primary, #6c63ff) 5%, var(--color-bg-primary, #fff));
+
+  @mixin dark {
+    background: color-mix(in srgb, var(--color-primary, #6c63ff) 10%, var(--color-bg-secondary, #1e293b));
+  }
+}
+
+.executingSpinner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.executingSpinner span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary, #6c63ff);
+  animation: executingPulse 1.2s ease-in-out infinite;
+}
+
+.executingSpinner span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.executingSpinner span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes executingPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* Action result message styling */
+.messageActionResult {
+  font-size: var(--font-size-sm, 0.875rem);
+  white-space: pre-line;
 }
 
 .actionInfo {
@@ -1353,4 +1396,21 @@
 @keyframes discoverySkeleton {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* Resume session prompt */
+.resumePrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-6, 1.5rem);
+  text-align: center;
+  flex: 1;
+}
+
+.resumeButtons {
+  display: flex;
+  gap: var(--space-3, 0.75rem);
 }
