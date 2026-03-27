@@ -512,28 +512,63 @@ async function buildContextBlocks(intent, entities, session, userId) {
  * Returns { message, pending_actions } or a fallback.
  */
 function parseLLMResponse(text) {
-  try {
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-    const parsed = JSON.parse(cleaned);
+  const tryParse = (raw) => {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.message !== 'string') return null;
 
-    if (typeof parsed.message !== 'string') {
-      return { message: text, pending_actions: [] };
+      const actions = Array.isArray(parsed.pending_actions)
+        ? parsed.pending_actions.filter(a =>
+          a && typeof a.id === 'string' &&
+            typeof a.type === 'string' &&
+            ALLOWED_ACTION_TYPES.includes(a.type) &&
+            a.payload && typeof a.description === 'string'
+        )
+        : [];
+
+      return { message: parsed.message, pending_actions: actions };
+    } catch {
+      return null;
     }
+  };
 
-    const actions = Array.isArray(parsed.pending_actions)
-      ? parsed.pending_actions.filter(a =>
-        a && typeof a.id === 'string' &&
-          typeof a.type === 'string' &&
-          ALLOWED_ACTION_TYPES.includes(a.type) &&
-          a.payload && typeof a.description === 'string'
-      )
-      : [];
+  // 1. Try direct parse (optionally strip markdown fences)
+  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const direct = tryParse(cleaned);
+  if (direct) return direct;
 
-    return { message: parsed.message, pending_actions: actions };
-  } catch {
-    // If parsing fails, treat the entire response as the message
-    return { message: text, pending_actions: [] };
+  // 2. Try extracting the first JSON object from the text (handles leading/trailing prose)
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const extracted = tryParse(text.slice(firstBrace, lastBrace + 1));
+    if (extracted) return extracted;
   }
+
+  // 3. JSON-like but unparseable — try regex extraction, else friendly error
+  if (text.trimStart().startsWith('{')) {
+    const msgMatch = text.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (msgMatch) {
+      try {
+        const unescaped = JSON.parse(`"${msgMatch[1]}"`);
+        return { message: unescaped, pending_actions: [] };
+      } catch {
+        return { message: msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'), pending_actions: [] };
+      }
+    }
+    logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
+      length: text.length,
+      preview: text.slice(0, 120)
+    });
+    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [] };
+  }
+
+  // 4. No message field found — show error
+  logger.warn('[bienbot] parseLLMResponse: no message field in response', {
+    length: text.length,
+    preview: text.slice(0, 120)
+  });
+  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [] };
 }
 
 /**
@@ -1764,9 +1799,12 @@ exports.resume = async (req, res) => {
 
   // Sessions with fewer than 3 messages: static greeting
   if ((session.messages || []).length < 3) {
+    const shortFirstName = req.user?.name?.split(/\s+/)[0];
     const staticGreeting = {
       role: 'assistant',
-      content: 'Welcome back! How can I help you continue?',
+      content: shortFirstName
+        ? `Welcome back, ${shortFirstName}! How can I help you continue?`
+        : 'Welcome back! How can I help you continue?',
       suggested_next_steps: ['Continue where you left off', 'Ask BienBot a new question']
     };
 
@@ -1811,7 +1849,9 @@ exports.resume = async (req, res) => {
   }
 
   // Build greeting message from summary
-  const greetingContent = `Welcome back! Here's a quick recap: ${summaryData.summary}`;
+  const firstName = req.user?.name?.split(/\s+/)[0];
+  const greeting = firstName ? `Welcome back, ${firstName}!` : 'Welcome back!';
+  const greetingContent = `${greeting} Here's a quick recap: ${summaryData.summary}`;
 
   // Append greeting to session messages
   try {
