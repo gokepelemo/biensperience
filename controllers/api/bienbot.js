@@ -274,6 +274,19 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
   }
 
   lines.push(
+    'PLANNING AN EXPERIENCE:',
+    'The user wants to plan an experience. Follow this flow:',
+    '1. A destination must be established before any experience can be discussed. If no destination is in context, ask: "Which destination are you planning for?" Do not list or suggest experiences until the user confirms a destination.',
+    '2. Once a destination is in context and an experience is resolved, propose a `create_plan` action with the `experience_id`. Do NOT include a `planned_date` — you will ask for that after creation.',
+    '3. After the plan is created, ask when they are planning to go. Convert relative dates to absolute ISO dates.',
+    '4. After the user provides a date, propose an `update_plan` action with the `planned_date`.',
+    '5. After the date is set, use `suggest_plan_items` to show popular items.',
+    'Never propose a `navigate_to_entity` action when the user wants to plan.',
+    'If has_user_plan is true in context for the selected experience, ask whether they want a new plan or to work on the existing one before proposing create_plan.',
+    ''
+  );
+
+  lines.push(
     'Respond ONLY with valid JSON — no markdown fences, no explanation outside the JSON.',
     '',
     'Response schema:',
@@ -1476,109 +1489,197 @@ exports.chat = async (req, res) => {
     }
   }
 
-  // --- Step 2e: Plan + Discover short-circuit for PLAN_EXPERIENCE ---
+  // --- Step 2e: Destination gate + Plan/Discover short-circuit for PLAN_EXPERIENCE ---
   // When the user wants to plan a trip to a destination, show:
   //   1. Their existing plans for that destination (select_plan cards)
   //   2. Available experiences to create a new plan from (discovery_result_list)
   // This bypasses the LLM for a faster, deterministic, richer response.
-  if (classification.intent === 'PLAN_EXPERIENCE' && classification.entities?.destination_name && !session.context?.plan_id) {
+  //
+  // Branch A: destination already in session context → run plan+discover immediately.
+  // Branch B: no destination in context → resolve from message:
+  //   HIGH confidence  → auto-inject destination_id + run plan+discover
+  //   MEDIUM confidence → stream select_destination disambiguation cards
+  //   LOW confidence    → fall through to LLM
+
+  /**
+   * runPlanDiscover — shared helper that fetches existing user plans and discovery
+   * results for a given destination name, then SSE-streams the combined response.
+   * Returns true if it streamed a response (caller should return early), false if
+   * there was nothing useful to show (caller should fall through).
+   */
+  async function runPlanDiscover(destName) {
+    loadModels();
+    const destLower = destName.toLowerCase();
+
+    // Fetch user's existing plans, filtering to those matching the destination
+    const allUserPlans = await Plan.find({ user: userId })
+      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+      .select('experience planned_date plan')
+      .lean();
+
+    const destPlans = allUserPlans.filter(p => {
+      const pDest = (p.experience?.destination?.name || '').toLowerCase();
+      return pDest && (pDest.includes(destLower) || destLower.includes(pDest));
+    });
+
+    // Build select_plan actions for existing plans
+    const planActions = destPlans.slice(0, 6).map(p => ({
+      id: `action_${crypto.randomBytes(4).toString('hex')}`,
+      type: 'select_plan',
+      payload: {
+        plan_id: p._id.toString(),
+        experience_name: p.experience?.name || '(unnamed)',
+        destination_name: p.experience?.destination?.name || '',
+        planned_date: p.planned_date || null,
+        item_count: (p.plan || []).length
+      },
+      description: `${p.experience?.name || 'Plan'}${p.experience?.destination?.name ? ` in ${p.experience.destination.name}` : ''}${p.planned_date ? ` (${new Date(p.planned_date).toISOString().split('T')[0]})` : ''}`
+    }));
+
+    // Fetch available experiences via discovery (for new plan creation)
+    const discoveryResult = await buildDiscoveryContext({ destination_name: destName }, userId).catch(() => null);
+
+    // Only short-circuit if we have something useful to show
+    if (planActions.length === 0 && !(discoveryResult?.results?.length > 0)) {
+      return false;
+    }
+
+    const hasBoth = planActions.length > 0 && discoveryResult?.results?.length > 0;
+    const hasPlansOnly = planActions.length > 0 && !discoveryResult?.results?.length;
+
+    let msg;
+    if (hasBoth) {
+      msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue, or choose a new experience to plan below.`;
+    } else if (hasPlansOnly) {
+      msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue.`;
+    } else {
+      msg = `Here are experiences you can plan in ${destName}:`;
+    }
+
+    const discoveryBlock = discoveryResult?.results?.length > 0
+      ? [{ type: 'discovery_result_list', data: { results: discoveryResult.results, query_metadata: discoveryResult.query_metadata || {} } }]
+      : [];
+
+    await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+    await session.addMessage('assistant', msg, {
+      actions_taken: [...planActions.map(() => 'select_plan'), ...(discoveryBlock.length ? ['discover_content'] : [])],
+      structured_content: discoveryBlock
+    });
+    if (planActions.length > 0) {
+      await session.setPendingActions(planActions);
+    }
+    await session.generateTitle();
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+
+    sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+
+    // Emit discovery skeleton before tokens so cards appear as message streams in
+    if (discoveryBlock.length > 0) {
+      sendSSE(res, 'structured_content', { blocks: [{ type: 'discovery_result_list', data: null }] });
+    }
+
+    const chunks = adaptiveChunks(msg);
+    for (const chunk of chunks) {
+      sendSSE(res, 'token', { text: chunk });
+    }
+
+    if (discoveryBlock.length > 0) {
+      sendSSE(res, 'structured_content', { blocks: discoveryBlock });
+    }
+
+    if (planActions.length > 0) {
+      sendSSE(res, 'actions', { pending_actions: planActions });
+    }
+
+    sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_resolution' });
+    res.end();
+
+    logger.info('[bienbot] Plan+discover short-circuit', { userId, destination: destName, plans: planActions.length, experiences: discoveryResult?.results?.length || 0 });
+    return true;
+  }
+
+  if (classification.intent === 'PLAN_EXPERIENCE' && !session.context?.plan_id) {
     try {
-      loadModels();
-      const destName = classification.entities.destination_name;
-      const destLower = destName.toLowerCase();
+      const { resolveEntity, ResolutionConfidence } = require('../../utilities/bienbot-entity-resolver');
 
-      // Fetch user's existing plans, filtering to those matching the destination
-      const allUserPlans = await Plan.find({ user: userId })
-        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
-        .select('experience planned_date plan')
-        .lean();
-
-      const destPlans = allUserPlans.filter(p => {
-        const pDest = (p.experience?.destination?.name || '').toLowerCase();
-        return pDest && (pDest.includes(destLower) || destLower.includes(pDest));
-      });
-
-      // Build select_plan actions for existing plans
-      const planActions = destPlans.slice(0, 6).map(p => ({
-        id: `action_${crypto.randomBytes(4).toString('hex')}`,
-        type: 'select_plan',
-        payload: {
-          plan_id: p._id.toString(),
-          experience_name: p.experience?.name || '(unnamed)',
-          destination_name: p.experience?.destination?.name || '',
-          planned_date: p.planned_date || null,
-          item_count: (p.plan || []).length
-        },
-        description: `${p.experience?.name || 'Plan'}${p.experience?.destination?.name ? ` in ${p.experience.destination.name}` : ''}${p.planned_date ? ` (${new Date(p.planned_date).toISOString().split('T')[0]})` : ''}`
-      }));
-
-      // Fetch available experiences via discovery (for new plan creation)
-      const discoveryResult = await buildDiscoveryContext({ destination_name: destName }, userId).catch(() => null);
-
-      // Only short-circuit if we have something useful to show
-      if (planActions.length > 0 || (discoveryResult?.results?.length > 0)) {
-        const hasBoth = planActions.length > 0 && discoveryResult?.results?.length > 0;
-        const hasPlansOnly = planActions.length > 0 && !discoveryResult?.results?.length;
-        const hasDiscoveryOnly = !planActions.length && discoveryResult?.results?.length > 0;
-
-        let msg;
-        if (hasBoth) {
-          msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue, or choose a new experience to plan below.`;
-        } else if (hasPlansOnly) {
-          msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue.`;
-        } else {
-          msg = `Here are experiences you can plan in ${destName}:`;
+      // ── A: Destination already in context → resolve name and run plan+discover ──
+      if (session.context?.destination_id) {
+        loadModels();
+        const ctxDest = await Destination.findById(session.context.destination_id).select('name').lean();
+        const destNameFromCtx = ctxDest?.name || classification.entities?.destination_name || '';
+        if (destNameFromCtx) {
+          const streamed = await runPlanDiscover(destNameFromCtx);
+          if (streamed) return;
         }
+        // If nothing to show, fall through to LLM
+      } else {
+        // ── B: No destination in context → resolve from message ──────────────────
+        const destQuery = classification.entities?.destination_name
+          || classification.entities?.experience_name
+          || message;
 
-        const discoveryBlock = discoveryResult?.results?.length > 0
-          ? [{ type: 'discovery_result_list', data: { results: discoveryResult.results, query_metadata: discoveryResult.query_metadata || {} } }]
-          : [];
+        if (destQuery && destQuery.trim().length >= 2) {
+          const { candidates, confidence } = await resolveEntity(
+            destQuery.trim(), 'destination', req.user
+          );
 
-        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
-        await session.addMessage('assistant', msg, {
-          actions_taken: [...planActions.map(() => 'select_plan'), ...(discoveryBlock.length ? ['discover_content'] : [])],
-          structured_content: discoveryBlock
-        });
-        if (planActions.length > 0) {
-          await session.setPendingActions(planActions);
+          if (confidence === ResolutionConfidence.HIGH && candidates.length > 0) {
+            const top = candidates[0];
+            await session.updateContext({ destination_id: top.id });
+            const streamed = await runPlanDiscover(top.name || destQuery.trim());
+            if (streamed) return;
+            // If nothing to show, fall through to LLM
+
+          } else if (confidence === ResolutionConfidence.MEDIUM && candidates.length > 0) {
+            const destActions = candidates.slice(0, 5).map(c => ({
+              id: `action_${crypto.randomBytes(4).toString('hex')}`,
+              type: 'select_destination',
+              payload: {
+                destination_id: c.id,
+                destination_name: c.name,
+                experience_name: c.name,
+                country: c.meta?.country || null,
+                city: c.meta?.city || null
+              },
+              description: c.name
+            }));
+
+            const disambigMsg = candidates.length > 1
+              ? `I found a few destinations matching "${destQuery.trim()}". Which one did you mean?`
+              : `I found a destination matching "${destQuery.trim()}". Is this the one?`;
+
+            await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+            await session.addMessage('assistant', disambigMsg, { actions_taken: ['select_destination'] });
+            await session.setPendingActions(destActions);
+            await session.generateTitle();
+
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+              'X-Accel-Buffering': 'no'
+            });
+            sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+            for (const chunk of adaptiveChunks(disambigMsg)) {
+              sendSSE(res, 'token', { text: chunk });
+            }
+            sendSSE(res, 'actions', { pending_actions: destActions });
+            sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'destination_gate' });
+            res.end();
+            logger.info('[bienbot] Destination gate — streamed select_destination cards', { userId, destQuery: destQuery.trim(), count: destActions.length });
+            return;
+          }
+          // LOW confidence: fall through to LLM
         }
-        await session.generateTitle();
-
-        res.writeHead(200, {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-          'X-Accel-Buffering': 'no'
-        });
-
-        sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
-
-        // Emit discovery skeleton before tokens so cards appear as message streams in
-        if (discoveryBlock.length > 0) {
-          sendSSE(res, 'structured_content', { blocks: [{ type: 'discovery_result_list', data: null }] });
-        }
-
-        const chunks = adaptiveChunks(msg);
-        for (const chunk of chunks) {
-          sendSSE(res, 'token', { text: chunk });
-        }
-
-        if (discoveryBlock.length > 0) {
-          sendSSE(res, 'structured_content', { blocks: discoveryBlock });
-        }
-
-        if (planActions.length > 0) {
-          sendSSE(res, 'actions', { pending_actions: planActions });
-        }
-
-        sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_resolution' });
-        res.end();
-
-        logger.info('[bienbot] Plan+discover short-circuit', { userId, destination: destName, plans: planActions.length, experiences: discoveryResult?.results?.length || 0 });
-        return;
       }
     } catch (err) {
-      logger.warn('[bienbot] Plan+discover resolution failed, continuing with LLM', { error: err.message });
+      logger.warn('[bienbot] Destination gate failed, continuing with LLM', { error: err.message });
     }
   }
 
