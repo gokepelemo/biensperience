@@ -246,6 +246,16 @@ const pendingActionSchema = new Schema({
     type: String,
     required: true
   },
+  confirm_label: {
+    type: String,
+    maxlength: 40,
+    default: undefined
+  },
+  dismiss_label: {
+    type: String,
+    maxlength: 40,
+    default: undefined
+  },
   executed: {
     type: Boolean,
     default: false
@@ -325,6 +335,10 @@ const collaboratorSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  user_name: {
+    type: String,
+    default: null
   },
   role: {
     type: String,
@@ -582,15 +596,17 @@ bienBotSessionSchema.methods.checkAccess = function (userId) {
  * @param {string} role - 'viewer' or 'editor'.
  * @param {string} grantedBy - User ID of the granter.
  */
-bienBotSessionSchema.methods.addCollaborator = async function (userId, role = 'viewer', grantedBy = null) {
+bienBotSessionSchema.methods.addCollaborator = async function (userId, role = 'viewer', grantedBy = null, userName = null) {
   const uid = userId.toString();
   const existing = (this.shared_with || []).find(c => c.user_id.toString() === uid);
   if (existing) {
     existing.role = role;
+    if (userName) existing.user_name = userName;
     this.markModified('shared_with');
   } else {
     this.shared_with.push({
       user_id: userId,
+      user_name: userName,
       role,
       granted_at: new Date(),
       granted_by: grantedBy

@@ -292,6 +292,18 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '  ]',
     '}',
     '',
+    'PENDING ACTION BUTTON OVERRIDES (optional):',
+    'Each action in pending_actions may include these optional fields to customise button labels:',
+    '  "confirm_label": "Yes, create it"   // overrides primary button (max 40 chars)',
+    '  "dismiss_label": "Not yet"          // overrides secondary button (max 40 chars)',
+    'Use overrides only when default labels feel wrong for the conversation context.',
+    'Examples where overrides make sense:',
+    '  - You asked "Shall I create a plan?" → confirm_label: "Yes, create it"',
+    '  - User said "maybe later" → dismiss_label: "Remind me later"',
+    '  - Confirming a destructive action → confirm_label: "Yes, delete it"',
+    'Do NOT include overrides for routine actions — the defaults are correct in most cases.',
+    'Do NOT use overrides to add new button types; only these two labels are supported.',
+    '',
     'Available action types:',
     '  create_destination, create_experience, create_plan,',
     '  update_experience, update_destination, update_plan,',
@@ -553,12 +565,29 @@ function parseLLMResponse(text) {
       if (typeof parsed.message !== 'string') return null;
 
       const actions = Array.isArray(parsed.pending_actions)
-        ? parsed.pending_actions.filter(a =>
-          a && typeof a.id === 'string' &&
-            typeof a.type === 'string' &&
-            ALLOWED_ACTION_TYPES.includes(a.type) &&
-            a.payload && typeof a.description === 'string'
-        )
+        ? parsed.pending_actions
+          .filter(a =>
+            a && typeof a.id === 'string' &&
+              typeof a.type === 'string' &&
+              ALLOWED_ACTION_TYPES.includes(a.type) &&
+              a.payload && typeof a.description === 'string'
+          )
+          .map(a => {
+            const action = { ...a };
+            if (typeof action.confirm_label === 'string') {
+              action.confirm_label = action.confirm_label.slice(0, 40) || undefined;
+              if (!action.confirm_label) delete action.confirm_label;
+            } else {
+              delete action.confirm_label;
+            }
+            if (typeof action.dismiss_label === 'string') {
+              action.dismiss_label = action.dismiss_label.slice(0, 40) || undefined;
+              if (!action.dismiss_label) delete action.dismiss_label;
+            } else {
+              delete action.dismiss_label;
+            }
+            return action;
+          })
         : [];
 
       const entityRefs = Array.isArray(parsed.entity_refs)
@@ -2651,7 +2680,7 @@ exports.addSessionCollaborator = async (req, res) => {
       return errorResponse(res, null, 'You can only share sessions with users who mutually follow you', 403);
     }
 
-    await session.addCollaborator(targetUserId, role, ownerId);
+    await session.addCollaborator(targetUserId, role, ownerId, targetUser.name || null);
 
     logger.info('[bienbot] Session collaborator added', {
       sessionId: id,
@@ -3465,3 +3494,6 @@ exports.getAttachmentUrl = async (req, res) => {
     return errorResponse(res, null, 'Failed to get attachment URL', 500);
   }
 };
+
+// Exported for testing
+exports.parseLLMResponse = parseLLMResponse;

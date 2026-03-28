@@ -1745,4 +1745,62 @@ describe('BienBot API', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('parseLLMResponse — confirm_label strip', () => {
+    it('truncates confirm_label over 40 chars to 40 chars', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const longLabel = 'A'.repeat(50);
+      const input = JSON.stringify({
+        message: 'hello',
+        entity_refs: [],
+        pending_actions: [{
+          id: 'action_abc12345',
+          type: 'create_plan',
+          payload: { experience_id: '6'.repeat(24) },
+          description: 'Create a plan',
+          confirm_label: longLabel,
+          dismiss_label: longLabel
+        }]
+      });
+      const result = parseLLMResponse(input);
+      expect(result.pending_actions[0].confirm_label).toHaveLength(40);
+      expect(result.pending_actions[0].dismiss_label).toHaveLength(40);
+    });
+
+    it('passes through confirm_label of 40 chars or fewer unchanged', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const input = JSON.stringify({
+        message: 'hello',
+        entity_refs: [],
+        pending_actions: [{
+          id: 'action_abc12345',
+          type: 'create_plan',
+          payload: { experience_id: '6'.repeat(24) },
+          description: 'Create a plan',
+          confirm_label: 'Yes, create it',
+          dismiss_label: 'Not yet'
+        }]
+      });
+      const result = parseLLMResponse(input);
+      expect(result.pending_actions[0].confirm_label).toBe('Yes, create it');
+      expect(result.pending_actions[0].dismiss_label).toBe('Not yet');
+    });
+
+    it('omits confirm_label entirely when not provided by LLM', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const input = JSON.stringify({
+        message: 'hello',
+        entity_refs: [],
+        pending_actions: [{
+          id: 'action_abc12345',
+          type: 'create_plan',
+          payload: { experience_id: '6'.repeat(24) },
+          description: 'Create a plan'
+        }]
+      });
+      const result = parseLLMResponse(input);
+      expect(result.pending_actions[0].confirm_label).toBeUndefined();
+      expect(result.pending_actions[0].dismiss_label).toBeUndefined();
+    });
+  });
 });
