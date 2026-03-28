@@ -1803,4 +1803,45 @@ describe('BienBot API', () => {
       expect(result.pending_actions[0].dismiss_label).toBeUndefined();
     });
   });
+
+  describe('parseLLMResponse — inline entity JSON extraction', () => {
+    it('extracts inline entity JSON objects from message text into entity_refs', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const entityObj = JSON.stringify({ _id: 'a'.repeat(24), name: 'Tokyo Temple Tour', type: 'experience' });
+      const input = JSON.stringify({
+        message: `I'll create a plan for ${entityObj}!`,
+        entity_refs: [],
+        pending_actions: []
+      });
+      const result = parseLLMResponse(input);
+      expect(result.entity_refs).toHaveLength(1);
+      expect(result.entity_refs[0]._id).toBe('a'.repeat(24));
+      expect(result.entity_refs[0].name).toBe('Tokyo Temple Tour');
+      expect(result.entity_refs[0].type).toBe('experience');
+    });
+
+    it('merges inline entity refs with LLM-provided entity_refs, deduplicating by _id', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const id = 'a'.repeat(24);
+      const entityObj = JSON.stringify({ _id: id, name: 'Tokyo Temple Tour', type: 'experience' });
+      const input = JSON.stringify({
+        message: `I'll create a plan for ${entityObj}!`,
+        entity_refs: [{ _id: id, name: 'Tokyo Temple Tour', type: 'experience' }],
+        pending_actions: []
+      });
+      const result = parseLLMResponse(input);
+      expect(result.entity_refs).toHaveLength(1);
+    });
+
+    it('ignores malformed or non-entity JSON objects in message text', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const input = JSON.stringify({
+        message: 'Use JSON like {"key": "value"} in your code.',
+        entity_refs: [],
+        pending_actions: []
+      });
+      const result = parseLLMResponse(input);
+      expect(result.entity_refs).toHaveLength(0);
+    });
+  });
 });
