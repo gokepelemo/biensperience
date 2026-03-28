@@ -788,6 +788,16 @@ export default function BienBotPanel({
         }
       }
 
+      // For select_destination, cancel all other select_destination actions (user picked one)
+      if (action && action.type === 'select_destination') {
+        const otherSelectDestinations = pendingActions.filter(
+          a => a.type === 'select_destination' && (a._id || a.id) !== actionId
+        );
+        for (const other of otherSelectDestinations) {
+          cancelAction(other._id || other.id);
+        }
+      }
+
       // Show executing state on the action card
       setExecutingActionId(actionId);
 
