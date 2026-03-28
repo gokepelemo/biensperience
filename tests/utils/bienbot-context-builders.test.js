@@ -666,3 +666,59 @@ describe('token budget trimming', () => {
     expect(ctx).toMatch(/\.\.\.$/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// entity ID format in context blocks
+// ---------------------------------------------------------------------------
+
+describe('entity ID format in context blocks', () => {
+  it('formats entity IDs as JSON objects in context output', async () => {
+    const owner = await createTestUser();
+    const dest = await createTestDestination(owner, { name: 'Tokyo' });
+    const exp = await createTestExperience(owner, dest, {
+      name: 'Tokyo Temple Tour',
+      overview: 'A tour of Tokyo temples'
+    });
+
+    const result = await buildExperienceContext(exp._id.toString(), owner._id.toString());
+
+    // Should contain JSON entity object format
+    expect(result).toContain('"_id"');
+    expect(result).toContain('"type"');
+    // Should NOT contain raw ID on a bare ID line
+    expect(result).not.toMatch(/Experience ID:\s*[a-f0-9]{24}/);
+  });
+
+  it('formats destination IDs as JSON objects in destination context', async () => {
+    const owner = await createTestUser();
+    const dest = await createTestDestination(owner, { name: 'Kyoto', country: 'Japan' });
+
+    const result = await buildDestinationContext(dest._id.toString(), owner._id.toString());
+
+    // Should contain JSON entity object format
+    expect(result).toContain('"_id"');
+    expect(result).toContain('"type"');
+    // Should NOT contain raw ID on a bare ID line
+    expect(result).not.toMatch(/Destination ID:\s*[a-f0-9]{24}/);
+  });
+
+  it('formats plan IDs as JSON objects in plan context', async () => {
+    const owner = await createTestUser();
+    const dest = await createTestDestination(owner, { name: 'Berlin' });
+    const exp = await createTestExperience(owner, dest, { name: 'Berlin Walk' });
+    const plan = await createTestPlan(owner, exp, {
+      planned_date: new Date('2026-09-01'),
+      plan: [
+        { plan_item_id: new mongoose.Types.ObjectId(), text: 'Visit museum', complete: false }
+      ]
+    });
+
+    const result = await buildUserPlanContext(plan._id.toString(), owner._id.toString());
+
+    // Should contain JSON entity object format
+    expect(result).toContain('"_id"');
+    expect(result).toContain('"type"');
+    // Should NOT contain raw ID on a bare ID line
+    expect(result).not.toMatch(/Plan ID:\s*[a-f0-9]{24}/);
+  });
+});

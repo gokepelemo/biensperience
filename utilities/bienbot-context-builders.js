@@ -27,6 +27,17 @@ function loadModels() {
 }
 
 /**
+ * Format an entity as an inline JSON reference for the LLM.
+ * @param {string} id - Entity ObjectId string
+ * @param {string} name - Entity display name
+ * @param {string} type - 'destination' | 'experience' | 'plan' | 'plan_item' | 'user'
+ * @returns {string} Compact JSON string
+ */
+function entityJSON(id, name, type) {
+  return JSON.stringify({ _id: id, name: name || type, type });
+}
+
+/**
  * Rough token estimate: ~4 chars per token for English text.
  */
 const CHARS_PER_TOKEN = 4;
@@ -160,6 +171,7 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
 
     const lines = [
       `[Destination] ${destination.name}`,
+      `Entity: ${entityJSON(destination._id.toString(), destination.name, 'destination')}`,
       destination.country ? `Country: ${destination.country}` : null,
       destination.state ? `State/Region: ${destination.state}` : null,
       destination.overview ? `Overview: ${destination.overview}` : null,
@@ -213,7 +225,9 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
 
     const lines = [
       `[Experience] ${experience.name}`,
+      `Entity: ${entityJSON(experience._id.toString(), experience.name, 'experience')}`,
       experience.destination?.name ? `Destination: ${experience.destination.name}` : null,
+      experience.destination?._id ? `Destination entity: ${entityJSON(experience.destination._id.toString(), experience.destination.name, 'destination')}` : null,
       experience.overview ? `Overview: ${experience.overview}` : null,
       experience.experience_type?.length ? `Types: ${experience.experience_type.join(', ')}` : null,
       `Plan items: ${itemCount} total, ${completedCount} completed`,
@@ -253,6 +267,8 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
     const lines = [
       `[Plan] for experience "${plan.experience?.name || '(unknown)'}"`,
+      `Entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}`,
+      plan.experience?._id ? `Experience entity: ${entityJSON(plan.experience._id.toString(), plan.experience.name, 'experience')}` : null,
       plan.planned_date ? `Planned date: ${new Date(plan.planned_date).toISOString().split('T')[0]}` : null,
       `Completion: ${completedItems}/${totalItems} items (${completionPct}%)`,
       plan.currency ? `Currency: ${plan.currency}` : null,
@@ -316,9 +332,12 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
     const item = planItems.find(i => String(i._id) === itemIdStr);
     if (!item) return null;
 
+    const itemName = item.content || item.text || item.name || '(unnamed)';
     const lines = [
-      `[Plan Item] ${item.content || item.text || item.name || '(unnamed)'}`,
+      `[Plan Item] ${itemName}`,
+      `Entity: ${entityJSON(item._id.toString(), itemName, 'plan_item')}`,
       `Plan: "${plan.experience?.name || '(unknown)'}"`,
+      plan._id ? `Plan entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}` : null,
       `Status: ${item.complete ? 'completed' : 'pending'}`,
       item.scheduled_date ? `Scheduled: ${new Date(item.scheduled_date).toISOString().split('T')[0]}` : null,
       item.notes?.length ? `Notes: ${item.notes.length}` : null,
@@ -346,6 +365,7 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
 
     const lines = [
       `[User] ${user.name || '(unnamed)'}`,
+      `Entity: ${entityJSON(user._id.toString(), user.name || '(unnamed)', 'user')}`,
       user.email ? `Email: ${user.email}` : null,
       user.bio ? `Bio: ${user.bio}` : null,
       user.preferences?.currency ? `Currency: ${user.preferences.currency}` : null,
