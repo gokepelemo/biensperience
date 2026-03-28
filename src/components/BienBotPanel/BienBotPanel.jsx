@@ -30,7 +30,9 @@ import BienBotPhotoGallery from './BienBotPhotoGallery';
 import DiscoveryResultCard from './DiscoveryResultCard';
 import PendingActionCard from './PendingActionCard';
 import SessionHistoryView from './SessionHistoryView';
-import { getAttachmentUrl } from '../../utilities/bienbot-api';
+import EntityRefList from './EntityRefList';
+import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
+import Autocomplete from '../Autocomplete/Autocomplete';
 import styles from './BienBotPanel.module.css';
 
 // ─── Close icon ──────────────────────────────────────────────────────────────
@@ -130,39 +132,50 @@ function ShareIcon() {
 
 // ─── Session share popover ──────────────────────────────────────────────────
 
-function SessionSharePopover({ open, onClose, sharedWith, onShare, onUnshare, isOwner }) {
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState('viewer');
+function SessionSharePopover({ open, onClose, sharedWith, onShare, onUnshare, isOwner, onSearchUsers }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const inputRef = useRef(null);
+  const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => {
-    if (open && inputRef.current) {
-      const t = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
+  const handleSearch = useCallback(async (query) => {
+    setSearchQuery(query);
+    if (!query || query.length < 2 || !onSearchUsers) {
+      setSearchResults([]);
+      return;
     }
-  }, [open]);
+    setIsSearching(true);
+    try {
+      const users = await onSearchUsers(query);
+      // Filter out users already shared with
+      const sharedIds = new Set((sharedWith || []).map(c => c.user_id?.toString()));
+      setSearchResults((users || []).filter(u => !sharedIds.has(u._id?.toString())));
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [onSearchUsers, sharedWith]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email.trim() || isSubmitting) return;
-
+  const handleSelect = useCallback(async (item) => {
+    if (!item?._id || isSubmitting) return;
     setError('');
     setIsSubmitting(true);
     try {
-      const result = await onShare(email.trim(), role);
+      const result = await onShare(item._id, 'viewer');
       if (result) {
-        setEmail('');
+        setSearchQuery('');
+        setSearchResults([]);
       } else {
-        setError('Could not share session. Check the user ID and try again.');
+        setError('Could not share. The user may not mutually follow you.');
       }
     } catch {
       setError('Failed to share session.');
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [isSubmitting, onShare]);
 
   if (!open) return null;
 
@@ -176,29 +189,29 @@ function SessionSharePopover({ open, onClose, sharedWith, onShare, onUnshare, is
       </div>
 
       {isOwner && (
-        <form className={styles.shareForm} onSubmit={handleSubmit}>
-          <input
-            ref={inputRef}
-            type="text"
-            className={styles.shareInput}
-            placeholder="User ID"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+        <div className={styles.shareForm}>
+          <Autocomplete
+            inputId="bienbot-share-search"
+            placeholder="Search mutual followers…"
+            entityType="user"
+            items={searchResults}
+            onSelect={handleSelect}
+            onSearch={handleSearch}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            showAvatar={true}
+            showMeta={true}
+            size="sm"
+            loading={isSearching}
+            emptyMessage={
+              searchQuery && searchQuery.length < 2
+                ? 'Type at least 2 characters'
+                : 'No mutual followers found'
+            }
+            disableFilter={true}
             disabled={isSubmitting}
           />
-          <select
-            className={styles.shareRoleSelect}
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            disabled={isSubmitting}
-          >
-            <option value="viewer">Viewer</option>
-            <option value="editor">Editor</option>
-          </select>
-          <Button type="submit" variant="primary" size="sm" disabled={!email.trim() || isSubmitting}>
-            Share
-          </Button>
-        </form>
+        </div>
       )}
 
       {error && <Text size="sm" className={styles.shareError}>{error}</Text>}
@@ -208,11 +221,8 @@ function SessionSharePopover({ open, onClose, sharedWith, onShare, onUnshare, is
           {sharedWith.map((collab) => (
             <div key={collab.user_id} className={styles.shareListItem}>
               <Text size="sm" className={styles.shareListUser}>
-                {collab.user_id?.toString().slice(-6)}
+                {collab.user_name || collab.user_id?.toString().slice(-6)}
               </Text>
-              <Tag.Root size="sm" variant="subtle" colorPalette={collab.role === 'editor' ? 'blue' : 'gray'}>
-                <Tag.Label>{collab.role}</Tag.Label>
-              </Tag.Root>
               {isOwner && (
                 <button
                   type="button"
@@ -244,7 +254,8 @@ SessionSharePopover.propTypes = {
   sharedWith: PropTypes.array,
   onShare: PropTypes.func.isRequired,
   onUnshare: PropTypes.func.isRequired,
-  isOwner: PropTypes.bool
+  isOwner: PropTypes.bool,
+  onSearchUsers: PropTypes.func
 };
 
 // ─── Paperclip (attach) icon ──────────────────────────────────────────────────
@@ -449,8 +460,11 @@ export default function BienBotPanel({
     updateContext,
     loadSession,
     clearSession,
+    deleteSession,
     shareSession,
     unshareSession,
+    sendSharedComment,
+    searchMutualFollowers,
     approveStep,
     skipStep,
     editStep,
@@ -492,13 +506,33 @@ export default function BienBotPanel({
 
   // ── Handle adding selected travel tips ─────────────────────────────────
   const handleAddTips = useCallback(
-    (tips) => {
+    async (tips, destinationId) => {
       if (!tips?.length || isStreaming || isLoading) return;
-      const tipValues = tips.map(t => t.value).filter(Boolean);
-      if (!tipValues.length) return;
-      sendMessage(`Add these travel tips: ${tipValues.join('; ')}`);
+      const sid = currentSession?._id;
+      if (!sid || !destinationId) return;
+
+      try {
+        const result = await applyTipsAPI(sid, destinationId, tips);
+        const added = result?.added ?? tips.length;
+        appendMessage({
+          _id: `tips-result-${Date.now()}`,
+          role: 'assistant',
+          content: `\u2705 Added ${added} travel tip${added !== 1 ? 's' : ''} to the destination.`,
+          createdAt: new Date().toISOString(),
+          isActionResult: true
+        });
+      } catch (err) {
+        logger.error('[BienBotPanel] Failed to apply tips', { error: err.message });
+        appendMessage({
+          _id: `tips-error-${Date.now()}`,
+          role: 'assistant',
+          content: 'Could not add the travel tips. Please try again.',
+          createdAt: new Date().toISOString(),
+          error: true
+        });
+      }
     },
-    [sendMessage, isStreaming, isLoading]
+    [isStreaming, isLoading, currentSession, appendMessage]
   );
 
   // ── Handle viewing a discovery result ──────────────────────────────────
@@ -520,6 +554,9 @@ export default function BienBotPanel({
   );
 
   const isSessionOwner = currentSession && user?._id && currentSession.user?.toString() === user._id.toString();
+
+  const [replyTo, setReplyTo] = useState(null);
+  // replyTo = { msg_id, preview, senderName } | null
 
   const handleNewChat = useCallback(() => {
     if (inputRef.current) {
@@ -583,6 +620,13 @@ export default function BienBotPanel({
       return () => clearTimeout(t);
     }
   }, [open, initialMessage]);
+
+  // ── Re-focus input after BienBot finishes responding ─────────────────────
+  useEffect(() => {
+    if (!isLoading && !isStreaming && open && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading, isStreaming, open]);
 
   // ── Detect invokeContext changes (e.g. plan item opened mid-chat) ────────
   useEffect(() => {
@@ -667,7 +711,13 @@ export default function BienBotPanel({
 
     logger.debug('[BienBotPanel] Sending message', { length: text.length, hasAttachment: !!attachment });
 
-    sendMessage(text, attachment || undefined);
+    if (!isSessionOwner || replyTo) {
+      // Non-owner or owner replying to a specific message → shared comment path (no LLM)
+      sendSharedComment(text, replyTo?.msg_id || null);
+      setReplyTo(null);
+    } else {
+      sendMessage(text, attachment || undefined);
+    }
 
     // Clear the textarea and attachment
     if (inputRef.current) {
@@ -680,7 +730,7 @@ export default function BienBotPanel({
       setAttachmentPreviewUrl(null);
     }
     setAttachment(null);
-  }, [isStreaming, isLoading, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl]);
+  }, [isStreaming, isLoading, isSessionOwner, replyTo, sendSharedComment, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl]);
 
   // Keyboard submit (Enter without Shift)
   const handleKeyDown = useCallback(
@@ -717,10 +767,24 @@ export default function BienBotPanel({
       const action = pendingActions.find(a => (a._id || a.id) === actionId);
       if (action && action.type === 'navigate_to_entity') {
         const url = action.payload?.url;
-        if (url) {
+        // Validate URL contains real IDs, not LLM placeholders like <unknown> or <experienceId>
+        if (url && !/<[^>]+>/.test(url)) {
           navigate(url);
           cancelAction(actionId);
           return;
+        }
+        // Bad URL — cancel without navigating
+        cancelAction(actionId);
+        return;
+      }
+
+      // For select_plan, cancel all other select_plan actions (user picked one)
+      if (action && action.type === 'select_plan') {
+        const otherSelectPlans = pendingActions.filter(
+          a => a.type === 'select_plan' && (a._id || a.id) !== actionId
+        );
+        for (const other of otherSelectPlans) {
+          cancelAction(other._id || other.id);
         }
       }
 
@@ -776,6 +840,7 @@ export default function BienBotPanel({
     (actionId) => {
       logger.debug('[BienBotPanel] Cancelling action', { actionId });
       cancelAction(actionId);
+      setTimeout(() => inputRef.current?.focus(), 50);
     },
     [cancelAction]
   );
@@ -951,6 +1016,7 @@ export default function BienBotPanel({
                 onShare={shareSession}
                 onUnshare={unshareSession}
                 isOwner={isSessionOwner}
+                onSearchUsers={searchMutualFollowers}
               />
             </div>
           )}
@@ -976,7 +1042,7 @@ export default function BienBotPanel({
                 if (viewMode === 'history') {
                   setViewMode('chat');
                 } else {
-                  fetchSessions();
+                  fetchSessions({ status: 'active' });
                   setViewMode('history');
                 }
               }}
@@ -1021,12 +1087,24 @@ export default function BienBotPanel({
           <SessionHistoryView
             sessions={sessions}
             currentSessionId={currentSession?._id}
+            userId={user?._id?.toString()}
             onSelectSession={async (sid) => {
               try {
                 await loadSession(sid);
                 setViewMode('chat');
               } catch {
                 // Session may have been deleted server-side; stay in history view
+              }
+            }}
+            onDeleteSession={async (sid) => {
+              try {
+                await deleteSession(sid);
+                // If that was the active session, go back to a fresh chat
+                if (currentSession?._id === sid) {
+                  setViewMode('chat');
+                }
+              } catch {
+                // Silently ignore — event bus won't fire, session stays in list
               }
             }}
             onBack={() => setViewMode('chat')}
@@ -1088,18 +1166,26 @@ export default function BienBotPanel({
                   <Text size="sm">{emptyStateText}</Text>
                 </div>
               ) : (
-                messages.map((msg) => {
+                messages.map((msg, msgIdx) => {
                   const isUser = msg.role === 'user';
                   const isAssistant = msg.role === 'assistant';
+                  const isSharedComment = msg.message_type === 'shared_comment';
                   const isCurrentlyStreaming =
                     isAssistant && isStreaming && msg === messages[messages.length - 1];
 
+                  // Skip rendering empty bubbles (no text, no structured content, no attachments)
+                  const hasContent = msg.content ||
+                    msg.structured_content?.length > 0 ||
+                    (isUser && msg.attachments?.length > 0) ||
+                    isCurrentlyStreaming;
+                  if (!hasContent) return null;
+
                   return (
                     <div
-                      key={msg._id}
+                      key={msg.msg_id || msg._id || msgIdx}
                       className={[
                         styles.message,
-                        isUser ? styles.messageUser : styles.messageAssistant,
+                        isSharedComment ? styles.messageSharedComment : (isUser ? styles.messageUser : styles.messageAssistant),
                         msg.error ? styles.messageError : '',
                         msg.isContextAck ? styles.messageContextAck : '',
                         msg.isActionResult ? styles.messageActionResult : '',
@@ -1108,6 +1194,12 @@ export default function BienBotPanel({
                         .filter(Boolean)
                         .join(' ')}
                     >
+                      {isSharedComment && msg.sender_name && (
+                        <span className={styles.messageSenderName}>{msg.sender_name}</span>
+                      )}
+                      {msg.reply_to_preview && (
+                        <span className={styles.replyPreviewInMessage}>{msg.reply_to_preview}</span>
+                      )}
                       {isUser && msg.attachments?.length > 0 && (
                         <div className={styles.messageAttachments}>
                           {msg.attachments.map((att, i) => {
@@ -1177,9 +1269,30 @@ export default function BienBotPanel({
                                 />
                               );
                             }
+                            if (block.type === 'entity_ref_list') {
+                              return (
+                                <EntityRefList
+                                  key={blockIdx}
+                                  refs={block.data?.refs || []}
+                                />
+                              );
+                            }
                             return null;
                           })}
                         </div>
+                      )}
+                      {msg.msg_id && currentSession && (
+                        <button
+                          type="button"
+                          className={styles.messageReplyButton}
+                          onClick={() => setReplyTo({
+                            msg_id: msg.msg_id,
+                            preview: msg.content?.slice(0, 100) || '',
+                            senderName: msg.sender_name || (isAssistant ? 'BienBot' : (user?.name || 'You'))
+                          })}
+                        >
+                          Reply
+                        </button>
                       )}
                     </div>
                   );
@@ -1310,6 +1423,21 @@ export default function BienBotPanel({
                   className={styles.attachmentRemove}
                   onClick={handleRemoveAttachment}
                   aria-label="Remove attachment"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+            )}
+            {replyTo && (
+              <div className={styles.replyStrip}>
+                <span className={styles.replyStripContent}>
+                  Replying to <strong>{replyTo.senderName}</strong>: {replyTo.preview}
+                </span>
+                <button
+                  type="button"
+                  className={styles.replyStripClose}
+                  onClick={() => setReplyTo(null)}
+                  aria-label="Cancel reply"
                 >
                   <CloseIcon />
                 </button>

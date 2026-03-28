@@ -371,32 +371,81 @@ async function buildSearchContext(query, userId, options = {}) {
   try {
     const trimmedQuery = query.trim();
 
-    // Search destinations and experiences in parallel
-    const [destinations, experiences] = await Promise.all([
+    // Search destinations, experiences, and user plans in parallel
+    const [destinations, experiences, userPlans] = await Promise.all([
       Destination.find({ visibility: 'public' }).select('name country overview').limit(100).lean(),
-      Experience.find({ visibility: 'public' }).select('name overview destination').populate('destination', 'name').limit(100).lean()
+      Experience.find({ visibility: 'public' }).select('name overview destination').populate('destination', 'name').limit(100).lean(),
+      userId
+        ? Plan.find({ user: userId })
+            .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+            .select('experience planned_date plan')
+            .lean()
+        : Promise.resolve([])
     ]);
 
     const matchedDestinations = findSimilarItems(destinations, trimmedQuery, 'name', 60);
     const matchedExperiences = findSimilarItems(experiences, trimmedQuery, 'name', 60);
 
-    if (matchedDestinations.length === 0 && matchedExperiences.length === 0) {
+    // Match user plans by experience name or destination name.
+    // Uses two complementary strategies so both short queries ("Tokyo") and long
+    // user messages ("Share the Tokyo temple tour plan's exact name...") match:
+    //   1. Substring containment — either direction
+    //   2. Query-side word overlap — ≥50% of query words appear in entity name
+    //   3. Entity-side word overlap — ≥60% of entity name words appear in query
+    //      (handles long queries where the entity name is only a small portion)
+    const queryLower = trimmedQuery.toLowerCase();
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+    const matchedPlans = (userPlans || []).filter(p => {
+      const expName = (p.experience?.name || '').toLowerCase();
+      const destName = (p.experience?.destination?.name || '').toLowerCase();
+      // Substring match: query contains the name or name contains the query
+      if (expName && (expName.includes(queryLower) || queryLower.includes(expName))) return true;
+      if (destName && (destName.includes(queryLower) || queryLower.includes(destName))) return true;
+      const combined = `${expName} ${destName}`;
+      if (queryWords.length >= 2) {
+        // Query-side: most query words appear in the combined entity name
+        const queryMatchCount = queryWords.filter(w => combined.includes(w)).length;
+        if (queryMatchCount >= Math.ceil(queryWords.length * 0.5)) return true;
+        // Entity-side: most entity name words appear in the query (handles long messages)
+        const entityWords = combined.split(/\s+/).filter(w => w.length > 2);
+        if (entityWords.length >= 2) {
+          const entityMatchCount = entityWords.filter(w => queryLower.includes(w)).length;
+          if (entityMatchCount >= Math.ceil(entityWords.length * 0.5)) return true;
+        }
+      }
+      return false;
+    });
+
+    if (matchedDestinations.length === 0 && matchedExperiences.length === 0 && matchedPlans.length === 0) {
       return null;
     }
 
     const lines = [`[Search Results] for "${trimmedQuery}"`];
 
+    if (matchedPlans.length > 0) {
+      lines.push('Your Plans:');
+      matchedPlans.slice(0, 5).forEach(p => {
+        const expName = p.experience?.name || 'Unnamed';
+        const destName = p.experience?.destination?.name;
+        const expId = p.experience?._id?.toString();
+        const dateStr = p.planned_date
+          ? new Date(p.planned_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : null;
+        lines.push(`  - "${expName}"${destName ? ` in ${destName}` : ''}${dateStr ? ` (${dateStr})` : ''} [plan_id: ${p._id}, experience_id: ${expId}]`);
+      });
+    }
+
     if (matchedDestinations.length > 0) {
       lines.push('Destinations:');
       matchedDestinations.slice(0, 5).forEach(d => {
-        lines.push(`  - ${d.name}${d.country ? ` (${d.country})` : ''}`);
+        lines.push(`  - ${d.name}${d.country ? ` (${d.country})` : ''} [destination_id: ${d._id}]`);
       });
     }
 
     if (matchedExperiences.length > 0) {
       lines.push('Experiences:');
       matchedExperiences.slice(0, 5).forEach(e => {
-        lines.push(`  - ${e.name}${e.destination?.name ? ` at ${e.destination.name}` : ''}`);
+        lines.push(`  - ${e.name}${e.destination?.name ? ` at ${e.destination.name}` : ''} [experience_id: ${e._id}]`);
       });
     }
 

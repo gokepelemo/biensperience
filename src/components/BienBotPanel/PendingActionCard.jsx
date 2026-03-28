@@ -40,6 +40,7 @@ const ACTION_CONFIG = {
   toggle_favorite_destination: { label: 'Toggle Favorite', icon: '❤️' },
   set_member_location: { label: 'Set Location', icon: '📍' },
   remove_member_location: { label: 'Remove Location', icon: '📍' },
+  discover_content: { label: 'Discover Content', icon: '🔍' },
   workflow: { label: 'Workflow', icon: '⚡' }
 };
 
@@ -129,6 +130,16 @@ function renderWorkflow(payload) {
   );
 }
 
+function renderDiscoverContent(payload) {
+  const types = payload.activity_types || [];
+  return (
+    <div className={styles.cardFields}>
+      {payload.destination_name && <div className={styles.cardFieldPrimary}>{payload.destination_name}</div>}
+      {types.length > 0 && <Text size="sm" className={styles.cardFieldSecondary}>{types.join(', ')}</Text>}
+    </div>
+  );
+}
+
 function renderBody(type, payload) {
   switch (type) {
     case 'create_destination': return renderCreateDestination(payload);
@@ -139,6 +150,7 @@ function renderBody(type, payload) {
     case 'update_plan_item':
     case 'update_experience_plan_item': return renderUpdateItem(payload);
     case 'invite_collaborator': return renderInviteCollaborator(payload);
+    case 'discover_content': return renderDiscoverContent(payload);
     case 'workflow': return renderWorkflow(payload);
     default: return null;
   }

@@ -4,6 +4,7 @@ import { logger } from "./logger"
 import { clearSession } from "./session-utils.js"
 import { eventBus } from "./event-bus"
 import { clearStoredToken, getStoredToken, setStoredToken } from "./token-storage.js"
+import { parseJwtPayload } from "./encoding-utils"
 
 /**
  * Signs up a new user and stores their authentication token.
@@ -52,7 +53,7 @@ export function getToken() {
         
         // Try to decode the payload
         try {
-            const payload = JSON.parse(atob(parts[1]));
+            const payload = parseJwtPayload(parts[1]);
             if (payload.exp < Date.now() / 1000) {
                 clearStoredToken();
                 return null;
@@ -81,7 +82,7 @@ export function getUser() {
     debug.log('getUser called, token exists:', !!token);
     let user;
     if (token) {
-        user = JSON.parse(atob(token.split('.')[1])).user;
+        user = parseJwtPayload(token.split('.')[1]).user;
         user.experiences = null;
         debug.log('getUser decoded user:', { email: user.email, _id: user._id });
     } else {

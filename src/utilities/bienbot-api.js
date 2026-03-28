@@ -10,6 +10,7 @@
 
 import { sendRequest } from "./send-request";
 import { getToken } from "./users-service.js";
+import { parseJwtPayload } from "./encoding-utils";
 import { logger } from "./logger";
 import { broadcastEvent } from "./event-bus";
 import { getSessionId, refreshSessionIfNeeded } from "./session-utils.js";
@@ -46,7 +47,7 @@ async function buildAuthHeaders() {
     headers.Authorization = `Bearer ${token}`;
 
     try {
-      const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+      const tokenPayload = parseJwtPayload(token.split('.')[1]);
       const userId = tokenPayload.user?._id;
 
       if (userId) {
@@ -552,6 +553,27 @@ export async function cancelAction(sessionId, actionId) {
 }
 
 // ---------------------------------------------------------------------------
+// Apply tips
+// ---------------------------------------------------------------------------
+
+/**
+ * Directly append selected travel tips to a destination, bypassing the LLM.
+ *
+ * @param {string} sessionId - Session ID (for auth context)
+ * @param {string} destinationId - Destination to add tips to
+ * @param {Array<object>} tips - Selected tip objects from TipSuggestionList
+ * @returns {Promise<{ added: number, skipped: number, destination_id: string }>}
+ */
+export async function applyTips(sessionId, destinationId, tips) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/tips`,
+    "POST",
+    { destination_id: destinationId, tips }
+  );
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
 // Workflow step management
 // ---------------------------------------------------------------------------
 
@@ -746,6 +768,54 @@ export async function removeSessionCollaborator(sessionId, userId) {
 // ---------------------------------------------------------------------------
 // Cross-session memory
 // ---------------------------------------------------------------------------
+
+/**
+ * Post a shared comment to a BienBot session without triggering the LLM pipeline.
+ * Used by shared collaborators (editors) and by the session owner when replying to
+ * a collaborator's message. Returns the saved message as JSON (not SSE).
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} message - Comment text
+ * @param {string|null} [replyTo] - msg_id of the message being replied to (optional)
+ * @returns {Promise<{ session: Object, message: Object }>}
+ */
+export async function postSharedComment(sessionId, message, replyTo = null) {
+  const body = { message, sessionId };
+  if (replyTo) {
+    body.reply_to = replyTo;
+  }
+
+  const result = await sendRequest(`${BASE_URL}/chat`, 'POST', body);
+
+  try {
+    broadcastEvent('bienbot:message_added', {
+      sessionId,
+      message,
+      version: Date.now()
+    });
+    logger.debug('[bienbot-api] bienbot:message_added (shared comment) event dispatched', { sessionId });
+  } catch (e) {
+    // Silently ignore
+  }
+
+  return extractData(result);
+}
+
+/**
+ * Search users who mutually follow the authenticated user.
+ * Used by the Share Session popover to populate the user search dropdown.
+ *
+ * @param {string} [q] - Optional search string (name or email)
+ * @returns {Promise<{ users: Array<{ _id, name, email }> }>}
+ */
+export async function getMutualFollowers(q = '') {
+  let url = `${BASE_URL}/mutual-followers`;
+  if (q.trim()) {
+    url += `?q=${encodeURIComponent(q.trim())}`;
+  }
+  const result = await sendRequest(url, 'GET');
+  return extractData(result);
+}
 
 /**
  * Get the authenticated user's cross-session BienBot memory entries.

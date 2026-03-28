@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import {
   postMessage,
+  postSharedComment as postSharedCommentAPI,
+  getMutualFollowers as getMutualFollowersAPI,
   getSessions,
   getSession,
   resumeSession as resumeSessionAPI,
@@ -432,12 +434,15 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         const initialMessages = [];
 
         if (greeting) {
-          initialMessages.push({
-            _id: `greeting-${Date.now()}`,
-            role: 'assistant',
-            content: greeting.text || greeting.message || (typeof greeting === 'string' ? greeting : ''),
-            createdAt: new Date().toISOString()
-          });
+          const greetingContent = greeting.text || greeting.message || (typeof greeting === 'string' ? greeting : '');
+          if (greetingContent) {
+            initialMessages.push({
+              _id: `greeting-${Date.now()}`,
+              role: 'assistant',
+              content: greetingContent,
+              createdAt: new Date().toISOString()
+            });
+          }
 
           // Extract suggested_next_steps from greeting
           if (greeting.suggested_next_steps?.length) {
@@ -479,6 +484,28 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       setIsStreaming(false);
     });
   }, [cancelStream, clearPersistedSession]);
+
+  /**
+   * Delete a session server-side. Only the session owner may do this.
+   * Directly updates local state after successful API call for immediate feedback.
+   *
+   * @param {string} sid - Session ID to delete
+   * @returns {Promise<void>}
+   */
+  const deleteSession = useCallback(async (sid) => {
+    if (!sid) return;
+    try {
+      await deleteSessionAPI(sid);
+      // Directly update state after successful API call (don't rely solely on event bus)
+      setSessions(prev => prev.filter(s => s._id !== sid));
+      if (sessionIdRef.current === sid) {
+        clearSession();
+      }
+    } catch (err) {
+      logger.error('[useBienBot] Failed to delete session', { error: err.message, sid });
+      throw err;
+    }
+  }, [clearSession]);
 
   // ---------------------------------------------------------------------------
   // Fetch sessions list
@@ -592,6 +619,68 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   // ---------------------------------------------------------------------------
   // Workflow step management
   // ---------------------------------------------------------------------------
+
+  /**
+   * Post a shared comment — saves the message without triggering the LLM pipeline.
+   * Used by shared collaborators (editors) and by the session owner when replying
+   * inline to a collaborator message.
+   *
+   * @param {string} text - Comment text
+   * @param {string|null} [replyTo] - msg_id of the message being replied to
+   * @returns {Promise<void>}
+   */
+  const sendSharedComment = useCallback(async (text, replyTo = null) => {
+    if (!text?.trim()) return;
+
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+
+    // Optimistically append the comment to the local messages list
+    const tempId = `temp-comment-${Date.now()}`;
+    const optimisticMsg = {
+      _id: tempId,
+      role: 'user',
+      content: text,
+      message_type: 'shared_comment',
+      reply_to: replyTo || null,
+      createdAt: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      const result = await postSharedCommentAPI(sid, text, replyTo);
+      const savedMsg = result?.message;
+      if (savedMsg) {
+        // Replace optimistic message with server-confirmed version
+        setMessages(prev =>
+          prev.map(m => m._id === tempId ? { ...savedMsg, _id: tempId } : m)
+        );
+      }
+    } catch (err) {
+      logger.error('[useBienBot] Failed to post shared comment', { error: err.message });
+      setMessages(prev =>
+        prev.map(m =>
+          m._id === tempId ? { ...m, error: true, content: err.message || text } : m
+        )
+      );
+    }
+  }, []);
+
+  /**
+   * Search mutual followers for sharing the current session.
+   *
+   * @param {string} q - Search query (name or email)
+   * @returns {Promise<Array<{ _id, name, email }>>}
+   */
+  const searchMutualFollowers = useCallback(async (q = '') => {
+    try {
+      const result = await getMutualFollowersAPI(q);
+      return result?.users || [];
+    } catch (err) {
+      logger.error('[useBienBot] Failed to search mutual followers', { error: err.message });
+      return [];
+    }
+  }, []);
 
   /**
    * Approve a workflow step. Executes it immediately and updates local state.
@@ -758,8 +847,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     pendingActions,
     suggestedNextSteps,
     isLoading,
+    deleteSession,
     isStreaming,
     sendMessage,
+    sendSharedComment,
+    searchMutualFollowers,
     executeActions,
     cancelAction,
     updateContext,

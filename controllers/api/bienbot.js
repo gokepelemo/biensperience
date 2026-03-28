@@ -26,7 +26,7 @@ const {
   buildPlanNextStepsContext
 } = require('../../utilities/bienbot-context-builders');
 const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
-const { resolveEntities, formatResolutionBlock, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
+const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
 const { extractMemoryFromSession, extractMemoryForCollaborators, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
 const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
@@ -168,7 +168,7 @@ async function resolveEntityLabel(entity, entityId) {
  * @param {object|null} params.userHiddenSignals - User's behavioral signal vector
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals }) {
+function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, resolvedEntityObjects, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals }) {
   // Build USER PROFILE block (personalization context)
   const profileLines = [];
   if (userName) {
@@ -228,6 +228,12 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- Use real entity IDs from the context blocks provided below.',
     '- If the needed entity is not in context, ask the user to clarify — do not guess.',
     '- For creation actions (create_destination, create_experience, create_plan), do NOT include an _id field — MongoDB generates it automatically.',
+    '',
+    'ENTITY REFERENCES (entity_refs):',
+    '- When your message discusses or references a specific entity (destination, experience, plan, or plan_item) that has a known _id from context or entity resolution, include it in the entity_refs array.',
+    '- Format: { "type": "destination|experience|plan|plan_item", "_id": "<real id>", "name": "<entity name>" }',
+    '- For plans, also include "experience_id": "<experience _id>" when available.',
+    '- Only include entities with real IDs — never fabricate. Leave entity_refs as [] if none apply.',
     ''
   ];
 
@@ -261,12 +267,21 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     lines.push('');
   }
 
+  if (resolvedEntityObjects && resolvedEntityObjects.length > 0) {
+    lines.push('RESOLVED ENTITIES (use these _id values in action payloads and entity_refs):');
+    lines.push(JSON.stringify(resolvedEntityObjects, null, 2));
+    lines.push('');
+  }
+
   lines.push(
     'Respond ONLY with valid JSON — no markdown fences, no explanation outside the JSON.',
     '',
     'Response schema:',
     '{',
     '  "message": "Your response text to the user (plain text or markdown). Use this for clarifying questions when needed.",',
+    '  "entity_refs": [',
+    '    { "type": "destination|experience|plan|plan_item", "_id": "<real id>", "name": "<entity name>" }',
+    '  ],',
     '  "pending_actions": [',
     '    {',
     '      "id": "action_<random_8_chars>",',
@@ -432,7 +447,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
 /**
  * Build context blocks based on intent classification and session state.
  */
-async function buildContextBlocks(intent, entities, session, userId) {
+async function buildContextBlocks(intent, entities, session, userId, message) {
   const blocks = [];
 
   // Use session context IDs to enrich the prompt
@@ -446,8 +461,11 @@ async function buildContextBlocks(intent, entities, session, userId) {
       promises.push(buildSearchContext(entities.destination_name, userId).then(b => b && blocks.push(b)));
     }
 
-    // Discovery intents — build aggregation-based discovery context
-    if (intent === 'DISCOVER_EXPERIENCES' || intent === 'DISCOVER_DESTINATIONS') {
+    // Discovery intents — build aggregation-based discovery context showing
+    // available experiences. Also triggered for PLAN_EXPERIENCE / CREATE_EXPERIENCE
+    // so the LLM sees what's available to plan, not the user's existing plans.
+    const DISCOVERY_INTENTS = new Set(['DISCOVER_EXPERIENCES', 'DISCOVER_DESTINATIONS', 'PLAN_EXPERIENCE', 'CREATE_EXPERIENCE']);
+    if (DISCOVERY_INTENTS.has(intent)) {
       const discoveryFilters = {};
       if (entities.destination_name) discoveryFilters.destination_name = entities.destination_name;
       if (ctx.destination_id) discoveryFilters.destination_id = ctx.destination_id.toString();
@@ -462,6 +480,10 @@ async function buildContextBlocks(intent, entities, session, userId) {
       }
       if (entities.experience_name) {
         promises.push(buildSearchContext(entities.experience_name, userId).then(b => b && blocks.push(b)));
+      }
+      // Fallback: if no specific entity names extracted, search with the raw user message
+      if (!entities.destination_name && !entities.experience_name && message) {
+        promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
       }
     }
 
@@ -486,6 +508,19 @@ async function buildContextBlocks(intent, entities, session, userId) {
     // Search context for entity references not yet in session
     if (entities.experience_name && !ctx.experience_id) {
       promises.push(buildSearchContext(entities.experience_name, userId).then(b => b && blocks.push(b)));
+    }
+    if (entities.destination_name && !ctx.destination_id && !DISCOVERY_INTENTS.has(intent) && intent !== 'NAVIGATE_TO_ENTITY' && intent !== 'QUERY_DESTINATION') {
+      promises.push(buildSearchContext(entities.destination_name, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Broad fallback: search with the raw message whenever no entity names were
+    // extracted and no entity is already in session context. This handles any intent
+    // where the user mentions an entity that NLP couldn't isolate — e.g. "work on
+    // the Tokyo temple tour plan", "tell me about my Kyoto trip", etc.
+    // Excluded: NAVIGATE_TO_ENTITY already has its own search block above.
+    const hasEntityInSession = !!(ctx.destination_id || ctx.experience_id || ctx.plan_id);
+    if (message && !entities.experience_name && !entities.destination_name && !hasEntityInSession && intent !== 'NAVIGATE_TO_ENTITY') {
+      promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
     }
 
     // Suggestion context when destination is known (enables LLM to propose suggest_plan_items)
@@ -526,7 +561,15 @@ function parseLLMResponse(text) {
         )
         : [];
 
-      return { message: parsed.message, pending_actions: actions };
+      const entityRefs = Array.isArray(parsed.entity_refs)
+        ? parsed.entity_refs.filter(r =>
+          r && typeof r._id === 'string' && r._id.length > 0 &&
+          typeof r.type === 'string' && typeof r.name === 'string' &&
+          !/<[^>]+>/.test(r._id) // reject placeholder values like <experience_id>
+        )
+        : [];
+
+      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs };
     } catch {
       return null;
     }
@@ -551,16 +594,16 @@ function parseLLMResponse(text) {
     if (msgMatch) {
       try {
         const unescaped = JSON.parse(`"${msgMatch[1]}"`);
-        return { message: unescaped, pending_actions: [] };
+        return { message: unescaped, pending_actions: [], entity_refs: [] };
       } catch {
-        return { message: msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'), pending_actions: [] };
+        return { message: msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'), pending_actions: [], entity_refs: [] };
       }
     }
     logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
       length: text.length,
       preview: text.slice(0, 120)
     });
-    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [] };
+    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
   }
 
   // 4. No message field found — show error
@@ -568,7 +611,7 @@ function parseLLMResponse(text) {
     length: text.length,
     preview: text.slice(0, 120)
   });
-  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [] };
+  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
 }
 
 /**
@@ -698,14 +741,22 @@ function buildTokenAwareHistory(messages, sessionSummary) {
     return { windowedMessages: [], olderMessageCount: 0, summaryText: null };
   }
 
+  // Exclude shared_comment messages — they are peer exchanges and must NOT
+  // appear in the LLM context window.
+  const botMessages = messages.filter(m => !m.message_type || m.message_type === 'bot_query');
+
+  if (botMessages.length === 0) {
+    return { windowedMessages: [], olderMessageCount: 0, summaryText: null };
+  }
+
   // Walk backwards, keeping messages that fit within the token budget.
   // Use the same formatting that will be applied when building conversationMessages
   // so the size estimate is as accurate as possible.
   let totalChars = 0;
   const kept = [];
 
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
+  for (let i = botMessages.length - 1; i >= 0; i--) {
+    const msg = botMessages[i];
     const formatted = msg.role === 'user'
       ? `[USER MESSAGE]\n${msg.content}\n[/USER MESSAGE]`
       : msg.content;
@@ -719,7 +770,7 @@ function buildTokenAwareHistory(messages, sessionSummary) {
     kept.unshift(msg);
   }
 
-  const olderMessageCount = messages.length - kept.length;
+  const olderMessageCount = botMessages.length - kept.length;
   const summaryText = olderMessageCount > 0 ? (sessionSummary?.text || null) : null;
 
   return { windowedMessages: kept, olderMessageCount, summaryText };
@@ -1087,6 +1138,52 @@ exports.chat = async (req, res) => {
       if (access.role === 'viewer') {
         return errorResponse(res, null, 'You have view-only access to this session', 403);
       }
+
+      // --- Shared comment shortcut ---
+      // Editors (shared collaborators) always post shared_comments — no LLM pipeline.
+      // Session owners posting a reply to a shared comment are also peer exchanges.
+      const { reply_to: replyToMsgId } = req.body;
+      const isSharedComment = access.role === 'editor' || (access.role === 'owner' && replyToMsgId);
+
+      if (isSharedComment) {
+        try {
+          // Resolve reply preview if replying to an existing message
+          let replyToPreview = null;
+          if (replyToMsgId) {
+            const repliedMsg = (session.messages || []).find(m => m.msg_id === replyToMsgId);
+            if (repliedMsg) {
+              replyToPreview = repliedMsg.content.length > 200
+                ? repliedMsg.content.substring(0, 197) + '...'
+                : repliedMsg.content;
+            }
+          }
+
+          const senderName = req.user.name || req.user.email || 'User';
+          await session.addMessage('user', message, {
+            message_type: 'shared_comment',
+            sender_name: senderName,
+            sentBy: req.user._id,
+            reply_to: replyToMsgId || null,
+            reply_to_preview: replyToPreview
+          });
+          await session.generateTitle();
+
+          const savedMsg = session.messages[session.messages.length - 1];
+          logger.info('[bienbot] Shared comment posted', {
+            sessionId: session._id.toString(),
+            userId,
+            role: access.role
+          });
+
+          return successResponse(res, {
+            session: { _id: session._id, title: session.title },
+            message: savedMsg
+          }, 'Comment posted');
+        } catch (commentErr) {
+          logger.error('[bienbot] Failed to save shared comment', { error: commentErr.message });
+          return errorResponse(res, commentErr, 'Failed to post comment', 500);
+        }
+      }
     } else {
       session = await BienBotSession.createSession(userId, resolvedInvokeContext || {});
 
@@ -1139,6 +1236,7 @@ exports.chat = async (req, res) => {
 
   // --- Step 2b: Resolve entity names ---
   let entityResolutionBlock = null;
+  let resolvedEntityObjects = [];
   try {
     // Extract only the fields the resolver knows about
     const extractedNames = {};
@@ -1176,6 +1274,7 @@ exports.chat = async (req, res) => {
       });
 
       entityResolutionBlock = formatResolutionBlock(resolutionResult, extractedNames);
+      resolvedEntityObjects = formatResolutionObjects(resolutionResult);
 
       logger.info('[bienbot] Entity resolution complete', {
         userId,
@@ -1184,9 +1283,274 @@ exports.chat = async (req, res) => {
         ambiguous: Object.keys(resolutionResult.ambiguous),
         unresolved: resolutionResult.unresolved,
       });
+
+      // For each unresolved entity name, run a DB search and attach to the entity
+      // resolution block so the LLM gets search results even when the resolver
+      // couldn't find a high-confidence match.
+      if (resolutionResult.unresolved.length > 0) {
+        const unresolvedSearchBlocks = await Promise.all(
+          resolutionResult.unresolved.map(field =>
+            extractedNames[field]
+              ? buildSearchContext(extractedNames[field], userId).catch(() => null)
+              : Promise.resolve(null)
+          )
+        );
+        const unresolvedBlocks = unresolvedSearchBlocks.filter(Boolean);
+        if (unresolvedBlocks.length > 0) {
+          entityResolutionBlock = [entityResolutionBlock, ...unresolvedBlocks].filter(Boolean).join('\n\n');
+        }
+      }
     }
   } catch (err) {
     logger.warn('[bienbot] Entity resolution failed, continuing without it', { error: err.message });
+  }
+
+  // --- Step 2d: Navigation resolution (runs BEFORE plan disambiguation) ---
+  // Detect navigation intent via pattern matching (NLP classifier may not catch all forms).
+  // Short-circuit with a navigate_to_entity action instead of relying on the LLM to build URLs.
+  const NAV_PATTERN = /^(?:navigate\s+to|take\s+me\s+to|go\s+to|show\s+me|open|bring\s+me\s+to|direct\s+me\s+to|i\s+want\s+to\s+(?:see|view|visit|go\s+to))\b/i;
+  const isNavIntent = classification.intent === 'NAVIGATE_TO_ENTITY' || NAV_PATTERN.test(message.trim());
+  logger.debug('[bienbot] Nav resolution check', { intent: classification.intent, isNavIntent, messageStart: message.trim().substring(0, 50) });
+  if (isNavIntent) {
+    try {
+      loadModels();
+
+      // Build a search hint from entities or the raw message (strip navigation verbs)
+      const rawHint = classification.entities?.experience_name
+        || classification.entities?.destination_name
+        || message.trim().replace(NAV_PATTERN, '').trim().replace(/^the\s+/i, '').trim();
+      const navHint = rawHint.toLowerCase();
+      logger.debug('[bienbot] Nav search hint', { rawHint, navHint });
+
+      // Search user plans, experiences, and destinations in parallel
+      const [navUserPlans, navExperiences, navDestinations] = await Promise.all([
+        Plan.find({ user: userId })
+          .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+          .select('experience planned_date')
+          .lean(),
+        Experience.find({ visibility: 'public' }).select('name destination').populate('destination', 'name').limit(50).lean(),
+        Destination.find({ visibility: 'public' }).select('name').limit(50).lean()
+      ]);
+
+      // Score matches using substring containment and word overlap (both directions)
+      const navHintWords = navHint.split(/\s+/).filter(w => w.length > 2);
+      const scoreNavMatch = (name) => {
+        if (!name) return 0;
+        const lower = name.toLowerCase();
+        if (lower === navHint || navHint === lower) return 100;
+        if (lower.includes(navHint) || navHint.includes(lower)) return 80;
+        if (navHintWords.length >= 2) {
+          // Query-side: most hint words appear in entity name
+          const matchCount = navHintWords.filter(w => lower.includes(w)).length;
+          const ratio = matchCount / navHintWords.length;
+          if (ratio >= 0.5) return Math.round(ratio * 60);
+          // Entity-side: most entity name words appear in hint (handles long hints)
+          const nameWords = lower.split(/\s+/).filter(w => w.length > 2);
+          if (nameWords.length >= 2) {
+            const entityMatchCount = nameWords.filter(w => navHint.includes(w)).length;
+            if (entityMatchCount >= Math.ceil(nameWords.length * 0.5)) return Math.round((entityMatchCount / nameWords.length) * 55);
+          }
+        }
+        return 0;
+      };
+
+      const navCandidates = [];
+
+      // Score user plans
+      for (const p of navUserPlans) {
+        const expName = p.experience?.name || '';
+        const destName = p.experience?.destination?.name || '';
+        const score = Math.max(scoreNavMatch(expName), scoreNavMatch(destName), scoreNavMatch(`${expName} ${destName}`));
+        if (score > 0) {
+          const expId = p.experience?._id?.toString();
+          navCandidates.push({
+            score,
+            type: 'plan',
+            url: expId ? `/experiences/${expId}#plan-${p._id}` : null,
+            label: `${expName}${destName ? ` in ${destName}` : ''}`
+          });
+        }
+      }
+
+      // Score experiences
+      for (const e of navExperiences) {
+        const score = scoreNavMatch(e.name);
+        if (score > 0) {
+          navCandidates.push({
+            score,
+            type: 'experience',
+            url: `/experiences/${e._id}`,
+            label: `${e.name}${e.destination?.name ? ` in ${e.destination.name}` : ''}`
+          });
+        }
+      }
+
+      // Score destinations
+      for (const d of navDestinations) {
+        const score = scoreNavMatch(d.name);
+        if (score > 0) {
+          navCandidates.push({
+            score,
+            type: 'destination',
+            url: `/destinations/${d._id}`,
+            label: d.name
+          });
+        }
+      }
+
+      // Sort by score descending and pick the best match
+      navCandidates.sort((a, b) => b.score - a.score);
+      logger.debug('[bienbot] Nav candidates', { count: navCandidates.length, top3: navCandidates.slice(0, 3).map(c => ({ label: c.label, score: c.score, type: c.type })) });
+      const best = navCandidates.find(c => c.url);
+
+      if (best) {
+        const navAction = {
+          id: `action_${crypto.randomBytes(4).toString('hex')}`,
+          type: 'navigate_to_entity',
+          payload: { url: best.url, entity: best.type, label: best.label },
+          description: `Navigate to ${best.label}`
+        };
+
+        const navMsg = `Taking you to ${best.label}.`;
+
+        // Store in session
+        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+        await session.addMessage('assistant', navMsg, { actions_taken: ['navigate_to_entity'] });
+        await session.setPendingActions([navAction]);
+        await session.generateTitle();
+
+        // SSE-stream the response
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        });
+
+        sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+        sendSSE(res, 'token', { text: navMsg });
+        sendSSE(res, 'actions', { pending_actions: [navAction] });
+        sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'nav_resolution' });
+        res.end();
+
+        logger.info('[bienbot] Navigation resolved directly', {
+          userId,
+          target: best.label,
+          type: best.type,
+          score: best.score
+        });
+        return;
+      }
+      // No match found → fall through to plan disambiguation / normal LLM flow
+    } catch (err) {
+      logger.warn('[bienbot] Navigation resolution failed, continuing with LLM', { error: err.message });
+    }
+  }
+
+  // --- Step 2e: Plan + Discover short-circuit for PLAN_EXPERIENCE ---
+  // When the user wants to plan a trip to a destination, show:
+  //   1. Their existing plans for that destination (select_plan cards)
+  //   2. Available experiences to create a new plan from (discovery_result_list)
+  // This bypasses the LLM for a faster, deterministic, richer response.
+  if (classification.intent === 'PLAN_EXPERIENCE' && classification.entities?.destination_name && !session.context?.plan_id) {
+    try {
+      loadModels();
+      const destName = classification.entities.destination_name;
+      const destLower = destName.toLowerCase();
+
+      // Fetch user's existing plans, filtering to those matching the destination
+      const allUserPlans = await Plan.find({ user: userId })
+        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+        .select('experience planned_date plan')
+        .lean();
+
+      const destPlans = allUserPlans.filter(p => {
+        const pDest = (p.experience?.destination?.name || '').toLowerCase();
+        return pDest && (pDest.includes(destLower) || destLower.includes(pDest));
+      });
+
+      // Build select_plan actions for existing plans
+      const planActions = destPlans.slice(0, 6).map(p => ({
+        id: `action_${crypto.randomBytes(4).toString('hex')}`,
+        type: 'select_plan',
+        payload: {
+          plan_id: p._id.toString(),
+          experience_name: p.experience?.name || '(unnamed)',
+          destination_name: p.experience?.destination?.name || '',
+          planned_date: p.planned_date || null,
+          item_count: (p.plan || []).length
+        },
+        description: `${p.experience?.name || 'Plan'}${p.experience?.destination?.name ? ` in ${p.experience.destination.name}` : ''}${p.planned_date ? ` (${new Date(p.planned_date).toISOString().split('T')[0]})` : ''}`
+      }));
+
+      // Fetch available experiences via discovery (for new plan creation)
+      const discoveryResult = await buildDiscoveryContext({ destination_name: destName }, userId).catch(() => null);
+
+      // Only short-circuit if we have something useful to show
+      if (planActions.length > 0 || (discoveryResult?.results?.length > 0)) {
+        const hasBoth = planActions.length > 0 && discoveryResult?.results?.length > 0;
+        const hasPlansOnly = planActions.length > 0 && !discoveryResult?.results?.length;
+        const hasDiscoveryOnly = !planActions.length && discoveryResult?.results?.length > 0;
+
+        let msg;
+        if (hasBoth) {
+          msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue, or choose a new experience to plan below.`;
+        } else if (hasPlansOnly) {
+          msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue.`;
+        } else {
+          msg = `Here are experiences you can plan in ${destName}:`;
+        }
+
+        const discoveryBlock = discoveryResult?.results?.length > 0
+          ? [{ type: 'discovery_result_list', data: { results: discoveryResult.results, query_metadata: discoveryResult.query_metadata || {} } }]
+          : [];
+
+        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+        await session.addMessage('assistant', msg, {
+          actions_taken: [...planActions.map(() => 'select_plan'), ...(discoveryBlock.length ? ['discover_content'] : [])],
+          structured_content: discoveryBlock
+        });
+        if (planActions.length > 0) {
+          await session.setPendingActions(planActions);
+        }
+        await session.generateTitle();
+
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        });
+
+        sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+
+        // Emit discovery skeleton before tokens so cards appear as message streams in
+        if (discoveryBlock.length > 0) {
+          sendSSE(res, 'structured_content', { blocks: [{ type: 'discovery_result_list', data: null }] });
+        }
+
+        const chunks = adaptiveChunks(msg);
+        for (const chunk of chunks) {
+          sendSSE(res, 'token', { text: chunk });
+        }
+
+        if (discoveryBlock.length > 0) {
+          sendSSE(res, 'structured_content', { blocks: discoveryBlock });
+        }
+
+        if (planActions.length > 0) {
+          sendSSE(res, 'actions', { pending_actions: planActions });
+        }
+
+        sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_resolution' });
+        res.end();
+
+        logger.info('[bienbot] Plan+discover short-circuit', { userId, destination: destName, plans: planActions.length, experiences: discoveryResult?.results?.length || 0 });
+        return;
+      }
+    } catch (err) {
+      logger.warn('[bienbot] Plan+discover resolution failed, continuing with LLM', { error: err.message });
+    }
   }
 
   // --- Step 2c: Plan disambiguation ---
@@ -1198,7 +1562,7 @@ exports.chat = async (req, res) => {
     'SET_PLAN_ITEM_LOCATION', 'UPDATE_PLAN_ITEM_COST', 'ADD_PLAN_ITEM_DETAIL',
     'ASSIGN_PLAN_ITEM', 'UPDATE_PLAN_ITEM_TEXT', 'UPDATE_PLAN_ITEM_URL',
     'UPDATE_PLAN', 'DELETE_PLAN', 'DELETE_PLAN_ITEM', 'ADD_PLAN_COST',
-    'SYNC_PLAN'
+    'SYNC_PLAN', 'PLAN_EXPERIENCE'
   ]);
 
   const ctx = session.context || {};
@@ -1325,12 +1689,15 @@ exports.chat = async (req, res) => {
     }
   }
 
+
+
   // --- Step 3: Build context blocks ---
   const intentContextBlock = await buildContextBlocks(
     classification.intent,
     classification.entities,
     session,
-    userId
+    userId,
+    message
   );
 
   // Merge invokeContext block with intent-based blocks, enforcing hard token cap
@@ -1369,6 +1736,7 @@ exports.chat = async (req, res) => {
     session,
     userMemoryBlock,
     entityResolutionBlock,
+    resolvedEntityObjects,
     userCurrency: req.user?.preferences?.currency || null,
     userName: req.user?.name ? req.user.name.split(' ')[0] : null,
     userLanguage: req.user?.preferences?.language || null,
@@ -1547,14 +1915,17 @@ exports.chat = async (req, res) => {
     }
     await session.addMessage('user', message, userMessageOpts);
 
-    // Add assistant response (with structured_content from read-only actions)
+    // Add assistant response (with structured_content from read-only actions + entity refs)
     const actionsTaken = [
       ...readOnlyActions.map(a => a.type),
       ...parsed.pending_actions.map(a => a.type)
     ];
+    const entityRefBlock = parsed.entity_refs?.length > 0
+      ? [{ type: 'entity_ref_list', data: { refs: parsed.entity_refs } }]
+      : [];
     await session.addMessage('assistant', parsed.message, {
       actions_taken: actionsTaken,
-      structured_content: structuredContent
+      structured_content: [...structuredContent, ...entityRefBlock]
     });
 
     // Store confirmable pending actions (read-only already executed)
@@ -1612,6 +1983,13 @@ exports.chat = async (req, res) => {
   if (structuredContent.length > 0) {
     sendSSE(res, 'structured_content', {
       blocks: structuredContent
+    });
+  }
+
+  // Stream entity refs as structured content (after message tokens, before actions)
+  if (parsed.entity_refs?.length > 0) {
+    sendSSE(res, 'structured_content', {
+      blocks: [{ type: 'entity_ref_list', data: { refs: parsed.entity_refs } }]
     });
   }
 
@@ -1710,7 +2088,7 @@ exports.execute = async (req, res) => {
       successCount: results.filter(r => r.success).length
     });
 
-    // --- Contextual enrichment: auto-fetch tips after destination creation ---
+    // --- Contextual enrichment: auto-fetch tips/photos after entity creation ---
     let enrichmentContent = null;
     const destCreation = results.find(
       r => r.success && r.type === 'create_destination' && r.result?._id
@@ -1745,6 +2123,45 @@ exports.execute = async (req, res) => {
           destinationId: createdDest._id,
           error: enrichErr.message
         });
+      }
+    }
+
+    // Auto-fetch Unsplash photos after experience creation
+    if (!enrichmentContent) {
+      const expCreation = results.find(
+        r => r.success && r.type === 'create_experience' && r.result?._id
+      );
+      const workflowExpCreation = !expCreation && results.find(r => {
+        if (!r.success || r.type !== 'workflow' || !r.result?.results) return false;
+        return r.result.results.some(
+          s => s.success && s.type === 'create_experience' && s.result?._id
+        );
+      });
+      const createdExp = expCreation?.result
+        || workflowExpCreation?.result?.results?.find(
+          s => s.success && s.type === 'create_experience'
+        )?.result;
+
+      if (createdExp?._id) {
+        try {
+          const { fetchEntityPhotos } = require('../../utilities/bienbot-external-data');
+          const photoResult = await fetchEntityPhotos(
+            { entity_type: 'experience', entity_id: createdExp._id.toString() },
+            req.user,
+            session
+          );
+          if (photoResult.statusCode === 200 && photoResult.body?.success) {
+            const block = mapReadOnlyResultToStructuredContent('fetch_entity_photos', photoResult.body.data);
+            if (block) {
+              enrichmentContent = block;
+            }
+          }
+        } catch (enrichErr) {
+          logger.warn('[bienbot] Post-creation photo enrichment failed', {
+            experienceId: createdExp._id,
+            error: enrichErr.message
+          });
+        }
       }
     }
 
@@ -2224,6 +2641,16 @@ exports.addSessionCollaborator = async (req, res) => {
       return errorResponse(res, null, 'Target user does not have access to AI features', 403);
     }
 
+    // Require mutual follow — both users must follow each other
+    const Follow = require('../../models/follow');
+    const [ownerFollowsTarget, targetFollowsOwner] = await Promise.all([
+      Follow.isFollowing(ownerId, targetUserId),
+      Follow.isFollowing(targetUserId, ownerId)
+    ]);
+    if (!ownerFollowsTarget || !targetFollowsOwner) {
+      return errorResponse(res, null, 'You can only share sessions with users who mutually follow you', 403);
+    }
+
     await session.addCollaborator(targetUserId, role, ownerId);
 
     logger.info('[bienbot] Session collaborator added', {
@@ -2295,6 +2722,67 @@ exports.removeSessionCollaborator = async (req, res) => {
 };
 
 /**
+ * GET /api/bienbot/mutual-followers
+ *
+ * Return users who mutually follow the authenticated user, filtered by an
+ * optional search query (name or email). Used by the Share Session popover
+ * to populate the user search dropdown.
+ *
+ * Query params:
+ *   q  - Optional search string matched against name/email (case-insensitive)
+ */
+exports.getMutualFollowers = async (req, res) => {
+  const userId = req.user._id;
+  const { q = '' } = req.query;
+  const searchTerm = q.trim().toLowerCase();
+
+  loadModels();
+
+  try {
+    const Follow = require('../../models/follow');
+
+    // Step 1: Get IDs of users that the current user follows (active)
+    const followingIds = await Follow.getFollowingIds(userId);
+
+    if (followingIds.length === 0) {
+      return successResponse(res, { users: [] });
+    }
+
+    // Step 2: Among those, find who also follows the current user back
+    const mutualFollows = await Follow.find({
+      follower: { $in: followingIds },
+      following: userId,
+      status: 'active'
+    }).select('follower').lean();
+
+    const mutualIds = mutualFollows.map(f => f.follower);
+
+    if (mutualIds.length === 0) {
+      return successResponse(res, { users: [] });
+    }
+
+    // Step 3: Fetch user details and apply search filter
+    const query = { _id: { $in: mutualIds } };
+    if (searchTerm) {
+      query.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const users = await User.find(query)
+      .select('_id name email')
+      .limit(20)
+      .lean();
+
+    return successResponse(res, { users });
+  } catch (err) {
+    logger.error('[bienbot] Failed to get mutual followers', { error: err.message, userId });
+    return errorResponse(res, err, 'Failed to get mutual followers', 500);
+  }
+};
+
+/**
  * GET /api/bienbot/memory
  *
  * Return the authenticated user's cross-session BienBot memory entries.
@@ -2339,6 +2827,98 @@ exports.clearMemory = async (req, res) => {
   } catch (err) {
     logger.error('[bienbot] Failed to clear memory', { error: err.message, userId });
     return errorResponse(res, err, 'Failed to clear memory', 500);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Apply Tips
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/bienbot/sessions/:id/tips
+ *
+ * Directly appends selected travel tips to a destination, bypassing the LLM.
+ * Called from the TipSuggestionList UI when the user confirms their selection.
+ *
+ * Body: { destination_id: string, tips: Array<{ type, value, category, source, ... }> }
+ */
+exports.applyTips = async (req, res) => {
+  const userId = req.user._id.toString();
+  const { destination_id, tips } = req.body || {};
+
+  if (!destination_id || !Array.isArray(tips) || tips.length === 0) {
+    return errorResponse(res, null, 'destination_id and a non-empty tips array are required', 400);
+  }
+
+  const { valid } = validateObjectId(destination_id, 'destination_id');
+  if (!valid) {
+    return errorResponse(res, null, 'Invalid destination_id format', 400);
+  }
+
+  // Sanitise: only keep allowed fields per tip
+  const sanitised = tips
+    .filter(t => t && typeof t.value === 'string' && t.value.trim())
+    .map(t => ({
+      type: t.type || 'Custom',
+      value: t.value.trim(),
+      ...(t.category ? { category: t.category } : {}),
+      ...(t.source ? { source: t.source } : {}),
+      ...(t.icon ? { icon: t.icon } : {}),
+      ...(t.url ? { url: t.url } : {})
+    }));
+
+  if (sanitised.length === 0) {
+    return errorResponse(res, null, 'No valid tips provided', 400);
+  }
+
+  loadModels();
+
+  try {
+    const destination = await Destination.findById(destination_id);
+    if (!destination) {
+      return errorResponse(res, null, 'Destination not found', 404);
+    }
+
+    // Permission check — must be able to edit the destination
+    const enforcer = getEnforcer({ Destination, Experience, Plan, User });
+    const canEdit = await enforcer.canEdit({ userId, resource: destination });
+    if (!canEdit.allowed) {
+      return errorResponse(res, null, canEdit.reason || 'Forbidden', 403);
+    }
+
+    // Append tips (avoid exact-value duplicates)
+    const existingValues = new Set(
+      (destination.travel_tips || []).map(t =>
+        (typeof t === 'string' ? t : t.value || '').toLowerCase().trim()
+      )
+    );
+
+    const toAdd = sanitised.filter(
+      t => !existingValues.has(t.value.toLowerCase().trim())
+    );
+
+    if (toAdd.length > 0) {
+      destination.travel_tips = [...(destination.travel_tips || []), ...toAdd];
+      destination.travel_tips_updated_at = new Date();
+      await destination.save();
+    }
+
+    logger.info('[bienbot] Tips applied to destination', {
+      userId,
+      destinationId: destination_id,
+      requested: sanitised.length,
+      added: toAdd.length,
+      skipped: sanitised.length - toAdd.length
+    });
+
+    return successResponse(res, {
+      added: toAdd.length,
+      skipped: sanitised.length - toAdd.length,
+      destination_id
+    });
+  } catch (err) {
+    logger.error('[bienbot] applyTips failed', { error: err.message, userId, destination_id });
+    return errorResponse(res, err, 'Failed to apply tips', 500);
   }
 };
 
@@ -2682,7 +3262,7 @@ exports.updatePendingAction = async (req, res) => {
     isWorkflow: !!action.workflow_id
   });
 
-  // --- Contextual enrichment: auto-fetch tips after destination creation step ---
+  // --- Contextual enrichment: auto-fetch tips/photos after entity creation step ---
   let enrichmentContent = null;
   if (
     action.status === 'completed' &&
@@ -2705,6 +3285,35 @@ exports.updatePendingAction = async (req, res) => {
     } catch (enrichErr) {
       logger.warn('[bienbot] Post-step tip enrichment failed', {
         destinationId: executionResult.result._id,
+        error: enrichErr.message
+      });
+    }
+  }
+
+  // Auto-fetch Unsplash photos after experience creation step
+  if (
+    !enrichmentContent &&
+    action.status === 'completed' &&
+    action.type === 'create_experience' &&
+    executionResult?.success &&
+    executionResult?.result?._id
+  ) {
+    try {
+      const { fetchEntityPhotos } = require('../../utilities/bienbot-external-data');
+      const photoResult = await fetchEntityPhotos(
+        { entity_type: 'experience', entity_id: executionResult.result._id.toString() },
+        req.user,
+        session
+      );
+      if (photoResult.statusCode === 200 && photoResult.body?.success) {
+        const block = mapReadOnlyResultToStructuredContent('fetch_entity_photos', photoResult.body.data);
+        if (block) {
+          enrichmentContent = block;
+        }
+      }
+    } catch (enrichErr) {
+      logger.warn('[bienbot] Post-step photo enrichment failed', {
+        experienceId: executionResult.result._id,
         error: enrichErr.message
       });
     }

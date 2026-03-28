@@ -61,7 +61,7 @@ function getSessionSnippet(session) {
 
 // ─── SessionHistoryView ─────────────────────────────────────────────────────
 
-export default function SessionHistoryView({ sessions, currentSessionId, onSelectSession, onBack }) {
+export default function SessionHistoryView({ sessions, currentSessionId, onSelectSession, onBack, onDeleteSession, userId }) {
   const grouped = useMemo(() => {
     const groups = new Map();
     const order = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'];
@@ -90,7 +90,7 @@ export default function SessionHistoryView({ sessions, currentSessionId, onSelec
             <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <Text size="md" fontWeight="semibold">Chat History</Text>
+        <Text size="base" fontWeight="semibold">Chat History</Text>
       </div>
 
       {/* Session list */}
@@ -107,37 +107,55 @@ export default function SessionHistoryView({ sessions, currentSessionId, onSelec
               </div>
               {groupSessions.map((session) => {
                 const isCurrent = session._id === currentSessionId;
+                const isOwner = userId && session.user?.toString() === userId.toString();
                 return (
-                  <button
-                    key={session._id}
-                    type="button"
-                    className={`${styles.historyItem} ${isCurrent ? styles.historyItemCurrent : ''}`}
-                    onClick={() => isCurrent ? onBack() : onSelectSession(session._id)}
-                  >
-                    <div className={styles.historyItemTop}>
-                      <span className={styles.historyItemTitle}>
-                        {session.title || 'Untitled'}
-                      </span>
-                      <span className={styles.historyItemTime}>
-                        {formatRelativeTime(session.updatedAt || session.createdAt)}
-                      </span>
-                    </div>
-                    <div className={styles.historyItemBottom}>
-                      {session.invoke_context?.entity_label && (
-                        <Tag.Root size="sm" variant="subtle" colorPalette="purple" className={styles.historyContextBadge}>
-                          <Tag.Label>{session.invoke_context.entity_label}</Tag.Label>
-                        </Tag.Root>
-                      )}
-                      {isCurrent && (
-                        <Tag.Root size="sm" variant="outline" colorPalette="green">
-                          <Tag.Label>Current</Tag.Label>
-                        </Tag.Root>
-                      )}
-                    </div>
-                    <Text size="xs" className={styles.historyItemSnippet}>
-                      {getSessionSnippet(session)}
-                    </Text>
-                  </button>
+                  <div key={session._id} className={styles.historyItemWrapper}>
+                    <button
+                      type="button"
+                      className={`${styles.historyItem} ${isCurrent ? styles.historyItemCurrent : ''}`}
+                      onClick={() => isCurrent ? onBack() : onSelectSession(session._id)}
+                    >
+                      <div className={styles.historyItemTop}>
+                        <span className={styles.historyItemTitle}>
+                          {session.title || 'Untitled'}
+                        </span>
+                        <span className={styles.historyItemTime}>
+                          {formatRelativeTime(session.updatedAt || session.createdAt)}
+                        </span>
+                      </div>
+                      <div className={styles.historyItemBottom}>
+                        {session.invoke_context?.entity_label && (
+                          <Tag.Root size="sm" variant="subtle" colorPalette="purple" className={styles.historyContextBadge}>
+                            <Tag.Label>{session.invoke_context.entity_label}</Tag.Label>
+                          </Tag.Root>
+                        )}
+                        {isCurrent && (
+                          <Tag.Root size="sm" variant="outline" colorPalette="green">
+                            <Tag.Label>Current</Tag.Label>
+                          </Tag.Root>
+                        )}
+                      </div>
+                      <Text size="xs" className={styles.historyItemSnippet}>
+                        {getSessionSnippet(session)}
+                      </Text>
+                    </button>
+                    {isOwner && onDeleteSession && (
+                      <button
+                        type="button"
+                        className={styles.historyDeleteButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSession(session._id);
+                        }}
+                        aria-label="Delete conversation"
+                        title="Delete conversation"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -151,6 +169,7 @@ export default function SessionHistoryView({ sessions, currentSessionId, onSelec
 SessionHistoryView.propTypes = {
   sessions: PropTypes.arrayOf(PropTypes.shape({
     _id: PropTypes.string.isRequired,
+    user: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
     title: PropTypes.string,
     updatedAt: PropTypes.string,
     createdAt: PropTypes.string,
@@ -164,5 +183,7 @@ SessionHistoryView.propTypes = {
   })).isRequired,
   currentSessionId: PropTypes.string,
   onSelectSession: PropTypes.func.isRequired,
-  onBack: PropTypes.func.isRequired
+  onBack: PropTypes.func.isRequired,
+  onDeleteSession: PropTypes.func,
+  userId: PropTypes.string
 };

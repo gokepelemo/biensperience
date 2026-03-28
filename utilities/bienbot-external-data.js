@@ -905,6 +905,11 @@ const PLAN_ITEM_MAX_PER_SECTION = {
  */
 function stripHtml(html) {
   return html
+    // Remove MediaWiki edit-section spans entirely (contain "[edit]" bracket text)
+    .replace(/<span[^>]*class="[^"]*mw-editsection[^"]*"[^>]*>[\s\S]*?<\/span>/gi, '')
+    // Remove heading elements — section content includes the heading we already know
+    .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
+    // Standard conversions
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/li>/gi, '\n')
@@ -934,7 +939,15 @@ function extractFragments(text, max) {
   const lines = text
     .split(/\n+/)
     .map(l => l.replace(/^[\s•·\-–—*]+/, '').trim())
-    .filter(l => l.length > 15 && l.length < 400);
+    .filter(l =>
+      l.length > 15 && l.length < 400 &&
+      // Strip residual MediaWiki artifacts not caught by stripHtml
+      !/\[edit\]/i.test(l) &&
+      !/\[add listing\]/i.test(l) &&
+      // Strip climate chart captions and table headers
+      !/chart\s*\(explanation\)/i.test(l) &&
+      !/^average\s+(max|min)/i.test(l)
+    );
 
   if (lines.length > 0) {
     return lines.slice(0, max);
@@ -943,7 +956,11 @@ function extractFragments(text, max) {
   // Fallback: sentence splitting for prose-style sections
   return text
     .split(/(?<=[.!?])\s+/)
-    .filter(s => s.length > 20 && s.length < 300)
+    .filter(s =>
+      s.length > 20 && s.length < 300 &&
+      !/\[edit\]/i.test(s) &&
+      !/\[add listing\]/i.test(s)
+    )
     .slice(0, max);
 }
 

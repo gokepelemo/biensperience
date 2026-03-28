@@ -409,6 +409,25 @@ async function resolveEntities(extractedNames, user, options = {}) {
  * @param {object} extractedNames - Original extracted names (for display)
  * @returns {string|null} - Formatted block or null if nothing to inject
  */
+/**
+ * Format resolved entities as a structured JSON array for LLM context injection.
+ * Each resolved entity becomes { type, _id, name, detail? } — the LLM can reference
+ * these in entity_refs in its response so the frontend renders rich cards.
+ *
+ * @param {object} resolutionResult - Output of resolveEntities()
+ * @returns {Array<{ type: string, _id: string, name: string, detail?: string }>}
+ */
+function formatResolutionObjects(resolutionResult) {
+  const { resolved } = resolutionResult;
+  const objects = [];
+  for (const entry of Object.values(resolved)) {
+    const obj = { type: entry.type, _id: entry.id, name: entry.name };
+    if (entry.detail) obj.detail = entry.detail;
+    objects.push(obj);
+  }
+  return objects;
+}
+
 function formatResolutionBlock(resolutionResult, extractedNames) {
   const { resolved, ambiguous, unresolved } = resolutionResult;
 
@@ -459,6 +478,7 @@ module.exports = {
   resolveEntities,
   resolveEntity,
   formatResolutionBlock,
+  formatResolutionObjects,
   ResolutionConfidence,
   DEFAULT_THRESHOLDS,
   FIELD_TYPE_MAP,

@@ -17,6 +17,7 @@
 
 import { logger } from './logger';
 import { getStoredToken } from './token-storage';
+import { parseJwtPayload } from './encoding-utils';
 import { getUser } from './users-service'; // Only import getUser (used in other methods)
 import * as VectorClock from './vector-clock';
 import { createTransport } from './event-transport';
@@ -135,7 +136,7 @@ class EventBus {
           } else {
             // Check if expired
             try {
-              const payload = JSON.parse(atob(parts[1]));
+              const payload = parseJwtPayload(parts[1]);
               if (payload.exp < Date.now() / 1000) {
                 logger.debug('[EventBus] Token expired');
                 token = null;

@@ -8,6 +8,7 @@
 
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const crypto = require('crypto');
 const { ALLOWED_ACTION_TYPES } = require('../utilities/bienbot-action-executor');
 
 /**
@@ -156,6 +157,48 @@ const messageSchema = new Schema({
   sent_by: {
     type: Schema.Types.ObjectId,
     ref: 'User',
+    default: null
+  },
+  /**
+   * Unique stable identifier for this message. Used as the reply_to target
+   * for peer exchanges between the session owner and shared collaborators.
+   * Generated automatically by addMessage().
+   */
+  msg_id: {
+    type: String,
+    default: null
+  },
+  /**
+   * Message type distinguishes owner→LLM queries from peer comments
+   * posted by shared collaborators (or owner replies to those comments).
+   * 'shared_comment' messages are excluded from the LLM context window.
+   */
+  message_type: {
+    type: String,
+    enum: ['bot_query', 'shared_comment'],
+    default: 'bot_query'
+  },
+  /**
+   * msg_id of the message this is replying to (for shared_comment replies).
+   * Not threaded — replies appear inline in the timeline.
+   */
+  reply_to: {
+    type: String,
+    default: null
+  },
+  /**
+   * First 200 chars of the replied-to message for inline preview display.
+   */
+  reply_to_preview: {
+    type: String,
+    default: null
+  },
+  /**
+   * Display name of the sender. Set on shared_comment messages so the
+   * frontend can render "{sender_name}: {content}" without a user query.
+   */
+  sender_name: {
+    type: String,
     default: null
   }
 }, { _id: false });
@@ -412,14 +455,20 @@ bienBotSessionSchema.statics.listSessions = async function (userId, options = {}
  * @param {string|object|null} [opts.sentBy] - User ID of the sender (for
  *   'user' role messages in shared sessions). Enables per-participant memory
  *   extraction when the session is archived.
+ * @param {string} [opts.message_type] - 'bot_query' (default) or 'shared_comment'
+ * @param {string|null} [opts.sender_name] - Display name for shared_comment messages
+ * @param {string|null} [opts.reply_to] - msg_id of the message being replied to
+ * @param {string|null} [opts.reply_to_preview] - First 200 chars of the replied message
  */
-bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [], sentBy = null, structured_content = [] } = {}) {
+bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [], sentBy = null, structured_content = [], message_type = 'bot_query', sender_name = null, reply_to = null, reply_to_preview = null } = {}) {
   const msg = {
+    msg_id: `msg_${crypto.randomBytes(4).toString('hex')}`,
     role,
     content,
     timestamp: new Date(),
     intent,
-    actions_taken
+    actions_taken,
+    message_type
   };
   if (attachments.length > 0) {
     msg.attachments = attachments;
@@ -429,6 +478,13 @@ bienBotSessionSchema.methods.addMessage = async function (role, content, { inten
   }
   if (sentBy && role === 'user') {
     msg.sent_by = sentBy;
+  }
+  if (sender_name) {
+    msg.sender_name = sender_name;
+  }
+  if (reply_to) {
+    msg.reply_to = reply_to;
+    msg.reply_to_preview = reply_to_preview || null;
   }
   this.messages.push(msg);
   return this.save();

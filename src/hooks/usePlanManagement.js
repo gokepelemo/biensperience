@@ -38,6 +38,9 @@ import {
  * @param {string} userId - The current user's ID
  * @returns {Object} Plan management state and functions
  */
+// Loose MongoDB ObjectId check — reject obvious placeholders like "<unknown>"
+const looksLikeObjectId = (id) => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
+
 export default function usePlanManagement(experienceId, userId) {
   // Core plan state
   const [userPlan, setUserPlan] = useState(null);
@@ -220,7 +223,7 @@ export default function usePlanManagement(experienceId, userId) {
    * Fetch user's plan for the current experience
    */
   const fetchUserPlan = useCallback(async () => {
-    if (!experienceId || !userId) return;
+    if (!experienceId || !userId || !looksLikeObjectId(experienceId)) return;
 
     // Capture experienceId at start of fetch for race condition check
     const fetchExperienceId = experienceId;
@@ -300,7 +303,7 @@ export default function usePlanManagement(experienceId, userId) {
    * Fetch all shared plans for the current experience
    */
   const fetchSharedPlans = useCallback(async () => {
-    if (!experienceId) return;
+    if (!experienceId || !looksLikeObjectId(experienceId)) return;
 
     // Capture experienceId at start of fetch for race condition check
     const fetchExperienceId = experienceId;
@@ -373,7 +376,7 @@ export default function usePlanManagement(experienceId, userId) {
    * Create a new plan for the current user
    */
   const createPlan = useCallback(async (plannedDateValue) => {
-    if (!experienceId || !userId) {
+    if (!experienceId || !userId || !looksLikeObjectId(experienceId)) {
       throw new Error('Experience ID and User ID required');
     }
 

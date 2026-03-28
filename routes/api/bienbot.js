@@ -126,6 +126,13 @@ router.get('/sessions/:id/workflow/:workflowId', bienbotCtrl.getWorkflowState);
 router.post('/sessions/:id/context', bienbotCtrl.updateContext);
 
 /**
+ * @route   GET /api/bienbot/mutual-followers
+ * @desc    Return users who mutually follow the authenticated user (for share popover search)
+ * @access  Private (requires ai_features flag)
+ */
+router.get('/mutual-followers', bienbotCtrl.getMutualFollowers);
+
+/**
  * @route   POST /api/bienbot/sessions/:id/collaborators
  * @desc    Share a session with another user (owner only)
  * @access  Private (requires ai_features flag)
@@ -159,6 +166,13 @@ router.delete('/memory', bienbotCtrl.clearMemory);
  * @access  Private (requires ai_features flag)
  */
 router.post('/analyze', bienbotCtrl.analyze);
+
+/**
+ * @route   POST /api/bienbot/sessions/:id/tips
+ * @desc    Directly append selected travel tips to a destination (bypasses LLM)
+ * @access  Private (requires ai_features flag)
+ */
+router.post('/sessions/:id/tips', bienbotCtrl.applyTips);
 
 /**
  * @route   GET /api/bienbot/sessions/:id/attachments/:messageIndex/:attachmentIndex

@@ -182,6 +182,9 @@
   line-height: var(--line-height-relaxed, 1.625);
   word-break: break-word;
   white-space: pre-wrap;
+  position: relative;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .messageUser {
@@ -864,7 +867,7 @@
   position: absolute;
   top: calc(100% + var(--space-2, 0.5rem));
   right: 0;
-  width: 280px;
+  width: 320px;
   background: var(--color-bg-primary, #fff);
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: var(--radius-lg, 12px);
@@ -909,13 +912,12 @@
 }
 
 .shareForm {
-  display: flex;
-  gap: var(--space-2, 0.5rem);
   margin-bottom: var(--space-3, 0.75rem);
 }
 
 .shareInput {
-  flex: 1;
+  display: block;
+  width: 100%;
   min-width: 0;
   padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
   border: 1.5px solid var(--color-border, #e2e8f0);
@@ -936,21 +938,7 @@
   border-color: var(--color-primary, #6c63ff);
 }
 
-.shareRoleSelect {
-  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
-  border: 1.5px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-md, 6px);
-  background: var(--color-bg-secondary, #f8fafc);
-  color: var(--color-text-primary, #1e293b);
-  font-size: var(--font-size-sm, 0.875rem);
-  font-family: inherit;
-  cursor: pointer;
 
-  @mixin dark {
-    background: var(--color-bg-tertiary, #334155);
-    border-color: var(--color-border-dark, #475569);
-  }
-}
 
 .shareError {
   color: var(--color-danger, #ef4444);
@@ -985,7 +973,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: monospace;
 }
 
 .shareRemoveButton {
@@ -1010,6 +997,162 @@
 .shareRemoveButton svg {
   width: 10px;
   height: 10px;
+}
+
+/* Mutual-follower typeahead dropdown */
+.shareSearchResults {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary, #fff);
+  border: 1.5px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.1));
+  z-index: 20;
+  max-height: 180px;
+  overflow-y: auto;
+
+  @mixin dark {
+    background: var(--color-bg-secondary, #1e293b);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.shareSearchResultItem {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  gap: 2px;
+  font-family: inherit;
+}
+
+.shareSearchResultItem:hover {
+  background: var(--color-bg-hover, #f1f5f9);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+  }
+}
+
+/* Shared-comment message bubble (collaborator messages) */
+.messageSharedComment {
+  align-self: stretch;
+  background: var(--color-bg-secondary, #f8fafc);
+  color: var(--color-text-primary, #1e293b);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  max-width: 100%;
+  position: relative;
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.messageSenderName {
+  display: block;
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-primary, #6c63ff);
+  margin-bottom: var(--space-1, 0.25rem);
+}
+
+/* Quoted reply context inside a message bubble */
+.replyPreviewInMessage {
+  display: block;
+  padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+  margin-bottom: var(--space-2, 0.5rem);
+  border-left: 3px solid var(--color-primary, #6c63ff);
+  border-radius: 0 var(--radius-sm, 4px) var(--radius-sm, 4px) 0;
+  background: rgba(108, 99, 255, 0.07);
+  color: var(--color-text-secondary, #64748b);
+  font-size: var(--font-size-xs, 0.75rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Reply strip above the chat input */
+.replyStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+
+  @mixin dark {
+    background: var(--color-bg-tertiary, #334155);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.replyStripContent {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary, #64748b);
+}
+
+.replyStripClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary, #94a3b8);
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+  flex-shrink: 0;
+}
+
+.replyStripClose:hover {
+  color: var(--color-text-primary, #1e293b);
+  background: var(--color-bg-hover, #f1f5f9);
+}
+
+.replyStripClose svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Reply button shown on message hover */
+.messageReplyButton {
+  display: none;
+  position: absolute;
+  top: var(--space-1, 0.25rem);
+  right: var(--space-2, 0.5rem);
+  padding: 2px 6px;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg-primary, #fff);
+  color: var(--color-text-secondary, #64748b);
+  font-size: var(--font-size-xs, 0.75rem);
+  cursor: pointer;
+  font-family: inherit;
+
+  @mixin dark {
+    background: var(--color-bg-secondary, #1e293b);
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.message:hover .messageReplyButton {
+  display: block;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1277,6 +1420,86 @@
    --------------------------------------------------------------------------- */
 .structuredContent {
   margin-top: var(--space-2, 0.5rem);
+}
+
+/* ---------------------------------------------------------------------------
+   Entity reference cards (entity_ref_list structured content)
+   --------------------------------------------------------------------------- */
+
+.entityRefList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+  margin-top: var(--space-2, 0.5rem);
+}
+
+.entityRefCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  background: var(--color-bg-secondary, #f8f9fa);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.entityRefCard:hover:not(:disabled) {
+  background: var(--color-bg-hover, #f0f4f8);
+  border-color: var(--color-primary, #4f46e5);
+}
+
+.entityRefCard:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.entityRefIcon {
+  flex-shrink: 0;
+  color: var(--color-primary, #4f46e5);
+  display: flex;
+  align-items: center;
+}
+
+.entityRefBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.entityRefType {
+  font-size: var(--font-size-xs, 0.7rem);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-muted, #718096);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.entityRefName {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #1a202c);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entityRefDetail {
+  font-size: var(--font-size-xs, 0.7rem);
+  color: var(--color-text-muted, #718096);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entityRefArrow {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #718096);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1648,4 +1871,46 @@
   @mixin dark {
     color: var(--color-text-secondary, #94a3b8);
   }
+}
+
+/* Wrapper that holds the session button + the delete button side by side */
+.historyItemWrapper {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md, 6px);
+}
+
+.historyItemWrapper .historyItem {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border-radius: var(--radius-md, 6px) 0 0 var(--radius-md, 6px);
+}
+
+.historyDeleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  min-height: 32px;
+  align-self: stretch;
+  padding: 0;
+  border: none;
+  border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
+  background: transparent;
+  color: var(--color-text-secondary, #64748b);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.historyItemWrapper:hover .historyDeleteButton,
+.historyItemWrapper:focus-within .historyDeleteButton {
+  opacity: 1;
+}
+
+.historyDeleteButton:hover {
+  color: var(--color-danger, #ef4444);
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
 }
