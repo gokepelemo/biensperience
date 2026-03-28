@@ -2804,6 +2804,77 @@ exports.addSessionCollaborator = async (req, res) => {
       role
     });
 
+    // Notify the target user and create an activity so the notification badge counts it
+    try {
+      const Activity = require('../../models/activity');
+      const { notifyUser } = require('../../utilities/notifications');
+
+      const ownerName = req.user.name || 'Someone';
+      const sessionTitle = session.title || 'a BienBot session';
+      const reason = `${ownerName} shared ${sessionTitle} with you`;
+
+      // Activity record for the target user (actor = target so it shows in their feed)
+      const createdActivity = await Activity.create({
+        action: 'collaborator_added',
+        actor: {
+          _id: targetUser._id,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: targetUser.role
+        },
+        resource: {
+          id: session._id,
+          type: 'BienBotSession',
+          name: sessionTitle
+        },
+        target: {
+          id: req.user._id,
+          type: 'User',
+          name: req.user.name || ''
+        },
+        reason,
+        metadata: {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+          requestPath: req.path,
+          requestMethod: req.method
+        },
+        status: 'success'
+      });
+
+      // In-app notification (bienbot channel is informational; webhook for external)
+      await notifyUser({
+        user: targetUser,
+        channel: 'bienbot',
+        type: 'activity',
+        message: reason,
+        data: {
+          kind: 'bienbot_session',
+          action: 'collaborator_added',
+          sessionId: session._id.toString(),
+          ownerId: ownerId
+        },
+        logContext: { feature: 'bienbot_session_shared', sessionId: id, targetUserId }
+      });
+
+      // Push real-time notification badge update directly to the target user's WS connection
+      try {
+        const { sendEventToUser: wsSendToUser } = require('../../utilities/websocket-server');
+        wsSendToUser(targetUserId, {
+          type: 'notification:received',
+          payload: { notification: createdActivity.toObject ? createdActivity.toObject() : createdActivity }
+        });
+      } catch (wsErr) {
+        logger.warn('[bienbot] Failed to push real-time notification to collaborator', { error: wsErr.message });
+      }
+    } catch (notifyErr) {
+      logger.warn('[bienbot] Failed to create activity/notification for session share (continuing)', {
+        error: notifyErr.message,
+        sessionId: id,
+        targetUserId
+      });
+    }
+
     return successResponse(res, {
       message: 'Collaborator added',
       shared_with: session.shared_with

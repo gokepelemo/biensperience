@@ -1917,6 +1917,16 @@ const addCollaborator = asyncHandler(async (req, res) => {
         planId: plan._id,
         userId
       });
+
+      // Push real-time notification badge update to the target user
+      try {
+        sendEventToUser(userId.toString(), {
+          type: 'notification:received',
+          payload: { notification: collaboratorLogResult.activity }
+        });
+      } catch (wsErr) {
+        backendLogger.warn('[WebSocket] Failed to push notification to collaborator', { error: wsErr.message });
+      }
     }
 
     // Send email asynchronously — do not await so API response is fast.

@@ -282,6 +282,7 @@ function NotificationItem({ notification, onView }) {
   const message = notification.reason ||
     `${notification.actor?.name || 'Someone'} added you as a collaborator to ${notification.resource?.name || 'an experience'}`;
   const resourceId = notification.resource?.id || notification.resource?._id;
+  const isBienBotSession = notification.resource?.type === 'BienBotSession';
 
   return (
     <div className={styles.notificationItem}>
@@ -290,13 +291,22 @@ function NotificationItem({ notification, onView }) {
       </span>
       <div className={styles.notificationContent}>
         <Text size="sm">{message}</Text>
-        {resourceId && (
+        {resourceId && !isBienBotSession && (
           <button
             type="button"
             className={styles.notificationViewButton}
             onClick={() => onView(resourceId, notification._id)}
           >
             View
+          </button>
+        )}
+        {isBienBotSession && (
+          <button
+            type="button"
+            className={styles.notificationViewButton}
+            onClick={() => onView(null, notification._id)}
+          >
+            Dismiss
           </button>
         )}
       </div>
@@ -1321,19 +1331,6 @@ export default function BienBotPanel({
                             return null;
                           })}
                         </div>
-                      )}
-                      {msg.msg_id && currentSession && !isCollaboratorMessage && (
-                        <button
-                          type="button"
-                          className={styles.messageReplyButton}
-                          onClick={() => setReplyTo({
-                            msg_id: msg.msg_id,
-                            preview: msg.content?.slice(0, 100) || '',
-                            senderName: msg.sender_name || (isAssistant ? 'BienBot' : (user?.name || 'You'))
-                          })}
-                        >
-                          Reply
-                        </button>
                       )}
                       {isCollaboratorMessage && msg.msg_id && (
                         <div className={styles.collaboratorReplyRow}>
