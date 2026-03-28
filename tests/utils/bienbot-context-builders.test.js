@@ -721,4 +721,52 @@ describe('entity ID format in context blocks', () => {
     // Should NOT contain raw ID on a bare ID line
     expect(result).not.toMatch(/Plan ID:\s*[a-f0-9]{24}/);
   });
+
+  it('formats plan_item IDs as JSON objects in plan item context', async () => {
+    const owner = await createTestUser();
+    const dest = await createTestDestination(owner, { name: 'Paris' });
+    const exp = await createTestExperience(owner, dest, { name: 'Paris Art Tour' });
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(owner, exp, {
+      plan: [
+        {
+          _id: itemId,
+          plan_item_id: itemId,
+          text: 'Visit Louvre',
+          complete: false,
+          scheduled_date: new Date('2026-08-15'),
+          cost_estimate: 20
+        }
+      ]
+    });
+
+    const result = await buildPlanItemContext(
+      plan._id.toString(),
+      itemId.toString(),
+      owner._id.toString()
+    );
+
+    // Should contain JSON entity object format
+    expect(result).toContain('"_id"');
+    expect(result).toContain('"type"');
+    // Should NOT contain raw ID on a bare ID line
+    expect(result).not.toMatch(/Plan Item ID:\s*[a-f0-9]{24}/);
+  });
+
+  it('formats user IDs as JSON objects in user profile context', async () => {
+    const user = await createTestUser({
+      name: 'Alice',
+      email: 'alice@test.com',
+      bio: 'Adventure seeker',
+      preferences: { currency: 'GBP', timezone: 'Europe/London' }
+    });
+
+    const result = await buildUserProfileContext(user._id.toString(), user._id.toString());
+
+    // Should contain JSON entity object format
+    expect(result).toContain('"_id"');
+    expect(result).toContain('"type"');
+    // Should NOT contain raw ID on a bare ID line
+    expect(result).not.toMatch(/User ID:\s*[a-f0-9]{24}/);
+  });
 });
