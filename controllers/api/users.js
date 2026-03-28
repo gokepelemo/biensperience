@@ -664,7 +664,8 @@ async function updateUser(req, res, next) {
             preferences: user.preferences,
             location: user.location,
             bio: user.bio,
-            links: user.links
+            links: user.links,
+            feature_flags: user.feature_flags
           }
         }
       });
@@ -994,7 +995,8 @@ async function updateUserAsAdmin(req, res) {
             preferences: user.preferences,
             location: user.location,
             bio: user.bio,
-            links: user.links
+            links: user.links,
+            feature_flags: user.feature_flags
           }
         }
       });
