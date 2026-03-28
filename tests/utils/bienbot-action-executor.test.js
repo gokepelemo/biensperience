@@ -369,4 +369,31 @@ describe('bienbot-action-executor', () => {
       expect(Object.keys(contextUpdates)).toHaveLength(0);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // select_destination
+  // -------------------------------------------------------------------------
+
+  describe('select_destination', () => {
+    it('includes select_destination in ALLOWED_ACTION_TYPES', () => {
+      expect(ALLOWED_ACTION_TYPES).toContain('select_destination');
+    });
+
+    it('executeAction select_destination returns destination_id in result body', async () => {
+      const mockUser = { _id: 'user123', email: 'test@test.com' };
+      const action = {
+        id: 'action_test01',
+        type: 'select_destination',
+        payload: {
+          destination_id: 'a'.repeat(24),
+          destination_name: 'Tokyo',
+          country: 'Japan',
+          city: 'Tokyo'
+        }
+      };
+      const result = await executeAction(action, mockUser);
+      expect(result.statusCode).toBe(200);
+      expect(result.body.data.destination_id).toBe('a'.repeat(24));
+    });
+  });
 });

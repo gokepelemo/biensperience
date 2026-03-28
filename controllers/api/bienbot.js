@@ -2117,6 +2117,13 @@ exports.execute = async (req, res) => {
       successCount: results.filter(r => r.success).length
     });
 
+    // --- select_destination: inject destination_id into session context ---
+    for (const actionResult of results) {
+      if (actionResult.type === 'select_destination' && actionResult.result?.destination_id) {
+        await session.updateContext({ destination_id: actionResult.result.destination_id });
+      }
+    }
+
     // --- Contextual enrichment: auto-fetch tips/photos after entity creation ---
     let enrichmentContent = null;
     const destCreation = results.find(

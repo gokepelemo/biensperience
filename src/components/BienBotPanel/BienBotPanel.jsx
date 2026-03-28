@@ -1313,9 +1313,10 @@ export default function BienBotPanel({
 
             {/* ── Pending action cards ────────────────────────────── */}
             {pendingActions.length > 0 && (() => {
-              // Separate regular actions from workflow steps and plan pickers
+              // Separate regular actions from workflow steps and plan/destination pickers
               const regularActions = [];
               const planPickerActions = [];
+              const destinationPickerActions = [];
               const workflowGroups = new Map();
 
               for (const action of pendingActions) {
@@ -1325,6 +1326,8 @@ export default function BienBotPanel({
                   workflowGroups.set(action.workflow_id, group);
                 } else if (action.type === 'select_plan') {
                   planPickerActions.push(action);
+                } else if (action.type === 'select_destination') {
+                  destinationPickerActions.push(action);
                 } else {
                   regularActions.push(action);
                 }
@@ -1332,6 +1335,16 @@ export default function BienBotPanel({
 
               return (
                 <div className={styles.actionsContainer}>
+                  {/* Destination picker (select_destination disambiguation) */}
+                  {destinationPickerActions.length > 0 && (
+                    <PlanSelector
+                      actions={destinationPickerActions}
+                      onExecute={handleExecuteAction}
+                      onCancel={handleCancelAction}
+                      disabled={isLoading || isStreaming}
+                    />
+                  )}
+
                   {/* Plan picker (select_plan disambiguation) */}
                   {planPickerActions.length > 0 && (
                     <PlanSelector

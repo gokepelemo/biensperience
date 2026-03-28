@@ -69,7 +69,9 @@ const ALLOWED_ACTION_TYPES = [
   'fetch_destination_tips',
   'discover_content',
   // Plan selection (disambiguation)
-  'select_plan'
+  'select_plan',
+  // Destination selection (disambiguation)
+  'select_destination'
 ];
 
 /**
@@ -1077,6 +1079,34 @@ async function executeSelectPlan(payload, user) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// select_destination — Destination disambiguation handler
+// ---------------------------------------------------------------------------
+
+/**
+ * select_destination — disambiguation action.
+ * Returns destination_id for the controller to inject into session context.
+ * No DB mutation.
+ *
+ * @param {object} payload - { destination_id, destination_name? }
+ * @returns {Promise<{ statusCode: number, body: object }>}
+ */
+async function executeSelectDestination(payload) {
+  if (!payload.destination_id) {
+    return { statusCode: 400, body: { success: false, error: 'select_destination requires destination_id' } };
+  }
+  return {
+    statusCode: 200,
+    body: {
+      success: true,
+      data: {
+        destination_id: payload.destination_id,
+        destination_name: payload.destination_name || null
+      }
+    }
+  };
+}
+
 const ACTION_HANDLERS = {
   create_destination: executeCreateDestination,
   create_experience: executeCreateExperience,
@@ -1119,7 +1149,9 @@ const ACTION_HANDLERS = {
   fetch_destination_tips: executeFetchDestinationTips,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
-  select_plan: executeSelectPlan
+  select_plan: executeSelectPlan,
+  // Destination disambiguation
+  select_destination: executeSelectDestination
 };
 
 // ---------------------------------------------------------------------------
@@ -1178,7 +1210,9 @@ async function executeAction(action, user, session = null) {
     return {
       success: isSuccess,
       result: response.body?.data || response.body || null,
-      errors: isSuccess ? [] : [response.body?.error || `Action failed with status ${response.statusCode}`]
+      errors: isSuccess ? [] : [response.body?.error || `Action failed with status ${response.statusCode}`],
+      statusCode: response.statusCode,
+      body: response.body
     };
   } catch (err) {
     logger.error('[bienbot-action-executor] Action threw exception', {
@@ -1234,6 +1268,9 @@ async function executeActions(actions, user, session) {
         case 'select_plan':
           if (data.plan_id) contextUpdates.plan_id = data.plan_id;
           if (data.experience_id) contextUpdates.experience_id = data.experience_id;
+          if (data.destination_id) contextUpdates.destination_id = data.destination_id;
+          break;
+        case 'select_destination':
           if (data.destination_id) contextUpdates.destination_id = data.destination_id;
           break;
         case 'add_plan_items':
