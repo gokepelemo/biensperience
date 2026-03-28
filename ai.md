@@ -927,6 +927,12 @@ A single chat turn follows this data flow from the user's keypress to the render
    ├── Optimistic: append empty assistant placeholder message
    └── POST /api/bienbot/chat via bienbot-api.postMessage() (SSE stream)
 
+   Peer-exchange short-circuit (shared-comment path, no LLM):
+   ├── Message starts with /message <text>  →  sendSharedComment(stripped text)
+   ├── Sender is a non-owner collaborator   →  sendSharedComment(text)
+   └── Owner replying to a collaborator msg →  sendSharedComment(text)
+       Message saved with message_type:'shared_comment', sent_by, msg_id, reply_to
+
 3. Backend receives request
    ├── Input validation (length, null bytes, sessionId format)
    ├── invokeContext handling (resolve label from DB, permission check)
@@ -1081,7 +1087,7 @@ Context is merged (never replaced) via `session.updateContext()`. This ensures t
 - Can still be retrieved by ID for audit/debugging
 - Are never permanently deleted (data retention for compliance)
 
-#### Session Ownership & Sharing
+**Session Ownership & Sharing**
 
 Every session has a primary owner (`session.user`). Sessions can optionally be shared with collaborators via the `shared_with` array:
 
@@ -1094,13 +1100,19 @@ shared_with: [{
 }]
 ```
 
-- **Owner**: Full access — send messages, execute actions, share/unshare, delete
-- **Editor**: Can send messages and execute actions
+- **Owner**: Full access — send messages, execute actions, send peer messages via `/message` command, share/unshare, delete
+- **Editor**: Can send messages (routed to shared-comment path, not LLM), execute actions, and reply to messages
 - **Viewer**: Read-only access to session history
 
-Session operations verify that the requesting user is either the owner or a collaborator with the appropriate role. Super admins do not have access to other users' BienBot sessions.
+The routing logic in `BienBotPanel` determines whether a submitted message goes to the AI pipeline or the shared-comment path:
+1. If the sender is a non-owner collaborator → shared comment (no LLM)
+2. If the message starts with `/message ` → shared comment (prefix stripped before save)
+3. If the owner is replying to a collaborator message → shared comment
+4. Otherwise → LLM pipeline
 
-Messages in shared sessions include a `sent_by` field (`ObjectId`) on user-role messages to track which participant sent each message.
+Messages in shared sessions include `sent_by` (ObjectId) on user-role messages. Optimistic shared-comment messages are also tagged with `sent_by` before the server response arrives so the UI can correctly render own vs. collaborator bubbles. Collaborator messages (shared comments where `sent_by !== currentUserId`) receive a dedicated **"↩ Reply"** button that pre-fills the input with `/message @<senderName> `.
+
+Session operations verify that the requesting user is either the owner or a collaborator with the appropriate role. Super admins do not have access to other users' BienBot sessions.
 
 ---
 
@@ -1216,12 +1228,16 @@ The panel is **lazy-loaded** — the BienBotPanel module is dynamically imported
 | **Loading dots** | Three animated dots shown between user message and first assistant token |
 | **Pending action cards** | Cards with action type, description, "Yes" and "Cancel" buttons |
 | **Suggested next-step chips** | Tappable buttons from session resume that pre-fill the input |
+| **Collaborator reply button** | Ghost "↩ Reply" button rendered beneath collaborator `shared_comment` messages. Clicking it pre-fills the textarea with `/message @<senderName> ` and positions the cursor at the end. Hidden on the session owner's own shared comments. |
 | **Input area** | Auto-growing textarea with send button; Enter sends, Shift+Enter adds newline |
 
 **Keyboard shortcuts:**
 - `Enter` — Send message
 - `Shift+Enter` — New line
 - `Escape` — Close panel
+
+**`/message` slash command:**
+Typing `/message <text>` in the input routes the message to the shared-comment (peer exchange) path, bypassing the LLM, even when the session owner is typing. The `/message` prefix is stripped before the content is saved. This allows owners to send direct messages to collaborators without triggering an AI response.
 
 #### Lazy Loading
 
@@ -1345,7 +1361,15 @@ The notification is suppressed if:
     timestamp: Date,
     intent: String,          // classifier output, stored for debugging
     actions_taken: [String], // IDs of actions executed in this turn
-    sent_by: ObjectId        // (optional) user who sent this message — set for 'user' role in shared sessions
+    sent_by: ObjectId,       // (optional) user who sent this message — set for 'user' role in shared
+                             // sessions, and tagged on optimistic shared_comment messages so the UI
+                             // can distinguish own vs collaborator messages before server confirmation
+    message_type: String,    // 'shared_comment' for peer-exchange messages (not forwarded to LLM);
+                             // sent when: (a) collaborator sends, (b) owner uses /message slash command,
+                             // (c) owner replies directly to a collaborator message
+    msg_id: String,          // stable message ID for reply threading
+    reply_to: String,        // msg_id of the parent message (shared_comment replies only)
+    sender_name: String      // display name for collaborator shared_comment messages
   }],
   context: {
     destination_id: ObjectId,
@@ -1768,6 +1792,9 @@ const {
   messages, pendingActions,
   isLoading, isStreaming,
   sendMessage,        // POST /api/bienbot/chat (accepts optional invokeContext)
+  sendSharedComment,  // POST /api/bienbot/chat with message_type:'shared_comment'
+                      //   used by /message slash command, collaborator messages, and
+                      //   owner replies to collaborator messages
   executeActions,     // POST /api/bienbot/sessions/:id/execute
   cancelAction,       // DELETE .../pending/:actionId
   loadSession,        // GET /api/bienbot/sessions/:id (fetches history; does not greet)

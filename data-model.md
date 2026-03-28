@@ -587,6 +587,10 @@ Social follow relationships between users.
 
 **Indexes:** `follower+following` (unique), `follower+status`, `following+status`
 
+**API Idempotency:** The follow (`POST /api/follows/:userId`) and unfollow (`DELETE /api/follows/:userId`) endpoints are idempotent. Attempting to follow an already-followed user returns `200 { success: true, message: 'Already following' }` instead of a 400/409 error. Attempting to unfollow a user not being followed returns `200 { success: true, message: 'Not following' }` instead of a 404 error. This prevents spurious errors on double-tap or rapid UI interactions.
+
+**Optimistic UI:** `useFollowManager` applies follow/unfollow state changes immediately on the client (follower count, followers list) without waiting for the backend `follow:new` / `follow:removed` events. Event handlers skip the redundant count/list update when the current user is the actor to prevent double-application.
+
 ---
 
 ### InviteCode
@@ -816,6 +820,7 @@ Key React hooks for state management:
 
 | Hook | Purpose | Event Subscriptions |
 |------|---------|---------------------|
+| `useFollowManager` | Follow/unfollow with optimistic count + list updates, undo-unfollow toast, follow button state | `follow:new`, `follow:removed` (skip self-updates when optimistic state already applied) |
 | `usePlanManagement` | Plan CRUD operations with optimistic UI, CRDT reconciliation | `plan:operation`, `plan:created`, `plan:updated`, `plan:deleted` |
 | `usePlanItemNotes` | Note CRUD with stable callbacks | Emits `plan:item:note:*`; subscribes to own emissions |
 | `usePlanCosts` | Cost CRUD with optimistic UI | `plan:cost_added`, `plan:cost_updated`, `plan:cost_deleted` |

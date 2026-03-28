@@ -1578,6 +1578,35 @@ components:
           items:
             type: string
           description: Action types executed in this turn
+        message_type:
+          type: string
+          enum: [shared_comment]
+          nullable: true
+          description: |
+            Set to `shared_comment` for peer-exchange messages (not forwarded to the LLM).
+            These are sent either by a non-owner collaborator or by the session owner using
+            the `/message` slash command, and by owners replying directly to a collaborator message.
+        sent_by:
+          type: string
+          nullable: true
+          description: |
+            ObjectId of the user who sent this message. Present on `user`-role messages in shared
+            sessions and on optimistic `shared_comment` messages so the UI can distinguish the
+            current user's own messages from collaborator messages before the server response arrives.
+        msg_id:
+          type: string
+          nullable: true
+          description: |
+            Stable message identifier used for reply threading. Present on persisted messages;
+            absent on optimistic placeholders.
+        reply_to:
+          type: string
+          nullable: true
+          description: msg_id of the message this is a reply to (shared_comment replies only)
+        sender_name:
+          type: string
+          nullable: true
+          description: Display name of the sender (populated for collaborator shared_comment messages)
       required:
         - role
         - content
@@ -1591,13 +1620,43 @@ components:
           description: Unique action ID (action_<8_random_chars>)
         type:
           type: string
-          enum: [create_destination, create_experience, create_plan, add_plan_items, update_plan_item, invite_collaborator, sync_plan]
+          enum:
+            - create_destination
+            - update_destination
+            - toggle_favorite_destination
+            - create_experience
+            - update_experience
+            - add_experience_plan_item
+            - update_experience_plan_item
+            - delete_experience_plan_item
+            - create_plan
+            - update_plan
+            - delete_plan
+            - add_plan_items
+            - update_plan_item
+            - delete_plan_item
+            - add_plan_item_note
+            - add_plan_item_detail
+            - assign_plan_item
+            - unassign_plan_item
+            - add_plan_cost
+            - update_plan_cost
+            - delete_plan_cost
+            - invite_collaborator
+            - remove_collaborator
+            - sync_plan
+            - set_member_location
+            - remove_member_location
+            - workflow
+          description: |
+            One of the 27 allowed action types. `workflow` is a meta-type that
+            composes multiple steps with `$step_N.field` dependency references.
         payload:
           type: object
-          description: Action-specific parameters
+          description: Action-specific parameters. For `workflow`, contains a `steps` array.
         description:
           type: string
-          description: Human-readable description shown in UI
+          description: Human-readable description shown in the confirmation UI
         executed:
           type: boolean
           default: false
@@ -5553,7 +5612,12 @@ paths:
   /follows/{userId}:
     post:
       summary: Follow User
-      description: Follows another user. For private profiles, creates a pending follow request.
+      description: |
+        Follows another user. For private profiles, creates a pending follow request.
+
+        **Idempotent** — if the authenticated user is already following the target, returns
+        `200 { success: true, message: 'Already following' }` instead of an error.
+        This prevents spurious failures on double-tap or rapid UI interactions.
       tags:
         - Follows
       security:
@@ -5566,6 +5630,19 @@ paths:
             type: string
           description: User ID to follow
       responses:
+        '200':
+          description: Already following (idempotent — no action taken)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Already following
         '201':
           description: User followed successfully (or request sent for private profiles)
           content:
@@ -5573,13 +5650,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Success'
         '400':
-          description: Validation error (cannot follow self)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Already following
+          description: Validation error (e.g. cannot follow self, or pending request already exists)
           content:
             application/json:
               schema:
@@ -5587,7 +5658,11 @@ paths:
 
     delete:
       summary: Unfollow User
-      description: Unfollows a user
+      description: |
+        Unfollows a user.
+
+        **Idempotent** — if the authenticated user is not currently following the target,
+        returns `200 { success: true, message: 'Not following' }` instead of a 404 error.
       tags:
         - Follows
       security:
@@ -5601,13 +5676,20 @@ paths:
           description: User ID to unfollow
       responses:
         '200':
-          description: User unfollowed successfully
+          description: User unfollowed successfully (or was not following — idempotent)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Success'
-        '404':
-          description: Follow relationship not found
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Unfollowed successfully
+        '400':
+          description: Validation error
           content:
             application/json:
               schema:
@@ -6504,6 +6586,14 @@ paths:
         Main chat endpoint for the BienBot AI assistant. Runs the full pipeline:
         classify intent, build context, call LLM, parse structured response, store session,
         and stream the response via Server-Sent Events (SSE).
+
+        **Peer exchange (shared comments):**
+        Messages are routed to the shared-comment path (bypassing the LLM) when:
+        - The sender is a session collaborator (non-owner), or
+        - The message starts with the `/message` slash command (e.g. `/message @Alice hey!`), or
+        - The message is a direct reply to a collaborator message.
+        The `/message` prefix is stripped before the content is saved.
+        Shared-comment messages receive `message_type: 'shared_comment'` and `sent_by` (sender ObjectId).
 
         **SSE Events:**
         - `session` — `{ sessionId, title }` (sent first)
