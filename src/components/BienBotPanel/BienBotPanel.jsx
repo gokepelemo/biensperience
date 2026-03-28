@@ -711,7 +711,7 @@ export default function BienBotPanel({
 
     logger.debug('[BienBotPanel] Sending message', { length: text.length, hasAttachment: !!attachment });
 
-    if (!isSessionOwner || replyTo) {
+    if (currentSession && (!isSessionOwner || replyTo)) {
       // Non-owner or owner replying to a specific message → shared comment path (no LLM)
       sendSharedComment(text, replyTo?.msg_id || null);
       setReplyTo(null);

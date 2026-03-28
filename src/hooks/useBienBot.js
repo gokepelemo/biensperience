@@ -182,7 +182,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
           setCurrentSession(prev => ({
             ...(prev || {}),
             _id: newSessionId,
-            title: title || prev?.title
+            title: title || prev?.title,
+            // Mark the current user as owner so isSessionOwner evaluates correctly
+            // for follow-up messages. The onSession event fires only when this client
+            // creates the session, so the sender is always the owner.
+            user: userId
           }));
           persistSessionId(newSessionId);
           // Update optimistic user message with S3 attachment info from server
@@ -265,11 +269,12 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             setIsStreaming(false);
             setIsLoading(false);
           });
-          // Update the assistant message with an error indicator
+          // Update the assistant message with an error indicator.
+          // Never expose raw exception messages in the chat UI.
           setMessages(prev =>
             prev.map(m =>
               m._id === assistantMessageId
-                ? { ...m, content: streamedContent || error.message || 'Something went wrong. Please try again.', error: true }
+                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true }
                 : m
             )
           );
@@ -281,10 +286,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         logger.debug('[useBienBot] Message send aborted');
       } else {
         logger.error('[useBienBot] Failed to send message', { error: err.message });
+        // Never expose raw exception messages in the chat UI.
         setMessages(prev =>
           prev.map(m =>
             m._id === assistantMessageId
-              ? { ...m, content: err.message || 'Something went wrong. Please try again.', error: true }
+              ? { ...m, content: 'Something went wrong. Please try again.', error: true }
               : m
           )
         );
@@ -658,9 +664,10 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       }
     } catch (err) {
       logger.error('[useBienBot] Failed to post shared comment', { error: err.message });
+      // Never expose raw exception messages in the chat UI.
       setMessages(prev =>
         prev.map(m =>
-          m._id === tempId ? { ...m, error: true, content: err.message || text } : m
+          m._id === tempId ? { ...m, error: true, content: 'Failed to send. Please try again.' } : m
         )
       );
     }
