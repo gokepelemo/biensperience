@@ -98,6 +98,7 @@ export default function Profile() {
     followButtonHovered,
     setFollowButtonHovered,
     followButtonConfirming,
+    setFollowButtonConfirming,
     handleFollowButtonClick,
     followsFilter,
     followsList,
@@ -1472,6 +1473,7 @@ export default function Profile() {
                     {(currentProfile && currentProfile._id !== user._id) && (isSuperAdmin(user) || followRelationship?.isMutual) && (
                     <Button
                       variant="outline"
+                      size="sm"
                       style={{ borderRadius: 'var(--radius-full)' }}
                       disabled={openingDirectMessage}
                       onClick={async () => {
@@ -1501,12 +1503,13 @@ export default function Profile() {
                       <FaEnvelope /> {openingDirectMessage ? lang.current.button.opening : lang.current.button.message}
                     </Button>
                   )}
-                  {/* Follow/Unfollow buttons: show for any non-owner */}
-                  {!isOwner && (
+                  {/* Follow/Unfollow buttons: show for any non-own-profile (includes super admins viewing other users) */}
+                  {!isOwnProfile && (
                     <>
                       {isFollowing ? (
                         <Button
                           variant={(followButtonHovered || followButtonConfirming) ? 'danger' : 'outline'}
+                          size="sm"
                           style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
                           onClick={handleFollowButtonClick}
                           disabled={followLoading}
@@ -1518,6 +1521,7 @@ export default function Profile() {
                       ) : isPending ? (
                         <Button
                           variant="outline"
+                          size="sm"
                           style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
                           disabled={true}
                           className={styles.followButton}
@@ -1527,6 +1531,7 @@ export default function Profile() {
                       ) : (
                         <Button
                           variant="gradient"
+                          size="sm"
                           style={{ borderRadius: 'var(--radius-full)', minWidth: '100px' }}
                           onClick={handleFollow}
                           disabled={followLoading}

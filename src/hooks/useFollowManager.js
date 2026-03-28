@@ -177,6 +177,8 @@ export function useFollowManager({
       if (followingId === userId || eventUserId === userId) {
         if (followerId === currentUserId) {
           setIsFollowing(true);
+          // Skip count/list updates — already applied optimistically in handleFollow
+          return;
         }
         setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
 
@@ -206,6 +208,8 @@ export function useFollowManager({
       if (followingId === userId || eventUserId === userId) {
         if (followerId === currentUserId) {
           setIsFollowing(false);
+          // Skip count/list updates — already applied optimistically in handleUnfollow
+          return;
         }
         setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
 
@@ -295,6 +299,16 @@ export function useFollowManager({
       } else {
         setIsFollowing(true);
         setIsPending(false);
+        // Optimistically update follower count on the profile being viewed
+        setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
+        // Optimistically add currentUser to followers list if it's open
+        if (followsFilterRef.current === 'followers' && followsListLoadedRef.current && currentUserId) {
+          setFollowsList(prev => {
+            if (prev.some(f => f._id === currentUserId)) return prev;
+            return [{ _id: currentUserId, name: '' }, ...prev];
+          });
+          setFollowsPagination(prev => ({ ...prev, total: prev.total + 1 }));
+        }
         success(lang.current.toast.follow.nowFollowing.replace('{name}', profileName));
       }
 
@@ -325,6 +339,18 @@ export function useFollowManager({
     try {
       await unfollowUser(userId, currentUserId);
       setIsFollowing(false);
+      // Optimistically update follower count on the profile being viewed
+      setFollowCounts(prev => ({ ...prev, followers: Math.max(0, prev.followers - 1) }));
+      // Optimistically remove currentUser from the followers list if it's open
+      if (followsFilterRef.current === 'followers' && currentUserId) {
+        setFollowsList(prev => {
+          const filtered = prev.filter(f => f._id !== currentUserId);
+          if (filtered.length !== prev.length) {
+            setFollowsPagination(p => ({ ...p, total: Math.max(0, p.total - 1) }));
+          }
+          return filtered;
+        });
+      }
       const profileName = currentProfile?.name ? getFirstName(currentProfile.name) : lang.current.profile.thisUser;
 
       undoable(lang.current.toast.follow.unfollowed.replace('{name}', profileName), {
@@ -333,6 +359,7 @@ export function useFollowManager({
             await followUser(userId, currentUserId);
             setIsFollowing(true);
             setIsPending(false);
+            setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
           } catch (err) {
             showError(lang.current.toast.follow.failedToRefollow);
           }
@@ -349,6 +376,9 @@ export function useFollowManager({
         // ignore relationship refresh errors
       }
     } catch (err) {
+      // Revert optimistic updates on error
+      setIsFollowing(true);
+      setFollowCounts(prev => ({ ...prev, followers: prev.followers + 1 }));
       const message = handleError(err, { context: 'Unfollow user' });
       showError(message || lang.current.toast.follow.failedToUnfollow);
     } finally {
@@ -572,6 +602,7 @@ export function useFollowManager({
     followButtonHovered,
     setFollowButtonHovered,
     followButtonConfirming,
+    setFollowButtonConfirming,
     handleFollowButtonClick,
 
     // Follows list

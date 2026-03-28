@@ -711,9 +711,15 @@ export default function BienBotPanel({
 
     logger.debug('[BienBotPanel] Sending message', { length: text.length, hasAttachment: !!attachment });
 
-    if (currentSession && (!isSessionOwner || replyTo)) {
-      // Non-owner or owner replying to a specific message → shared comment path (no LLM)
-      sendSharedComment(text, replyTo?.msg_id || null);
+    // Detect /message slash command — routes to peer exchange (no LLM)
+    const isMessageCommand = /^\/message\s/.test(text);
+    if (currentSession && (isMessageCommand || !isSessionOwner || replyTo)) {
+      // Non-owner, owner using /message command, or owner replying to a collaborator
+      // → shared comment path (no LLM). Strip the /message prefix if present.
+      const content = isMessageCommand ? text.replace(/^\/message\s+/, '') : text;
+      if (content) {
+        sendSharedComment(content, replyTo?.msg_id || null);
+      }
       setReplyTo(null);
     } else {
       sendMessage(text, attachment || undefined);
@@ -741,6 +747,27 @@ export default function BienBotPanel({
       }
     },
     [handleSend]
+  );
+
+  // ── Collaborator reply — pre-fill textarea with /message slash command ──
+  const handleReplyToCollaborator = useCallback(
+    (msg) => {
+      const senderName = msg.sender_name;
+      setReplyTo({
+        msg_id: msg.msg_id,
+        preview: msg.content?.slice(0, 100) || '',
+        senderName
+      });
+      if (inputRef.current) {
+        const prefix = `/message @${senderName} `;
+        inputRef.current.value = prefix;
+        inputValueRef.current = prefix;
+        resizeTextarea();
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(prefix.length, prefix.length);
+      }
+    },
+    [resizeTextarea]
   );
 
   // ── Chip click — fill textarea with template ───────────────────────────
@@ -1180,6 +1207,10 @@ export default function BienBotPanel({
                   const isUser = msg.role === 'user';
                   const isAssistant = msg.role === 'assistant';
                   const isSharedComment = msg.message_type === 'shared_comment';
+                  // A collaborator message is a shared_comment from someone other than the
+                  // current user. We use sent_by (ObjectId) for the comparison.
+                  const isCollaboratorMessage = isSharedComment && msg.sender_name &&
+                    msg.sent_by?.toString() !== user?._id?.toString();
                   const isCurrentlyStreaming =
                     isAssistant && isStreaming && msg === messages[messages.length - 1];
 
@@ -1291,7 +1322,7 @@ export default function BienBotPanel({
                           })}
                         </div>
                       )}
-                      {msg.msg_id && currentSession && (
+                      {msg.msg_id && currentSession && !isCollaboratorMessage && (
                         <button
                           type="button"
                           className={styles.messageReplyButton}
@@ -1303,6 +1334,18 @@ export default function BienBotPanel({
                         >
                           Reply
                         </button>
+                      )}
+                      {isCollaboratorMessage && msg.msg_id && (
+                        <div className={styles.collaboratorReplyRow}>
+                          <button
+                            type="button"
+                            className={styles.collaboratorReplyButton}
+                            onClick={() => handleReplyToCollaborator(msg)}
+                            aria-label={`Reply to ${msg.sender_name}`}
+                          >
+                            ↩ Reply
+                          </button>
+                        </div>
                       )}
                     </div>
                   );

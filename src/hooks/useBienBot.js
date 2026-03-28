@@ -648,6 +648,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       role: 'user',
       content: text,
       message_type: 'shared_comment',
+      // Tag with current userId so the UI can distinguish own messages from
+      // collaborator messages before the server confirmation arrives.
+      sent_by: userId,
       reply_to: replyTo || null,
       createdAt: new Date().toISOString()
     };

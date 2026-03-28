@@ -1155,6 +1155,39 @@
   display: block;
 }
 
+/* Bottom reply affordance for collaborator (shared_comment) message bubbles */
+.collaboratorReplyRow {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-1, 0.25rem);
+  margin-top: var(--space-1, 0.25rem);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+
+  @mixin dark {
+    border-color: var(--color-border-dark, #475569);
+  }
+}
+
+.collaboratorReplyButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2, 0.5rem);
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-text-tertiary, #94a3b8);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.collaboratorReplyButton:hover {
+  color: var(--color-primary, #6c63ff);
+  background: rgba(108, 99, 255, 0.07);
+}
+
 /* ---------------------------------------------------------------------------
    Suggestion list (structured content)
    --------------------------------------------------------------------------- */
