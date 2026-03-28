@@ -78,6 +78,7 @@ function Tooltip({
     overflowWrap: 'break-word',
     wordBreak: 'break-word',
     whiteSpace: 'normal',
+    textAlign: 'center',
     zIndex: 1800,
   }), []);
 

@@ -1071,6 +1071,30 @@ async function getDestinationPermissions(req, res) {
   }
 }
 
+/**
+ * GET /api/destinations/:id/enrich
+ *
+ * Enrich a destination with external travel data (Wikivoyage, Unsplash, Google Maps).
+ * Caches results for 7 days. Supports ?force=true to refresh.
+ */
+async function enrich(req, res) {
+  try {
+    const { enrichDestination } = require('../../utilities/bienbot-external-data');
+    const force = req.query.force === 'true';
+
+    const result = await enrichDestination(req.params.id, req.user, { force });
+
+    if (result.statusCode !== 200) {
+      return errorResponse(res, null, result.body.error, result.statusCode);
+    }
+
+    return successResponse(res, result.body.data, result.body.data.cached ? 'Cached data returned' : 'Destination enriched');
+  } catch (err) {
+    backendLogger.error('Enrich destination error', { error: err.message, destinationId: req.params.id });
+    return errorResponse(res, err, 'Failed to enrich destination', 500);
+  }
+}
+
 module.exports = {
   create: createDestination,
   show: showDestination,
@@ -1085,4 +1109,5 @@ module.exports = {
   removeDestinationPermission,
   updateDestinationPermission,
   getDestinationPermissions,
+  enrich,
 };

@@ -769,6 +769,7 @@ const en = {
     travelTipCtaUrl: "https://example.com",
     searchNameOrEmail: "Type name or email...",
     searchByNameOrEmail: "Search by name or email...",
+    searchCollaborators: "Search by name, email, or existing experience...",
     collaboratorEmail: "collaborator@example.com",
     collaboratorName: "Collaborator's full name",
     enterCurrentPassword: "Enter your current password",
@@ -1079,6 +1080,7 @@ const en = {
     experienceVisibility: "Control who can discover this experience. Public: anyone can find and view it. Contributors Only: only users who plan it. Private: only you and collaborators.",
     experienceVisibilityPrivate: "Private — only you and collaborators can see this",
     experienceVisibilityContributors: "Contributors Only — visible to people who have planned this",
+    collaboratorSearch: "Search for existing users by name or email to add as collaborators. You can also search for an experience or destination you own — selecting one will import all its collaborators at once.",
   },
 
   cookieConsent: {

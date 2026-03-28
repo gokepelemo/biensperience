@@ -14,6 +14,7 @@ import { Form, FormGroup, FormLabel, FormControl } from '../../components/design
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { getPolicies, createPolicy, updatePolicy, deletePolicy } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { logger } from '../../utilities/logger';
 
 const EMPTY_POLICY = {
@@ -37,6 +38,7 @@ export default function AIAdminPolicies() {
   const [formData, setFormData] = useState(EMPTY_POLICY);
   const [saving, setSaving] = useState(false);
   const { success: showSuccess, error: showError } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -134,7 +136,8 @@ export default function AIAdminPolicies() {
   }, [formData, editingPolicy, fetchPolicies, showSuccess, showError]);
 
   const handleDelete = useCallback(async (policyId, policyName) => {
-    if (!window.confirm(`Deactivate policy "${policyName}"? This can be reversed by re-enabling it.`)) return;
+    const ok = await confirm({ title: 'Deactivate policy?', message: `Deactivate policy "${policyName}"? This can be reversed by re-enabling it.`, confirmText: 'Deactivate' });
+    if (!ok) return;
     try {
       await deletePolicy(policyId);
       setPolicies(prev => prev.filter(p => p._id !== policyId));
@@ -202,6 +205,7 @@ export default function AIAdminPolicies() {
 
   return (
     <Stack gap="var(--space-4)">
+      {ConfirmDialog}
       <Flex justify="space-between" align="center">
         <Box>
           <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">

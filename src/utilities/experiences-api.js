@@ -426,6 +426,17 @@ export async function getTagName(tagSlug) {
 }
 
 /**
+ * Get permissions for an experience (direct permissions array).
+ * Used to replicate collaborators from an owned experience to another entity.
+ * @param {string} experienceId - Experience ID
+ * @returns {Promise<Object>} { owner, permissions, directPermissions }
+ */
+export async function getExperiencePermissions(experienceId) {
+  const response = await sendRequest(`${BASE_URL}${experienceId}/permissions`, "GET");
+  return (response && response.success && response.data) ? response.data : response;
+}
+
+/**
  * Add a collaborator permission to an experience
  */
 export async function addExperienceCollaborator(experienceId, userId) {

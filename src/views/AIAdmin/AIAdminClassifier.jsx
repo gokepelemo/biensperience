@@ -9,7 +9,7 @@
  * Uses native Chakra UI elements throughout.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Flex,
@@ -34,13 +34,15 @@ import {
   FaEdit,
   FaSave
 } from 'react-icons/fa';
-import { Button, Card, CardHeader, CardBody, Alert } from '../../components/design-system';
+import { Button, Card, CardHeader, CardBody, Alert, Checkbox } from '../../components/design-system';
 import { Text, Heading } from '../../components/design-system';
 import { Table, TableHead, TableBody, TableRow, TableCell } from '../../components/design-system';
 import { FormGroup, FormLabel } from '../../components/design-system';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
+import { createSimpleFilter } from '../../utilities/trie';
 import {
   getCorpus,
   getCorpusIntent,
@@ -291,7 +293,7 @@ function ConfigSection() {
 // ============================================================================
 
 function CorpusSection() {
-  const [intents, setIntents] = useState([]);
+  const [allIntents, setAllIntents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedIntent, setExpandedIntent] = useState(null);
   const [expandedData, setExpandedData] = useState(null);
@@ -300,13 +302,23 @@ function CorpusSection() {
   const [newIntentForm, setNewIntentForm] = useState({ intent: '', description: '', utterances: '' });
   const [retraining, setRetraining] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const trieRef = useRef(null);
   const { success, error: showError } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+  const PAGE_SIZE = 20;
 
   const fetchCorpus = useCallback(async () => {
     try {
       setLoading(true);
       const result = await getCorpus();
-      setIntents(result?.data?.intents || result?.intents || []);
+      const intents = result?.data?.intents || result?.intents || [];
+      setAllIntents(intents);
+      // Build trie index
+      const filter = createSimpleFilter(['intent', 'description']);
+      filter.buildIndex(intents);
+      trieRef.current = filter;
     } catch (err) {
       showError('Failed to load corpus');
       logger.error('[AIAdminClassifier] Corpus fetch failed', { error: err.message });
@@ -316,6 +328,18 @@ function CorpusSection() {
   }, [showError]);
 
   useEffect(() => { fetchCorpus(); }, [fetchCorpus]);
+
+  // Client-side filtering via trie + pagination
+  const filteredIntents = useMemo(() => {
+    if (!search.trim() || !trieRef.current) return allIntents;
+    return trieRef.current.filter(search);
+  }, [allIntents, search]);
+
+  const totalPages = Math.ceil(filteredIntents.length / PAGE_SIZE) || 1;
+  const paginatedIntents = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredIntents.slice(start, start + PAGE_SIZE);
+  }, [filteredIntents, page]);
 
   const handleExpand = useCallback(async (intentKey) => {
     if (expandedIntent === intentKey) {
@@ -342,7 +366,7 @@ function CorpusSection() {
       setExpandedData(prev => ({ ...prev, utterances: updated }));
       setNewUtterance('');
       // Update count in list
-      setIntents(prev => prev.map(i =>
+      setAllIntents(prev => prev.map(i =>
         i.intent === expandedData.intent ? { ...i, utterance_count: updated.length } : i
       ));
       success('Utterance added');
@@ -359,7 +383,7 @@ function CorpusSection() {
       const updated = expandedData.utterances.filter((_, i) => i !== idx);
       await updateCorpusIntent(expandedData.intent, { utterances: updated });
       setExpandedData(prev => ({ ...prev, utterances: updated }));
-      setIntents(prev => prev.map(i =>
+      setAllIntents(prev => prev.map(i =>
         i.intent === expandedData.intent ? { ...i, utterance_count: updated.length } : i
       ));
     } catch {
@@ -370,7 +394,7 @@ function CorpusSection() {
   const handleToggleEnabled = async (intentKey, currentEnabled) => {
     try {
       await updateCorpusIntent(intentKey, { enabled: !currentEnabled });
-      setIntents(prev => prev.map(i =>
+      setAllIntents(prev => prev.map(i =>
         i.intent === intentKey ? { ...i, enabled: !currentEnabled } : i
       ));
       if (expandedData?.intent === intentKey) {
@@ -383,15 +407,16 @@ function CorpusSection() {
   };
 
   const handleDeleteIntent = async (intentKey) => {
-    if (!window.confirm(`Delete custom intent "${intentKey}"? This cannot be undone.`)) return;
+    const ok = await confirm({ title: 'Delete intent?', message: `Delete custom intent "${intentKey}"? This cannot be undone.`, confirmText: 'Delete' });
+    if (!ok) return;
     try {
       await deleteCorpusIntent(intentKey);
-      setIntents(prev => prev.filter(i => i.intent !== intentKey));
       if (expandedIntent === intentKey) {
         setExpandedIntent(null);
         setExpandedData(null);
       }
       success('Intent deleted');
+      await fetchCorpus();
     } catch {
       showError('Failed to delete intent');
     }
@@ -413,6 +438,7 @@ function CorpusSection() {
       setShowNewIntent(false);
       setNewIntentForm({ intent: '', description: '', utterances: '' });
       success('Intent created');
+      setPage(1);
       await fetchCorpus();
     } catch {
       showError('Failed to create intent');
@@ -422,7 +448,8 @@ function CorpusSection() {
   };
 
   const handleRetrain = async () => {
-    if (!window.confirm('Retrain the NLP model from the current corpus? This may take a few seconds.')) return;
+    const ok = await confirm({ title: 'Retrain classifier?', message: 'Retrain the NLP model from the current corpus? This may take a few seconds.', confirmText: 'Retrain', confirmVariant: 'gradient' });
+    if (!ok) return;
     try {
       setRetraining(true);
       const result = await retrainClassifier();
@@ -472,8 +499,9 @@ function CorpusSection() {
 
   return (
     <Stack gap="var(--space-4)">
+      {ConfirmDialog}
       <Flex justify="space-between" align="center" flexWrap="wrap" gap="var(--space-2)">
-        <Heading as="h3" size="heading-3">Intent Corpus ({intents.length} intents)</Heading>
+        <Heading as="h3" size="heading-3">Intent Corpus ({filteredIntents.length}{search.trim() ? ` of ${allIntents.length}` : ''} intents)</Heading>
         <HStack gap="var(--space-2)">
           <Button size="sm" variant="outline" onClick={() => setShowNewIntent(true)} disabled={showNewIntent}>
             <FaPlus style={{ marginRight: 'var(--space-1)' }} /> New Intent
@@ -483,6 +511,14 @@ function CorpusSection() {
           </Button>
         </HStack>
       </Flex>
+
+      {/* Search */}
+      <Input
+        size="sm"
+        placeholder="Filter intents..."
+        value={search}
+        onChange={e => { setSearch(e.target.value); setPage(1); }}
+      />
 
       {showNewIntent && (
         <Card>
@@ -526,7 +562,7 @@ function CorpusSection() {
       )}
 
       <Stack gap="var(--space-2)">
-        {intents.map(item => (
+        {paginatedIntents.map(item => (
           <Card key={item.intent}>
             <CardBody p="var(--space-3)">
               <Flex
@@ -584,11 +620,13 @@ function CorpusSection() {
                     </Text>
                   )}
 
-                  <Flex flexWrap="wrap" gap="var(--space-1)" mb="var(--space-3)">
+                  <Flex flexWrap="wrap" gap="var(--space-2)" mb="var(--space-3)">
                     {expandedData.utterances.map((utt, idx) => (
-                      <Tag.Root key={idx} size="sm" variant="subtle" colorPalette="blue">
+                      <Tag.Root key={idx} size="lg" variant="subtle" colorPalette="blue">
                         <Tag.Label>{utt}</Tag.Label>
-                        <Tag.CloseTrigger onClick={() => handleRemoveUtterance(idx)} />
+                        <Tag.EndElement>
+                          <Tag.CloseTrigger onClick={() => handleRemoveUtterance(idx)} />
+                        </Tag.EndElement>
                       </Tag.Root>
                     ))}
                   </Flex>
@@ -611,7 +649,20 @@ function CorpusSection() {
           </Card>
         ))}
       </Stack>
-    </Stack>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Flex justify="center" gap="var(--space-2)">
+          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+            Previous
+          </Button>
+          <Text fontSize="var(--font-size-sm)" lineHeight="var(--btn-height-sm)" px="var(--space-2)">
+            Page {page} of {totalPages}
+          </Text>
+          <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+            Next
+          </Button>
+        </Flex>
+      )}    </Stack>
   );
 }
 
@@ -838,17 +889,17 @@ function LogsSection() {
         <Button
           size="sm"
           variant={filters.low_confidence ? 'gradient' : 'outline'}
-          onClick={() => setFilters(f => ({ ...f, low_confidence: !f.low_confidence }))}
+          onClick={() => { setPage(1); setFilters(f => ({ ...f, low_confidence: !f.low_confidence })); }}
         >
           Low Confidence Only
         </Button>
         <Button
           size="sm"
           variant={filters.reviewed === false ? 'gradient' : 'outline'}
-          onClick={() => setFilters(f => ({
+          onClick={() => { setPage(1); setFilters(f => ({
             ...f,
             reviewed: f.reviewed === false ? undefined : false
-          }))}
+          })); }}
         >
           Unreviewed
         </Button>
@@ -856,7 +907,7 @@ function LogsSection() {
           size="sm"
           placeholder="Filter by intent..."
           value={filters.intent}
-          onChange={e => setFilters(f => ({ ...f, intent: e.target.value }))}
+          onChange={e => { setPage(1); setFilters(f => ({ ...f, intent: e.target.value })); }}
           maxW="200px"
         />
         <Button size="sm" variant="outline" onClick={() => { setPage(1); fetchLogs(); }}>
@@ -895,14 +946,13 @@ function LogsSection() {
             {logs.map(log => (
               <TableRow key={log._id}>
                 <TableCell>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedLogs.has(log._id)}
                     onChange={() => toggleLogSelection(log._id)}
                   />
                 </TableCell>
                 <TableCell>
-                  <Text fontSize="var(--font-size-xs)" maxW="250px" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+                  <Text size="xs" style={{ maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {log.message}
                   </Text>
                 </TableCell>

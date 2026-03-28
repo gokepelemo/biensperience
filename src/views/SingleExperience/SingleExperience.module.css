@@ -1327,7 +1327,7 @@
   &:hover:not(:disabled) { background: var(--color-bg-hover, rgba(0,0,0,0.05)); }
   &:focus-visible { outline: none; background: var(--color-bg-hover, rgba(0,0,0,0.05)); }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
-  @media (max-width: 768px) { padding-top: 1rem; padding-bottom: 1rem; };
+  @media (max-width: 768px) { padding-top: 1rem; padding-bottom: 1rem; }
 
     svg {
       font-size: 1.1em;

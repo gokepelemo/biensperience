@@ -1,4 +1,5 @@
 import { getToken, logout } from "./users-service.js"
+import { parseJwtPayload } from "./encoding-utils"
 import { logger } from "./logger.js"
 import { getSessionId, refreshSessionIfNeeded } from "./session-utils.js"
 import { generateTraceId } from "./trace-utils.js"
@@ -124,7 +125,7 @@ export async function sendRequest(url, method = "GET", payload = null, requestOp
         // Add session ID for authenticated requests
         try {
             // Get user from token payload
-            const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+            const tokenPayload = parseJwtPayload(token.split('.')[1]);
             const userId = tokenPayload.user?._id;
 
             if (userId) {

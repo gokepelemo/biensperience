@@ -204,3 +204,14 @@ export async function toggleUserFavoriteDestination (destinationId, userId) {
 
     return result;
 }
+
+/**
+ * Get permissions for a destination (direct permissions array).
+ * Used to replicate collaborators from an owned destination to another entity.
+ * @param {string} destinationId - Destination ID
+ * @returns {Promise<Object>} { owner, permissions, directPermissions }
+ */
+export async function getDestinationPermissions(destinationId) {
+  const response = await sendRequest(`${BASE_URL}${destinationId}/permissions`, "GET");
+  return (response && response.success && response.data) ? response.data : response;
+}

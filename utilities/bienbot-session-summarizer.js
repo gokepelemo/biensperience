@@ -28,7 +28,7 @@ const MAX_MESSAGE_CHARS = MESSAGE_TOKEN_BUDGET * CHARS_PER_TOKEN;
  */
 const SYSTEM_PROMPT = `You are a summarizer for BienBot, a travel planning assistant.
 Given a conversation history and optional context about the travel entities involved,
-produce a concise summary and 2-3 suggested next steps the user could take.
+produce a concise summary and 2-3 suggested next steps.
 
 Respond ONLY with valid JSON — no markdown, no explanation.
 
@@ -39,10 +39,14 @@ Schema:
 }
 
 Guidelines:
+- Write the summary in second person, addressing the user directly (e.g. "You were planning a trip to Tokyo" not "The user was planning a trip to Tokyo").
 - The summary should capture the key topic, decisions made, and current state.
 - Next steps should be specific, actionable, and relevant to the conversation.
 - Keep the summary under 100 words.
-- Return exactly 2-3 next steps.`;
+- Return exactly 2-3 next steps.
+
+IMPORTANT — Proposed but unexecuted actions:
+If the context includes a section titled "--- Proposed Actions (Not Executed) ---", those entities were ONLY proposed and were NEVER actually created. Do NOT describe these proposed entities as existing or as something the user created. Instead, describe them as things the user was considering or had started to create.`;
 
 /**
  * Summarize a BienBot session.
@@ -174,7 +178,28 @@ function buildContextBlock(context, session) {
     if (context.plan_id) parts.push(`Active plan ID: ${context.plan_id}`);
   }
 
-  return parts.length > 0 ? `--- Context ---\n${parts.join('\n')}` : null;
+  const contextBlock = parts.length > 0 ? `--- Context ---\n${parts.join('\n')}` : null;
+
+  // Append unexecuted pending actions so the LLM doesn't treat proposed
+  // entities as facts in the summary.
+  const pendingActions = session?.pending_actions;
+  if (!Array.isArray(pendingActions) || pendingActions.length === 0) {
+    return contextBlock;
+  }
+
+  const unexecuted = pendingActions.filter(a => a.executed !== true);
+  if (unexecuted.length === 0) return contextBlock;
+
+  const unexecutedLines = [
+    '--- Proposed Actions (Not Executed) ---',
+    'These were proposed but NEVER actually created — do NOT summarise them as existing:'
+  ];
+  for (const action of unexecuted) {
+    unexecutedLines.push(`- ${action.type}: ${action.description || '(no description)'}`);
+  }
+
+  const unexecutedBlock = unexecutedLines.join('\n');
+  return [contextBlock, unexecutedBlock].filter(Boolean).join('\n\n');
 }
 
 /**

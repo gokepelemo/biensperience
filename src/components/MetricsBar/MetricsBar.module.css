@@ -332,6 +332,7 @@
   white-space: normal;
   max-width: min(300px, calc(100vw - 32px));
   overflow-wrap: break-word;
+  text-align: center;
   transform: translateX(-50%);
   box-shadow: var(--shadow-lg);
   pointer-events: none;

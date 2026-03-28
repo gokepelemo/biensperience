@@ -241,7 +241,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   font-size: clamp(0.875rem, 1.25vw, 1rem);
   color: var(--color-primary);
   background: transparent;
@@ -331,7 +331,7 @@
   line-height: 1.5;
   transition: all 300ms ease;
   &:focus-visible { outline: 2px solid #667eea; outline-offset: 2px; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   width: 100%;
   padding: 0.5rem 0.75rem;
   font-size: clamp(0.875rem, 1.25vw, 1rem);
@@ -636,14 +636,14 @@
 
 /* Notes tab wrapper - for PlanItemNotes component */
 .notesTabWrapper {
-  @include tabWrapperBase
-  @include tabWrapperMobile
+  @mixin tabWrapperBase;
+  @mixin tabWrapperMobile;
 }
 
 /* Photos tab wrapper - for PhotosTab component */
 .photosTabWrapper {
-  @include tabWrapperBase
-  @include tabWrapperMobile
+  @mixin tabWrapperBase;
+  @mixin tabWrapperMobile;
   padding: 1rem 1.5rem;
   /* Enable vertical scrolling for photo grid */
   overflow-y: auto;
@@ -660,8 +660,8 @@
 
 /* Documents tab wrapper - for DocumentsTab component */
 .documentsTabWrapper {
-  @include tabWrapperBase
-  @include tabWrapperMobile
+  @mixin tabWrapperBase;
+  @mixin tabWrapperMobile;
   padding: 1rem 1.5rem;
   /* Enable vertical scrolling for document list */
   overflow-y: auto;
@@ -710,7 +710,7 @@
 
 /* Chat tab wrapper - no padding, chat fills entire tab area */
 .chatTabWrapper {
-  @include tabWrapperBase
+  @mixin tabWrapperBase;
   /* NO PADDING - chat component fills the entire tab area like MessagesModal */
   padding: 0;
   gap: 0;
@@ -946,7 +946,7 @@
   transition: all 300ms ease;
   cursor: pointer;
   border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; };
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   background: transparent;
   border: 2px solid var(--color-border-medium);
   color: var(--color-text-primary);
@@ -955,10 +955,8 @@
 
   &:hover:not(:disabled) {
     transition: all 300ms ease;
-  &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  };
     background: var(--color-bg-hover);
     border-color: var(--color-primary);
     color: var(--color-primary);
@@ -1361,8 +1359,8 @@
 
 /* Details Tab Content - Container for grouped detail types */
 .detailsTabContent {
-  @include tabWrapperBase
-  @include tabWrapperMobile
+  @mixin tabWrapperBase;
+  @mixin tabWrapperMobile;
   /* Tab content fills parent which has JS-calculated height */
 }
 
@@ -1624,7 +1622,7 @@
 
 /* Location Tab Content - Container for location info and map */
 .locationTabContent {
-  @include tabWrapperBase
+  @mixin tabWrapperBase;
   padding: 1rem 1.5rem;
   /* Enable vertical scrolling for map + address content */
   overflow-y: auto;

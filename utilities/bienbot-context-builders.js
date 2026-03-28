@@ -12,6 +12,7 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
+const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage } = require('./hidden-signals');
 
 // Lazy-loaded models (resolved on first use)
 let Destination, Experience, Plan, User;
@@ -26,6 +27,17 @@ function loadModels() {
 }
 
 /**
+ * Format an entity as an inline JSON reference for the LLM.
+ * @param {string} id - Entity ObjectId string
+ * @param {string} name - Entity display name
+ * @param {string} type - 'destination' | 'experience' | 'plan' | 'plan_item' | 'user'
+ * @returns {string} Compact JSON string
+ */
+function entityJSON(id, name, type) {
+  return JSON.stringify({ _id: id, name: name || type, type });
+}
+
+/**
  * Rough token estimate: ~4 chars per token for English text.
  */
 const CHARS_PER_TOKEN = 4;
@@ -35,6 +47,85 @@ function trimToTokenBudget(text, tokenBudget = DEFAULT_TOKEN_BUDGET) {
   const maxChars = tokenBudget * CHARS_PER_TOKEN;
   if (text.length <= maxChars) return text;
   return text.substring(0, maxChars - 3) + '...';
+}
+
+/**
+ * Collect notes from plan items, filter by visibility, batch-resolve author names,
+ * and summarize if total content exceeds threshold.
+ *
+ * @param {Array} planItems - Plan items from plan.plan
+ * @param {string} userId - Requesting user ID
+ * @param {number} [threshold=500] - Character threshold before summarization
+ * @returns {Promise<string|null>} Formatted notes block or null
+ */
+async function collectPlanNotes(planItems, userId, threshold = 500) {
+  const allNotes = [];
+  const authorIds = new Set();
+
+  for (const item of planItems) {
+    const notes = item.details?.notes;
+    if (!notes?.length) continue;
+    const itemLabel = item.content || item.text || item.name || '(unnamed)';
+
+    for (const note of notes) {
+      // Visibility filter: private notes only visible to author
+      if (note.visibility === 'private' && String(note.user) !== String(userId)) continue;
+      authorIds.add(String(note.user));
+      allNotes.push({
+        itemLabel,
+        content: note.content,
+        authorId: String(note.user),
+        date: note.createdAt
+      });
+    }
+  }
+
+  if (allNotes.length === 0) return null;
+
+  // Batch-resolve author names
+  const authorMap = {};
+  try {
+    const docs = await User.find({ _id: { $in: [...authorIds] } }).select('name').lean();
+    for (const doc of docs) {
+      authorMap[String(doc._id)] = doc.name || 'Unknown';
+    }
+  } catch (err) {
+    logger.debug('[bienbot-context] Author name resolution failed', { error: err.message });
+  }
+
+  // Format notes
+  const noteLines = allNotes.map(n => {
+    const author = authorMap[n.authorId] || 'Unknown';
+    const dateStr = n.date ? new Date(n.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `- [${author}${dateStr ? `, ${dateStr}` : ''}] (${n.itemLabel}): ${n.content}`;
+  });
+
+  const totalChars = noteLines.reduce((sum, l) => sum + l.length, 0);
+
+  // Summarize if over threshold
+  if (totalChars > threshold) {
+    try {
+      const { executeAIRequest } = require('./ai-gateway');
+      const result = await executeAIRequest({
+        messages: [
+          { role: 'system', content: 'Summarize these travel plan notes concisely, preserving key details and who said what. Output only the summary.' },
+          { role: 'user', content: noteLines.join('\n') }
+        ],
+        task: 'summarize',
+        options: { maxTokens: 150 }
+      });
+      if (result?.content) {
+        return `[PLAN NOTES (summarized)]\n${result.content}\n[/PLAN NOTES]`;
+      }
+    } catch (err) {
+      logger.debug('[bienbot-context] Note summarization failed, falling back to truncation', { error: err.message });
+    }
+    // Fallback: truncate
+    const truncated = noteLines.join('\n').substring(0, threshold * 2) + '...';
+    return `[PLAN NOTES]\n${truncated}\n[/PLAN NOTES]`;
+  }
+
+  return `[PLAN NOTES]\n${noteLines.join('\n')}\n[/PLAN NOTES]`;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,8 +151,27 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
     const perm = await enforcer.canView({ userId, resource: destination });
     if (!perm.allowed) return null;
 
+    // Check if travel tips are stale or empty — trigger background enrichment
+    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+    const lastEnriched = destination.travel_tips_updated_at;
+    const isStale = !lastEnriched || (Date.now() - new Date(lastEnriched).getTime()) > CACHE_TTL_MS;
+    const hasTips = destination.travel_tips && destination.travel_tips.length > 0;
+
+    if (isStale || !hasTips) {
+      try {
+        const { enrichDestination } = require('./bienbot-external-data');
+        // Non-blocking background refresh — serve cached data (if any) immediately
+        enrichDestination(destinationId, { _id: userId }, { background: hasTips, force: !hasTips }).catch(err => {
+          logger.warn('[bienbot-context] Background enrichment failed', { destinationId, error: err.message });
+        });
+      } catch (e) {
+        logger.warn('[bienbot-context] Could not trigger enrichment', { error: e.message });
+      }
+    }
+
     const lines = [
       `[Destination] ${destination.name}`,
+      `Entity: ${entityJSON(destination._id.toString(), destination.name, 'destination')}`,
       destination.country ? `Country: ${destination.country}` : null,
       destination.state ? `State/Region: ${destination.state}` : null,
       destination.overview ? `Overview: ${destination.overview}` : null,
@@ -71,6 +181,23 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
         : null,
       destination.visibility ? `Visibility: ${destination.visibility}` : null
     ];
+
+    // Inject hidden travel signals for destination and requesting user
+    try {
+      const destSignals = applySignalDecay(destination.hidden_signals || {});
+      const destNL = signalsToNaturalLanguage(destSignals, { role: 'traveler' });
+      const userDoc = await User.findById(userId).select('hidden_signals').lean();
+      const userSignals = userDoc ? applySignalDecay(userDoc.hidden_signals || {}) : null;
+      const userNL = userSignals ? signalsToNaturalLanguage(userSignals, { role: 'traveler' }) : '';
+      if (destNL || userNL) {
+        const signalParts = [];
+        if (destNL) signalParts.push(`Destination profile: ${destNL}`);
+        if (userNL) signalParts.push(`Visitor preference: ${userNL}`);
+        lines.push(signalParts.join(' '));
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Signal injection skipped', { error: sigErr.message });
+    }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
@@ -98,14 +225,17 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
 
     const lines = [
       `[Experience] ${experience.name}`,
+      `Entity: ${entityJSON(experience._id.toString(), experience.name, 'experience')}`,
       experience.destination?.name ? `Destination: ${experience.destination.name}` : null,
+      experience.destination?._id ? `Destination entity: ${entityJSON(experience.destination._id.toString(), experience.destination.name, 'destination')}` : null,
       experience.overview ? `Overview: ${experience.overview}` : null,
       experience.experience_type?.length ? `Types: ${experience.experience_type.join(', ')}` : null,
       `Plan items: ${itemCount} total, ${completedCount} completed`,
       experience.difficulty ? `Difficulty: ${experience.difficulty}/10` : null,
       experience.rating ? `Rating: ${experience.rating}/5` : null,
       experience.visibility ? `Visibility: ${experience.visibility}` : null,
-      itemCount > 0 ? `Items: ${experience.plan_items.slice(0, 10).map(i => i.content || i.text || i.name || '(unnamed)').join(', ')}` : null
+      itemCount > 0 ? `Items: ${experience.plan_items.slice(0, 10).map(i => i.content || i.text || i.name || '(unnamed)').join(', ')}` : null,
+      experience.signal_tags?.length ? `Experience tags: ${experience.signal_tags.join(', ')}` : null
     ];
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
@@ -137,12 +267,43 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
     const lines = [
       `[Plan] for experience "${plan.experience?.name || '(unknown)'}"`,
+      `Entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}`,
+      plan.experience?._id ? `Experience entity: ${entityJSON(plan.experience._id.toString(), plan.experience.name, 'experience')}` : null,
       plan.planned_date ? `Planned date: ${new Date(plan.planned_date).toISOString().split('T')[0]}` : null,
       `Completion: ${completedItems}/${totalItems} items (${completionPct}%)`,
       plan.currency ? `Currency: ${plan.currency}` : null,
       plan.costs?.length ? `Costs tracked: ${plan.costs.length}` : null,
       totalItems > 0 ? `Items: ${planItems.slice(0, 10).map(i => `${i.complete ? '[x]' : '[ ]'} ${i.content || i.text || i.name || '(unnamed)'}`).join(', ')}` : null
     ];
+
+    // Inject group travel signals from plan collaborators
+    try {
+      const memberIds = (plan.permissions || []).filter(p => p.entity === 'user').map(p => p._id);
+      if (!memberIds.some(id => String(id) === String(userId))) {
+        memberIds.push(userId);
+      }
+      const memberDocs = await User.find({ _id: { $in: memberIds } }).select('hidden_signals name').lean();
+      if (memberDocs.length > 0) {
+        const groupSignals = aggregateGroupSignals(memberDocs);
+        const decayed = applySignalDecay(groupSignals);
+        const signalText = signalsToNaturalLanguage(decayed, { role: memberDocs.length > 1 ? 'group' : 'traveler', count: memberDocs.length });
+        if (signalText) {
+          lines.push(`[TRAVEL SIGNALS]`);
+          lines.push(signalText);
+          lines.push(`[/TRAVEL SIGNALS]`);
+        }
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Plan signal injection skipped', { error: sigErr.message });
+    }
+
+    // Inject plan item notes (visibility-filtered)
+    try {
+      const notesBlock = await collectPlanNotes(planItems, userId);
+      if (notesBlock) lines.push(notesBlock);
+    } catch (noteErr) {
+      logger.debug('[bienbot-context] Plan notes injection skipped', { error: noteErr.message });
+    }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
@@ -171,9 +332,12 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
     const item = planItems.find(i => String(i._id) === itemIdStr);
     if (!item) return null;
 
+    const itemName = item.content || item.text || item.name || '(unnamed)';
     const lines = [
-      `[Plan Item] ${item.content || item.text || item.name || '(unnamed)'}`,
+      `[Plan Item] ${itemName}`,
+      `Entity: ${entityJSON(item._id.toString(), itemName, 'plan_item')}`,
       `Plan: "${plan.experience?.name || '(unknown)'}"`,
+      plan._id ? `Plan entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}` : null,
       `Status: ${item.complete ? 'completed' : 'pending'}`,
       item.scheduled_date ? `Scheduled: ${new Date(item.scheduled_date).toISOString().split('T')[0]}` : null,
       item.notes?.length ? `Notes: ${item.notes.length}` : null,
@@ -201,6 +365,7 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
 
     const lines = [
       `[User] ${user.name || '(unnamed)'}`,
+      `Entity: ${entityJSON(user._id.toString(), user.name || '(unnamed)', 'user')}`,
       user.email ? `Email: ${user.email}` : null,
       user.bio ? `Bio: ${user.bio}` : null,
       user.preferences?.currency ? `Currency: ${user.preferences.currency}` : null,
@@ -226,38 +391,257 @@ async function buildSearchContext(query, userId, options = {}) {
   try {
     const trimmedQuery = query.trim();
 
-    // Search destinations and experiences in parallel
-    const [destinations, experiences] = await Promise.all([
+    // Search destinations, experiences, and user plans in parallel
+    const [destinations, experiences, userPlans] = await Promise.all([
       Destination.find({ visibility: 'public' }).select('name country overview').limit(100).lean(),
-      Experience.find({ visibility: 'public' }).select('name overview destination').populate('destination', 'name').limit(100).lean()
+      Experience.find({ visibility: 'public' }).select('name overview destination').populate('destination', 'name').limit(100).lean(),
+      userId
+        ? Plan.find({ user: userId })
+            .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+            .select('experience planned_date plan')
+            .lean()
+        : Promise.resolve([])
     ]);
 
     const matchedDestinations = findSimilarItems(destinations, trimmedQuery, 'name', 60);
     const matchedExperiences = findSimilarItems(experiences, trimmedQuery, 'name', 60);
 
-    if (matchedDestinations.length === 0 && matchedExperiences.length === 0) {
+    // Match user plans by experience name or destination name.
+    // Uses two complementary strategies so both short queries ("Tokyo") and long
+    // user messages ("Share the Tokyo temple tour plan's exact name...") match:
+    //   1. Substring containment — either direction
+    //   2. Query-side word overlap — ≥50% of query words appear in entity name
+    //   3. Entity-side word overlap — ≥60% of entity name words appear in query
+    //      (handles long queries where the entity name is only a small portion)
+    const queryLower = trimmedQuery.toLowerCase();
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+    const matchedPlans = (userPlans || []).filter(p => {
+      const expName = (p.experience?.name || '').toLowerCase();
+      const destName = (p.experience?.destination?.name || '').toLowerCase();
+      // Substring match: query contains the name or name contains the query
+      if (expName && (expName.includes(queryLower) || queryLower.includes(expName))) return true;
+      if (destName && (destName.includes(queryLower) || queryLower.includes(destName))) return true;
+      const combined = `${expName} ${destName}`;
+      if (queryWords.length >= 2) {
+        // Query-side: most query words appear in the combined entity name
+        const queryMatchCount = queryWords.filter(w => combined.includes(w)).length;
+        if (queryMatchCount >= Math.ceil(queryWords.length * 0.5)) return true;
+        // Entity-side: most entity name words appear in the query (handles long messages)
+        const entityWords = combined.split(/\s+/).filter(w => w.length > 2);
+        if (entityWords.length >= 2) {
+          const entityMatchCount = entityWords.filter(w => queryLower.includes(w)).length;
+          if (entityMatchCount >= Math.ceil(entityWords.length * 0.5)) return true;
+        }
+      }
+      return false;
+    });
+
+    if (matchedDestinations.length === 0 && matchedExperiences.length === 0 && matchedPlans.length === 0) {
       return null;
     }
 
     const lines = [`[Search Results] for "${trimmedQuery}"`];
 
+    if (matchedPlans.length > 0) {
+      lines.push('Your Plans:');
+      matchedPlans.slice(0, 5).forEach(p => {
+        const expName = p.experience?.name || 'Unnamed';
+        const destName = p.experience?.destination?.name;
+        const expId = p.experience?._id?.toString();
+        const dateStr = p.planned_date
+          ? new Date(p.planned_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : null;
+        lines.push(`  - "${expName}"${destName ? ` in ${destName}` : ''}${dateStr ? ` (${dateStr})` : ''} [plan_id: ${p._id}, experience_id: ${expId}]`);
+      });
+    }
+
     if (matchedDestinations.length > 0) {
       lines.push('Destinations:');
       matchedDestinations.slice(0, 5).forEach(d => {
-        lines.push(`  - ${d.name}${d.country ? ` (${d.country})` : ''}`);
+        lines.push(`  - ${d.name}${d.country ? ` (${d.country})` : ''} [destination_id: ${d._id}]`);
       });
     }
 
     if (matchedExperiences.length > 0) {
       lines.push('Experiences:');
       matchedExperiences.slice(0, 5).forEach(e => {
-        lines.push(`  - ${e.name}${e.destination?.name ? ` at ${e.destination.name}` : ''}`);
+        lines.push(`  - ${e.name}${e.destination?.name ? ` at ${e.destination.name}` : ''} [experience_id: ${e._id}]`);
       });
     }
 
     return trimToTokenBudget(lines.join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildSearchContext failed', { query, error: err.message });
+    return null;
+  }
+}
+
+/**
+ * Build context block describing what plan item suggestions are available
+ * for a destination. Provides the LLM with awareness of popular items so it
+ * can propose a suggest_plan_items action when appropriate.
+ *
+ * @param {string} destinationId
+ * @param {string} [experienceId] - Optional experience to scope suggestions
+ * @param {string} userId
+ * @param {object} [options]
+ * @param {number} [options.tokenBudget]
+ * @returns {Promise<string|null>}
+ */
+async function buildSuggestionContext(destinationId, experienceId, userId, options = {}) {
+  loadModels();
+
+  try {
+    if (!destinationId) return null;
+
+    const destination = await Destination.findById(destinationId).select('name').lean();
+    if (!destination) return null;
+
+    // Count public experiences in this destination (excluding user's own)
+    const query = {
+      destination: destinationId,
+      visibility: 'public',
+      user: { $ne: userId }
+    };
+    if (experienceId) {
+      const { valid } = validateObjectId(experienceId, 'experienceId');
+      if (valid) query._id = { $ne: experienceId };
+    }
+
+    const publicExpCount = await Experience.countDocuments(query);
+
+    if (publicExpCount === 0) return null;
+
+    // Sample a few item names so the LLM knows suggestions are available
+    const sampleExps = await Experience.find(query)
+      .select('plan_items.text plan_items.content')
+      .limit(5)
+      .lean();
+
+    const sampleItems = [];
+    for (const exp of sampleExps) {
+      for (const item of (exp.plan_items || []).slice(0, 3)) {
+        const text = item.content || item.text || '';
+        if (text && sampleItems.length < 5) sampleItems.push(text);
+      }
+    }
+
+    const lines = [
+      `[Suggestion Availability] ${destination.name}`,
+      `Public experiences with plan items: ${publicExpCount}`,
+      sampleItems.length > 0 ? `Sample popular items: ${sampleItems.join(', ')}` : null,
+      'You can propose a suggest_plan_items action to show the user popular items from other travelers.'
+    ];
+
+    return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
+  } catch (err) {
+    logger.error('[bienbot-context] buildSuggestionContext failed', { destinationId, error: err.message });
+    return null;
+  }
+}
+
+/**
+ * Build a next-steps context block for a plan, highlighting actionable gaps.
+ *
+ * Analyses incomplete items and surfaces:
+ *  - Items without a scheduled date
+ *  - Items without details or notes
+ *  - Items with a cost estimate but no tracked cost
+ *  - Unassigned items in collaborative plans
+ *  - Overall plan readiness score
+ *
+ * @param {string} planId
+ * @param {string} userId
+ * @param {object} [options]
+ * @param {number} [options.tokenBudget]
+ * @returns {Promise<string|null>}
+ */
+async function buildPlanNextStepsContext(planId, userId, options = {}) {
+  loadModels();
+  const enforcer = getEnforcer({ Destination, Experience, Plan, User });
+
+  try {
+    const plan = await Plan.findById(planId).populate('experience', 'name');
+    if (!plan) return null;
+
+    const perm = await enforcer.canView({ userId, resource: plan });
+    if (!perm.allowed) return null;
+
+    const planItems = plan.plan || [];
+    if (planItems.length === 0) return null;
+
+    const incompleteItems = planItems.filter(i => !i.complete);
+
+    // Sort incomplete items by scheduled date (soonest first, unscheduled last)
+    const sortedIncomplete = [...incompleteItems].sort((a, b) => {
+      if (a.scheduled_date && b.scheduled_date) return new Date(a.scheduled_date) - new Date(b.scheduled_date);
+      if (a.scheduled_date) return -1;
+      if (b.scheduled_date) return 1;
+      return 0;
+    });
+
+    // Categorise gaps
+    const noDate = sortedIncomplete.filter(i => !i.scheduled_date);
+    const noDetails = sortedIncomplete.filter(i => {
+      const notes = i.details?.notes || [];
+      return notes.length === 0;
+    });
+    const noTrackedCost = sortedIncomplete.filter(i => {
+      if (!i.cost) return false; // no estimate to track against
+      const trackedCosts = (plan.costs || []).filter(c => c.plan_item && String(c.plan_item) === String(i._id));
+      return trackedCosts.length === 0;
+    });
+
+    // Check for collaborative plan with unassigned items
+    const collaboratorCount = (plan.permissions || []).filter(p => p.entity === 'user').length;
+    const isCollaborative = collaboratorCount > 1;
+    const unassigned = isCollaborative ? sortedIncomplete.filter(i => !i.assignedTo) : [];
+
+    // Readiness score: % of items that have date + details/notes + cost tracking (if estimated)
+    const totalItems = planItems.length;
+    let readyCount = 0;
+    for (const item of planItems) {
+      const hasDate = !!item.scheduled_date;
+      const hasNotes = (item.details?.notes || []).length > 0;
+      const costOk = !item.cost || (plan.costs || []).some(c => c.plan_item && String(c.plan_item) === String(item._id));
+      if (hasDate && hasNotes && costOk) readyCount++;
+    }
+    const readinessPct = Math.round((readyCount / totalItems) * 100);
+
+    const itemLabel = (i) => i.content || i.text || i.name || '(unnamed)';
+
+    const lines = ['[NEXT STEPS]'];
+    lines.push(`Plan readiness: ${readinessPct}% (${readyCount}/${totalItems} items fully detailed)`);
+
+    if (sortedIncomplete.length > 0) {
+      lines.push(`Incomplete items (${sortedIncomplete.length}):`);
+      sortedIncomplete.slice(0, 8).forEach(i => {
+        const dateStr = i.scheduled_date ? new Date(i.scheduled_date).toISOString().split('T')[0] : 'no date';
+        lines.push(`  - ${itemLabel(i)} [${dateStr}]`);
+      });
+    }
+
+    if (noDate.length > 0) {
+      lines.push(`Need scheduling (${noDate.length}): ${noDate.slice(0, 5).map(itemLabel).join(', ')}`);
+    }
+
+    if (noDetails.length > 0) {
+      lines.push(`Need notes/details (${noDetails.length}): ${noDetails.slice(0, 5).map(itemLabel).join(', ')}`);
+    }
+
+    if (noTrackedCost.length > 0) {
+      lines.push(`Have cost estimate but no tracked cost (${noTrackedCost.length}): ${noTrackedCost.slice(0, 5).map(itemLabel).join(', ')}`);
+    }
+
+    if (unassigned.length > 0) {
+      lines.push(`Unassigned in collaborative plan (${unassigned.length}): ${unassigned.slice(0, 5).map(itemLabel).join(', ')}`);
+    }
+
+    lines.push('[/NEXT STEPS]');
+
+    return trimToTokenBudget(lines.join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
+  } catch (err) {
+    logger.error('[bienbot-context] buildPlanNextStepsContext failed', { planId, error: err.message });
     return null;
   }
 }
@@ -311,6 +695,786 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
   }
 }
 
+// ---------------------------------------------------------------------------
+// Discovery helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps semantic category keywords to plan item activity_type values.
+ * 14 categories including the original 5 plus 9 new ones.
+ */
+const SEMANTIC_ACTIVITY_MAP = {
+  // Existing
+  culinary:          ['food', 'drinks', 'coffee', 'market', 'local'],
+  adventure:         ['adventure', 'nature', 'sports', 'tour'],
+  cultural:          ['museum', 'sightseeing', 'religious', 'local'],
+  wellness:          ['wellness', 'health', 'rest'],
+  nightlife:         ['nightlife', 'drinks', 'entertainment'],
+  // New
+  'family-friendly': ['sightseeing', 'nature', 'entertainment', 'class', 'tour'],
+  budget:            ['food', 'local', 'nature', 'sightseeing'],
+  romantic:          ['food', 'drinks', 'wellness', 'sightseeing', 'entertainment'],
+  solo:              ['museum', 'nature', 'coffee', 'adventure', 'photography'],
+  photography:       ['photography', 'sightseeing', 'nature', 'museum'],
+  historical:        ['museum', 'sightseeing', 'religious', 'tour'],
+  beach:             ['nature', 'sports', 'wellness', 'rest', 'adventure'],
+  mountain:          ['nature', 'adventure', 'sports', 'tour', 'photography'],
+  urban:             ['sightseeing', 'food', 'nightlife', 'shopping', 'entertainment']
+};
+
+// ---------------------------------------------------------------------------
+// Ranking helper constants
+// ---------------------------------------------------------------------------
+
+const DEFAULT_DISCOVERY_WEIGHTS = {
+  plan_count:      0.30,
+  completion_rate: 0.25,
+  recency:         0.20,
+  collaborators:   0.10,
+  cost_alignment:  0.15
+};
+
+const WEIGHT_FLOOR = 0.05;
+const SIGNAL_THRESHOLD = 0.7;
+const MIN_CONFIDENCE = 0.2;
+const RECENCY_HALF_LIFE_DAYS = 174; // e^(-ln2 * 90/174) ≈ 0.70 at 90 days, per spec
+
+// ---------------------------------------------------------------------------
+// Ranking helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand semantic categories (e.g., 'culinary') to concrete activity types.
+ * Unknown types pass through as-is for direct activity_type matching.
+ * @param {string[]} categories
+ * @returns {string[]}
+ */
+function expandActivityTypes(categories) {
+  if (!categories || !categories.length) return [];
+  const types = new Set();
+  for (const cat of categories) {
+    if (SEMANTIC_ACTIVITY_MAP[cat]) {
+      SEMANTIC_ACTIVITY_MAP[cat].forEach(t => types.add(t));
+    } else {
+      types.add(cat); // pass through as raw activity_type
+    }
+  }
+  return [...types];
+}
+
+/**
+ * Compute signal-adaptive ranking weights based on user's hidden signals.
+ * Returns DEFAULT_DISCOVERY_WEIGHTS if signals are absent or low-confidence.
+ * Symmetric +0.10/-0.10 swaps per dimension. Enforces 0.05 floor. Re-normalizes to 1.0.
+ * @param {Object|null} signals
+ * @returns {Object}
+ */
+function computeAdaptiveWeights(signals) {
+  const weights = { ...DEFAULT_DISCOVERY_WEIGHTS };
+
+  if (!signals || (signals.confidence || 0) < MIN_CONFIDENCE) return weights;
+
+  // Symmetric +0.10/-0.10 swaps
+  if ((signals.budget_sensitivity || 0) > SIGNAL_THRESHOLD) {
+    weights.cost_alignment += 0.10;
+    weights.plan_count -= 0.10;
+  }
+  if ((signals.social || 0) > SIGNAL_THRESHOLD) {
+    weights.collaborators += 0.10;
+    weights.recency -= 0.10;
+  }
+  if ((signals.structure || 0) > SIGNAL_THRESHOLD) {
+    weights.completion_rate += 0.10;
+    weights.plan_count -= 0.10;
+  }
+  if ((signals.novelty || 0) > SIGNAL_THRESHOLD) {
+    weights.recency += 0.10;
+    weights.completion_rate -= 0.10;
+  }
+
+  // Enforce minimum floor
+  Object.keys(weights).forEach(k => {
+    weights[k] = Math.max(weights[k], WEIGHT_FLOOR);
+  });
+
+  // Re-normalize to sum to 1.0
+  const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+  Object.keys(weights).forEach(k => { weights[k] /= sum; });
+
+  return weights;
+}
+
+/**
+ * Map a cost value to its percentile within a candidate set.
+ * Returns 0.0 (cheapest) to 1.0 (most expensive). Neutral 0.5 for edge cases.
+ * @param {number} cost
+ * @param {number[]} allCandidateCosts
+ * @returns {number}
+ */
+function normalizeCostToPercentile(cost, allCandidateCosts) {
+  if (!allCandidateCosts || !allCandidateCosts.length || allCandidateCosts.length === 1) return 0.5;
+  const sorted = [...allCandidateCosts].sort((a, b) => a - b);
+  const rank = sorted.indexOf(cost);
+  if (rank === -1) return 0.5;
+  return rank / (sorted.length - 1);
+}
+
+/**
+ * Compute cost alignment between an experience cost and user's budget sensitivity.
+ * 1.0 = perfect fit, 0.0 = worst mismatch, 0.5 = neutral.
+ * @param {number|null} experienceCost
+ * @param {Object|null} signals
+ * @param {number[]} allCandidateCosts
+ * @returns {number}
+ */
+function computeCostAlignment(experienceCost, signals, allCandidateCosts) {
+  if (!experienceCost || !signals) return 0.5;
+  const userBudgetLevel = 1 - (signals.budget_sensitivity || 0.5);
+  const costPercentile = normalizeCostToPercentile(experienceCost, allCandidateCosts || []);
+  return 1 - Math.abs(userBudgetLevel - costPercentile);
+}
+
+/**
+ * Exponential decay recency score.
+ * ~1.0 for today, ~0.7 for 90 days, ~0.3 for 180+ days.
+ * Uses ln(2)/RECENCY_HALF_LIFE_DAYS as decay constant.
+ * @param {Date|null} date
+ * @returns {number}
+ */
+function computeRecencyScore(date) {
+  if (!date) return 0;
+  const daysSince = (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSince < 0) return 1;
+  return Math.exp(-0.693 * daysSince / RECENCY_HALF_LIFE_DAYS); // ln(2) ~= 0.693
+}
+
+/**
+ * Normalize a count value to [0, 1] using the max in the candidate set.
+ * @param {number} value
+ * @param {number} maxValue
+ * @returns {number}
+ */
+function normalizeCount(value, maxValue) {
+  if (!maxValue || maxValue === 0) return 0;
+  return Math.min(value / maxValue, 1);
+}
+
+/**
+ * Generate a human-readable match_reason from the dominant ranking signal.
+ * Finds the dominant signal (highest weighted contribution) and fills a template.
+ * Prepends a category phrase when categories are provided.
+ * @param {Object} candidate
+ * @param {Object} weights
+ * @param {string[]} categories
+ * @returns {string}
+ */
+function generateMatchReason(candidate, weights, categories) {
+  const categoryPhrases = {
+    culinary: 'culinary travelers',
+    adventure: 'adventure seekers',
+    cultural: 'culture enthusiasts',
+    wellness: 'wellness travelers',
+    nightlife: 'nightlife enthusiasts',
+    'family-friendly': 'families',
+    budget: 'budget travelers',
+    romantic: 'couples',
+    solo: 'solo travelers',
+    photography: 'photographers',
+    historical: 'history buffs',
+    beach: 'beach lovers',
+    mountain: 'mountain explorers',
+    urban: 'city explorers'
+  };
+
+  const templates = {
+    plan_count:      (c) => `Planned by ${c.co_occurrence_count} similar travelers`,
+    completion_rate: (c) => `${Math.round((c.avg_completion_rate || 0) * 100)}% plan completion rate`,
+    recency:         () => 'Recently trending among travelers',
+    collaborators:   (c) => `Popular group activity - ${c.collaborator_count} collaborators`,
+    cost_alignment:  () => 'Good budget fit for your travel style'
+  };
+
+  // Find dominant signal (highest weighted contribution)
+  const contributions = {
+    plan_count:      (weights.plan_count || 0) * (candidate.co_occurrence_count ? 1 : 0),
+    completion_rate: (weights.completion_rate || 0) * (candidate.avg_completion_rate || 0),
+    recency:         (weights.recency || 0) * (candidate.recency_score || 0),
+    collaborators:   (weights.collaborators || 0) * (candidate.collaborator_count ? 1 : 0),
+    cost_alignment:  (weights.cost_alignment || 0) * 0.5 // neutral default
+  };
+
+  const dominant = Object.entries(contributions)
+    .sort(([, a], [, b]) => b - a)[0][0];
+
+  // Build phrase
+  const catPhrase = (categories || [])
+    .map(c => categoryPhrases[c] || c)
+    .filter(Boolean)[0];
+
+  const signalPhrase = templates[dominant](candidate);
+  return catPhrase
+    ? `Popular among ${catPhrase} - ${signalPhrase}`
+    : signalPhrase;
+}
+
+/**
+ * Build a discovery context block for cross-dimensional queries.
+ *
+ * Uses collaborative filtering to discover experiences planned by similar users.
+ * Two-stage pipeline: find similar users → find co-occurring experiences → rank.
+ *
+ * @param {Object} filters - { activity_types, destination_id, destination_name, max_cost, cross_destination, min_plans }
+ * @param {string} userId - Querying user's ID
+ * @param {Object} [options] - { limit }
+ * @returns {Promise<Object|null>} { contextBlock, results, query_metadata } or null if no results
+ */
+async function buildDiscoveryContext(filters = {}, userId, options = {}) {
+  const { getCacheKey, createDiscoveryCache } = require('./discovery-cache');
+  const UserModel = require('../models/user');
+
+  const limit = options.limit || 8;
+  const cacheKey = getCacheKey(filters);
+  const cache = createDiscoveryCache();
+
+  try {
+    // Check cache
+    let candidates = await cache.get(cacheKey);
+    let cacheHit = !!candidates;
+
+    if (!candidates) {
+      // Stage 1: Find similar users (requires activity_types)
+      const similarUsers = await findSimilarUsers(filters, userId);
+
+      if (similarUsers.length > 0) {
+        // Stage 2: Find co-occurring experiences
+        candidates = await findCoOccurringExperiences(similarUsers, filters, userId);
+        if (candidates.length > 0) {
+          logger.debug('[bienbot-context] Collaborative filtering produced candidates', { count: candidates.length });
+        } else {
+          logger.debug('[bienbot-context] No co-occurring experiences found, falling back to popularity', { filters, userId });
+        }
+      } else {
+        logger.debug('[bienbot-context] No similar users found, falling back to popularity', { filters, userId });
+      }
+
+      // Fallback: popularity-based discovery when collaborative filtering yields nothing
+      // (happens when activity_types are omitted or data is sparse)
+      if (!candidates || !candidates.length) {
+        candidates = await findPopularExperiences(filters, userId);
+      }
+
+      if (!candidates.length) {
+        logger.debug('[bienbot-context] No experiences found for filters', { filters, userId });
+        return null;
+      }
+
+      await cache.set(cacheKey, candidates);
+    }
+
+    // Fetch user's hidden signals for personalized ranking
+    let signals = null;
+    try {
+      const user = await UserModel.findById(userId).select('hidden_signals').lean();
+      if (user?.hidden_signals) {
+        signals = applySignalDecay(user.hidden_signals);
+      }
+    } catch (err) {
+      logger.warn('[bienbot-context] Failed to fetch user signals for ranking', { userId, error: err.message });
+    }
+
+    // Compute adaptive weights
+    const weights = computeAdaptiveWeights(signals);
+
+    const allCosts = candidates.map(c => c.cost_estimate).filter(Boolean);
+    const maxCoOccurrence = Math.max(...candidates.map(c => c.co_occurrence_count), 1);
+    const maxCollaborators = Math.max(...candidates.map(c => c.collaborator_count), 1);
+
+    // Score and rank
+    const scored = candidates.map(c => {
+      const recencyScore = computeRecencyScore(c.latest_planned_date);
+      const relevanceScore =
+        weights.plan_count * normalizeCount(c.co_occurrence_count, maxCoOccurrence) +
+        weights.completion_rate * (c.avg_completion_rate || 0) +
+        weights.recency * recencyScore +
+        weights.collaborators * normalizeCount(c.collaborator_count, maxCollaborators) +
+        weights.cost_alignment * computeCostAlignment(c.cost_estimate, signals, allCosts);
+
+      const matchReason = generateMatchReason(
+        { ...c, recency_score: recencyScore },
+        weights,
+        filters.activity_types
+      );
+
+      return {
+        experience_id: c.experience_id.toString(),
+        experience_name: c.experience_name,
+        destination_name: c.destination_name,
+        destination_id: c.destination_id?.toString(),
+        activity_types: c.activity_types || [],
+        cost_estimate: c.cost_estimate,
+        plan_count: c.co_occurrence_count,
+        completion_rate: c.avg_completion_rate,
+        collaborator_count: c.collaborator_count,
+        relevance_score: Math.round(relevanceScore * 1000) / 1000,
+        match_reason: matchReason,
+        default_photo_url: c.default_photo_url
+      };
+    });
+
+    scored.sort((a, b) => b.relevance_score - a.relevance_score);
+    const results = scored.slice(0, limit);
+
+    if (!results.length) return null;
+
+    const contextBlock = formatDiscoveryContextBlock(results, filters);
+
+    // Signal feedback (fire-and-forget)
+    try {
+      const expandedTypes = expandActivityTypes(filters.activity_types);
+      const { processSignalEvent } = require('./hidden-signals');
+      processSignalEvent(userId, {
+        type: 'search',
+        metadata: {
+          source: 'discovery',
+          activity_type: expandedTypes[0] || null,
+          all_activity_types: expandedTypes,
+          result_count: results.length
+        }
+      });
+    } catch (e) {
+      // Silently ignore signal event errors
+    }
+
+    logger.info('[bienbot-context] buildDiscoveryContext completed', {
+      userId,
+      resultCount: results.length,
+      cacheHit,
+      crossDestination: !!(filters.cross_destination || (!filters.destination_id && !filters.destination_name))
+    });
+
+    return {
+      contextBlock,
+      results,
+      query_metadata: {
+        filters_applied: filters,
+        cache_hit: cacheHit,
+        result_count: results.length,
+        cross_destination: !!(filters.cross_destination || (!filters.destination_id && !filters.destination_name))
+      }
+    };
+  } catch (err) {
+    logger.error('[bienbot-context] buildDiscoveryContext failed', { error: err.message });
+    return null;
+  }
+}
+
+/**
+ * Format discovery results into a text context block for the LLM.
+ */
+function formatDiscoveryContextBlock(results, filters) {
+  const header = filters.activity_types?.length
+    ? `Discovery results for ${filters.activity_types.join(', ')} experiences`
+    : 'Discovery results';
+
+  const lines = results.map((r, i) =>
+    `${i + 1}. ${r.experience_name} (${r.destination_name}) - ` +
+    `${r.plan_count} plans, ${Math.round((r.completion_rate || 0) * 100)}% completion, ` +
+    `cost: ${r.cost_estimate || 'N/A'} - ${r.match_reason}`
+  );
+
+  return `[DISCOVERY RESULTS]\n${header}:\n${lines.join('\n')}\n[/DISCOVERY RESULTS]`;
+}
+
+/**
+ * Build context of similar experiences in the same destination.
+ * Used for post-plan onboarding to suggest related content.
+ *
+ * @param {string} experienceId - Current experience ID
+ * @param {string} destinationId - Destination ID
+ * @param {string} userId
+ * @param {object} [options]
+ * @returns {Promise<string|null>}
+ */
+async function buildSimilarExperiencesContext(experienceId, destinationId, userId, options = {}) {
+  loadModels();
+
+  try {
+    if (!destinationId) return null;
+
+    // Find other public experiences in the same destination, sorted by plan count
+    const pipeline = [
+      { $match: {
+        destination: require('mongoose').Types.ObjectId.createFromHexString(String(destinationId)),
+        _id: { $ne: require('mongoose').Types.ObjectId.createFromHexString(String(experienceId)) },
+        visibility: { $ne: 'private' }
+      }},
+      { $lookup: {
+        from: 'plans',
+        localField: '_id',
+        foreignField: 'experience',
+        as: 'plans'
+      }},
+      { $addFields: { plan_count: { $size: '$plans' } } },
+      { $sort: { plan_count: -1 } },
+      { $limit: 5 },
+      { $project: { name: 1, overview: 1, plan_count: 1, experience_type: 1 } }
+    ];
+
+    const results = await Experience.aggregate(pipeline);
+    if (results.length === 0) return null;
+
+    const lines = ['[SIMILAR EXPERIENCES]'];
+    for (const r of results) {
+      const types = r.experience_type?.join(', ') || '';
+      lines.push(`- ${r.name} (${r.plan_count} plan${r.plan_count !== 1 ? 's' : ''})${types ? ` [${types}]` : ''}`);
+    }
+    lines.push('[/SIMILAR EXPERIENCES]');
+
+    return trimToTokenBudget(lines.join('\n'), options.tokenBudget || 800);
+  } catch (err) {
+    logger.error('[bienbot-context] buildSimilarExperiencesContext failed', { error: err.message });
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stage 1: Find users who planned matching activity types
+// ---------------------------------------------------------------------------
+
+async function findSimilarUsers(filters, userId) {
+  const activityTypes = expandActivityTypes(filters.activity_types);
+  if (!activityTypes.length) return [];
+
+  const Plan = require('../models/plan');
+  const { Types } = require('mongoose');
+  const matchStage = {
+    'plan.activity_type': { $in: activityTypes },
+    user: { $ne: new Types.ObjectId(userId) }
+  };
+
+  const pipeline = [
+    { $match: matchStage },
+    // Lookup experience for destination filter + visibility
+    { $lookup: {
+      from: 'experiences',
+      localField: 'experience',
+      foreignField: '_id',
+      as: 'exp'
+    }},
+    { $unwind: '$exp' },
+    { $match: { 'exp.visibility': { $ne: 'private' } } }
+  ];
+
+  // Destination filter
+  const shouldFilterDestination = !filters.cross_destination &&
+    (filters.destination_id || filters.destination_name);
+
+  if (shouldFilterDestination) {
+    if (filters.destination_id) {
+      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
+    } else if (filters.destination_name) {
+      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      pipeline.push(
+        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest' } },
+        { $unwind: '$dest' },
+        { $match: { 'dest.name': nameRegex } }
+      );
+    }
+  }
+
+  // Cost filter via $reduce on plan[].cost
+  if (filters.max_cost) {
+    pipeline.push({
+      $addFields: {
+        _totalCost: { $reduce: {
+          input: '$plan',
+          initialValue: 0,
+          in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+        }}
+      }
+    });
+    pipeline.push({ $match: { _totalCost: { $lte: filters.max_cost } } });
+  }
+
+  // Group by user
+  pipeline.push(
+    { $group: {
+      _id: '$user',
+      matchingPlanCount: { $sum: 1 },
+      experienceIds: { $addToSet: '$experience' }
+    }},
+    { $sort: { matchingPlanCount: -1 } },
+    { $limit: 50 }
+  );
+
+  const results = await Plan.aggregate(pipeline);
+
+  logger.debug('[bienbot-context] findSimilarUsers', {
+    userId,
+    activityTypes,
+    resultCount: results.length
+  });
+
+  return results.map(r => ({
+    userId: r._id,
+    matchingPlanCount: r.matchingPlanCount,
+    experienceIds: r.experienceIds
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Stage 2: Find other experiences planned by similar users
+// ---------------------------------------------------------------------------
+
+async function findCoOccurringExperiences(similarUsers, filters, userId) {
+  if (!similarUsers.length) return [];
+
+  const Plan = require('../models/plan');
+  const userIds = similarUsers.map(u => u.userId);
+  const excludeExpIds = [...new Set(similarUsers.flatMap(u => u.experienceIds))];
+
+  const pipeline = [
+    { $match: {
+      user: { $in: userIds },
+      experience: { $nin: excludeExpIds }
+    }},
+    { $lookup: {
+      from: 'experiences',
+      localField: 'experience',
+      foreignField: '_id',
+      as: 'exp'
+    }},
+    { $unwind: '$exp' },
+    { $match: { 'exp.visibility': { $ne: 'private' } } },
+    { $addFields: {
+      _planCost: { $reduce: {
+        input: '$plan',
+        initialValue: 0,
+        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+      }},
+      _completedCount: { $size: { $filter: {
+        input: '$plan',
+        cond: { $eq: ['$$this.complete', true] }
+      }}},
+      _totalCount: { $size: '$plan' },
+      _userCollaborators: { $filter: {
+        input: '$permissions',
+        cond: { $eq: ['$$this.entity', 'user'] }
+      }}
+    }},
+    { $addFields: {
+      _completionRate: { $cond: {
+        if: { $gt: ['$_totalCount', 0] },
+        then: { $divide: ['$_completedCount', '$_totalCount'] },
+        else: 0
+      }}
+    }},
+    { $group: {
+      _id: '$experience',
+      co_occurrence_count: { $sum: 1 },
+      avg_completion_rate: { $avg: '$_completionRate' },
+      collaborator_ids: { $addToSet: '$_userCollaborators._id' },
+      latest_planned_date: { $max: '$planned_date' },
+      avg_cost: { $avg: '$_planCost' },
+      experience_name: { $first: '$exp.name' },
+      destination_id: { $first: '$exp.destination' },
+      activity_types: { $first: '$exp.experience_type' },
+      plan_item_types: { $first: '$exp.plan_items.activity_type' },
+      default_photo_id: { $first: '$exp.default_photo_id' },
+      photos: { $first: '$exp.photos' }
+    }},
+    { $lookup: {
+      from: 'destinations',
+      localField: 'destination_id',
+      foreignField: '_id',
+      as: 'dest'
+    }},
+    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
+    { $lookup: {
+      from: 'photos',
+      let: {
+        photoId: { $ifNull: ['$default_photo_id', { $arrayElemAt: ['$photos', 0] }] }
+      },
+      pipeline: [
+        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
+        { $project: { url: 1 } }
+      ],
+      as: 'photo'
+    }},
+    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
+    { $sort: { co_occurrence_count: -1 } },
+    { $limit: 20 }
+  ];
+
+  const results = await Plan.aggregate(pipeline);
+
+  logger.debug('[bienbot-context] findCoOccurringExperiences', {
+    similarUserCount: similarUsers.length,
+    resultCount: results.length
+  });
+
+  return results.map(r => {
+    const flatCollabs = (r.collaborator_ids || []).flat().flat();
+    const uniqueCollabs = [...new Set(flatCollabs.map(id => id?.toString()).filter(Boolean))];
+
+    const allTypes = [...new Set([
+      ...(r.activity_types || []),
+      ...(r.plan_item_types || []).filter(Boolean)
+    ])];
+
+    return {
+      experience_id: r._id,
+      experience_name: r.experience_name,
+      destination_name: r.dest?.name || 'Unknown',
+      destination_id: r.destination_id,
+      activity_types: allTypes,
+      cost_estimate: Math.round(r.avg_cost || 0),
+      co_occurrence_count: r.co_occurrence_count,
+      avg_completion_rate: r.avg_completion_rate || 0,
+      collaborator_count: uniqueCollabs.length,
+      latest_planned_date: r.latest_planned_date,
+      default_photo_url: r.photo?.url || null
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Popularity-based fallback: used when collaborative filtering yields no results
+// (e.g. no activity_types provided, new user, or sparse plan data)
+// ---------------------------------------------------------------------------
+
+/**
+ * Find popular public experiences ranked by plan count.
+ * Returns the same candidate shape as findCoOccurringExperiences.
+ * Supports destination and max_cost filters; cross_destination flag is ignored
+ * (query is always cross-destination by default).
+ * @param {Object} filters - { destination_id, destination_name, max_cost }
+ * @param {string} userId - Exclude plans owned by this user
+ * @returns {Promise<Array>}
+ */
+async function findPopularExperiences(filters, userId) {
+  const Plan = require('../models/plan');
+  const { Types } = require('mongoose');
+
+  const pipeline = [
+    { $match: { user: { $ne: new Types.ObjectId(userId) } } },
+    { $lookup: {
+      from: 'experiences',
+      localField: 'experience',
+      foreignField: '_id',
+      as: 'exp'
+    }},
+    { $unwind: '$exp' },
+    { $match: { 'exp.visibility': { $ne: 'private' } } }
+  ];
+
+  // Optional destination filter
+  const shouldFilterDestination = !filters.cross_destination &&
+    (filters.destination_id || filters.destination_name);
+
+  if (shouldFilterDestination) {
+    if (filters.destination_id) {
+      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
+    } else if (filters.destination_name) {
+      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      pipeline.push(
+        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest_filter' } },
+        { $unwind: '$dest_filter' },
+        { $match: { 'dest_filter.name': nameRegex } }
+      );
+    }
+  }
+
+  // Optional cost filter
+  if (filters.max_cost) {
+    pipeline.push(
+      { $addFields: {
+        _planCostFilter: { $reduce: {
+          input: '$plan',
+          initialValue: 0,
+          in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+        }}
+      }},
+      { $match: { _planCostFilter: { $lte: filters.max_cost } } }
+    );
+  }
+
+  pipeline.push(
+    { $addFields: {
+      _planCost: { $reduce: {
+        input: '$plan',
+        initialValue: 0,
+        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+      }},
+      _completedCount: { $size: { $filter: {
+        input: '$plan',
+        cond: { $eq: ['$$this.complete', true] }
+      }}},
+      _totalCount: { $size: '$plan' }
+    }},
+    { $addFields: {
+      _completionRate: { $cond: {
+        if: { $gt: ['$_totalCount', 0] },
+        then: { $divide: ['$_completedCount', '$_totalCount'] },
+        else: 0
+      }}
+    }},
+    { $group: {
+      _id: '$experience',
+      co_occurrence_count: { $sum: 1 },
+      avg_completion_rate: { $avg: '$_completionRate' },
+      latest_planned_date: { $max: '$planned_date' },
+      avg_cost: { $avg: '$_planCost' },
+      experience_name: { $first: '$exp.name' },
+      destination_id: { $first: '$exp.destination' },
+      activity_types: { $first: '$exp.experience_type' },
+      default_photo_id: { $first: '$exp.default_photo_id' },
+      photos: { $first: '$exp.photos' }
+    }},
+    { $lookup: {
+      from: 'destinations',
+      localField: 'destination_id',
+      foreignField: '_id',
+      as: 'dest'
+    }},
+    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
+    { $lookup: {
+      from: 'photos',
+      let: { photoId: { $ifNull: ['$default_photo_id', { $arrayElemAt: ['$photos', 0] }] } },
+      pipeline: [
+        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
+        { $project: { url: 1 } }
+      ],
+      as: 'photo'
+    }},
+    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
+    { $sort: { co_occurrence_count: -1 } },
+    { $limit: 20 }
+  );
+
+  const results = await Plan.aggregate(pipeline);
+
+  logger.debug('[bienbot-context] findPopularExperiences', {
+    userId,
+    filters,
+    resultCount: results.length
+  });
+
+  return results.map(r => ({
+    experience_id: r._id,
+    experience_name: r.experience_name,
+    destination_name: r.dest?.name || 'Unknown',
+    destination_id: r.destination_id,
+    activity_types: r.activity_types || [],
+    cost_estimate: Math.round(r.avg_cost || 0),
+    co_occurrence_count: r.co_occurrence_count,
+    avg_completion_rate: r.avg_completion_rate || 0,
+    collaborator_count: 0,
+    latest_planned_date: r.latest_planned_date,
+    default_photo_url: r.photo?.url || null
+  }));
+}
+
 module.exports = {
   buildDestinationContext,
   buildExperienceContext,
@@ -318,5 +1482,23 @@ module.exports = {
   buildPlanItemContext,
   buildUserProfileContext,
   buildSearchContext,
-  buildContextForInvokeContext
+  buildSuggestionContext,
+  buildContextForInvokeContext,
+  buildDiscoveryContext,
+  buildPlanNextStepsContext,
+  buildSimilarExperiencesContext,
+  SEMANTIC_ACTIVITY_MAP,
+  // Discovery ranking helpers (exported for testing and direct use)
+  expandActivityTypes,
+  computeAdaptiveWeights,
+  computeCostAlignment,
+  normalizeCostToPercentile,
+  computeRecencyScore,
+  normalizeCount,
+  generateMatchReason,
+  // Two-stage collaborative filtering pipeline
+  findSimilarUsers,
+  findCoOccurringExperiences,
+  findPopularExperiences,
+  formatDiscoveryContextBlock
 };

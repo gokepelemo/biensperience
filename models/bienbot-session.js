@@ -8,6 +8,7 @@
 
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const crypto = require('crypto');
 const { ALLOWED_ACTION_TYPES } = require('../utilities/bienbot-action-executor');
 
 /**
@@ -77,6 +78,14 @@ const attachmentSchema = new Schema({
     type: String,
     default: null
   },
+  s3Bucket: {
+    type: String,
+    default: null
+  },
+  isProtected: {
+    type: Boolean,
+    default: false
+  },
   extractedText: {
     type: String,
     default: null
@@ -84,6 +93,11 @@ const attachmentSchema = new Schema({
   extractionMethod: {
     type: String,
     default: null
+  },
+  s3Status: {
+    type: String,
+    enum: ['pending', 'uploaded', 'failed'],
+    default: 'pending'
   }
 }, { _id: false });
 
@@ -111,7 +125,82 @@ const messageSchema = new Schema({
   actions_taken: [{
     type: String
   }],
-  attachments: [attachmentSchema]
+  attachments: [attachmentSchema],
+  /**
+   * Structured content blocks for rich rendering (photo galleries, suggestion
+   * lists, etc.). Each block has a `type` discriminator and type-specific
+   * fields stored in `data`. The frontend reads `type` to choose which
+   * component to render.
+   *
+   * Supported types:
+   *   - photo_gallery: { photos: [...], entity_type, entity_id, entity_name, total_count }
+   *   - suggestion_list: { suggestions: [...], destination_name, source_count }
+   *   - discovery_result_list: { experiences: [...], destination_name, total_count }
+   *   - tip_suggestion_list: { tips: [...], destination_name, categories }
+   */
+  structured_content: [{
+    type: {
+      type: String,
+      required: true,
+      enum: ['photo_gallery', 'suggestion_list', 'discovery_result_list', 'tip_suggestion_list']
+    },
+    data: {
+      type: Schema.Types.Mixed,
+      default: {}
+    }
+  }],
+  /**
+   * The user who sent this message. Only set for 'user' role messages in
+   * shared sessions so memory extraction can filter per-participant
+   * contributions. Null for assistant messages and legacy messages.
+   */
+  sent_by: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  /**
+   * Unique stable identifier for this message. Used as the reply_to target
+   * for peer exchanges between the session owner and shared collaborators.
+   * Generated automatically by addMessage().
+   */
+  msg_id: {
+    type: String,
+    default: null
+  },
+  /**
+   * Message type distinguishes owner→LLM queries from peer comments
+   * posted by shared collaborators (or owner replies to those comments).
+   * 'shared_comment' messages are excluded from the LLM context window.
+   */
+  message_type: {
+    type: String,
+    enum: ['bot_query', 'shared_comment'],
+    default: 'bot_query'
+  },
+  /**
+   * msg_id of the message this is replying to (for shared_comment replies).
+   * Not threaded — replies appear inline in the timeline.
+   */
+  reply_to: {
+    type: String,
+    default: null
+  },
+  /**
+   * First 200 chars of the replied-to message for inline preview display.
+   */
+  reply_to_preview: {
+    type: String,
+    default: null
+  },
+  /**
+   * Display name of the sender. Set on shared_comment messages so the
+   * frontend can render "{sender_name}: {content}" without a user query.
+   */
+  sender_name: {
+    type: String,
+    default: null
+  }
 }, { _id: false });
 
 /**
@@ -133,6 +222,11 @@ const summarySchema = new Schema({
 
 /**
  * Pending action sub-schema — proposed actions awaiting user confirmation.
+ *
+ * Workflow fields (workflow_id, workflow_step, workflow_total, depends_on, status,
+ * error_message) support the sequential workflow confirmation UX where each
+ * workflow step is exploded into an individual pending action that users can
+ * approve, skip, or edit one at a time.
  */
 const pendingActionSchema = new Schema({
   id: {
@@ -152,6 +246,16 @@ const pendingActionSchema = new Schema({
     type: String,
     required: true
   },
+  confirm_label: {
+    type: String,
+    maxlength: 40,
+    default: undefined
+  },
+  dismiss_label: {
+    type: String,
+    maxlength: 40,
+    default: undefined
+  },
   executed: {
     type: Boolean,
     default: false
@@ -159,8 +263,68 @@ const pendingActionSchema = new Schema({
   result: {
     type: Schema.Types.Mixed,
     default: null
+  },
+  // --- Workflow step fields ---
+  workflow_id: {
+    type: String,
+    default: null
+  },
+  workflow_step: {
+    type: Number,
+    default: null
+  },
+  workflow_total: {
+    type: Number,
+    default: null
+  },
+  depends_on: {
+    type: [String],
+    default: null
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'executing', 'completed', 'skipped', 'failed'],
+    default: 'pending'
+  },
+  error_message: {
+    type: String,
+    default: null
   }
 }, { _id: false });
+
+/**
+ * Cached photo sub-schema — temporary holding area for photos fetched from
+ * Unsplash (or uploaded via the pipeline) during an active session.
+ *
+ * Uses the same fields as the Photo model so entries can be "moved" directly
+ * to a Photo document when the user assigns a photo to an entity. Any entries
+ * remaining when the session is archived are cleaned up in the background:
+ *   - url-only photos (Unsplash CDN) are simply discarded
+ *   - s3_key photos are deleted from S3 via the upload pipeline
+ *
+ * `meta` holds display-only fields from the source API (thumb_url, source ID,
+ * etc.) that are not persisted to the Photo model.
+ */
+const cachedPhotoSchema = new Schema({
+  // Core Photo model fields
+  url: { type: String, default: null },
+  s3_key: { type: String, default: null },
+  is_protected: { type: Boolean, default: false },
+  photo_credit: { type: String, default: null },
+  photo_credit_url: { type: String, default: null },
+  caption: { type: String, default: null },
+  width: { type: Number, default: null },
+  height: { type: Number, default: null },
+  // Source metadata
+  source: { type: String, enum: ['unsplash', 'upload', 'url'], default: 'url' },
+  source_url: { type: String, default: null },
+  // Display-only fields from the source API (not persisted to Photo model)
+  meta: { type: Schema.Types.Mixed, default: null },
+  // Cache scope — which entity this result was fetched for
+  entity_type: { type: String, enum: ['destination', 'experience', null], default: null },
+  entity_id: { type: Schema.Types.ObjectId, default: null },
+  cached_at: { type: Date, default: Date.now }
+}, { _id: true });
 
 /**
  * Collaborator sub-schema — tracks users who have been granted access
@@ -171,6 +335,10 @@ const collaboratorSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  user_name: {
+    type: String,
+    default: null
   },
   role: {
     type: String,
@@ -220,6 +388,16 @@ const bienBotSessionSchema = new Schema({
     default: () => ({})
   },
   pending_actions: [pendingActionSchema],
+  /**
+   * Temporary photo cache for this session. Populated by fetch_entity_photos
+   * (Unsplash results) and add_entity_photos (S3 uploads). Entries are removed
+   * when photos are assigned to an entity, and any survivors are cleaned up
+   * when the session is archived.
+   */
+  cached_photos: {
+    type: [cachedPhotoSchema],
+    default: []
+  },
   status: {
     type: String,
     required: true,
@@ -235,7 +413,7 @@ const bienBotSessionSchema = new Schema({
 // Compound indexes for efficient querying
 bienBotSessionSchema.index({ user: 1, status: 1 });
 bienBotSessionSchema.index({ updatedAt: 1 });
-bienBotSessionSchema.index({ 'shared_with.user_id': 1 });
+bienBotSessionSchema.index({ 'shared_with.user_id': 1, status: 1 });
 
 // ----- Static methods -----
 
@@ -281,17 +459,46 @@ bienBotSessionSchema.statics.listSessions = async function (userId, options = {}
 
 /**
  * Append a message to the conversation history.
+ *
+ * @param {string} role - 'user' or 'assistant'
+ * @param {string} content - Message content
+ * @param {object} [opts]
+ * @param {string|null} [opts.intent] - Classified intent
+ * @param {string[]} [opts.actions_taken] - Action types executed
+ * @param {object[]} [opts.attachments] - File attachments
+ * @param {string|object|null} [opts.sentBy] - User ID of the sender (for
+ *   'user' role messages in shared sessions). Enables per-participant memory
+ *   extraction when the session is archived.
+ * @param {string} [opts.message_type] - 'bot_query' (default) or 'shared_comment'
+ * @param {string|null} [opts.sender_name] - Display name for shared_comment messages
+ * @param {string|null} [opts.reply_to] - msg_id of the message being replied to
+ * @param {string|null} [opts.reply_to_preview] - First 200 chars of the replied message
  */
-bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [] } = {}) {
+bienBotSessionSchema.methods.addMessage = async function (role, content, { intent = null, actions_taken = [], attachments = [], sentBy = null, structured_content = [], message_type = 'bot_query', sender_name = null, reply_to = null, reply_to_preview = null } = {}) {
   const msg = {
+    msg_id: `msg_${crypto.randomBytes(4).toString('hex')}`,
     role,
     content,
     timestamp: new Date(),
     intent,
-    actions_taken
+    actions_taken,
+    message_type
   };
   if (attachments.length > 0) {
     msg.attachments = attachments;
+  }
+  if (structured_content.length > 0) {
+    msg.structured_content = structured_content;
+  }
+  if (sentBy && role === 'user') {
+    msg.sent_by = sentBy;
+  }
+  if (sender_name) {
+    msg.sender_name = sender_name;
+  }
+  if (reply_to) {
+    msg.reply_to = reply_to;
+    msg.reply_to_preview = reply_to_preview || null;
   }
   this.messages.push(msg);
   return this.save();
@@ -389,15 +596,17 @@ bienBotSessionSchema.methods.checkAccess = function (userId) {
  * @param {string} role - 'viewer' or 'editor'.
  * @param {string} grantedBy - User ID of the granter.
  */
-bienBotSessionSchema.methods.addCollaborator = async function (userId, role = 'viewer', grantedBy = null) {
+bienBotSessionSchema.methods.addCollaborator = async function (userId, role = 'viewer', grantedBy = null, userName = null) {
   const uid = userId.toString();
   const existing = (this.shared_with || []).find(c => c.user_id.toString() === uid);
   if (existing) {
     existing.role = role;
+    if (userName) existing.user_name = userName;
     this.markModified('shared_with');
   } else {
     this.shared_with.push({
       user_id: userId,
+      user_name: userName,
       role,
       granted_at: new Date(),
       granted_by: grantedBy

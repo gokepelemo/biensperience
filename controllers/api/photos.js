@@ -1,14 +1,12 @@
 const mongoose = require('mongoose');
 const Photo = require("../../models/photo");
 const User = require("../../models/user");
-const { s3Upload, s3Delete } = require("../../uploads/aws-s3");
+const { uploadWithPipeline, deleteFileSafe } = require("../../utilities/upload-pipeline");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
 const { isOwner } = require("../../utilities/permissions");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const backendLogger = require("../../utilities/backend-logger");
-const fs = require("fs");
-const path = require("path");
 
 async function createPhoto(req, res) {
   let rand = Math.ceil(Math.random() * 500);
@@ -32,51 +30,47 @@ async function createPhoto(req, res) {
 
     // S3 prefix: photos/ for photos uploaded to entities
     const photoName = req.body.name ? req.body.name : "Biensperience";
-    s3Upload(
-      req.file.path,
+    const localFilePath = req.file.path;
+
+    const { s3Result } = await uploadWithPipeline(
+      localFilePath,
       req.file.originalname,
-      `photos/${rand}-${photoName}`
-    )
-      .then((response) => {
-        // S3 upload successful
-        const photoData = {
-          photo_credit: req.body.photo_credit,
-          photo_credit_url: req.body.photo_credit_url,
-          url: response.Location,
-          permissions: [{
-            _id: req.user._id,
-            entity: 'user',
-            type: 'owner',
-            granted_by: req.user._id
-          }]
-        };
+      `photos/${rand}-${photoName}`,
+      { deleteLocal: true }
+    );
 
-        // Add dimensions if provided (for layout shift prevention)
-        if (req.body.width && parseInt(req.body.width) > 0) {
-          photoData.width = parseInt(req.body.width);
-        }
-        if (req.body.height && parseInt(req.body.height) > 0) {
-          photoData.height = parseInt(req.body.height);
-        }
+    const photoData = {
+      photo_credit: req.body.photo_credit,
+      photo_credit_url: req.body.photo_credit_url,
+      url: s3Result.Location,
+      permissions: [{
+        _id: req.user._id,
+        entity: 'user',
+        type: 'owner',
+        granted_by: req.user._id
+      }]
+    };
 
-        return Photo.create(photoData);
-      })
-      .then((upload) => {
-        // Broadcast photo:created event
-        try {
-          broadcastEvent('photo', upload._id.toString(), {
-            type: 'photo:created',
-            payload: { photo: upload.toObject() }
-          });
-        } catch (err) {
-          backendLogger.error('Failed to broadcast photo:created event', { error: err.message, photoId: upload._id });
-        }
-        return successResponse(res, upload.toObject(), 'Photo uploaded successfully', 201);
-      })
-      .catch((error) => {
-        backendLogger.error("Photo upload error", { error: error.message, userId: req.user._id });
-        return errorResponse(res, error, 'Failed to upload photo', 500);
+    // Add dimensions if provided (for layout shift prevention)
+    if (req.body.width && parseInt(req.body.width) > 0) {
+      photoData.width = parseInt(req.body.width);
+    }
+    if (req.body.height && parseInt(req.body.height) > 0) {
+      photoData.height = parseInt(req.body.height);
+    }
+
+    const upload = await Photo.create(photoData);
+
+    // Broadcast photo:created event
+    try {
+      broadcastEvent('photo', upload._id.toString(), {
+        type: 'photo:created',
+        payload: { photo: upload.toObject() }
       });
+    } catch (err) {
+      backendLogger.error('Failed to broadcast photo:created event', { error: err.message, photoId: upload._id });
+    }
+    return successResponse(res, upload.toObject(), 'Photo uploaded successfully', 201);
   } catch (err) {
     backendLogger.error("Photo creation error", { error: err.message, userId: req.user._id });
     return errorResponse(res, err, 'Failed to create photo', 400);
@@ -169,36 +163,11 @@ async function deletePhoto(req, res) {
         const urlObj = new URL(photo.url);
         // Check if hostname ends with amazonaws.com (handles subdomains like s3.amazonaws.com)
         if (urlObj.hostname.endsWith('.amazonaws.com') || urlObj.hostname === 'amazonaws.com') {
-          try {
-            await s3Delete(photo.url);
-            // Photo deleted from S3 successfully
-          } catch (s3Error) {
-            backendLogger.error('Failed to delete from S3', { error: s3Error.message, userId: req.user._id, photoId: req.params.id, photoUrl: photo.url });
-            // Continue with database deletion even if S3 deletion fails
-          }
+          await deleteFileSafe(photo.url);
         }
       } catch (urlError) {
         // Invalid URL format - skip S3 deletion, continue with database deletion
         backendLogger.error('Invalid URL format', { error: urlError.message, userId: req.user._id, photoId: req.params.id, photoUrl: photo.url });
-      }
-    }
-
-    // Delete local file if it exists (for photos that were uploaded but not yet moved to S3)
-    // Extract filename from URL or use s3_key if available
-    if (photo.s3_key || photo.url) {
-      try {
-        // Try to find local file in uploads/images directory
-        const filename = photo.s3_key || path.basename(new URL(photo.url).pathname);
-        const localPath = path.join(__dirname, '../../uploads/images', filename);
-        
-        // Check if file exists before attempting deletion
-        if (fs.existsSync(localPath)) {
-          fs.unlinkSync(localPath);
-          // Local file deleted successfully
-        }
-      } catch (fsError) {
-        backendLogger.error('Failed to delete local file', { error: fsError.message, userId: req.user._id, photoId: req.params.id, filename: photo.s3_key || path.basename(new URL(photo.url).pathname) });
-        // Continue with database deletion even if file deletion fails
       }
     }
 
@@ -278,40 +247,40 @@ async function createPhotoBatch(req, res) {
       }
     }
 
-    const uploadPromises = req.files.map((file, index) => {
+    const uploadPromises = req.files.map(async (file, index) => {
       const rand = Math.ceil(Math.random() * 500);
       const name = req.body.name || "Biensperience";
       const fileDimensions = dimensionsArray[index] || {};
 
       // S3 prefix: photos/ for photos uploaded to entities
-      return s3Upload(
+      const { s3Result } = await uploadWithPipeline(
         file.path,
         file.originalname,
-        `photos/${rand}-${name}-${index}`
-      )
-        .then((response) => {
-          const photoData = {
-            photo_credit: req.body.photo_credit || 'Biensperience',
-            photo_credit_url: req.body.photo_credit_url || '',
-            url: response.Location,
-            permissions: [{
-              _id: req.user._id,
-              entity: 'user',
-              type: 'owner',
-              granted_by: req.user._id
-            }]
-          };
+        `photos/${rand}-${name}-${index}`,
+        { deleteLocal: true }
+      );
 
-          // Add dimensions if available (for layout shift prevention)
-          if (fileDimensions.width && fileDimensions.width > 0) {
-            photoData.width = fileDimensions.width;
-          }
-          if (fileDimensions.height && fileDimensions.height > 0) {
-            photoData.height = fileDimensions.height;
-          }
+      const photoData = {
+        photo_credit: req.body.photo_credit || 'Biensperience',
+        photo_credit_url: req.body.photo_credit_url || '',
+        url: s3Result.Location,
+        permissions: [{
+          _id: req.user._id,
+          entity: 'user',
+          type: 'owner',
+          granted_by: req.user._id
+        }]
+      };
 
-          return Photo.create(photoData);
-        });
+      // Add dimensions if available (for layout shift prevention)
+      if (fileDimensions.width && fileDimensions.width > 0) {
+        photoData.width = fileDimensions.width;
+      }
+      if (fileDimensions.height && fileDimensions.height > 0) {
+        photoData.height = fileDimensions.height;
+      }
+
+      return Photo.create(photoData);
     });
 
     const photos = await Promise.all(uploadPromises);

@@ -36,11 +36,17 @@ seedAIProviders()
     backendLogger.warn('AI provider seed skipped', { error: err.message });
   });
 
-// Seed intent corpus from JSON on first boot (async, non-blocking)
+// Seed intent corpus from JSON on first boot and sync new utterances (async, non-blocking)
 seedIntentCorpus()
-  .then(({ seeded }) => {
+  .then(({ seeded, synced }) => {
     if (seeded > 0) {
       backendLogger.info('Intent corpus seeded', { intents: seeded });
+    }
+    if (synced > 0) {
+      // New utterances synced — force NLP model retrain so they take effect
+      const { resetManager } = require('./utilities/bienbot-intent-classifier');
+      resetManager();
+      backendLogger.info('Intent corpus synced, NLP model will retrain on next classification', { synced });
     }
   })
   .catch(err => {

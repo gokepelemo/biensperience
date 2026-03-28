@@ -31,13 +31,16 @@
 import { useState, useCallback } from 'react';
 import {
   addExperienceCollaborator,
-  removeExperienceCollaborator
+  removeExperienceCollaborator,
+  getExperiencePermissions
 } from '../utilities/experiences-api';
 import {
   addCollaborator,
   removeCollaborator
 } from '../utilities/plans-api';
-import { searchUsers } from '../utilities/users-api';
+import { getDestinationPermissions } from '../utilities/destinations-api';
+import { searchUsers, searchOwnedEntities } from '../utilities/users-api';
+import { getBulkUserData } from '../utilities/users-api';
 import { sendEmailInvite } from '../utilities/invites-api';
 import { handleError } from '../utilities/error-handler';
 import useOptimisticAction from './useOptimisticAction';
@@ -90,6 +93,10 @@ export default function useCollaboratorManager({
   const [emailInviteSending, setEmailInviteSending] = useState(false); // Email sending state
   const [emailInviteError, setEmailInviteError] = useState(''); // Email invite errors
 
+  // Entity import state
+  const [entityImportMessage, setEntityImportMessage] = useState(''); // Success message after entity import
+  const [entityImportLoading, setEntityImportLoading] = useState(false);
+
   // Loading state
   const [loading, setLoading] = useState(false);
 
@@ -113,6 +120,9 @@ export default function useCollaboratorManager({
     setEmailInviteData({ email: '', name: '' });
     setEmailInviteSending(false);
     setEmailInviteError('');
+
+    setEntityImportMessage('');
+    setEntityImportLoading(false);
 
     setLoading(false);
   }, []);
@@ -151,7 +161,7 @@ export default function useCollaboratorManager({
   );
 
   /**
-   * Search users for collaborator selection
+   * Search users AND owned experiences/destinations for collaborator selection
    */
   const handleSearchUsers = useCallback(
     async (query) => {
@@ -163,24 +173,95 @@ export default function useCollaboratorManager({
       }
 
       try {
-        const results = await searchUsers(query);
+        const [userResults, entityResults] = await Promise.all([
+          searchUsers(query),
+          searchOwnedEntities(query)
+        ]);
 
-        // Filter out users that are already selected or are the current user (owner)
-        const filteredResults = results.filter((result) => {
-          // Don't show current user
+        // Filter out users already selected or the current user
+        const filteredUsers = (userResults || []).filter((result) => {
           if (idEquals(result._id, user._id)) return false;
-
-          // Don't show users that are already selected
-          const alreadySelected = selectedCollaborators.some((collab) =>
-            idEquals(collab._id, result._id)
-          );
-
-          return !alreadySelected;
+          return !selectedCollaborators.some((collab) => idEquals(collab._id, result._id));
         });
 
-        setSearchResults(filteredResults);
+        // Entity results are appended after users with their type tags intact
+        const combined = [
+          ...filteredUsers,
+          ...(entityResults || [])
+        ];
+
+        setSearchResults(combined);
       } catch (err) {
-        debug.error('Error searching users:', err);
+        debug.error('Error searching users/entities:', err);
+        setSearchResults([]);
+      }
+    },
+    [selectedCollaborators, user]
+  );
+
+  /**
+   * Handle selection of an owned experience or destination:
+   * fetch its collaborators and add them to the staged selection.
+   */
+  const handleSelectEntity = useCallback(
+    async (entity) => {
+      setEntityImportLoading(true);
+      setEntityImportMessage('');
+
+      try {
+        let directPermissions = [];
+        if (entity.type === 'experience') {
+          const data = await getExperiencePermissions(entity._id);
+          directPermissions = data?.directPermissions || [];
+        } else if (entity.type === 'destination') {
+          const data = await getDestinationPermissions(entity._id);
+          directPermissions = data?.directPermissions || [];
+        }
+
+        // Extract user-type non-owner entries
+        const userPerms = directPermissions.filter(
+          (p) => p.entity === 'user' && p.type !== 'owner'
+        );
+
+        if (userPerms.length === 0) {
+          setEntityImportMessage(`"${entity.name}" has no collaborators to import.`);
+          return;
+        }
+
+        // Fetch full user data for name/email display
+        const userIds = userPerms.map((p) => p._id.toString());
+        const userData = await getBulkUserData(userIds);
+
+        // Add users not already selected and not the current user
+        const newUsers = (userData || []).filter(
+          (u) =>
+            u &&
+            !idEquals(u._id, user._id) &&
+            !selectedCollaborators.some((c) => idEquals(c._id, u._id))
+        );
+
+        if (newUsers.length > 0) {
+          setSelectedCollaborators((prev) => [...prev, ...newUsers]);
+        }
+
+        const importedCount = newUsers.length;
+        const skippedCount = userPerms.length - importedCount;
+        if (importedCount > 0) {
+          const skippedNote = skippedCount > 0 ? ` (${skippedCount} already added)` : '';
+          setEntityImportMessage(
+            `Imported ${importedCount} collaborator${importedCount !== 1 ? 's' : ''} from "${entity.name}"${skippedNote}.`
+          );
+        } else {
+          setEntityImportMessage(
+            `All collaborators from "${entity.name}" are already added.`
+          );
+        }
+      } catch (err) {
+        debug.error('Error importing entity collaborators:', err);
+        setEntityImportMessage('Failed to import collaborators. Please try again.');
+      } finally {
+        setEntityImportLoading(false);
+        setCollaboratorSearch('');
         setSearchResults([]);
       }
     },
@@ -492,6 +573,11 @@ export default function useCollaboratorManager({
     emailInviteSending,
     emailInviteError,
 
+    // Entity import state
+    entityImportMessage,
+    setEntityImportMessage,
+    entityImportLoading,
+
     // Loading state
     loading,
     setLoading,
@@ -502,6 +588,7 @@ export default function useCollaboratorManager({
     resetCollaboratorModalState,
     handleSearchUsers,
     handleSelectUser,
+    handleSelectEntity,
     handleRemoveSelectedCollaborator,
     handleAddCollaborator,
     handleSendEmailInvite

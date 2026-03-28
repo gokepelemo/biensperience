@@ -10,38 +10,19 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const bienbotCtrl = require('../../controllers/api/bienbot');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware');
+const { createUploadMiddleware } = require('../../utilities/upload-middleware');
 
-// Ensure upload temp directory exists
-const BIENBOT_UPLOAD_DIR = path.join(__dirname, '../../uploads/temp');
-if (!fs.existsSync(BIENBOT_UPLOAD_DIR)) {
-  fs.mkdirSync(BIENBOT_UPLOAD_DIR, { recursive: true });
-}
-
-// Multer configuration for BienBot attachments (images + documents)
-const bienbotUpload = multer({
-  dest: BIENBOT_UPLOAD_DIR,
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff',
-      'application/pdf',
-      'text/plain', 'text/csv'
-    ];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
-    }
-  },
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max for BienBot attachments
-    files: 1
-  }
+const { upload: bienbotUpload, handleError: bienbotHandleError } = createUploadMiddleware({
+  dest: 'uploads/temp',
+  maxSize: 10 * 1024 * 1024, // 10MB max for BienBot attachments
+  allowedTypes: [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/tiff',
+    'application/pdf',
+    'text/plain', 'text/csv'
+  ]
 });
 
 // Helper: skip rate limiting for super admins
@@ -79,19 +60,7 @@ router.use(bienbotRateLimiter);
  *          Supports optional file attachment via multipart/form-data
  * @access  Private (requires ai_features flag)
  */
-router.post('/chat', bienbotUpload.single('attachment'), (err, req, res, next) => {
-  // Handle multer errors gracefully
-  if (err) {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
-      }
-      return res.status(400).json({ error: `Upload error: ${err.message}` });
-    }
-    return res.status(400).json({ error: err.message });
-  }
-  next();
-}, bienbotCtrl.chat);
+router.post('/chat', bienbotUpload.single('attachment'), bienbotHandleError, bienbotCtrl.chat);
 
 /**
  * @route   GET /api/bienbot/sessions
@@ -136,11 +105,32 @@ router.post('/sessions/:id/resume', bienbotCtrl.resume);
 router.delete('/sessions/:id/pending/:actionId', bienbotCtrl.deletePendingAction);
 
 /**
+ * @route   PATCH /api/bienbot/sessions/:id/pending/:actionId
+ * @desc    Update a pending action's status (approve, skip) or edit its payload
+ * @access  Private (requires ai_features flag)
+ */
+router.patch('/sessions/:id/pending/:actionId', bienbotCtrl.updatePendingAction);
+
+/**
+ * @route   GET /api/bienbot/sessions/:id/workflow/:workflowId
+ * @desc    Get the full state of a workflow (all actions sharing a workflow_id)
+ * @access  Private (requires ai_features flag)
+ */
+router.get('/sessions/:id/workflow/:workflowId', bienbotCtrl.getWorkflowState);
+
+/**
  * @route   POST /api/bienbot/sessions/:id/context
  * @desc    Update session context mid-conversation (e.g. plan item opened)
  * @access  Private (requires ai_features flag)
  */
 router.post('/sessions/:id/context', bienbotCtrl.updateContext);
+
+/**
+ * @route   GET /api/bienbot/mutual-followers
+ * @desc    Return users who mutually follow the authenticated user (for share popover search)
+ * @access  Private (requires ai_features flag)
+ */
+router.get('/mutual-followers', bienbotCtrl.getMutualFollowers);
 
 /**
  * @route   POST /api/bienbot/sessions/:id/collaborators
@@ -176,5 +166,19 @@ router.delete('/memory', bienbotCtrl.clearMemory);
  * @access  Private (requires ai_features flag)
  */
 router.post('/analyze', bienbotCtrl.analyze);
+
+/**
+ * @route   POST /api/bienbot/sessions/:id/tips
+ * @desc    Directly append selected travel tips to a destination (bypasses LLM)
+ * @access  Private (requires ai_features flag)
+ */
+router.post('/sessions/:id/tips', bienbotCtrl.applyTips);
+
+/**
+ * @route   GET /api/bienbot/sessions/:id/attachments/:messageIndex/:attachmentIndex
+ * @desc    Get a signed URL for a session attachment stored in S3
+ * @access  Private (requires ai_features flag)
+ */
+router.get('/sessions/:id/attachments/:messageIndex/:attachmentIndex', bienbotCtrl.getAttachmentUrl);
 
 module.exports = router;

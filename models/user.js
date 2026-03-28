@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcrypt");
 const { USER_ROLES } = require("../utilities/user-roles");
+const { hiddenSignalVectorSchema, hiddenSignalEventSchema } = require('./hidden-signals');
 
 /**
  * Number of salt rounds for password hashing
@@ -610,6 +611,23 @@ const userSchema = new Schema(
         }
       }, { _id: false }),
       default: () => ({})
+    },
+
+    /**
+     * Behavioral signal vector — learned traveler preferences.
+     * Updated by fire-and-forget processSignalEvent calls.
+     */
+    hidden_signals: {
+      type: hiddenSignalVectorSchema,
+      default: () => ({})
+    },
+
+    /**
+     * Recent signal events (capped at 200 via atomic $push/$slice).
+     */
+    hidden_signal_events: {
+      type: [hiddenSignalEventSchema],
+      default: []
     }
   },
   {

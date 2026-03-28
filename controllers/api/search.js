@@ -761,4 +761,10 @@ module.exports = {
   searchExperiences,
   searchPlans,
   searchUsers,
+  // Internal functions exported for direct use by bienbot-entity-resolver
+  searchDestinationsInternal,
+  searchExperiencesInternal,
+  searchPlansInternal,
+  searchUsersInternal,
+  computeRelevanceScore,
 };

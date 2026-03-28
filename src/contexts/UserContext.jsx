@@ -67,6 +67,21 @@ export function UserProvider({ children }) {
       const profileData = await getUserData(user._id);
       setProfile(profileData);
 
+      // Sync server-authoritative fields into user state so feature-flag gates
+      // reflect the current DB state instantly (not the potentially-stale JWT).
+      // These fields can be changed server-side (e.g. by an admin) without
+      // re-issuing a JWT, so they must be refreshed from the profile response.
+      setUser(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          feature_flags: profileData.feature_flags ?? prev.feature_flags,
+          role: profileData.role ?? prev.role,
+          bio: profileData.bio ?? prev.bio,
+          links: profileData.links ?? prev.links,
+        };
+      });
+
       // Persist user preferences to localStorage for immediate app-wide usage
       try {
         const prefs = profileData.preferences || {};

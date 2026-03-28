@@ -74,10 +74,12 @@ input[type="number"],
 input[type="date"],
 input[type="url"],
 select {
-  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
+  /* Cap at --font-size-base (~17px max) to prevent line-height overflow inside
+     the fixed-height input. --font-size-lg can reach 21px which clips text. */
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-base));
   padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5));
+  /* min-height only — a fixed height clips text when font-size is large */
   min-height: var(--input-height-md);
-  height: var(--input-height-md);
   line-height: 1.5;
   border-radius: clamp(var(--radius-md), 1vw, var(--radius-lg));
   border: 2px solid var(--color-border-medium);
@@ -90,7 +92,7 @@ select {
 
 textarea.form-control,
 textarea {
-  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-base));
   padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5));
   /* Textareas don't have a fixed height — only min-height */
   min-height: calc(var(--input-height-md) * 2);
@@ -117,10 +119,9 @@ textarea::placeholder {
 .new-experience-form .form-select,
 .update-experience-form .form-control,
 .update-experience-form .form-select {
-  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-lg)) !important;
-  padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5)) !important;
-  min-height: var(--input-height-md) !important;
-  height: var(--input-height-md) !important;
+  font-size: clamp(var(--font-size-sm), 1.5vw, var(--font-size-base));
+  padding: var(--btn-padding-y-md) clamp(var(--space-3), 2vw, var(--space-5));
+  min-height: var(--input-height-md);
 }
 
 /* Textareas - override the fixed height so they can grow */

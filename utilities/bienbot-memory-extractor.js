@@ -42,7 +42,10 @@ Focus on:
 - Destinations the user has visited, wants to visit, or discussed planning
 - Confirmed plans or decisions made during this session
 - Personal context (traveling with family/partner, dietary restrictions, accessibility needs)
-- Entity names (experience names, plan names) created or discussed
+- Entity names (experience names, plan names) that were CONFIRMED as actually created
+
+IMPORTANT — Proposed but unexecuted actions:
+If the conversation includes a section titled "--- Proposed Actions (Not Executed) ---", those entities were ONLY proposed by the assistant and were NEVER actually created. Do NOT extract entity names or facts from these proposed actions. An experience, plan, or destination that was proposed but never executed does not exist and must not be remembered.
 
 Respond ONLY with valid JSON — no markdown fences, no explanation outside the JSON.
 
@@ -50,13 +53,14 @@ Schema:
 {
   "facts": ["Concise factual statement about the user"],
   "destination_names": ["Name of destination mentioned"],
-  "experience_names": ["Name of experience mentioned"],
-  "plan_names": ["Name of plan mentioned"]
+  "experience_names": ["Name of experience that was CONFIRMED as created"],
+  "plan_names": ["Name of plan that was CONFIRMED as created"]
 }
 
 Guidelines:
 - Each fact must be a single concise statement under 150 characters
 - Only include facts directly expressed by the user (not assumptions or inferences)
+- Only include experience_names and plan_names for entities with a confirmed successful creation result
 - Maximum 5 facts total
 - Return empty arrays if nothing relevant was found
 - Exclude temporary operational context (errors, UI navigation, retries)
@@ -65,6 +69,32 @@ Guidelines:
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Filter a session's message list to only include messages relevant to a
+ * specific participant (for per-collaborator memory extraction).
+ *
+ * Keeps:
+ * - All 'assistant' messages (provide response context)
+ * - 'user' messages where sent_by matches targetUserId
+ *
+ * Falls back to returning all messages when targetUserId is not provided
+ * so the existing owner-level extraction is unchanged.
+ *
+ * @param {Array<object>} messages - Session messages
+ * @param {string|null} [targetUserId] - User ID to filter by
+ * @returns {Array<object>} Filtered messages
+ */
+function filterMessagesByUser(messages, targetUserId) {
+  if (!targetUserId) return messages;
+  const targetStr = String(targetUserId);
+  return messages.filter(m => {
+    if (m.role === 'assistant') return true;
+    // Include user message if it belongs to the target user or has no author tag
+    // (legacy messages from before sent_by tracking was added).
+    return !m.sent_by || String(m.sent_by) === targetStr;
+  });
+}
 
 /**
  * Truncate a session's message history to fit within the extraction token
@@ -91,6 +121,42 @@ function truncateMessages(messages) {
   }
 
   return kept.join('\n');
+}
+
+/**
+ * Build a block describing the session's pending actions, split into
+ * executed (confirmed created) and unexecuted (proposed only) sections.
+ * Injected into the extraction prompt so the LLM doesn't treat proposed
+ * entities as facts.
+ *
+ * @param {Array<object>} pendingActions - Session's pending_actions array
+ * @returns {string|null}
+ */
+function buildPendingActionsBlock(pendingActions) {
+  if (!Array.isArray(pendingActions) || pendingActions.length === 0) return null;
+
+  const executed = pendingActions.filter(a => a.executed === true);
+  const unexecuted = pendingActions.filter(a => a.executed !== true);
+
+  const parts = [];
+
+  if (unexecuted.length > 0) {
+    parts.push('--- Proposed Actions (Not Executed) ---');
+    parts.push('The following were proposed by the assistant but NEVER actually created. Do NOT remember these as facts:');
+    for (const action of unexecuted) {
+      parts.push(`- ${action.type}: ${action.description || '(no description)'}`);
+    }
+  }
+
+  if (executed.length > 0) {
+    parts.push('--- Confirmed Actions (Successfully Executed) ---');
+    parts.push('The following actions were confirmed and successfully created:');
+    for (const action of executed) {
+      parts.push(`- ${action.type}: ${action.description || '(no description)'}`);
+    }
+  }
+
+  return parts.length > 0 ? parts.join('\n') : null;
 }
 
 /**
@@ -162,24 +228,35 @@ async function storeMemoryEntry(userId, entry) {
  * Designed to be called fire-and-forget — errors are caught internally.
  * The session must have >= 3 messages to be worth extracting.
  *
+ * When `targetUserId` is provided the conversation is filtered to the
+ * target user's messages (plus all assistant messages for context). This
+ * ensures that collaborator memory only captures facts directly expressed by
+ * the collaborator, not the session owner.
+ *
  * @param {object} params
  * @param {object} params.session - Full session document or plain object
- * @param {object} params.user - Authenticated user object
+ * @param {object} params.user - Authenticated user object (whose memory is written)
+ * @param {string|null} [params.targetUserId] - Filter messages to this user's
+ *   contributions. When omitted all user messages are included (owner behaviour).
  * @returns {Promise<void>}
  */
-async function extractMemoryFromSession({ session, user }) {
+async function extractMemoryFromSession({ session, user, targetUserId = null }) {
   if (!session || !user) {
     logger.warn('[bienbot-memory] Missing session or user, skipping extraction');
     return;
   }
 
-  const messages = session.messages || [];
+  const allMessages = session.messages || [];
 
-  // Require at least 3 messages (same threshold as the session summarizer)
+  // When extracting for a specific user, filter to their contributions.
+  const messages = filterMessagesByUser(allMessages, targetUserId);
+
+  // Require at least 3 messages after filtering.
   if (messages.length < 3) {
     logger.debug('[bienbot-memory] Session too short for memory extraction', {
       sessionId: session._id?.toString(),
-      messageCount: messages.length
+      messageCount: messages.length,
+      targetUserId: targetUserId || 'owner'
     });
     return;
   }
@@ -202,10 +279,15 @@ async function extractMemoryFromSession({ session, user }) {
     );
   }
 
+  const pendingActionsBlock = buildPendingActionsBlock(session.pending_actions);
   const conversationText = truncateMessages(messages);
-  const userPrompt = contextParts.length > 0
-    ? `${contextParts.join('\n')}\n\n--- Conversation ---\n${conversationText}`
-    : `--- Conversation ---\n${conversationText}`;
+
+  const promptParts = [];
+  if (contextParts.length > 0) promptParts.push(contextParts.join('\n'));
+  if (pendingActionsBlock) promptParts.push(pendingActionsBlock);
+  promptParts.push(`--- Conversation ---\n${conversationText}`);
+
+  const userPrompt = promptParts.join('\n\n');
 
   const llmMessages = [
     { role: 'system', content: MEMORY_SYSTEM_PROMPT },
@@ -291,6 +373,57 @@ async function extractMemoryFromSession({ session, user }) {
 }
 
 /**
+ * Extract memory for all collaborators of a shared session.
+ *
+ * Iterates over `session.shared_with`, fetches each collaborator's User
+ * document, then calls `extractMemoryFromSession` filtered to that user's
+ * messages. Runs all extractions concurrently (fire-and-forget promises) so
+ * failures in one collaborator's extraction don't block others.
+ *
+ * Designed to be called fire-and-forget by the session archive handler.
+ *
+ * @param {object} session - Archived session document or plain object
+ * @returns {Promise<void>}
+ */
+async function extractMemoryForCollaborators(session) {
+  const collaborators = session.shared_with || [];
+  if (collaborators.length === 0) return;
+
+  // Lazy-load User model to avoid circular dependency at module load time
+  const User = require('../models/user');
+
+  await Promise.all(
+    collaborators.map(async (collab) => {
+      const collabIdStr = collab.user_id?.toString();
+      if (!collabIdStr) return;
+
+      try {
+        const collabUser = await User.findById(collabIdStr).lean();
+        if (!collabUser) {
+          logger.debug('[bienbot-memory] Collaborator user not found, skipping', {
+            sessionId: session._id?.toString(),
+            collaboratorId: collabIdStr
+          });
+          return;
+        }
+
+        await extractMemoryFromSession({
+          session,
+          user: collabUser,
+          targetUserId: collabIdStr
+        });
+      } catch (err) {
+        logger.error('[bienbot-memory] Collaborator memory extraction failed', {
+          error: err.message,
+          sessionId: session._id?.toString(),
+          collaboratorId: collabIdStr
+        });
+      }
+    })
+  );
+}
+
+/**
  * Format user memory entries into a concise text block suitable for
  * injection into the BienBot system prompt.
  *
@@ -317,11 +450,14 @@ function formatMemoryBlock(entries, maxEntries = 5) {
 
   if (lines.length === 0) return null;
 
-  return `--- What I remember about you from past conversations ---\n${lines.join('\n')}`;
+  return `--- What I remember about you from past conversations ---
+Note: These are recalled preferences and context. Entity names (experiences, plans) may not reflect entities that were actually created — only reference them if confirmed by current DB context.
+${lines.join('\n')}`;
 }
 
 module.exports = {
   extractMemoryFromSession,
+  extractMemoryForCollaborators,
   formatMemoryBlock,
   MAX_MEMORY_ENTRIES
 };

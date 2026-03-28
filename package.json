@@ -1,6 +1,6 @@
 {
   "name": "biensperience",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Biensperience: a visual travel experience planning platform (self-hostable)",
   "license": "AGPL-3.0-only",
   "author": "Goke Pelemo",
@@ -41,7 +41,6 @@
     "models/",
     "public/",
     "routes/",
-    "!routes/api/uploads/**",
     "uploads/",
     "!uploads/documents/**",
     "!uploads/images/**",
@@ -70,6 +69,7 @@
     "@emotion/styled": "^11.14.1",
     "@floating-ui/react": "^0.27.17",
     "@fontsource/inter": "^5.2.8",
+    "@google/generative-ai": "^0.24.1",
     "@googlemaps/js-api-loader": "^2.0.2",
     "@popperjs/core": "^2.11.8",
     "@react-google-maps/api": "^2.20.8",

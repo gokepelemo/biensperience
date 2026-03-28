@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
+const { hiddenSignalVectorSchema } = require('./hidden-signals');
 
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
@@ -115,6 +116,10 @@ const destinationSchema = new Schema(
         message: 'Travel tips must be strings or structured tip objects with type and value'
       }
     },
+    travel_tips_updated_at: {
+      type: Date,
+      default: null
+    },
     visibility: {
       type: String,
       enum: ['private', 'contributors', 'public'],
@@ -138,6 +143,14 @@ const destinationSchema = new Schema(
         },
         message: 'Duplicate permissions are not allowed'
       }
+    },
+    /**
+     * Aggregated behavioral signal profile for this destination.
+     * Re-computed from child experience signals.
+     */
+    hidden_signals: {
+      type: hiddenSignalVectorSchema,
+      default: () => ({})
     },
   },
   {

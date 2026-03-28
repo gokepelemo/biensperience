@@ -82,6 +82,18 @@ export function base64Decode(b64) {
 }
 
 /**
+ * Decode the payload segment of a JWT token.
+ * JWTs use base64url encoding (RFC 4648) which replaces '+' with '-' and '/' with '_',
+ * and omits '=' padding. Plain atob() will throw on these characters.
+ * @param {string} base64url - The raw base64url-encoded JWT segment
+ * @returns {Object} Parsed JSON payload
+ */
+export function parseJwtPayload(base64url) {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  return JSON.parse(atob(base64));
+}
+
+/**
  * XOR-transform input bytes against a key (repeating the key as needed).
  * @param {Uint8Array} inputBytes
  * @param {Uint8Array} keyBytes

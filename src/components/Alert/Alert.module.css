@@ -82,83 +82,83 @@
 
 /* Alert Types - Bootstrap-compatible */
 .alertPrimary {
-  background-color: var(--color-alert-primary-bg);
-  border-color: var(--color-alert-primary-border);
-  color: var(--color-alert-primary-text);
+  background-color: var(--color-primary-light);
+  border-color: var(--color-border-primary);
+  color: var(--color-primary);
 }
 
 .alertBordered.alertPrimary {
-  border-color: var(--color-alert-primary-text);
+  border-color: var(--color-primary);
 }
 
 .alertSecondary {
-  background-color: var(--color-alert-secondary-bg);
-  border-color: var(--color-alert-secondary-border);
-  color: var(--color-alert-secondary-text);
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-border-medium);
+  color: var(--color-text-secondary);
 }
 
 .alertBordered.alertSecondary {
-  border-color: var(--color-alert-secondary-text);
+  border-color: var(--color-text-secondary);
 }
 
 .alertSuccess {
-  background-color: var(--color-alert-success-bg);
-  border-color: var(--color-alert-success-border);
-  color: var(--color-alert-success-text);
+  background-color: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
 }
 
 .alertBordered.alertSuccess {
-  border-color: var(--color-alert-success-text);
+  border-color: var(--color-success-text);
 }
 
 .alertDanger {
-  background-color: var(--color-alert-danger-bg);
-  border-color: var(--color-alert-danger-border);
-  color: var(--color-alert-danger-text);
+  background-color: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
 }
 
 .alertBordered.alertDanger {
-  border-color: var(--color-alert-danger-text);
+  border-color: var(--color-danger-text);
 }
 
 .alertWarning {
-  background-color: var(--color-alert-warning-bg);
-  border-color: var(--color-alert-warning-border);
-  color: var(--color-alert-warning-text);
+  background-color: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-text);
 }
 
 .alertBordered.alertWarning {
-  border-color: var(--color-alert-warning-text);
+  border-color: var(--color-warning-text);
 }
 
 .alertInfo {
-  background-color: var(--color-alert-info-bg);
-  border-color: var(--color-alert-info-border);
-  color: var(--color-alert-info-text);
+  background-color: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: var(--color-info-text);
 }
 
 .alertBordered.alertInfo {
-  border-color: var(--color-alert-info-text);
+  border-color: var(--color-info-text);
 }
 
 .alertLight {
-  background-color: var(--color-alert-light-bg);
-  border-color: var(--color-alert-light-border);
-  color: var(--color-alert-light-text);
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
 }
 
 .alertBordered.alertLight {
-  border-color: var(--color-alert-light-text);
+  border-color: var(--color-text-primary);
 }
 
 .alertDark {
-  background-color: var(--color-alert-dark-bg);
-  border-color: var(--color-alert-dark-border);
-  color: var(--color-alert-dark-text);
+  background-color: #343a40;
+  border-color: #23272b;
+  color: #f8f9fa;
 }
 
 .alertBordered.alertDark {
-  border-color: var(--color-alert-dark-text);
+  border-color: #f8f9fa;
 }
 
 /* Centered Alert Content */

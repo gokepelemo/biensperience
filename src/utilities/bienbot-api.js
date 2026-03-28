@@ -10,6 +10,7 @@
 
 import { sendRequest } from "./send-request";
 import { getToken } from "./users-service.js";
+import { parseJwtPayload } from "./encoding-utils";
 import { logger } from "./logger";
 import { broadcastEvent } from "./event-bus";
 import { getSessionId, refreshSessionIfNeeded } from "./session-utils.js";
@@ -46,7 +47,7 @@ async function buildAuthHeaders() {
     headers.Authorization = `Bearer ${token}`;
 
     try {
-      const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+      const tokenPayload = parseJwtPayload(token.split('.')[1]);
       const userId = tokenPayload.user?._id;
 
       if (userId) {
@@ -99,6 +100,7 @@ async function fetchCsrfToken() {
  * @param {Function} [options.onToken] - Called with each text chunk: (text: string) => void
  * @param {Function} [options.onSession] - Called with session info: ({ sessionId, title }) => void
  * @param {Function} [options.onActions] - Called with pending actions: (actions: Array) => void
+ * @param {Function} [options.onStructuredContent] - Called with structured content blocks: (blocks: Array) => void
  * @param {Function} [options.onDone] - Called on stream completion: ({ usage, intent, confidence }) => void
  * @param {Function} [options.onError] - Called on error: (error: Error) => void
  * @param {AbortSignal} [options.signal] - AbortSignal for cancellation
@@ -111,6 +113,7 @@ export async function postMessage(sessionId, message, options = {}) {
     onToken,
     onSession,
     onActions,
+    onStructuredContent,
     onDone,
     onError,
     signal
@@ -232,6 +235,10 @@ export async function postMessage(sessionId, message, options = {}) {
 
           case 'actions':
             if (onActions) onActions(eventData.pending_actions);
+            break;
+
+          case 'structured_content':
+            if (onStructuredContent) onStructuredContent(eventData.blocks);
             break;
 
           case 'done':
@@ -386,6 +393,15 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
+          case 'add_entity_photos':
+            // add_entity_photos returns the updated entity — broadcast the right event
+            if (actionResult.entity_type === 'destination' || entity.destination === undefined) {
+              broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
+            } else {
+              broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
+            }
+            break;
+
           case 'create_experience':
             broadcastEvent('experience:created', {
               experience: entity,
@@ -537,6 +553,121 @@ export async function cancelAction(sessionId, actionId) {
 }
 
 // ---------------------------------------------------------------------------
+// Apply tips
+// ---------------------------------------------------------------------------
+
+/**
+ * Directly append selected travel tips to a destination, bypassing the LLM.
+ *
+ * @param {string} sessionId - Session ID (for auth context)
+ * @param {string} destinationId - Destination to add tips to
+ * @param {Array<object>} tips - Selected tip objects from TipSuggestionList
+ * @returns {Promise<{ added: number, skipped: number, destination_id: string }>}
+ */
+export async function applyTips(sessionId, destinationId, tips) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/tips`,
+    "POST",
+    { destination_id: destinationId, tips }
+  );
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
+// Workflow step management
+// ---------------------------------------------------------------------------
+
+/**
+ * Update a pending action's status (approve, skip) or edit its payload.
+ * Used by the sequential workflow confirmation UX.
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} actionId - Action ID to update
+ * @param {string} status - New status ('approved' or 'skipped')
+ * @param {Object} [payload] - Optional updated payload
+ * @returns {Promise<Object>} { action, execution, pending_actions }
+ */
+export async function updateActionStatus(sessionId, actionId, status, payload) {
+  const body = { status };
+  if (payload && typeof payload === 'object') {
+    body.payload = payload;
+  }
+
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/pending/${actionId}`,
+    "PATCH",
+    body
+  );
+
+  const data = extractData(result);
+
+  // Broadcast entity events for approved + executed actions
+  try {
+    if (data.execution?.success && data.action) {
+      const entity = data.execution.result;
+      const actionType = data.action.type;
+
+      if (entity) {
+        switch (actionType) {
+          case 'create_destination':
+            broadcastEvent('destination:created', { destination: entity, destinationId: entity._id });
+            break;
+          case 'update_destination':
+          case 'toggle_favorite_destination':
+            broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
+            break;
+          case 'create_experience':
+            broadcastEvent('experience:created', { experience: entity, experienceId: entity._id });
+            break;
+          case 'update_experience':
+          case 'add_experience_plan_item':
+          case 'update_experience_plan_item':
+          case 'delete_experience_plan_item':
+            broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
+            break;
+          case 'create_plan':
+            broadcastEvent('plan:created', { plan: entity, planId: entity._id, experienceId: entity.experience, version: Date.now() });
+            break;
+          case 'delete_plan':
+            broadcastEvent('plan:deleted', { planId: entity._id, version: Date.now() });
+            break;
+          default:
+            if (actionType?.includes('plan')) {
+              broadcastEvent('plan:updated', { plan: entity, planId: entity._id, version: Date.now() });
+            }
+        }
+      }
+    }
+
+    broadcastEvent('bienbot:action_updated', {
+      sessionId,
+      actionId,
+      status: data.action?.status,
+      version: Date.now()
+    });
+  } catch (e) {
+    // Silently ignore event emission errors
+  }
+
+  return data;
+}
+
+/**
+ * Get the full state of a workflow (all actions sharing a workflow_id).
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} workflowId - Workflow ID
+ * @returns {Promise<Object>} { workflow_id, total, completed, skipped, failed, pending, actions }
+ */
+export async function getWorkflowState(sessionId, workflowId) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/workflow/${workflowId}`,
+    "GET"
+  );
+  return extractData(result);
+}
+
+// ---------------------------------------------------------------------------
 // Context update (mid-session)
 // ---------------------------------------------------------------------------
 
@@ -639,6 +770,54 @@ export async function removeSessionCollaborator(sessionId, userId) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Post a shared comment to a BienBot session without triggering the LLM pipeline.
+ * Used by shared collaborators (editors) and by the session owner when replying to
+ * a collaborator's message. Returns the saved message as JSON (not SSE).
+ *
+ * @param {string} sessionId - Session ID
+ * @param {string} message - Comment text
+ * @param {string|null} [replyTo] - msg_id of the message being replied to (optional)
+ * @returns {Promise<{ session: Object, message: Object }>}
+ */
+export async function postSharedComment(sessionId, message, replyTo = null) {
+  const body = { message, sessionId };
+  if (replyTo) {
+    body.reply_to = replyTo;
+  }
+
+  const result = await sendRequest(`${BASE_URL}/chat`, 'POST', body);
+
+  try {
+    broadcastEvent('bienbot:message_added', {
+      sessionId,
+      message,
+      version: Date.now()
+    });
+    logger.debug('[bienbot-api] bienbot:message_added (shared comment) event dispatched', { sessionId });
+  } catch (e) {
+    // Silently ignore
+  }
+
+  return extractData(result);
+}
+
+/**
+ * Search users who mutually follow the authenticated user.
+ * Used by the Share Session popover to populate the user search dropdown.
+ *
+ * @param {string} [q] - Optional search string (name or email)
+ * @returns {Promise<{ users: Array<{ _id, name, email }> }>}
+ */
+export async function getMutualFollowers(q = '') {
+  let url = `${BASE_URL}/mutual-followers`;
+  if (q.trim()) {
+    url += `?q=${encodeURIComponent(q.trim())}`;
+  }
+  const result = await sendRequest(url, 'GET');
+  return extractData(result);
+}
+
+/**
  * Get the authenticated user's cross-session BienBot memory entries.
  * Each entry contains facts extracted from a past conversation session.
  *
@@ -685,5 +864,20 @@ export async function clearMemory() {
  */
 export async function analyzeEntity(entity, entityId) {
   const result = await sendRequest(`${BASE_URL}/analyze`, 'POST', { entity, entityId });
+  return extractData(result);
+}
+
+/**
+ * Get a signed URL for a BienBot session attachment stored in S3.
+ * @param {string} sessionId - Session ID
+ * @param {number} messageIndex - Message index in the session
+ * @param {number} attachmentIndex - Attachment index within the message
+ * @returns {Promise<{ url: string, filename: string, mimeType: string, fileSize: number }>}
+ */
+export async function getAttachmentUrl(sessionId, messageIndex, attachmentIndex) {
+  const result = await sendRequest(
+    `${BASE_URL}/sessions/${sessionId}/attachments/${messageIndex}/${attachmentIndex}`,
+    'GET'
+  );
   return extractData(result);
 }

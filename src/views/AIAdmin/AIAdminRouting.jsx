@@ -10,13 +10,12 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useId } from 'react';
-import { Box, Flex, Badge, Stack, Input, Separator } from '@chakra-ui/react';
+import { Box, Flex, Badge, Stack, Input, Separator, NativeSelect } from '@chakra-ui/react';
 import { FaPlus, FaTrash, FaSave, FaRoute, FaRobot, FaBrain } from 'react-icons/fa';
-import { Button, Pill } from '../../components/design-system';
+import { Button, Pill, Alert } from '../../components/design-system';
 import { Text, Heading } from '../../components/design-system';
 import { FormGroup, FormLabel } from '../../components/design-system';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
-import Alert from '../../components/Alert/Alert';
 import { getRouting, updateRouting } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
@@ -281,7 +280,7 @@ export default function AIAdminRouting() {
   }
 
   if (error) {
-    return <Alert type="danger">{error}</Alert>;
+    return <Alert variant="danger">{error}</Alert>;
   }
 
   const intentsForDropdown = availableIntents.length > 0 ? availableIntents : Object.keys(INTENT_LABELS);
@@ -312,7 +311,7 @@ export default function AIAdminRouting() {
       </Flex>
 
       {rules.length === 0 && (
-        <Alert type="info">
+        <Alert variant="info">
           No routing rules configured. All tasks will use the highest-priority enabled provider.
         </Alert>
       )}
@@ -428,18 +427,6 @@ function ComboSelect({ value, options, labels, placeholder, customPlaceholder, o
     }
   }, [value, options]);
 
-  const selectStyle = {
-    width: '100%',
-    height: 'var(--btn-height-sm)',
-    borderRadius: 'var(--space-2)',
-    border: '1px solid var(--color-border)',
-    background: 'var(--color-bg-primary)',
-    color: 'var(--color-text-primary)',
-    paddingLeft: 'var(--space-3)',
-    paddingRight: 'var(--space-3)',
-    fontSize: 'var(--font-size-sm)'
-  };
-
   const handleSelectChange = (e) => {
     const selected = e.target.value;
     if (selected === CUSTOM_VALUE) {
@@ -495,19 +482,20 @@ function ComboSelect({ value, options, labels, placeholder, customPlaceholder, o
   }
 
   return (
-    <select
-      value={value}
-      onChange={handleSelectChange}
-      style={selectStyle}
-    >
-      <option value="">{placeholder}</option>
-      {options.map(opt => (
-        <option key={opt} value={opt}>
-          {(labels && labels[opt]) || opt}
-        </option>
-      ))}
-      <option value={CUSTOM_VALUE}>Custom…</option>
-    </select>
+    <NativeSelect.Root size="sm">
+      <NativeSelect.Field
+        value={value}
+        onChange={handleSelectChange}
+      >
+        <option value="">{placeholder}</option>
+        {options.map(opt => (
+          <option key={opt} value={opt}>
+            {(labels && labels[opt]) || opt}
+          </option>
+        ))}
+        <option value={CUSTOM_VALUE}>Custom…</option>
+      </NativeSelect.Field>
+    </NativeSelect.Root>
   );
 }
 
@@ -517,18 +505,6 @@ function ComboSelect({ value, options, labels, placeholder, customPlaceholder, o
  * Row 2: Model / Max Tokens / Temperature (optional parameters)
  */
 function RoutingRuleCard({ rule, index, colorPalette, intentsForDropdown, onUpdate, onRemove }) {
-  const selectStyle = {
-    width: '100%',
-    height: 'var(--btn-height-sm)',
-    borderRadius: 'var(--space-2)',
-    border: '1px solid var(--color-border)',
-    background: 'var(--color-bg-primary)',
-    color: 'var(--color-text-primary)',
-    paddingLeft: 'var(--space-3)',
-    paddingRight: 'var(--space-3)',
-    fontSize: 'var(--font-size-sm)'
-  };
-
   const showIntent = rule.task === 'bienbot';
 
   return (
@@ -589,19 +565,18 @@ function RoutingRuleCard({ rule, index, colorPalette, intentsForDropdown, onUpda
           <FormLabel fontSize="var(--font-size-xs)" color="var(--color-text-secondary)" mb="var(--space-1)">
             Provider
           </FormLabel>
-          <select
-            value={rule.provider}
-            onChange={(e) => onUpdate(index, 'provider', e.target.value)}
-            style={{
-              ...selectStyle,
-              borderColor: !rule.provider && (rule.task || rule.intent) ? 'var(--color-danger)' : undefined
-            }}
-          >
-            <option value="">Select provider...</option>
-            {AVAILABLE_PROVIDERS.map(p => (
-              <option key={p} value={p}>{PROVIDER_LABELS[p] || p}</option>
-            ))}
-          </select>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={rule.provider}
+              onChange={(e) => onUpdate(index, 'provider', e.target.value)}
+              borderColor={!rule.provider && (rule.task || rule.intent) ? 'var(--color-danger)' : undefined}
+            >
+              <option value="">Select provider...</option>
+              {AVAILABLE_PROVIDERS.map(p => (
+                <option key={p} value={p}>{PROVIDER_LABELS[p] || p}</option>
+              ))}
+            </NativeSelect.Field>
+          </NativeSelect.Root>
         </Box>
 
         <Button

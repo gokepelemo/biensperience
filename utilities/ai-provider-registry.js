@@ -216,6 +216,21 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   const model = isValidModel('openai', requestedModel, dbConfig) ? requestedModel : defaultModel;
   const temperature = options.temperature ?? 0.7;
   const maxTokens = options.maxTokens || 1000;
+  // Newer OpenAI models (o-series: o1/o3/o4, and gpt-5+) use max_completion_tokens instead of max_tokens.
+  // o-series models also do not support the temperature parameter.
+  const isOSeries = /^o\d/.test(model);
+  const isNewGenGPT = /^gpt-[5-9]/.test(model);
+  const isNewModel = isOSeries || isNewGenGPT;
+  const tokenLimitKey = isNewModel ? 'max_completion_tokens' : 'max_tokens';
+
+  const requestBody = {
+    model,
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+    [tokenLimitKey]: maxTokens,
+    stream: false
+  };
+  // o-series models do not support temperature (gpt-5+ still does)
+  if (!isOSeries) requestBody.temperature = temperature;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -223,18 +238,12 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model,
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-      temperature,
-      max_tokens: maxTokens,
-      stream: false
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    logger.error('[ai-provider-registry] OpenAI API error', { status: response.status, error });
+    logger.error('[ai-provider-registry] OpenAI API error', { status: response.status, message: error.error?.message });
     throw new Error(error.error?.message || `OpenAI API error: ${response.status}`);
   }
 
@@ -294,7 +303,7 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    logger.error('[ai-provider-registry] Anthropic API error', { status: response.status, error });
+    logger.error('[ai-provider-registry] Anthropic API error', { status: response.status, message: error.error?.message });
     throw new Error(error.error?.message || `Anthropic API error: ${response.status}`);
   }
 
@@ -341,7 +350,7 @@ registerProvider('mistral', async (messages, options = {}, dbConfig = null) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    logger.error('[ai-provider-registry] Mistral API error', { status: response.status, error });
+    logger.error('[ai-provider-registry] Mistral API error', { status: response.status, message: error.error?.message });
     throw new Error(error.error?.message || `Mistral API error: ${response.status}`);
   }
 
@@ -359,13 +368,15 @@ registerProvider('mistral', async (messages, options = {}, dbConfig = null) => {
 });
 
 /**
- * Gemini handler
+ * Gemini handler — uses @google/generative-ai SDK.
+ * API key is passed via the SDK constructor (never in a URL query string).
  */
 registerProvider('gemini', async (messages, options = {}, dbConfig = null) => {
   const apiKey = getApiKeyForProvider('gemini', dbConfig);
   if (!apiKey) throw new Error('Gemini API key not configured');
 
-  const baseEndpoint = (dbConfig && dbConfig.endpoint) || 'https://generativelanguage.googleapis.com/v1beta/models';
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+
   const defaultModel = (dbConfig && dbConfig.default_model) || 'gemini-1.5-flash';
   const requestedModel = options.model || defaultModel;
   const model = isValidModel('gemini', requestedModel, dbConfig) ? requestedModel : defaultModel;
@@ -385,34 +396,33 @@ registerProvider('gemini', async (messages, options = {}, dbConfig = null) => {
     }
   }
 
-  const endpoint = `${baseEndpoint}/${model}:generateContent?key=${apiKey}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents,
-      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const genModel = genAI.getGenerativeModel({
+      model,
+      ...(systemInstruction ? { systemInstruction } : {}),
       generationConfig: { temperature, maxOutputTokens: maxTokens }
-    })
-  });
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    logger.error('[ai-provider-registry] Gemini API error', { status: response.status, error });
-    throw new Error(error.error?.message || `Gemini API error: ${response.status}`);
+    const result = await genModel.generateContent({ contents });
+    const response = result.response;
+    const text = response.text();
+    const usage = response.usageMetadata || {};
+
+    return {
+      content: text || '',
+      usage: {
+        inputTokens: usage.promptTokenCount || 0,
+        outputTokens: usage.candidatesTokenCount || 0,
+        totalTokens: usage.totalTokenCount || 0
+      },
+      model,
+      provider: 'gemini'
+    };
+  } catch (err) {
+    logger.error('[ai-provider-registry] Gemini SDK error', { status: err.status || 'unknown', message: err.message });
+    throw new Error(err.message || `Gemini API error`);
   }
-
-  const data = await response.json();
-  return {
-    content: data.candidates?.[0]?.content?.parts?.[0]?.text || '',
-    usage: {
-      inputTokens: data.usageMetadata?.promptTokenCount || 0,
-      outputTokens: data.usageMetadata?.candidatesTokenCount || 0,
-      totalTokens: data.usageMetadata?.totalTokenCount || 0
-    },
-    model,
-    provider: 'gemini'
-  };
 });
 
 // ---------------------------------------------------------------------------

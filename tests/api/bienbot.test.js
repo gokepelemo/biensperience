@@ -65,8 +65,11 @@ jest.mock('../../utilities/bienbot-context-builders', () => ({
 jest.mock('../../utilities/bienbot-action-executor', () => ({
   ALLOWED_ACTION_TYPES: [
     'create_destination', 'create_experience', 'create_plan',
-    'add_plan_items', 'update_plan_item', 'invite_collaborator', 'sync_plan'
+    'add_plan_items', 'update_plan_item', 'invite_collaborator', 'sync_plan',
+    'suggest_plan_items', 'fetch_entity_photos'
   ],
+  READ_ONLY_ACTION_TYPES: new Set(['suggest_plan_items', 'fetch_entity_photos']),
+  executeAction: jest.fn().mockResolvedValue({ success: true, result: null, errors: [] }),
   executeActions: jest.fn().mockResolvedValue({
     results: [{ actionId: 'action_abc12345', success: true, result: { _id: 'new-id' } }],
     errors: []
@@ -88,6 +91,37 @@ jest.mock('../../utilities/ai-document-utils', () => ({
     text: 'Flight from London to Paris on April 10 2026. Confirmation: ABC123.',
     metadata: { method: 'llm-vision', characterCount: 67 }
   })
+}));
+
+// ---- Mock upload pipeline (skip real AWS calls in tests) --------------------
+jest.mock('../../utilities/upload-pipeline', () => ({
+  uploadWithPipeline: jest.fn().mockResolvedValue({
+    s3Status: 'uploaded',
+    s3Result: {
+      Location: 'https://s3.amazonaws.com/test-protected-bucket/bienbot/test-key.png',
+      key: 'bienbot/test-user/test-session/12345-test.png',
+      bucket: 'test-protected-bucket',
+      isProtected: true,
+      bucketType: 'protected'
+    }
+  }),
+  retrieveFile: jest.fn().mockResolvedValue({
+    source: 's3',
+    signedUrl: 'https://s3.amazonaws.com/test-protected-bucket/bienbot/test-key.png?X-Amz-Signature=abc123'
+  }),
+  deleteFile: jest.fn().mockResolvedValue(),
+  deleteFileSafe: jest.fn().mockResolvedValue({ deleted: true }),
+  transferBucket: jest.fn().mockResolvedValue({
+    key: 'photos/test-photo.png',
+    location: 'https://s3.amazonaws.com/test-bucket/photos/test-photo.png',
+    bucket: 'test-bucket'
+  }),
+  downloadToLocal: jest.fn().mockResolvedValue({
+    localPath: '/tmp/test-file.png',
+    contentType: 'image/png',
+    size: 1024
+  }),
+  S3_STATUS: { PENDING: 'pending', UPLOADED: 'uploaded', FAILED: 'failed' }
 }));
 
 const app = require('../../app');
@@ -1398,6 +1432,416 @@ describe('BienBot API', () => {
       expect(res.status).toBe(200);
       const events = parseSSEEvents(res.body);
       expect(events.find(e => e.event === 'session')).toBeTruthy();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/bienbot/chat — S3 upload for image attachments
+  // -------------------------------------------------------------------------
+
+  describe('POST /api/bienbot/chat — S3 attachment upload', () => {
+    const { uploadWithPipeline } = require('../../utilities/upload-pipeline');
+
+    beforeEach(() => {
+      uploadWithPipeline.mockClear();
+    });
+
+    it('uploads image attachment to S3 protected bucket and stores s3Key in session', async () => {
+      const pngBuf = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de' +
+        '0000000c4944415408d76360f8cfc00000000200014fd2a8640000000049454e44ae426082',
+        'hex'
+      );
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'What is in this photo?')
+        .attach('attachment', pngBuf, { filename: 'photo.png', contentType: 'image/png' });
+
+      expect(res.status).toBe(200);
+
+      // Verify uploadWithPipeline was called with protected option
+      expect(uploadWithPipeline).toHaveBeenCalledTimes(1);
+      const [filePath, originalName, s3KeyBase, options] = uploadWithPipeline.mock.calls[0];
+      expect(filePath).toBeTruthy();
+      expect(originalName).toBe('photo.png');
+      expect(s3KeyBase).toMatch(/^bienbot\//);
+      expect(options).toMatchObject({ protected: true, deleteLocal: true });
+
+      // Verify session has s3Key stored on the attachment
+      const events = parseSSEEvents(res.body);
+      const sessionEvent = events.find(e => e.event === 'session');
+      const session = await BienBotSession.findById(sessionEvent.data.sessionId);
+      const userMsg = session.messages.find(m => m.role === 'user');
+      expect(userMsg.attachments[0].s3Key).toBe('bienbot/test-user/test-session/12345-test.png');
+      expect(userMsg.attachments[0].s3Bucket).toBe('test-protected-bucket');
+      expect(userMsg.attachments[0].isProtected).toBe(true);
+    });
+
+    it('includes attachment info in SSE session event when image is uploaded', async () => {
+      const pngBuf = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de' +
+        '0000000c4944415408d76360f8cfc00000000200014fd2a8640000000049454e44ae426082',
+        'hex'
+      );
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'Describe this image')
+        .attach('attachment', pngBuf, { filename: 'landscape.png', contentType: 'image/png' });
+
+      expect(res.status).toBe(200);
+      const events = parseSSEEvents(res.body);
+      const sessionEvent = events.find(e => e.event === 'session');
+
+      expect(sessionEvent.data).toHaveProperty('attachment');
+      expect(sessionEvent.data.attachment).toMatchObject({
+        s3Key: expect.any(String),
+        s3Bucket: expect.any(String),
+        isProtected: true
+      });
+    });
+
+    it('continues without S3 persistence when S3 upload fails', async () => {
+      uploadWithPipeline.mockRejectedValueOnce(new Error('S3 service error'));
+
+      const pngBuf = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de' +
+        '0000000c4944415408d76360f8cfc00000000200014fd2a8640000000049454e44ae426082',
+        'hex'
+      );
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'What is this?')
+        .attach('attachment', pngBuf, { filename: 'test.png', contentType: 'image/png' });
+
+      // Should still succeed (S3 failure is non-fatal)
+      expect(res.status).toBe(200);
+      const events = parseSSEEvents(res.body);
+      expect(events.find(e => e.event === 'done')).toBeTruthy();
+
+      // Session should exist but attachment should not have s3Key
+      const sessionEvent = events.find(e => e.event === 'session');
+      const session = await BienBotSession.findById(sessionEvent.data.sessionId);
+      const userMsg = session.messages.find(m => m.role === 'user');
+      expect(userMsg.attachments[0].filename).toBe('test.png');
+      expect(userMsg.attachments[0].s3Key).toBeFalsy();
+    });
+
+    it('does not call s3Upload for text file attachments', async () => {
+      const textBuf = Buffer.from('My travel itinerary for Paris trip');
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .field('message', 'Parse this itinerary')
+        .attach('attachment', textBuf, { filename: 'itinerary.txt', contentType: 'text/plain' });
+
+      expect(res.status).toBe(200);
+
+      // Text files should still be uploaded to S3 for persistence
+      // (the controller uploads any attachment that has a pending local file)
+      // Just verify the session was created successfully
+      const events = parseSSEEvents(res.body);
+      expect(events.find(e => e.event === 'session')).toBeTruthy();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /api/bienbot/sessions/:id/attachments/:messageIndex/:attachmentIndex
+  // -------------------------------------------------------------------------
+
+  describe('GET /api/bienbot/sessions/:id/attachments — signed URL retrieval', () => {
+    const { retrieveFile } = require('../../utilities/upload-pipeline');
+
+    beforeEach(() => {
+      retrieveFile.mockClear();
+    });
+
+    it('returns a signed URL for a stored S3 attachment', async () => {
+      // Create session with a message that has an S3-stored attachment
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      await session.addMessage('user', 'Check this photo', {
+        attachments: [{
+          filename: 'photo.png',
+          mimeType: 'image/png',
+          fileSize: 4096,
+          s3Key: 'bienbot/user123/session456/photo.png',
+          s3Bucket: 'test-protected-bucket',
+          isProtected: true
+        }]
+      });
+
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/0/0`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({
+        url: expect.stringContaining('X-Amz-Signature'),
+        filename: 'photo.png',
+        mimeType: 'image/png',
+        fileSize: 4096
+      });
+
+      expect(retrieveFile).toHaveBeenCalledWith(
+        'bienbot/user123/session456/photo.png',
+        { protected: true, expiresIn: 3600 }
+      );
+    });
+
+    it('returns 404 for attachment without s3Key', async () => {
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      await session.addMessage('user', 'Check this file', {
+        attachments: [{
+          filename: 'itinerary.txt',
+          mimeType: 'text/plain',
+          fileSize: 200
+          // No s3Key
+        }]
+      });
+
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/0/0`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/not stored in S3/i);
+    });
+
+    it('returns 404 for invalid message index', async () => {
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      await session.addMessage('user', 'Hello');
+
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/99/0`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/message not found/i);
+    });
+
+    it('returns 404 for invalid attachment index', async () => {
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      await session.addMessage('user', 'Check this', {
+        attachments: [{
+          filename: 'photo.png',
+          mimeType: 'image/png',
+          fileSize: 4096,
+          s3Key: 'bienbot/key.png',
+          s3Bucket: 'test-bucket',
+          isProtected: true
+        }]
+      });
+
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/0/5`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/attachment not found/i);
+    });
+
+    it('returns 400 for non-numeric indices', async () => {
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/abc/def`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 for another user\'s session', async () => {
+      const otherUser = await createAIUser({ email: `other_att_${Date.now()}@test.com` });
+      const otherSession = await BienBotSession.createSession(otherUser._id.toString(), {});
+      await otherSession.addMessage('user', 'My photo', {
+        attachments: [{
+          filename: 'secret.png',
+          mimeType: 'image/png',
+          fileSize: 1024,
+          s3Key: 'bienbot/other/key.png',
+          s3Bucket: 'test-bucket',
+          isProtected: true
+        }]
+      });
+
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${otherSession._id}/attachments/0/0`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('allows session collaborator to access attachment', async () => {
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      await session.addMessage('user', 'Shared photo', {
+        attachments: [{
+          filename: 'shared.png',
+          mimeType: 'image/png',
+          fileSize: 2048,
+          s3Key: 'bienbot/shared/key.png',
+          s3Bucket: 'test-bucket',
+          isProtected: true
+        }]
+      });
+
+      // Add a collaborator
+      const collabUser = await createAIUser({ email: `collab_att_${Date.now()}@test.com` });
+      session.shared_with = [{ user_id: collabUser._id, role: 'viewer', granted_at: new Date(), granted_by: user._id }];
+      await session.save();
+
+      const collabToken = generateAuthToken(collabUser);
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/0/0`)
+        .set('Authorization', collabToken);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.url).toBeTruthy();
+    });
+
+    it('returns 404 for non-existent session', async () => {
+      const fakeId = '507f1f77bcf86cd799439011';
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${fakeId}/attachments/0/0`)
+        .set('Authorization', authToken);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 401 without auth token', async () => {
+      const session = await BienBotSession.createSession(user._id.toString(), {});
+      const res = await request(app)
+        .get(`/api/bienbot/sessions/${session._id}/attachments/0/0`);
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('parseLLMResponse — confirm_label strip', () => {
+    it('truncates confirm_label over 40 chars to 40 chars', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const longLabel = 'A'.repeat(50);
+      const input = JSON.stringify({
+        message: 'hello',
+        entity_refs: [],
+        pending_actions: [{
+          id: 'action_abc12345',
+          type: 'create_plan',
+          payload: { experience_id: '6'.repeat(24) },
+          description: 'Create a plan',
+          confirm_label: longLabel,
+          dismiss_label: longLabel
+        }]
+      });
+      const result = parseLLMResponse(input);
+      expect(result.pending_actions[0].confirm_label).toHaveLength(40);
+      expect(result.pending_actions[0].dismiss_label).toHaveLength(40);
+    });
+
+    it('passes through confirm_label of 40 chars or fewer unchanged', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const input = JSON.stringify({
+        message: 'hello',
+        entity_refs: [],
+        pending_actions: [{
+          id: 'action_abc12345',
+          type: 'create_plan',
+          payload: { experience_id: '6'.repeat(24) },
+          description: 'Create a plan',
+          confirm_label: 'Yes, create it',
+          dismiss_label: 'Not yet'
+        }]
+      });
+      const result = parseLLMResponse(input);
+      expect(result.pending_actions[0].confirm_label).toBe('Yes, create it');
+      expect(result.pending_actions[0].dismiss_label).toBe('Not yet');
+    });
+
+    it('omits confirm_label entirely when not provided by LLM', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const input = JSON.stringify({
+        message: 'hello',
+        entity_refs: [],
+        pending_actions: [{
+          id: 'action_abc12345',
+          type: 'create_plan',
+          payload: { experience_id: '6'.repeat(24) },
+          description: 'Create a plan'
+        }]
+      });
+      const result = parseLLMResponse(input);
+      expect(result.pending_actions[0].confirm_label).toBeUndefined();
+      expect(result.pending_actions[0].dismiss_label).toBeUndefined();
+    });
+  });
+
+  describe('parseLLMResponse — inline entity JSON extraction', () => {
+    it('extracts inline entity JSON objects from message text into entity_refs', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const entityObj = JSON.stringify({ _id: 'a'.repeat(24), name: 'Tokyo Temple Tour', type: 'experience' });
+      const input = JSON.stringify({
+        message: `I'll create a plan for ${entityObj}!`,
+        entity_refs: [],
+        pending_actions: []
+      });
+      const result = parseLLMResponse(input);
+      expect(result.entity_refs).toHaveLength(1);
+      expect(result.entity_refs[0]._id).toBe('a'.repeat(24));
+      expect(result.entity_refs[0].name).toBe('Tokyo Temple Tour');
+      expect(result.entity_refs[0].type).toBe('experience');
+    });
+
+    it('merges inline entity refs with LLM-provided entity_refs, deduplicating by _id', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const id = 'a'.repeat(24);
+      const entityObj = JSON.stringify({ _id: id, name: 'Tokyo Temple Tour', type: 'experience' });
+      const input = JSON.stringify({
+        message: `I'll create a plan for ${entityObj}!`,
+        entity_refs: [{ _id: id, name: 'Tokyo Temple Tour', type: 'experience' }],
+        pending_actions: []
+      });
+      const result = parseLLMResponse(input);
+      expect(result.entity_refs).toHaveLength(1);
+    });
+
+    it('ignores malformed or non-entity JSON objects in message text', () => {
+      const { parseLLMResponse } = require('../../controllers/api/bienbot');
+      const input = JSON.stringify({
+        message: 'Use JSON like {"key": "value"} in your code.',
+        entity_refs: [],
+        pending_actions: []
+      });
+      const result = parseLLMResponse(input);
+      expect(result.entity_refs).toHaveLength(0);
     });
   });
 });

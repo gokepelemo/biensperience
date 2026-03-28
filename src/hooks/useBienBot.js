@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import {
   postMessage,
+  postSharedComment as postSharedCommentAPI,
+  getMutualFollowers as getMutualFollowersAPI,
   getSessions,
   getSession,
   resumeSession as resumeSessionAPI,
@@ -9,11 +11,26 @@ import {
   cancelAction as cancelActionAPI,
   deleteSession as deleteSessionAPI,
   updateSessionContext as updateSessionContextAPI,
+  updateActionStatus as updateActionStatusAPI,
+  getWorkflowState as getWorkflowStateAPI,
   addSessionCollaborator as addCollaboratorAPI,
   removeSessionCollaborator as removeCollaboratorAPI
 } from '../utilities/bienbot-api';
-import { eventBus } from '../utilities/event-bus';
+import { eventBus, broadcastEvent } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
+import { encryptData, decryptData } from '../utilities/crypto-utils';
+
+const ACTIVE_SESSION_KEY = 'bien:bienbot_active_session';
+
+/**
+ * Open the BienBot panel with a pre-filled message in the input.
+ * Can be called from anywhere in the component tree (e.g. post-plan toasts).
+ *
+ * @param {string} text - Message to pre-fill in the input
+ */
+export function openWithPrefilledMessage(text) {
+  broadcastEvent('bienbot:open', { initialMessage: text });
+}
 
 /**
  * useBienBot — manages BienBot conversation state, SSE streaming,
@@ -24,7 +41,7 @@ import { logger } from '../utilities/logger';
  * @param {Object} [params.invokeContext] - Entity context ({ entity, id, label }) from the mounting component
  * @returns {Object} BienBot state and actions
  */
-export default function useBienBot({ sessionId: initialSessionId = null, invokeContext } = {}) {
+export default function useBienBot({ sessionId: initialSessionId = null, invokeContext, userId = null } = {}) {
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -61,6 +78,41 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       abortControllerRef.current = null;
     }
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Session persistence (localStorage) — AES-GCM encrypted
+  // ---------------------------------------------------------------------------
+
+  /** Persist active session ID to encrypted localStorage. */
+  const persistSessionId = useCallback(async (sid) => {
+    if (!sid || !userId) return;
+    try {
+      const encrypted = await encryptData({ sessionId: sid, userId }, userId);
+      localStorage.setItem(ACTIVE_SESSION_KEY, encrypted);
+    } catch (err) {
+      logger.debug('[useBienBot] Failed to persist session', { error: err?.message });
+    }
+  }, [userId]);
+
+  /** Clear persisted session ID from localStorage. */
+  const clearPersistedSession = useCallback(() => {
+    try {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  /** Read persisted session ID (returns Promise<{ sessionId, userId } | null>). */
+  const getPersistedSession = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (!raw || !userId) return null;
+      return await decryptData(raw, userId);
+    } catch {
+      return null;
+    }
+  }, [userId]);
 
   // ---------------------------------------------------------------------------
   // sendMessage
@@ -122,7 +174,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         attachment: attachment || undefined,
         signal: controller.signal,
 
-        onSession: ({ sessionId: newSessionId, title }) => {
+        onSession: ({ sessionId: newSessionId, title, attachment: attachmentInfo }) => {
           sessionIdRef.current = newSessionId;
           if (shouldSendContext) {
             invokeContextSentRef.current = true;
@@ -130,8 +182,30 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
           setCurrentSession(prev => ({
             ...(prev || {}),
             _id: newSessionId,
-            title: title || prev?.title
+            title: title || prev?.title,
+            // Mark the current user as owner so isSessionOwner evaluates correctly
+            // for follow-up messages. The onSession event fires only when this client
+            // creates the session, so the sender is always the owner.
+            user: userId
           }));
+          persistSessionId(newSessionId);
+          // Update optimistic user message with S3 attachment info from server
+          if (attachmentInfo?.s3Key) {
+            setMessages(prev =>
+              prev.map(m =>
+                m._id === userMessage._id && m.attachments?.length > 0
+                  ? {
+                      ...m,
+                      attachments: m.attachments.map((att, idx) =>
+                        idx === 0
+                          ? { ...att, s3Key: attachmentInfo.s3Key, s3Bucket: attachmentInfo.s3Bucket, isProtected: attachmentInfo.isProtected }
+                          : att
+                      )
+                    }
+                  : m
+              )
+            );
+          }
         },
 
         onToken: (tokenText) => {
@@ -150,6 +224,37 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
           setPendingActions(actions || []);
         },
 
+        onStructuredContent: (blocks) => {
+          // Attach structured content blocks to the current assistant message.
+          // discovery_result_list blocks replace any existing sentinel (data===null)
+          // in-place so the skeleton transitions to real content without flickering.
+          if (blocks && blocks.length > 0) {
+            setMessages(prev =>
+              prev.map(m => {
+                if (m._id !== assistantMessageId) return m;
+                let existing = m.structured_content || [];
+                let updated = [...existing];
+                for (const block of blocks) {
+                  if (block.type === 'discovery_result_list') {
+                    const sentinelIdx = updated.findIndex(
+                      b => b.type === 'discovery_result_list' && b.data === null
+                    );
+                    if (sentinelIdx !== -1) {
+                      updated = [...updated];
+                      updated[sentinelIdx] = block;
+                    } else {
+                      updated = [...updated, block];
+                    }
+                  } else {
+                    updated = [...updated, block];
+                  }
+                }
+                return { ...m, structured_content: updated };
+              })
+            );
+          }
+        },
+
         onDone: () => {
           batchedUpdates(() => {
             setIsStreaming(false);
@@ -164,11 +269,12 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             setIsStreaming(false);
             setIsLoading(false);
           });
-          // Update the assistant message with an error indicator
+          // Update the assistant message with an error indicator.
+          // Never expose raw exception messages in the chat UI.
           setMessages(prev =>
             prev.map(m =>
               m._id === assistantMessageId
-                ? { ...m, content: streamedContent || error.message || 'Something went wrong. Please try again.', error: true }
+                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true }
                 : m
             )
           );
@@ -180,10 +286,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         logger.debug('[useBienBot] Message send aborted');
       } else {
         logger.error('[useBienBot] Failed to send message', { error: err.message });
+        // Never expose raw exception messages in the chat UI.
         setMessages(prev =>
           prev.map(m =>
             m._id === assistantMessageId
-              ? { ...m, content: err.message || 'Something went wrong. Please try again.', error: true }
+              ? { ...m, content: 'Something went wrong. Please try again.', error: true }
               : m
           )
         );
@@ -194,7 +301,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       });
       abortControllerRef.current = null;
     }
-  }, [invokeContext, cancelStream]);
+  }, [invokeContext, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
   // executeActions
@@ -323,6 +430,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
       sessionIdRef.current = session._id;
       invokeContextSentRef.current = true; // Resumed sessions already have context
+      persistSessionId(session._id);
 
       batchedUpdates(() => {
         setCurrentSession(session);
@@ -332,12 +440,15 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         const initialMessages = [];
 
         if (greeting) {
-          initialMessages.push({
-            _id: `greeting-${Date.now()}`,
-            role: 'assistant',
-            content: greeting.text || greeting.message || (typeof greeting === 'string' ? greeting : ''),
-            createdAt: new Date().toISOString()
-          });
+          const greetingContent = greeting.text || greeting.message || (typeof greeting === 'string' ? greeting : '');
+          if (greetingContent) {
+            initialMessages.push({
+              _id: `greeting-${Date.now()}`,
+              role: 'assistant',
+              content: greetingContent,
+              createdAt: new Date().toISOString()
+            });
+          }
 
           // Extract suggested_next_steps from greeting
           if (greeting.suggested_next_steps?.length) {
@@ -359,13 +470,14 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [persistSessionId]);
 
   /**
    * Clear the current session state. Does NOT delete the session server-side.
    */
   const clearSession = useCallback(() => {
     cancelStream();
+    clearPersistedSession();
 
     batchedUpdates(() => {
       sessionIdRef.current = null;
@@ -377,7 +489,29 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       setIsLoading(false);
       setIsStreaming(false);
     });
-  }, [cancelStream]);
+  }, [cancelStream, clearPersistedSession]);
+
+  /**
+   * Delete a session server-side. Only the session owner may do this.
+   * Directly updates local state after successful API call for immediate feedback.
+   *
+   * @param {string} sid - Session ID to delete
+   * @returns {Promise<void>}
+   */
+  const deleteSession = useCallback(async (sid) => {
+    if (!sid) return;
+    try {
+      await deleteSessionAPI(sid);
+      // Directly update state after successful API call (don't rely solely on event bus)
+      setSessions(prev => prev.filter(s => s._id !== sid));
+      if (sessionIdRef.current === sid) {
+        clearSession();
+      }
+    } catch (err) {
+      logger.error('[useBienBot] Failed to delete session', { error: err.message, sid });
+      throw err;
+    }
+  }, [clearSession]);
 
   // ---------------------------------------------------------------------------
   // Fetch sessions list
@@ -489,6 +623,192 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Workflow step management
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Post a shared comment — saves the message without triggering the LLM pipeline.
+   * Used by shared collaborators (editors) and by the session owner when replying
+   * inline to a collaborator message.
+   *
+   * @param {string} text - Comment text
+   * @param {string|null} [replyTo] - msg_id of the message being replied to
+   * @returns {Promise<void>}
+   */
+  const sendSharedComment = useCallback(async (text, replyTo = null) => {
+    if (!text?.trim()) return;
+
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+
+    // Optimistically append the comment to the local messages list
+    const tempId = `temp-comment-${Date.now()}`;
+    const optimisticMsg = {
+      _id: tempId,
+      role: 'user',
+      content: text,
+      message_type: 'shared_comment',
+      // Tag with current userId so the UI can distinguish own messages from
+      // collaborator messages before the server confirmation arrives.
+      sent_by: userId,
+      reply_to: replyTo || null,
+      createdAt: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      const result = await postSharedCommentAPI(sid, text, replyTo);
+      const savedMsg = result?.message;
+      if (savedMsg) {
+        // Replace optimistic message with server-confirmed version
+        setMessages(prev =>
+          prev.map(m => m._id === tempId ? { ...savedMsg, _id: tempId } : m)
+        );
+      }
+    } catch (err) {
+      logger.error('[useBienBot] Failed to post shared comment', { error: err.message });
+      // Never expose raw exception messages in the chat UI.
+      setMessages(prev =>
+        prev.map(m =>
+          m._id === tempId ? { ...m, error: true, content: 'Failed to send. Please try again.' } : m
+        )
+      );
+    }
+  }, []);
+
+  /**
+   * Search mutual followers for sharing the current session.
+   *
+   * @param {string} q - Search query (name or email)
+   * @returns {Promise<Array<{ _id, name, email }>>}
+   */
+  const searchMutualFollowers = useCallback(async (q = '') => {
+    try {
+      const result = await getMutualFollowersAPI(q);
+      return result?.users || [];
+    } catch (err) {
+      logger.error('[useBienBot] Failed to search mutual followers', { error: err.message });
+      return [];
+    }
+  }, []);
+
+  /**
+   * Approve a workflow step. Executes it immediately and updates local state.
+   *
+   * @param {string} actionId - Action ID to approve
+   * @returns {Promise<Object|null>} Updated action result, or null on error
+   */
+  const approveStep = useCallback(async (actionId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !actionId) return null;
+
+    setIsLoading(true);
+    try {
+      const data = await updateActionStatusAPI(sid, actionId, 'approved');
+
+      // Sync pending actions from server response
+      if (data?.pending_actions) {
+        setPendingActions(data.pending_actions);
+      }
+
+      return data;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to approve step', { error: err.message, actionId });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Skip a workflow step. Cascades failure to dependent steps.
+   *
+   * @param {string} actionId - Action ID to skip
+   * @returns {Promise<Object|null>} Updated action result, or null on error
+   */
+  const skipStep = useCallback(async (actionId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !actionId) return null;
+
+    try {
+      const data = await updateActionStatusAPI(sid, actionId, 'skipped');
+
+      if (data?.pending_actions) {
+        setPendingActions(data.pending_actions);
+      }
+
+      return data;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to skip step', { error: err.message, actionId });
+      return null;
+    }
+  }, []);
+
+  /**
+   * Edit a workflow step's payload and optionally approve it.
+   *
+   * @param {string} actionId - Action ID to edit
+   * @param {Object} newPayload - Updated payload
+   * @returns {Promise<Object|null>} Updated action result, or null on error
+   */
+  const editStep = useCallback(async (actionId, newPayload) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !actionId) return null;
+
+    setIsLoading(true);
+    try {
+      const data = await updateActionStatusAPI(sid, actionId, 'approved', newPayload);
+
+      if (data?.pending_actions) {
+        setPendingActions(data.pending_actions);
+      }
+
+      return data;
+    } catch (err) {
+      logger.error('[useBienBot] Failed to edit step', { error: err.message, actionId });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Cancel an entire workflow (skip all remaining pending steps).
+   *
+   * @param {string} workflowId - Workflow ID to cancel
+   * @returns {Promise<void>}
+   */
+  const cancelWorkflow = useCallback(async (workflowId) => {
+    const sid = sessionIdRef.current;
+    if (!sid || !workflowId) return;
+
+    const workflowSteps = pendingActions.filter(
+      a => a.workflow_id === workflowId && a.status === 'pending'
+    );
+
+    for (const step of workflowSteps) {
+      try {
+        await updateActionStatusAPI(sid, step.id, 'skipped');
+      } catch (err) {
+        logger.error('[useBienBot] Failed to skip workflow step during cancel', {
+          error: err.message,
+          actionId: step.id
+        });
+      }
+    }
+
+    // Refresh pending actions from server
+    try {
+      const sessionData = await getSession(sid);
+      if (sessionData?.pending_actions) {
+        setPendingActions(sessionData.pending_actions);
+      }
+    } catch (err) {
+      logger.error('[useBienBot] Failed to refresh after workflow cancel', { error: err.message });
+    }
+  }, [pendingActions]);
+
+  // ---------------------------------------------------------------------------
   // Cleanup: cancel in-flight stream on unmount
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -496,6 +816,36 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       cancelStream();
     };
   }, [cancelStream]);
+
+  // ---------------------------------------------------------------------------
+  // appendStructuredContent — inject a structured content block into the last
+  // assistant message (used for post-action enrichment like tip suggestions)
+  // ---------------------------------------------------------------------------
+  const appendStructuredContent = useCallback((block) => {
+    if (!block) return;
+    setMessages(prev => {
+      // Find the last assistant message
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === 'assistant') {
+          const updated = [...prev];
+          updated[i] = {
+            ...updated[i],
+            structured_content: [...(updated[i].structured_content || []), block]
+          };
+          return updated;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // appendMessage — add a message to the conversation (used for action feedback)
+  // ---------------------------------------------------------------------------
+  const appendMessage = useCallback((msg) => {
+    if (!msg) return;
+    setMessages(prev => [...prev, msg]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Return API
@@ -507,8 +857,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     pendingActions,
     suggestedNextSteps,
     isLoading,
+    deleteSession,
     isStreaming,
     sendMessage,
+    sendSharedComment,
+    searchMutualFollowers,
     executeActions,
     cancelAction,
     updateContext,
@@ -516,6 +869,14 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     clearSession,
     fetchSessions,
     shareSession,
-    unshareSession
+    unshareSession,
+    approveStep,
+    skipStep,
+    editStep,
+    cancelWorkflow,
+    appendStructuredContent,
+    appendMessage,
+    getPersistedSession,
+    clearPersistedSession
   };
 }

@@ -157,6 +157,15 @@ async function followUser(req, res) {
           message: 'Follow request already pending'
         });
       }
+      // Idempotent: if already following, treat as success and return current state
+      if (result.error === 'Already following this user') {
+        return res.status(200).json({
+          success: true,
+          follow: null,
+          isPending: false,
+          message: 'Already following'
+        });
+      }
       return res.status(400).json({ error: result.error });
     }
 
@@ -408,6 +417,10 @@ async function unfollowUser(req, res) {
     const result = await Follow.removeFollow(followerId, followingId);
 
     if (!result.success) {
+      // Idempotent: if not following, treat as already-unfollowed success
+      if (result.error === 'Follow relationship not found') {
+        return res.json({ success: true, message: 'Not following' });
+      }
       return res.status(400).json({ error: result.error });
     }
 
