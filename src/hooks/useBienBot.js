@@ -33,6 +33,16 @@ export function openWithPrefilledMessage(text) {
 }
 
 /**
+ * Open the BienBot panel and immediately load a specific session by ID.
+ * Useful for deep-linking to a shared session from the activity feed.
+ *
+ * @param {string} sessionId - BienBot session ID to open
+ */
+export function openWithSession(sessionId) {
+  broadcastEvent('bienbot:open', { sessionId });
+}
+
+/**
  * useBienBot — manages BienBot conversation state, SSE streaming,
  * pending actions, and session lifecycle.
  *
@@ -387,10 +397,14 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       if (label) {
         // Build ack message — prefer rich contextDescription over bare label
         const displayText = contextDescription || `"${label}"`;
+        const isUserEntity = entity?.toLowerCase() === 'user';
+        const contextSuffix = isUserEntity
+          ? 'You can ask me anything about them or tell me to take actions on their profile.'
+          : 'You can ask me anything about it or tell me to take actions on it.';
         const ackMessage = {
           _id: `ctx-${Date.now()}`,
           role: 'assistant',
-          content: `My context has been enriched with information about ${displayText}. You can ask me anything about it or tell me to take actions on it.`,
+          content: `My context has been enriched with information about ${displayText}. ${contextSuffix}`,
           createdAt: new Date().toISOString(),
           isContextAck: true
         };

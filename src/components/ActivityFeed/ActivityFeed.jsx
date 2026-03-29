@@ -28,6 +28,7 @@ import PhotoModal from '../PhotoModal/PhotoModal';
 import { logger } from '../../utilities/logger';
 import { lang } from '../../lang.constants';
 import { SkeletonLoader } from '../design-system';
+import { openWithSession } from '../../hooks/useBienBot';
 
 import styles from './ActivityFeed.module.css';
 
@@ -539,7 +540,13 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
                   name: activity.actorName || 'User',
                   oauthProfilePhoto: activity.actorPhoto || null,
                 } : null;
-                const actionVerb = activity.action.toLowerCase();
+                // BienBotSession activities contain proper nouns ("BienBot", session title,
+                // owner name) that must not be lowercased. All other actions are normalised
+                // to lowercase so the "You Became…" capitalisation from the backend verb map
+                // is rendered as "You became…".
+                const actionVerb = (activity.actionType === 'collaborator_added' && activity.resourceType === 'BienBotSession')
+                  ? activity.action
+                  : activity.action.toLowerCase();
                 const activityPhoto = activity.photoId ? photosMap[activity.photoId] : null;
                 return (
                   <Timeline.Item key={activity.id}>
@@ -585,6 +592,16 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
                           </>
                         )}
                       </Timeline.Title>
+                      {activity.resourceType === 'BienBotSession' && activity.bienbotSessionId && (
+                        <button
+                          type="button"
+                          className={styles.activityLink}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25em' }}
+                          onClick={() => openWithSession(activity.bienbotSessionId)}
+                        >
+                          View session <FaChevronRight style={{ fontSize: '0.75em' }} />
+                        </button>
+                      )}
                       {activityPhoto?.url && (
                         <button
                           type="button"

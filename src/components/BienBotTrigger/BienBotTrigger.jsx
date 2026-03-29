@@ -52,6 +52,7 @@ export default function BienBotTrigger({
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMounted, setPanelMounted] = useState(false);
   const [initialMessage, setInitialMessage] = useState(null);
+  const [initialSessionId, setInitialSessionId] = useState(null);
 
   const isAdmin = user && isSuperAdmin(user);
   const hasChatAccess = hasAI || isAdmin;
@@ -78,8 +79,10 @@ export default function BienBotTrigger({
     if (!hasChatAccess) return;
     const unsub = subscribeToEvent('bienbot:open', (event) => {
       const msg = event.initialMessage || null;
-      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg });
+      const sid = event.sessionId || null;
+      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg, hasSessionId: !!sid });
       setInitialMessage(msg);
+      setInitialSessionId(sid);
       setPanelMounted(true);
       setPanelOpen(true);
     });
@@ -96,6 +99,7 @@ export default function BienBotTrigger({
   const handleClose = useCallback(() => {
     setPanelOpen(false);
     setInitialMessage(null);
+    setInitialSessionId(null);
   }, []);
 
   // Do not render if user is not authenticated
@@ -155,6 +159,7 @@ export default function BienBotTrigger({
           unseenNotificationIds={unseenNotificationIds}
           onMarkNotificationsSeen={onMarkNotificationsSeen}
           initialMessage={initialMessage}
+          initialSessionId={initialSessionId}
         />
       )}
     </>,
@@ -186,7 +191,8 @@ function BienBotPanelLazy({
   notifications,
   unseenNotificationIds,
   onMarkNotificationsSeen,
-  initialMessage
+  initialMessage,
+  initialSessionId
 }) {
   const [Panel, setPanel] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -220,6 +226,7 @@ function BienBotPanelLazy({
       unseenNotificationIds={unseenNotificationIds}
       onMarkNotificationsSeen={onMarkNotificationsSeen}
       initialMessage={initialMessage}
+      initialSessionId={initialSessionId}
     />
   );
 }

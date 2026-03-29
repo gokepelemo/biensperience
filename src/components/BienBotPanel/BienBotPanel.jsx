@@ -276,6 +276,93 @@ function AttachIcon() {
 
 // PlanCard removed — plan disambiguation now handled by PlanSelector component
 
+// ─── Inline entity chip renderer ─────────────────────────────────────────────
+
+/**
+ * Parse message text and replace inline JSON entity refs with clickable chips.
+ * Pattern: {"_id":"...","name":"...","type":"..."} (keys in any order)
+ *
+ * @param {string} text - Raw message text from the LLM
+ * @param {Function} navigate - React Router navigate function
+ * @param {object} chipStyles - CSS module styles object
+ * @returns {React.ReactNode}
+ */
+function renderMessageContent(text, navigate, chipStyles) {
+  if (!text) return null;
+
+  // Match compact JSON objects that contain at minimum _id, name, and type keys
+  const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
+
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = ENTITY_JSON_RE.exec(text)) !== null) {
+    // Text before the match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    // Try to parse
+    let ref = null;
+    try {
+      ref = JSON.parse(match[0]);
+    } catch {
+      // Not valid JSON — keep raw
+      parts.push(match[0]);
+      lastIndex = match.index + match[0].length;
+      continue;
+    }
+
+    const { _id, name, type } = ref;
+
+    // Determine URL
+    let url = null;
+    if (_id && name && type) {
+      if (type === 'destination') url = `/destinations/${_id}`;
+      else if (type === 'experience') url = `/experiences/${_id}`;
+      else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
+    }
+
+    const label = name || type || 'entity';
+
+    if (url) {
+      parts.push(
+        <button
+          key={`${_id}-${match.index}`}
+          type="button"
+          className={chipStyles.inlineEntityChip}
+          onClick={() => navigate(url)}
+          aria-label={`View ${type}: ${label}`}
+        >
+          {label}
+        </button>
+      );
+    } else {
+      // No navigable URL or no real ID — render as a non-clickable chip
+      parts.push(
+        <span key={`entity-${match.index}`} className={chipStyles.inlineEntityChipNoLink}>
+          {label}
+        </span>
+      );
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining text after last match
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  // If nothing was replaced, return the string directly
+  if (parts.length === 1 && typeof parts[0] === 'string') return parts[0];
+
+  return parts.map((part, i) =>
+    typeof part === 'string' ? <React.Fragment key={i}>{part}</React.Fragment> : part
+  );
+}
+
 // ─── Notification item ───────────────────────────────────────────────────────
 
 function NotificationItem({ notification, onView }) {
@@ -423,7 +510,8 @@ export default function BienBotPanel({
   notifications = [],
   unseenNotificationIds = [],
   onMarkNotificationsSeen,
-  initialMessage = null
+  initialMessage = null,
+  initialSessionId = null
 }) {
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -564,6 +652,10 @@ export default function BienBotPanel({
   );
 
   const isSessionOwner = currentSession && user?._id && currentSession.user?.toString() === user._id.toString();
+  // True when sessions shared with this user exist but no current session is active.
+  // Used to surface the share button so the user can navigate to a shared session.
+  const hasSharedSessions = !currentSession && user?._id &&
+    sessions.some(s => s.user?.toString() !== user._id.toString());
 
   const [replyTo, setReplyTo] = useState(null);
   // replyTo = { msg_id, preview, senderName } | null
@@ -998,6 +1090,44 @@ export default function BienBotPanel({
     return () => { cancelled = true; };
   }, [open, currentSession, messages.length, getPersistedSession, user?._id]);
 
+  // Load a specific session when deep-linked via initialSessionId (e.g. from
+  // activity feed BienBot session link). Tracks the last-loaded session ID so
+  // that (a) re-opening with the same ID after close triggers a fresh load,
+  // and (b) changing to a different session ID while the panel is open also
+  // triggers a load (handles rapid "View session" clicks for different sessions).
+  //
+  // The cleanup function resets the ref on every teardown. This is required for
+  // React StrictMode (development) which intentionally runs each effect twice
+  // (mount → cleanup → remount) to surface side-effect bugs. Without the cleanup
+  // the ref holds 'sess123' into the second run, which then compares equal to
+  // initialSessionId and skips loadSession entirely.
+  const initialSessionLoadedRef = useRef(null); // null | sessionId string
+  useEffect(() => {
+    if (!open) {
+      // Reset on every close so the next open can load a session.
+      initialSessionLoadedRef.current = null;
+      return;
+    }
+    // No session requested, or this exact session was already loaded.
+    if (!initialSessionId || initialSessionLoadedRef.current === initialSessionId) return;
+    initialSessionLoadedRef.current = initialSessionId;
+    loadSession(initialSessionId).catch(() => {});
+
+    // Reset on cleanup so StrictMode's double-invocation and dep-change
+    // re-runs always start from a clean slate.
+    return () => {
+      initialSessionLoadedRef.current = null;
+    };
+  }, [open, initialSessionId, loadSession]);
+
+  // Fetch sessions when the panel opens without an active session so we can
+  // detect sessions shared with this user and show the share/sessions button.
+  useEffect(() => {
+    if (!open || currentSession) return;
+    fetchSessions({ status: 'active' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Panel label from invokeContext
   const panelLabel = notificationOnly
     ? 'Notifications'
@@ -1042,29 +1172,39 @@ export default function BienBotPanel({
             )}
           </div>
 
-          {!notificationOnly && currentSession && (
+          {!notificationOnly && (currentSession || hasSharedSessions) && (
             <div className={styles.shareWrapper}>
               <button
                 type="button"
                 className={styles.newChatButton}
-                onClick={() => setShareOpen(prev => !prev)}
-                aria-label="Share session"
-                title="Share session"
+                onClick={() => {
+                  if (!currentSession) {
+                    // No active session — open history so the user can select a shared session
+                    fetchSessions({ status: 'active' });
+                    setViewMode('history');
+                  } else {
+                    setShareOpen(prev => !prev);
+                  }
+                }}
+                aria-label={currentSession ? 'Share session' : 'View shared sessions'}
+                title={currentSession ? 'Share session' : 'View shared sessions'}
               >
                 <ShareIcon />
-                {(currentSession.shared_with || []).length > 0 && (
+                {currentSession && (currentSession.shared_with || []).length > 0 && (
                   <span className={styles.shareBadge}>{currentSession.shared_with.length}</span>
                 )}
               </button>
-              <SessionSharePopover
-                open={shareOpen}
-                onClose={() => setShareOpen(false)}
-                sharedWith={currentSession.shared_with}
-                onShare={shareSession}
-                onUnshare={unshareSession}
-                isOwner={isSessionOwner}
-                onSearchUsers={searchMutualFollowers}
-              />
+              {currentSession && (
+                <SessionSharePopover
+                  open={shareOpen}
+                  onClose={() => setShareOpen(false)}
+                  sharedWith={currentSession.shared_with}
+                  onShare={shareSession}
+                  onUnshare={unshareSession}
+                  isOwner={isSessionOwner}
+                  onSearchUsers={searchMutualFollowers}
+                />
+              )}
             </div>
           )}
 
@@ -1275,7 +1415,7 @@ export default function BienBotPanel({
                           })}
                         </div>
                       )}
-                      {msg.content}
+                      {renderMessageContent(msg.content, navigate, styles)}
                       {msg.structured_content?.length > 0 && (
                         <div className={styles.structuredContent}>
                           {msg.structured_content.map((block, blockIdx) => {
