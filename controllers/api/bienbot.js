@@ -289,8 +289,8 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
   lines.push(
     'PLANNING AN EXPERIENCE:',
     'The user wants to plan an experience. Follow this flow:',
-    '1. A destination must be established before any experience can be discussed. If no destination is in context, ask: "Which destination are you planning for?" Do not list or suggest experiences until the user confirms a destination.',
-    '2. Once a destination is in context and an experience is resolved, propose a `create_plan` action with the `experience_id`. Do NOT include a `planned_date` — you will ask for that after creation.',
+    '1. A destination must be known before listing or discovering experiences. If the context block or search results below include a destination with a real _id, proceed immediately — a formal session context.destination_id is NOT required. If the conversation history mentions a destination by name, treat it as established and use any entity IDs provided in the context or entity resolution blocks. Only ask "Which destination are you planning for?" when no destination has been mentioned or resolved anywhere in this conversation.',
+    '2. Once a destination is known and an experience is resolved, propose a `create_plan` action with the `experience_id`. Do NOT include a `planned_date` — you will ask for that after creation.',
     '3. After the plan is created, ask when they are planning to go. Convert relative dates to absolute ISO dates.',
     '4. After the user provides a date, propose an `update_plan` action with the `planned_date`.',
     '5. After the date is set, use `suggest_plan_items` to show popular items.',
@@ -559,6 +559,35 @@ async function buildContextBlocks(intent, entities, session, userId, message) {
     const hasEntityInSession = !!(ctx.destination_id || ctx.experience_id || ctx.plan_id);
     if (message && !entities.experience_name && !entities.destination_name && !hasEntityInSession && intent !== 'NAVIGATE_TO_ENTITY') {
       promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Recover entity context from recent assistant messages when the current message
+    // doesn't reference an entity explicitly and none is in session context.
+    // Handles follow-ups like "show me food experiences" after "I found Tokyo" in a prior turn.
+    const hasEntityInCurrentMsg = !!(entities.destination_name || entities.experience_name);
+    if (!hasEntityInCurrentMsg && !hasEntityInSession) {
+      const recentAssistantMsgs = (session.messages || [])
+        .filter(m => m.role === 'assistant')
+        .slice(-3)
+        .reverse(); // most recent first
+      let historyDestId = null;
+      let historyExpId = null;
+      for (const histMsg of recentAssistantMsgs) {
+        const refBlock = (histMsg.structured_content || []).find(b => b.type === 'entity_ref_list');
+        if (!refBlock?.data?.refs) continue;
+        for (const ref of refBlock.data.refs) {
+          if (!ref._id || /<[^>]+>/.test(ref._id)) continue;
+          if (ref.type === 'destination' && !historyDestId) historyDestId = ref._id;
+          if (ref.type === 'experience' && !historyExpId) historyExpId = ref._id;
+        }
+        if (historyDestId || historyExpId) break;
+      }
+      if (historyDestId) {
+        promises.push(buildDestinationContext(historyDestId, userId).then(b => b && blocks.push(b)));
+      }
+      if (historyExpId) {
+        promises.push(buildExperienceContext(historyExpId, userId).then(b => b && blocks.push(b)));
+      }
     }
 
     // Suggestion context when destination is known (enables LLM to propose suggest_plan_items)
@@ -2000,6 +2029,29 @@ exports.chat = async (req, res) => {
     message: rawParsed.message,
     pending_actions: confirmableActions
   };
+
+  // Hydrate session context from entity_refs returned by the LLM.
+  // This ensures subsequent messages can use entity IDs (e.g. a destination resolved
+  // in a prior turn) without the user having to repeat the entity name.
+  try {
+    const ctxFromRefs = {};
+    for (const ref of (rawParsed.entity_refs || [])) {
+      if (!ref._id || /<[^>]+>/.test(ref._id)) continue; // skip placeholder IDs
+      if (ref.type === 'destination' && !session.context?.destination_id) {
+        ctxFromRefs.destination_id = ref._id;
+      } else if (ref.type === 'experience' && !session.context?.experience_id) {
+        ctxFromRefs.experience_id = ref._id;
+      } else if (ref.type === 'plan' && !session.context?.plan_id) {
+        ctxFromRefs.plan_id = ref._id;
+      }
+    }
+    if (Object.keys(ctxFromRefs).length > 0) {
+      await session.updateContext(ctxFromRefs);
+      logger.debug('[bienbot] Session context hydrated from entity_refs', { ctxFromRefs });
+    }
+  } catch (ctxErr) {
+    logger.warn('[bienbot] Failed to hydrate session context from entity_refs', { error: ctxErr.message });
+  }
 
   // --- Step 6: Store in session ---
   try {
