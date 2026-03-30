@@ -983,16 +983,13 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
       return null;
 
     case 'discover_content':
-      if (result.results && result.results.length > 0) {
-        return {
-          type: 'discovery_result_list',
-          data: {
-            results: result.results,
-            query_metadata: result.query_metadata || {}
-          }
-        };
-      }
-      return null;
+      return {
+        type: 'discovery_result_list',
+        data: {
+          results: result.results || [],
+          query_metadata: result.query_metadata || {}
+        }
+      };
 
     default:
       return null;
@@ -1646,38 +1643,135 @@ exports.chat = async (req, res) => {
     return true;
   }
 
+
   if (classification.intent === 'PLAN_EXPERIENCE' && !session.context?.plan_id) {
     try {
-      const { resolveEntity, ResolutionConfidence } = require('../../utilities/bienbot-entity-resolver');
+      loadModels();
+      // 1. Check for selected experience (from session context, invokeContext, or resolved entities)
+      let selectedExperienceId = null;
+      let selectedExperienceName = null;
+      // Priority: session.context.experience_id, invokeContext, resolvedEntityObjects
+      if (session.context?.experience_id) {
+        selectedExperienceId = session.context.experience_id.toString();
+      } else if (resolvedInvokeContext && resolvedInvokeContext.entity === 'experience') {
+        selectedExperienceId = resolvedInvokeContext.entity_id;
+      } else if (resolvedEntityObjects && resolvedEntityObjects.length > 0) {
+        const expRef = resolvedEntityObjects.find(e => e.type === 'experience');
+        if (expRef) selectedExperienceId = expRef._id;
+      }
 
+      if (selectedExperienceId) {
+        // Fetch the experience name
+        const expDoc = await Experience.findById(selectedExperienceId).select('name destination').populate('destination', 'name').lean();
+        selectedExperienceName = expDoc?.name || '(unnamed experience)';
+        const destinationName = expDoc?.destination?.name || '';
+
+        // Check if user already has a plan for this experience
+        const existingPlan = await Plan.findOne({ user: userId, experience: selectedExperienceId }).lean();
+
+        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+
+        if (existingPlan) {
+          // User already has a plan for this experience
+          // Ask if they want to create a new plan or work on the existing one
+          const actions = [
+            {
+              id: `action_${crypto.randomBytes(4).toString('hex')}`,
+              type: 'select_plan',
+              payload: {
+                plan_id: existingPlan._id.toString(),
+                experience_name: selectedExperienceName,
+                destination_name: destinationName,
+                planned_date: existingPlan.planned_date || null,
+                item_count: (existingPlan.plan || []).length
+              },
+              description: `Work on your existing plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}`
+            },
+            {
+              id: `action_${crypto.randomBytes(4).toString('hex')}`,
+              type: 'create_plan',
+              payload: {
+                experience_id: selectedExperienceId
+              },
+              description: `Create a new plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}`
+            }
+          ];
+          const msg = `You already have a plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}. Would you like to work on your existing plan or create a new one?`;
+          await session.addMessage('assistant', msg, { actions_taken: ['select_plan', 'create_plan'] });
+          await session.setPendingActions(actions);
+          await session.generateTitle();
+
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          });
+          sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+          for (const chunk of adaptiveChunks(msg)) {
+            sendSSE(res, 'token', { text: chunk });
+          }
+          sendSSE(res, 'actions', { pending_actions: actions });
+          sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_existing_plan' });
+          res.end();
+          logger.info('[bienbot] PLAN_EXPERIENCE: user has existing plan for experience', { userId, experience: selectedExperienceId });
+          return;
+        } else {
+          // No plan exists for this experience, propose create_plan
+          const action = {
+            id: `action_${crypto.randomBytes(4).toString('hex')}`,
+            type: 'create_plan',
+            payload: {
+              experience_id: selectedExperienceId
+            },
+            description: `Create a new plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}`
+          };
+          const msg = `Let's create a new plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}. Ready to get started?`;
+          await session.addMessage('assistant', msg, { actions_taken: ['create_plan'] });
+          await session.setPendingActions([action]);
+          await session.generateTitle();
+
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          });
+          sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+          for (const chunk of adaptiveChunks(msg)) {
+            sendSSE(res, 'token', { text: chunk });
+          }
+          sendSSE(res, 'actions', { pending_actions: [action] });
+          sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_create_plan' });
+          res.end();
+          logger.info('[bienbot] PLAN_EXPERIENCE: proposed create_plan for experience', { userId, experience: selectedExperienceId });
+          return;
+        }
+      }
+      // If no experience is selected, fall back to original plan/discover logic
       // ── A: Destination already in context → resolve name and run plan+discover ──
+      const { resolveEntity, ResolutionConfidence } = require('../../utilities/bienbot-entity-resolver');
       if (session.context?.destination_id) {
-        loadModels();
         const ctxDest = await Destination.findById(session.context.destination_id).select('name').lean();
         const destNameFromCtx = ctxDest?.name || classification.entities?.destination_name || '';
         if (destNameFromCtx) {
           const streamed = await runPlanDiscover(destNameFromCtx);
           if (streamed) return;
         }
-        // If nothing to show, fall through to LLM
       } else {
         // ── B: No destination in context → resolve from message ──────────────────
         const destQuery = classification.entities?.destination_name
           || classification.entities?.experience_name
           || message;
-
         if (destQuery && destQuery.trim().length >= 2) {
           const { candidates, confidence } = await resolveEntity(
             destQuery.trim(), 'destination', req.user
           );
-
           if (confidence === ResolutionConfidence.HIGH && candidates.length > 0) {
             const top = candidates[0];
             await session.updateContext({ destination_id: top.id });
             const streamed = await runPlanDiscover(top.name || destQuery.trim());
             if (streamed) return;
-            // If nothing to show, fall through to LLM
-
           } else if (confidence === ResolutionConfidence.MEDIUM && candidates.length > 0) {
             const destActions = candidates.slice(0, 5).map(c => ({
               id: `action_${crypto.randomBytes(4).toString('hex')}`,
@@ -1691,16 +1785,12 @@ exports.chat = async (req, res) => {
               },
               description: c.name
             }));
-
             const disambigMsg = candidates.length > 1
               ? `I found a few destinations matching "${destQuery.trim()}". Which one did you mean?`
               : `I found a destination matching "${destQuery.trim()}". Is this the one?`;
-
-            await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
             await session.addMessage('assistant', disambigMsg, { actions_taken: ['select_destination'] });
             await session.setPendingActions(destActions);
             await session.generateTitle();
-
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
@@ -1717,11 +1807,10 @@ exports.chat = async (req, res) => {
             logger.info('[bienbot] Destination gate — streamed select_destination cards', { userId, destQuery: destQuery.trim(), count: destActions.length });
             return;
           }
-          // LOW confidence: fall through to LLM
         }
       }
     } catch (err) {
-      logger.warn('[bienbot] Destination gate failed, continuing with LLM', { error: err.message });
+      logger.warn('[bienbot] PLAN_EXPERIENCE handler failed, continuing with LLM', { error: err.message });
     }
   }
 
