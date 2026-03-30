@@ -108,7 +108,6 @@ function EmptyState({ queryMetadata, onEmpty }) {
 
   return (
     <div className={styles.discoveryEmptyState}>
-      <div className={styles.discoveryEmptyIcon} aria-hidden="true">🔍</div>
       <div className={styles.discoveryEmptyPrimary}>{primary}</div>
       <div className={styles.discoveryEmptySecondary}>{secondary}</div>
       <Button
@@ -122,6 +121,11 @@ function EmptyState({ queryMetadata, onEmpty }) {
     </div>
   );
 }
+
+EmptyState.propTypes = {
+  queryMetadata: PropTypes.object,
+  onEmpty: PropTypes.func.isRequired,
+};
 
 function ActivityBadges({ types }) {
   if (!types?.length) return null;

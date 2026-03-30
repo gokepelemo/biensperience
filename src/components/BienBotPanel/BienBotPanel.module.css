@@ -2001,11 +2001,6 @@
   text-align: center;
 }
 
-.discoveryEmptyIcon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
 .discoveryEmptyPrimary {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);

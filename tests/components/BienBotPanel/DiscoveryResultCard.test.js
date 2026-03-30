@@ -246,3 +246,21 @@ describe('skeleton mode', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fallback: data with no query_metadata key
+// ---------------------------------------------------------------------------
+describe('empty state — missing query_metadata fallback', () => {
+  it('renders the generic empty state when query_metadata is absent', () => {
+    const data = { results: [] };
+    render(
+      <DiscoveryResultCard
+        data={data}
+        onView={noopView}
+        onPlan={noopPlan}
+        onEmpty={onEmpty}
+      />
+    );
+    expect(screen.getByText(/No matching experiences found/i)).toBeInTheDocument();
+  });
+});
