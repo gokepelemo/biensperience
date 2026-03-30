@@ -2092,6 +2092,8 @@ exports.chat = async (req, res) => {
       try {
         const outcome = await executeAction(action, req.user, session);
 
+        // Note: discover_content always returns a non-null result body (even for empty results)
+        // so this guard correctly allows through the empty-results case.
         if (outcome.success && outcome.result) {
           const contentBlock = mapReadOnlyResultToStructuredContent(action.type, outcome.result);
           if (contentBlock) {
