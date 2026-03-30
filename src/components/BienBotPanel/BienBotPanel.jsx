@@ -651,6 +651,26 @@ export default function BienBotPanel({
     [sendMessage, isStreaming, isLoading]
   );
 
+  // ── Handle empty discovery results ─────────────────────────────────────
+  const handleDiscoveryEmpty = useCallback(
+    (filtersApplied) => {
+      if (isStreaming || isLoading) return;
+      const { destination_name, destination_id, activity_types } = filtersApplied || {};
+      if (!destination_id && destination_name) {
+        sendMessage(`Create ${destination_name} as a destination`);
+      } else if (destination_id && destination_name) {
+        const activity = activity_types?.[0];
+        sendMessage(activity
+          ? `Create a new ${activity} experience in ${destination_name}`
+          : `Create a new experience in ${destination_name}`
+        );
+      } else {
+        sendMessage("I'd like to create a destination");
+      }
+    },
+    [isStreaming, isLoading, sendMessage]
+  );
+
   const isSessionOwner = currentSession && user?._id && currentSession.user?.toString() === user._id.toString();
   // True when sessions shared with this user exist but no current session is active.
   // Used to surface the share button so the user can navigate to a shared session.
@@ -1456,6 +1476,7 @@ export default function BienBotPanel({
                                   data={block.data}
                                   onView={handleViewDiscoveryResult}
                                   onPlan={handlePlanDiscoveryResult}
+                                  onEmpty={handleDiscoveryEmpty}
                                   disabled={isLoading || isStreaming}
                                 />
                               );
