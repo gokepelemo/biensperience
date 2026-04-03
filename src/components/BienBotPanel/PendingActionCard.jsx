@@ -42,6 +42,7 @@ const ACTION_CONFIG = {
   add_entity_photos:            { label: 'Add Photos',              icon: '📷', confirm_label: 'Add Photos',           dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   set_member_location:          { label: 'Set Location',            icon: '📍', confirm_label: 'Set Location',         dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   remove_member_location:       { label: 'Remove Location',         icon: '📍', confirm_label: 'Remove Location',      dismiss_label: 'Cancel',          card_intent: 'confirmation' },
+  shift_plan_item_dates:        { label: 'Shift Item Dates',         icon: '📅', confirm_label: 'Shift Dates',           dismiss_label: 'Keep Current',    card_intent: 'confirmation' },
   workflow:                     { label: 'Workflow',                 icon: '⚡', confirm_label: 'Run All Steps',        dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   navigate_to_entity:           { label: 'Navigate',                icon: '🔗', confirm_label: 'Go There',             dismiss_label: null,              card_intent: 'selection'    },
   select_plan:                  { label: 'Select Plan',             icon: '📋', confirm_label: 'Select',               dismiss_label: null,              card_intent: 'selection'    },

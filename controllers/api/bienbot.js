@@ -359,6 +359,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '--- Plan ---',
     '- create_plan: { experience_id, planned_date?, currency? }',
     '- update_plan: { plan_id, planned_date?, currency?, notes? }',
+    '- shift_plan_item_dates: { plan_id, diff_days } — Shifts all scheduled plan item dates by the given number of days. Propose this automatically after an update_plan that changes planned_date when the user confirms they want item dates shifted too.',
     '- delete_plan: { plan_id }  (⚠️ confirm with user first)',
     '- sync_plan: { plan_id }',
     '',
