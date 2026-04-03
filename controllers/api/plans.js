@@ -5412,6 +5412,53 @@ async function updatePlanAIConfig(req, res) {
   }
 }
 
+const shiftPlanItemDates = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { diff_ms } = req.body;
+
+  if (!validateObjectId(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  if (diff_ms === undefined || diff_ms === null || !Number.isFinite(Number(diff_ms)) || Number(diff_ms) === 0) {
+    return errorResponse(res, null, 'diff_ms must be a finite non-zero number', 400);
+  }
+
+  const diffMs = Number(diff_ms);
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({ userId: req.user._id, resource: plan });
+  if (!permCheck.allowed) {
+    return errorResponse(res, null, permCheck.reason || 'Insufficient permissions', 403);
+  }
+
+  let shiftedCount = 0;
+  for (const item of plan.plan) {
+    if (!item.parent && item.scheduled_date) {
+      item.scheduled_date = new Date(new Date(item.scheduled_date).getTime() + diffMs);
+      shiftedCount++;
+    }
+  }
+
+  if (shiftedCount > 0) {
+    await plan.save();
+  }
+
+  try {
+    broadcastEvent('plan', id.toString(), {
+      type: 'plan:updated',
+      payload: { planId: id.toString(), userId: req.user._id.toString() }
+    }, req.user._id.toString());
+  } catch (_) { /* ignore websocket errors */ }
+
+  return res.json({ shifted_count: shiftedCount });
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -5456,4 +5503,6 @@ module.exports = {
   // Entity AI config
   getPlanAIConfig,
   updatePlanAIConfig,
+  // Plan item date shifting
+  shiftPlanItemDates,
 };
