@@ -3078,7 +3078,10 @@ export default function SingleExperience() {
   // to avoid circular dependency with useExperienceActions and handleAddExperience
   const {
     plannedDateRef,
-    handleDateUpdate
+    handleDateUpdate,
+    pendingShift,
+    onShiftDates,
+    onKeepDates,
   } = useDateManagement({
     user,
     experience,
@@ -3538,6 +3541,9 @@ export default function SingleExperience() {
                         setShowDatePicker={setShowDatePickerState}
                         setIsEditingDate={setIsEditingDate}
                         lang={lang}
+                        pendingShift={pendingShift}
+                        onShiftDates={onShiftDates}
+                        onKeepDates={onKeepDates}
                       />
 
                       {/* Details List */}

@@ -3,6 +3,7 @@
  * Modal for setting/editing planned dates using Chakra UI DatePicker
  */
 
+import PropTypes from 'prop-types';
 import { useMemo } from 'react';
 import { DatePicker, Flex, Text, parseDate } from '@chakra-ui/react';
 import { Modal, Alert, Button as DSButton } from '../../../components/design-system';
@@ -30,12 +31,17 @@ export default function DatePickerSection({
   setIsEditingDate,
 
   // Language strings
-  lang
+  lang,
+
+  // Shift confirmation props
+  pendingShift,
+  onShiftDates,
+  onKeepDates,
 }) {
   const handleClose = () => {
-    setShowDatePicker(false);
-    setIsEditingDate(false);
-    setPlannedDate("");
+    setShowDatePicker && setShowDatePicker(false);
+    setIsEditingDate && setIsEditingDate(false);
+    setPlannedDate && setPlannedDate("");
   };
 
   const handleSubmit = () => {
@@ -54,14 +60,14 @@ export default function DatePickerSection({
 
   // Compute min date as DateValue
   const minDateValue = useMemo(() => {
-    const minStr = getMinimumPlanningDate(experience.max_planning_days);
+    const minStr = getMinimumPlanningDate(experience?.max_planning_days);
     if (!minStr) return undefined;
     try {
       return parseDate(minStr);
     } catch {
       return undefined;
     }
-  }, [experience.max_planning_days]);
+  }, [experience?.max_planning_days]);
 
   // Handle Chakra DatePicker value change → update parent string state
   const handleValueChange = (details) => {
@@ -72,26 +78,46 @@ export default function DatePickerSection({
     }
   };
 
+  // Shift confirmation footer
+  const shiftFooter = pendingShift ? (
+    <Flex gap="var(--space-2)" w="100%" justify="flex-end" flexWrap="nowrap">
+      <DSButton
+        variant="outline"
+        size="md"
+        onClick={onKeepDates}
+      >
+        Keep Current Dates
+      </DSButton>
+      <DSButton
+        variant="gradient"
+        size="md"
+        onClick={onShiftDates}
+      >
+        Shift Dates
+      </DSButton>
+    </Flex>
+  ) : null;
+
   // Custom footer with all action buttons
-  const modalFooter = (
+  const normalFooter = (
     <Flex gap="var(--space-2)" w="100%" justify="flex-end" flexWrap="nowrap">
       {!isEditingDate && (
         <DSButton
           variant="outline"
           size="md"
           onClick={() => handleAddExperience({})}
-          aria-label={lang.current.button.skip}
+          aria-label={lang?.current?.button?.skip}
         >
-          {lang.current.button.skip}
+          {lang?.current?.button?.skip}
         </DSButton>
       )}
       <DSButton
         variant="outline"
         size="md"
         onClick={handleClose}
-        aria-label={lang.current.button.cancel}
+        aria-label={lang?.current?.button?.cancel}
       >
-        {lang.current.button.cancel}
+        {lang?.current?.button?.cancel}
       </DSButton>
       <DSButton
         variant="gradient"
@@ -100,33 +126,68 @@ export default function DatePickerSection({
         disabled={!plannedDate || loading}
         aria-label={
           isEditingDate
-            ? lang.current.button.updateDate
-            : lang.current.button.setDateAndAdd
+            ? lang?.current?.button?.updateDate
+            : lang?.current?.button?.setDateAndAdd
         }
       >
         {loading ? "Saving..." : (isEditingDate
-          ? lang.current.button.updateDate
-          : lang.current.button.setDateAndAdd)}
+          ? lang?.current?.button?.updateDate
+          : lang?.current?.button?.setDateAndAdd)}
       </DSButton>
     </Flex>
   );
+
+  // When pendingShift is set, show the shift confirmation banner (no modal wrapping needed for tests)
+  if (pendingShift) {
+    const dayLabel = pendingShift.diffDays > 0
+      ? `+${pendingShift.diffDays}`
+      : `${pendingShift.diffDays}`;
+
+    const bannerMessage = (
+      <>
+        You moved your plan from {new Date(pendingShift.oldDate).toLocaleDateString()} to{' '}
+        {new Date(pendingShift.newDate).toLocaleDateString()} ({dayLabel} days).{' '}
+        {pendingShift.count} plan item(s) have scheduled dates. Shift them all by{' '}
+        {Math.abs(pendingShift.diffDays)} days?
+      </>
+    );
+
+    return (
+      <Modal
+        show={showDatePicker !== undefined ? showDatePicker : true}
+        onClose={handleClose}
+        title={isEditingDate
+          ? lang?.current?.heading?.editPlannedDate
+          : lang?.current?.heading?.planYourExperience}
+        icon={<FaCalendarAlt />}
+        size="md"
+        footer={shiftFooter}
+      >
+        <Alert
+          type="info"
+          style={{ marginTop: 'var(--space-2)' }}
+          message={bannerMessage}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal
       show={showDatePicker}
       onClose={handleClose}
       title={isEditingDate
-        ? lang.current.heading.editPlannedDate
-        : lang.current.heading.planYourExperience}
+        ? lang?.current?.heading?.editPlannedDate
+        : lang?.current?.heading?.planYourExperience}
       icon={<FaCalendarAlt />}
       size="md"
-      footer={modalFooter}
+      footer={normalFooter}
     >
-      {experience.max_planning_days > 0 && formatPlanningTime(experience.max_planning_days) && (
+      {experience?.max_planning_days > 0 && formatPlanningTime(experience?.max_planning_days) && (
         <Text color="var(--color-text-muted)" mb="var(--space-4)">
-          {lang.current.helper.requiresDaysToPlan.replace(
+          {lang?.current?.helper?.requiresDaysToPlan?.replace(
             "{days}",
-            formatPlanningTime(experience.max_planning_days)
+            formatPlanningTime(experience?.max_planning_days)
           )}
         </Text>
       )}
@@ -138,9 +199,10 @@ export default function DatePickerSection({
         closeOnSelect
         inline
         width="100%"
+        data-testid="date-picker-input"
       >
         <DatePicker.Label fontWeight="var(--font-weight-semibold)">
-          {lang.current.label.whenDoYouWantExperience}
+          {lang?.current?.label?.whenDoYouWantExperience}
         </DatePicker.Label>
         <DatePicker.Content unstyled>
           <DatePicker.View view="day">
@@ -159,17 +221,41 @@ export default function DatePickerSection({
       </DatePicker.Root>
 
       {plannedDate &&
-        experience.max_planning_days > 0 &&
+        experience?.max_planning_days > 0 &&
         !isValidPlannedDate(
           plannedDate,
-          experience.max_planning_days
+          experience?.max_planning_days
         ) && (
           <Alert
             type="warning"
             style={{ marginTop: 'var(--space-2)' }}
-            message={lang.current.alert.notEnoughTimeWarning}
+            message={lang?.current?.alert?.notEnoughTimeWarning}
           />
         )}
     </Modal>
   );
 }
+
+DatePickerSection.propTypes = {
+  showDatePicker: PropTypes.bool,
+  experience: PropTypes.object,
+  isEditingDate: PropTypes.bool,
+  plannedDate: PropTypes.string,
+  setPlannedDate: PropTypes.func,
+  loading: PropTypes.bool,
+  handleDateUpdate: PropTypes.func,
+  handleAddExperience: PropTypes.func,
+  setShowDatePicker: PropTypes.func,
+  setIsEditingDate: PropTypes.func,
+  lang: PropTypes.object,
+  pendingShift: PropTypes.shape({
+    planId: PropTypes.string,
+    count: PropTypes.number,
+    diffDays: PropTypes.number,
+    diffMs: PropTypes.number,
+    oldDate: PropTypes.string,
+    newDate: PropTypes.string,
+  }),
+  onShiftDates: PropTypes.func,
+  onKeepDates: PropTypes.func,
+};
