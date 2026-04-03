@@ -396,4 +396,122 @@ describe('bienbot-action-executor', () => {
       expect(result.body.data.destination_id).toBe('a'.repeat(24));
     });
   });
+
+  // -------------------------------------------------------------------------
+  // shift_plan_item_dates
+  // -------------------------------------------------------------------------
+
+  describe('shift_plan_item_dates', () => {
+    it('includes shift_plan_item_dates in ALLOWED_ACTION_TYPES', () => {
+      expect(ALLOWED_ACTION_TYPES).toContain('shift_plan_item_dates');
+    });
+
+    it('calls plansController.shiftPlanItemDates with diff_ms computed from diff_days', async () => {
+      plansController.shiftPlanItemDates.mockImplementationOnce(async (req, res) => {
+        res.json({ shifted_count: 3 });
+      });
+
+      const result = await executeAction(
+        {
+          id: 'action_spid01',
+          type: 'shift_plan_item_dates',
+          payload: { plan_id: 'plan-abc', diff_days: 7 }
+        },
+        user
+      );
+
+      expect(result.success).toBe(true);
+      expect(plansController.shiftPlanItemDates).toHaveBeenCalledTimes(1);
+
+      const req = plansController.shiftPlanItemDates.mock.calls[0][0];
+      expect(req.params.id).toBe('plan-abc');
+      expect(req.body.diff_ms).toBe(7 * 86400000);
+      expect(req.user).toBe(user);
+    });
+
+    it('returns the result from plansController.shiftPlanItemDates', async () => {
+      plansController.shiftPlanItemDates.mockImplementationOnce(async (req, res) => {
+        res.json({ shifted_count: 5 });
+      });
+
+      const result = await executeAction(
+        {
+          id: 'action_spid02',
+          type: 'shift_plan_item_dates',
+          payload: { plan_id: 'plan-xyz', diff_days: -3 }
+        },
+        user
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.body.shifted_count).toBe(5);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // executeUpdatePlan — auto-propose shift action
+  // -------------------------------------------------------------------------
+
+  describe('executeUpdatePlan — auto-propose shift_plan_item_dates', () => {
+    it('pushes a shift_plan_item_dates pending action to session when _shift_meta is present with scheduled_items_count > 0', async () => {
+      plansController.updatePlan.mockImplementationOnce(async (req, res) => {
+        res.json({
+          _id: 'plan-shift',
+          planned_date: '2026-05-01',
+          _shift_meta: {
+            scheduled_items_count: 4,
+            date_diff_days: 3,
+            date_diff_ms: 3 * 86400000,
+            old_date: '2026-04-28',
+            new_date: '2026-05-01'
+          }
+        });
+      });
+
+      const session = { pending_actions: [] };
+
+      await executeAction(
+        {
+          id: 'action_upd01',
+          type: 'update_plan',
+          payload: { plan_id: 'plan-shift', planned_date: '2026-05-01' }
+        },
+        user,
+        session
+      );
+
+      expect(session.pending_actions).toHaveLength(1);
+      const proposed = session.pending_actions[0];
+      expect(proposed.type).toBe('shift_plan_item_dates');
+      expect(proposed.payload.plan_id).toBe('plan-shift');
+      expect(proposed.payload.diff_days).toBe(3);
+      expect(proposed.executed).toBe(false);
+      expect(proposed.id).toMatch(/^action_/);
+      expect(proposed.description).toContain('4');
+      expect(proposed.description).toContain('+3');
+    });
+
+    it('does NOT push a pending action when _shift_meta is absent', async () => {
+      plansController.updatePlan.mockImplementationOnce(async (req, res) => {
+        res.json({
+          _id: 'plan-no-shift',
+          planned_date: '2026-05-01'
+        });
+      });
+
+      const session = { pending_actions: [] };
+
+      await executeAction(
+        {
+          id: 'action_upd02',
+          type: 'update_plan',
+          payload: { plan_id: 'plan-no-shift', planned_date: '2026-05-01' }
+        },
+        user,
+        session
+      );
+
+      expect(session.pending_actions).toHaveLength(0);
+    });
+  });
 });

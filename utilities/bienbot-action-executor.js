@@ -71,7 +71,9 @@ const ALLOWED_ACTION_TYPES = [
   // Plan selection (disambiguation)
   'select_plan',
   // Destination selection (disambiguation)
-  'select_destination'
+  'select_destination',
+  // Plan item date shifting
+  'shift_plan_item_dates'
 ];
 
 /**
@@ -636,7 +638,7 @@ async function executeToggleFavoriteDestination(payload, user) {
  * update_plan
  * payload: { plan_id, planned_date?, currency?, notes? }
  */
-async function executeUpdatePlan(payload, user) {
+async function executeUpdatePlan(payload, user, session) {
   loadControllers();
   const body = {};
   if (payload.planned_date !== undefined) body.planned_date = payload.planned_date;
@@ -645,6 +647,35 @@ async function executeUpdatePlan(payload, user) {
   const req = buildMockReq(user, body, { id: payload.plan_id });
   const { res, getResult } = buildMockRes();
   await plansController.updatePlan(req, res);
+  const result = getResult();
+
+  // Auto-propose shift action if the plan date changed and there are scheduled items
+  if (result.body?._shift_meta && result.body._shift_meta.scheduled_items_count > 0 && session) {
+    const { scheduled_items_count, date_diff_days } = result.body._shift_meta;
+    session.pending_actions = session.pending_actions || [];
+    session.pending_actions.push({
+      id: `action_${Math.random().toString(36).substring(2, 10)}`,
+      type: 'shift_plan_item_dates',
+      payload: { plan_id: payload.plan_id, diff_days: date_diff_days },
+      description: `Shift ${scheduled_items_count} plan item date(s) by ${date_diff_days > 0 ? '+' : ''}${date_diff_days} day(s) to match your updated plan date`,
+      executed: false,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * shift_plan_item_dates
+ * payload: { plan_id, diff_days }
+ */
+async function executeShiftPlanItemDates(payload, user) {
+  loadControllers();
+  const { plan_id, diff_days } = payload;
+  const diffMs = diff_days * 86_400_000;
+  const req = buildMockReq(user, { diff_ms: diffMs }, { id: plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.shiftPlanItemDates(req, res);
   return getResult();
 }
 
@@ -1151,7 +1182,9 @@ const ACTION_HANDLERS = {
   // Plan disambiguation
   select_plan: executeSelectPlan,
   // Destination disambiguation
-  select_destination: executeSelectDestination
+  select_destination: executeSelectDestination,
+  // Plan item date shifting
+  shift_plan_item_dates: executeShiftPlanItemDates
 };
 
 // ---------------------------------------------------------------------------
