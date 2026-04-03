@@ -25,11 +25,12 @@ jest.mock('@chakra-ui/react', () => {
 jest.mock('../../src/components/design-system', () => {
   const React = require('react');
   return {
-    Modal: ({ children, footer, show }) =>
+    Modal: ({ children, footer, show, onClose }) =>
       show !== false
         ? React.createElement(
             'div',
             { 'data-testid': 'modal' },
+            React.createElement('button', { 'aria-label': 'close', onClick: onClose }, 'Close'),
             children,
             footer
           )
@@ -154,5 +155,20 @@ describe('DatePickerSection — shift confirmation banner', () => {
       />
     );
     expect(screen.getByText(/-3/)).toBeInTheDocument();
+  });
+
+  it('calls onKeepDates when modal is closed while pendingShift is set', () => {
+    const onKeepDates = jest.fn();
+    render(
+      <DatePickerSection
+        {...baseProps}
+        pendingShift={pendingShift}
+        onShiftDates={jest.fn()}
+        onKeepDates={onKeepDates}
+      />
+    );
+    const closeBtn = screen.getByRole('button', { name: /close/i });
+    fireEvent.click(closeBtn);
+    expect(onKeepDates).toHaveBeenCalledTimes(1);
   });
 });

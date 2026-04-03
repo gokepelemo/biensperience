@@ -39,6 +39,10 @@ export default function DatePickerSection({
   onKeepDates,
 }) {
   const handleClose = () => {
+    if (pendingShift && onKeepDates) {
+      onKeepDates();
+      return;
+    }
     setShowDatePicker && setShowDatePicker(false);
     setIsEditingDate && setIsEditingDate(false);
     setPlannedDate && setPlannedDate("");
