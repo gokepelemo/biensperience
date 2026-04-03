@@ -202,5 +202,15 @@ describe('POST /api/plans/:id/shift-item-dates', () => {
       expect(res.status).toBe(200);
       expect(res.body._shift_meta).toBeUndefined();
     });
+
+    test('does NOT return _shift_meta when new date equals old date', async () => {
+      const plan = await planWithItemAndDate(new Date('2026-05-01'));
+      const res = await request(app)
+        .put(`/api/plans/${plan._id}`)
+        .set('Authorization', authToken)
+        .send({ planned_date: '2026-05-01' });
+      expect(res.status).toBe(200);
+      expect(res.body._shift_meta).toBeUndefined();
+    });
   });
 });
