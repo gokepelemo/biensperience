@@ -1293,6 +1293,33 @@ const updatePlan = asyncHandler(async (req, res) => {
       reason: `Plan updated (planned_date)`
     });
 
+    // Check whether to offer item date shift
+    const oldDate = previousState.planned_date;
+    const newDate = updated.planned_date;
+
+    if (oldDate && newDate) {
+      const diffMs = new Date(newDate).getTime() - new Date(oldDate).getTime();
+      if (diffMs !== 0) {
+        const scheduledCount = (updated.plan || []).filter(
+          item => !item.parent && item.scheduled_date
+        ).length;
+
+        if (scheduledCount > 0) {
+          const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+          return res.json({
+            ...updated.toObject(),
+            _shift_meta: {
+              scheduled_items_count: scheduledCount,
+              date_diff_days: diffDays,
+              date_diff_ms: diffMs,
+              old_date: oldDate,
+              new_date: newDate
+            }
+          });
+        }
+      }
+    }
+
     return res.json(updated);
   }
 

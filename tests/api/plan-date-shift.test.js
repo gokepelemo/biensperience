@@ -126,4 +126,81 @@ describe('POST /api/plans/:id/shift-item-dates', () => {
     expect(res.status).toBe(200);
     expect(res.body.shifted_count).toBe(0);
   });
+
+  describe('PUT /api/plans/:id — _shift_meta in planned_date-only update', () => {
+    let user, experience, destination, authToken;
+
+    beforeEach(async () => {
+      await clearTestData();
+      user = await createTestUser({ name: 'Test User', email: 'tester2@example.com' });
+      const owner = await createTestUser({ name: 'Owner', email: 'owner2@example.com' });
+      destination = await createTestDestination(owner);
+      experience = await createTestExperience(owner, destination, {});
+      authToken = generateAuthToken(user);
+    });
+
+    async function planWithItemAndDate(plannedDate) {
+      return createTestPlan(user, experience, {
+        planned_date: plannedDate,
+        plan: [
+          {
+            plan_item_id: new mongoose.Types.ObjectId(),
+            text: 'Scheduled item',
+            scheduled_date: new Date('2026-05-10'),
+            complete: false
+          }
+        ]
+      });
+    }
+
+    test('returns _shift_meta when both dates non-null and items have scheduled_date', async () => {
+      const plan = await planWithItemAndDate(new Date('2026-05-01'));
+
+      const res = await request(app)
+        .put(`/api/plans/${plan._id}`)
+        .set('Authorization', authToken)
+        .send({ planned_date: '2026-05-08' });
+
+      expect(res.status).toBe(200);
+      expect(res.body._shift_meta).toBeDefined();
+      expect(res.body._shift_meta.scheduled_items_count).toBe(1);
+      expect(res.body._shift_meta.date_diff_days).toBe(7);
+      expect(res.body._shift_meta.date_diff_ms).toBe(7 * 24 * 60 * 60 * 1000);
+      expect(res.body._id).toBeDefined(); // plan fields still present
+    });
+
+    test('does NOT return _shift_meta when old date is null', async () => {
+      const plan = await createTestPlan(user, experience, {
+        planned_date: null,
+        plan: [
+          { plan_item_id: new mongoose.Types.ObjectId(), text: 'item', scheduled_date: new Date('2026-05-10'), complete: false }
+        ]
+      });
+
+      const res = await request(app)
+        .put(`/api/plans/${plan._id}`)
+        .set('Authorization', authToken)
+        .send({ planned_date: '2026-05-08' });
+
+      expect(res.status).toBe(200);
+      expect(res.body._shift_meta).toBeUndefined();
+    });
+
+    test('does NOT return _shift_meta when no items have scheduled_date', async () => {
+      const plan = await createTestPlan(user, experience, {
+        planned_date: new Date('2026-05-01'),
+        plan: [
+          { plan_item_id: new mongoose.Types.ObjectId(), text: 'no schedule', scheduled_date: null, complete: false }
+        ]
+      });
+
+      const res = await request(app)
+        .put(`/api/plans/${plan._id}`)
+        .set('Authorization', authToken)
+        .send({ planned_date: '2026-05-08' });
+
+      expect(res.status).toBe(200);
+      expect(res.body._shift_meta).toBeUndefined();
+    });
+  });
 });
