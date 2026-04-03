@@ -5426,6 +5426,8 @@ const shiftPlanItemDates = asyncHandler(async (req, res) => {
 
   const diffMs = Number(diff_ms);
 
+  backendLogger.debug('shiftPlanItemDates: entry', { planId: id, diffMs });
+
   const plan = await Plan.findById(id);
   if (!plan) {
     return errorResponse(res, null, 'Plan not found', 404);
@@ -5445,16 +5447,22 @@ const shiftPlanItemDates = asyncHandler(async (req, res) => {
     }
   }
 
+  backendLogger.info('shiftPlanItemDates: shift complete', { planId: id, shiftedCount, diffMs });
+
   if (shiftedCount > 0) {
     await plan.save();
+    try {
+      broadcastEvent('plan', id.toString(), {
+        type: 'plan:updated',
+        payload: {
+          plan: plan.toObject(),
+          planId: id.toString(),
+          updatedFields: ['plan_items.scheduled_date'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (_) { /* ignore websocket errors */ }
   }
-
-  try {
-    broadcastEvent('plan', id.toString(), {
-      type: 'plan:updated',
-      payload: { planId: id.toString(), userId: req.user._id.toString() }
-    }, req.user._id.toString());
-  } catch (_) { /* ignore websocket errors */ }
 
   return res.json({ shifted_count: shiftedCount });
 });
