@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isOwner } from '../utilities/permissions';
 import { handleError } from '../utilities/error-handler';
+import { shiftPlanItemDates } from '../utilities/plans-api';
 import debug from '../utilities/debug';
 
 /**
@@ -74,7 +75,10 @@ export function useDateManagement({
   const [localIsEditingDate, localSetIsEditingDate] = useState(false);
   const isEditingDate = isEditingDateState !== null ? isEditingDateState : localIsEditingDate;
   const setIsEditingDate = setIsEditingDateState || localSetIsEditingDate;
-  
+
+  // Two-phase shift state: set when updatePlan returns _shift_meta, cleared after user confirms/declines
+  const [pendingShift, setPendingShift] = useState(null);
+
   // Ref for dynamic font sizing
   const plannedDateRef = useRef(null);
 
@@ -140,9 +144,20 @@ export function useDateManagement({
   }, [displayedPlannedDate]);
 
   /**
-   * Helper to update an existing plan's date
+   * Helper to finalize date update (cleanup UI state)
+   */
+  const finalizeDateUpdate = useCallback(() => {
+    closeModal();
+    setIsEditingDate(false);
+    setPlannedDate("");
+  }, [closeModal, setIsEditingDate, setPlannedDate]);
+
+  /**
+   * Helper to update an existing plan's date.
+   * When the server returns _shift_meta with scheduled items, sets pendingShift
+   * and leaves the modal open for user confirmation. Otherwise finalizes immediately.
    * @param {string} planId - Plan ID to update
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} true if finalization was deferred (shift pending), false otherwise
    */
   const updateExistingPlanDate = useCallback(async (planId) => {
     const dateToSend = plannedDate
@@ -153,24 +168,56 @@ export function useDateManagement({
     setDisplayedPlannedDate(dateToSend);
 
     // Update server - event reconciliation handles state synchronization
-    await updatePlan(planId, { planned_date: dateToSend });
+    const result = await updatePlan(planId, { planned_date: dateToSend });
 
-    // Refresh plans - version-based reconciliation prevents overwrites
-    fetchUserPlan().catch(() => {});
-    fetchSharedPlans().catch(() => {});
-    fetchPlans().catch(() => {});
-
-    debug.log("Plan date updated successfully", { planId });
-  }, [plannedDate, updatePlan, setDisplayedPlannedDate, fetchUserPlan, fetchSharedPlans, fetchPlans]);
+    const meta = result?._shift_meta;
+    if (meta && meta.scheduled_items_count > 0 && meta.date_diff_days !== 0) {
+      setPendingShift({
+        planId,
+        count: meta.scheduled_items_count,
+        diffDays: meta.date_diff_days,
+        diffMs: meta.date_diff_ms,
+        oldDate: meta.old_date,
+        newDate: meta.new_date
+      });
+      // Do NOT call finalizeDateUpdate — modal stays open for user confirmation
+      debug.log("Plan date updated successfully — shift pending", { planId });
+      return true;
+    } else {
+      // Refresh plans - version-based reconciliation prevents overwrites
+      fetchUserPlan().catch(() => {});
+      fetchSharedPlans().catch(() => {});
+      fetchPlans().catch(() => {});
+      finalizeDateUpdate();
+      debug.log("Plan date updated successfully", { planId });
+      return false;
+    }
+  }, [plannedDate, updatePlan, setDisplayedPlannedDate, fetchUserPlan, fetchSharedPlans, fetchPlans, finalizeDateUpdate]);
 
   /**
-   * Helper to finalize date update (cleanup UI state)
+   * Decline shifting item dates — finalize without calling shiftPlanItemDates.
+   * Clears pendingShift and closes the modal.
    */
-  const finalizeDateUpdate = useCallback(() => {
-    closeModal();
-    setIsEditingDate(false);
-    setPlannedDate("");
-  }, [closeModal, setIsEditingDate, setPlannedDate]);
+  const onKeepDates = useCallback(() => {
+    finalizeDateUpdate();
+    setPendingShift(null);
+  }, [finalizeDateUpdate]);
+
+  /**
+   * Accept shifting item dates — calls shiftPlanItemDates with the stored diffMs,
+   * then finalizes. Shows error toast if the shift API fails but still closes the modal.
+   */
+  const onShiftDates = useCallback(async () => {
+    if (!pendingShift) return;
+    try {
+      await shiftPlanItemDates(pendingShift.planId, pendingShift.diffMs);
+    } catch (err) {
+      showError(handleError(err, { context: 'Shift item dates' }));
+    } finally {
+      finalizeDateUpdate();
+      setPendingShift(null);
+    }
+  }, [pendingShift, finalizeDateUpdate, showError]);
 
   /**
    * Handle date update for plans and experiences.
@@ -203,20 +250,21 @@ export function useDateManagement({
       // Case 1: Editing selected plan on "My Plan" tab
       if (activeTab === "myplan" && selectedPlanId) {
         await updateExistingPlanDate(selectedPlanId);
+        // finalizeDateUpdate is called inside updateExistingPlanDate when not deferred
       }
       // Case 2: Editing user's own plan on "Experience" tab
       else if (userPlan) {
         await updateExistingPlanDate(userPlan._id);
         await fetchAllData();
+        // finalizeDateUpdate is called inside updateExistingPlanDate when not deferred
       }
       // Case 3: No existing plan (shouldn't happen in edit mode, but handle gracefully)
       else {
         debug.log("Edit mode but no plan exists - creating new plan");
         await handleAddExperience();
         await fetchAllData();
+        finalizeDateUpdate();
       }
-
-      finalizeDateUpdate();
     } catch (err) {
       // Handle email verification errors with specific message
       const msgLower = err?.message?.toLowerCase() || "";
@@ -254,6 +302,9 @@ export function useDateManagement({
     isEditingDate,
     setIsEditingDate,
     plannedDateRef,
-    handleDateUpdate
+    handleDateUpdate,
+    pendingShift,
+    onShiftDates,
+    onKeepDates
   };
 }
