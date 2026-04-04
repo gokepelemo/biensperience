@@ -7,10 +7,14 @@
  * @module hooks/useExperienceActions
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { lang } from '../lang.constants';
 import { handleError } from '../utilities/error-handler';
-import { deletePlan as deletePlanAPI } from '../utilities/plans-api';
+import {
+  deletePlan as deletePlanAPI,
+  schedulePlanDelete,
+  cancelScheduledPlanDelete,
+} from '../utilities/plans-api';
 import debug from '../utilities/debug';
 
 /**
@@ -64,6 +68,9 @@ export function useExperienceActions({
   showError,
   undoable
 }) {
+  // Tracks a pending (deferred) plan deletion so it can be cancelled when
+  // the user replans the same experience before the undo window expires.
+  const pendingUnplanRef = useRef(null);
   /**
    * Toggle experience planned state
    * - If not planned: Opens date picker to add
@@ -164,29 +171,63 @@ export function useExperienceActions({
     setSharedPlans(prev => prev.filter(p => p._id !== planId));
     setPendingUnplan(false);
 
-    debug.log("Plan removed optimistically, deferring API call");
-
-    // Show undo toast with deferred API call
-    undoable(lang.current.notification?.plan?.removedUndo || 'Removed from your plans. Tap Undo to restore.', {
-      onUndo: () => {
+    // Immediately tell the backend to schedule the deletion.
+    // This makes the delete durable regardless of frontend state (tab close, navigation, etc.).
+    let scheduleToken = null;
+    try {
+      const scheduled = await schedulePlanDelete(planId);
+      scheduleToken = scheduled?.token ?? null;
+      debug.log('[confirmRemoveExperience] Deletion scheduled on backend', { planId, token: scheduleToken });
+    } catch (scheduleErr) {
+      // Schedule failed (e.g. network error). Fall back to direct delete so the
+      // action isn't silently lost — optimistic removal already happened.
+      debug.log('[confirmRemoveExperience] schedule-delete failed, falling back to direct delete', { error: scheduleErr?.message });
+      try {
+        await deletePlanAPI(planId);
+      } catch (deleteErr) {
+        // Rollback on hard error
         setUserPlan(prevUserPlan);
         setUserHasExperience(true);
         setDisplayedPlannedDate(prevUserPlan.planned_date || null);
         setSharedPlans(prev => [...prev, prevUserPlan]);
-      },
-      onExpire: async () => {
+        const errorMsg = handleError(deleteErr, { context: 'Remove plan' });
+        showError(errorMsg || 'Failed to remove plan. It has been restored.');
+      }
+      return;
+    }
+
+    // Shared undo logic — callable from both the toast button and programmatic
+    // cancellation (e.g. the user immediately replans before the window expires).
+    const executeUndo = async () => {
+      if (scheduleToken) {
         try {
-          await deletePlanAPI(planId);
-          debug.log("Plan deleted successfully via deferred API call");
-        } catch (err) {
-          // Rollback on error
-          setUserPlan(prevUserPlan);
-          setUserHasExperience(true);
-          setDisplayedPlannedDate(prevUserPlan.planned_date || null);
-          fetchPlans?.().catch(() => {});
-          const errorMsg = handleError(err, { context: "Remove plan" });
-          showError(errorMsg || "Failed to remove plan. It has been restored.");
+          await cancelScheduledPlanDelete(scheduleToken);
+        } catch (cancelErr) {
+          // 404 means the window already expired and the delete fired.
+          // Restore UI anyway so the user isn’t confused, and let fetchPlans
+          // reconcile on the next render.
+          debug.log('[confirmRemoveExperience] cancel-delete token expired or not found', { error: cancelErr?.message });
         }
+      }
+      setUserPlan(prevUserPlan);
+      setUserHasExperience(true);
+      setDisplayedPlannedDate(prevUserPlan.planned_date || null);
+      setSharedPlans(prev => [...prev, prevUserPlan]);
+      fetchPlans?.().catch(() => {});
+    };
+
+    // Register the pending unplan so handleAddExperience can cancel it.
+    pendingUnplanRef.current = { prevPlan: prevUserPlan, undo: executeUndo, token: scheduleToken };
+
+    // Show undo toast. onExpire is a no-op: the backend handles the actual delete.
+    undoable(lang.current.notification?.plan?.removedUndo || 'Removed from your plans. Tap Undo to restore.', {
+      onUndo: async () => {
+        pendingUnplanRef.current = null;
+        await executeUndo();
+      },
+      onExpire: () => {
+        // Backend timer fires independently — nothing to do here.
+        pendingUnplanRef.current = null;
       },
     });
   }, [
@@ -209,7 +250,8 @@ export function useExperienceActions({
     handleExperience,
     handleShareExperience,
     handleSharePlanItem,
-    confirmRemoveExperience
+    confirmRemoveExperience,
+    pendingUnplanRef,
   };
 }
 

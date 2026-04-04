@@ -13,6 +13,7 @@ const { broadcastEvent } = require('../../utilities/websocket-server');
 const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
 const { successResponse, errorResponse, paginatedResponse, validateObjectId } = require('../../utilities/controller-helpers');
 const { aggregateGroupSignals } = require('../../utilities/hidden-signals');
+const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -285,9 +286,9 @@ async function index(req, res) {
       // Super admin sees everything (no additional filter)
 
       const baseQuery = Experience.find(filter)
-        .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
+        .select('name destination photos permissions experience_type createdAt updatedAt')
         .slice('photos', 1)
-        .populate({ path: 'photos', select: 'url caption width height' })
+        .populate({ path: 'photos.photo', select: 'url caption width height' })
         .lean({ virtuals: false });
 
       // Default pagination: page=1, limit=30
@@ -419,7 +420,7 @@ async function index(req, res) {
 
           // Add photo lookup and processing
           pipeline.push(
-            { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
+            { $lookup: { from: 'photos', localField: 'photos.photo', foreignField: '_id', as: 'photos' } },
             { $addFields: { photos: { $slice: ['$photos', 1] } } }
           );
 
@@ -434,7 +435,6 @@ async function index(req, res) {
               name: 1, 
               destination: 1, 
               photos: 1, 
-              default_photo_id: 1, 
               permissions: 1, 
               experience_type: 1, 
               createdAt: 1, 
@@ -460,9 +460,9 @@ async function index(req, res) {
         }
 
         const all = await Experience.find(filter)
-          .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
+          .select('name destination photos permissions experience_type createdAt updatedAt')
           .slice('photos', 1)
-          .populate({ path: 'photos', select: 'url caption width height' })
+          .populate({ path: 'photos.photo', select: 'url caption width height' })
           .sort(sortObj)
           .lean({ virtuals: false })
           .exec();
@@ -565,7 +565,7 @@ async function index(req, res) {
 
         // Add photo lookup and processing
         pipeline.push(
-          { $lookup: { from: 'photos', localField: 'photos', foreignField: '_id', as: 'photos' } },
+          { $lookup: { from: 'photos', localField: 'photos.photo', foreignField: '_id', as: 'photos' } },
           { $addFields: { photos: { $slice: ['$photos', 1] } } }
         );
 
@@ -582,7 +582,6 @@ async function index(req, res) {
             name: 1, 
             destination: 1, 
             photos: 1, 
-            default_photo_id: 1, 
             permissions: 1, 
             experience_type: 1, 
             createdAt: 1, 
@@ -606,9 +605,9 @@ async function index(req, res) {
         experiences = await Experience.aggregate(pipeline).exec();
       } else {
         experiences = await Experience.find(filter)
-          .select('name destination photos default_photo_id permissions experience_type createdAt updatedAt')
+          .select('name destination photos permissions experience_type createdAt updatedAt')
           .slice('photos', 1)
-          .populate({ path: 'photos', select: 'url caption width height' })
+          .populate({ path: 'photos.photo', select: 'url caption width height' })
           .sort(sortObj)
           .skip(skip)
           .limit(l)
@@ -766,15 +765,15 @@ async function showExperience(req, res) {
     // OPTIMIZATION: Use lean() for read-only queries and select only needed fields
     let experience = await Experience.findById(req.params.id)
       .populate("destination")
-      .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
       .populate({
         path: "permissions._id",
         populate: {
-          path: "photos",
+          path: "photos.photo",
           model: "Photo",
           select: 'url caption'
         },
-        select: "name photos default_photo_id feature_flags bio"
+        select: "name photos feature_flags bio"
       })
       .lean()
       .exec();
@@ -871,7 +870,7 @@ async function showExperienceWithContext(req, res) {
     // Remove nested population to reduce query complexity
     const experiencePromise = Experience.findById(experienceId)
       .populate("destination", "name city state country slug _id")
-      .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
       .select('-__v')  // Exclude version field
       .lean()
       .exec();
@@ -884,8 +883,8 @@ async function showExperienceWithContext(req, res) {
       .select('experience user planned_date plan permissions notes pinnedItemId createdAt updatedAt')
       .populate({
         path: 'user',
-        select: 'name email photos default_photo_id oauthProfilePhoto photo',
-        populate: { path: 'photos', select: 'url caption' }
+        select: 'name email photos oauthProfilePhoto photo',
+        populate: { path: 'photos.photo', select: 'url caption' }
       })
       .lean()
       .exec();
@@ -921,8 +920,8 @@ async function showExperienceWithContext(req, res) {
       // Populate the plan owner user small profile so frontend can render owner names
       .populate({
         path: 'user',
-        select: 'name email photos default_photo_id oauthProfilePhoto photo',
-        populate: { path: 'photos', select: 'url caption' }
+        select: 'name email photos oauthProfilePhoto photo',
+        populate: { path: 'photos.photo', select: 'url caption' }
       })
       .lean()
       .exec();
@@ -1058,7 +1057,7 @@ async function showExperienceWithContext(req, res) {
           ]
         })
           .select('experience user planned_date plan permissions notes createdAt updatedAt')
-          .populate({ path: 'user', select: 'name email photos default_photo_id oauthProfilePhoto photo', populate: { path: 'photos', select: 'url caption' } })
+          .populate({ path: 'user', select: 'name email photos oauthProfilePhoto photo', populate: { path: 'photos.photo', select: 'url caption' } })
           .lean()
           .exec();
 
@@ -1169,7 +1168,7 @@ async function updateExperience(req, res) {
     // Filter out fields that shouldn't be updated
     const allowedFields = [
       'name', 'overview', 'destination', 'map_location', 'experience_type', 
-      'plan_items', 'photos', 'default_photo_id', 'visibility', 'permissions'
+      'plan_items', 'photos', 'visibility', 'permissions'
     ];
     
     const updateData = {};
@@ -1291,7 +1290,7 @@ async function deleteExperience(req, res) {
     const existingPlans = await Plan.find({ experience: req.params.id })
       .populate({
         path: 'user',
-        select: '_id name email photos default_photo_id',
+        select: '_id name email photos',
         populate: [
           {
             path: 'photos',
@@ -1315,7 +1314,6 @@ async function deleteExperience(req, res) {
           name: plan.user.name,
           email: plan.user.email,
           photos: plan.user.photos,
-          default_photo_id: plan.user.default_photo_id,
           planId: plan._id,
           plannedDate: plan.planned_date
       }));
@@ -1411,14 +1409,14 @@ async function createPlanItem(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
     
@@ -1530,14 +1528,14 @@ async function createPlanItem(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
 
@@ -1568,14 +1566,14 @@ async function updatePlanItem(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
     
@@ -1696,14 +1694,14 @@ async function updatePlanItem(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
 
@@ -1734,14 +1732,14 @@ async function deletePlanItem(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
     
@@ -1793,14 +1791,14 @@ async function deletePlanItem(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
     
@@ -1983,7 +1981,7 @@ async function showUserCreatedExperiences(req, res) {
       .sort({ createdAt: -1 }) // Most recent first
       .populate("destination")
       .populate({
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       });
 
@@ -2117,17 +2115,16 @@ async function addPhoto(req, res) {
       return errorResponse(res, null, permCheck.reason || 'Not authorized to modify this experience', 403);
     }
 
-    const { url, photo_credit, photo_credit_url } = req.body;
+    const { photoId } = req.body;
 
-    if (!url) {
-      return errorResponse(res, null, 'Photo URL is required', 400);
+    if (!photoId) {
+      return errorResponse(res, null, 'Photo ID is required', 400);
     }
 
     // Add photo to photos array
     experience.photos.push({
-      url,
-      photo_credit: photo_credit || 'Unknown',
-      photo_credit_url: photo_credit_url || url
+      photo: photoId,
+      default: experience.photos.length === 0
     });
 
     await experience.save();
@@ -2182,10 +2179,8 @@ async function removePhoto(req, res) {
     // Remove photo from array
     experience.photos.splice(photoIndex, 1);
 
-    // Adjust default_photo_id if necessary
-    if (experience.default_photo_id && !experience.photos.includes(experience.default_photo_id)) {
-      experience.default_photo_id = experience.photos.length > 0 ? experience.photos[0] : null;
-    }
+    // Ensure exactly one default photo is set
+    ensureDefaultPhotoConsistency(experience);
 
     await experience.save();
 
@@ -2236,7 +2231,7 @@ async function setDefaultPhoto(req, res) {
       return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
-    experience.default_photo_id = experience.photos[photoIndex];
+    setDefaultPhotoByIndex(experience, photoIndex);
     await experience.save();
 
     // Broadcast experience:updated event for default photo change
@@ -2246,7 +2241,7 @@ async function setDefaultPhoto(req, res) {
         payload: {
           experience: experience.toObject(),
           experienceId: experience._id.toString(),
-          updatedFields: ['default_photo_id'],
+          updatedFields: ['photos'],
           userId: req.user._id.toString()
         }
       }, req.user._id.toString());
@@ -2837,14 +2832,14 @@ async function reorderExperiencePlanItems(req, res) {
             select: "url caption"
           },
           {
-            path: "photos",
+            path: "photos.photo",
             model: "Photo"
           }
         ],
-        select: "name email photo photos default_photo_id"
+        select: "name email photo photos"
       })
       .populate({
-        path: "photos",
+        path: "photos.photo",
         model: "Photo"
       });
 

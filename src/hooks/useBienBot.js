@@ -39,7 +39,7 @@ export function openWithPrefilledMessage(text) {
  * @param {string} sessionId - BienBot session ID to open
  */
 export function openWithSession(sessionId) {
-  broadcastEvent('bienbot:open', { sessionId });
+  broadcastEvent('bienbot:open', { bienbotSessionId: sessionId });
 }
 
 /**

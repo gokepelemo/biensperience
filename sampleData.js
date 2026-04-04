@@ -1348,8 +1348,7 @@ class DataGenerator {
         destination: destination._id,
         experience_type: experienceTypes,
         permissions,
-        photos: [featuredPhoto._id],
-        default_photo_id: featuredPhoto._id,
+        photos: [{ photo: featuredPhoto._id, default: true }],
         plan_items: planItems
       });
     }
@@ -2371,8 +2370,7 @@ async function createSampleData() {
     output.log('🔗 Assigning photos to destinations...');
     for (const destination of createdDestinations) {
       const randomPhoto = getRandomElement(createdPhotos);
-      destination.photos = [randomPhoto._id];
-      destination.default_photo_id = randomPhoto._id;
+      destination.photos = [{ photo: randomPhoto._id, default: true }];
       await destination.save();
     }
 

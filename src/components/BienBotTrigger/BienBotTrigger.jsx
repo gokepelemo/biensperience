@@ -79,7 +79,7 @@ export default function BienBotTrigger({
     if (!hasChatAccess) return;
     const unsub = subscribeToEvent('bienbot:open', (event) => {
       const msg = event.initialMessage || null;
-      const sid = event.sessionId || null;
+      const sid = event.bienbotSessionId || null;
       logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg, hasSessionId: !!sid });
       setInitialMessage(msg);
       setInitialSessionId(sid);

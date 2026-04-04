@@ -10,6 +10,7 @@ import TagPill from '../../../components/Pill/TagPill';
 import FadeIn from '../../../components/Animation/Animation';
 import CostEstimate from '../../../components/CostEstimate/CostEstimate';
 import { formatDateShort, formatDateForInput } from '../../../utilities/date-utils';
+import { getDefaultPhoto, getPhotoObjects } from '../../../utilities/photo-utils';
 
 export default function ExperienceHeader({
   experience,
@@ -83,8 +84,8 @@ export default function ExperienceHeader({
         <Box id="photos" className="row" mb="6">
           <Box w="100%">
             <PhotoCard
-              photos={experience.photos}
-              defaultPhotoId={experience.default_photo_id}
+              photos={getPhotoObjects(experience)}
+              defaultPhotoId={getDefaultPhoto(experience)?._id}
               altText={experience.name}
             />
           </Box>

@@ -287,7 +287,6 @@ export default function DestinationWizardModal({ show, onClose, initialValues = 
     try {
       const updatePayload = {};
       if (newData.photos) updatePayload.photos = newData.photos;
-      if (newData.default_photo_id) updatePayload.default_photo_id = newData.default_photo_id;
 
       if (Object.keys(updatePayload).length > 0) {
         if (parentActivityIdRef.current) updatePayload.activityParentId = parentActivityIdRef.current;

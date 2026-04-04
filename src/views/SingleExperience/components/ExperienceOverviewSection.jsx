@@ -14,6 +14,7 @@ import InfoCard from '../../../components/InfoCard/InfoCard';
 import GoogleMap from '../../../components/GoogleMap/GoogleMap';
 import TagPill from '../../../components/Pill/TagPill';
 import { createUrlSlug } from '../../../utilities/url-utils';
+import { getDefaultPhoto, getPhotoObjects } from '../../../utilities/photo-utils';
 
 function ExperienceOverviewSection({
   // Experience data
@@ -28,9 +29,8 @@ function ExperienceOverviewSection({
       <Box flex={{ base: "0 0 100%", md: "0 0 50%" }} maxW={{ base: "100%", md: "50%" }} p="var(--space-3)" className="fade-in">
         <Box mb="var(--space-4)">
           <PhotoCard
-            photos={experience.photos}
-            photo={experience.photo}
-            defaultPhotoIndex={experience.default_photo_index}
+            photos={getPhotoObjects(experience)}
+            defaultPhotoId={getDefaultPhoto(experience)?._id}
             title={experience.name}
             altText={`${experience.name}${
               experience.destination && experience.destination.name

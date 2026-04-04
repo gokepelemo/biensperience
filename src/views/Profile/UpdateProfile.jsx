@@ -499,8 +499,6 @@ export default function UpdateProfile() {
     }
 
     // Check if default photo changed
-    const originalDefaultId = originalUser.default_photo_id;
-    const currentDefaultId = formData.default_photo_id;
 
     // Normalize default photo IDs for comparison
     const normalizeId = (id) => {
@@ -510,7 +508,6 @@ export default function UpdateProfile() {
       return id.toString();
     };
 
-    // Check if original default_photo_id is actually in the photos array (valid reference)
     const originalDefaultRaw = normalizeId(originalDefaultId);
     const isOriginalDefaultValid = originalDefaultRaw !== null &&
       originalPhotoIds.includes(originalDefaultRaw);
@@ -629,7 +626,7 @@ export default function UpdateProfile() {
       Object.keys(changes).forEach(field => {
         if (field !== 'password' && changes[field]) {
           // Map display key to actual model field name
-          const actualFieldName = field === 'default_photo' ? 'default_photo_id' : field;
+          const actualFieldName = field;
           // For location, send the query string for backend geocoding
           if (field === 'location') {
             dataToUpdate.location = formData.locationQuery || '';

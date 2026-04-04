@@ -107,7 +107,6 @@ export function usePlanItemNotes({
         _id: currentUser._id,
         name: currentUser.name,
         photos: currentUser.photos,
-        default_photo_id: currentUser.default_photo_id,
         oauthProfilePhoto: currentUser.oauthProfilePhoto
       } : { _id: 'unknown', name: 'Unknown User' },
       createdAt: new Date().toISOString(),

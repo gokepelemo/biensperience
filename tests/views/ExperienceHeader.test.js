@@ -24,9 +24,8 @@ describe('ExperienceHeader', () => {
     cost_estimate: 150,
     experience_type: ['Tourism', 'Sightseeing'],
     photos: [
-      { _id: 'photo1', url: 'photo1.jpg' }
+      { photo: { _id: 'photo1', url: 'photo1.jpg' }, default: true }
     ],
-    default_photo_id: 'photo1'
   };
 
   const mockTravelTips = ['Best time is early morning', 'Buy tickets online'];

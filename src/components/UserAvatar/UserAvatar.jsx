@@ -107,7 +107,6 @@ const UserAvatar = ({
   debug.log('UserAvatar - user:', user);
   debug.log('UserAvatar - user.name:', user.name);
   debug.log('UserAvatar - user.photos:', user.photos);
-  debug.log('UserAvatar - user.default_photo_id:', user.default_photo_id);
 
   // Resolve avatar URL via the shared cache (O(1) Map lookup on re-renders).
   // If the user object has photo data, the URL is resolved and cached immediately.

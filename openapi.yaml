@@ -160,6 +160,16 @@ components:
       description: API token for programmatic access
 
   schemas:
+    PhotoEntry:
+      type: object
+      description: A photo entry with default flag in the photos array
+      properties:
+        photo:
+          type: string
+          description: Photo ID or populated Photo object
+        default:
+          type: boolean
+          description: Whether this is the default/cover photo
     Error:
       type: object
       properties:
@@ -210,11 +220,8 @@ components:
         photos:
           type: array
           items:
-            type: string
-          description: Array of photo IDs
-        default_photo_id:
-          type: string
-          description: Default profile photo ID
+            $ref: '#/components/schemas/PhotoEntry'
+          description: Array of photo entries with default flag
         isSuperAdmin:
           type: boolean
           description: Super admin status
@@ -333,9 +340,7 @@ components:
         photos:
           type: array
           items:
-            type: string
-        default_photo_id:
-          type: string
+            $ref: '#/components/schemas/PhotoEntry'
         travel_tips:
           type: array
           items:
@@ -396,9 +401,7 @@ components:
         photos:
           type: array
           items:
-            type: string
-        default_photo_id:
-          type: string
+            $ref: '#/components/schemas/PhotoEntry'
         visibility:
           type: string
           enum: [private, contributors, public]

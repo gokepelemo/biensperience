@@ -12,6 +12,7 @@ const { trackCreate, trackUpdate, trackDelete, extractMetadata, extractActor } =
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
 const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
+const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -51,7 +52,7 @@ async function index(req, res) {
       }
 
       const favDestinations = await Destination.find({ users_favorite: userId })
-        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
         .lean()
         .exec();
 
@@ -61,7 +62,7 @@ async function index(req, res) {
     // If ?all=true requested, return full array for compatibility
     if (req.query.all === 'true' || req.query.all === true) {
       const allDestinations = await Destination.find({})
-        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
         .lean()
         .exec();
       return successResponse(res, allDestinations);
@@ -83,7 +84,7 @@ async function index(req, res) {
     if (shuffle) {
       // When shuffling, fetch all results first, then shuffle and paginate
       const allDestinations = await Destination.find(searchFilter)
-        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
         .lean()
         .exec();
 
@@ -100,7 +101,7 @@ async function index(req, res) {
       // Standard pagination with sorting
       total = await Destination.countDocuments(searchFilter);
       destinations = await Destination.find(searchFilter)
-        .populate("photos", "url caption photo_credit photo_credit_url width height")
+        .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
         .sort(sortObj)
         .skip(skip)
         .limit(l)
@@ -125,7 +126,7 @@ async function index(req, res) {
 async function createDestination(req, res) {
   try {
     // Whitelist allowed fields to prevent mass assignment
-    const allowedFields = ['name', 'country', 'state', 'overview', 'photos', 'default_photo_id', 'travel_tips', 'tags', 'map_location', 'location'];
+    const allowedFields = ['name', 'country', 'state', 'overview', 'photos', 'travel_tips', 'tags', 'map_location', 'location'];
     const destinationData = {};
 
     allowedFields.forEach(field => {
@@ -247,7 +248,7 @@ async function createDestination(req, res) {
 async function showDestination(req, res) {
   try {
     const destination = await Destination.findById(req.params.id).populate(
-      "photos"
+      "photos.photo"
     );
     if (!destination) {
       return errorResponse(res, null, 'Destination not found', 404);
@@ -376,7 +377,7 @@ async function updateDestination(req, res) {
     });
 
     // Populate photos field for response (consistent with showDestination)
-    await destination.populate('photos');
+    await destination.populate('photos.photo');
 
     // Broadcast destination update via WebSocket
     try {
@@ -519,7 +520,7 @@ async function toggleUserFavoriteDestination(req, res) {
       
       await destination.save();
       // Populate photos before returning to ensure frontend has complete data
-      await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
+      await destination.populate("photos.photo", "url caption photo_credit photo_credit_url width height");
 
       // Log favorite_added activity (non-blocking)
       Activity.create({
@@ -567,7 +568,7 @@ async function toggleUserFavoriteDestination(req, res) {
 
       await destination.save();
       // Populate photos before returning to ensure frontend has complete data
-      await destination.populate("photos", "url caption photo_credit photo_credit_url width height");
+      await destination.populate("photos.photo", "url caption photo_credit photo_credit_url width height");
 
       // Log favorite_removed activity (non-blocking)
       Activity.create({
@@ -684,10 +685,8 @@ async function removePhoto(req, res) {
     const removedPhoto = destination.photos[photoIndex];
     destination.photos.splice(photoIndex, 1);
 
-    // Clear default_photo_id if the removed photo was the default
-    if (destination.default_photo_id && removedPhoto && destination.default_photo_id.toString() === removedPhoto._id.toString()) {
-      destination.default_photo_id = null;
-    }
+    // Ensure exactly one default photo is set
+    ensureDefaultPhotoConsistency(destination);
 
     await destination.save();
 
@@ -738,7 +737,7 @@ async function setDefaultPhoto(req, res) {
       return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
-    destination.default_photo_id = destination.photos[photoIndex]._id;
+    setDefaultPhotoByIndex(destination, photoIndex);
     await destination.save();
 
     // Broadcast destination:updated event for default photo change
@@ -748,7 +747,7 @@ async function setDefaultPhoto(req, res) {
         payload: {
           destination: destination.toObject(),
           destinationId: destination._id.toString(),
-          updatedFields: ['default_photo_id'],
+          updatedFields: ['photos'],
           userId: req.user._id.toString()
         }
       }, req.user._id.toString());

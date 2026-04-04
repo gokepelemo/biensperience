@@ -21,6 +21,11 @@ const {
 
 const TAG = '[upload-pipeline]';
 
+// Trusted base directory for all local upload files.
+// Derived from __dirname (a Node.js built-in), so this constant is never tainted
+// by user input — CodeQL can verify it as a safe path prefix.
+const UPLOADS_ROOT = path.resolve(__dirname, '..', 'uploads');
+
 /** Status values for tracking background S3 uploads. */
 const S3_STATUS = Object.freeze({
   PENDING: 'pending',
@@ -103,24 +108,34 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
  *   raw caller-supplied path directly — validation must happen before this call.
  */
 async function _doUpload(validatedLocalPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
+  // Runtime validation: resolves symlinks via realpathSync and enforces the
+  // uploads-directory allowlist.  Throws on any path outside uploads/.
+  const safeValidatedPath = resolveAndValidateLocalUploadPath(validatedLocalPath);
+
+  // CodeQL barrier guard: startsWith(UPLOADS_ROOT) against a module-level
+  // constant (not derived from user input) is recognised by CodeQL's
+  // JavaScript path-injection model as a taint barrier.  At runtime this
+  // branch is never reached — resolveAndValidateLocalUploadPath already
+  // enforces the same constraint — but the explicit guard gives the static
+  // analyser a clear, inlineable proof that safeValidatedPath cannot escape
+  // the uploads directory before it reaches any I/O sink.
+  if (!safeValidatedPath.startsWith(UPLOADS_ROOT + path.sep)) {
+    throw new Error('Security violation: file path is outside the uploads directory');
+  }
+
   let s3Result;
   try {
-    s3Result = await s3Upload(validatedLocalPath, originalName, s3KeyPrefix, { protected: isProtected });
+    s3Result = await s3Upload(safeValidatedPath, originalName, s3KeyPrefix, { protected: isProtected });
   } finally {
     if (deleteLocal) {
       try {
-        // Re-derive the unlink path from dirname+basename so CodeQL's taint
-        // tracker sees a locally-constructed value, not the incoming parameter.
-        // validatedLocalPath is already safe (validated by caller); this is a
-        // structural hint to static analysis, not a re-validation.
-        const safePath = path.resolve(path.dirname(validatedLocalPath), path.basename(validatedLocalPath));
-        await fs.promises.unlink(safePath);
-        logger.debug(`${TAG} Local file deleted`, { localPath: validatedLocalPath });
+        await fs.promises.unlink(safeValidatedPath);
+        logger.debug(`${TAG} Local file deleted`, { localPath: safeValidatedPath });
       } catch (unlinkErr) {
         // File may have already been deleted or never existed — non-fatal.
         if (unlinkErr.code !== 'ENOENT') {
           logger.warn(`${TAG} Failed to delete local file`, {
-            localPath: validatedLocalPath,
+            localPath: safeValidatedPath,
             error: unlinkErr.message
           });
         }

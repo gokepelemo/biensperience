@@ -502,7 +502,6 @@ async function getFollowers(req, res) {
         name: f.follower.name,
         email: f.follower.email,
         photos: f.follower.photos,
-        default_photo_id: f.follower.default_photo_id,
         followedAt: f.createdAt
       })),
       total: count,
@@ -538,7 +537,6 @@ async function getFollowing(req, res) {
         name: f.following.name,
         email: f.following.email,
         photos: f.following.photos,
-        default_photo_id: f.following.default_photo_id,
         followedAt: f.createdAt,
         notifications: f.notifications
       })),
@@ -872,8 +870,8 @@ async function getFeed(req, res) {
     const actorsMap = new Map();
     if (actorIdsForEnrichment.length > 0) {
       const actors = await User.find({ _id: { $in: actorIdsForEnrichment } })
-        .select('name oauthProfilePhoto photos default_photo_id')
-        .populate('photos', 'url')
+        .select('name oauthProfilePhoto photos')
+        .populate('photos.photo', 'url')
         .lean();
       actors.forEach(actor => {
         const photo = getDefaultPhoto(actor);
@@ -1192,8 +1190,7 @@ async function getFollowRequests(req, res) {
           _id: r.follower._id,
           name: r.follower.name,
           email: r.follower.email,
-          photos: r.follower.photos,
-          default_photo_id: r.follower.default_photo_id
+          photos: r.follower.photos
         },
         requestedAt: r.createdAt
       })),

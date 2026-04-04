@@ -291,12 +291,9 @@ function ExperienceCard({ experience, updateData, userPlans, includeSchema = fal
     const photos = Array.isArray(experience.photos) ? experience.photos.filter(Boolean) : [];
 
     if (photos.length > 0) {
-      let defaultPhoto;
-      if (experience.default_photo_id) {
-        const defaultPhotoId = experience.default_photo_id?._id || experience.default_photo_id;
-        defaultPhoto = photos.find(photo => photo?._id === defaultPhotoId);
-      }
-      if (!defaultPhoto) defaultPhoto = photos[0];
+      // New schema: photos = [{photo: PhotoObj, default: bool}]
+      const defaultEntry = photos.find(e => e?.default && e?.photo?.url);
+      const defaultPhoto = defaultEntry?.photo || photos[0]?.photo || photos[0];
       const src = defaultPhoto?.url || `https://picsum.photos/seed/${placeholderSeed}/800/480`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }

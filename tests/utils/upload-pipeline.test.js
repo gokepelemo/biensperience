@@ -10,7 +10,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+
+// Temp files must live inside the uploads directory so they pass the
+// startsWith(UPLOADS_ROOT) barrier guard in _doUpload.
+const UPLOADS_TEMP_DIR = path.resolve(__dirname, '../../uploads/temp');
 
 // ---------------------------------------------------------------------------
 // Mocks — must be set up before require()
@@ -54,7 +57,8 @@ const {
 let tempDir;
 
 beforeEach(async () => {
-  tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'upload-pipeline-test-'));
+  await fs.promises.mkdir(UPLOADS_TEMP_DIR, { recursive: true });
+  tempDir = await fs.promises.mkdtemp(path.join(UPLOADS_TEMP_DIR, 'upload-pipeline-test-'));
   jest.restoreAllMocks();
   mockS3Upload.mockReset();
   mockS3Delete.mockReset();

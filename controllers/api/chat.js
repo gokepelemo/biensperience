@@ -168,8 +168,8 @@ async function token(req, res) {
     try {
       const { getDefaultPhoto } = require('../../utilities/photo-utils');
       const fullUser = await User.findById(userId)
-        .select('name photos default_photo_id oauthProfilePhoto')
-        .populate('photos', 'url')
+        .select('name photos oauthProfilePhoto')
+        .populate('photos.photo', 'url')
         .lean();
       if (fullUser) {
         const defaultPhoto = getDefaultPhoto(fullUser);

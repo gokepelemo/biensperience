@@ -288,10 +288,10 @@ export default function Profile() {
 
         // Check if incoming photos are unpopulated (just ObjectId strings)
         const isUnpopulated = updates.photos.length > 0 &&
-          typeof updates.photos[0] === 'string';
+          (typeof updates.photos[0] === 'string' || !updates.photos[0]?.photo?.url);
 
         // If incoming is unpopulated but we have populated data, keep existing
-        if (isUnpopulated && prev.photos.length > 0 && typeof prev.photos[0] === 'object') {
+        if (isUnpopulated && prev.photos.length > 0 && !!prev.photos[0]?.photo?.url) {
           return prev.photos;
         }
 
@@ -755,10 +755,10 @@ export default function Profile() {
       // Update photo in profile if it exists
       setCurrentProfile(prev => {
         if (!prev?.photos) return prev;
-        const photoIndex = prev.photos.findIndex(p => p._id === photo._id || p === photo._id);
+        const photoIndex = prev.photos.findIndex(p => (p.photo?._id || p.photo)?.toString() === photo._id?.toString());
         if (photoIndex === -1) return prev;
         const updatedPhotos = [...prev.photos];
-        updatedPhotos[photoIndex] = photo;
+        updatedPhotos[photoIndex] = { ...prev.photos[photoIndex], photo };
         return { ...prev, photos: updatedPhotos };
       });
     };
@@ -769,8 +769,8 @@ export default function Profile() {
       // Remove photo from profile
       setCurrentProfile(prev => {
         if (!prev?.photos) return prev;
-        const updatedPhotos = prev.photos.filter(p => 
-          (p._id || p).toString() !== photoId.toString()
+        const updatedPhotos = prev.photos.filter(p =>
+          (p.photo?._id || p.photo)?.toString() !== photoId.toString()
         );
         return { ...prev, photos: updatedPhotos };
       });
@@ -1302,7 +1302,7 @@ export default function Profile() {
                       // Find the index of the default photo
                       const defaultPhoto = getDefaultPhoto(currentProfile);
                       const photoIndex = currentProfile.photos.findIndex(
-                        p => (p._id || p) === (defaultPhoto?._id || defaultPhoto)
+                        p => (p.photo?._id || p.photo)?.toString() === (defaultPhoto?._id || defaultPhoto)?.toString()
                       );
                       setSelectedPhotoIndex(Math.max(0, photoIndex));
                       setShowPhotoModal(true);
@@ -1319,7 +1319,7 @@ export default function Profile() {
                       if (currentProfile?.photos?.length > 0) {
                         const defaultPhoto = getDefaultPhoto(currentProfile);
                         const photoIndex = currentProfile.photos.findIndex(
-                          p => (p._id || p) === (defaultPhoto?._id || defaultPhoto)
+                          p => (p.photo?._id || p.photo)?.toString() === (defaultPhoto?._id || defaultPhoto)?.toString()
                         );
                         setSelectedPhotoIndex(Math.max(0, photoIndex));
                         setShowPhotoModal(true);
@@ -1957,7 +1957,7 @@ export default function Profile() {
                 : (Array.isArray(data.photos) ? data.photos : []);
 
               // Merge into currentProfile for immediate UI update
-              mergeProfile({ photos: photosFull, default_photo_id: data.default_photo_id || null });
+              mergeProfile({ photos: data.photos || [] });
             } catch (e) {
               // ignore merge failures
             }
@@ -1969,7 +1969,7 @@ export default function Profile() {
                 try { logger.debug('[Profile] Debounced save triggered', { userId: user._id, photosCount: (data.photos || []).length }); } catch (e) {}
                 try { broadcastEvent('local:photos-updated', { at: Date.now(), userId: user._id, field: 'photos' }); } catch (e) {}
                 // Persist only the photo IDs and default id to backend
-                const resp = await updateUserApi(user._id, { photos: data.photos || [], default_photo_id: data.default_photo_id || null });
+                const resp = await updateUserApi(user._id, { photos: data.photos || [] });
                 // If API returns authoritative user data, merge it into current profile
                 if (resp && typeof resp === 'object') {
                   try { mergeProfile(resp); } catch (e) { /* ignore merge errors */ }
@@ -1984,7 +1984,7 @@ export default function Profile() {
             // Final save: persist and merge authoritative server response
             try {
               try { broadcastEvent('local:photos-updated', { at: Date.now(), userId: user._id, field: 'photos' }); } catch (e) {}
-              const updated = await updateUserApi(user._id, { photos: data.photos || [], default_photo_id: data.default_photo_id || null });
+              const updated = await updateUserApi(user._id, { photos: data.photos || [] });
               if (updated) {
                 mergeProfile(updated);
               }

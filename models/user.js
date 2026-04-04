@@ -23,6 +23,11 @@ const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || 12);
 // Defining a simple default here; controller will enforce available codes.
 const DEFAULT_LANG = 'en';
 
+const photoEntrySchema = new Schema({
+  photo: { type: Schema.Types.ObjectId, ref: 'Photo', required: true },
+  default: { type: Boolean, default: false }
+}, { _id: false });
+
 /**
  * Mongoose schema for User model
  * @type {mongoose.Schema}
@@ -138,13 +143,8 @@ const userSchema = new Schema(
      * @type {Array}
      */
     photos: {
-      type: [Schema.Types.ObjectId],
-      ref: "Photo",
+      type: [photoEntrySchema],
       default: []
-    },
-    default_photo_id: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Photo" 
     },
 
     /**
@@ -702,12 +702,33 @@ userSchema.index({ emailConfirmationToken: 1, emailConfirmationExpires: 1 });
 userSchema.index({ currentSessionId: 1 });
 userSchema.index({ sessionExpiresAt: 1 });
 userSchema.index({ createdAt: -1 });
-userSchema.index({ photos: 1 });
-userSchema.index({ default_photo_id: 1 });
+userSchema.index({ 'photos.photo': 1 });
 userSchema.index({ 'location.coordinates': '2dsphere' });
 userSchema.index({ 'location.city': 1 });
 userSchema.index({ 'location.country': 1 });
 userSchema.index({ 'feature_flags.flag': 1 });
 userSchema.index({ 'feature_flags.enabled': 1, 'feature_flags.flag': 1 });
+
+/**
+ * Pre-save hook: enforce the photos invariant (exactly one default: true entry).
+ */
+userSchema.pre('save', function (next) {
+  if (this.isModified('photos') && this.photos.length > 0) {
+    const defaultCount = this.photos.filter(p => p.default).length;
+    if (defaultCount === 0) {
+      this.photos[0].default = true;
+    } else if (defaultCount > 1) {
+      let found = false;
+      for (let i = this.photos.length - 1; i >= 0; i--) {
+        if (this.photos[i].default && !found) {
+          found = true;
+        } else {
+          this.photos[i].default = false;
+        }
+      }
+    }
+  }
+  next();
+});
 
 module.exports = mongoose.model("User", userSchema);

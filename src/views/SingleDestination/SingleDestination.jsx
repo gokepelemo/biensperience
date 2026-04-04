@@ -27,7 +27,7 @@ import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { FaMapMarkerAlt, FaHeart, FaPlane, FaShare, FaEdit, FaTrash, FaRegImage, FaLightbulb, FaCamera, FaHome } from "react-icons/fa";
 import MetricsBar from "../../components/MetricsBar/MetricsBar";
 import { Card } from "../../components/design-system";
-import { getDefaultPhoto } from "../../utilities/photo-utils";
+import { getDefaultPhoto, getPhotoObjects } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import { updateDestination } from "../../utilities/destinations-api";
@@ -78,20 +78,28 @@ export default function SingleDestination() {
       // No updates - keep existing
       if (!updates) return prev;
 
-      // Smart merge for photos: preserve populated photos if incoming is unpopulated
+      // Smart merge for photos: preserve the richer photo format when possible.
+      // Three possible shapes for photos arrays:
+      //   a) Entry wrappers [{photo: PhotoDoc, default: bool}] — from .populate()
+      //   b) Flat Photo docs [{_id, url, ...}] — from aggregation $lookup
+      //   c) Unpopulated strings/ObjectIds — IDs only, no display data
       const mergedPhotos = (() => {
         if (!updates.photos) return prev.photos; // No photos in update - keep existing
         if (!prev.photos || prev.photos.length === 0) return updates.photos; // No existing photos
 
-        // Check if incoming photos are unpopulated (just ObjectId strings)
-        const isUnpopulated = updates.photos.length > 0 &&
-          typeof updates.photos[0] === 'string';
+        const isPhotoDoc = (p) => p && typeof p === 'object' && p.url;
+        const isEntry = (p) => p && typeof p === 'object' && 'photo' in p && 'default' in p;
+        const isPopulated = (arr) => arr.length > 0 && (isPhotoDoc(arr[0]) || (isEntry(arr[0]) && isPhotoDoc(arr[0].photo)));
 
-        // If incoming is unpopulated but we have populated data, keep existing
-        if (isUnpopulated && prev.photos.length > 0 && typeof prev.photos[0] === 'object') {
-          return prev.photos;
-        }
+        const prevPopulated = isPopulated(prev.photos);
+        const updatesPopulated = isPopulated(updates.photos);
 
+        // Prefer entry-schema over flat docs (entry carries the default flag)
+        const prevIsEntry = prev.photos.length > 0 && isEntry(prev.photos[0]);
+        const updatesIsEntry = updates.photos.length > 0 && isEntry(updates.photos[0]);
+
+        if (prevPopulated && !updatesPopulated) return prev.photos;           // incoming is unpopulated
+        if (prevIsEntry && !updatesIsEntry && updatesPopulated) return prev.photos; // prev is richer
         return updates.photos;
       })();
 
@@ -353,10 +361,10 @@ export default function SingleDestination() {
       // Update photo in destination if it exists
       setDestination(prev => {
         if (!prev?.photos) return prev;
-        const photoIndex = prev.photos.findIndex(p => p._id === photo._id || p === photo._id);
+        const photoIndex = prev.photos.findIndex(p => (p.photo?._id || p.photo)?.toString() === photo._id?.toString());
         if (photoIndex === -1) return prev;
         const updatedPhotos = [...prev.photos];
-        updatedPhotos[photoIndex] = photo;
+        updatedPhotos[photoIndex] = { ...prev.photos[photoIndex], photo };
         return { ...prev, photos: updatedPhotos };
       });
     };
@@ -367,8 +375,8 @@ export default function SingleDestination() {
       // Remove photo from destination
       setDestination(prev => {
         if (!prev?.photos) return prev;
-        const updatedPhotos = prev.photos.filter(p => 
-          (p._id || p).toString() !== photoId.toString()
+        const updatedPhotos = prev.photos.filter(p =>
+          (p.photo?._id || p.photo)?.toString() !== photoId.toString()
         );
         return { ...prev, photos: updatedPhotos };
       });
@@ -476,13 +484,14 @@ export default function SingleDestination() {
       return 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80'; // Fallback
     }
     const defaultPhoto = getDefaultPhoto(destination);
-    return defaultPhoto?.url || destination.photos[0]?.url;
+    return defaultPhoto?.url;
   };
 
-  // Normalize destination hero photos for PhotoModal
+  // Normalize destination hero photos for PhotoModal — extract Photo documents from entries,
+  // handling both populate schema [{photo: PhotoDoc, default}] and aggregation flat [PhotoDoc]
   const heroPhotos = (() => {
     const src = destination?.photos && destination.photos.length > 0 ? destination.photos : [];
-    return src.map(p => (typeof p === 'string' ? { url: p } : p));
+    return getPhotoObjects({ photos: src });
   })();
 
   // Show loading state
@@ -844,7 +853,6 @@ export default function SingleDestination() {
             // Update destination with new photos
             const updated = await updateDestination(destination._id, {
               photos: photoIds,
-              default_photo_id: data.default_photo_id
             });
 
             // Update local destination state using mergeDestination
@@ -855,7 +863,6 @@ export default function SingleDestination() {
                 // Use full photo objects for display (they have .url)
                 photos: fullPhotos.length > 0 ? fullPhotos : (updated.photos || photoIds),
                 photos_full: fullPhotos,
-                default_photo_id: data.default_photo_id || updated.default_photo_id
               });
 
               // Refresh destinations in context if available
