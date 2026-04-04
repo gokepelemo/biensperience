@@ -939,7 +939,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
         {photoToDeleteIndex !== null && photos[photoToDeleteIndex] && (
           <div className={styles.deletePreviewContainer}>
             <img
-              src={sanitizeImageUrl(photos[photoToDeleteIndex].url) || photos[photoToDeleteIndex]}
+              src={sanitizeImageUrl(photos[photoToDeleteIndex]?.url ?? photos[photoToDeleteIndex])}
               alt={`Photo ${photoToDeleteIndex + 1} to be deleted`}
               className={styles.deletePreviewImage}
               onError={(e) => {

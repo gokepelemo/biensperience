@@ -115,12 +115,21 @@ exports.updateProvider = async (req, res) => {
   if (!valid) return errorResponse(res, null, 'Invalid provider ID', 400);
 
   try {
-    const updateData = { ...req.body, updated_by: req.user._id };
-    // Don't allow changing the provider key itself
-    delete updateData.provider;
-    delete updateData.created_by;
+    // Explicitly pick allowed fields to prevent MongoDB operator injection
+    const { display_name, endpoint, api_version, default_model, valid_models, enabled, priority, env_key_name } = req.body;
+    const updateData = {
+      ...(display_name !== undefined && { display_name }),
+      ...(endpoint !== undefined && { endpoint }),
+      ...(api_version !== undefined && { api_version }),
+      ...(default_model !== undefined && { default_model }),
+      ...(valid_models !== undefined && { valid_models }),
+      ...(enabled !== undefined && { enabled }),
+      ...(priority !== undefined && { priority }),
+      ...(env_key_name !== undefined && { env_key_name }),
+      updated_by: req.user._id
+    };
 
-    const provider = await AIProviderConfig.findByIdAndUpdate(providerOid, updateData, { new: true, runValidators: true }).lean();
+    const provider = await AIProviderConfig.findByIdAndUpdate(providerOid, { $set: updateData }, { new: true, runValidators: true }).lean();
     if (!provider) return errorResponse(res, null, 'Provider not found', 404);
 
     invalidateConfigCache();
@@ -257,13 +266,27 @@ exports.updatePolicy = async (req, res) => {
   if (!valid) return errorResponse(res, null, 'Invalid policy ID', 400);
 
   try {
-    const updateData = { ...req.body, updated_by: req.user._id };
-    // Don't allow changing scope/target via update
-    delete updateData.scope;
-    delete updateData.target;
-    delete updateData.created_by;
+    // Explicitly pick allowed fields to prevent MongoDB operator injection
+    const {
+      name, allowed_providers, blocked_providers, fallback_providers, allowed_models,
+      rate_limits, token_budget, task_routing, content_filtering, max_tokens_per_request, active
+    } = req.body;
+    const updateData = {
+      ...(name !== undefined && { name }),
+      ...(allowed_providers !== undefined && { allowed_providers }),
+      ...(blocked_providers !== undefined && { blocked_providers }),
+      ...(fallback_providers !== undefined && { fallback_providers }),
+      ...(allowed_models !== undefined && { allowed_models }),
+      ...(rate_limits !== undefined && { rate_limits }),
+      ...(token_budget !== undefined && { token_budget }),
+      ...(task_routing !== undefined && { task_routing }),
+      ...(content_filtering !== undefined && { content_filtering }),
+      ...(max_tokens_per_request !== undefined && { max_tokens_per_request }),
+      ...(active !== undefined && { active }),
+      updated_by: req.user._id
+    };
 
-    const policy = await AIPolicy.findByIdAndUpdate(policyOid, updateData, { new: true, runValidators: true }).lean();
+    const policy = await AIPolicy.findByIdAndUpdate(policyOid, { $set: updateData }, { new: true, runValidators: true }).lean();
     if (!policy) return errorResponse(res, null, 'Policy not found', 404);
 
     invalidatePolicyCache();
@@ -526,10 +549,7 @@ exports.updateRouting = async (req, res) => {
 
     const globalPolicy = await AIPolicy.findOneAndUpdate(
       { scope: 'global' },
-      {
-        task_routing,
-        updated_by: req.user._id
-      },
+      { $set: { task_routing, updated_by: req.user._id } },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     ).lean();
 
@@ -893,8 +913,9 @@ exports.batchAddToCorpus = async (req, res) => {
       await doc.save();
 
       // Mark log as reviewed if log_id provided
-      if (log_id && validateObjectId(log_id)) {
-        await IntentClassificationLog.findByIdAndUpdate(log_id, {
+      if (log_id) {
+        const { valid: logIdValid, objectId: logOid } = validateObjectId(log_id, 'log_id');
+        if (logIdValid) await IntentClassificationLog.findByIdAndUpdate(logOid, {
           reviewed: true,
           reviewed_by: req.user._id,
           reviewed_at: new Date(),
@@ -959,16 +980,25 @@ exports.updateClassifierConfig = async (req, res) => {
     };
 
     const update = {};
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        const type = fieldTypes[field];
-        if (type === 'number') {
-          const n = Number(req.body[field]);
-          if (!isNaN(n)) update[field] = n;
-        } else if (type === 'boolean') {
-          update[field] = Boolean(req.body[field]);
-        }
-      }
+    // Use explicit literal property assignments to avoid bracket-notation with
+    // user-controlled keys (Sourcery: bracket object notation with user input).
+    if (req.body.low_confidence_threshold !== undefined) {
+      const n = Number(req.body.low_confidence_threshold);
+      if (!isNaN(n)) update.low_confidence_threshold = n;
+    }
+    if (req.body.llm_fallback_enabled !== undefined) {
+      update.llm_fallback_enabled = Boolean(req.body.llm_fallback_enabled);
+    }
+    if (req.body.llm_fallback_threshold !== undefined) {
+      const n = Number(req.body.llm_fallback_threshold);
+      if (!isNaN(n)) update.llm_fallback_threshold = n;
+    }
+    if (req.body.log_all_classifications !== undefined) {
+      update.log_all_classifications = Boolean(req.body.log_all_classifications);
+    }
+    if (req.body.log_retention_days !== undefined) {
+      const n = Number(req.body.log_retention_days);
+      if (!isNaN(n)) update.log_retention_days = n;
     }
     update.updated_by = req.user._id;
 

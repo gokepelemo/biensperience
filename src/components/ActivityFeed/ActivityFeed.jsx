@@ -593,14 +593,17 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
                         )}
                       </Timeline.Title>
                       {activity.resourceType === 'BienBotSession' && activity.bienbotSessionId && (
-                        <button
-                          type="button"
+                        <a
+                          href={`#bienbot-session-${activity.bienbotSessionId}`}
                           className={styles.activityLink}
-                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25em' }}
-                          onClick={() => openWithSession(activity.bienbotSessionId)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25em' }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openWithSession(activity.bienbotSessionId);
+                          }}
                         >
                           View session <FaChevronRight style={{ fontSize: '0.75em' }} />
-                        </button>
+                        </a>
                       )}
                       {activityPhoto?.url && (
                         <button

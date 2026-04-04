@@ -7,7 +7,7 @@
  * @module components/BienBotPanel/SessionHistoryView
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Text } from '../design-system';
 import { Tag } from '@chakra-ui/react';
@@ -62,6 +62,24 @@ function getSessionSnippet(session) {
 // ─── SessionHistoryView ─────────────────────────────────────────────────────
 
 export default function SessionHistoryView({ sessions, currentSessionId, onSelectSession, onBack, onDeleteSession, userId }) {
+  const [swipedSessionId, setSwipedSessionId] = useState(null);
+  const touchStartXRef = useRef(null);
+
+  function handleTouchStart(e) {
+    touchStartXRef.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e, sessionId) {
+    if (touchStartXRef.current === null) return;
+    const delta = touchStartXRef.current - e.changedTouches[0].clientX;
+    touchStartXRef.current = null;
+    if (delta > 60) {
+      setSwipedSessionId(sessionId);
+    } else if (delta < -20) {
+      setSwipedSessionId(null);
+    }
+  }
+
   const grouped = useMemo(() => {
     const groups = new Map();
     const order = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'];
@@ -109,11 +127,22 @@ export default function SessionHistoryView({ sessions, currentSessionId, onSelec
                 const isCurrent = session._id === currentSessionId;
                 const isOwner = userId && session.user?.toString() === userId.toString();
                 return (
-                  <div key={session._id} className={styles.historyItemWrapper}>
+                  <div
+                    key={session._id}
+                    className={`${styles.historyItemWrapper}${swipedSessionId === session._id ? ` ${styles.historyItemSwiped}` : ''}`}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={(e) => handleTouchEnd(e, session._id)}
+                  >
                     <button
                       type="button"
                       className={`${styles.historyItem} ${isCurrent ? styles.historyItemCurrent : ''}`}
-                      onClick={() => isCurrent ? onBack() : onSelectSession(session._id)}
+                      onClick={() => {
+                        if (swipedSessionId === session._id) {
+                          setSwipedSessionId(null);
+                          return;
+                        }
+                        isCurrent ? onBack() : onSelectSession(session._id);
+                      }}
                     >
                       <div className={styles.historyItemTop}>
                         <span className={styles.historyItemTitle}>

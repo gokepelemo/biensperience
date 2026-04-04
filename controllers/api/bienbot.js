@@ -121,8 +121,10 @@ async function resolveEntityLabel(entity, entityId) {
   try {
     // plan_item is a subdocument — find the parent plan that contains it
     if (mapping.custom && entity === 'plan_item') {
+      if (!mongoose.Types.ObjectId.isValid(entityId)) return null;
+      const entityOid = new mongoose.Types.ObjectId(entityId);
       loadModels();
-      const plan = await Plan.findOne({ 'plan._id': entityId })
+      const plan = await Plan.findOne({ 'plan._id': entityOid })
         .select('plan._id plan.text plan.content')
         .lean();
       if (!plan) return null;
@@ -1076,6 +1078,7 @@ exports.chat = async (req, res) => {
   const uploadedFile = req.file;
 
   if (uploadedFile) {
+    let safeTempPath;
     try {
       // Validate the uploaded file
       const validation = validateDocument({
@@ -1084,16 +1087,15 @@ exports.chat = async (req, res) => {
       });
 
       if (!validation.valid) {
-        // Clean up file before returning error
+        // Clean up file before returning error — path not yet resolved, use original
         try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
         return errorResponse(res, null, validation.error, 400);
       }
 
-      // Validate the local path is within the allowed uploads directory before
-      // any filesystem I/O (extractText reads the file, pendingLocalFile is
-      // later passed to uploadWithPipeline). Multer temp paths always satisfy
-      // this check; the call is defense-in-depth.
-      resolveAndValidateLocalUploadPath(uploadedFile.path);
+      // Resolve and validate the local path before any filesystem I/O.
+      // Captures the canonical absolute path so all subsequent FS calls use the
+      // validated value rather than the raw request-derived path.
+      safeTempPath = resolveAndValidateLocalUploadPath(uploadedFile.path);
 
       logger.info('[bienbot] Processing attachment', {
         filename: uploadedFile.originalname,
@@ -1103,7 +1105,7 @@ exports.chat = async (req, res) => {
       });
 
       // Extract text from the file
-      const extraction = await extractText(uploadedFile.path, uploadedFile.mimetype);
+      const extraction = await extractText(safeTempPath, uploadedFile.mimetype);
 
       attachmentData = {
         filename: uploadedFile.originalname,
@@ -1114,7 +1116,7 @@ exports.chat = async (req, res) => {
       };
 
       // Keep local file for S3 upload after session is created (need session ID for key)
-      pendingLocalFile = uploadedFile.path;
+      pendingLocalFile = safeTempPath;
 
       logger.info('[bienbot] Attachment text extracted', {
         method: attachmentData.extractionMethod,
@@ -1131,8 +1133,10 @@ exports.chat = async (req, res) => {
         extractedText: null,
         extractionMethod: 'failed'
       };
-      // Clean up on extraction failure
-      try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
+      // Clean up on extraction failure using the validated path if available
+      if (safeTempPath) {
+        try { await fs.promises.unlink(safeTempPath); } catch { /* ignore */ }
+      }
     }
   }
 
@@ -1685,14 +1689,17 @@ exports.chat = async (req, res) => {
         if (expRef) selectedExperienceId = expRef._id;
       }
 
-      if (selectedExperienceId) {
+      if (selectedExperienceId && mongoose.Types.ObjectId.isValid(selectedExperienceId)) {
+        const selectedExpOid = new mongoose.Types.ObjectId(selectedExperienceId);
         // Fetch the experience name
-        const expDoc = await Experience.findById(selectedExperienceId).select('name destination').populate('destination', 'name').lean();
-        selectedExperienceName = expDoc?.name || '(unnamed experience)';
-        const destinationName = expDoc?.destination?.name || '';
+        const expDoc = await Experience.findById(selectedExpOid).select('name destination').populate('destination', 'name').lean();
+        // Sanitize DB-fetched name strings at assignment to break the
+        // user-input taint chain that flows through the ObjectId query result.
+        selectedExperienceName = String(expDoc?.name || '').replace(/[\u0000-\u001F\u007F]/g, '').trim() || '(unnamed experience)';
+        const destinationName = String(expDoc?.destination?.name || '').replace(/[\u0000-\u001F\u007F]/g, '').trim();
 
         // Check if user already has a plan for this experience
-        const existingPlan = await Plan.findOne({ user: userId, experience: selectedExperienceId }).lean();
+        const existingPlan = await Plan.findOne({ user: userId, experience: selectedExpOid }).lean();
 
         await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
 

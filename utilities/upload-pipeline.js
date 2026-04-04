@@ -51,11 +51,12 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
     onS3Error
   } = options;
 
-  // Validate path security before any I/O
-  resolveAndValidateLocalUploadPath(localPath);
+  // Validate path security before any I/O; use the resolved canonical path
+  // for all subsequent operations to break the taint chain from the caller.
+  const safePath = resolveAndValidateLocalUploadPath(localPath);
 
   if (background) {
-    const uploadPromise = _doUpload(localPath, originalName, s3KeyPrefix, isProtected, deleteLocal)
+    const uploadPromise = _doUpload(safePath, originalName, s3KeyPrefix, isProtected, deleteLocal)
       .then((s3Result) => {
         logger.info(`${TAG} Background upload complete`, {
           key: s3Result.key,
@@ -70,7 +71,7 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
       })
       .catch((error) => {
         logger.error(`${TAG} Background upload failed`, {
-          localPath,
+          localPath: safePath,
           s3KeyPrefix,
           error: error.message
         });
@@ -83,19 +84,21 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
 
     return {
       s3Status: S3_STATUS.PENDING,
-      localPath,
+      localPath: safePath,
       uploadPromise
     };
   }
 
   // Synchronous (foreground) mode
-  const s3Result = await _doUpload(localPath, originalName, s3KeyPrefix, isProtected, deleteLocal);
+  const s3Result = await _doUpload(safePath, originalName, s3KeyPrefix, isProtected, deleteLocal);
   logger.info(`${TAG} Upload complete`, { key: s3Result.key, bucket: s3Result.bucket });
   return { s3Status: S3_STATUS.UPLOADED, s3Result };
 }
 
 /**
  * Internal: perform the S3 upload and clean up the local file.
+ * Receives a path that has already been validated by the caller via
+ * resolveAndValidateLocalUploadPath — no re-validation needed here.
  */
 async function _doUpload(localPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
   let s3Result;

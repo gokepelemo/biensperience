@@ -365,7 +365,7 @@ function renderMessageContent(text, navigate, chipStyles) {
 
 // ─── Notification item ───────────────────────────────────────────────────────
 
-function NotificationItem({ notification, onView }) {
+function NotificationItem({ notification, onView, onViewSession }) {
   const message = notification.reason ||
     `${notification.actor?.name || 'Someone'} added you as a collaborator to ${notification.resource?.name || 'an experience'}`;
   const resourceId = notification.resource?.id || notification.resource?._id;
@@ -387,7 +387,16 @@ function NotificationItem({ notification, onView }) {
             View
           </button>
         )}
-        {isBienBotSession && (
+        {isBienBotSession && resourceId && (
+          <button
+            type="button"
+            className={styles.notificationViewButton}
+            onClick={() => onViewSession?.(resourceId, notification._id)}
+          >
+            View session
+          </button>
+        )}
+        {isBienBotSession && !resourceId && (
           <button
             type="button"
             className={styles.notificationViewButton}
@@ -412,7 +421,8 @@ NotificationItem.propTypes = {
       name: PropTypes.string
     })
   }).isRequired,
-  onView: PropTypes.func.isRequired
+  onView: PropTypes.func.isRequired,
+  onViewSession: PropTypes.func
 };
 
 // ─── Image attachment with signed URL ─────────────────────────────────────────
@@ -1091,6 +1101,24 @@ export default function BienBotPanel({
     [navigate, onMarkNotificationsSeen, onClose]
   );
 
+  // ── BienBot session notification handler ──────────────────────────────────
+  // Keeps the panel open — marks the notification seen, loads the session,
+  // and switches to chat view without closing and re-opening.
+  const handleViewBienBotSession = useCallback(
+    async (sessionId, notificationId) => {
+      if (notificationId && onMarkNotificationsSeen) {
+        onMarkNotificationsSeen([notificationId]);
+      }
+      try {
+        await loadSession(sessionId);
+        setViewMode('chat');
+      } catch (e) {
+        logger.error('[BienBotPanel] Failed to load session from notification', { error: e?.message });
+      }
+    },
+    [onMarkNotificationsSeen, loadSession, setViewMode]
+  );
+
   // Mark all unseen notifications as seen when notification-only panel opens
   useEffect(() => {
     if (open && notificationOnly && unseenNotificationIds.length > 0 && onMarkNotificationsSeen) {
@@ -1284,6 +1312,7 @@ export default function BienBotPanel({
                     key={notif._id}
                     notification={notif}
                     onView={handleViewNotification}
+                    onViewSession={handleViewBienBotSession}
                   />
                 ))}
               </div>
