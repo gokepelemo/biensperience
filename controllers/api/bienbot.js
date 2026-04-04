@@ -1087,15 +1087,15 @@ exports.chat = async (req, res) => {
       });
 
       if (!validation.valid) {
-        // Clean up temp file before returning error. Re-derive the path from its
-        // own dirname+basename so CodeQL sees a locally-constructed value rather
-        // than the raw uploadedFile.path. We don't use resolveAndValidateLocalUploadPath
-        // here because the multer temp dir may differ from the upload root, and a
-        // validation failure would skip cleanup and accumulate orphaned temp files.
+        // Clean up temp file before returning error. resolveAndValidateLocalUploadPath
+        // is the CodeQL-sanctioned sanitizer that breaks the taint chain from
+        // uploadedFile.path. The multer dest is configured as 'uploads/temp' (inside
+        // the upload root), so validation always succeeds for legitimate multer files.
+        // The outer catch handles any unexpected failure gracefully.
         try {
-          const safeCleanupPath = path.resolve(path.dirname(uploadedFile.path), path.basename(uploadedFile.path));
+          const safeCleanupPath = resolveAndValidateLocalUploadPath(uploadedFile.path);
           await fs.promises.unlink(safeCleanupPath);
-        } catch { /* ignore — file may not exist */ }
+        } catch { /* ignore — file may not exist or path check failed */ }
         return errorResponse(res, null, validation.error, 400);
       }
 
