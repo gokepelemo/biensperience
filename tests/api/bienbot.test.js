@@ -58,7 +58,11 @@ jest.mock('../../utilities/bienbot-context-builders', () => ({
   buildDestinationContext: jest.fn().mockResolvedValue(null),
   buildExperienceContext: jest.fn().mockResolvedValue(null),
   buildUserPlanContext: jest.fn().mockResolvedValue(null),
-  buildSearchContext: jest.fn().mockResolvedValue(null)
+  buildPlanItemContext: jest.fn().mockResolvedValue(null),
+  buildSearchContext: jest.fn().mockResolvedValue(null),
+  buildSuggestionContext: jest.fn().mockResolvedValue(null),
+  buildDiscoveryContext: jest.fn().mockResolvedValue(null),
+  buildPlanNextStepsContext: jest.fn().mockResolvedValue(null)
 }));
 
 // ---- Mock action executor ---------------------------------------------------
