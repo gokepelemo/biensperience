@@ -863,33 +863,31 @@ function stripHtml(html) {
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/li>/gi, '\n');
 
-  // Step 4: Decode HTML entities BEFORE stripping remaining tags so that
-  //         entity-encoded tags like &lt;script&gt; become <script> and
-  //         are caught by the subsequent tag-strip step.
-  //         Use a placeholder for &amp; to prevent double-decoding chains
-  //         like &amp;lt; → &lt; → < (placeholder must not be valid HTML).
+  // Step 4: Decode safe HTML entities. &lt; and &gt; are intentionally NOT decoded
+  // to '<' and '>' — leaving them as entity references ensures no angle bracket is
+  // ever introduced into the string, so '<script' cannot appear after tag stripping.
+  // The output is plain text for LLM context where entity-encoded forms are harmless.
   text = text
     .replace(/&amp;/g, '__BIENSPERIENCE_AMP__')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ');
 
-  // Step 5: Strip ALL remaining tags in three separate assignments so that static
-  // analysis tools can prove no '<' character can survive to this step's end.
+  // Step 5: Strip ALL remaining HTML tags in three separate assignments so that
+  // static analysis can prove no '<' character survives to this step's end.
   // (a) Complete tags: <foo attr="x">
   text = text.replace(/<[^>]+>/g, '');
   // (b) Unclosed tags with no closing '>': e.g. a trailing '<script'
   text = text.replace(/<[^>]*/g, '');
-  // (c) Explicit character-level '<' removal — after this assignment CodeQL can
-  //     prove '<' is absent and therefore '<script' cannot appear in the output.
+  // (c) Explicit '<' removal — after this assignment no '<' can exist, therefore
+  //     '<script' cannot appear in the output.
   text = text.replace(/</g, '');
 
-  // Step 6: Restore & from placeholder; remove any stray angle brackets that survived
+  // Step 6: Restore & from placeholder and clean up whitespace.
+  // Note: no [<>] removal needed here because '<' was never introduced by Step 4
+  // and Step 5(c) guarantees '<' is absent.
   text = text
     .replace(/__BIENSPERIENCE_AMP__/g, '&')
-    .replace(/[<>]/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
