@@ -1419,6 +1419,42 @@ exports.chat = async (req, res) => {
           entityResolutionBlock = [entityResolutionBlock, ...unresolvedBlocks].filter(Boolean).join('\n\n');
         }
       }
+
+      // Short-circuit with disambiguation actions for ambiguous entity matches.
+      // Only handles destination and plan since experience/user ambiguity is left to the LLM.
+      const disambiguationActions = [];
+      if (Object.keys(resolutionResult.ambiguous).length > 0) {
+        for (const [field, candidates] of Object.entries(resolutionResult.ambiguous)) {
+          const entityType = FIELD_TYPE_MAP[field];
+          let actionType = null;
+          if (entityType === 'destination') {
+            actionType = 'select_destination';
+          } else if (entityType === 'plan') {
+            actionType = 'select_plan';
+          }
+          if (actionType && candidates?.length > 1) {
+            disambiguationActions.push({
+              id: `action_${Math.random().toString(36).substring(2, 10)}`,
+              type: actionType,
+              payload: { candidates },
+              description: `Which ${entityType} did you mean? (${candidates.map(c => c.name).join(', ')})`,
+              executed: false
+            });
+          }
+        }
+      }
+      if (disambiguationActions.length > 0) {
+        logger.info('[bienbot] Short-circuiting with disambiguation actions', {
+          userId,
+          sessionId: session._id.toString(),
+          count: disambiguationActions.length,
+          types: disambiguationActions.map(a => a.type)
+        });
+        sendSSE(res, 'actions', { actions: disambiguationActions });
+        sendSSE(res, 'done', { intent: 'disambiguate', message: '' });
+        res.end();
+        return;
+      }
     }
   } catch (err) {
     logger.warn('[bienbot] Entity resolution failed, continuing without it', { error: err.message });
