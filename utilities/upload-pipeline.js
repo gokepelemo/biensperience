@@ -105,6 +105,9 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
 async function _doUpload(validatedLocalPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
   // Re-validate here so any misuse of _doUpload (bypassing uploadWithPipeline)
   // is rejected, and CodeQL sees a clear sanitization step before every I/O op.
+  // resolveAndValidateLocalUploadPath returns a canonical absolute path via
+  // realpathSync with directory allowlist enforcement, so its return value is
+  // used directly for all subsequent filesystem operations.
   const safeValidatedPath = resolveAndValidateLocalUploadPath(validatedLocalPath);
 
   let s3Result;
