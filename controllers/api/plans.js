@@ -1306,6 +1306,12 @@ const updatePlan = asyncHandler(async (req, res) => {
 
         if (scheduledCount > 0) {
           const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+          try {
+            broadcastEvent('plan', id.toString(), {
+              type: 'plan:updated',
+              payload: { plan: updated.toObject(), planId: id.toString(), updatedFields: ['planned_date'], userId: req.user._id.toString() }
+            }, req.user._id.toString());
+          } catch (_) {}
           return res.json({
             ...updated.toObject(),
             _shift_meta: {
@@ -1320,6 +1326,12 @@ const updatePlan = asyncHandler(async (req, res) => {
       }
     }
 
+    try {
+      broadcastEvent('plan', id.toString(), {
+        type: 'plan:updated',
+        payload: { plan: updated.toObject(), planId: id.toString(), updatedFields: ['planned_date'], userId: req.user._id.toString() }
+      }, req.user._id.toString());
+    } catch (_) {}
     return res.json(updated);
   }
 

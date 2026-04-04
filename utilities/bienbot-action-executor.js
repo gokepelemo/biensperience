@@ -650,7 +650,7 @@ async function executeUpdatePlan(payload, user, session) {
   const result = getResult();
 
   // Auto-propose shift action if the plan date changed and there are scheduled items
-  if (result.body?._shift_meta && result.body._shift_meta.scheduled_items_count > 0 && session) {
+  if (result.body?._shift_meta && result.body._shift_meta.scheduled_items_count > 0 && result.body._shift_meta.date_diff_days !== 0 && session) {
     const { scheduled_items_count, date_diff_days } = result.body._shift_meta;
     session.pending_actions = session.pending_actions || [];
     session.pending_actions.push({

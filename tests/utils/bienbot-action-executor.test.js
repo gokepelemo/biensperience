@@ -513,5 +513,35 @@ describe('bienbot-action-executor', () => {
 
       expect(session.pending_actions).toHaveLength(0);
     });
+
+    it('does NOT push a pending action when date_diff_days is 0', async () => {
+      plansController.updatePlan.mockImplementationOnce(async (req, res) => {
+        res.json({
+          _id: 'plan-zero-diff',
+          planned_date: '2026-05-01',
+          _shift_meta: {
+            scheduled_items_count: 3,
+            date_diff_days: 0,
+            date_diff_ms: 3600000, // < 12h, rounds to 0 days
+            old_date: '2026-04-30T20:00:00.000Z',
+            new_date: '2026-05-01T01:00:00.000Z'
+          }
+        });
+      });
+
+      const session = { pending_actions: [] };
+
+      await executeAction(
+        {
+          id: 'action_upd03',
+          type: 'update_plan',
+          payload: { plan_id: 'plan-zero-diff', planned_date: '2026-05-01' }
+        },
+        user,
+        session
+      );
+
+      expect(session.pending_actions).toHaveLength(0);
+    });
   });
 });
