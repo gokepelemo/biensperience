@@ -119,6 +119,9 @@ export async function postMessage(sessionId, message, options = {}) {
     signal
   } = options;
 
+  const isNewSession = !sessionId;
+  let createdSessionId = null;
+
   const headers = await buildAuthHeaders();
 
   // Add CSRF token for this state-changing request
@@ -226,6 +229,9 @@ export async function postMessage(sessionId, message, options = {}) {
 
         switch (eventType) {
           case 'session':
+            if (isNewSession && eventData.sessionId) {
+              createdSessionId = eventData.sessionId;
+            }
             if (onSession) onSession(eventData);
             break;
 
@@ -260,14 +266,39 @@ export async function postMessage(sessionId, message, options = {}) {
 
   // Emit event after successful chat turn
   try {
+    const finalSessionId = createdSessionId || sessionId;
     broadcastEvent('bienbot:message_added', {
-      sessionId,
+      sessionId: finalSessionId,
       message,
       version: Date.now()
     });
-    logger.debug('[bienbot-api] bienbot:message_added event dispatched', { sessionId });
+    logger.debug('[bienbot-api] bienbot:message_added event dispatched', { sessionId: finalSessionId });
   } catch (e) {
     // Silently ignore — don't break the mutation
+  }
+
+  // Emit session_created for cross-tab sync when a brand-new session was implicitly created
+  if (isNewSession && createdSessionId) {
+    try {
+      let userId = null;
+      try {
+        const token = getToken();
+        if (token) {
+          const tokenPayload = parseJwtPayload(token.split('.')[1]);
+          userId = tokenPayload.user?._id || null;
+        }
+      } catch {
+        // Ignore token parse errors
+      }
+      broadcastEvent('bienbot:session_created', {
+        sessionId: createdSessionId,
+        userId,
+        version: Date.now()
+      });
+      logger.debug('[bienbot-api] bienbot:session_created event dispatched', { sessionId: createdSessionId });
+    } catch (e) {
+      // Silently ignore — don't break the mutation
+    }
   }
 }
 

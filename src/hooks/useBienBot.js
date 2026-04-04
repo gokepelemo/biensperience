@@ -581,11 +581,20 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       }
     });
 
+    const unsubCreated = eventBus.subscribe('bienbot:session_created', (event) => {
+      const { sessionId: createdId, userId: creatorId } = event;
+      // Only react to sessions created by this user in another tab
+      if (createdId && creatorId === userId && createdId !== sessionIdRef.current) {
+        fetchSessions();
+      }
+    });
+
     return () => {
       unsubDeleted();
       unsubResumed();
+      unsubCreated();
     };
-  }, [clearSession]);
+  }, [clearSession, fetchSessions, userId]);
 
   // ---------------------------------------------------------------------------
   // Session sharing
