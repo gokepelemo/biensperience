@@ -772,7 +772,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
             <Alert type="info" className={styles.formGroup}>
               <small>
                 <strong>{lang.current.photo.tipLabel}</strong> {lang.current.photo.tipDisabledPhotos}{' '}
-                <span dangerouslySetInnerHTML={{ __html: lang.current.photo.tipEnablePhotos }} />
+                <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lang.current.photo.tipEnablePhotos) }} />
               </small>
             </Alert>
           )}
