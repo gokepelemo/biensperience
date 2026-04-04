@@ -1087,8 +1087,12 @@ exports.chat = async (req, res) => {
       });
 
       if (!validation.valid) {
-        // Clean up file before returning error — path not yet resolved, use original
-        try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
+        // Clean up temp file before returning error — validate the path first so
+        // CodeQL sees a locally-constructed path rather than raw uploadedFile.path.
+        try {
+          const invalidFilePath = resolveAndValidateLocalUploadPath(uploadedFile.path);
+          await fs.promises.unlink(invalidFilePath);
+        } catch { /* ignore — file may not exist or path may be invalid */ }
         return errorResponse(res, null, validation.error, 400);
       }
 
