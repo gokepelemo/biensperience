@@ -3,9 +3,10 @@ import PropTypes from 'prop-types';
 import ExperienceWizardModal from '../components/ExperienceWizardModal';
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const ExperienceWizardContext = (import.meta.hot?.data?.ExperienceWizardContext) || createContext(null);
-if (import.meta.hot) {
-  import.meta.hot.data.ExperienceWizardContext = ExperienceWizardContext;
+const _hmrHot = import.meta.hot;
+const ExperienceWizardContext = (_hmrHot?.data?.ExperienceWizardContext) || createContext(null);
+if (_hmrHot) {
+  _hmrHot.data.ExperienceWizardContext = ExperienceWizardContext;
 }
 
 /**

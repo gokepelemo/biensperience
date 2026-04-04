@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const AppContext = (import.meta.hot?.data?.AppContext) || createContext();
-if (import.meta.hot) {
-  import.meta.hot.data.AppContext = AppContext;
+// Capture import.meta.hot in a const so that 'import' never appears as the
+// first token of an expression statement (which confuses static parsers).
+const _hmrHot = import.meta.hot;
+const AppContext = (_hmrHot?.data?.AppContext) || createContext();
+if (_hmrHot) {
+  _hmrHot.data.AppContext = AppContext;
 }
 
 /**

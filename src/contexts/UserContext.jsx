@@ -14,9 +14,10 @@ import { resolveAvatarUrl, resolveUrlFromUser, setCachedAvatarUrl } from '../uti
 // around so other users on the same device benefit from faster rendering.
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const UserContext = (import.meta.hot?.data?.UserContext) || createContext();
-if (import.meta.hot) {
-  import.meta.hot.data.UserContext = UserContext;
+const _hmrHot = import.meta.hot;
+const UserContext = (_hmrHot?.data?.UserContext) || createContext();
+if (_hmrHot) {
+  _hmrHot.data.UserContext = UserContext;
 }
 
 /**
