@@ -107,7 +107,11 @@ async function _doUpload(localPath, originalName, s3KeyPrefix, isProtected, dele
   } finally {
     if (deleteLocal) {
       try {
-        await fs.promises.unlink(localPath);
+        // Validate path before unlink — guards against path traversal if localPath is
+        // ever passed through from an untrusted source. The multer temp path always
+        // satisfies this check; it is defense-in-depth.
+        const safePath = resolveAndValidateLocalUploadPath(localPath);
+        await fs.promises.unlink(safePath);
         logger.debug(`${TAG} Local file deleted`, { localPath });
       } catch (unlinkErr) {
         // File may have already been deleted or never existed — non-fatal.
