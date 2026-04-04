@@ -12,9 +12,10 @@ import { useRevalidation, REVALIDATION_CONFIG } from '../hooks/useRevalidation';
 logger.debug('DataContext module loaded');
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const DataContext = (import.meta.hot?.data?.DataContext) || createContext();
-if (import.meta.hot) {
-  import.meta.hot.data.DataContext = DataContext;
+const _hmrHot = import.meta.hot;
+const DataContext = (_hmrHot?.data?.DataContext) || createContext();
+if (_hmrHot) {
+  _hmrHot.data.DataContext = DataContext;
 }
 
 /**

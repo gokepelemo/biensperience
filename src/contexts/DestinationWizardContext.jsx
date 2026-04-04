@@ -3,9 +3,10 @@ import PropTypes from 'prop-types';
 import DestinationWizardModal from '../components/DestinationWizardModal';
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const DestinationWizardContext = (import.meta.hot?.data?.DestinationWizardContext) || createContext(null);
-if (import.meta.hot) {
-  import.meta.hot.data.DestinationWizardContext = DestinationWizardContext;
+const _hmrHot = import.meta.hot;
+const DestinationWizardContext = (_hmrHot?.data?.DestinationWizardContext) || createContext(null);
+if (_hmrHot) {
+  _hmrHot.data.DestinationWizardContext = DestinationWizardContext;
 }
 
 /**

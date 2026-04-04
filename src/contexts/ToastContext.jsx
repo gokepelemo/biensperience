@@ -6,9 +6,10 @@ import { eventBus } from '../utilities/event-bus';
 import { lang } from '../lang.constants';
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const ToastContext = (import.meta.hot?.data?.ToastContext) || createContext();
-if (import.meta.hot) {
-  import.meta.hot.data.ToastContext = ToastContext;
+const _hmrHot = import.meta.hot;
+const ToastContext = (_hmrHot?.data?.ToastContext) || createContext();
+if (_hmrHot) {
+  _hmrHot.data.ToastContext = ToastContext;
 }
 
 /**

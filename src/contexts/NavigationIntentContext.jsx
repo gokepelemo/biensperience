@@ -24,9 +24,10 @@ export const INTENT_TYPES = {
 const INTENT_EXPIRATION_MS = 30000;
 
 // Preserve context reference across HMR to prevent "must be used within Provider" errors
-const NavigationIntentContext = (import.meta.hot?.data?.NavigationIntentContext) || createContext(null);
-if (import.meta.hot) {
-  import.meta.hot.data.NavigationIntentContext = NavigationIntentContext;
+const _hmrHot = import.meta.hot;
+const NavigationIntentContext = (_hmrHot?.data?.NavigationIntentContext) || createContext(null);
+if (_hmrHot) {
+  _hmrHot.data.NavigationIntentContext = NavigationIntentContext;
 }
 
 /**
