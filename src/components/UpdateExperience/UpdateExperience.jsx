@@ -165,10 +165,7 @@ export default function UpdateExperience() {
       const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
       // Check if default photo changed by ID (fallback to first photo when unset)
-      const originalDefaultId = originalExperience.default_photo_id;
-      const currentDefaultId = experience.default_photo_id;
 
-      // Check if original default_photo_id is actually in the photos array (valid reference)
       const originalDefaultRaw = originalDefaultId ? String(getId(originalDefaultId)) : null;
       const isOriginalDefaultValid = originalDefaultRaw !== null && originalPhotoIds.includes(originalDefaultRaw);
 
@@ -369,7 +366,6 @@ export default function UpdateExperience() {
         experience_type: experience.experience_type,
         plan_items: experience.plan_items,
         photos: photosToSend,
-        default_photo_id: experience.default_photo_id,
         visibility: experience.visibility
       };
 

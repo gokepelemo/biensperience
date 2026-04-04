@@ -28,9 +28,9 @@ async function getMyInvites(req, res) {
     const invites = await InviteCode.find(query)
       .populate({
         path: 'redeemedBy',
-        select: 'name email photos default_photo_id oauthProfilePhoto createdAt',
+        select: 'name email photos oauthProfilePhoto createdAt',
         populate: {
-          path: 'photos',
+          path: 'photos.photo',
           select: 'url caption'
         }
       })
@@ -92,10 +92,10 @@ async function getInviteDetails(req, res) {
     const invite = await InviteCode.findOne(query)
       .populate({
         path: 'redeemedBy',
-        select: 'name email photos default_photo_id oauthProfilePhoto createdAt lastLogin inviteCode',
+        select: 'name email photos oauthProfilePhoto createdAt lastLogin inviteCode',
         options: { sort: { createdAt: -1 } },
         populate: {
-          path: 'photos',
+          path: 'photos.photo',
           select: 'url caption'
         }
       })

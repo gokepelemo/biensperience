@@ -1,121 +1,105 @@
-/**
- * Photo utility functions for handling photo arrays with ID-based operations
- * @module photo-utils
- */
-
 import { logger } from './logger';
 
 /**
- * Get the default photo from a resource
- * @param {Object} resource - The resource (destination, experience, or user) with photos
- * @returns {Object|null} The default photo object or null if none found
+ * Returns true when a photos array item is a populated entry wrapper {photo, default}
+ * as produced by .populate('photos.photo'). Returns false for flat Photo documents
+ * produced by aggregation $lookup pipelines.
+ */
+function isEntryWrapped(item) {
+  if (!item || typeof item !== 'object') return false;
+  // Entry wrapper has a `photo` sub-document (object) or an ObjectId string
+  return 'photo' in item && 'default' in item;
+}
+
+/**
+ * Resolve a single photos array item to a Photo document regardless of shape:
+ *   - New schema entry wrapper: { photo: PhotoDoc, default: bool } → PhotoDoc
+ *   - Flat Photo doc from aggregation: { _id, url, ... } → itself
+ *   - Bare ObjectId string (unpopulated): → null
+ */
+function resolvePhotoDoc(item) {
+  if (!item || typeof item !== 'object') return null;
+  if (isEntryWrapped(item)) {
+    // populated entry: item.photo is a Photo document
+    if (item.photo && typeof item.photo === 'object' && item.photo.url) return item.photo;
+    return null; // unpopulated entry
+  }
+  // Flat Photo document (from aggregation lookup)
+  if (item.url) return item;
+  return null;
+}
+
+/**
+ * Get the default photo object from a resource.
+ * Returns the Photo document (with .url), not the entry wrapper.
+ * Handles both populate ({photo, default}) and aggregation (flat PhotoDoc) shapes.
+ * @param {Object} resource - The resource with photos array
+ * @returns {Object|null} The Photo document or null if none can be resolved
  */
 export function getDefaultPhoto(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return null;
   }
+  const photos = resource.photos;
 
-  // Use ID-based selection
-  if (resource.default_photo_id) {
-    const defaultIdStr = resource.default_photo_id._id
-      ? resource.default_photo_id._id.toString()
-      : resource.default_photo_id.toString();
-    const photo = resource.photos.find(p => {
-      // Handle populated photo objects (have ._id) and unpopulated ObjectId refs
-      const photoId = (p && p._id) ? p._id.toString() : (p ? p.toString() : null);
-      return photoId === defaultIdStr;
-    });
-    if (photo) {
-      return photo;
-    }
-    logger.warn('Default photo ID not found in photos array', {
-      resourceId: resource._id,
-      default_photo_id: resource.default_photo_id
-    });
+  if (isEntryWrapped(photos[0])) {
+    // New schema: [{photo: PhotoDoc, default: bool}]
+    const defaultEntry = photos.find(p => p.default);
+    return resolvePhotoDoc(defaultEntry) || resolvePhotoDoc(photos[0]);
   }
 
-  // Return first photo as fallback
-  return resource.photos[0];
+  // Flat Photo documents from aggregation
+  const first = resolvePhotoDoc(photos[0]);
+  return first;
 }
 
 /**
- * Get the index of the default photo
+ * Get the index of the default photo entry.
  * @param {Object} resource - The resource with photos
- * @returns {number} The index of the default photo (0 if not found)
+ * @returns {number} The index of the default entry (0 if not found)
  */
 export function getDefaultPhotoIndex(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return 0;
   }
-
-  // Use ID-based lookup
-  if (resource.default_photo_id) {
-    const defaultIdStr = resource.default_photo_id._id
-      ? resource.default_photo_id._id.toString()
-      : resource.default_photo_id.toString();
-    const index = resource.photos.findIndex(p => {
-      const photoId = (p && p._id) ? p._id.toString() : (p ? p.toString() : null);
-      return photoId === defaultIdStr;
-    });
-    if (index !== -1) {
-      return index;
-    }
+  if (isEntryWrapped(resource.photos[0])) {
+    const index = resource.photos.findIndex(p => p.default);
+    return index !== -1 ? index : 0;
   }
-
-  // Return 0 as fallback
   return 0;
 }
 
 /**
- * Get the photo ID from a photo object
- * @param {Object} photo - The photo object
- * @returns {string|null} The photo ID or null
+ * Get an array of Photo documents from a resource, regardless of which shape
+ * the photos array is in (entry wrappers or flat Photo docs).
+ * @param {Object} resource - The resource with photos
+ * @returns {Array} Array of Photo documents
  */
-export function getPhotoId(photo) {
-  if (!photo) return null;
-  return photo._id ? photo._id.toString() : null;
+export function getPhotoObjects(resource) {
+  return (resource?.photos || []).map(resolvePhotoDoc).filter(Boolean);
 }
 
-/**
- * Find photo by ID in photos array
- * @param {Array} photos - Array of photo objects
- * @param {string} photoId - The ID to find
- * @returns {Object|null} The photo object or null
- */
-export function findPhotoById(photos, photoId) {
-  if (!photos || !Array.isArray(photos) || !photoId) {
-    return null;
-  }
-  return photos.find(p => p._id && p._id.toString() === photoId.toString()) || null;
+export function getPhotoEntries(resource) {
+  if (!resource || !resource.photos) return [];
+  return resource.photos;
 }
 
-/**
- * Get the index of a photo by ID
- * @param {Array} photos - Array of photo objects
- * @param {string} photoId - The ID to find
- * @returns {number} The index or -1 if not found
- */
-export function getPhotoIndexById(photos, photoId) {
-  if (!photos || !Array.isArray(photos) || !photoId) {
-    return -1;
-  }
-  return photos.findIndex(p => p._id && p._id.toString() === photoId.toString());
-}
 
 /**
- * Set the default photo by ID
- * Returns updated resource object (immutable)
+ * Set the default photo by photo ID. Returns updated resource (immutable).
  * @param {Object} resource - The resource to update
- * @param {string} photoId - The ID of the photo to set as default
- * @returns {Object|null} Updated resource or null if photo not found
+ * @param {string} photoId - The ID of the photo to mark as default
+ * @returns {Object|null} Updated resource or null if not found
  */
 export function setDefaultPhotoById(resource, photoId) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return null;
   }
-
-  const index = getPhotoIndexById(resource.photos, photoId);
-
+  const photoIdStr = photoId ? photoId.toString() : null;
+  const index = resource.photos.findIndex(p => {
+    const entryId = p.photo && p.photo._id ? p.photo._id.toString() : (p.photo ? p.photo.toString() : null);
+    return entryId === photoIdStr;
+  });
   if (index === -1) {
     logger.warn('Photo ID not found when setting default photo', {
       resourceId: resource._id,
@@ -123,25 +107,22 @@ export function setDefaultPhotoById(resource, photoId) {
     });
     return null;
   }
-
   return {
     ...resource,
-    default_photo_id: photoId
+    photos: resource.photos.map((p, i) => ({ ...p, default: i === index }))
   };
 }
 
 /**
- * Set the default photo by index
- * Returns updated resource object (immutable)
+ * Set the default photo by array index. Returns updated resource (immutable).
  * @param {Object} resource - The resource to update
- * @param {number} index - The index of the photo to set as default
+ * @param {number} index - The index of the photo entry to mark as default
  * @returns {Object|null} Updated resource or null if index out of bounds
  */
 export function setDefaultPhotoByIndex(resource, index) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return null;
   }
-
   if (index < 0 || index >= resource.photos.length) {
     logger.warn('Photo index out of bounds when setting default photo', {
       resourceId: resource._id,
@@ -150,44 +131,35 @@ export function setDefaultPhotoByIndex(resource, index) {
     });
     return null;
   }
-
-  const photo = resource.photos[index];
   return {
     ...resource,
-    default_photo_id: photo._id
+    photos: resource.photos.map((p, i) => ({ ...p, default: i === index }))
   };
 }
 
 /**
- * Ensure default photo ID and index are consistent
- * Returns updated resource object (immutable)
- * @param {Object} resource - The resource to check and fix
+ * Ensure exactly one entry has default: true. Returns updated resource (immutable).
+ * @param {Object} resource - The resource to normalise
  * @returns {Object} Updated resource
  */
 export function ensureDefaultPhotoConsistency(resource) {
-  if (!resource) {
+  if (!resource) return resource;
+  if (!resource.photos || resource.photos.length === 0) {
     return resource;
   }
-
-  if (!resource.photos || resource.photos.length === 0) {
+  const defaultCount = resource.photos.filter(p => p.default).length;
+  if (defaultCount === 1) return resource;
+  if (defaultCount === 0) {
     return {
       ...resource,
-      default_photo_id: null
+      photos: resource.photos.map((p, i) => ({ ...p, default: i === 0 }))
     };
   }
-
-  // If default_photo_id exists and is valid, keep it
-  if (resource.default_photo_id) {
-    const index = getPhotoIndexById(resource.photos, resource.default_photo_id);
-    if (index !== -1) {
-      return resource;
-    }
-    // ID not found, clear it
-  }
-
-  // Set to first photo's ID
-  return {
-    ...resource,
-    default_photo_id: resource.photos[0]._id
-  };
+  // Multiple defaults — keep last one
+  let found = false;
+  const photos = [...resource.photos].reverse().map(p => {
+    if (p.default && !found) { found = true; return p; }
+    return { ...p, default: false };
+  }).reverse();
+  return { ...resource, photos };
 }

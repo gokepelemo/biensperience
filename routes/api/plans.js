@@ -23,6 +23,8 @@ router.get("/experience/:experienceId/check", plansCtrl.checkUserPlanForExperien
 router.put("/:id", modificationLimiter, plansCtrl.updatePlan); // Update plan
 router.post("/:id/shift-item-dates", modificationLimiter, plansCtrl.shiftPlanItemDates); // Shift all root plan item scheduled_dates by diff_ms
 router.put("/:id/reorder", modificationLimiter, plansCtrl.reorderPlanItems); // Reorder plan items
+router.post("/:id/schedule-delete", modificationLimiter, plansCtrl.scheduleDeletePlan); // Schedule plan deletion (returns undo token)
+router.delete("/scheduled/:token", modificationLimiter, plansCtrl.cancelScheduledDeletePlan); // Cancel a scheduled deletion (undo)
 router.delete("/:id", modificationLimiter, plansCtrl.deletePlan); // Delete plan
 
 // Plan item routes

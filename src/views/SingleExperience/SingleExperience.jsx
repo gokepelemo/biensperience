@@ -105,6 +105,7 @@ import './components/MyPlanTabContent/plan-item-views.css';
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
 import { idEquals, normalizeId, findById, findIndexById, filterOutById } from "../../utilities/id-utils";
+import { getDefaultPhoto, getPhotoObjects } from "../../utilities/photo-utils";
 
 export default function SingleExperience() {
   // ============================================================================
@@ -443,10 +444,20 @@ export default function SingleExperience() {
 
           // Merge updated experience into local state but preserve deeply local plan UI fields if present
           try {
-            // Helper to check if array contains populated objects (with .url)
+            // Helper to check if array contains populated photos in either schema:
+            // - New schema entries: [{photo: {url, ...}, default: bool}] → entry.photo.url exists
+            // - Flat Photo docs from aggregation: [{url: ...}] → entry.url exists
             const isPopulatedPhotoArray = (arr) =>
               Array.isArray(arr) && arr.length > 0 &&
-              typeof arr[0] === 'object' && arr[0] !== null && arr[0].url;
+              typeof arr[0] === 'object' && arr[0] !== null &&
+              (arr[0].url || arr[0]?.photo?.url);
+
+            // A photo array is "richer" than another when it uses the new entry-wrapper
+            // schema [{photo, default}] vs flat Photo docs — entry wrappers carry the
+            // default flag so prefer them when the incoming ctx update is only flat docs.
+            const isEntrySchema = (arr) =>
+              Array.isArray(arr) && arr.length > 0 &&
+              typeof arr[0] === 'object' && 'photo' in arr[0] && 'default' in arr[0];
 
             // Helper to check if destination is populated (object with name property)
             const isPopulatedDestination = (dest) =>
@@ -456,8 +467,13 @@ export default function SingleExperience() {
             const merged = { ...(prev || {}), ...(updated || {}) };
 
             // Preserve populated photos array if local has full objects with URLs
-            // and incoming from context only has IDs (strings or unpopulated)
+            // and incoming from context only has IDs (strings or unpopulated).
+            // Also prefer entry-schema (has default flag) over flat Photo docs.
             if (isPopulatedPhotoArray(prev?.photos) && !isPopulatedPhotoArray(updated?.photos)) {
+              merged.photos = prev.photos;
+              merged.photos_full = prev.photos_full || prev.photos;
+            } else if (isEntrySchema(prev?.photos) && !isEntrySchema(updated?.photos) && isPopulatedPhotoArray(updated?.photos)) {
+              // prev has richer entry-schema, updated has flat docs — keep prev
               merged.photos = prev.photos;
               merged.photos_full = prev.photos_full || prev.photos;
             }
@@ -1093,7 +1109,8 @@ export default function SingleExperience() {
     handleExperience,
     handleShareExperience,
     handleSharePlanItem,
-    confirmRemoveExperience
+    confirmRemoveExperience,
+    pendingUnplanRef,
   } = useExperienceActions({
     experience,
     experienceId,
@@ -2653,6 +2670,37 @@ export default function SingleExperience() {
           plannedDate: addData.planned_date
         });
 
+        // If there's a pending unplan (undo window active), cancel the deferred
+        // delete and restore the plan instead of trying to create a new one.
+        // This prevents a 409 Conflict when the user unplans then immediately replans.
+        if (pendingUnplanRef.current) {
+          debug.log('[HANDLE_ADD] Pending unplan detected — cancelling delete and restoring plan');
+          const { prevPlan, undo } = pendingUnplanRef.current;
+          pendingUnplanRef.current = null;
+          await undo(); // async: cancels the backend scheduled delete
+
+          closeModal();
+          setIsEditingDate(false);
+          setPlannedDate("");
+
+          // If the user picked a different date, update it on the restored plan.
+          const newDate = addData.planned_date || null;
+          const oldDate = prevPlan.planned_date || null;
+          if (newDate && newDate !== oldDate) {
+            try {
+              await updatePlan(prevPlan._id, { planned_date: newDate });
+            } catch (updateErr) {
+              // Non-fatal — plan is restored even if the date update fails
+              debug.log('[HANDLE_ADD] Date update after replan failed', { error: updateErr?.message });
+            }
+          }
+
+          setSelectedPlanId(prevPlan._id);
+          setActiveTab("myplan");
+          navigate(`/experiences/${experience._id}#plan-${prevPlan._id}`, { replace: true });
+          return;
+        }
+
         // Close UI elements - all plan state managed by usePlanManagement hook
         closeModal();
         setIsEditingDate(false);
@@ -2738,7 +2786,9 @@ export default function SingleExperience() {
       plannedDate,
       userHasExperience,
       user,
+      pendingUnplanRef,
       createPlan,
+      updatePlan,
       success,
       showError,
       navigate
@@ -3196,12 +3246,12 @@ export default function SingleExperience() {
                 >
                   {experience.photos && experience.photos.length > 0 ? (
                     <img
-                      src={experience.photos[0]?.url || experience.photos[0]}
+                      src={getDefaultPhoto(experience)?.url}
                       alt={experience.name}
                     />
                   ) : experience.destination?.photos && experience.destination.photos.length > 0 ? (
                     <img
-                      src={experience.destination.photos[0]?.url || experience.destination.photos[0]}
+                      src={getDefaultPhoto(experience.destination)?.url}
                       alt={experience.destination.name}
                     />
                   ) : (
@@ -4140,7 +4190,6 @@ export default function SingleExperience() {
             // Update experience with new photos
             const updated = await updateExperience(experience._id, {
               photos: photoIds,
-              default_photo_id: data.default_photo_id
             });
 
             // Update local experience state
@@ -4153,7 +4202,6 @@ export default function SingleExperience() {
                 // Use full photo objects for display (they have .url)
                 photos: fullPhotos.length > 0 ? fullPhotos : (updated.photos || photoIds),
                 photos_full: fullPhotos,
-                default_photo_id: data.default_photo_id || updated.default_photo_id
               }));
 
               // Update in context if available

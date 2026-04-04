@@ -103,24 +103,23 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
  *   raw caller-supplied path directly — validation must happen before this call.
  */
 async function _doUpload(validatedLocalPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
+  // Re-validate here so any misuse of _doUpload (bypassing uploadWithPipeline)
+  // is rejected, and CodeQL sees a clear sanitization step before every I/O op.
+  const safeValidatedPath = resolveAndValidateLocalUploadPath(validatedLocalPath);
+
   let s3Result;
   try {
-    s3Result = await s3Upload(validatedLocalPath, originalName, s3KeyPrefix, { protected: isProtected });
+    s3Result = await s3Upload(safeValidatedPath, originalName, s3KeyPrefix, { protected: isProtected });
   } finally {
     if (deleteLocal) {
       try {
-        // Re-derive the unlink path from dirname+basename so CodeQL's taint
-        // tracker sees a locally-constructed value, not the incoming parameter.
-        // validatedLocalPath is already safe (validated by caller); this is a
-        // structural hint to static analysis, not a re-validation.
-        const safePath = path.resolve(path.dirname(validatedLocalPath), path.basename(validatedLocalPath));
-        await fs.promises.unlink(safePath);
-        logger.debug(`${TAG} Local file deleted`, { localPath: validatedLocalPath });
+        await fs.promises.unlink(safeValidatedPath);
+        logger.debug(`${TAG} Local file deleted`, { localPath: safeValidatedPath });
       } catch (unlinkErr) {
         // File may have already been deleted or never existed — non-fatal.
         if (unlinkErr.code !== 'ENOENT') {
           logger.warn(`${TAG} Failed to delete local file`, {
-            localPath: validatedLocalPath,
+            localPath: safeValidatedPath,
             error: unlinkErr.message
           });
         }

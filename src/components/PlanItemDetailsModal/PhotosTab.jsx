@@ -448,7 +448,6 @@ export default function PhotosTab({
   const photoUploadData = {
     photos: photoIds,
     photos_full: photos,
-    default_photo_id: photos[0]?._id || null
   };
 
   // ============================================

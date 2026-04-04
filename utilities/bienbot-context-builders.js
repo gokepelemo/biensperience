@@ -1295,7 +1295,6 @@ async function findCoOccurringExperiences(similarUsers, filters, userId) {
       destination_id: { $first: '$exp.destination' },
       activity_types: { $first: '$exp.experience_type' },
       plan_item_types: { $first: '$exp.plan_items.activity_type' },
-      default_photo_id: { $first: '$exp.default_photo_id' },
       photos: { $first: '$exp.photos' }
     }},
     { $lookup: {
@@ -1308,7 +1307,13 @@ async function findCoOccurringExperiences(similarUsers, filters, userId) {
     { $lookup: {
       from: 'photos',
       let: {
-        photoId: { $ifNull: ['$default_photo_id', { $arrayElemAt: ['$photos', 0] }] }
+        photoId: { $let: {
+          vars: {
+            defaultEntry: { $arrayElemAt: [{ $filter: { input: '$photos', as: 'p', cond: { $eq: ['$$p.default', true] } } }, 0] },
+            firstEntry: { $arrayElemAt: ['$photos', 0] }
+          },
+          in: { $ifNull: ['$$defaultEntry.photo', '$$firstEntry.photo'] }
+        }}
       },
       pipeline: [
         { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
@@ -1443,7 +1448,6 @@ async function findPopularExperiences(filters, userId) {
       experience_name: { $first: '$exp.name' },
       destination_id: { $first: '$exp.destination' },
       activity_types: { $first: '$exp.experience_type' },
-      default_photo_id: { $first: '$exp.default_photo_id' },
       photos: { $first: '$exp.photos' }
     }},
     { $lookup: {
@@ -1455,7 +1459,13 @@ async function findPopularExperiences(filters, userId) {
     { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
     { $lookup: {
       from: 'photos',
-      let: { photoId: { $ifNull: ['$default_photo_id', { $arrayElemAt: ['$photos', 0] }] } },
+      let: { photoId: { $let: {
+        vars: {
+          defaultEntry: { $arrayElemAt: [{ $filter: { input: '$photos', as: 'p', cond: { $eq: ['$$p.default', true] } } }, 0] },
+          firstEntry: { $arrayElemAt: ['$photos', 0] }
+        },
+        in: { $ifNull: ['$$defaultEntry.photo', '$$firstEntry.photo'] }
+      }} },
       pipeline: [
         { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
         { $project: { url: 1 } }

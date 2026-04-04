@@ -35,7 +35,6 @@ const sampleExperience = {
       photo_credit_url: 'https://unsplash.com',
     },
   ],
-  default_photo_id: null,
   experience_type: ['Sightseeing', 'Photography', 'Cultural'],
   cost_estimate: 50,
   max_planning_days: 7,

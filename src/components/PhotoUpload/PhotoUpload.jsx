@@ -74,11 +74,15 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
     const source = Array.isArray(data.photos_full) && data.photos_full.length > 0 
       ? data.photos_full.filter(Boolean) 
       : (data.photos || []).filter(Boolean);
-    if (data.default_photo_id && source) {
-      const index = source.findIndex(photo =>
-        (photo && photo._id && String(photo._id) === String(data.default_photo_id)) || String(photo) === String(data.default_photo_id)
-      );
-      return index >= 0 ? index : 0;
+    // New schema: photos = [{photo: PhotoObj, default: bool}]
+    // Find index of the default entry in photos_full by matching IDs
+    if (data.photos && Array.isArray(data.photos) && data.photos[0]?.photo) {
+      const defaultEntry = data.photos.find(e => e?.default);
+      if (defaultEntry && source.length > 0) {
+        const defaultPhotoId = defaultEntry.photo?._id || defaultEntry.photo;
+        const index = source.findIndex(p => String(p?._id || p) === String(defaultPhotoId));
+        return index >= 0 ? index : 0;
+      }
     }
     return 0;
   });
@@ -102,19 +106,20 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
     if (externalPhotos.length > 0 && !initializedFromDataRef.current) {
       setPhotos(externalPhotos);
 
-      // Also sync default photo index
-      if (data.default_photo_id) {
-        const index = externalPhotos.findIndex(photo =>
-          (photo && photo._id && String(photo._id) === String(data.default_photo_id)) ||
-          String(photo) === String(data.default_photo_id)
-        );
-        if (index >= 0) setDefaultPhotoIndex(index);
+      // Also sync default photo index from new photos[].default schema
+      if (data.photos && Array.isArray(data.photos) && data.photos[0]?.photo !== undefined) {
+        const defaultEntry = data.photos.find(e => e?.default);
+        if (defaultEntry) {
+          const defaultPhotoId = defaultEntry.photo?._id || defaultEntry.photo;
+          const index = externalPhotos.findIndex(p => String(p?._id || p) === String(defaultPhotoId));
+          if (index >= 0) setDefaultPhotoIndex(index);
+        }
       }
 
       initializedFromDataRef.current = true;
       logger.debug('[PhotoUpload] Synced photos from external data', { count: externalPhotos.length });
     }
-  }, [data.photos_full, data.photos, data.default_photo_id]);
+  }, [data.photos_full, data.photos]);
 
   // Reset initialized flag when photos are cleared (e.g., modal closed and reopened)
   useEffect(() => {
@@ -158,9 +163,11 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
 
       setData((prevData) => ({
         ...prevData,
-        photos: photoIds,
-        photos_full: activePhotos,
-        default_photo_id: activePhotos.length > 0 ? (activePhotos[newDefaultIndex]?._id || activePhotos[newDefaultIndex]) : null
+        photos: activePhotos.map((photo, idx) => ({
+          photo: photo?._id || photo,
+          default: idx === newDefaultIndex
+        })),
+        photos_full: activePhotos
       }));
     }
   }, [photos, defaultPhotoIndex, disabledPhotos, setData]);

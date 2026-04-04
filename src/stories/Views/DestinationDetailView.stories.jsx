@@ -74,7 +74,6 @@ const mockDestination = {
       photo_credit: 'Arto Marttinen',
     }
   ],
-  default_photo_id: 'photo-1',
   travel_tips: [
     { type: 'language', value: 'Japanese', notes: 'English widely understood in tourist areas' },
     { type: 'currency', value: 'JPY', exchange_rate: '150 = $1 USD' },

@@ -133,9 +133,7 @@ export default function CuratorPlanners({ user }) {
                     _id: planner.userId,
                     name: planner.userName,
                     photos: planner.userPhotos || [],
-                    default_photo_id: planner.userPhotoId,
-                    oauthProfilePhoto: planner.userOauthProfilePhoto,
-                    photo: planner.userPhoto
+                    oauthProfilePhoto: planner.userOauthProfilePhoto
                   }}
                   size="sm"
                   linkToProfile={false}

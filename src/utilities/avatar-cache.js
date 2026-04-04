@@ -36,7 +36,7 @@ let batchScheduled = false;
 
 /**
  * Resolve avatar URL from a user object using the standard fallback chain:
- *  1. photos[] + default_photo_id → matching photo URL
+ *  1. photos[] (entries with {photo, default}) → default entry photo URL
  *  2. photos[0] → first photo URL
  *  3. oauthProfilePhoto
  *  4. Legacy photo string field
@@ -47,27 +47,19 @@ let batchScheduled = false;
 export function resolveUrlFromUser(user) {
   if (!user) return null;
 
-  // 1. photos + default_photo_id
-  if (user.photos?.length > 0 && user.default_photo_id) {
-    const defaultId = user.default_photo_id?._id || user.default_photo_id;
-    const match = user.photos.find(p => {
-      const photoId = p?._id || p;
-      return photoId?.toString() === defaultId?.toString();
-    });
-    if (match && typeof match === 'object' && match.url) return match.url;
-  }
-
-  // 2. First populated photo
+  // 1. photos[].photo — find default or fall back to first
   if (user.photos?.length > 0) {
-    const first = user.photos[0];
-    if (first && typeof first === 'object' && first.url) return first.url;
+    // New schema: photos = [{photo: PhotoObj, default: bool}]
+    const defaultEntry = user.photos.find(p => p?.default);
+    const firstEntry = user.photos[0];
+    const photoObj = defaultEntry?.photo || firstEntry?.photo;
+    if (photoObj && typeof photoObj === 'object' && photoObj.url) return photoObj.url;
+    // Legacy flat schema: photos = [PhotoObj, ...]
+    const flatPhoto = defaultEntry || firstEntry;
+    if (flatPhoto && typeof flatPhoto === 'object' && flatPhoto.url) return flatPhoto.url;
+    // Unpopulated — return null to trigger lazy fetch
+    return null;
   }
-
-  // If photos exist but none could be resolved (unpopulated ObjectIds),
-  // return null to force a lazy fetch from the backend which will
-  // .populate() them properly. Never fall through to OAuth/legacy —
-  // uploaded photos must always take precedence.
-  if (user.photos?.length > 0) return null;
 
   // 3. OAuth profile photo (only when no uploaded photos exist)
   if (user.oauthProfilePhoto) return user.oauthProfilePhoto;

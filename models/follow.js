@@ -141,9 +141,9 @@ followSchema.statics.getFollowers = async function(userId, options = {}) {
     .limit(options.limit || 50)
     .populate({
       path: 'follower',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
@@ -160,9 +160,9 @@ followSchema.statics.getFollowing = async function(userId, options = {}) {
     .limit(options.limit || 50)
     .populate({
       path: 'following',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
@@ -236,9 +236,9 @@ followSchema.statics.getPendingRequests = async function(userId, options = {}) {
       .limit(limit)
       .populate({
         path: 'follower',
-        select: 'name email photos default_photo_id oauthProfilePhoto photo',
+        select: 'name email photos oauthProfilePhoto photo',
         populate: {
-          path: 'photos',
+          path: 'photos.photo',
           select: 'url caption'
         }
       })
@@ -269,9 +269,9 @@ followSchema.statics.acceptRequest = async function(userId, requesterId) {
     { new: true }
   ).populate({
     path: 'follower',
-    select: 'name email photos default_photo_id oauthProfilePhoto photo',
+    select: 'name email photos oauthProfilePhoto photo',
     populate: {
-      path: 'photos',
+      path: 'photos.photo',
       select: 'url caption'
     }
   });

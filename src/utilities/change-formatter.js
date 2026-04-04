@@ -22,7 +22,6 @@ export function getFieldIcon(fieldName, entityType = '') {
     city: '🏙️',
     travel_tips: '💡',
     photos: '📸',
-    default_photo_id: '🖼️',
 
     // Experience fields
     experience_name: '🎯',
@@ -87,7 +86,6 @@ const FIELD_LABELS = {
     city: 'City',
     travel_tips: 'Travel Tips',
     photos: 'Photos',
-    default_photo_id: 'Cover Photo',
   },
   experience: {
     name: 'Name',

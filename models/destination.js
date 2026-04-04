@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const { hiddenSignalVectorSchema } = require('./hidden-signals');
 
+const photoEntrySchema = new Schema({
+  photo: { type: Schema.Types.ObjectId, ref: 'Photo', required: true },
+  default: { type: Boolean, default: false }
+}, { _id: false });
+
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
   entity: {
@@ -91,13 +96,8 @@ const destinationSchema = new Schema(
     },
     users_favorite: [{ type: Schema.Types.ObjectId, ref: "User" }],
     photos: {
-      type: [Schema.Types.ObjectId],
-      ref: "Photo",
+      type: [photoEntrySchema],
       default: []
-    },
-    default_photo_id: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Photo" 
     },
     travel_tips: {
       type: [Schema.Types.Mixed],
@@ -166,9 +166,30 @@ destinationSchema.index({ country: 1 });
 destinationSchema.index({ 'permissions._id': 1 });
 destinationSchema.index({ users_favorite: 1 });
 destinationSchema.index({ createdAt: -1 });
-destinationSchema.index({ photos: 1 });
-destinationSchema.index({ default_photo_id: 1 });
+destinationSchema.index({ 'photos.photo': 1 });
 // Spatial index for destination location (GeoJSON Point)
 destinationSchema.index({ 'location.geo': '2dsphere' });
+
+/**
+ * Pre-save hook: enforce the photos invariant (exactly one default: true entry).
+ */
+destinationSchema.pre('save', function (next) {
+  if (this.isModified('photos') && this.photos.length > 0) {
+    const defaultCount = this.photos.filter(p => p.default).length;
+    if (defaultCount === 0) {
+      this.photos[0].default = true;
+    } else if (defaultCount > 1) {
+      let found = false;
+      for (let i = this.photos.length - 1; i >= 0; i--) {
+        if (this.photos[i].default && !found) {
+          found = true;
+        } else {
+          this.photos[i].default = false;
+        }
+      }
+    }
+  }
+  next();
+});
 
 module.exports = mongoose.model("Destination", destinationSchema);

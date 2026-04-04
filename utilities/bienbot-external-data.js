@@ -619,7 +619,7 @@ async function addEntityPhotos(payload, user, session = null) {
             }]
           });
 
-          entity.photos.push(photoRecord._id);
+          entity.photos.push({ photo: photoRecord._id, default: entity.photos.length === 0 });
 
           addedPhotos.push({
             url: transferResult.location,
@@ -673,7 +673,7 @@ async function addEntityPhotos(payload, user, session = null) {
           }]
         });
 
-        entity.photos.push(photoDoc._id);
+        entity.photos.push({ photo: photoDoc._id, default: entity.photos.length === 0 });
 
         addedPhotos.push({
           url: photo.url,

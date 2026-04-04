@@ -86,7 +86,6 @@ export default function PhotoUploadModal({
       // when provided and populated; otherwise fall back to entity.
       photos: originalIds.slice(),
       photos_full: photosFull,
-      default_photo_id: (entity && entity.default_photo_id) || null
     };
 
     setLocalData(init);

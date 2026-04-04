@@ -124,23 +124,25 @@ export default function UpdateDestination() {
   useEffect(() => {
     if (!destination || !originalDestination) return;
 
-    const getId = (p) => {
-      if (!p) return null;
-      if (typeof p === 'string') return p;
-      if (p._id) return String(p._id);
-      return String(p);
+    // New schema: photos = [{photo: id/obj, default: bool}]
+    const getEntryId = (entry) => {
+      const photoVal = entry?.photo || entry;
+      if (!photoVal) return null;
+      if (typeof photoVal === 'string') return photoVal;
+      if (photoVal._id) return String(photoVal._id);
+      return String(photoVal);
     };
-    const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
+    const getDefaultId = (entity) => {
+      const entry = (entity.photos || []).find(e => e?.default);
+      return getEntryId(entry) || null;
+    };
+    const normalizePhotos = (arr = []) => arr.map(getEntryId).filter(Boolean).sort();
 
     const originalPhotoIds = normalizePhotos(originalDestination.photos || []);
     const currentPhotoIds = normalizePhotos(destination.photos || []);
 
-    const originalDefault = originalDestination.default_photo_id
-      ? String(getId(originalDestination.default_photo_id))
-      : (originalPhotoIds[0] || null);
-    let currentDefault = destination.default_photo_id
-      ? String(getId(destination.default_photo_id))
-      : (currentPhotoIds[0] || null);
+    const originalDefault = getDefaultId(originalDestination) || (originalPhotoIds[0] || null);
+    let currentDefault = getDefaultId(destination) || (currentPhotoIds[0] || null);
     if (currentPhotoIds.length === 0) currentDefault = null;
 
     const photosEqual = JSON.stringify(originalPhotoIds) === JSON.stringify(currentPhotoIds);
@@ -157,19 +159,28 @@ export default function UpdateDestination() {
       const newChanges = { ...changes };
 
       // Normalize photos by ID and ignore order
-      const getId = (p) => {
-        if (!p) return null;
-        if (typeof p === 'string') return p;
-        if (p._id) return String(p._id);
-        return String(p);
+      // New schema: photos = [{photo: id/obj, default: bool}]
+      const getEntryId = (entry) => {
+        const photoVal = entry?.photo || entry;
+        if (!photoVal) return null;
+        if (typeof photoVal === 'string') return photoVal;
+        if (photoVal._id) return String(photoVal._id);
+        return String(photoVal);
       };
-      const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
+      const getDefaultId = (entity) => {
+        const entry = (entity.photos || []).find(e => e?.default);
+        return getEntryId(entry) || null;
+      };
+      const normalizePhotos = (arr = []) => arr.map(getEntryId).filter(Boolean).sort();
 
       const originalPhotos = originalDestination.photos || [];
       const currentPhotos = destination.photos || [];
 
       const originalPhotoIds = normalizePhotos(originalPhotos);
       const currentPhotoIds = normalizePhotos(currentPhotos);
+
+      const originalDefaultId = getDefaultId(originalDestination);
+      const currentDefaultId = getDefaultId(destination);
 
       const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
@@ -183,15 +194,9 @@ export default function UpdateDestination() {
       }
 
       // Check if default photo changed by ID (fallback to first photo when unset)
-      const originalDefaultId = originalDestination.default_photo_id;
-      const currentDefaultId = destination.default_photo_id;
 
-      const normalizedOriginalDefault = originalDefaultId
-        ? String(getId(originalDefaultId))
-        : (originalPhotoIds[0] || null);
-      let normalizedCurrentDefault = currentDefaultId
-        ? String(getId(currentDefaultId))
-        : (currentPhotoIds[0] || null);
+      const normalizedOriginalDefault = originalDefaultId || (originalPhotoIds[0] || null);
+      let normalizedCurrentDefault = currentDefaultId || (currentPhotoIds[0] || null);
 
       // If there are no current photos, treat default as null
       if (currentPhotoIds.length === 0) normalizedCurrentDefault = null;
@@ -274,17 +279,12 @@ export default function UpdateDestination() {
     try {
       // Extract only the fields that should be updated
       // Convert populated photos to ObjectIds if needed
-      const photosToSend = destination.photos.map(photo =>
-        typeof photo === 'object' && photo._id ? photo._id : photo
-      );
-
       const dataToUpdate = {
         name: destination.name,
         country: destination.country,
         state: destination.state,
         overview: destination.overview,
-        photos: photosToSend,
-        default_photo_id: destination.default_photo_id,
+        photos: destination.photos,
         travel_tips: travelTips,
         tags: destination.tags
       };
