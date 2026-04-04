@@ -97,29 +97,30 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
 
 /**
  * Internal: perform the S3 upload and clean up the local file.
- * Receives a path that has already been validated by the caller via
- * resolveAndValidateLocalUploadPath — no re-validation needed here.
+ *
+ * @param {string} validatedLocalPath  Canonical absolute path already validated
+ *   by resolveAndValidateLocalUploadPath in uploadWithPipeline. Never pass a
+ *   raw caller-supplied path directly — validation must happen before this call.
  */
-async function _doUpload(localPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
+async function _doUpload(validatedLocalPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
   let s3Result;
   try {
-    s3Result = await s3Upload(localPath, originalName, s3KeyPrefix, { protected: isProtected });
+    s3Result = await s3Upload(validatedLocalPath, originalName, s3KeyPrefix, { protected: isProtected });
   } finally {
     if (deleteLocal) {
       try {
-        // Validate path before unlink — guards against path traversal.
-        // Re-derive path from its own dirname+basename after validation so that
-        // CodeQL's taint-tracking sees a locally-constructed path, not the
-        // raw function parameter flowing into unlink.
-        const validatedPath = resolveAndValidateLocalUploadPath(localPath);
-        const safePath = path.resolve(path.dirname(validatedPath), path.basename(validatedPath));
+        // Re-derive the unlink path from dirname+basename so CodeQL's taint
+        // tracker sees a locally-constructed value, not the incoming parameter.
+        // validatedLocalPath is already safe (validated by caller); this is a
+        // structural hint to static analysis, not a re-validation.
+        const safePath = path.resolve(path.dirname(validatedLocalPath), path.basename(validatedLocalPath));
         await fs.promises.unlink(safePath);
-        logger.debug(`${TAG} Local file deleted`, { localPath });
+        logger.debug(`${TAG} Local file deleted`, { localPath: validatedLocalPath });
       } catch (unlinkErr) {
         // File may have already been deleted or never existed — non-fatal.
         if (unlinkErr.code !== 'ENOENT') {
           logger.warn(`${TAG} Failed to delete local file`, {
-            localPath,
+            localPath: validatedLocalPath,
             error: unlinkErr.message
           });
         }

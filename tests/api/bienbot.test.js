@@ -53,13 +53,19 @@ jest.mock('../../utilities/bienbot-intent-classifier', () => ({
 }));
 
 // ---- Mock context builders --------------------------------------------------
-jest.mock('../../utilities/bienbot-context-builders', () => ({
-  buildContextForInvokeContext: jest.fn().mockResolvedValue('Destination: Test City, Test Country'),
-  buildDestinationContext: jest.fn().mockResolvedValue(null),
-  buildExperienceContext: jest.fn().mockResolvedValue(null),
-  buildUserPlanContext: jest.fn().mockResolvedValue(null),
-  buildSearchContext: jest.fn().mockResolvedValue(null)
-}));
+// Auto-stub every function export so new builders are automatically covered
+// without requiring manual updates to this list (which caused the original bug).
+// Override buildContextForInvokeContext to return a non-null value so tests
+// that exercise the invokeContext path get a meaningful context block.
+jest.mock('../../utilities/bienbot-context-builders', () => {
+  const actual = jest.requireActual('../../utilities/bienbot-context-builders');
+  const mocked = {};
+  for (const [key, value] of Object.entries(actual)) {
+    mocked[key] = typeof value === 'function' ? jest.fn().mockResolvedValue(null) : value;
+  }
+  mocked.buildContextForInvokeContext = jest.fn().mockResolvedValue('Destination: Test City, Test Country');
+  return mocked;
+});
 
 // ---- Mock action executor ---------------------------------------------------
 jest.mock('../../utilities/bienbot-action-executor', () => ({
