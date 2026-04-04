@@ -33,7 +33,7 @@ const _queue = new Map();
 // How long to wait before executing the deletion (ms).
 // Must be ≥ the frontend undo toast duration so the client always has a chance
 // to cancel before the server fires.
-const DEFAULT_DELAY_MS = 8_000;
+const DEFAULT_DELAY_MS = 8000;
 
 /**
  * Schedule a plan for deletion after |delayMs| milliseconds.

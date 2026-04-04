@@ -3,7 +3,7 @@ import { getDefaultPhoto } from './photo-utils';
 export function buildDestinationSchema(destination, siteBaseUrl = '') {
   if (!destination) return null;
 
-  const image = (getDefaultPhoto && getDefaultPhoto(destination)?.url) || (destination.photos && destination.photos[0]?.url);
+  const image = (getDefaultPhoto && getDefaultPhoto(destination)?.url) || (destination.photos && destination.photos[0]?.photo?.url);
   const url = destination.slug
     ? `${siteBaseUrl}/destinations/${destination.slug}`
     : siteBaseUrl && destination._id
@@ -77,7 +77,7 @@ export function buildDestinationSchema(destination, siteBaseUrl = '') {
 export function buildExperienceSchema(experience, siteBaseUrl = '') {
   if (!experience) return null;
 
-  const image = (getDefaultPhoto && getDefaultPhoto(experience)?.url) || (experience.photos && experience.photos[0]?.url);
+  const image = (getDefaultPhoto && getDefaultPhoto(experience)?.url) || (experience.photos && experience.photos[0]?.photo?.url);
   const url = experience.slug
     ? `${siteBaseUrl}/experiences/${experience.slug}`
     : siteBaseUrl && experience._id

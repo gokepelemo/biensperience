@@ -1,22 +1,56 @@
-/**
- * Photo utility functions for handling photo entry arrays: [{ photo, default }]
- * @module photo-utils
- */
-
 import { logger } from './logger';
 
 /**
+ * Returns true when a photos array item is a populated entry wrapper {photo, default}
+ * as produced by .populate('photos.photo'). Returns false for flat Photo documents
+ * produced by aggregation $lookup pipelines.
+ */
+function isEntryWrapped(item) {
+  if (!item || typeof item !== 'object') return false;
+  // Entry wrapper has a `photo` sub-document (object) or an ObjectId string
+  return 'photo' in item && 'default' in item;
+}
+
+/**
+ * Resolve a single photos array item to a Photo document regardless of shape:
+ *   - New schema entry wrapper: { photo: PhotoDoc, default: bool } → PhotoDoc
+ *   - Flat Photo doc from aggregation: { _id, url, ... } → itself
+ *   - Bare ObjectId string (unpopulated): → null
+ */
+function resolvePhotoDoc(item) {
+  if (!item || typeof item !== 'object') return null;
+  if (isEntryWrapped(item)) {
+    // populated entry: item.photo is a Photo document
+    if (item.photo && typeof item.photo === 'object' && item.photo.url) return item.photo;
+    return null; // unpopulated entry
+  }
+  // Flat Photo document (from aggregation lookup)
+  if (item.url) return item;
+  return null;
+}
+
+/**
  * Get the default photo object from a resource.
- * Returns the populated photo object (entry.photo), not the entry wrapper.
- * @param {Object} resource - The resource with photos: [{photo, default}]
- * @returns {Object|null} The default photo object or null if none
+ * Returns the Photo document (with .url), not the entry wrapper.
+ * Handles both populate ({photo, default}) and aggregation (flat PhotoDoc) shapes.
+ * @param {Object} resource - The resource with photos array
+ * @returns {Object|null} The Photo document or null if none can be resolved
  */
 export function getDefaultPhoto(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return null;
   }
-  const entry = resource.photos.find(p => p.default);
-  return entry ? entry.photo : resource.photos[0].photo;
+  const photos = resource.photos;
+
+  if (isEntryWrapped(photos[0])) {
+    // New schema: [{photo: PhotoDoc, default: bool}]
+    const defaultEntry = photos.find(p => p.default);
+    return resolvePhotoDoc(defaultEntry) || resolvePhotoDoc(photos[0]);
+  }
+
+  // Flat Photo documents from aggregation
+  const first = resolvePhotoDoc(photos[0]);
+  return first;
 }
 
 /**
@@ -28,23 +62,28 @@ export function getDefaultPhotoIndex(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return 0;
   }
-  const index = resource.photos.findIndex(p => p.default);
-  return index !== -1 ? index : 0;
+  if (isEntryWrapped(resource.photos[0])) {
+    const index = resource.photos.findIndex(p => p.default);
+    return index !== -1 ? index : 0;
+  }
+  return 0;
 }
 
 /**
- * Get the raw photo entries array for components that need both photo and flag.
+ * Get an array of Photo documents from a resource, regardless of which shape
+ * the photos array is in (entry wrappers or flat Photo docs).
  * @param {Object} resource - The resource with photos
- * @returns {Array} The [{photo, default}] array, or empty array
+ * @returns {Array} Array of Photo documents
  */
 export function getPhotoObjects(resource) {
-  return (resource?.photos || []).map(entry => entry?.photo).filter(Boolean);
+  return (resource?.photos || []).map(resolvePhotoDoc).filter(Boolean);
 }
 
 export function getPhotoEntries(resource) {
   if (!resource || !resource.photos) return [];
   return resource.photos;
 }
+
 
 /**
  * Set the default photo by photo ID. Returns updated resource (immutable).

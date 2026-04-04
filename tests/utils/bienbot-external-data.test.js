@@ -694,11 +694,19 @@ describe('bienbot-external-data', () => {
     });
 
     it('adds Unsplash URL photos with attribution', async () => {
+      const mockPhotoDoc = {
+        _id: VALID_ID_2,
+        url: 'https://unsplash.com/photo.jpg',
+        photo_credit: 'Jane Doe / Unsplash',
+        photo_credit_url: 'https://unsplash.com/@janedoe',
+      };
+      Photo.create.mockResolvedValue(mockPhotoDoc);
+
       const mockEntity = {
         _id: VALID_ID,
         photos: [],
         save: jest.fn().mockResolvedValue(true),
-        toObject: jest.fn().mockReturnValue({ _id: VALID_ID, photos: [{ url: 'https://unsplash.com/photo.jpg' }] }),
+        toObject: jest.fn().mockReturnValue({ _id: VALID_ID, photos: [{ photo: VALID_ID_2, default: true }] }),
       };
       Destination.findById.mockResolvedValue(mockEntity);
 
@@ -713,8 +721,13 @@ describe('bienbot-external-data', () => {
       }, mockUser);
 
       expect(result.statusCode).toBe(200);
+      expect(Photo.create).toHaveBeenCalledWith(expect.objectContaining({
+        url: 'https://unsplash.com/photo.jpg',
+        photo_credit: 'Jane Doe / Unsplash',
+        photo_credit_url: 'https://unsplash.com/@janedoe',
+      }));
       expect(mockEntity.photos).toHaveLength(1);
-      expect(mockEntity.photos[0].photo_credit).toBe('Jane Doe / Unsplash');
+      expect(mockEntity.photos[0]).toEqual({ photo: VALID_ID_2, default: true });
       expect(mockEntity.save).toHaveBeenCalled();
     });
 
@@ -768,6 +781,13 @@ describe('bienbot-external-data', () => {
     });
 
     it('continues adding remaining photos when one S3 transfer fails', async () => {
+      const mockGoodPhotoDoc = {
+        _id: VALID_ID_2,
+        url: 'https://unsplash.com/good.jpg',
+        photo_credit: 'Bob / Unsplash',
+      };
+      Photo.create.mockResolvedValueOnce(mockGoodPhotoDoc);
+
       const mockEntity = {
         _id: VALID_ID,
         photos: [],
@@ -790,7 +810,7 @@ describe('bienbot-external-data', () => {
       expect(result.statusCode).toBe(200);
       // Only the URL photo should have been added (S3 one failed)
       expect(mockEntity.photos).toHaveLength(1);
-      expect(mockEntity.photos[0].url).toBe('https://unsplash.com/good.jpg');
+      expect(mockEntity.photos[0]).toEqual({ photo: VALID_ID_2, default: true });
     });
   });
 

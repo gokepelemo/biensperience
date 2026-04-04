@@ -23,7 +23,6 @@ const {
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
 const crypto = require('crypto');
 const planUnplanQueue = require('../../utilities/plan-unplan-queue');
-const planUnplanQueue = require('../../utilities/plan-unplan-queue');
 
 // Sanitize location data for GeoJSON
 function sanitizeLocation(location) {

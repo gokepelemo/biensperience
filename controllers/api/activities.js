@@ -597,9 +597,9 @@ async function getCuratorPlanners(req, res) {
       {
         $lookup: {
           from: 'photos',
-          localField: 'userDetails.photos',
+          localField: 'userDetails.photos.photo',
           foreignField: '_id',
-          as: 'userPhotos'
+          as: 'userPhotoData'
         }
       },
       {
@@ -619,14 +619,8 @@ async function getCuratorPlanners(req, res) {
             _id: '$userDetails._id',
             name: '$userDetails.name',
             oauthProfilePhoto: '$userDetails.oauthProfilePhoto',
-            photo: '$userDetails.photo',
-            photos: {
-              $map: {
-                input: '$userPhotos',
-                as: 'photo',
-                in: { _id: '$$photo._id', url: '$$photo.url', caption: '$$photo.caption' }
-              }
-            }
+            userPhotoData: '$userPhotoData',
+            userPhotoEntries: '$userDetails.photos'
           },
           experiences: {
             $map: {
@@ -653,16 +647,26 @@ async function getCuratorPlanners(req, res) {
 
     res.json({
       success: true,
-      planners: planners.map(p => ({
-        userId: p.user._id,
-        userName: p.user.name,
-        userPhotos: p.user.photos || [],
-        userOauthProfilePhoto: p.user.oauthProfilePhoto || null,
-        userPhoto: p.user.photo || null,
-        planCount: p.planCount,
-        latestPlanDate: p.latestPlan,
-        experiences: p.experiences
-      })),
+      planners: planners.map(p => {
+        // Reconstruct [{photo, default}] entries from the two projected arrays
+        const photoMap = new Map((p.user.userPhotoData || []).map(ph => [ph._id.toString(), ph]));
+        const userPhotos = (p.user.userPhotoEntries || [])
+          .map(entry => ({
+            photo: photoMap.get(entry.photo?.toString()) || null,
+            default: entry.default || false
+          }))
+          .filter(entry => entry.photo !== null);
+
+        return {
+          userId: p.user._id,
+          userName: p.user.name,
+          userPhotos,
+          userOauthProfilePhoto: p.user.oauthProfilePhoto || null,
+          planCount: p.planCount,
+          latestPlanDate: p.latestPlan,
+          experiences: p.experiences
+        };
+      }),
       total: totalPlanners[0]?.total || 0,
       curatorExperiences: curatorExperiences.map(e => ({ _id: e._id, name: e.name }))
     });

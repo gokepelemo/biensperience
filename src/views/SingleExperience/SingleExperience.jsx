@@ -105,6 +105,7 @@ import './components/MyPlanTabContent/plan-item-views.css';
 import { sendEmailInvite } from "../../utilities/invites-api";
 import { escapeSelector, highlightPlanItem, attemptScrollToItem } from "../../utilities/scroll-utils";
 import { idEquals, normalizeId, findById, findIndexById, filterOutById } from "../../utilities/id-utils";
+import { getDefaultPhoto, getPhotoObjects } from "../../utilities/photo-utils";
 
 export default function SingleExperience() {
   // ============================================================================
@@ -443,10 +444,20 @@ export default function SingleExperience() {
 
           // Merge updated experience into local state but preserve deeply local plan UI fields if present
           try {
-            // Helper to check if array contains populated objects (with .url)
+            // Helper to check if array contains populated photos in either schema:
+            // - New schema entries: [{photo: {url, ...}, default: bool}] → entry.photo.url exists
+            // - Flat Photo docs from aggregation: [{url: ...}] → entry.url exists
             const isPopulatedPhotoArray = (arr) =>
               Array.isArray(arr) && arr.length > 0 &&
-              typeof arr[0] === 'object' && arr[0] !== null && arr[0].url;
+              typeof arr[0] === 'object' && arr[0] !== null &&
+              (arr[0].url || arr[0]?.photo?.url);
+
+            // A photo array is "richer" than another when it uses the new entry-wrapper
+            // schema [{photo, default}] vs flat Photo docs — entry wrappers carry the
+            // default flag so prefer them when the incoming ctx update is only flat docs.
+            const isEntrySchema = (arr) =>
+              Array.isArray(arr) && arr.length > 0 &&
+              typeof arr[0] === 'object' && 'photo' in arr[0] && 'default' in arr[0];
 
             // Helper to check if destination is populated (object with name property)
             const isPopulatedDestination = (dest) =>
@@ -456,8 +467,13 @@ export default function SingleExperience() {
             const merged = { ...(prev || {}), ...(updated || {}) };
 
             // Preserve populated photos array if local has full objects with URLs
-            // and incoming from context only has IDs (strings or unpopulated)
+            // and incoming from context only has IDs (strings or unpopulated).
+            // Also prefer entry-schema (has default flag) over flat Photo docs.
             if (isPopulatedPhotoArray(prev?.photos) && !isPopulatedPhotoArray(updated?.photos)) {
+              merged.photos = prev.photos;
+              merged.photos_full = prev.photos_full || prev.photos;
+            } else if (isEntrySchema(prev?.photos) && !isEntrySchema(updated?.photos) && isPopulatedPhotoArray(updated?.photos)) {
+              // prev has richer entry-schema, updated has flat docs — keep prev
               merged.photos = prev.photos;
               merged.photos_full = prev.photos_full || prev.photos;
             }
@@ -3230,12 +3246,12 @@ export default function SingleExperience() {
                 >
                   {experience.photos && experience.photos.length > 0 ? (
                     <img
-                      src={experience.photos[0]?.url || experience.photos[0]}
+                      src={getDefaultPhoto(experience)?.url}
                       alt={experience.name}
                     />
                   ) : experience.destination?.photos && experience.destination.photos.length > 0 ? (
                     <img
-                      src={experience.destination.photos[0]?.url || experience.destination.photos[0]}
+                      src={getDefaultPhoto(experience.destination)?.url}
                       alt={experience.destination.name}
                     />
                   ) : (

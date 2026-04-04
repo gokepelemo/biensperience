@@ -409,7 +409,7 @@ export function UserProvider({ children }) {
 
             // Determine if incoming photos are unpopulated (strings/ObjectId)
             const incoming = updatedUser.photos;
-            const isUnpopulated = Array.isArray(incoming) && incoming.length > 0 && (typeof incoming[0] === 'string');
+            const isUnpopulated = Array.isArray(incoming) && incoming.length > 0 && (typeof incoming[0] === 'string' || !incoming[0]?.photo?.url);
 
             // If we recently edited photos locally, prefer local copy to avoid
             // re-applying server changes that reflect an earlier state. This
@@ -421,7 +421,7 @@ export function UserProvider({ children }) {
               }
             } catch (e) {}
 
-            if (isUnpopulated && Array.isArray(prev.photos) && prev.photos.length > 0 && typeof prev.photos[0] === 'object') {
+            if (isUnpopulated && Array.isArray(prev.photos) && prev.photos.length > 0 && !!prev.photos[0]?.photo?.url) {
               return prev.photos; // keep client-side populated previews
             }
 
@@ -451,7 +451,7 @@ export function UserProvider({ children }) {
         try {
           const mergedForCache = { ...(profile || user), ...updatedUser };
           // Prefer existing populated photos over incoming unpopulated ones
-          if (profile?.photos?.length > 0 && typeof profile.photos[0] === 'object') {
+          if (profile?.photos?.length > 0 && !!profile.photos[0]?.photo?.url) {
             mergedForCache.photos = profile.photos;
           }
           const freshUrl = resolveUrlFromUser(mergedForCache);
