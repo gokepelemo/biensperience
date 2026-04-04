@@ -14,6 +14,7 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { transferBucket } = require('./upload-pipeline');
+const tracker = require('./api-rate-tracker');
 const path = require('path');
 
 // Lazy-loaded models
@@ -709,86 +710,6 @@ async function addEntityPhotos(payload, user, session = null) {
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// ---------------------------------------------------------------------------
-// Google Maps API budget tracking
-// ---------------------------------------------------------------------------
-
-/** Module-level counters for Google Maps API calls (reset daily). */
-const _googleMapsBudget = {
-  textSearch: 0,
-  photos: 0,
-  resetDate: null
-};
-
-/** Daily call limits — override via env vars to stay within billing budget. */
-const GOOGLE_MAPS_DAILY_LIMITS = {
-  textSearch: parseInt(process.env.GOOGLE_MAPS_DAILY_TEXT_SEARCH_LIMIT || '50', 10),
-  photos: parseInt(process.env.GOOGLE_MAPS_DAILY_PHOTO_LIMIT || '100', 10)
-};
-
-/**
- * Check budget and increment the counter for a Google Maps API call type.
- * Resets all counters at the start of each new calendar day.
- *
- * @param {'textSearch'|'photos'} type - Counter to check
- * @returns {boolean} true if within budget, false if daily limit reached
- */
-function checkAndBumpGoogleBudget(type) {
-  const today = new Date().toDateString();
-  if (_googleMapsBudget.resetDate !== today) {
-    _googleMapsBudget.textSearch = 0;
-    _googleMapsBudget.photos = 0;
-    _googleMapsBudget.resetDate = today;
-  }
-  const limit = GOOGLE_MAPS_DAILY_LIMITS[type];
-  if (limit && _googleMapsBudget[type] >= limit) {
-    return false;
-  }
-  _googleMapsBudget[type] = (_googleMapsBudget[type] || 0) + 1;
-  return true;
-}
-
-/**
- * Get current Google Maps API budget usage for monitoring.
- *
- * @returns {{ textSearch: number, photos: number, resetDate: string|null, limits: { textSearch: number, photos: number } }}
- */
-function getGoogleMapsBudget() {
-  return { ..._googleMapsBudget, limits: { ...GOOGLE_MAPS_DAILY_LIMITS } };
-}
-
-// ---------------------------------------------------------------------------
-// TripAdvisor API budget tracking
-// ---------------------------------------------------------------------------
-
-/** Module-level counter for TripAdvisor API calls (reset daily). */
-const _tripAdvisorBudget = {
-  calls: 0,
-  resetDate: null
-};
-
-/** Daily call limit — override via env var to control API usage. */
-const TRIPADVISOR_DAILY_LIMIT = parseInt(process.env.TRIPADVISOR_DAILY_LIMIT || '100', 10);
-
-/**
- * Check budget and increment the counter for a TripAdvisor API call.
- * Resets counter at the start of each new calendar day.
- *
- * @returns {boolean} true if within budget, false if daily limit reached
- */
-function checkAndBumpTripAdvisorBudget() {
-  const today = new Date().toDateString();
-  if (_tripAdvisorBudget.resetDate !== today) {
-    _tripAdvisorBudget.calls = 0;
-    _tripAdvisorBudget.resetDate = today;
-  }
-  if (_tripAdvisorBudget.calls >= TRIPADVISOR_DAILY_LIMIT) {
-    return false;
-  }
-  _tripAdvisorBudget.calls++;
-  return true;
-}
-
 /**
  * Retry a function with exponential backoff.
  *
@@ -801,7 +722,18 @@ function checkAndBumpTripAdvisorBudget() {
  * @returns {Promise<*>} Result of fn, or null on exhausted retries
  */
 async function withRetry(fn, options = {}) {
-  const { maxRetries = 2, baseDelayMs = 500, timeoutMs = 8000, label = 'external-api' } = options;
+  const { maxRetries = 2, baseDelayMs = 500, timeoutMs = 8000, label = 'external-api', provider = null } = options;
+
+  if (provider) {
+    const budget = tracker.checkBudget(provider);
+    if (!budget.allowed) {
+      logger.warn(`[bienbot-external-data] ${provider} budget exhausted, skipping`, {
+        provider, resetAt: budget.resetAt
+      });
+      return null;
+    }
+    tracker.recordUsage(provider);
+  }
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -1318,7 +1250,7 @@ async function fetchUnsplashPhotos(destinationName, count = 5) {
       unsplash_url: photo.links?.html || null,
       photo_credit: `${photo.user?.name || 'Unknown'} / Unsplash`
     }));
-  }, { label: 'unsplash-enrich', timeoutMs: 8000 });
+  }, { label: 'unsplash-enrich', timeoutMs: 8000, provider: 'unsplash' });
 
   return photos || [];
 }
@@ -1367,14 +1299,6 @@ async function fetchGoogleMapsPlaces(destinationName, options = {}) {
     ? `${category} in ${destinationName}`
     : `top attractions in ${destinationName}`;
 
-  if (!checkAndBumpGoogleBudget('textSearch')) {
-    logger.warn('[bienbot-external-data] Google Maps Text Search daily budget reached, skipping', {
-      destination: destinationName,
-      category
-    });
-    return [];
-  }
-
   const places = await withRetry(async (signal) => {
     const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`;
 
@@ -1400,7 +1324,7 @@ async function fetchGoogleMapsPlaces(destinationName, options = {}) {
       types: place.types || [],
       category: category || 'attraction'
     }));
-  }, { label: 'google-maps-text-search', timeoutMs: 10000 });
+  }, { label: 'google-maps-text-search', timeoutMs: 10000, provider: 'google_maps_text_search' });
 
   return places || [];
 }
@@ -1451,7 +1375,7 @@ async function fetchGoogleMapsTips(destinationName) {
         url: mapsUrl,
         rating: review.rating
       }));
-  }, { label: 'google-maps', timeoutMs: 10000 });
+  }, { label: 'google-maps', timeoutMs: 10000, provider: 'google_maps_text_search' });
 
   return tips || [];
 }
@@ -1524,13 +1448,6 @@ async function fetchTripAdvisorTips(destinationName) {
 
   const tips = await withRetry(async (signal) => {
     // Step 1: resolve destination to TripAdvisor location_id
-    if (!checkAndBumpTripAdvisorBudget()) {
-      logger.warn('[bienbot-external-data] TripAdvisor daily budget reached, skipping tips', {
-        destination: destinationName
-      });
-      return [];
-    }
-
     const searchUrl = `${base}/location/search?searchQuery=${encodeURIComponent(destinationName)}&key=${apiKey}&language=en`;
     const searchRes = await fetch(searchUrl, { signal, headers });
     if (!searchRes.ok) throw new Error(`TripAdvisor location search HTTP ${searchRes.status}`);
@@ -1542,13 +1459,6 @@ async function fetchTripAdvisorTips(destinationName) {
     const locationId = location.location_id;
 
     // Step 2: fetch reviews for that location
-    if (!checkAndBumpTripAdvisorBudget()) {
-      logger.warn('[bienbot-external-data] TripAdvisor daily budget reached after location search', {
-        destination: destinationName
-      });
-      return [];
-    }
-
     const reviewsUrl = `${base}/location/${locationId}/reviews?key=${apiKey}&language=en`;
     const reviewsRes = await fetch(reviewsUrl, { signal, headers });
     if (!reviewsRes.ok) throw new Error(`TripAdvisor reviews HTTP ${reviewsRes.status}`);
@@ -1572,7 +1482,7 @@ async function fetchTripAdvisorTips(destinationName) {
           rating: Number(review.rating)
         };
       });
-  }, { label: 'tripadvisor-tips', timeoutMs: 10000 });
+  }, { label: 'tripadvisor-tips', timeoutMs: 10000, provider: 'tripadvisor' });
 
   return tips || [];
 }
@@ -1622,13 +1532,6 @@ async function fetchTripAdvisorPlaces(destinationName, options = {}) {
 
   const places = await withRetry(async (signal) => {
     // Step 1: resolve destination to lat/lng
-    if (!checkAndBumpTripAdvisorBudget()) {
-      logger.warn('[bienbot-external-data] TripAdvisor daily budget reached, skipping places', {
-        destination: destinationName
-      });
-      return [];
-    }
-
     const searchUrl = `${base}/location/search?searchQuery=${encodeURIComponent(destinationName)}&key=${apiKey}&language=en`;
     const searchRes = await fetch(searchUrl, { signal, headers });
     if (!searchRes.ok) throw new Error(`TripAdvisor location search HTTP ${searchRes.status}`);
@@ -1640,13 +1543,6 @@ async function fetchTripAdvisorPlaces(destinationName, options = {}) {
     const latLong = `${location.latitude},${location.longitude}`;
 
     // Step 2: nearby search
-    if (!checkAndBumpTripAdvisorBudget()) {
-      logger.warn('[bienbot-external-data] TripAdvisor daily budget reached after location search', {
-        destination: destinationName
-      });
-      return [];
-    }
-
     const nearbyUrl = `${base}/location/nearby_search?latLong=${encodeURIComponent(latLong)}&key=${apiKey}&category=${taCategory}&language=en`;
     const nearbyRes = await fetch(nearbyUrl, { signal, headers });
     if (!nearbyRes.ok) throw new Error(`TripAdvisor nearby search HTTP ${nearbyRes.status}`);
@@ -1668,7 +1564,7 @@ async function fetchTripAdvisorPlaces(destinationName, options = {}) {
       category: category || 'attraction',
       source_type: 'tripadvisor'
     }));
-  }, { label: 'tripadvisor-places', timeoutMs: 10000 });
+  }, { label: 'tripadvisor-places', timeoutMs: 10000, provider: 'tripadvisor' });
 
   return places || [];
 }
@@ -2113,7 +2009,6 @@ module.exports = {
   fetchUnsplashPhotos,
   fetchGoogleMapsTips,
   fetchGoogleMapsPlaces,
-  getGoogleMapsBudget,
   fetchTripAdvisorTips,
   fetchTripAdvisorPlaces,
   withRetry,

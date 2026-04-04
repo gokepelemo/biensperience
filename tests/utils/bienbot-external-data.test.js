@@ -62,11 +62,18 @@ jest.mock('../../utilities/controller-helpers', () => ({
   }),
 }));
 
+jest.mock('../../utilities/api-rate-tracker', () => ({
+  checkBudget: jest.fn().mockReturnValue({ allowed: true, remaining: 50, resetAt: new Date() }),
+  recordUsage: jest.fn(),
+  getStatus: jest.fn(),
+}));
+
 const Destination = require('../../models/destination');
 const Experience = require('../../models/experience');
 const Photo = require('../../models/photo');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const { transferBucket } = require('../../utilities/upload-pipeline');
+const tracker = require('../../utilities/api-rate-tracker');
 
 const {
   normalizedSimilarity,
@@ -224,6 +231,36 @@ describe('bienbot-external-data', () => {
       const fn = jest.fn().mockResolvedValue('ok');
       await withRetry(fn, { maxRetries: 0, timeoutMs: 50 });
       expect(fn).toHaveBeenCalledWith(expect.any(AbortSignal));
+    });
+  });
+
+  // =========================================================================
+  // withRetry budget integration
+  // =========================================================================
+
+  describe('withRetry() budget integration', () => {
+    it('returns null without calling fn when provider budget is exhausted', async () => {
+      tracker.checkBudget.mockReturnValue({ allowed: false, remaining: 0, resetAt: new Date() });
+      const fn = jest.fn().mockResolvedValue('result');
+      const result = await withRetry(fn, { provider: 'unsplash' });
+      expect(result).toBeNull();
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    it('calls fn and records usage when provider has budget', async () => {
+      tracker.checkBudget.mockReturnValue({ allowed: true, remaining: 10, resetAt: new Date() });
+      const fn = jest.fn().mockResolvedValue('ok');
+      const result = await withRetry(fn, { provider: 'tripadvisor' });
+      expect(result).toBe('ok');
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(tracker.recordUsage).toHaveBeenCalledWith('tripadvisor');
+    });
+
+    it('works normally when no provider is given', async () => {
+      const fn = jest.fn().mockResolvedValue('no-provider');
+      const result = await withRetry(fn);
+      expect(result).toBe('no-provider');
+      expect(fn).toHaveBeenCalledTimes(1);
     });
   });
 
