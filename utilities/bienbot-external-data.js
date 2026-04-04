@@ -876,8 +876,11 @@ function stripHtml(html) {
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ');
 
-  // Step 5: Strip ALL remaining tags (including those reconstructed from decoded entities)
-  text = text.replace(/<[^>]+>/g, '');
+  // Step 5: Strip ALL remaining tags (including those reconstructed from decoded entities).
+  // Two passes: first remove complete tags (<foo ...>), then remove any unclosed
+  // tags that have no closing '>' (e.g. a trailing '<script' with no '>'),
+  // preventing the incomplete-multi-character-sanitization CodeQL rule from firing.
+  text = text.replace(/<[^>]+>/g, '').replace(/<[^>]*/g, '');
 
   // Step 6: Restore & from placeholder; remove any stray angle brackets that survived
   text = text
