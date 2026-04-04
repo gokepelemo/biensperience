@@ -27,6 +27,7 @@ import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
 import MultiStepPlanModal from "../../components/MultiStepPlanModal/MultiStepPlanModal";
 import LegalModalsHandler from "../../components/LegalModalsHandler/LegalModalsHandler";
+import BienBotHashHandler from "../../components/BienBotHashHandler/BienBotHashHandler";
 import BienBotTrigger from "../../components/BienBotTrigger/BienBotTrigger";
 import { Helmet } from 'react-helmet-async';
 import { Box, Container } from '@chakra-ui/react';
@@ -38,7 +39,7 @@ import {
   setObfuscatedJson
 } from '../../utilities/secure-storage-lite';
 import { STORAGE_KEYS } from '../../utilities/storage-keys';
-import { isLegalHash } from '../../utilities/hash-navigation';
+import { isLegalHash, isBienBotHash } from '../../utilities/hash-navigation';
 import { useNavigationCleanup } from '../../hooks/useNavigationCleanup';
 
 // Lazy load components for better performance
@@ -252,7 +253,7 @@ function AppContent() {
     // Skip legal/policy hashes — they are transient modal triggers handled by
     // LegalModalsHandler and should not survive login redirects.
     const initialHash = window.location.hash;
-    if (initialHash && !isLegalHash(initialHash)) {
+    if (initialHash && !isLegalHash(initialHash) && !isBienBotHash(initialHash)) {
       logger.info('[Hash Preservation] Initial hash detected:', initialHash);
       // Store in localStorage to survive React Router navigation that may strip hashes
       // Save origin pathname so we only restore on the same view when possible
@@ -273,8 +274,8 @@ function AppContent() {
       if (href && href.includes('#')) {
         const hashIndex = href.indexOf('#');
         const hash = href.substring(hashIndex);
-        // Skip legal/policy hashes — handled by LegalModalsHandler, not deep linking
-        if (isLegalHash(hash)) return;
+        // Skip legal/policy and bienbot hashes — handled by their own modal/hash handlers
+        if (isLegalHash(hash) || isBienBotHash(hash)) return;
         const targetPath = href.substring(0, hashIndex) || null;
         logger.info('[Hash Preservation] Captured hash from link:', hash);
         try {
@@ -598,6 +599,8 @@ function AppContent() {
           <CookieConsent />
           {/* Legal modals accessible via hash links (#terms, #privacy) */}
           <LegalModalsHandler />
+          {/* BienBot session deep links via hash (#bienbot-session-{id}) */}
+          {isAuthenticated && <BienBotHashHandler />}
           {/* Multi-step Plan Experience Modal - globally accessible */}
           {isAuthenticated && <MultiStepPlanModal />}
           {isAuthenticated && (

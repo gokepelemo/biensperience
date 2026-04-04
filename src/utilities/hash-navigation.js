@@ -277,6 +277,33 @@ export function isLegalHash(hash) {
   );
 }
 
+/**
+ * Check if a hash is a BienBot session deep-link.
+ * Pattern: #bienbot-session-{24-hex-objectid}
+ * These are transient UI triggers handled by BienBotHashHandler and should NOT
+ * be persisted in the pending-hash deep-link store.
+ *
+ * @param {string} hash - Hash fragment (e.g., "#bienbot-session-65f3a2b4c1d8e9f0a2b3c4d5")
+ * @returns {boolean}
+ */
+export function isBienBotHash(hash) {
+  const h = (hash || '').toLowerCase();
+  return /^#bienbot-session-[a-f0-9]{24}$/.test(h);
+}
+
+/**
+ * Parse a BienBot session deep-link hash and return the session ID.
+ *
+ * @param {string} hash - Hash fragment (e.g., "#bienbot-session-65f3a2b4c1d8e9f0a2b3c4d5")
+ * @returns {{ sessionId: string|null }}
+ */
+export function parseBienBotHash(hash) {
+  if (!hash || typeof hash !== 'string') return { sessionId: null };
+  const clean = hash.startsWith('#') ? hash.slice(1) : hash;
+  const match = clean.match(/^bienbot-session-([a-f0-9]{24})$/i);
+  return { sessionId: match ? match[1] : null };
+}
+
 export default {
   storeHash,
   getStoredHash,
@@ -285,5 +312,7 @@ export default {
   scrollToElement,
   handleStoredHash,
   restoreHashToUrl,
-  isLegalHash
+  isLegalHash,
+  isBienBotHash,
+  parseBienBotHash
 };

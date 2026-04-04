@@ -406,9 +406,6 @@ class EventBus {
       ...detail
     });
 
-    // Track locally to prevent accidental duplicates if the transport echoes.
-    this.trackProcessedEventId(event._eventId);
-
     // Log for debugging (keep last 100 events)
     // Use a higher threshold and slice to avoid O(n) shift on every emit
     this.eventLog.push(event);
@@ -425,7 +422,8 @@ class EventBus {
       transportType: this.transport?.getType() || 'fallback'
     });
 
-    // Dispatch locally
+    // Dispatch locally. dispatchLocal tracks the event ID itself so that
+    // any subsequent transport echo (cross-tab/WebSocket) is de-duped there.
     this.dispatchLocal(eventType, event);
 
     // Broadcast to other clients (unless local-only)

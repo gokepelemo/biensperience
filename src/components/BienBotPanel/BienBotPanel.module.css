@@ -1949,46 +1949,81 @@
   }
 }
 
-/* Wrapper that holds the session button + the delete button side by side */
+/* Wrapper provides stacking context for the absolutely-positioned delete button */
 .historyItemWrapper {
-  display: flex;
-  align-items: center;
+  position: relative;
   border-radius: var(--radius-md, 6px);
+  overflow: hidden;
 }
 
 .historyItemWrapper .historyItem {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-  border-radius: var(--radius-md, 6px) 0 0 var(--radius-md, 6px);
+  width: 100%;
+  border-radius: var(--radius-md, 6px);
+  transition: transform 0.2s ease;
 }
 
+/* ── Delete button ── */
+
+/* Base shared styles */
 .historyDeleteButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 32px;
-  min-height: 32px;
-  align-self: stretch;
   padding: 0;
   border: none;
-  border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
-  background: transparent;
-  color: var(--color-text-secondary, #64748b);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
-.historyItemWrapper:hover .historyDeleteButton,
-.historyItemWrapper:focus-within .historyDeleteButton {
-  opacity: 1;
+/* Desktop: floating overlay, shown on hover / focus-within */
+@media (hover: hover) {
+  .historyDeleteButton {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    color: var(--color-text-secondary, #64748b);
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .historyItemWrapper:hover .historyDeleteButton,
+  .historyItemWrapper:focus-within .historyDeleteButton {
+    opacity: 1;
+  }
+
+  .historyDeleteButton:hover {
+    color: var(--color-danger, #ef4444);
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+  }
 }
 
-.historyDeleteButton:hover {
-  color: var(--color-danger, #ef4444);
-  background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+/* Mobile: swipe-to-reveal panel */
+@media (hover: none) {
+  .historyDeleteButton {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 64px;
+    border-radius: 0 var(--radius-md, 6px) var(--radius-md, 6px) 0;
+    background: var(--color-danger, #ef4444);
+    color: #fff;
+    transform: translateX(64px);
+    transition: transform 0.2s ease;
+    opacity: 1;
+  }
+
+  .historyItemSwiped .historyItem {
+    transform: translateX(-64px);
+  }
+
+  .historyItemSwiped .historyDeleteButton {
+    transform: translateX(0);
+  }
 }
 
 /* ── Discovery empty state ─────────────────────────────────────────────── */
