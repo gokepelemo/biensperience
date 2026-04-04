@@ -1093,7 +1093,8 @@ export default function SingleExperience() {
     handleExperience,
     handleShareExperience,
     handleSharePlanItem,
-    confirmRemoveExperience
+    confirmRemoveExperience,
+    pendingUnplanRef,
   } = useExperienceActions({
     experience,
     experienceId,
@@ -2653,6 +2654,37 @@ export default function SingleExperience() {
           plannedDate: addData.planned_date
         });
 
+        // If there's a pending unplan (undo window active), cancel the deferred
+        // delete and restore the plan instead of trying to create a new one.
+        // This prevents a 409 Conflict when the user unplans then immediately replans.
+        if (pendingUnplanRef.current) {
+          debug.log('[HANDLE_ADD] Pending unplan detected — cancelling delete and restoring plan');
+          const { prevPlan, undo } = pendingUnplanRef.current;
+          pendingUnplanRef.current = null;
+          await undo(); // async: cancels the backend scheduled delete
+
+          closeModal();
+          setIsEditingDate(false);
+          setPlannedDate("");
+
+          // If the user picked a different date, update it on the restored plan.
+          const newDate = addData.planned_date || null;
+          const oldDate = prevPlan.planned_date || null;
+          if (newDate && newDate !== oldDate) {
+            try {
+              await updatePlan(prevPlan._id, { planned_date: newDate });
+            } catch (updateErr) {
+              // Non-fatal — plan is restored even if the date update fails
+              debug.log('[HANDLE_ADD] Date update after replan failed', { error: updateErr?.message });
+            }
+          }
+
+          setSelectedPlanId(prevPlan._id);
+          setActiveTab("myplan");
+          navigate(`/experiences/${experience._id}#plan-${prevPlan._id}`, { replace: true });
+          return;
+        }
+
         // Close UI elements - all plan state managed by usePlanManagement hook
         closeModal();
         setIsEditingDate(false);
@@ -2738,7 +2770,9 @@ export default function SingleExperience() {
       plannedDate,
       userHasExperience,
       user,
+      pendingUnplanRef,
       createPlan,
+      updatePlan,
       success,
       showError,
       navigate
@@ -4140,7 +4174,6 @@ export default function SingleExperience() {
             // Update experience with new photos
             const updated = await updateExperience(experience._id, {
               photos: photoIds,
-              default_photo_id: data.default_photo_id
             });
 
             // Update local experience state
@@ -4153,7 +4186,6 @@ export default function SingleExperience() {
                 // Use full photo objects for display (they have .url)
                 photos: fullPhotos.length > 0 ? fullPhotos : (updated.photos || photoIds),
                 photos_full: fullPhotos,
-                default_photo_id: data.default_photo_id || updated.default_photo_id
               }));
 
               // Update in context if available

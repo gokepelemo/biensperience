@@ -113,7 +113,7 @@ async function login(req, res) {
     }
 
     const user = await User.findOne({ email: email })
-      .populate("photos", "url caption photo_credit photo_credit_url width height");
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height");
 
     // Check if user exists before attempting password comparison
     if (!user) {
@@ -170,7 +170,7 @@ async function getUser(req, res) {
     }
 
     const user = await User.findOne({ _id: userId })
-      .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
       .lean();
 
     // Return 404 if user doesn't exist
@@ -224,8 +224,8 @@ async function getBulkUsers(req, res) {
     // Fetch all users in one query
     // Include feature_flags, bio, and location for collaborator profile display
     const users = await User.find({ _id: { $in: validIds } })
-      .select('name email photos default_photo_id oauthProfilePhoto photo createdAt feature_flags bio location')
-      .populate("photos", "url caption")
+      .select('name email photos oauthProfilePhoto photo createdAt feature_flags bio location')
+      .populate("photos.photo", "url caption")
       .lean();
 
     return successResponse(res, users, 'Users retrieved successfully');
@@ -238,7 +238,7 @@ async function getBulkUsers(req, res) {
 async function getProfile(req, res) {
   try {
     const user = await User.findOne({ _id: req.user._id })
-      .populate("photos", "url caption photo_credit photo_credit_url width height")
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height")
       .lean();
 
     if (!user) {
@@ -276,7 +276,7 @@ async function updateUser(req, res, next) {
     // Allow `preferences` so users can update theme, language, currency, etc.
     // Allow `location` for user location with geocoding support
     // Allow `bio` and `links` for curator profile features
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'oldPassword', 'preferences', 'location', 'bio', 'links'];
+    const allowedFields = ['name', 'email', 'photos', 'password', 'oldPassword', 'preferences', 'location', 'bio', 'links'];
     
     // Super admins can also update email confirmation status and feature flags
     if (isSuperAdmin(req.user)) {
@@ -361,13 +361,6 @@ async function updateUser(req, res, next) {
       }
     }
     
-    // Validate default_photo_id if provided
-    if (updateData.default_photo_id !== undefined) {
-      if (updateData.default_photo_id === null || mongoose.Types.ObjectId.isValid(updateData.default_photo_id)) {
-        validatedUpdateData.default_photo_id = updateData.default_photo_id;
-      }
-    }
-
     // Validate preferences object if provided
     if (updateData.preferences !== undefined && typeof updateData.preferences === 'object') {
       const p = updateData.preferences;
@@ -640,7 +633,7 @@ async function updateUser(req, res, next) {
     }
 
     user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
-      .populate("photos", "url caption photo_credit photo_credit_url width height");
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height");
 
     // Invalidate visibility cache if profileVisibility was updated
     // This ensures websocket presence reflects the new privacy setting immediately
@@ -658,7 +651,6 @@ async function updateUser(req, res, next) {
             name: user.name,
             email: user.email,
             photos: user.photos,
-            default_photo_id: user.default_photo_id,
             oauthProfilePhoto: user.oauthProfilePhoto,
             photo: user.photo,
             preferences: user.preferences,
@@ -697,7 +689,7 @@ async function updateUserAsAdmin(req, res) {
 
     // Whitelist allowed fields for admin updates (includes emailConfirmed and feature_flags)
     // Note: preferences is included so super admins can manage notification settings (e.g. webhooks)
-    const allowedFields = ['name', 'email', 'photos', 'default_photo_id', 'password', 'emailConfirmed', 'feature_flags', 'bio', 'links', 'preferences'];
+    const allowedFields = ['name', 'email', 'photos', 'password', 'emailConfirmed', 'feature_flags', 'bio', 'links', 'preferences'];
     const updateData = {};
 
     for (const field of allowedFields) {
@@ -758,13 +750,6 @@ async function updateUserAsAdmin(req, res) {
                  photo.url.length <= 2048; // Reasonable URL length limit
         });
         validatedUpdateData.photos = validPhotos;
-      }
-    }
-
-    // Validate default_photo_id if provided
-    if (updateData.default_photo_id !== undefined) {
-      if (updateData.default_photo_id === null || mongoose.Types.ObjectId.isValid(updateData.default_photo_id)) {
-        validatedUpdateData.default_photo_id = updateData.default_photo_id;
       }
     }
 
@@ -965,7 +950,7 @@ async function updateUserAsAdmin(req, res) {
     }
 
     const user = await User.findOneAndUpdate({ _id: userId }, validatedUpdateData, { new: true })
-      .populate("photos", "url caption photo_credit photo_credit_url width height");
+      .populate("photos.photo", "url caption photo_credit photo_credit_url width height");
 
     if (!user) {
       return errorResponse(res, null, 'User not found', 404);
@@ -989,7 +974,6 @@ async function updateUserAsAdmin(req, res) {
             name: user.name,
             email: user.email,
             photos: user.photos,
-            default_photo_id: user.default_photo_id,
             oauthProfilePhoto: user.oauthProfilePhoto,
             photo: user.photo,
             preferences: user.preferences,
@@ -1195,10 +1179,8 @@ async function removePhoto(req, res) {
     const removedPhoto = user.photos[photoIndex];
     user.photos.splice(photoIndex, 1);
 
-    // Clear default_photo_id if the removed photo was the default
-    if (user.default_photo_id && removedPhoto && user.default_photo_id.toString() === removedPhoto._id.toString()) {
-      user.default_photo_id = null;
-    }
+    // Ensure exactly one default photo is set
+    ensureDefaultPhotoConsistency(user);
 
     await user.save();
 
@@ -1233,7 +1215,7 @@ async function setDefaultPhoto(req, res) {
       return errorResponse(res, null, 'Invalid photo index', 400);
     }
 
-    user.default_photo_id = user.photos[photoIndex]._id;
+    setDefaultPhotoByIndex(user, photoIndex);
     await user.save();
 
     // Generate new JWT token with updated user data
@@ -2024,8 +2006,8 @@ async function getAvatars(req, res) {
     }
 
     const users = await User.find({ _id: { $in: idArray } })
-      .select('photos default_photo_id oauthProfilePhoto')
-      .populate('photos', 'url')
+      .select('photos oauthProfilePhoto')
+      .populate('photos.photo', 'url')
       .lean();
 
     const avatars = {};

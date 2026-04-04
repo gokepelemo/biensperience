@@ -118,7 +118,7 @@ export default function useGeocodedMarkers({
             lng: coords.lng,
             type: 'destination',
             name: dest.name,
-            photo: dest.default_photo_id?.url || dest.photos?.[0]?.url,
+            photo: (dest.photos?.find(e => e?.default)?.photo?.url) || dest.photos?.[0]?.photo?.url,
             link: `/destinations/${dest._id}`,
             locationName: destLocationName
           });
@@ -130,7 +130,7 @@ export default function useGeocodedMarkers({
               id: dest._id,
               type: 'destination',
               name: dest.name,
-              photo: dest.default_photo_id?.url || dest.photos?.[0]?.url,
+              photo: (dest.photos?.find(e => e?.default)?.photo?.url) || dest.photos?.[0]?.photo?.url,
               link: `/destinations/${dest._id}`,
               locationName: destLocationName,
               addressStr
@@ -167,7 +167,7 @@ export default function useGeocodedMarkers({
             lng: coords.lng,
             type: 'experience',
             name: exp.name,
-            photo: exp.default_photo_id?.url || exp.photos?.[0]?.url,
+            photo: (exp.photos?.find(e => e?.default)?.photo?.url) || exp.photos?.[0]?.photo?.url,
             link: `/experiences/${exp._id}`,
             locationName: expLocationName
           });
@@ -179,7 +179,7 @@ export default function useGeocodedMarkers({
               id: exp._id,
               type: 'experience',
               name: exp.name,
-              photo: exp.default_photo_id?.url || exp.photos?.[0]?.url,
+              photo: (exp.photos?.find(e => e?.default)?.photo?.url) || exp.photos?.[0]?.photo?.url,
               link: `/experiences/${exp._id}`,
               locationName: expLocationName,
               addressStr

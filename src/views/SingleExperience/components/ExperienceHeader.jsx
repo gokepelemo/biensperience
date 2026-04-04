@@ -83,8 +83,8 @@ export default function ExperienceHeader({
         <Box id="photos" className="row" mb="6">
           <Box w="100%">
             <PhotoCard
-              photos={experience.photos}
-              defaultPhotoId={experience.default_photo_id}
+              photos={(experience.photos || []).map(e => e?.photo).filter(Boolean)}
+              defaultPhotoId={(experience.photos || []).find(e => e?.default)?.photo?._id}
               altText={experience.name}
             />
           </Box>

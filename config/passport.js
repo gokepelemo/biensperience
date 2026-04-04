@@ -174,8 +174,7 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
       if (profile.photos && profile.photos[0]) {
         const photoId = await createOAuthProfilePhoto(profile.photos[0].value, newUser._id, 'facebook');
         if (photoId) {
-          newUser.photos.push(photoId);
-          newUser.default_photo_id = photoId;
+          newUser.photos.push({ photo: photoId, default: true });
           await newUser.save();
         }
       }
@@ -288,8 +287,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       if (profile.photos && profile.photos[0]) {
         const photoId = await createOAuthProfilePhoto(profile.photos[0].value, newUser._id, 'google');
         if (photoId) {
-          newUser.photos.push(photoId);
-          newUser.default_photo_id = photoId;
+          newUser.photos.push({ photo: photoId, default: true });
           await newUser.save();
         }
       }
@@ -418,8 +416,7 @@ if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
       if (profilePhotoUrl) {
         const photoId = await createOAuthProfilePhoto(profilePhotoUrl, newUser._id, 'twitter');
         if (photoId) {
-          newUser.photos.push(photoId);
-          newUser.default_photo_id = photoId;
+          newUser.photos.push({ photo: photoId, default: true });
           await newUser.save();
         }
       }

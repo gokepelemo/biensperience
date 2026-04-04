@@ -307,6 +307,30 @@ export async function deletePlan(planId) {
 }
 
 /**
+ * Schedule a plan deletion with a server-side undo window.
+ * Returns { token, expiresAt } — pass the token to cancelScheduledDeletePlan to undo.
+ *
+ * @param {string} planId
+ * @returns {Promise<{ token: string, expiresAt: string }>}
+ */
+export async function schedulePlanDelete(planId) {
+  const response = await sendRequest(`${BASE_URL}/${planId}/schedule-delete`, 'POST');
+  return extractData(response);
+}
+
+/**
+ * Cancel a previously scheduled plan deletion (undo).
+ * Returns { cancelled: true } on success, or null/throws if the window has expired.
+ *
+ * @param {string} token - Token returned by schedulePlanDelete
+ * @returns {Promise<{ cancelled: boolean }>}
+ */
+export async function cancelScheduledPlanDelete(token) {
+  const response = await sendRequest(`${BASE_URL}/scheduled/${token}`, 'DELETE');
+  return extractData(response);
+}
+
+/**
  * Update a specific plan item
  */
 export function updatePlanItem(planId, itemId, updates) {

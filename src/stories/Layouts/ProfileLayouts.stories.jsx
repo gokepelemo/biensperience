@@ -42,7 +42,6 @@ const sampleUser = {
     { _id: 'photo1', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' },
     { _id: 'photo2', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400' },
   ],
-  default_photo_id: 'photo1',
 };
 
 const sampleDestinations = [
@@ -256,7 +255,6 @@ export const ProfileComplete = {
           <div className="col-md-6 p-3 animation-fade-in">
             <PhotoCard
               photos={sampleUser.photos}
-              defaultPhotoId={sampleUser.default_photo_id}
               title={sampleUser.name}
             />
           </div>
@@ -410,7 +408,6 @@ export const ProfileOtherUser = {
           <div className="col-md-6 p-3 animation-fade-in">
             <PhotoCard
               photos={sampleUser.photos}
-              defaultPhotoId={sampleUser.default_photo_id}
               title={otherUser.name}
             />
           </div>
@@ -511,7 +508,6 @@ export const ProfileSuperAdminView = {
           <div className="col-md-6 p-3">
             <PhotoCard
               photos={sampleUser.photos}
-              defaultPhotoId={sampleUser.default_photo_id}
               title={sampleUser.name}
             />
           </div>

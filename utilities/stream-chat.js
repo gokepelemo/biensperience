@@ -75,8 +75,8 @@ async function ensureStreamUsersExist(userIds) {
       // eslint-disable-next-line global-require
       const { getDefaultPhoto } = require('./photo-utils');
       const users = await User.find({ _id: { $in: mongoIds } })
-        .select('name photos default_photo_id oauthProfilePhoto')
-        .populate('photos', 'url')
+        .select('name photos oauthProfilePhoto')
+        .populate('photos.photo', 'url')
         .lean();
       // Resolve avatar URL for each user using the standard fallback chain
       for (const u of users) {

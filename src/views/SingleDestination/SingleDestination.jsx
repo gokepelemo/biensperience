@@ -844,7 +844,6 @@ export default function SingleDestination() {
             // Update destination with new photos
             const updated = await updateDestination(destination._id, {
               photos: photoIds,
-              default_photo_id: data.default_photo_id
             });
 
             // Update local destination state using mergeDestination
@@ -855,7 +854,6 @@ export default function SingleDestination() {
                 // Use full photo objects for display (they have .url)
                 photos: fullPhotos.length > 0 ? fullPhotos : (updated.photos || photoIds),
                 photos_full: fullPhotos,
-                default_photo_id: data.default_photo_id || updated.default_photo_id
               });
 
               // Refresh destinations in context if available

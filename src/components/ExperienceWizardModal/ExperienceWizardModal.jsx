@@ -478,7 +478,6 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     try {
       const updatePayload = {};
       if (newData.photos) updatePayload.photos = newData.photos;
-      if (newData.default_photo_id) updatePayload.default_photo_id = newData.default_photo_id;
 
       if (Object.keys(updatePayload).length > 0) {
         const updated = await updateExperience(createdExperience._id, updatePayload);

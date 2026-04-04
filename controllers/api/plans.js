@@ -22,6 +22,8 @@ const {
 } = require('../../utilities/stream-chat');
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
 const crypto = require('crypto');
+const planUnplanQueue = require('../../utilities/plan-unplan-queue');
+const planUnplanQueue = require('../../utilities/plan-unplan-queue');
 
 // Sanitize location data for GeoJSON
 function sanitizeLocation(location) {
@@ -270,14 +272,12 @@ const createPlan = asyncHandler(async (req, res) => {
       name: experience.name,
       destination: experience.destination,
       photos: experience.photos,
-      default_photo_id: experience.default_photo_id
     },
     user: {
       _id: req.user._id,
       name: req.user.name,
       email: req.user.email,
-      photos: req.user.photos,
-      default_photo_id: req.user.default_photo_id
+      photos: req.user.photos
     }
   };
 
@@ -501,15 +501,15 @@ const getUserPlans = asyncHandler(async (req, res) => {
   let query = Plan.find(filter)
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
     .populate({
       path: 'experience',
-      select: 'name destination photos default_photo_id',
+      select: 'name destination photos',
       populate: {
         path: 'destination',
         select: 'name country'
@@ -517,9 +517,9 @@ const getUserPlans = asyncHandler(async (req, res) => {
     })
     .populate({
       path: 'plan.details.notes.user',
-      select: 'name email photos default_photo_id oauthProfilePhoto',
+      select: 'name email photos oauthProfilePhoto',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
@@ -591,15 +591,15 @@ const getPlanById = asyncHandler(async (req, res) => {
   const plan = await Plan.findById(id)
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
     .populate({
       path: 'experience',
-      select: 'name destination plan_items photos default_photo_id',
+      select: 'name destination plan_items photos',
       populate: {
         path: 'destination',
         select: 'name country'
@@ -607,9 +607,9 @@ const getPlanById = asyncHandler(async (req, res) => {
     })
     .populate({
       path: 'plan.details.notes.user',
-      select: 'name email photos default_photo_id oauthProfilePhoto',
+      select: 'name email photos oauthProfilePhoto',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     });
@@ -987,9 +987,9 @@ const getAccessRequests = asyncHandler(async (req, res) => {
     .select('user accessRequests')
     .populate({
       path: 'accessRequests.requester',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     });
@@ -1045,7 +1045,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   })
   .populate({
     path: 'user',
-    select: 'name email photos default_photo_id oauthProfilePhoto photo',
+    select: 'name email photos oauthProfilePhoto photo',
     populate: {
       path: 'photos',
       select: 'url caption'
@@ -1061,7 +1061,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
   })
   .populate({
     path: 'plan.details.notes.user',
-    select: 'name email photos default_photo_id oauthProfilePhoto',
+    select: 'name email photos oauthProfilePhoto',
     populate: {
       path: 'photos',
       select: 'url caption'
@@ -1082,9 +1082,8 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
 
   // Single batch query for all users with .lean() for performance
   const allUsers = await User.find({ _id: { $in: Array.from(allUserIds) } })
-    .select('name email photos default_photo_id oauthProfilePhoto photo')
-    .populate('photos', 'url caption')
-    .populate('default_photo_id', 'url caption')
+    .select('name email photos oauthProfilePhoto photo')
+    .populate('photos.photo', 'url caption')
     .lean()
     .exec();
 
@@ -1095,8 +1094,7 @@ const getExperiencePlans = asyncHandler(async (req, res) => {
       name: u.name,
       email: u.email,
       _id: u._id,
-      photos: u.photos,
-      default_photo_id: u.default_photo_id
+      photos: u.photos
     };
   });
 
@@ -1275,11 +1273,11 @@ const updatePlan = asyncHandler(async (req, res) => {
       { $set: { planned_date: normalized } },
       { new: true }
     )
-    .populate('experience', 'name destination photos default_photo_id')
+    .populate('experience', 'name destination photos')
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
-      populate: { path: 'photos', select: 'url caption' }
+      select: 'name email photos oauthProfilePhoto photo',
+      populate: { path: 'photos.photo', select: 'url caption' }
     });
 
     // Track update (non-blocking)
@@ -1379,12 +1377,12 @@ const updatePlan = asyncHandler(async (req, res) => {
   await plan.save();
 
   const updatedPlan = await Plan.findById(plan._id)
-    .populate('experience', 'name destination photos default_photo_id')
+    .populate('experience', 'name destination photos')
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     });
@@ -1996,12 +1994,12 @@ const addCollaborator = asyncHandler(async (req, res) => {
   }
 
   const updatedPlan = await Plan.findById(plan._id)
-    .populate('experience', 'name photos default_photo_id')
+    .populate('experience', 'name photos')
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     });
@@ -2607,8 +2605,8 @@ const getCollaborators = asyncHandler(async (req, res) => {
   const collaborators = await User.find({ 
     _id: { $in: collaboratorIds } 
   })
-    .select('_id name email photo photos default_photo_id oauthProfilePhoto')
-    .populate('photos', 'url caption');
+    .select('_id name email photo photos oauthProfilePhoto')
+    .populate('photos.photo', 'url caption');
 
   res.json(collaborators);
 });
@@ -3032,7 +3030,7 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
   // Populate user data for response (include photo fields for avatar display)
   await plan.populate({
     path: 'plan.details.notes.user',
-    select: 'name email photos default_photo_id oauthProfilePhoto',
+    select: 'name email photos oauthProfilePhoto',
     populate: {
       path: 'photos',
       select: 'url caption'
@@ -3164,7 +3162,7 @@ const updatePlanItemNote = asyncHandler(async (req, res) => {
   // Populate user data for response (include photo fields for avatar display)
   await plan.populate({
     path: 'plan.details.notes.user',
-    select: 'name email photos default_photo_id oauthProfilePhoto',
+    select: 'name email photos oauthProfilePhoto',
     populate: {
       path: 'photos',
       select: 'url caption'
@@ -3296,7 +3294,7 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
   // Populate user data for response (include photo fields for avatar display)
   await plan.populate({
     path: 'plan.details.notes.user',
-    select: 'name email photos default_photo_id oauthProfilePhoto',
+    select: 'name email photos oauthProfilePhoto',
     populate: {
       path: 'photos',
       select: 'url caption'
@@ -4456,7 +4454,7 @@ const getCosts = asyncHandler(async (req, res) => {
   }
 
   const plan = await Plan.findById(id)
-    .populate('costs.collaborator', 'name email photos default_photo_id')
+    .populate('costs.collaborator', 'name email photos')
     .populate('experience', 'name');
 
   if (!plan) {
@@ -4750,17 +4748,17 @@ const getCostSummary = asyncHandler(async (req, res) => {
   const plan = await Plan.findById(id)
     .populate({
       path: 'costs.collaborator',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
     .populate({
       path: 'user',
-      select: 'name email photos default_photo_id oauthProfilePhoto photo',
+      select: 'name email photos oauthProfilePhoto photo',
       populate: {
-        path: 'photos',
+        path: 'photos.photo',
         select: 'url caption'
       }
     })
@@ -4801,8 +4799,8 @@ const getCostSummary = asyncHandler(async (req, res) => {
 
   // Fetch all users for display
   const allUsers = await User.find({ _id: { $in: collaboratorIds } })
-    .select('name email photos default_photo_id oauthProfilePhoto photo')
-    .populate('photos', 'url caption')
+    .select('name email photos oauthProfilePhoto photo')
+    .populate('photos.photo', 'url caption')
     .lean();
 
   const userMap = {};
@@ -5506,6 +5504,124 @@ const shiftPlanItemDates = asyncHandler(async (req, res) => {
   return res.json({ shifted_count: shiftedCount });
 });
 
+/**
+ * Schedule a plan for deletion after an undo window (returns a cancel token).
+ *
+ * POST /api/plans/:id/schedule-delete
+ * Response: { token, expiresAt }
+ */
+const scheduleDeletePlan = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  const plan = await Plan.findById(id)
+    .select('user permissions experience')
+    .populate('experience', 'name');
+
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  // Only the plan owner may schedule its deletion.
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canDelete({ userId: req.user._id, resource: plan });
+  if (!permCheck.allowed) {
+    return res.status(403).json({ error: 'Only the plan owner can delete it', message: permCheck.reason });
+  }
+
+  // Capture the experience ID now so the timer closure has it.
+  const experienceId = plan.experience?._id || plan.experience;
+  const actorId = req.user._id.toString();
+
+  // Define the actual deletion work that runs when the timer fires.
+  const executeDelete = async (planId) => {
+    const target = await Plan.findById(planId)
+      .select('user permissions experience')
+      .populate('experience', 'name');
+
+    if (!target) return; // Already deleted — nothing to do.
+
+    // Track deletion (non-blocking)
+    trackDelete({
+      resource: target,
+      resourceType: 'Plan',
+      actor: { _id: actorId },
+      reason: 'Plan deleted via deferred unplan',
+    });
+
+    const deletePromise = Plan.findByIdAndDelete(planId);
+    const expId = target.experience?._id || target.experience;
+
+    let updateExpPromise = Promise.resolve();
+    if (expId) {
+      updateExpPromise = (async () => {
+        const exp = await Experience.findById(expId).select('permissions user').lean();
+        if (!exp) return;
+        const enforcer2 = getEnforcer({ Plan, Experience, Destination, User });
+        const userRole = await enforcer2.getUserRole(actorId, exp);
+        if (userRole !== 'owner' && userRole !== 'collaborator') {
+          await Experience.updateOne(
+            { _id: expId },
+            { $pull: { permissions: { entity: 'user', _id: actorId, type: 'contributor' } } }
+          );
+        }
+      })();
+    }
+
+    await Promise.all([deletePromise, updateExpPromise]);
+
+    try {
+      broadcastEvent('plan', planId.toString(), {
+        type: 'plan:deleted',
+        payload: { planId: planId.toString(), userId: actorId }
+      }, actorId);
+      if (expId) {
+        broadcastEvent('experience', expId.toString(), {
+          type: 'plan:deleted',
+          payload: { planId: planId.toString(), experienceId: expId.toString(), userId: actorId }
+        }, actorId);
+      }
+    } catch (wsErr) {
+      backendLogger.warn('[WebSocket] Failed to broadcast deferred plan deletion', { error: wsErr.message });
+    }
+  };
+
+  const { token, expiresAt } = planUnplanQueue.scheduleDelete(
+    id,
+    actorId,
+    executeDelete
+  );
+
+  return successResponse(res, { token, expiresAt }, 'Plan deletion scheduled');
+});
+
+/**
+ * Cancel a previously scheduled plan deletion (undo).
+ *
+ * DELETE /api/plans/scheduled/:token
+ * Response: { cancelled: true }
+ */
+const cancelScheduledDeletePlan = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+
+  if (!token || typeof token !== 'string' || token.length > 64) {
+    return errorResponse(res, null, 'Invalid token', 400);
+  }
+
+  const cancelled = planUnplanQueue.cancelDelete(token, req.user._id.toString());
+
+  if (!cancelled) {
+    // The window may have already expired and the delete fired — treat
+    // gracefully so the client doesn't surface a confusing error.
+    return res.status(404).json({ success: false, error: 'Token not found or already expired' });
+  }
+
+  return successResponse(res, { cancelled: true }, 'Plan deletion cancelled');
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -5552,4 +5668,7 @@ module.exports = {
   updatePlanAIConfig,
   // Plan item date shifting
   shiftPlanItemDates,
+  // Deferred plan deletion (undo window)
+  scheduleDeletePlan,
+  cancelScheduledDeletePlan,
 };

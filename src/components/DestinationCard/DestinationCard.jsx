@@ -36,14 +36,9 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
 
     // If photos array exists and has items, use the default one
     if (destination.photos && destination.photos.length > 0) {
-      let defaultPhoto;
-      if (destination.default_photo_id) {
-        defaultPhoto = destination.photos.find(photo => photo._id === destination.default_photo_id);
-      }
-      // Fallback to first photo if default not found or not set
-      if (!defaultPhoto) {
-        defaultPhoto = destination.photos[0];
-      }
+      // New schema: photos = [{photo: PhotoObj, default: bool}]
+      const defaultEntry = destination.photos.find(e => e?.default && e?.photo?.url);
+      const defaultPhoto = defaultEntry?.photo || destination.photos[0]?.photo || destination.photos[0];
       const src = defaultPhoto?.url || `https://picsum.photos/seed/${placeholderSeed}/800/480`;
       return { imageSrc: src, backgroundImage: `url(${src})` };
     }
@@ -96,7 +91,7 @@ function DestinationCard({ destination, includeSchema = false, forcePreload = fa
   const { transitionClass } = useDataTransition(destination, {
     animation: 'pulse',
     enabled: !!destination?._id,
-    selectFields: (d) => ({ name: d?.name, photo: d?.default_photo_id }),
+    selectFields: (d) => ({ name: d?.name, photo: d?.photos?.find(e => e?.default)?.photo }),
   });
 
   // Build card class names based on props

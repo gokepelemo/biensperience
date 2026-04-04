@@ -1957,7 +1957,7 @@ export default function Profile() {
                 : (Array.isArray(data.photos) ? data.photos : []);
 
               // Merge into currentProfile for immediate UI update
-              mergeProfile({ photos: photosFull, default_photo_id: data.default_photo_id || null });
+              mergeProfile({ photos: data.photos || [] });
             } catch (e) {
               // ignore merge failures
             }
@@ -1969,7 +1969,7 @@ export default function Profile() {
                 try { logger.debug('[Profile] Debounced save triggered', { userId: user._id, photosCount: (data.photos || []).length }); } catch (e) {}
                 try { broadcastEvent('local:photos-updated', { at: Date.now(), userId: user._id, field: 'photos' }); } catch (e) {}
                 // Persist only the photo IDs and default id to backend
-                const resp = await updateUserApi(user._id, { photos: data.photos || [], default_photo_id: data.default_photo_id || null });
+                const resp = await updateUserApi(user._id, { photos: data.photos || [] });
                 // If API returns authoritative user data, merge it into current profile
                 if (resp && typeof resp === 'object') {
                   try { mergeProfile(resp); } catch (e) { /* ignore merge errors */ }
@@ -1984,7 +1984,7 @@ export default function Profile() {
             // Final save: persist and merge authoritative server response
             try {
               try { broadcastEvent('local:photos-updated', { at: Date.now(), userId: user._id, field: 'photos' }); } catch (e) {}
-              const updated = await updateUserApi(user._id, { photos: data.photos || [], default_photo_id: data.default_photo_id || null });
+              const updated = await updateUserApi(user._id, { photos: data.photos || [] });
               if (updated) {
                 mergeProfile(updated);
               }

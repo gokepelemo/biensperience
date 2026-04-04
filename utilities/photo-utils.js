@@ -1,85 +1,62 @@
 /**
- * Photo utility functions for handling photo arrays with ID-based operations
+ * Photo utility functions for handling photo entry arrays: [{ photo, default }]
  * @module photo-utils
  */
 
 const backendLogger = require('./backend-logger');
 
 /**
- * Get the default photo from a resource
- * Supports both new ID-based and legacy index-based selection
- * @param {Object} resource - The resource (destination, experience, or user) with photos
- * @returns {Object|null} The default photo object or null if none found
+ * Get the default photo object from a resource.
+ * Returns the populated photo object (entry.photo), not the entry wrapper.
+ * @param {Object} resource - The resource with photos: [{photo, default}]
+ * @returns {Object|null} The default photo object or null if none
  */
 function getDefaultPhoto(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return null;
   }
-
-  // Use ID-based selection
-  if (resource.default_photo_id) {
-    const defaultIdStr = resource.default_photo_id._id
-      ? resource.default_photo_id._id.toString()
-      : resource.default_photo_id.toString();
-    const photo = resource.photos.find(p => {
-      // Handle populated photo objects (have ._id) and unpopulated ObjectId refs
-      const photoId = (p && p._id) ? p._id.toString() : (p ? p.toString() : null);
-      return photoId === defaultIdStr;
-    });
-    if (photo) {
-      return photo;
-    }
-    backendLogger.warn('Default photo ID not found in photos array', {
-      resourceId: resource._id,
-      default_photo_id: resource.default_photo_id
-    });
-  }
-
-  // Return first photo as fallback
-  return resource.photos[0];
+  const entry = resource.photos.find(p => p.default);
+  return entry ? entry.photo : resource.photos[0].photo;
 }
 
 /**
- * Get the index of the default photo
+ * Get the index of the default photo entry.
  * @param {Object} resource - The resource with photos
- * @returns {number} The index of the default photo (0 if not found)
+ * @returns {number} The index of the default entry (0 if not found)
  */
 function getDefaultPhotoIndex(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return 0;
   }
-
-  // Use ID-based lookup
-  if (resource.default_photo_id) {
-    const defaultIdStr = resource.default_photo_id._id
-      ? resource.default_photo_id._id.toString()
-      : resource.default_photo_id.toString();
-    const index = resource.photos.findIndex(p => {
-      const photoId = (p && p._id) ? p._id.toString() : (p ? p.toString() : null);
-      return photoId === defaultIdStr;
-    });
-    if (index !== -1) {
-      return index;
-    }
-  }
-
-  // Return 0 as fallback
-  return 0;
+  const index = resource.photos.findIndex(p => p.default);
+  return index !== -1 ? index : 0;
 }
 
 /**
- * Set the default photo by ID
+ * Get the raw photo entries array for components that need both photo and flag.
+ * @param {Object} resource - The resource with photos
+ * @returns {Array} The [{photo, default}] array, or empty array
+ */
+function getPhotoEntries(resource) {
+  if (!resource || !resource.photos) return [];
+  return resource.photos;
+}
+
+/**
+ * Set the default photo by photo ID (mutates resource.photos in place).
  * @param {Object} resource - The resource to update
- * @param {string} photoId - The ID of the photo to set as default
+ * @param {string} photoId - The ID of the photo to mark as default
  * @returns {boolean} True if successful, false if photo not found
  */
 function setDefaultPhotoById(resource, photoId) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return false;
   }
-
-  const index = resource.photos.findIndex(p => p._id && p._id.toString() === photoId.toString());
-
+  const photoIdStr = photoId ? photoId.toString() : null;
+  const index = resource.photos.findIndex(p => {
+    const entryId = p.photo && p.photo._id ? p.photo._id.toString() : (p.photo ? p.photo.toString() : null);
+    return entryId === photoIdStr;
+  });
   if (index === -1) {
     backendLogger.warn('Photo ID not found when setting default photo', {
       resourceId: resource._id,
@@ -87,23 +64,20 @@ function setDefaultPhotoById(resource, photoId) {
     });
     return false;
   }
-
-  resource.default_photo_id = photoId;
-
+  resource.photos.forEach((p, i) => { p.default = (i === index); });
   return true;
 }
 
 /**
- * Set the default photo by index
+ * Set the default photo by array index (mutates resource.photos in place).
  * @param {Object} resource - The resource to update
- * @param {number} index - The index of the photo to set as default
+ * @param {number} index - The index of the photo entry to mark as default
  * @returns {boolean} True if successful, false if index out of bounds
  */
 function setDefaultPhotoByIndex(resource, index) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return false;
   }
-
   if (index < 0 || index >= resource.photos.length) {
     backendLogger.warn('Photo index out of bounds when setting default photo', {
       resourceId: resource._id,
@@ -112,40 +86,36 @@ function setDefaultPhotoByIndex(resource, index) {
     });
     return false;
   }
-
-  const photo = resource.photos[index];
-  resource.default_photo_id = photo._id;
-
+  resource.photos.forEach((p, i) => { p.default = (i === index); });
   return true;
 }
 
 /**
- * Ensure default photo ID is set correctly
- * Call this after modifying photos array to maintain consistency
- * @param {Object} resource - The resource to check and fix
+ * Ensure exactly one entry has default: true.
+ * Call after modifying the photos array.
+ * @param {Object} resource - The resource to normalise
  */
 function ensureDefaultPhotoConsistency(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
-    resource.default_photo_id = null;
     return;
   }
-
-  // If default_photo_id exists and is valid, keep it
-  if (resource.default_photo_id) {
-    const index = resource.photos.findIndex(p => p._id && p._id.toString() === resource.default_photo_id.toString());
-    if (index !== -1) {
-      return;
+  const defaultCount = resource.photos.filter(p => p.default).length;
+  if (defaultCount === 0) {
+    resource.photos[0].default = true;
+  } else if (defaultCount > 1) {
+    let found = false;
+    for (let i = resource.photos.length - 1; i >= 0; i--) {
+      if (resource.photos[i].default && !found) {
+        found = true;
+      } else {
+        resource.photos[i].default = false;
+      }
     }
-    // ID not found, clear it
-    resource.default_photo_id = null;
   }
-
-  // Set to first photo's ID
-  resource.default_photo_id = resource.photos[0]._id;
 }
 
 /**
- * Remove a photo and update default photo if necessary
+ * Remove a photo entry by photo ID and maintain the default invariant.
  * @param {Object} resource - The resource to update
  * @param {string} photoId - The ID of the photo to remove
  * @returns {boolean} True if photo was removed
@@ -154,29 +124,25 @@ function removePhoto(resource, photoId) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return false;
   }
-
-  const index = resource.photos.findIndex(p => p._id && p._id.toString() === photoId.toString());
-
+  const photoIdStr = photoId ? photoId.toString() : null;
+  const index = resource.photos.findIndex(p => {
+    const entryId = p.photo && p.photo._id ? p.photo._id.toString() : (p.photo ? p.photo.toString() : null);
+    return entryId === photoIdStr;
+  });
   if (index === -1) {
     return false;
   }
-
-  // Remove the photo
   resource.photos.splice(index, 1);
-
-  // If we removed the default photo or it's now invalid, set a new default
   if (resource.photos.length > 0) {
     ensureDefaultPhotoConsistency(resource);
-  } else {
-    resource.default_photo_id = null;
   }
-
   return true;
 }
 
 module.exports = {
   getDefaultPhoto,
   getDefaultPhotoIndex,
+  getPhotoEntries,
   setDefaultPhotoById,
   setDefaultPhotoByIndex,
   ensureDefaultPhotoConsistency,

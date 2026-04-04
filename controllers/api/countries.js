@@ -94,10 +94,9 @@ async function getByCountry(req, res) {
     // Get ALL destination IDs upfront in a single query (for experience lookup)
     // This avoids the N+1 query pattern of fetching destinations twice
     const allDestinationDocs = await Destination.find({ country: countryRegex })
-      .select('_id name country state photos default_photo_id location map_location')
+      .select('_id name country state photos location map_location')
       .sort({ name: 1 })
-      .populate('default_photo_id')
-      .populate('photos')
+      .populate('photos.photo')
       .lean();
 
     const allDestinationIds = allDestinationDocs.map(d => d._id);
@@ -122,10 +121,9 @@ async function getByCountry(req, res) {
           .sort({ name: 1 })
           .skip(experiencesSkip)
           .limit(experiencesLimit)
-          .select('name destination photos default_photo_id permissions experience_type overview location plan_items.location createdAt updatedAt')
+          .select('name destination photos permissions experience_type overview location plan_items.location createdAt updatedAt')
           .populate('destination', 'name country city location')
-          .populate('photos', 'url caption photo_credit photo_credit_url width height')
-          .populate('default_photo_id', 'url caption photo_credit photo_credit_url width height')
+          .populate('photos.photo', 'url caption photo_credit photo_credit_url width height')
           .lean({ virtuals: true })
       : [];
 

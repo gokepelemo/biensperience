@@ -618,7 +618,6 @@ async function getCuratorPlanners(req, res) {
           user: {
             _id: '$userDetails._id',
             name: '$userDetails.name',
-            default_photo_id: '$userDetails.default_photo_id',
             oauthProfilePhoto: '$userDetails.oauthProfilePhoto',
             photo: '$userDetails.photo',
             photos: {
@@ -657,7 +656,6 @@ async function getCuratorPlanners(req, res) {
       planners: planners.map(p => ({
         userId: p.user._id,
         userName: p.user.name,
-        userPhotoId: p.user.default_photo_id,
         userPhotos: p.user.photos || [],
         userOauthProfilePhoto: p.user.oauthProfilePhoto || null,
         userPhoto: p.user.photo || null,

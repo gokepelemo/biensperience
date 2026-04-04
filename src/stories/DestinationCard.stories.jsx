@@ -33,7 +33,6 @@ const sampleDestination = {
       photo_credit_url: 'https://unsplash.com',
     },
   ],
-  default_photo_id: null,
   users_favorite: [],
   travel_tips: ['Language: French', 'Currency: Euro', 'Best time: Spring/Fall'],
 };

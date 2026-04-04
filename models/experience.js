@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const { hiddenSignalVectorSchema } = require('./hidden-signals');
 
+const photoEntrySchema = new Schema({
+  photo: { type: Schema.Types.ObjectId, ref: 'Photo', required: true },
+  default: { type: Boolean, default: false }
+}, { _id: false });
+
 const permissionSchema = new Schema({
   _id: { type: Schema.Types.ObjectId, required: true },
   entity: { 
@@ -145,13 +150,8 @@ const experienceSchema = new Schema(
     },
     plan_items: [planItemSchema],
     photos: {
-      type: [Schema.Types.ObjectId],
-      ref: "Photo",
+      type: [photoEntrySchema],
       default: []
-    },
-    default_photo_id: { 
-      type: Schema.Types.ObjectId, 
-      ref: "Photo" 
     },
     visibility: {
       type: String,
@@ -285,10 +285,31 @@ experienceSchema.index({ experience_type_slugs: 1 });
 experienceSchema.index({ destination: 1, createdAt: -1 });
 experienceSchema.index({ createdAt: -1 });
 experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1, name: 1 });
-experienceSchema.index({ photos: 1 });
-experienceSchema.index({ default_photo_id: 1 });
+experienceSchema.index({ 'photos.photo': 1 });
 // Spatial index for experience location (GeoJSON Point)
 experienceSchema.index({ 'location.geo': '2dsphere' });
+
+/**
+ * Pre-save hook: enforce the photos invariant (exactly one default: true entry).
+ */
+experienceSchema.pre('save', function (next) {
+  if (this.isModified('photos') && this.photos.length > 0) {
+    const defaultCount = this.photos.filter(p => p.default).length;
+    if (defaultCount === 0) {
+      this.photos[0].default = true;
+    } else if (defaultCount > 1) {
+      let found = false;
+      for (let i = this.photos.length - 1; i >= 0; i--) {
+        if (this.photos[i].default && !found) {
+          found = true;
+        } else {
+          this.photos[i].default = false;
+        }
+      }
+    }
+  }
+  next();
+});
 
 /**
  * Pre-save hook: compute signal_tags from plan_items when plan_items is modified.

@@ -376,8 +376,8 @@ async function lookupByObjectId(id, user) {
 
   // Try user
   const foundUser = await User.findById(objectId)
-    .select(isSuperAdmin(user) ? 'name email role photos default_photo_id oauthProfilePhoto photo' : 'name photos default_photo_id oauthProfilePhoto photo')
-    .populate('photos', 'url caption')
+    .select(isSuperAdmin(user) ? 'name email role photos oauthProfilePhoto photo' : 'name photos oauthProfilePhoto photo')
+    .populate('photos.photo', 'url caption')
     .lean();
 
   if (foundUser) {
@@ -605,8 +605,8 @@ async function searchUsersInternal(query, limit, user) {
 
     // Select fields based on user role
     const selectFields = isSuperAdmin(user)
-      ? 'name email role photos default_photo_id oauthProfilePhoto photo'
-      : 'name photos default_photo_id oauthProfilePhoto photo';
+      ? 'name email role photos oauthProfilePhoto photo'
+      : 'name photos oauthProfilePhoto photo';
 
     const users = await User.find(searchQuery)
       .limit(limit)
