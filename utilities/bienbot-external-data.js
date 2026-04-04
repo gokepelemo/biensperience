@@ -327,6 +327,22 @@ async function fetchEntityPhotos(payload, user, session = null) {
     };
   }
 
+  // Budget guard — check before any DB lookups to fail fast
+  const unsplashBudget = tracker.checkBudget('unsplash');
+  if (!unsplashBudget.allowed) {
+    logger.warn('[bienbot-external-data] Unsplash budget exhausted for fetchEntityPhotos', {
+      resetAt: unsplashBudget.resetAt,
+      userId: user._id.toString()
+    });
+    return {
+      statusCode: 503,
+      body: {
+        success: false,
+        error: 'Photo search service is temporarily unavailable. Please try again later.'
+      }
+    };
+  }
+
   try {
     // Resolve entity name for search query
     let entity;
@@ -398,6 +414,7 @@ async function fetchEntityPhotos(payload, user, session = null) {
     }
 
     // Call Unsplash Search API
+    tracker.recordUsage('unsplash');
     const cappedLimit = Math.min(limit, 20);
     const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=${cappedLimit}&orientation=landscape`;
 

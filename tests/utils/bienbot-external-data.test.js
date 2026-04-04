@@ -240,7 +240,7 @@ describe('bienbot-external-data', () => {
 
   describe('withRetry() budget integration', () => {
     it('returns null without calling fn when provider budget is exhausted', async () => {
-      tracker.checkBudget.mockReturnValue({ allowed: false, remaining: 0, resetAt: new Date() });
+      tracker.checkBudget.mockReturnValueOnce({ allowed: false, remaining: 0, resetAt: new Date() });
       const fn = jest.fn().mockResolvedValue('result');
       const result = await withRetry(fn, { provider: 'unsplash' });
       expect(result).toBeNull();
@@ -248,7 +248,7 @@ describe('bienbot-external-data', () => {
     });
 
     it('calls fn and records usage when provider has budget', async () => {
-      tracker.checkBudget.mockReturnValue({ allowed: true, remaining: 10, resetAt: new Date() });
+      tracker.checkBudget.mockReturnValueOnce({ allowed: true, remaining: 10, resetAt: new Date() });
       const fn = jest.fn().mockResolvedValue('ok');
       const result = await withRetry(fn, { provider: 'tripadvisor' });
       expect(result).toBe('ok');
@@ -617,6 +617,20 @@ describe('bienbot-external-data', () => {
 
       expect(result.statusCode).toBe(200);
       expect(result.body.data.photos).toEqual([]);
+    });
+
+    it('returns 503 when Unsplash budget is exhausted', async () => {
+      tracker.checkBudget.mockReturnValueOnce({ allowed: false, remaining: 0, resetAt: new Date() });
+      process.env.UNSPLASH_ACCESS_KEY = 'test-key';
+
+      const result = await fetchEntityPhotos(
+        { entity_type: 'destination', entity_id: VALID_ID },
+        mockUser
+      );
+
+      expect(result.statusCode).toBe(503);
+      expect(result.body.success).toBe(false);
+      expect(result.body.error).toMatch(/temporarily unavailable/i);
     });
   });
 
