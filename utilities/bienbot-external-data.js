@@ -59,14 +59,14 @@ async function suggestPlanItems(payload, user) {
     return { statusCode: 400, body: { success: false, error: 'destination_id is required' } };
   }
 
-  const { valid: destValid } = validateObjectId(destination_id, 'destination_id');
+  const { valid: destValid, objectId: destOid } = validateObjectId(destination_id, 'destination_id');
   if (!destValid) {
     return { statusCode: 400, body: { success: false, error: 'Invalid destination_id format' } };
   }
 
   try {
     // Verify destination exists
-    const destination = await Destination.findById(destination_id).select('name').lean();
+    const destination = await Destination.findById(destOid).select('name').lean();
     if (!destination) {
       return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
     }
@@ -310,7 +310,7 @@ async function fetchEntityPhotos(payload, user, session = null) {
     return { statusCode: 400, body: { success: false, error: 'entity_id is required' } };
   }
 
-  const { valid } = validateObjectId(entity_id, 'entity_id');
+  const { valid, objectId: entityOid } = validateObjectId(entity_id, 'entity_id');
   if (!valid) {
     return { statusCode: 400, body: { success: false, error: 'Invalid entity_id format' } };
   }
@@ -347,9 +347,9 @@ async function fetchEntityPhotos(payload, user, session = null) {
     // Resolve entity name for search query
     let entity;
     if (entity_type === 'destination') {
-      entity = await Destination.findById(entity_id).select('name').lean();
+      entity = await Destination.findById(entityOid).select('name').lean();
     } else {
-      entity = await Experience.findById(entity_id).select('name destination').lean();
+      entity = await Experience.findById(entityOid).select('name destination').lean();
     }
 
     if (!entity) {
@@ -560,7 +560,7 @@ async function addEntityPhotos(payload, user, session = null) {
     return { statusCode: 400, body: { success: false, error: 'entity_id is required' } };
   }
 
-  const { valid } = validateObjectId(entity_id, 'entity_id');
+  const { valid, objectId: entityOid } = validateObjectId(entity_id, 'entity_id');
   if (!valid) {
     return { statusCode: 400, body: { success: false, error: 'Invalid entity_id format' } };
   }
@@ -579,7 +579,7 @@ async function addEntityPhotos(payload, user, session = null) {
     // Load entity and check edit permission
     let entity;
     const Model = entity_type === 'destination' ? Destination : Experience;
-    entity = await Model.findById(entity_id);
+    entity = await Model.findById(entityOid);
 
     if (!entity) {
       return { statusCode: 404, body: { success: false, error: `${entity_type} not found` } };
@@ -854,21 +854,29 @@ const PLAN_ITEM_MAX_PER_SECTION = {
  */
 function stripHtml(html) {
   return html
-    // Remove MediaWiki edit-section spans entirely (contain "[edit]" bracket text)
+    // Step 1: Remove MediaWiki edit-section spans entirely (contain "[edit]" bracket text)
     .replace(/<span[^>]*class="[^"]*mw-editsection[^"]*"[^>]*>[\s\S]*?<\/span>/gi, '')
-    // Remove heading elements — section content includes the heading we already know
+    // Step 2: Remove heading elements — section content includes the heading we already know
     .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
-    // Standard conversions
+    // Step 3: Convert structural tags to whitespace/newlines
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
+    // Step 4: Decode HTML entities BEFORE stripping remaining tags so that
+    //         entity-encoded tags like &lt;script&gt; become <script> and
+    //         are caught by the subsequent replace. Use a placeholder for &amp;
+    //         to avoid double-decoding chains like &amp;lt; → &lt; → <.
+    .replace(/&amp;/g, '\u0026amp\u003b')  // protect &amp; from decoding in this pass
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
+    // Step 5: Strip ALL remaining tags (including any reconstructed from entities above)
+    .replace(/<[^>]+>/g, '')
+    // Step 6: Restore & from placeholder, then remove any stray angle brackets
+    .replace(/\u0026amp\u003b/g, '&')
+    .replace(/[<>]/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -1695,14 +1703,14 @@ async function enrichDestination(destinationId, user, options = {}) {
 
   const { force = false, background = false } = options;
 
-  const { valid } = validateObjectId(destinationId, 'destinationId');
+  const { valid, objectId: destOid } = validateObjectId(destinationId, 'destinationId');
   if (!valid) {
     return { statusCode: 400, body: { success: false, error: 'Invalid destination ID' } };
   }
 
   try {
     const enforcer = getEnforcer({ Destination, Experience, Plan, User });
-    const destination = await Destination.findById(destinationId);
+    const destination = await Destination.findById(destOid);
 
     if (!destination) {
       return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
@@ -1888,7 +1896,7 @@ async function fetchDestinationTips(payload, user) {
     return { statusCode: 400, body: { success: false, error: 'destination_id is required' } };
   }
 
-  const { valid } = validateObjectId(destination_id, 'destination_id');
+  const { valid, objectId: destOid } = validateObjectId(destination_id, 'destination_id');
   if (!valid) {
     return { statusCode: 400, body: { success: false, error: 'Invalid destination_id format' } };
   }
@@ -1899,7 +1907,7 @@ async function fetchDestinationTips(payload, user) {
     let destination;
 
     if (!destinationName) {
-      destination = await Destination.findById(destination_id).select('name travel_tips').lean();
+      destination = await Destination.findById(destOid).select('name travel_tips').lean();
       if (!destination) {
         return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
       }

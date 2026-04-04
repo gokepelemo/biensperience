@@ -11,7 +11,7 @@ const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activ
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
-const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
+const { successResponse, errorResponse, paginatedResponse, validateObjectId } = require('../../utilities/controller-helpers');
 const { aggregateGroupSignals } = require('../../utilities/hidden-signals');
 
 // Helper function to escape regex special characters
@@ -1096,9 +1096,15 @@ async function showExperienceWithContext(req, res) {
 async function updateExperience(req, res) {
   backendLogger.info('updateExperience called', { experienceId: req.params.experienceId || req.params.id, userId: req.user._id });
   const experienceId = req.params.experienceId || req.params.id;
+
+  const { valid: expIdValid, objectId: expOid } = validateObjectId(experienceId, 'experienceId');
+  if (!expIdValid) {
+    return errorResponse(res, null, 'Invalid experience ID format', 400);
+  }
+
   try {
     backendLogger.info('Looking up experience', { experienceId });
-    let experience = await Experience.findById(experienceId);
+    let experience = await Experience.findById(expOid);
     backendLogger.info('Experience lookup result', { found: !!experience });
     
     if (!experience) {

@@ -1077,12 +1077,18 @@ async function executeSelectPlan(payload, user) {
 
   loadControllers();
   const Plan = require('../models/plan');
+  const mongoose = require('mongoose');
   const { getEnforcer } = require('./permission-enforcer');
   const Destination = require('../models/destination');
   const Experience = require('../models/experience');
   const User = require('../models/user');
 
-  const plan = await Plan.findById(payload.plan_id).populate('experience', 'name destination');
+  if (!mongoose.Types.ObjectId.isValid(payload.plan_id)) {
+    return { statusCode: 400, body: { success: false, error: 'Invalid plan_id format' } };
+  }
+  const planOid = new mongoose.Types.ObjectId(payload.plan_id);
+
+  const plan = await Plan.findById(planOid).populate('experience', 'name destination');
   if (!plan) {
     return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
   }

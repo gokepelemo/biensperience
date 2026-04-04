@@ -30,7 +30,7 @@ const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_T
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
 const { extractMemoryFromSession, extractMemoryForCollaborators, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
 const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
-const { uploadWithPipeline, retrieveFile } = require('../../utilities/upload-pipeline');
+const { uploadWithPipeline, retrieveFile, resolveAndValidateLocalUploadPath } = require('../../utilities/upload-pipeline');
 const path = require('path');
 const { GatewayError } = require('../../utilities/ai-gateway');
 const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
@@ -646,13 +646,29 @@ function parseLLMResponse(text) {
           })
         : [];
 
+      const isValidEntityRef = (r) =>
+        r && typeof r._id === 'string' && r._id.length > 0 &&
+        typeof r.type === 'string' && typeof r.name === 'string' &&
+        !/<[^>]+>/.test(r._id); // reject placeholder values like <experience_id>
+
       const entityRefs = Array.isArray(parsed.entity_refs)
-        ? parsed.entity_refs.filter(r =>
-          r && typeof r._id === 'string' && r._id.length > 0 &&
-          typeof r.type === 'string' && typeof r.name === 'string' &&
-          !/<[^>]+>/.test(r._id) // reject placeholder values like <experience_id>
-        )
+        ? parsed.entity_refs.filter(isValidEntityRef)
         : [];
+
+      // Extract inline entity JSON objects embedded in the message text.
+      // The LLM is instructed to embed entities as compact JSON within prose,
+      // e.g. "I'll create a plan for {"_id":"...","name":"Tokyo","type":"experience"}!"
+      const seenIds = new Set(entityRefs.map(r => r._id));
+      const inlinePattern = /\{[^{}]*"_id"[^{}]*\}/g;
+      for (const match of (parsed.message.match(inlinePattern) || [])) {
+        try {
+          const obj = JSON.parse(match);
+          if (isValidEntityRef(obj) && !seenIds.has(obj._id)) {
+            entityRefs.push(obj);
+            seenIds.add(obj._id);
+          }
+        } catch { /* ignore malformed inline objects */ }
+      }
 
       return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs };
     } catch {
@@ -1045,11 +1061,13 @@ exports.chat = async (req, res) => {
   }
 
   // Validate sessionId if provided
+  let sessionObjId;
   if (sessionId) {
-    const { valid } = validateObjectId(sessionId, 'sessionId');
+    const { valid, objectId } = validateObjectId(sessionId, 'sessionId');
     if (!valid) {
       return errorResponse(res, null, 'Invalid session ID format', 400);
     }
+    sessionObjId = objectId;
   }
 
   // --- Attachment processing ---
@@ -1070,6 +1088,12 @@ exports.chat = async (req, res) => {
         try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
         return errorResponse(res, null, validation.error, 400);
       }
+
+      // Validate the local path is within the allowed uploads directory before
+      // any filesystem I/O (extractText reads the file, pendingLocalFile is
+      // later passed to uploadWithPipeline). Multer temp paths always satisfy
+      // this check; the call is defense-in-depth.
+      resolveAndValidateLocalUploadPath(uploadedFile.path);
 
       logger.info('[bienbot] Processing attachment', {
         filename: uploadedFile.originalname,
@@ -1125,7 +1149,7 @@ exports.chat = async (req, res) => {
       invokeContext.contextDescription = stripNullBytes(String(invokeContext.contextDescription)).slice(0, 200);
     }
 
-    const { valid } = validateObjectId(invokeContext.id, 'invokeContext.id');
+    const { valid, objectId: invokeObjId } = validateObjectId(invokeContext.id, 'invokeContext.id');
     if (!valid) {
       return errorResponse(res, null, 'Invalid invokeContext.id format', 400);
     }
@@ -1144,17 +1168,17 @@ exports.chat = async (req, res) => {
     try {
       switch (invokeContext.entity) {
         case 'destination':
-          resource = await Destination.findById(invokeContext.id).lean();
+          resource = await Destination.findById(invokeObjId).lean();
           break;
         case 'experience':
-          resource = await Experience.findById(invokeContext.id).lean();
+          resource = await Experience.findById(invokeObjId).lean();
           break;
         case 'plan':
-          resource = await Plan.findById(invokeContext.id).lean();
+          resource = await Plan.findById(invokeObjId).lean();
           break;
         case 'plan_item': {
           // plan_item is a subdocument — find parent plan and use it for permission check
-          const parentPlan = await Plan.findOne({ 'plan._id': invokeContext.id }).lean();
+          const parentPlan = await Plan.findOne({ 'plan._id': invokeObjId }).lean();
           if (parentPlan) {
             resource = parentPlan;
             // Stash the parent plan ID for context builder and session context
@@ -1163,7 +1187,7 @@ exports.chat = async (req, res) => {
           break;
         }
         case 'user':
-          resource = await User.findById(invokeContext.id).lean();
+          resource = await User.findById(invokeObjId).lean();
           break;
         default:
           return errorResponse(res, null, 'Unknown entity type', 400);
@@ -1208,7 +1232,7 @@ exports.chat = async (req, res) => {
 
   try {
     if (sessionId) {
-      session = await BienBotSession.findById(sessionId);
+      session = await BienBotSession.findById(sessionObjId);
       if (!session) {
         return errorResponse(res, null, 'Session not found', 404);
       }
@@ -2038,7 +2062,21 @@ exports.chat = async (req, res) => {
   // If there's an attachment, note it in the message so the LLM is aware
   let userContent = `[USER MESSAGE]\n${message}\n[/USER MESSAGE]`;
   if (attachmentData) {
-    userContent += `\n[ATTACHMENT: ${attachmentData.filename} (${attachmentData.mimeType})]`;
+    // Sanitize filename before embedding in the LLM context to prevent prompt injection.
+    // Replace non-word characters with underscores and cap length.
+    const displayName = attachmentData.filename
+      ? path.basename(String(attachmentData.filename)).replace(/[^\w\s.\-()]/g, '_').slice(0, 80)
+      : 'attachment';
+    // Only include MIME types from the known allowlist to prevent Content-Type header injection.
+    const ALLOWED_MIME_DISPLAY = new Set([
+      'application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'
+    ]);
+    const displayMime = ALLOWED_MIME_DISPLAY.has(attachmentData.mimeType)
+      ? attachmentData.mimeType
+      : 'application/octet-stream';
+    userContent += `\n[ATTACHMENT: ${displayName} (${displayMime})]`;
   }
   conversationMessages.push({
     role: 'user',
@@ -2309,7 +2347,7 @@ exports.execute = async (req, res) => {
   const { id } = req.params;
 
   // Validate session ID
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2323,7 +2361,7 @@ exports.execute = async (req, res) => {
   // Load session
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2480,7 +2518,7 @@ exports.resume = async (req, res) => {
   const { id } = req.params;
 
   // Validate session ID
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2488,7 +2526,7 @@ exports.resume = async (req, res) => {
   // Load session (non-lean so we can call instance methods)
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2607,13 +2645,13 @@ exports.getSession = async (req, res) => {
   const userId = req.user._id.toString();
   const { id } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
 
   try {
-    const session = await BienBotSession.findById(id).lean();
+    const session = await BienBotSession.findById(sessionObjId).lean();
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2639,13 +2677,13 @@ exports.deleteSession = async (req, res) => {
   const userId = req.user._id.toString();
   const { id } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2691,7 +2729,7 @@ exports.updateContext = async (req, res) => {
   const userId = req.user._id.toString();
   const { id } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2701,7 +2739,7 @@ exports.updateContext = async (req, res) => {
     return errorResponse(res, null, 'entity and entityId are required', 400);
   }
 
-  const { valid: entityIdValid } = validateObjectId(entityId, 'entityId');
+  const { valid: entityIdValid, objectId: entityObjId } = validateObjectId(entityId, 'entityId');
   if (!entityIdValid) {
     return errorResponse(res, null, 'Invalid entityId format', 400);
   }
@@ -2713,7 +2751,7 @@ exports.updateContext = async (req, res) => {
 
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2744,21 +2782,21 @@ exports.updateContext = async (req, res) => {
   try {
     switch (entity) {
       case 'destination':
-        resource = await Destination.findById(entityId).lean();
+        resource = await Destination.findById(entityObjId).lean();
         break;
       case 'experience':
-        resource = await Experience.findById(entityId).lean();
+        resource = await Experience.findById(entityObjId).lean();
         break;
       case 'plan':
-        resource = await Plan.findById(entityId).lean();
+        resource = await Plan.findById(entityObjId).lean();
         break;
       case 'plan_item': {
-        const parentPlan = await Plan.findOne({ 'plan._id': entityId }).lean();
+        const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).lean();
         if (parentPlan) resource = parentPlan;
         break;
       }
       case 'user':
-        resource = await User.findById(entityId).lean();
+        resource = await User.findById(entityObjId).lean();
         break;
     }
   } catch (err) {
@@ -2791,7 +2829,7 @@ exports.updateContext = async (req, res) => {
       break;
     case 'plan_item': {
       contextUpdate.plan_item_id = entityId;
-      const parentPlan = await Plan.findOne({ 'plan._id': entityId }).select('_id').lean();
+      const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).select('_id').lean();
       if (parentPlan) contextUpdate.plan_id = parentPlan._id.toString();
       break;
     }
@@ -2827,7 +2865,7 @@ exports.deletePendingAction = async (req, res) => {
   const userId = req.user._id.toString();
   const { id, actionId } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2837,7 +2875,7 @@ exports.deletePendingAction = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2884,7 +2922,7 @@ exports.addSessionCollaborator = async (req, res) => {
   const { id } = req.params;
   const { userId: targetUserId, role = 'viewer' } = req.body;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2892,7 +2930,7 @@ exports.addSessionCollaborator = async (req, res) => {
   if (!targetUserId) {
     return errorResponse(res, null, 'userId is required', 400);
   }
-  const { valid: targetValid } = validateObjectId(targetUserId, 'userId');
+  const { valid: targetValid, objectId: targetUserObjId } = validateObjectId(targetUserId, 'userId');
   if (!targetValid) {
     return errorResponse(res, null, 'Invalid userId format', 400);
   }
@@ -2906,7 +2944,7 @@ exports.addSessionCollaborator = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2918,7 +2956,7 @@ exports.addSessionCollaborator = async (req, res) => {
 
     // Verify target user exists and has ai_features
     loadModels();
-    const targetUser = await User.findById(targetUserId);
+    const targetUser = await User.findById(targetUserObjId);
     if (!targetUser) {
       return errorResponse(res, null, 'User not found', 404);
     }
@@ -3038,7 +3076,7 @@ exports.removeSessionCollaborator = async (req, res) => {
   const actorId = req.user._id.toString();
   const { id, userId: targetUserId } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3048,7 +3086,7 @@ exports.removeSessionCollaborator = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -3208,7 +3246,7 @@ exports.applyTips = async (req, res) => {
     return errorResponse(res, null, 'destination_id and a non-empty tips array are required', 400);
   }
 
-  const { valid } = validateObjectId(destination_id, 'destination_id');
+  const { valid, objectId: destOid } = validateObjectId(destination_id, 'destination_id');
   if (!valid) {
     return errorResponse(res, null, 'Invalid destination_id format', 400);
   }
@@ -3232,7 +3270,7 @@ exports.applyTips = async (req, res) => {
   loadModels();
 
   try {
-    const destination = await Destination.findById(destination_id);
+    const destination = await Destination.findById(destOid);
     if (!destination) {
       return errorResponse(res, null, 'Destination not found', 404);
     }
@@ -3482,7 +3520,7 @@ exports.updatePendingAction = async (req, res) => {
   const { id, actionId } = req.params;
   const { status: newStatus, payload: newPayload } = req.body;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3498,7 +3536,7 @@ exports.updatePendingAction = async (req, res) => {
 
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -3703,7 +3741,7 @@ exports.getWorkflowState = async (req, res) => {
   const userId = req.user._id.toString();
   const { id, workflowId } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3714,7 +3752,7 @@ exports.getWorkflowState = async (req, res) => {
 
   let session;
   try {
-    session = await BienBotSession.findById(id).lean();
+    session = await BienBotSession.findById(sessionObjId).lean();
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -3764,7 +3802,7 @@ exports.getAttachmentUrl = async (req, res) => {
   const userId = req.user._id.toString();
   const { id, messageIndex, attachmentIndex } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3776,7 +3814,7 @@ exports.getAttachmentUrl = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id).lean();
+    const session = await BienBotSession.findById(sessionObjId).lean();
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
