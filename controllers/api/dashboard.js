@@ -498,7 +498,9 @@ async function getRecentActivity(userId, options = {}) {
       // identifies the context ("BienBot chat session") and the person who added them.
       if (activity.action === 'collaborator_added' && activity.resource?.type === 'BienBotSession') {
         const ownerName = activity.target?.name || 'someone';
-        actionText = `have been added to a BienBot chat session "${resourceName}" by ${ownerName}`;
+        actionText = isOwnActivity
+          ? `You have been added to a BienBot chat session "${resourceName}" by ${ownerName}`
+          : `has been added to a BienBot chat session "${resourceName}" by ${ownerName}`;
         itemDisplay = null;
         targetName = null;
       }

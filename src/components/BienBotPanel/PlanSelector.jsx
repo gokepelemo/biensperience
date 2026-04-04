@@ -8,7 +8,17 @@ import styles from './PlanSelector.module.css';
  * execute-on-click PlanCard pattern.
  */
 function PlanSelector({ actions, onExecute, onCancel, disabled }) {
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => {
+    // If only one action, preselect it
+    return actions.length === 1 ? (actions[0]._id || actions[0].id) : null;
+  });
+  // Auto-execute if only one action
+  useEffect(() => {
+    if (actions.length === 1 && selectedId && !disabled) {
+      onExecute(selectedId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actions.length, selectedId, disabled]);
 
   // Group plans by destination_name (empty string → "Other")
   const groups = useMemo(() => {
@@ -33,6 +43,12 @@ function PlanSelector({ actions, onExecute, onCancel, disabled }) {
       }
     }
   };
+
+  // If only one plan, don't render the selector UI
+  if (actions.length === 1) {
+    // Optionally, could show a spinner or message, but just return null for now
+    return null;
+  }
 
   return (
     <div className={styles.selector}>

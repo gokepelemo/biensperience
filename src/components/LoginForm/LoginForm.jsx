@@ -404,7 +404,9 @@ export default function LoginForm({ setUser }) {
                             >
                                 {lang.current.label.email}
                             </Fieldset.Legend>
-                            <Fieldset.Content>
+                            <Fieldset.Content
+                                css={{ width: "100%", minWidth: 0 }}
+                            >
                                 <InputGroup
                                     css={{
                                         border: "2px solid var(--colors-border)",
@@ -412,6 +414,9 @@ export default function LoginForm({ setUser }) {
                                         overflow: "hidden",
                                         minHeight: "48px",
                                         transition: "border-color 0.15s, box-shadow 0.15s",
+                                        width: "100%",
+                                        minWidth: 0,
+                                        display: "flex",
                                         "&:focus-within": {
                                             borderColor: "var(--colors-brand-solid)",
                                             boxShadow: "0 0 0 3px var(--colors-brand-muted)",
@@ -478,7 +483,9 @@ export default function LoginForm({ setUser }) {
                             >
                                 {lang.current.label.password}
                             </Fieldset.Legend>
-                            <Fieldset.Content>
+                            <Fieldset.Content
+                                css={{ width: "100%", minWidth: 0 }}
+                            >
                                 <InputGroup
                                     css={{
                                         border: "2px solid var(--colors-border)",
@@ -486,6 +493,9 @@ export default function LoginForm({ setUser }) {
                                         overflow: "hidden",
                                         minHeight: "48px",
                                         transition: "border-color 0.15s, box-shadow 0.15s",
+                                        width: "100%",
+                                        minWidth: 0,
+                                        display: "flex",
                                         "&:focus-within": {
                                             borderColor: "var(--colors-brand-solid)",
                                             boxShadow: "0 0 0 3px var(--colors-brand-muted)",

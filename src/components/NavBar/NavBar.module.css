@@ -90,9 +90,12 @@
   font-size: var(--font-size-sm);
   font-family: var(--font-family-base);
   color: var(--color-text-primary) !important;
-  opacity: 0.75;
+  opacity: 0.85;
   text-decoration: none !important;
   transition: all 300ms;
+
+  background: transparent;
+  margin-bottom: 0.25rem;
 
   &:link,
   &:visited {
@@ -399,12 +402,20 @@
 }
 
 .logoutLink {
+  margin-top: 0.5rem;
+  font-weight: 800;
+  color: var(--color-danger) !important;
+  background: var(--color-bg-hover);
+  border: 2px solid var(--color-danger);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: background 0.2s, color 0.2s, border 0.2s;
   &:hover,
   &:focus {
-    color: var(--color-danger) !important;
-
+    color: #fff !important;
+    background: var(--color-danger);
+    border-color: var(--color-danger);
     .mobileIcon {
-      color: var(--color-danger) !important;
+      color: #fff !important;
     }
   }
 }
