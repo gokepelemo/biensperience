@@ -21,6 +21,11 @@ const {
 
 const TAG = '[upload-pipeline]';
 
+// Trusted base directory for all local upload files.
+// Derived from __dirname (a Node.js built-in), so this constant is never tainted
+// by user input — CodeQL can verify it as a safe path prefix.
+const UPLOADS_ROOT = path.resolve(__dirname, '..', 'uploads');
+
 /** Status values for tracking background S3 uploads. */
 const S3_STATUS = Object.freeze({
   PENDING: 'pending',
@@ -103,12 +108,20 @@ async function uploadWithPipeline(localPath, originalName, s3KeyPrefix, options 
  *   raw caller-supplied path directly — validation must happen before this call.
  */
 async function _doUpload(validatedLocalPath, originalName, s3KeyPrefix, isProtected, deleteLocal) {
-  // Re-validate here so any misuse of _doUpload (bypassing uploadWithPipeline)
-  // is rejected, and CodeQL sees a clear sanitization step before every I/O op.
-  // resolveAndValidateLocalUploadPath returns a canonical absolute path via
-  // realpathSync with directory allowlist enforcement, so its return value is
-  // used directly for all subsequent filesystem operations.
+  // Runtime validation: resolves symlinks via realpathSync and enforces the
+  // uploads-directory allowlist.  Throws on any path outside uploads/.
   const safeValidatedPath = resolveAndValidateLocalUploadPath(validatedLocalPath);
+
+  // CodeQL barrier guard: startsWith(UPLOADS_ROOT) against a module-level
+  // constant (not derived from user input) is recognised by CodeQL's
+  // JavaScript path-injection model as a taint barrier.  At runtime this
+  // branch is never reached — resolveAndValidateLocalUploadPath already
+  // enforces the same constraint — but the explicit guard gives the static
+  // analyser a clear, inlineable proof that safeValidatedPath cannot escape
+  // the uploads directory before it reaches any I/O sink.
+  if (!safeValidatedPath.startsWith(UPLOADS_ROOT + path.sep)) {
+    throw new Error('Security violation: file path is outside the uploads directory');
+  }
 
   let s3Result;
   try {
