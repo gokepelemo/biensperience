@@ -2173,7 +2173,8 @@ exports.chat = async (req, res) => {
 
   const parsed = {
     message: rawParsed.message,
-    pending_actions: confirmableActions
+    pending_actions: confirmableActions,
+    entity_refs: rawParsed.entity_refs || []
   };
 
   // Hydrate session context from entity_refs returned by the LLM.
