@@ -980,16 +980,25 @@ exports.updateClassifierConfig = async (req, res) => {
     };
 
     const update = {};
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        const type = fieldTypes[field];
-        if (type === 'number') {
-          const n = Number(req.body[field]);
-          if (!isNaN(n)) update[field] = n;
-        } else if (type === 'boolean') {
-          update[field] = Boolean(req.body[field]);
-        }
-      }
+    // Use explicit literal property assignments to avoid bracket-notation with
+    // user-controlled keys (Sourcery: bracket object notation with user input).
+    if (req.body.low_confidence_threshold !== undefined) {
+      const n = Number(req.body.low_confidence_threshold);
+      if (!isNaN(n)) update.low_confidence_threshold = n;
+    }
+    if (req.body.llm_fallback_enabled !== undefined) {
+      update.llm_fallback_enabled = Boolean(req.body.llm_fallback_enabled);
+    }
+    if (req.body.llm_fallback_threshold !== undefined) {
+      const n = Number(req.body.llm_fallback_threshold);
+      if (!isNaN(n)) update.llm_fallback_threshold = n;
+    }
+    if (req.body.log_all_classifications !== undefined) {
+      update.log_all_classifications = Boolean(req.body.log_all_classifications);
+    }
+    if (req.body.log_retention_days !== undefined) {
+      const n = Number(req.body.log_retention_days);
+      if (!isNaN(n)) update.log_retention_days = n;
     }
     update.updated_by = req.user._id;
 

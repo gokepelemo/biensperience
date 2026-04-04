@@ -1693,8 +1693,10 @@ exports.chat = async (req, res) => {
         const selectedExpOid = new mongoose.Types.ObjectId(selectedExperienceId);
         // Fetch the experience name
         const expDoc = await Experience.findById(selectedExpOid).select('name destination').populate('destination', 'name').lean();
-        selectedExperienceName = expDoc?.name || '(unnamed experience)';
-        const destinationName = expDoc?.destination?.name || '';
+        // Sanitize DB-fetched name strings at assignment to break the
+        // user-input taint chain that flows through the ObjectId query result.
+        selectedExperienceName = String(expDoc?.name || '').replace(/[\u0000-\u001F\u007F]/g, '').trim() || '(unnamed experience)';
+        const destinationName = String(expDoc?.destination?.name || '').replace(/[\u0000-\u001F\u007F]/g, '').trim();
 
         // Check if user already has a plan for this experience
         const existingPlan = await Plan.findOne({ user: userId, experience: selectedExpOid }).lean();
