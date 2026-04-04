@@ -111,7 +111,7 @@ exports.createProvider = async (req, res) => {
  */
 exports.updateProvider = async (req, res) => {
   const { id } = req.params;
-  const { valid } = validateObjectId(id, 'provider ID');
+  const { valid, objectId: providerOid } = validateObjectId(id, 'provider ID');
   if (!valid) return errorResponse(res, null, 'Invalid provider ID', 400);
 
   try {
@@ -120,7 +120,7 @@ exports.updateProvider = async (req, res) => {
     delete updateData.provider;
     delete updateData.created_by;
 
-    const provider = await AIProviderConfig.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).lean();
+    const provider = await AIProviderConfig.findByIdAndUpdate(providerOid, updateData, { new: true, runValidators: true }).lean();
     if (!provider) return errorResponse(res, null, 'Provider not found', 404);
 
     invalidateConfigCache();
@@ -253,7 +253,7 @@ exports.createPolicy = async (req, res) => {
  */
 exports.updatePolicy = async (req, res) => {
   const { id } = req.params;
-  const { valid } = validateObjectId(id, 'policy ID');
+  const { valid, objectId: policyOid } = validateObjectId(id, 'policy ID');
   if (!valid) return errorResponse(res, null, 'Invalid policy ID', 400);
 
   try {
@@ -263,7 +263,7 @@ exports.updatePolicy = async (req, res) => {
     delete updateData.target;
     delete updateData.created_by;
 
-    const policy = await AIPolicy.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).lean();
+    const policy = await AIPolicy.findByIdAndUpdate(policyOid, updateData, { new: true, runValidators: true }).lean();
     if (!policy) return errorResponse(res, null, 'Policy not found', 404);
 
     invalidatePolicyCache();
@@ -446,7 +446,7 @@ exports.getUsage = async (req, res) => {
  */
 exports.getUserUsage = async (req, res) => {
   const { userId } = req.params;
-  const { valid } = validateObjectId(userId, 'user ID');
+  const { valid, objectId: userOid } = validateObjectId(userId, 'user ID');
   if (!valid) return errorResponse(res, null, 'Invalid user ID', 400);
 
   try {
@@ -458,7 +458,7 @@ exports.getUserUsage = async (req, res) => {
     startDate.setUTCHours(0, 0, 0, 0);
 
     const usage = await AIUsage.find({
-      user: new mongoose.Types.ObjectId(userId),
+      user: userOid,
       date: { $gte: startDate }
     }).sort({ date: -1 }).lean();
 
@@ -826,11 +826,12 @@ exports.getClassificationSummary = async (req, res) => {
  */
 exports.reviewClassification = async (req, res) => {
   try {
-    if (!validateObjectId(req.params.id)) {
+    const { valid: classIdValid, objectId: classOid } = validateObjectId(req.params.id, 'classification ID');
+    if (!classIdValid) {
       return errorResponse(res, null, 'Invalid classification ID', 400);
     }
 
-    const log = await IntentClassificationLog.findById(req.params.id);
+    const log = await IntentClassificationLog.findById(classOid);
     if (!log) {
       return errorResponse(res, null, 'Classification log not found', 404);
     }
@@ -949,10 +950,24 @@ exports.updateClassifierConfig = async (req, res) => {
       'log_retention_days'
     ];
 
+    const fieldTypes = {
+      low_confidence_threshold: 'number',
+      llm_fallback_enabled: 'boolean',
+      llm_fallback_threshold: 'number',
+      log_all_classifications: 'boolean',
+      log_retention_days: 'number'
+    };
+
     const update = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
-        update[field] = req.body[field];
+        const type = fieldTypes[field];
+        if (type === 'number') {
+          const n = Number(req.body[field]);
+          if (!isNaN(n)) update[field] = n;
+        } else if (type === 'boolean') {
+          update[field] = Boolean(req.body[field]);
+        }
       }
     }
     update.updated_by = req.user._id;

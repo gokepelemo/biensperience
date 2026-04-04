@@ -152,11 +152,18 @@ router.post('/facebook/deauthorize', async (req, res) => {
       return res.status(400).json({ error: 'Invalid signed_request' });
     }
 
+    // Sanitize Facebook user_id (numeric string) before using in query
+    const safeFbId = String(user_id).replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!safeFbId) {
+      backendLogger.warn('Facebook deauthorize callback: invalid user_id in signed_request');
+      return res.status(400).json({ error: 'Invalid signed_request' });
+    }
+
     // Find user by Facebook ID and unlink the account
-    const user = await User.findOne({ facebookId: user_id });
+    const user = await User.findOne({ facebookId: safeFbId });
 
     if (!user) {
-      backendLogger.info('Facebook deauthorize: User not found', { facebookId: user_id });
+      backendLogger.info('Facebook deauthorize: User not found', { facebookId: safeFbId });
       return res.status(200).json({ success: true }); // Still return success
     }
 

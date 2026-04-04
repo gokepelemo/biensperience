@@ -352,7 +352,7 @@ small.form-text {
     min-width: 100%;
   }
 
-  form button,
+  form button:not([data-social-btn]),
   form .btn {
     width: 100%;
     max-width: 100%;

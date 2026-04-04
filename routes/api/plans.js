@@ -21,6 +21,7 @@ router.post("/experience/:experienceId", modificationLimiter, plansCtrl.createPl
 router.get("/experience/:experienceId/all", plansCtrl.getExperiencePlans); // Get all plans for experience
 router.get("/experience/:experienceId/check", plansCtrl.checkUserPlanForExperience); // Lightweight: Check if user has plan for experience
 router.put("/:id", modificationLimiter, plansCtrl.updatePlan); // Update plan
+router.post("/:id/shift-item-dates", modificationLimiter, plansCtrl.shiftPlanItemDates); // Shift all root plan item scheduled_dates by diff_ms
 router.put("/:id/reorder", modificationLimiter, plansCtrl.reorderPlanItems); // Reorder plan items
 router.delete("/:id", modificationLimiter, plansCtrl.deletePlan); // Delete plan
 

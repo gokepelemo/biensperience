@@ -494,6 +494,17 @@ async function getRecentActivity(userId, options = {}) {
         itemDisplay = null; // Action text is self-sufficient
       }
 
+      // For BienBot session collaborator_added, construct a descriptive message that
+      // identifies the context ("BienBot chat session") and the person who added them.
+      if (activity.action === 'collaborator_added' && activity.resource?.type === 'BienBotSession') {
+        const ownerName = activity.target?.name || 'someone';
+        actionText = isOwnActivity
+          ? `You have been added to a BienBot chat session "${resourceName}" by ${ownerName}`
+          : `has been added to a BienBot chat session "${resourceName}" by ${ownerName}`;
+        itemDisplay = null;
+        targetName = null;
+      }
+
       // Resolve actor photo from batch-fetched user data
       const actorData = activity.actor?._id ? actorsMap.get(activity.actor._id.toString()) : null;
 
@@ -511,7 +522,12 @@ async function getRecentActivity(userId, options = {}) {
         targetId: activity.target?.id?.toString(),
         actorName: activity.actor?.name || null,
         actorPhoto: actorData?.photo || null,
-        targetName: targetName || activity.target?.name || null
+        targetName: targetName || activity.target?.name || null,
+        // For BienBotSession activities, include the session ID so the client
+        // can open the panel and deep-link directly to that session.
+        ...(activity.resource?.type === 'BienBotSession' && activity.resource?.id
+          ? { bienbotSessionId: activity.resource.id.toString() }
+          : {})
       };
 
       // Include photoId for photo activity items so the frontend can display a thumbnail

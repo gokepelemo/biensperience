@@ -379,6 +379,24 @@ describe('executeDiscoverContent (structured response)', () => {
     // Should return popularity-based results since other users have plans
     expect(outcome.result.results.length).toBeGreaterThan(0);
   });
+
+  test('returns empty results array (not null) when destination has no matching experiences', async () => {
+    const outcome = await executeAction({
+      type: 'discover_content',
+      payload: {
+        destination_name: 'ZZZ_NONEXISTENT_DESTINATION_XYZ',
+        activity_types: ['cultural']
+      }
+    }, queryingUser);
+
+    expect(outcome.success).toBe(true);
+    // results must be an array (possibly empty), never null/undefined
+    expect(Array.isArray(outcome.result.results)).toBe(true);
+    // query_metadata must carry the original filters so the frontend can build the empty state CTA
+    expect(outcome.result.query_metadata).toBeDefined();
+    expect(outcome.result.query_metadata.filters_applied).toBeDefined();
+    expect(outcome.result.query_metadata.filters_applied.destination_name).toBe('ZZZ_NONEXISTENT_DESTINATION_XYZ');
+  });
 });
 
 // ---------------------------------------------------------------------------

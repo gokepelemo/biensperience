@@ -77,6 +77,56 @@ function SkeletonCard() {
   );
 }
 
+function detectEmptyCase(filtersApplied = {}) {
+  const { destination_name, destination_id } = filtersApplied;
+  if (!destination_id && destination_name) return 'no_destination';
+  if (destination_id) return 'destination_exists';
+  return 'cross_destination';
+}
+
+function EmptyState({ queryMetadata, onEmpty }) {
+  const filtersApplied = queryMetadata?.filters_applied || {};
+  const { destination_name } = filtersApplied;
+  const emptyCase = detectEmptyCase(filtersApplied);
+
+  let primary, secondary, ctaLabel;
+
+  if (emptyCase === 'no_destination') {
+    primary = `No experiences found for ${destination_name}`;
+    secondary = 'It may not be in your destinations yet.';
+    ctaLabel = `Add ${destination_name} as a destination`;
+  } else if (emptyCase === 'destination_exists') {
+    const destLabel = destination_name || 'this destination';
+    primary = `No experiences found in ${destLabel}`;
+    secondary = 'Be the first to create one.';
+    ctaLabel = 'Create an experience here';
+  } else {
+    primary = 'No matching experiences found.';
+    secondary = 'Try broadening your search or start fresh.';
+    ctaLabel = 'Create a destination to get started';
+  }
+
+  return (
+    <div className={styles.discoveryEmptyState}>
+      <div className={styles.discoveryEmptyPrimary}>{primary}</div>
+      <div className={styles.discoveryEmptySecondary}>{secondary}</div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onEmpty(filtersApplied)}
+        className={styles.discoveryEmptyBtn}
+      >
+        {ctaLabel}
+      </Button>
+    </div>
+  );
+}
+
+EmptyState.propTypes = {
+  queryMetadata: PropTypes.object,
+  onEmpty: PropTypes.func.isRequired,
+};
+
 function ActivityBadges({ types }) {
   if (!types?.length) return null;
   const visible = types.slice(0, 3);
@@ -194,7 +244,7 @@ function DiscoveryCard({ result, onView, onPlan, disabled }) {
 // Main export
 // ---------------------------------------------------------------------------
 
-export default function DiscoveryResultCard({ data, onView, onPlan, disabled }) {
+export default function DiscoveryResultCard({ data, onView, onPlan, onEmpty, disabled }) {
   const [expanded, setExpanded] = useState(false);
   const handleToggle = useCallback(() => setExpanded(prev => !prev), []);
 
@@ -210,7 +260,14 @@ export default function DiscoveryResultCard({ data, onView, onPlan, disabled }) 
   }
 
   const { results = [], query_metadata } = data;
-  if (!results.length) return null;
+  if (!results.length) {
+    return (
+      <EmptyState
+        queryMetadata={query_metadata}
+        onEmpty={onEmpty}
+      />
+    );
+  }
 
   const overflow = results.length - INITIAL_VISIBLE;
   const visible = expanded ? results : results.slice(0, INITIAL_VISIBLE);
@@ -268,5 +325,6 @@ DiscoveryResultCard.propTypes = {
   }),
   onView: PropTypes.func.isRequired,
   onPlan: PropTypes.func.isRequired,
+  onEmpty: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
 };

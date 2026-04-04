@@ -21,6 +21,7 @@ import SkipLink from "../../components/SkipLink/SkipLink";
 import { handleOAuthCallback } from "../../utilities/oauth-service";
 import { logger } from "../../utilities/logger";
 import { getCollaboratorNotifications } from '../../utilities/notifications-api';
+import { subscribeToEvent } from '../../utilities/event-bus';
 import { useNavigate } from 'react-router-dom';
 import CookieConsent from "../../components/CookieConsent/CookieConsent";
 import ErrorBoundary from "../../components/ErrorBoundary/ErrorBoundary";
@@ -461,7 +462,31 @@ function AppContent() {
     return () => { mounted = false; };
   }, [isAuthenticated, user?._id, addToast, navigate, markNotificationsSeen]);
 
+  // Effect: real-time badge update when a notification:received WS event arrives
+  useEffect(() => {
+    if (!isAuthenticated || !user?._id) return;
+    const userId = user._id;
+    const seenKey = `bien:seenActivities:${userId}`;
 
+    const unsubscribe = subscribeToEvent('notification:received', (data) => {
+      const activity = data?.notification;
+      if (!activity?._id) return;
+
+      setNotifications(prev => {
+        if (prev.some(n => n._id === activity._id)) return prev;
+        return [activity, ...prev];
+      });
+
+      const seen = getObfuscatedJson(localStorage, seenKey, []);
+      if (!seen.includes(activity._id)) {
+        setUnseenNotificationIds(prev =>
+          prev.includes(activity._id) ? prev : [activity._id, ...prev]
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, [isAuthenticated, user?._id]);
 
   // Effect: handle OAuth callback once on mount
   useEffect(() => {

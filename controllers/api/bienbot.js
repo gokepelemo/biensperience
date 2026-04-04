@@ -30,7 +30,7 @@ const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_T
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
 const { extractMemoryFromSession, extractMemoryForCollaborators, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
 const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
-const { uploadWithPipeline, retrieveFile } = require('../../utilities/upload-pipeline');
+const { uploadWithPipeline, retrieveFile, resolveAndValidateLocalUploadPath } = require('../../utilities/upload-pipeline');
 const path = require('path');
 const { GatewayError } = require('../../utilities/ai-gateway');
 const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
@@ -234,20 +234,19 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- When your message discusses or references a specific entity (destination, experience, plan, or plan_item) that has a known _id from context or entity resolution, include it in the entity_refs array.',
     '- Format: { "type": "destination|experience|plan|plan_item", "_id": "<real id>", "name": "<entity name>" }',
     '- For plans, also include "experience_id": "<experience _id>" when available.',
-    '- Only include entities with real IDs — never fabricate. Leave entity_refs as [] if none apply.',
-    '- Also embed entities inline in your message text using the JSON object format: {"_id":"...","name":"...","type":"..."}',
+    '- Only include entities with real IDs from context — never fabricate. Leave entity_refs as [] if none apply.',
     '',
     'ENTITY REFERENCES IN MESSAGES:',
-    'When mentioning any entity in your message, embed it as a compact JSON object:',
-    '  {"_id":"<id>","name":"<display_name>","type":"<entity_type>"}',
+    'When your message text mentions an entity for which you have a REAL _id from the context blocks, embed it as a compact JSON object:',
+    '  {"_id":"<real_id_from_context>","name":"<display_name>","type":"<entity_type>"}',
     'Entity types: destination, experience, plan, plan_item, user',
     'Examples:',
-    '  "I\'ll create a plan for {\\"_id\\":\\"693f214...\\",\\"name\\":\\"Tokyo Temple Tour\\",\\"type\\":\\"experience\\"}!"',
+    '  "I\'ll create a plan for {\\"_id\\":\\"693f214a2b3c4d5e6f7a8b9c\\",\\"name\\":\\"Tokyo Temple Tour\\",\\"type\\":\\"experience\\"}!"',
     'Rules:',
-    '- ALWAYS use this format when referring to entities — never show raw IDs.',
-    '- _id is for the system; name is what the user sees. Always include both.',
-    '- Use _id values only from the context blocks provided — never fabricate.',
-    '- If you do not know the entity\'s name, use its type as the display name.',
+    '- ONLY embed an entity JSON object if you have the real _id from the context blocks. Never invent or guess an _id.',
+    '- If you do NOT have a real _id for an entity (e.g. the user named a destination not yet in context), use plain text for the name — do NOT embed a JSON object.',
+    '- _id must be a real MongoDB ObjectId or other ID exactly as it appears in the context — never a slug, abbreviation, or made-up string.',
+    '- The name field is what the user sees; always include it.',
     ''
   ];
 
@@ -290,8 +289,8 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
   lines.push(
     'PLANNING AN EXPERIENCE:',
     'The user wants to plan an experience. Follow this flow:',
-    '1. A destination must be established before any experience can be discussed. If no destination is in context, ask: "Which destination are you planning for?" Do not list or suggest experiences until the user confirms a destination.',
-    '2. Once a destination is in context and an experience is resolved, propose a `create_plan` action with the `experience_id`. Do NOT include a `planned_date` — you will ask for that after creation.',
+    '1. A destination must be known before listing or discovering experiences. If the context block or search results below include a destination with a real _id, proceed immediately — a formal session context.destination_id is NOT required. If the conversation history mentions a destination by name, treat it as established and use any entity IDs provided in the context or entity resolution blocks. Only ask "Which destination are you planning for?" when no destination has been mentioned or resolved anywhere in this conversation.',
+    '2. Once a destination is known and an experience is resolved, propose a `create_plan` action with the `experience_id`. Do NOT include a `planned_date` — you will ask for that after creation.',
     '3. After the plan is created, ask when they are planning to go. Convert relative dates to absolute ISO dates.',
     '4. After the user provides a date, propose an `update_plan` action with the `planned_date`.',
     '5. After the date is set, use `suggest_plan_items` to show popular items.',
@@ -360,6 +359,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '--- Plan ---',
     '- create_plan: { experience_id, planned_date?, currency? }',
     '- update_plan: { plan_id, planned_date?, currency?, notes? }',
+    '- shift_plan_item_dates: { plan_id, diff_days } — Shifts all scheduled plan item dates by the given number of days. Propose this automatically after an update_plan that changes planned_date when the user confirms they want item dates shifted too.',
     '- delete_plan: { plan_id }  (⚠️ confirm with user first)',
     '- sync_plan: { plan_id }',
     '',
@@ -562,6 +562,35 @@ async function buildContextBlocks(intent, entities, session, userId, message) {
       promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
     }
 
+    // Recover entity context from recent assistant messages when the current message
+    // doesn't reference an entity explicitly and none is in session context.
+    // Handles follow-ups like "show me food experiences" after "I found Tokyo" in a prior turn.
+    const hasEntityInCurrentMsg = !!(entities.destination_name || entities.experience_name);
+    if (!hasEntityInCurrentMsg && !hasEntityInSession) {
+      const recentAssistantMsgs = (session.messages || [])
+        .filter(m => m.role === 'assistant')
+        .slice(-3)
+        .reverse(); // most recent first
+      let historyDestId = null;
+      let historyExpId = null;
+      for (const histMsg of recentAssistantMsgs) {
+        const refBlock = (histMsg.structured_content || []).find(b => b.type === 'entity_ref_list');
+        if (!refBlock?.data?.refs) continue;
+        for (const ref of refBlock.data.refs) {
+          if (!ref._id || /<[^>]+>/.test(ref._id)) continue;
+          if (ref.type === 'destination' && !historyDestId) historyDestId = ref._id;
+          if (ref.type === 'experience' && !historyExpId) historyExpId = ref._id;
+        }
+        if (historyDestId || historyExpId) break;
+      }
+      if (historyDestId) {
+        promises.push(buildDestinationContext(historyDestId, userId).then(b => b && blocks.push(b)));
+      }
+      if (historyExpId) {
+        promises.push(buildExperienceContext(historyExpId, userId).then(b => b && blocks.push(b)));
+      }
+    }
+
     // Suggestion context when destination is known (enables LLM to propose suggest_plan_items)
     if (ctx.destination_id) {
       promises.push(
@@ -617,13 +646,29 @@ function parseLLMResponse(text) {
           })
         : [];
 
+      const isValidEntityRef = (r) =>
+        r && typeof r._id === 'string' && r._id.length > 0 &&
+        typeof r.type === 'string' && typeof r.name === 'string' &&
+        !/<[^>]+>/.test(r._id); // reject placeholder values like <experience_id>
+
       const entityRefs = Array.isArray(parsed.entity_refs)
-        ? parsed.entity_refs.filter(r =>
-          r && typeof r._id === 'string' && r._id.length > 0 &&
-          typeof r.type === 'string' && typeof r.name === 'string' &&
-          !/<[^>]+>/.test(r._id) // reject placeholder values like <experience_id>
-        )
+        ? parsed.entity_refs.filter(isValidEntityRef)
         : [];
+
+      // Extract inline entity JSON objects embedded in the message text.
+      // The LLM is instructed to embed entities as compact JSON within prose,
+      // e.g. "I'll create a plan for {"_id":"...","name":"Tokyo","type":"experience"}!"
+      const seenIds = new Set(entityRefs.map(r => r._id));
+      const inlinePattern = /\{[^{}]*"_id"[^{}]*\}/g;
+      for (const match of (parsed.message.match(inlinePattern) || [])) {
+        try {
+          const obj = JSON.parse(match);
+          if (isValidEntityRef(obj) && !seenIds.has(obj._id)) {
+            entityRefs.push(obj);
+            seenIds.add(obj._id);
+          }
+        } catch { /* ignore malformed inline objects */ }
+      }
 
       return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs };
     } catch {
@@ -955,16 +1000,13 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
       return null;
 
     case 'discover_content':
-      if (result.results && result.results.length > 0) {
-        return {
-          type: 'discovery_result_list',
-          data: {
-            results: result.results,
-            query_metadata: result.query_metadata || {}
-          }
-        };
-      }
-      return null;
+      return {
+        type: 'discovery_result_list',
+        data: {
+          results: result.results || [],
+          query_metadata: result.query_metadata || {}
+        }
+      };
 
     default:
       return null;
@@ -1019,11 +1061,13 @@ exports.chat = async (req, res) => {
   }
 
   // Validate sessionId if provided
+  let sessionObjId;
   if (sessionId) {
-    const { valid } = validateObjectId(sessionId, 'sessionId');
+    const { valid, objectId } = validateObjectId(sessionId, 'sessionId');
     if (!valid) {
       return errorResponse(res, null, 'Invalid session ID format', 400);
     }
+    sessionObjId = objectId;
   }
 
   // --- Attachment processing ---
@@ -1044,6 +1088,12 @@ exports.chat = async (req, res) => {
         try { await fs.promises.unlink(uploadedFile.path); } catch { /* ignore */ }
         return errorResponse(res, null, validation.error, 400);
       }
+
+      // Validate the local path is within the allowed uploads directory before
+      // any filesystem I/O (extractText reads the file, pendingLocalFile is
+      // later passed to uploadWithPipeline). Multer temp paths always satisfy
+      // this check; the call is defense-in-depth.
+      resolveAndValidateLocalUploadPath(uploadedFile.path);
 
       logger.info('[bienbot] Processing attachment', {
         filename: uploadedFile.originalname,
@@ -1099,7 +1149,7 @@ exports.chat = async (req, res) => {
       invokeContext.contextDescription = stripNullBytes(String(invokeContext.contextDescription)).slice(0, 200);
     }
 
-    const { valid } = validateObjectId(invokeContext.id, 'invokeContext.id');
+    const { valid, objectId: invokeObjId } = validateObjectId(invokeContext.id, 'invokeContext.id');
     if (!valid) {
       return errorResponse(res, null, 'Invalid invokeContext.id format', 400);
     }
@@ -1118,17 +1168,17 @@ exports.chat = async (req, res) => {
     try {
       switch (invokeContext.entity) {
         case 'destination':
-          resource = await Destination.findById(invokeContext.id).lean();
+          resource = await Destination.findById(invokeObjId).lean();
           break;
         case 'experience':
-          resource = await Experience.findById(invokeContext.id).lean();
+          resource = await Experience.findById(invokeObjId).lean();
           break;
         case 'plan':
-          resource = await Plan.findById(invokeContext.id).lean();
+          resource = await Plan.findById(invokeObjId).lean();
           break;
         case 'plan_item': {
           // plan_item is a subdocument — find parent plan and use it for permission check
-          const parentPlan = await Plan.findOne({ 'plan._id': invokeContext.id }).lean();
+          const parentPlan = await Plan.findOne({ 'plan._id': invokeObjId }).lean();
           if (parentPlan) {
             resource = parentPlan;
             // Stash the parent plan ID for context builder and session context
@@ -1137,7 +1187,7 @@ exports.chat = async (req, res) => {
           break;
         }
         case 'user':
-          resource = await User.findById(invokeContext.id).lean();
+          resource = await User.findById(invokeObjId).lean();
           break;
         default:
           return errorResponse(res, null, 'Unknown entity type', 400);
@@ -1182,7 +1232,7 @@ exports.chat = async (req, res) => {
 
   try {
     if (sessionId) {
-      session = await BienBotSession.findById(sessionId);
+      session = await BienBotSession.findById(sessionObjId);
       if (!session) {
         return errorResponse(res, null, 'Session not found', 404);
       }
@@ -1618,38 +1668,135 @@ exports.chat = async (req, res) => {
     return true;
   }
 
+
   if (classification.intent === 'PLAN_EXPERIENCE' && !session.context?.plan_id) {
     try {
-      const { resolveEntity, ResolutionConfidence } = require('../../utilities/bienbot-entity-resolver');
+      loadModels();
+      // 1. Check for selected experience (from session context, invokeContext, or resolved entities)
+      let selectedExperienceId = null;
+      let selectedExperienceName = null;
+      // Priority: session.context.experience_id, invokeContext, resolvedEntityObjects
+      if (session.context?.experience_id) {
+        selectedExperienceId = session.context.experience_id.toString();
+      } else if (resolvedInvokeContext && resolvedInvokeContext.entity === 'experience') {
+        selectedExperienceId = resolvedInvokeContext.entity_id;
+      } else if (resolvedEntityObjects && resolvedEntityObjects.length > 0) {
+        const expRef = resolvedEntityObjects.find(e => e.type === 'experience');
+        if (expRef) selectedExperienceId = expRef._id;
+      }
 
+      if (selectedExperienceId) {
+        // Fetch the experience name
+        const expDoc = await Experience.findById(selectedExperienceId).select('name destination').populate('destination', 'name').lean();
+        selectedExperienceName = expDoc?.name || '(unnamed experience)';
+        const destinationName = expDoc?.destination?.name || '';
+
+        // Check if user already has a plan for this experience
+        const existingPlan = await Plan.findOne({ user: userId, experience: selectedExperienceId }).lean();
+
+        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+
+        if (existingPlan) {
+          // User already has a plan for this experience
+          // Ask if they want to create a new plan or work on the existing one
+          const actions = [
+            {
+              id: `action_${crypto.randomBytes(4).toString('hex')}`,
+              type: 'select_plan',
+              payload: {
+                plan_id: existingPlan._id.toString(),
+                experience_name: selectedExperienceName,
+                destination_name: destinationName,
+                planned_date: existingPlan.planned_date || null,
+                item_count: (existingPlan.plan || []).length
+              },
+              description: `Work on your existing plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}`
+            },
+            {
+              id: `action_${crypto.randomBytes(4).toString('hex')}`,
+              type: 'create_plan',
+              payload: {
+                experience_id: selectedExperienceId
+              },
+              description: `Create a new plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}`
+            }
+          ];
+          const msg = `You already have a plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}. Would you like to work on your existing plan or create a new one?`;
+          await session.addMessage('assistant', msg, { actions_taken: ['select_plan', 'create_plan'] });
+          await session.setPendingActions(actions);
+          await session.generateTitle();
+
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          });
+          sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+          for (const chunk of adaptiveChunks(msg)) {
+            sendSSE(res, 'token', { text: chunk });
+          }
+          sendSSE(res, 'actions', { pending_actions: actions });
+          sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_existing_plan' });
+          res.end();
+          logger.info('[bienbot] PLAN_EXPERIENCE: user has existing plan for experience', { userId, experience: selectedExperienceId });
+          return;
+        } else {
+          // No plan exists for this experience, propose create_plan
+          const action = {
+            id: `action_${crypto.randomBytes(4).toString('hex')}`,
+            type: 'create_plan',
+            payload: {
+              experience_id: selectedExperienceId
+            },
+            description: `Create a new plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}`
+          };
+          const msg = `Let's create a new plan for ${selectedExperienceName}${destinationName ? ` in ${destinationName}` : ''}. Ready to get started?`;
+          await session.addMessage('assistant', msg, { actions_taken: ['create_plan'] });
+          await session.setPendingActions([action]);
+          await session.generateTitle();
+
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          });
+          sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+          for (const chunk of adaptiveChunks(msg)) {
+            sendSSE(res, 'token', { text: chunk });
+          }
+          sendSSE(res, 'actions', { pending_actions: [action] });
+          sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_create_plan' });
+          res.end();
+          logger.info('[bienbot] PLAN_EXPERIENCE: proposed create_plan for experience', { userId, experience: selectedExperienceId });
+          return;
+        }
+      }
+      // If no experience is selected, fall back to original plan/discover logic
       // ── A: Destination already in context → resolve name and run plan+discover ──
+      const { resolveEntity, ResolutionConfidence } = require('../../utilities/bienbot-entity-resolver');
       if (session.context?.destination_id) {
-        loadModels();
         const ctxDest = await Destination.findById(session.context.destination_id).select('name').lean();
         const destNameFromCtx = ctxDest?.name || classification.entities?.destination_name || '';
         if (destNameFromCtx) {
           const streamed = await runPlanDiscover(destNameFromCtx);
           if (streamed) return;
         }
-        // If nothing to show, fall through to LLM
       } else {
         // ── B: No destination in context → resolve from message ──────────────────
         const destQuery = classification.entities?.destination_name
           || classification.entities?.experience_name
           || message;
-
         if (destQuery && destQuery.trim().length >= 2) {
           const { candidates, confidence } = await resolveEntity(
             destQuery.trim(), 'destination', req.user
           );
-
           if (confidence === ResolutionConfidence.HIGH && candidates.length > 0) {
             const top = candidates[0];
             await session.updateContext({ destination_id: top.id });
             const streamed = await runPlanDiscover(top.name || destQuery.trim());
             if (streamed) return;
-            // If nothing to show, fall through to LLM
-
           } else if (confidence === ResolutionConfidence.MEDIUM && candidates.length > 0) {
             const destActions = candidates.slice(0, 5).map(c => ({
               id: `action_${crypto.randomBytes(4).toString('hex')}`,
@@ -1663,16 +1810,12 @@ exports.chat = async (req, res) => {
               },
               description: c.name
             }));
-
             const disambigMsg = candidates.length > 1
               ? `I found a few destinations matching "${destQuery.trim()}". Which one did you mean?`
               : `I found a destination matching "${destQuery.trim()}". Is this the one?`;
-
-            await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
             await session.addMessage('assistant', disambigMsg, { actions_taken: ['select_destination'] });
             await session.setPendingActions(destActions);
             await session.generateTitle();
-
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
@@ -1689,11 +1832,10 @@ exports.chat = async (req, res) => {
             logger.info('[bienbot] Destination gate — streamed select_destination cards', { userId, destQuery: destQuery.trim(), count: destActions.length });
             return;
           }
-          // LOW confidence: fall through to LLM
         }
       }
     } catch (err) {
-      logger.warn('[bienbot] Destination gate failed, continuing with LLM', { error: err.message });
+      logger.warn('[bienbot] PLAN_EXPERIENCE handler failed, continuing with LLM', { error: err.message });
     }
   }
 
@@ -1920,7 +2062,21 @@ exports.chat = async (req, res) => {
   // If there's an attachment, note it in the message so the LLM is aware
   let userContent = `[USER MESSAGE]\n${message}\n[/USER MESSAGE]`;
   if (attachmentData) {
-    userContent += `\n[ATTACHMENT: ${attachmentData.filename} (${attachmentData.mimeType})]`;
+    // Sanitize filename before embedding in the LLM context to prevent prompt injection.
+    // Replace non-word characters with underscores and cap length.
+    const displayName = attachmentData.filename
+      ? path.basename(String(attachmentData.filename)).replace(/[^\w\s.\-()]/g, '_').slice(0, 80)
+      : 'attachment';
+    // Only include MIME types from the known allowlist to prevent Content-Type header injection.
+    const ALLOWED_MIME_DISPLAY = new Set([
+      'application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'
+    ]);
+    const displayMime = ALLOWED_MIME_DISPLAY.has(attachmentData.mimeType)
+      ? attachmentData.mimeType
+      : 'application/octet-stream';
+    userContent += `\n[ATTACHMENT: ${displayName} (${displayMime})]`;
   }
   conversationMessages.push({
     role: 'user',
@@ -1975,6 +2131,8 @@ exports.chat = async (req, res) => {
       try {
         const outcome = await executeAction(action, req.user, session);
 
+        // Note: discover_content always returns a non-null result body (even for empty results)
+        // so this guard correctly allows through the empty-results case.
         if (outcome.success && outcome.result) {
           const contentBlock = mapReadOnlyResultToStructuredContent(action.type, outcome.result);
           if (contentBlock) {
@@ -2001,6 +2159,29 @@ exports.chat = async (req, res) => {
     message: rawParsed.message,
     pending_actions: confirmableActions
   };
+
+  // Hydrate session context from entity_refs returned by the LLM.
+  // This ensures subsequent messages can use entity IDs (e.g. a destination resolved
+  // in a prior turn) without the user having to repeat the entity name.
+  try {
+    const ctxFromRefs = {};
+    for (const ref of (rawParsed.entity_refs || [])) {
+      if (!ref._id || /<[^>]+>/.test(ref._id)) continue; // skip placeholder IDs
+      if (ref.type === 'destination' && !session.context?.destination_id) {
+        ctxFromRefs.destination_id = ref._id;
+      } else if (ref.type === 'experience' && !session.context?.experience_id) {
+        ctxFromRefs.experience_id = ref._id;
+      } else if (ref.type === 'plan' && !session.context?.plan_id) {
+        ctxFromRefs.plan_id = ref._id;
+      }
+    }
+    if (Object.keys(ctxFromRefs).length > 0) {
+      await session.updateContext(ctxFromRefs);
+      logger.debug('[bienbot] Session context hydrated from entity_refs', { ctxFromRefs });
+    }
+  } catch (ctxErr) {
+    logger.warn('[bienbot] Failed to hydrate session context from entity_refs', { error: ctxErr.message });
+  }
 
   // --- Step 6: Store in session ---
   try {
@@ -2166,7 +2347,7 @@ exports.execute = async (req, res) => {
   const { id } = req.params;
 
   // Validate session ID
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2180,7 +2361,7 @@ exports.execute = async (req, res) => {
   // Load session
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2337,7 +2518,7 @@ exports.resume = async (req, res) => {
   const { id } = req.params;
 
   // Validate session ID
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2345,7 +2526,7 @@ exports.resume = async (req, res) => {
   // Load session (non-lean so we can call instance methods)
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2464,13 +2645,13 @@ exports.getSession = async (req, res) => {
   const userId = req.user._id.toString();
   const { id } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
 
   try {
-    const session = await BienBotSession.findById(id).lean();
+    const session = await BienBotSession.findById(sessionObjId).lean();
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2496,13 +2677,13 @@ exports.deleteSession = async (req, res) => {
   const userId = req.user._id.toString();
   const { id } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2548,7 +2729,7 @@ exports.updateContext = async (req, res) => {
   const userId = req.user._id.toString();
   const { id } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2558,7 +2739,7 @@ exports.updateContext = async (req, res) => {
     return errorResponse(res, null, 'entity and entityId are required', 400);
   }
 
-  const { valid: entityIdValid } = validateObjectId(entityId, 'entityId');
+  const { valid: entityIdValid, objectId: entityObjId } = validateObjectId(entityId, 'entityId');
   if (!entityIdValid) {
     return errorResponse(res, null, 'Invalid entityId format', 400);
   }
@@ -2570,7 +2751,7 @@ exports.updateContext = async (req, res) => {
 
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2601,21 +2782,21 @@ exports.updateContext = async (req, res) => {
   try {
     switch (entity) {
       case 'destination':
-        resource = await Destination.findById(entityId).lean();
+        resource = await Destination.findById(entityObjId).lean();
         break;
       case 'experience':
-        resource = await Experience.findById(entityId).lean();
+        resource = await Experience.findById(entityObjId).lean();
         break;
       case 'plan':
-        resource = await Plan.findById(entityId).lean();
+        resource = await Plan.findById(entityObjId).lean();
         break;
       case 'plan_item': {
-        const parentPlan = await Plan.findOne({ 'plan._id': entityId }).lean();
+        const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).lean();
         if (parentPlan) resource = parentPlan;
         break;
       }
       case 'user':
-        resource = await User.findById(entityId).lean();
+        resource = await User.findById(entityObjId).lean();
         break;
     }
   } catch (err) {
@@ -2648,7 +2829,7 @@ exports.updateContext = async (req, res) => {
       break;
     case 'plan_item': {
       contextUpdate.plan_item_id = entityId;
-      const parentPlan = await Plan.findOne({ 'plan._id': entityId }).select('_id').lean();
+      const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).select('_id').lean();
       if (parentPlan) contextUpdate.plan_id = parentPlan._id.toString();
       break;
     }
@@ -2684,7 +2865,7 @@ exports.deletePendingAction = async (req, res) => {
   const userId = req.user._id.toString();
   const { id, actionId } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2694,7 +2875,7 @@ exports.deletePendingAction = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2741,7 +2922,7 @@ exports.addSessionCollaborator = async (req, res) => {
   const { id } = req.params;
   const { userId: targetUserId, role = 'viewer' } = req.body;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2749,7 +2930,7 @@ exports.addSessionCollaborator = async (req, res) => {
   if (!targetUserId) {
     return errorResponse(res, null, 'userId is required', 400);
   }
-  const { valid: targetValid } = validateObjectId(targetUserId, 'userId');
+  const { valid: targetValid, objectId: targetUserObjId } = validateObjectId(targetUserId, 'userId');
   if (!targetValid) {
     return errorResponse(res, null, 'Invalid userId format', 400);
   }
@@ -2763,7 +2944,7 @@ exports.addSessionCollaborator = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2775,7 +2956,7 @@ exports.addSessionCollaborator = async (req, res) => {
 
     // Verify target user exists and has ai_features
     loadModels();
-    const targetUser = await User.findById(targetUserId);
+    const targetUser = await User.findById(targetUserObjId);
     if (!targetUser) {
       return errorResponse(res, null, 'User not found', 404);
     }
@@ -2804,6 +2985,77 @@ exports.addSessionCollaborator = async (req, res) => {
       role
     });
 
+    // Notify the target user and create an activity so the notification badge counts it
+    try {
+      const Activity = require('../../models/activity');
+      const { notifyUser } = require('../../utilities/notifications');
+
+      const ownerName = req.user.name || 'Someone';
+      const sessionTitle = session.title || 'a BienBot session';
+      const reason = `${ownerName} shared ${sessionTitle} with you`;
+
+      // Activity record for the target user (actor = target so it shows in their feed)
+      const createdActivity = await Activity.create({
+        action: 'collaborator_added',
+        actor: {
+          _id: targetUser._id,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: targetUser.role
+        },
+        resource: {
+          id: session._id,
+          type: 'BienBotSession',
+          name: sessionTitle
+        },
+        target: {
+          id: req.user._id,
+          type: 'User',
+          name: req.user.name || ''
+        },
+        reason,
+        metadata: {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+          requestPath: req.path,
+          requestMethod: req.method
+        },
+        status: 'success'
+      });
+
+      // In-app notification (bienbot channel is informational; webhook for external)
+      await notifyUser({
+        user: targetUser,
+        channel: 'bienbot',
+        type: 'activity',
+        message: reason,
+        data: {
+          kind: 'bienbot_session',
+          action: 'collaborator_added',
+          sessionId: session._id.toString(),
+          ownerId: ownerId
+        },
+        logContext: { feature: 'bienbot_session_shared', sessionId: id, targetUserId }
+      });
+
+      // Push real-time notification badge update directly to the target user's WS connection
+      try {
+        const { sendEventToUser: wsSendToUser } = require('../../utilities/websocket-server');
+        wsSendToUser(targetUserId, {
+          type: 'notification:received',
+          payload: { notification: createdActivity.toObject ? createdActivity.toObject() : createdActivity }
+        });
+      } catch (wsErr) {
+        logger.warn('[bienbot] Failed to push real-time notification to collaborator', { error: wsErr.message });
+      }
+    } catch (notifyErr) {
+      logger.warn('[bienbot] Failed to create activity/notification for session share (continuing)', {
+        error: notifyErr.message,
+        sessionId: id,
+        targetUserId
+      });
+    }
+
     return successResponse(res, {
       message: 'Collaborator added',
       shared_with: session.shared_with
@@ -2824,7 +3076,7 @@ exports.removeSessionCollaborator = async (req, res) => {
   const actorId = req.user._id.toString();
   const { id, userId: targetUserId } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -2834,7 +3086,7 @@ exports.removeSessionCollaborator = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id);
+    const session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -2994,7 +3246,7 @@ exports.applyTips = async (req, res) => {
     return errorResponse(res, null, 'destination_id and a non-empty tips array are required', 400);
   }
 
-  const { valid } = validateObjectId(destination_id, 'destination_id');
+  const { valid, objectId: destOid } = validateObjectId(destination_id, 'destination_id');
   if (!valid) {
     return errorResponse(res, null, 'Invalid destination_id format', 400);
   }
@@ -3018,7 +3270,7 @@ exports.applyTips = async (req, res) => {
   loadModels();
 
   try {
-    const destination = await Destination.findById(destination_id);
+    const destination = await Destination.findById(destOid);
     if (!destination) {
       return errorResponse(res, null, 'Destination not found', 404);
     }
@@ -3268,7 +3520,7 @@ exports.updatePendingAction = async (req, res) => {
   const { id, actionId } = req.params;
   const { status: newStatus, payload: newPayload } = req.body;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3284,7 +3536,7 @@ exports.updatePendingAction = async (req, res) => {
 
   let session;
   try {
-    session = await BienBotSession.findById(id);
+    session = await BienBotSession.findById(sessionObjId);
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -3489,7 +3741,7 @@ exports.getWorkflowState = async (req, res) => {
   const userId = req.user._id.toString();
   const { id, workflowId } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3500,7 +3752,7 @@ exports.getWorkflowState = async (req, res) => {
 
   let session;
   try {
-    session = await BienBotSession.findById(id).lean();
+    session = await BienBotSession.findById(sessionObjId).lean();
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }
@@ -3550,7 +3802,7 @@ exports.getAttachmentUrl = async (req, res) => {
   const userId = req.user._id.toString();
   const { id, messageIndex, attachmentIndex } = req.params;
 
-  const { valid } = validateObjectId(id, 'session ID');
+  const { valid, objectId: sessionObjId } = validateObjectId(id, 'session ID');
   if (!valid) {
     return errorResponse(res, null, 'Invalid session ID format', 400);
   }
@@ -3562,7 +3814,7 @@ exports.getAttachmentUrl = async (req, res) => {
   }
 
   try {
-    const session = await BienBotSession.findById(id).lean();
+    const session = await BienBotSession.findById(sessionObjId).lean();
     if (!session) {
       return errorResponse(res, null, 'Session not found', 404);
     }

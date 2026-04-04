@@ -110,7 +110,7 @@ function invalidateConfigCache() {
 async function callProvider(providerName, messages, options = {}) {
   const name = providerName.toLowerCase();
   const handler = getProviderHandler(name);
-  if (!handler) {
+  if (!handler || typeof handler !== 'function') {
     throw new Error(`Unknown AI provider: ${providerName}`);
   }
 

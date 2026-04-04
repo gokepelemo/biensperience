@@ -248,6 +248,27 @@ export function updatePlan(planId, updates) {
 }
 
 /**
+ * Shift all root plan items' scheduled_date values by the given millisecond delta.
+ * @param {string} planId
+ * @param {number} diffMs - Milliseconds to shift (positive = forward, negative = backward)
+ * @returns {Promise<{ shifted_count: number }>}
+ */
+export async function shiftPlanItemDates(planId, diffMs) {
+  const response = await sendRequest(`${BASE_URL}/${planId}/shift-item-dates`, 'POST', { diff_ms: diffMs });
+  const result = extractData(response);
+
+  try {
+    broadcastEvent('plan:updated', {
+      planId,
+      version: Date.now(),
+      action: 'shift_item_dates'
+    });
+  } catch (_) { /* ignore */ }
+
+  return result;
+}
+
+/**
  * Delete a plan
  */
 export async function deletePlan(planId) {

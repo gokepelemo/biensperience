@@ -1293,6 +1293,45 @@ const updatePlan = asyncHandler(async (req, res) => {
       reason: `Plan updated (planned_date)`
     });
 
+    // Check whether to offer item date shift
+    const oldDate = previousState.planned_date;
+    const newDate = updated.planned_date;
+
+    if (oldDate && newDate) {
+      const diffMs = new Date(newDate).getTime() - new Date(oldDate).getTime();
+      if (diffMs !== 0) {
+        const scheduledCount = (updated.plan || []).filter(
+          item => !item.parent && item.scheduled_date
+        ).length;
+
+        if (scheduledCount > 0) {
+          const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+          try {
+            broadcastEvent('plan', id.toString(), {
+              type: 'plan:updated',
+              payload: { plan: updated.toObject(), planId: id.toString(), updatedFields: ['planned_date'], userId: req.user._id.toString() }
+            }, req.user._id.toString());
+          } catch (_) {}
+          return res.json({
+            ...updated.toObject(),
+            _shift_meta: {
+              scheduled_items_count: scheduledCount,
+              date_diff_days: diffDays,
+              date_diff_ms: diffMs,
+              old_date: oldDate,
+              new_date: newDate
+            }
+          });
+        }
+      }
+    }
+
+    try {
+      broadcastEvent('plan', id.toString(), {
+        type: 'plan:updated',
+        payload: { plan: updated.toObject(), planId: id.toString(), updatedFields: ['planned_date'], userId: req.user._id.toString() }
+      }, req.user._id.toString());
+    } catch (_) {}
     return res.json(updated);
   }
 
@@ -1917,6 +1956,16 @@ const addCollaborator = asyncHandler(async (req, res) => {
         planId: plan._id,
         userId
       });
+
+      // Push real-time notification badge update to the target user
+      try {
+        sendEventToUser(userId.toString(), {
+          type: 'notification:received',
+          payload: { notification: collaboratorLogResult.activity }
+        });
+      } catch (wsErr) {
+        backendLogger.warn('[WebSocket] Failed to push notification to collaborator', { error: wsErr.message });
+      }
     }
 
     // Send email asynchronously — do not await so API response is fast.
@@ -5402,6 +5451,61 @@ async function updatePlanAIConfig(req, res) {
   }
 }
 
+const shiftPlanItemDates = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { diff_ms } = req.body;
+
+  if (!validateObjectId(id)) {
+    return errorResponse(res, null, 'Invalid plan ID', 400);
+  }
+
+  if (diff_ms === undefined || diff_ms === null || !Number.isFinite(Number(diff_ms)) || Number(diff_ms) === 0) {
+    return errorResponse(res, null, 'diff_ms must be a finite non-zero number', 400);
+  }
+
+  const diffMs = Number(diff_ms);
+
+  backendLogger.debug('shiftPlanItemDates: entry', { planId: id, diffMs });
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return errorResponse(res, null, 'Plan not found', 404);
+  }
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({ userId: req.user._id, resource: plan });
+  if (!permCheck.allowed) {
+    return errorResponse(res, null, permCheck.reason || 'Insufficient permissions', 403);
+  }
+
+  let shiftedCount = 0;
+  for (const item of plan.plan) {
+    if (!item.parent && item.scheduled_date) {
+      item.scheduled_date = new Date(new Date(item.scheduled_date).getTime() + diffMs);
+      shiftedCount++;
+    }
+  }
+
+  backendLogger.info('shiftPlanItemDates: shift complete', { planId: id, shiftedCount, diffMs });
+
+  if (shiftedCount > 0) {
+    await plan.save();
+    try {
+      broadcastEvent('plan', id.toString(), {
+        type: 'plan:updated',
+        payload: {
+          plan: plan.toObject(),
+          planId: id.toString(),
+          updatedFields: ['plan_items.scheduled_date'],
+          userId: req.user._id.toString()
+        }
+      }, req.user._id.toString());
+    } catch (_) { /* ignore websocket errors */ }
+  }
+
+  return res.json({ shifted_count: shiftedCount });
+});
+
 module.exports = {
   createPlan,
   getUserPlans,
@@ -5446,4 +5550,6 @@ module.exports = {
   // Entity AI config
   getPlanAIConfig,
   updatePlanAIConfig,
+  // Plan item date shifting
+  shiftPlanItemDates,
 };

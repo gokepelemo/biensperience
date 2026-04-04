@@ -34,6 +34,13 @@ export default function SocialLoginButtons({
 
   const sharedButtonCss = {
     borderRadius: 'full',
+    // Explicit square dimensions — prevents global 'form button { width: 100% }'
+    // mobile rule from overflowing these icon-only buttons.
+    width: { base: '44px', sm: '48px' },
+    height: { base: '44px', sm: '48px' },
+    minWidth: { base: '44px', sm: '48px' },
+    padding: 0,
+    flexShrink: 0,
     transition: 'all 0.15s',
     _hover: {
       transform: 'translateY(-1px)',
@@ -49,6 +56,7 @@ export default function SocialLoginButtons({
     <Flex
       direction="row"
       justify="center"
+      align="center"
       gap={{ base: 3, sm: 4 }}
       w="100%"
       mt={showDivider ? 0 : 2}
@@ -58,6 +66,7 @@ export default function SocialLoginButtons({
         aria-label={`${buttonPrefix} Facebook`}
         variant="ghost"
         size={{ base: 'md', sm: 'lg' }}
+        data-social-btn
         onClick={() => handleSocialLogin('facebook')}
         disabled={disabled}
         css={{
@@ -80,6 +89,7 @@ export default function SocialLoginButtons({
         aria-label={`${buttonPrefix} Google`}
         variant="outline"
         size={{ base: 'md', sm: 'lg' }}
+        data-social-btn
         onClick={() => handleSocialLogin('google')}
         disabled={disabled}
         css={{
@@ -101,6 +111,7 @@ export default function SocialLoginButtons({
         aria-label={`${buttonPrefix} X`}
         variant="ghost"
         size={{ base: 'md', sm: 'lg' }}
+        data-social-btn
         onClick={() => handleSocialLogin('twitter')}
         disabled={disabled}
         css={{

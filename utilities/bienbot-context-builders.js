@@ -144,8 +144,11 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
   loadModels();
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
+  const { valid: destIdValid, objectId: destOid } = validateObjectId(destinationId, 'destinationId');
+  if (!destIdValid) return null;
+
   try {
-    const destination = await Destination.findById(destinationId);
+    const destination = await Destination.findById(destOid);
     if (!destination) return null;
 
     const perm = await enforcer.canView({ userId, resource: destination });
@@ -213,8 +216,11 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
   loadModels();
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
+  const { valid: expIdValid, objectId: expOid } = validateObjectId(experienceId, 'experienceId');
+  if (!expIdValid) return null;
+
   try {
-    const experience = await Experience.findById(experienceId).populate('destination', 'name country');
+    const experience = await Experience.findById(expOid).populate('destination', 'name country');
     if (!experience) return null;
 
     const perm = await enforcer.canView({ userId, resource: experience });
@@ -252,8 +258,11 @@ async function buildUserPlanContext(planId, userId, options = {}) {
   loadModels();
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
+  const { valid: planIdValid, objectId: planOid } = validateObjectId(planId, 'planId');
+  if (!planIdValid) return null;
+
   try {
-    const plan = await Plan.findById(planId)
+    const plan = await Plan.findById(planOid)
       .populate('experience', 'name');
     if (!plan) return null;
 
@@ -319,8 +328,11 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
   loadModels();
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
+  const { valid: planIdValid, objectId: planOid } = validateObjectId(planId, 'planId');
+  if (!planIdValid) return null;
+
   try {
-    const plan = await Plan.findById(planId)
+    const plan = await Plan.findById(planOid)
       .populate('experience', 'name');
     if (!plan) return null;
 
@@ -358,8 +370,11 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
 async function buildUserProfileContext(targetUserId, requestingUserId, options = {}) {
   loadModels();
 
+  const { valid: userIdValid, objectId: userOid } = validateObjectId(targetUserId, 'targetUserId');
+  if (!userIdValid) return null;
+
   try {
-    const user = await User.findById(targetUserId)
+    const user = await User.findById(userOid)
       .select('name email preferences bio links feature_flags');
     if (!user) return null;
 

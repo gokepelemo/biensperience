@@ -121,6 +121,7 @@ jest.mock('../../utilities/upload-pipeline', () => ({
     contentType: 'image/png',
     size: 1024
   }),
+  resolveAndValidateLocalUploadPath: jest.fn().mockReturnValue('/tmp/validated-path'),
   S3_STATUS: { PENDING: 'pending', UPLOADED: 'uploaded', FAILED: 'failed' }
 }));
 

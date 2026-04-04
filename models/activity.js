@@ -101,7 +101,7 @@ const activitySchema = new mongoose.Schema({
     type: {
       type: String,
       required: true,
-      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem', 'Follow'],
+      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem', 'Follow', 'BienBotSession'],
       index: true
     },
     name: String // Human-readable name for the resource
@@ -112,7 +112,7 @@ const activitySchema = new mongoose.Schema({
     id: mongoose.Schema.Types.ObjectId,
     type: {
       type: String,
-      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem', 'Follow']
+      enum: ['User', 'Experience', 'Destination', 'Photo', 'Plan', 'PlanItem', 'Follow', 'BienBotSession']
     },
     name: String
   },
