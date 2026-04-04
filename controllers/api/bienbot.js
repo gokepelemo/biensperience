@@ -2282,6 +2282,15 @@ exports.chat = async (req, res) => {
     // Continue — we can still return the response even if persistence fails
   }
 
+  // Non-blocking background memory extraction after each chat turn
+  setImmediate(async () => {
+    try {
+      await extractMemoryFromSession({ session, user: req.user });
+    } catch (e) {
+      logger.debug('[bienbot] Background memory extraction failed', { error: e.message });
+    }
+  });
+
   // --- Step 7: SSE-stream the response ---
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
