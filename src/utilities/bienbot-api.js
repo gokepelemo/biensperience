@@ -158,110 +158,151 @@ export async function postMessage(sessionId, message, options = {}) {
     requestBody = JSON.stringify(bodyObj);
   }
 
-  let response;
-  try {
-    response = await fetch(`${BASE_URL}/chat`, {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: requestBody,
-      signal
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      logger.debug('[bienbot-api] Chat request aborted');
-      return;
-    }
-    const error = new Error('Network error. Please check your connection and try again.');
-    if (onError) onError(error);
-    throw error;
-  }
+  const MAX_RETRIES = 2;
+  const BASE_DELAY_MS = 1000;
+  let attempt = 0;
 
-  if (!response.ok) {
-    let errorMessage = `Chat request failed: ${response.status}`;
+  while (attempt <= MAX_RETRIES) {
+    let response;
     try {
-      const errorData = await response.json();
-      if (errorData.error) errorMessage = errorData.error;
-    } catch {
-      // ignore parse errors
+      response = await fetch(`${BASE_URL}/chat`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: requestBody,
+        signal
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        logger.debug('[bienbot-api] Chat request aborted');
+        return;
+      }
+      attempt++;
+      if (attempt > MAX_RETRIES) {
+        logger.error('[bienbot-api] Max retries reached', { error: err.message });
+        const error = new Error('Network error. Please check your connection and try again.');
+        if (onError) onError(error);
+        return;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn('[bienbot-api] SSE fetch error, retrying', { attempt, delay, error: err.message });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
     }
-    const error = new Error(errorMessage);
-    if (onError) onError(error);
-    throw error;
-  }
 
-  // Parse SSE stream
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
+    if (!response.ok) {
+      if (response.status >= 400 && response.status < 500) {
+        // 4xx: client error, do not retry
+        let errorMessage = `Chat request failed: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) errorMessage = errorData.error;
+        } catch {
+          // ignore parse errors
+        }
+        const error = new Error(errorMessage);
+        if (onError) onError(error);
+        return;
+      }
+      // 5xx: server error, retry
+      attempt++;
+      if (attempt > MAX_RETRIES) {
+        logger.error('[bienbot-api] Max retries reached after server error', { status: response.status });
+        const error = new Error(`Chat request failed: ${response.status}`);
+        if (onError) onError(error);
+        return;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn('[bienbot-api] Server error, retrying', { attempt, delay, status: response.status });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    // Parse SSE stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      // Process complete SSE events (separated by double newlines)
-      const events = buffer.split('\n\n');
-      // Keep the last incomplete chunk in the buffer
-      buffer = events.pop() || '';
+        buffer += decoder.decode(value, { stream: true });
 
-      for (const eventBlock of events) {
-        if (!eventBlock.trim()) continue;
+        // Process complete SSE events (separated by double newlines)
+        const events = buffer.split('\n\n');
+        // Keep the last incomplete chunk in the buffer
+        buffer = events.pop() || '';
 
-        let eventType = null;
-        let eventData = null;
+        for (const eventBlock of events) {
+          if (!eventBlock.trim()) continue;
 
-        for (const line of eventBlock.split('\n')) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            try {
-              eventData = JSON.parse(line.slice(6));
-            } catch {
-              logger.warn('[bienbot-api] Failed to parse SSE data', { line });
+          let eventType = null;
+          let eventData = null;
+
+          for (const line of eventBlock.split('\n')) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              try {
+                eventData = JSON.parse(line.slice(6));
+              } catch {
+                logger.warn('[bienbot-api] Failed to parse SSE data', { line });
+              }
             }
           }
-        }
 
-        if (!eventType || !eventData) continue;
+          if (!eventType || !eventData) continue;
 
-        switch (eventType) {
-          case 'session':
-            if (isNewSession && eventData.sessionId) {
-              createdSessionId = eventData.sessionId;
-            }
-            if (onSession) onSession(eventData);
-            break;
+          switch (eventType) {
+            case 'session':
+              if (isNewSession && eventData.sessionId) {
+                createdSessionId = eventData.sessionId;
+              }
+              if (onSession) onSession(eventData);
+              break;
 
-          case 'token':
-            if (onToken) onToken(eventData.text);
-            break;
+            case 'token':
+              if (onToken) onToken(eventData.text);
+              break;
 
-          case 'actions':
-            if (onActions) onActions(eventData.pending_actions);
-            break;
+            case 'actions':
+              if (onActions) onActions(eventData.pending_actions);
+              break;
 
-          case 'structured_content':
-            if (onStructuredContent) onStructuredContent(eventData.blocks);
-            break;
+            case 'structured_content':
+              if (onStructuredContent) onStructuredContent(eventData.blocks);
+              break;
 
-          case 'done':
-            if (onDone) onDone(eventData);
-            break;
+            case 'done':
+              if (onDone) onDone(eventData);
+              break;
 
-          default:
-            logger.debug('[bienbot-api] Unknown SSE event type', { eventType });
+            default:
+              logger.debug('[bienbot-api] Unknown SSE event type', { eventType });
+          }
         }
       }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        logger.debug('[bienbot-api] SSE stream aborted');
+        return;
+      }
+      attempt++;
+      if (attempt > MAX_RETRIES) {
+        logger.error('[bienbot-api] Max retries reached after stream error', { error: err.message });
+        if (onError) onError(err);
+        return;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn('[bienbot-api] SSE stream error, retrying', { attempt, delay, error: err.message });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
     }
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      logger.debug('[bienbot-api] SSE stream aborted');
-      return;
-    }
-    throw err;
+
+    // Success — exit retry loop
+    break;
   }
 
   // Emit event after successful chat turn
