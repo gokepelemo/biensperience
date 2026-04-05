@@ -26,7 +26,7 @@
 import { encryptData, decryptData } from './crypto-utils';
 import { logger } from './logger';
 import { getObfuscatedJson, setObfuscatedJson, removeStorageKey } from './secure-storage-lite';
-import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from './storage-keys';
+import { STORAGE_KEYS } from './storage-keys';
 
 // Default preferences when no user is logged in or preferences not set
 const DEFAULT_PREFERENCES = {
@@ -59,14 +59,6 @@ const BASE_PREFS_KEYS = {
   timezone: STORAGE_KEYS.timezone
 };
 
-// Legacy keys to migrate away from
-const LEGACY_PREFERENCES_KEY = 'biensperience:preferences';
-const LEGACY_BASE_KEYS = {
-  currency: 'biensperience:currency',
-  language: 'biensperience:language',
-  timezone: 'biensperience:timezone'
-};
-
 // ============================================================================
 // ENCRYPTED PREFERENCES API
 // Standard API for storing, retrieving, and expiring preferences
@@ -81,16 +73,6 @@ const ENCRYPTED_PREFERENCES_KEY = 'bien:encryptedPrefs';
  * Metadata key for preference expiry tracking
  */
 const PREFERENCES_META_KEY = 'bien:prefsMeta';
-
-// Legacy encrypted preferences keys
-const LEGACY_ENCRYPTED_PREFERENCES_KEYS = [
-  'biensperience:encrypted_prefs',
-  'bien:encrypted_prefs'
-];
-const LEGACY_PREFERENCES_META_KEYS = [
-  'biensperience:prefs_meta',
-  'bien:prefs_meta'
-];
 
 // ---------------------------------------------------------------------------
 // Small sync obfuscation helper (for base preference keys only)
@@ -248,69 +230,6 @@ function _getThemeState() {
   } catch {
     return null;
   }
-}
-
-/**
- * One-time migration: move legacy biensperience:* preference keys to bien:*.
- * - Moves encrypted UI prefs to bien:encryptedPrefs / bien:prefsMeta
- * - Extracts base prefs (theme/currency/language/timezone) from legacy plaintext keys/blobs
- * - Removes legacy keys after migration attempt
- */
-export function migratePreferencesToBienNamespace() {
-  const moveIfNeeded = (fromKey, toKey) => {
-    try {
-      const legacyValue = localStorage.getItem(fromKey);
-      if (legacyValue && !localStorage.getItem(toKey)) {
-        localStorage.setItem(toKey, legacyValue);
-      }
-      if (legacyValue) localStorage.removeItem(fromKey);
-    } catch {
-      // ignore
-    }
-  };
-
-  // Move encrypted UI prefs bucket
-  LEGACY_ENCRYPTED_PREFERENCES_KEYS.forEach((k) => moveIfNeeded(k, ENCRYPTED_PREFERENCES_KEY));
-
-  // Move meta
-  LEGACY_PREFERENCES_META_KEYS.forEach((k) => moveIfNeeded(k, PREFERENCES_META_KEY));
-
-  // Extract base prefs from legacy blob + legacy individual keys
-  let legacyPrefs = null;
-  try {
-    const raw = localStorage.getItem(LEGACY_PREFERENCES_KEY);
-    if (raw) {
-      try { legacyPrefs = JSON.parse(raw) || null; } catch { legacyPrefs = null; }
-    }
-  } catch {
-    legacyPrefs = null;
-  }
-
-  const legacyCurrency = (() => {
-    try { return localStorage.getItem(LEGACY_BASE_KEYS.currency); } catch { return null; }
-  })();
-  const legacyLanguage = (() => {
-    try { return localStorage.getItem(LEGACY_BASE_KEYS.language); } catch { return null; }
-  })();
-  const legacyTimezone = (() => {
-    try { return localStorage.getItem(LEGACY_BASE_KEYS.timezone); } catch { return null; }
-  })();
-
-  const theme = typeof legacyPrefs?.theme === 'string' ? legacyPrefs.theme : null;
-  const currency = legacyCurrency || (typeof legacyPrefs?.currency === 'string' ? legacyPrefs.currency : null);
-  const language = legacyLanguage || (typeof legacyPrefs?.language === 'string' ? legacyPrefs.language : null);
-  const timezone = legacyTimezone || (typeof legacyPrefs?.timezone === 'string' ? legacyPrefs.timezone : null);
-
-  if (theme) _setThemeState(theme);
-  if (currency) _setBasePref(BASE_PREFS_KEYS.currency, currency);
-  if (language) _setBasePref(BASE_PREFS_KEYS.language, language);
-  if (timezone) _setBasePref(BASE_PREFS_KEYS.timezone, timezone);
-
-  // Remove legacy plaintext keys
-  try { localStorage.removeItem(LEGACY_PREFERENCES_KEY); } catch {}
-  try { localStorage.removeItem(LEGACY_BASE_KEYS.currency); } catch {}
-  try { localStorage.removeItem(LEGACY_BASE_KEYS.language); } catch {}
-  try { localStorage.removeItem(LEGACY_BASE_KEYS.timezone); } catch {}
 }
 
 /**
@@ -1364,14 +1283,6 @@ export { DEFAULT_PREFERENCES };
 // ============================================================================
 
 /**
- * Storage key for UI preferences (sync fallback; stored obfuscated under bien:*).
- * Legacy builds stored plaintext JSON under `biensperience:ui_preferences`.
- *
- * @deprecated Prefer encrypted preferences API instead
- */
-const LEGACY_UI_PREFERENCES_KEYS = LEGACY_STORAGE_KEYS.uiPreferences;
-
-/**
  * Default UI preferences for view modes and layouts
  */
 const DEFAULT_UI_PREFERENCES = {
@@ -1425,36 +1336,9 @@ const DEFAULT_UI_PREFERENCES = {
  */
 export function getUIPreferences() {
   try {
-    // Canonical: obfuscated JSON under bien:* key.
     const stored = getObfuscatedJson(localStorage, STORAGE_KEYS.uiPreferences, null);
     if (stored && typeof stored === 'object') {
       return deepMerge(DEFAULT_UI_PREFERENCES, stored);
-    }
-
-    // Legacy: plaintext JSON under biensperience:ui_preferences (and variants).
-    for (const legacyKey of LEGACY_UI_PREFERENCES_KEYS) {
-      try {
-        const legacyRaw = localStorage.getItem(legacyKey);
-        if (!legacyRaw) continue;
-
-        const parsed = JSON.parse(legacyRaw);
-        if (parsed && typeof parsed === 'object') {
-          // Migrate immediately to canonical obfuscated form.
-          try {
-            setObfuscatedJson(localStorage, STORAGE_KEYS.uiPreferences, parsed);
-          } catch {
-            // ignore migration write errors
-          }
-          try {
-            localStorage.removeItem(legacyKey);
-          } catch {
-            // ignore
-          }
-          return deepMerge(DEFAULT_UI_PREFERENCES, parsed);
-        }
-      } catch {
-        // ignore per-key failures
-      }
     }
   } catch {
     // Ignore parse errors
@@ -1471,13 +1355,7 @@ export function setUIPreferences(preferences) {
   try {
     const current = getUIPreferences();
     const merged = deepMerge(current, preferences);
-
     setObfuscatedJson(localStorage, STORAGE_KEYS.uiPreferences, merged);
-
-    // Remove legacy plaintext keys.
-    for (const legacyKey of LEGACY_UI_PREFERENCES_KEYS) {
-      try { localStorage.removeItem(legacyKey); } catch { /* ignore */ }
-    }
   } catch {
     // Ignore storage errors
   }
@@ -1623,10 +1501,6 @@ export function setUIPreference(key, value) {
 export function clearUIPreferences() {
   try {
     removeStorageKey(localStorage, STORAGE_KEYS.uiPreferences);
-
-    for (const legacyKey of LEGACY_UI_PREFERENCES_KEYS) {
-      try { localStorage.removeItem(legacyKey); } catch { /* ignore */ }
-    }
   } catch {
     // Ignore storage errors
   }
@@ -1653,22 +1527,6 @@ export async function migrateToEncryptedPreferences(userId) {
       }
     } catch {
       // ignore
-    }
-
-    if (!legacyPrefs) {
-      for (const legacyKey of LEGACY_UI_PREFERENCES_KEYS) {
-        try {
-          const legacyRaw = localStorage.getItem(legacyKey);
-          if (!legacyRaw) continue;
-          const parsed = JSON.parse(legacyRaw);
-          if (parsed && typeof parsed === 'object') {
-            legacyPrefs = parsed;
-            break;
-          }
-        } catch {
-          // ignore
-        }
-      }
     }
 
     if (!legacyPrefs) return true; // Nothing to migrate
@@ -1707,11 +1565,8 @@ export async function migrateToEncryptedPreferences(userId) {
     // Store encrypted
     await setMultiplePreferences(newPrefs, { userId });
 
-    // Remove legacy storage (canonical + legacy plaintext variants)
+    // Remove legacy storage (canonical obfuscated key)
     try { removeStorageKey(localStorage, STORAGE_KEYS.uiPreferences); } catch { /* ignore */ }
-    for (const legacyKey of LEGACY_UI_PREFERENCES_KEYS) {
-      try { localStorage.removeItem(legacyKey); } catch { /* ignore */ }
-    }
 
     logger.info('Migrated legacy preferences to encrypted storage', {
       keyCount: Object.keys(newPrefs).length

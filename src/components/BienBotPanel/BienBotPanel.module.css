@@ -181,7 +181,6 @@
   font-size: var(--font-size-sm, 0.875rem);
   line-height: var(--line-height-relaxed, 1.625);
   word-break: break-word;
-  white-space: pre-wrap;
   position: relative;
   user-select: text;
   -webkit-user-select: text;
@@ -192,6 +191,7 @@
   background: var(--color-primary, #6c63ff);
   color: #fff;
   border-bottom-right-radius: var(--radius-sm, 4px);
+  white-space: pre-wrap;
 }
 
 .messageAssistant {
@@ -220,6 +220,95 @@
   padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
   border-radius: var(--radius-md, 8px);
   border: 1px dashed var(--color-border-secondary, #e2e8f0);
+}
+
+/* ─── Markdown content (assistant messages) ─────────────────────────────── */
+
+.markdownContent {
+  white-space: normal;
+}
+
+.markdownContent p {
+  margin: 0 0 0.5em 0;
+}
+
+.markdownContent p:last-child {
+  margin-bottom: 0;
+}
+
+.markdownContent ul,
+.markdownContent ol {
+  padding-left: 1.25rem;
+  margin: 0.25em 0 0.5em 0;
+}
+
+.markdownContent li {
+  margin-bottom: 0.2em;
+}
+
+.markdownContent strong {
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+.markdownContent em {
+  font-style: italic;
+}
+
+.markdownContent h1,
+.markdownContent h2,
+.markdownContent h3,
+.markdownContent h4 {
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 1.3;
+  margin: 0.6em 0 0.25em 0;
+}
+
+.markdownContent h1 { font-size: 1.1em; }
+.markdownContent h2 { font-size: 1.05em; }
+.markdownContent h3,
+.markdownContent h4 { font-size: 1em; }
+
+.markdownContent code {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.codeBlock {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  padding: var(--space-3, 0.75rem);
+  border-radius: var(--radius-md, 6px);
+  overflow-x: auto;
+  margin: 0.5em 0;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre;
+}
+
+.codeBlock code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.markdownContent blockquote {
+  border-left: 3px solid var(--color-primary, #6c63ff);
+  padding-left: var(--space-3, 0.75rem);
+  margin: 0.5em 0;
+  color: var(--color-text-secondary, #64748b);
+}
+
+.markdownContent a {
+  color: var(--color-primary, #6c63ff);
+  text-decoration: underline;
+}
+
+.markdownContent hr {
+  border: none;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  margin: 0.75em 0;
 }
 
 /* Streaming cursor */

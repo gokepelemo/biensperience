@@ -14,6 +14,7 @@ const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
 const { successResponse, errorResponse, paginatedResponse, validateObjectId } = require('../../utilities/controller-helpers');
 const { aggregateGroupSignals } = require('../../utilities/hidden-signals');
 const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
+const { createPlanItemLocation } = require('../../utilities/address-utils');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -730,6 +731,23 @@ async function createExperience(req, res) {
       backendLogger.info('Curator creating experience', { userId: req.user._id.toString(), name: req.body.name });
     }
 
+    // Geocode location/map_location into a structured location object
+    if (req.body.location || req.body.map_location) {
+      try {
+        const locationInput = req.body.location || req.body.map_location;
+        const geocodedLocation = await createPlanItemLocation(locationInput);
+        if (geocodedLocation) {
+          req.body.location = geocodedLocation;
+          req.body.map_location = geocodedLocation.address || req.body.map_location;
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[createExperience] Geocoding failed, using raw value', { error: geoErr.message });
+        if (req.body.location && typeof req.body.location === 'string') {
+          req.body.location = { address: req.body.location };
+        }
+      }
+    }
+
     let experience = await Experience.create(req.body);
 
     trackCreate({
@@ -1167,7 +1185,7 @@ async function updateExperience(req, res) {
 
     // Filter out fields that shouldn't be updated
     const allowedFields = [
-      'name', 'overview', 'destination', 'map_location', 'experience_type', 
+      'name', 'overview', 'destination', 'map_location', 'location', 'experience_type',
       'plan_items', 'photos', 'visibility', 'permissions'
     ];
     
@@ -1175,6 +1193,33 @@ async function updateExperience(req, res) {
     for (const field of allowedFields) {
       if (req.body.hasOwnProperty(field)) {
         updateData[field] = req.body[field];
+      }
+    }
+
+    // Geocode location/map_location into a structured location object
+    if (updateData.location !== undefined) {
+      try {
+        const geocodedLocation = await createPlanItemLocation(updateData.location);
+        if (geocodedLocation) {
+          updateData.location = geocodedLocation;
+          if (!updateData.map_location && geocodedLocation.address) {
+            updateData.map_location = geocodedLocation.address;
+          }
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[updateExperience] Geocoding failed, using raw location', { error: geoErr.message });
+        if (typeof updateData.location === 'string') {
+          updateData.location = { address: updateData.location };
+        }
+      }
+    } else if (updateData.map_location && !experience.location?.address) {
+      try {
+        const geocodedLocation = await createPlanItemLocation(updateData.map_location);
+        if (geocodedLocation) {
+          updateData.location = geocodedLocation;
+        }
+      } catch (geoErr) {
+        backendLogger.warn('[updateExperience] map_location geocoding failed', { error: geoErr.message });
       }
     }
     backendLogger.info('Filtered update data', {

@@ -891,6 +891,20 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, []);
 
   // ---------------------------------------------------------------------------
+  // replaceInitialGreeting — replace greeting-only state with a new greeting.
+  // If the user has already sent a message, appends instead of replacing so
+  // that real conversation history is never lost.
+  // ---------------------------------------------------------------------------
+  const replaceInitialGreeting = useCallback((msg) => {
+    if (!msg) return;
+    setMessages(prev => {
+      const hasUserMessages = prev.some(m => m.role === 'user');
+      if (hasUserMessages) return [...prev, msg];
+      return [msg];
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Return API
   // ---------------------------------------------------------------------------
   return {
@@ -919,6 +933,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     cancelWorkflow,
     appendStructuredContent,
     appendMessage,
+    replaceInitialGreeting,
     getPersistedSession,
     clearPersistedSession
   };

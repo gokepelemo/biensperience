@@ -2259,8 +2259,6 @@ const updatePlanItem = asyncHandler(async (req, res) => {
         'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
         // Other
         'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
-        // Legacy
-        'activity',
         null
       ];
       setObj['plan.$.activity_type'] = validActivityTypes.includes(activity_type) ? activity_type : null;
@@ -2431,8 +2429,6 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
       // Other
       'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
-      // Legacy
-      'activity',
       null
     ];
     planItem.activity_type = validActivityTypes.includes(activity_type) ? activity_type : null;
@@ -2749,8 +2745,6 @@ const addPlanItem = asyncHandler(async (req, res) => {
     'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
     // Other
     'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
-    // Legacy
-    'activity',
     null
   ];
   const resolvedActivityType = activity_type && validActivityTypes.includes(activity_type) ? activity_type : null;

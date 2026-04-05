@@ -8,7 +8,7 @@ import { logger } from '../utilities/logger';
 import { eventBus } from '../utilities/event-bus';
 import { LOCAL_CHANGE_PROTECTION_MS } from '../utilities/event-bus';
 import { storePreferences } from '../utilities/preferences-utils';
-import { resolveAvatarUrl, resolveUrlFromUser, setCachedAvatarUrl } from '../utilities/avatar-cache';
+import { resolveUrlFromUser, setCachedAvatarUrl } from '../utilities/avatar-cache';
 // Intentionally do not clear plan cache on logout/user-switch.
 // The consolidated cache is user-scoped internally (by userId) and safe to keep
 // around so other users on the same device benefit from faster rendering.
@@ -275,20 +275,6 @@ export function UserProvider({ children }) {
   }, [isPlannedExperience, addPlannedExperience, removePlannedExperience]);
 
   /**
-   * Get user's avatar URL with fallback.
-   * Delegates to the shared avatar-cache so every rendering path uses
-   * the same resolution chain and benefits from caching.
-   * @returns {string|null} Avatar URL or null
-   * @deprecated Prefer using <UserAvatar user={user} /> component directly,
-   *   which handles resolution, caching, lazy-fetch, and fallback rendering.
-   */
-  const getAvatarUrl = useCallback(() => {
-    const source = profile || user;
-    if (!source) return null;
-    return resolveAvatarUrl(source);
-  }, [user, profile]);
-
-  /**
    * Get user's display name
    * @returns {string} User's name
    */
@@ -537,7 +523,6 @@ export function UserProvider({ children }) {
     togglePlannedExperience,
 
     // Utility methods
-    getAvatarUrl,
     getDisplayName,
     getEmail,
     isSuperAdmin,

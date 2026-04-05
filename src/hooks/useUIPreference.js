@@ -129,28 +129,6 @@ export function useUIPreference(key, defaultValue, options = {}) {
 }
 
 /**
- * Legacy hook for backward compatibility
- * @deprecated Use useUIPreference with new key format instead
- */
-export function useLegacyUIPreference(key, defaultValue) {
-  // Initialize state from localStorage
-  const [value, setValueState] = useState(() => {
-    const stored = getUIPreference(key);
-    return stored !== undefined && stored !== null ? stored : defaultValue;
-  });
-
-  // Persist value changes to localStorage
-  const setValue = useCallback((newValue) => {
-    // Support functional updates like useState
-    const valueToSet = typeof newValue === 'function' ? newValue(value) : newValue;
-    setValueState(valueToSet);
-    setUIPreference(key, valueToSet);
-  }, [key, value]);
-
-  return [value, setValue];
-}
-
-/**
  * Hook to manage view mode preference for a specific context
  * Uses encrypted storage when user is authenticated
  *

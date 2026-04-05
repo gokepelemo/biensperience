@@ -10,6 +10,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { FaBell } from 'react-icons/fa';
 import { Button, Text, Heading } from '../design-system';
 import { Tag } from '@chakra-ui/react';
@@ -287,79 +289,100 @@ function AttachIcon() {
  * @param {object} chipStyles - CSS module styles object
  * @returns {React.ReactNode}
  */
-function renderMessageContent(text, navigate, chipStyles) {
+// Match compact JSON entity refs embedded in LLM output
+const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
+// Placeholder token used to survive markdown parsing: \x00entity{n}\x00
+const PLACEHOLDER_RE = /\x00entity(\d+)\x00/g;
+
+function buildEntityChip(ref, idx, navigate, chipStyles) {
+  const { _id, name, type } = ref;
+  let url = null;
+  if (_id && name && type) {
+    if (type === 'destination') url = `/destinations/${_id}`;
+    else if (type === 'experience') url = `/experiences/${_id}`;
+    else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
+  }
+  const label = name || type || 'entity';
+  if (url) {
+    return (
+      <button
+        key={`chip-${_id}-${idx}`}
+        type="button"
+        className={chipStyles.inlineEntityChip}
+        onClick={() => navigate(url)}
+        aria-label={`View ${type}: ${label}`}
+      >
+        {label}
+      </button>
+    );
+  }
+  return <span key={`chip-nolink-${idx}`} className={chipStyles.inlineEntityChipNoLink}>{label}</span>;
+}
+
+function substituteChips(text, entityRefs, navigate, chipStyles) {
+  if (typeof text !== 'string') return text;
+  const parts = [];
+  let last = 0;
+  let m;
+  PLACEHOLDER_RE.lastIndex = 0;
+  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const ref = entityRefs[parseInt(m[1], 10)];
+    if (ref) parts.push(buildEntityChip(ref, m.index, navigate, chipStyles));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  if (parts.length === 0) return text;
+  if (parts.length === 1) return parts[0];
+  return parts.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
+}
+
+function processChildren(children, entityRefs, navigate, chipStyles) {
+  return React.Children.map(children, (child) => {
+    if (typeof child === 'string') return substituteChips(child, entityRefs, navigate, chipStyles);
+    return child;
+  });
+}
+
+function renderMessageContent(text, navigate, chipStyles, role) {
   if (!text) return null;
 
-  // Match compact JSON objects that contain at minimum _id, name, and type keys
-  const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
-
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = ENTITY_JSON_RE.exec(text)) !== null) {
-    // Text before the match
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-
-    // Try to parse
-    let ref = null;
+  // Extract entity JSON refs and replace with placeholder tokens
+  const entityRefs = [];
+  ENTITY_JSON_RE.lastIndex = 0;
+  const processedText = text.replace(ENTITY_JSON_RE, (match) => {
     try {
-      ref = JSON.parse(match[0]);
+      entityRefs.push(JSON.parse(match));
+      return `\x00entity${entityRefs.length - 1}\x00`;
     } catch {
-      // Not valid JSON — keep raw
-      parts.push(match[0]);
-      lastIndex = match.index + match[0].length;
-      continue;
+      return match;
     }
+  });
 
-    const { _id, name, type } = ref;
-
-    // Determine URL
-    let url = null;
-    if (_id && name && type) {
-      if (type === 'destination') url = `/destinations/${_id}`;
-      else if (type === 'experience') url = `/experiences/${_id}`;
-      else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
-    }
-
-    const label = name || type || 'entity';
-
-    if (url) {
-      parts.push(
-        <button
-          key={`${_id}-${match.index}`}
-          type="button"
-          className={chipStyles.inlineEntityChip}
-          onClick={() => navigate(url)}
-          aria-label={`View ${type}: ${label}`}
-        >
-          {label}
-        </button>
-      );
-    } else {
-      // No navigable URL or no real ID — render as a non-clickable chip
-      parts.push(
-        <span key={`entity-${match.index}`} className={chipStyles.inlineEntityChipNoLink}>
-          {label}
-        </span>
-      );
-    }
-
-    lastIndex = match.index + match[0].length;
+  // User messages: plain text with entity chips (no markdown parsing)
+  if (role !== 'assistant') {
+    const result = substituteChips(processedText, entityRefs, navigate, chipStyles);
+    if (!Array.isArray(result)) return result;
+    return result.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
   }
 
-  // Remaining text after last match
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
+  // Assistant messages: full markdown rendering with entity chip substitution
+  const bindChip = (children) => processChildren(children, entityRefs, navigate, chipStyles);
 
-  // If nothing was replaced, return the string directly
-  if (parts.length === 1 && typeof parts[0] === 'string') return parts[0];
+  const mdComponents = {
+    p: ({ children }) => <p>{bindChip(children)}</p>,
+    li: ({ children }) => <li>{bindChip(children)}</li>,
+    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+    pre: ({ children }) => <pre className={chipStyles.codeBlock}>{children}</pre>,
+    code: ({ children, className }) => <code className={className}>{children}</code>,
+  };
 
-  return parts.map((part, i) =>
-    typeof part === 'string' ? <React.Fragment key={i}>{part}</React.Fragment> : part
+  return (
+    <div className={chipStyles.markdownContent}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+        {processedText}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -594,6 +617,7 @@ export default function BienBotPanel({
     cancelWorkflow,
     appendStructuredContent,
     appendMessage,
+    replaceInitialGreeting,
     getPersistedSession,
     clearPersistedSession,
     fetchSessions
@@ -769,11 +793,24 @@ export default function BienBotPanel({
   }, [open, initialMessage]);
 
   // ── Inject analysis suggestions as synthetic assistant message on open ────
+  // Use a ref to prevent double-injection: React StrictMode re-runs effects from
+  // the same render snapshot (so `messages` is stale/empty on both runs). The ref
+  // persists across the double-invoke and gates the second run out.
+  // Reset on close so the next open can show a fresh greeting.
+  const analysisGreetingInjectedRef = useRef(false);
   useEffect(() => {
-    if (!open || !analysisSuggestions || messages.length > 0) return;
+    if (!open) {
+      analysisGreetingInjectedRef.current = false;
+      return;
+    }
+    if (!analysisSuggestions || analysisGreetingInjectedRef.current) return;
 
+    analysisGreetingInjectedRef.current = true;
     const content = formatAnalysisSuggestions(analysisSuggestions);
-    appendMessage({
+    // replaceInitialGreeting removes any existing greeting-only messages before
+    // inserting the new one, so the user never sees stale or duplicate greetings
+    // when they reopen BienBot without having sent anything.
+    replaceInitialGreeting({
       _id: `analysis-${Date.now()}`,
       role: 'assistant',
       content,
@@ -1497,7 +1534,7 @@ export default function BienBotPanel({
                           })}
                         </div>
                       )}
-                      {renderMessageContent(msg.content, navigate, styles)}
+                      {renderMessageContent(msg.content, navigate, styles, msg.role)}
                       {msg.structured_content?.length > 0 && (
                         <div className={styles.structuredContent}>
                           {msg.structured_content.map((block, blockIdx) => {

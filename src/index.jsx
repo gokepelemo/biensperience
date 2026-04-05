@@ -12,7 +12,6 @@ import { ToastProvider } from './contexts/ToastContext';
 import themeManager from './utilities/theme-manager';
 import { migratePlanCacheFromSessionStorage } from './utilities/plan-cache';
 import { migrateFormDraftsFromLegacyStorage } from './utilities/form-persistence';
-import { migratePreferencesToBienNamespace } from './utilities/preferences-utils';
 import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from './utilities/storage-keys';
 
 initVersion();
@@ -45,13 +44,6 @@ try {
 // Migrate legacy form draft keys
 try {
   migrateFormDraftsFromLegacyStorage().catch(() => {});
-} catch (e) {
-  // ignore
-}
-
-// Migrate legacy preference keys
-try {
-  migratePreferencesToBienNamespace();
 } catch (e) {
   // ignore
 }

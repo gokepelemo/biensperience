@@ -18,6 +18,7 @@ import { formatChanges } from "../../utilities/change-formatter";
 import { Modal, Alert, Form } from '../design-system';
 import FormField from "../FormField/FormField";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
+import LocationAutocompleteInput from "../LocationAutocompleteInput/LocationAutocompleteInput";
 import { getPhotoObjects } from "../../utilities/photo-utils";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
@@ -380,7 +381,7 @@ export default function UpdateExperience() {
         name: experience.name,
         overview: experience.overview,
         destination: destinationToSend,
-        map_location: experience.map_location,
+        location: experience.location,
         experience_type: experience.experience_type,
         plan_items: experience.plan_items,
         photos: photosToSend,
@@ -647,15 +648,12 @@ export default function UpdateExperience() {
               </small>
             </Form.Group>
 
-            <FormField
-              name="map_location"
+            <LocationAutocompleteInput
+              name="location"
               label={lang.current.label.address}
-              type="text"
-              value={experience.map_location || ''}
-              onChange={handleChange}
+              value={experience.location?.address || experience.map_location || ''}
+              onSelect={(loc) => setExperience(prev => ({ ...prev, location: loc || null }))}
               placeholder={lang.current.placeholder.address}
-              tooltip={lang.current.helper.addressOptional}
-              tooltipPlacement="top"
             />
 
             {/* Planning days and cost estimate removed from update form — computed from plan items (virtuals). */}

@@ -18,6 +18,7 @@ import FormField from '../FormField/FormField';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import TagInput from '../TagInput/TagInput';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
+import LocationAutocompleteInput from '../LocationAutocompleteInput/LocationAutocompleteInput';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
 import { saveFormData, loadFormData, clearFormData } from '../../utilities/form-persistence';
 import { logger } from '../../utilities/logger';
@@ -694,14 +695,12 @@ export default function MultiStepPlanModal() {
                     </Form.Group>
                   </div>
 
-                  <FormField
-                    name="map_location"
+                  <LocationAutocompleteInput
+                    name="location"
                     label={lang.current.label.address}
-                    type="text"
-                    value={newExperience.map_location || ''}
-                    onChange={handleChange}
+                    value={newExperience.location?.address || ''}
+                    onSelect={(loc) => setNewExperience(prev => ({ ...prev, location: loc || null }))}
                     placeholder={lang.current.placeholder.address}
-                    tooltip={lang.current.helper.addressOptional}
                   />
 
                   <div className={styles.formSection}>

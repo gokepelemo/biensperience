@@ -774,80 +774,80 @@ class DataGenerator {
 
     this.planItemTemplates = [
       // Accommodation
-      { text: 'Book hotel accommodation', cost_range: [80, 500], days_range: [1, 7] },
-      { text: 'Reserve hostel bed', cost_range: [20, 80], days_range: [1, 5] },
-      { text: 'Book luxury resort', cost_range: [300, 1500], days_range: [1, 10] },
-      { text: 'Rent vacation apartment', cost_range: [100, 400], days_range: [3, 14] },
-      { text: 'Book boutique hotel', cost_range: [150, 600], days_range: [1, 5] },
-      { text: 'Reserve glamping site', cost_range: [120, 350], days_range: [1, 4] },
-      
+      { text: 'Book hotel accommodation', cost_range: [80, 500], days_range: [1, 7], activity_type: 'accommodation' },
+      { text: 'Reserve hostel bed', cost_range: [20, 80], days_range: [1, 5], activity_type: 'accommodation' },
+      { text: 'Book luxury resort', cost_range: [300, 1500], days_range: [1, 10], activity_type: 'accommodation' },
+      { text: 'Rent vacation apartment', cost_range: [100, 400], days_range: [3, 14], activity_type: 'accommodation' },
+      { text: 'Book boutique hotel', cost_range: [150, 600], days_range: [1, 5], activity_type: 'accommodation' },
+      { text: 'Reserve glamping site', cost_range: [120, 350], days_range: [1, 4], activity_type: 'accommodation' },
+
       // Transportation
-      { text: 'Purchase flight tickets', cost_range: [200, 1200], days_range: [1, 3] },
-      { text: 'Book train tickets', cost_range: [30, 200], days_range: [1, 2] },
-      { text: 'Rent car for duration', cost_range: [150, 800], days_range: [1, 7] },
-      { text: 'Purchase ferry tickets', cost_range: [25, 150], days_range: [1, 1] },
-      { text: 'Book airport transfer', cost_range: [30, 100], days_range: [1, 1] },
-      { text: 'Purchase metro/subway pass', cost_range: [15, 80], days_range: [1, 1] },
-      { text: 'Book intercity bus', cost_range: [20, 100], days_range: [1, 2] },
-      { text: 'Arrange private driver', cost_range: [50, 300], days_range: [1, 3] },
-      { text: 'Rent bicycle for city tour', cost_range: [10, 50], days_range: [1, 1] },
-      { text: 'Book helicopter tour', cost_range: [200, 800], days_range: [1, 2] },
-      
+      { text: 'Purchase flight tickets', cost_range: [200, 1200], days_range: [1, 3], activity_type: 'transport' },
+      { text: 'Book train tickets', cost_range: [30, 200], days_range: [1, 2], activity_type: 'transport' },
+      { text: 'Rent car for duration', cost_range: [150, 800], days_range: [1, 7], activity_type: 'transport' },
+      { text: 'Purchase ferry tickets', cost_range: [25, 150], days_range: [1, 1], activity_type: 'transport' },
+      { text: 'Book airport transfer', cost_range: [30, 100], days_range: [1, 1], activity_type: 'transport' },
+      { text: 'Purchase metro/subway pass', cost_range: [15, 80], days_range: [1, 1], activity_type: 'transport' },
+      { text: 'Book intercity bus', cost_range: [20, 100], days_range: [1, 2], activity_type: 'transport' },
+      { text: 'Arrange private driver', cost_range: [50, 300], days_range: [1, 3], activity_type: 'transport' },
+      { text: 'Rent bicycle for city tour', cost_range: [10, 50], days_range: [1, 1], activity_type: 'transport' },
+      { text: 'Book helicopter tour', cost_range: [200, 800], days_range: [1, 2], activity_type: 'tour' },
+
       // Dining & Food
-      { text: 'Reserve fine dining restaurant', cost_range: [80, 300], days_range: [1, 2] },
-      { text: 'Book food tour', cost_range: [40, 150], days_range: [1, 1] },
-      { text: 'Reserve rooftop bar table', cost_range: [50, 200], days_range: [1, 1] },
-      { text: 'Book cooking class', cost_range: [40, 150], days_range: [1, 2] },
-      { text: 'Reserve wine tasting', cost_range: [30, 180], days_range: [1, 2] },
-      { text: 'Book brewery tour', cost_range: [25, 80], days_range: [1, 1] },
-      { text: 'Purchase street food tour', cost_range: [20, 70], days_range: [1, 1] },
-      { text: 'Book coffee tasting experience', cost_range: [25, 90], days_range: [1, 1] },
-      { text: 'Reserve chef table experience', cost_range: [150, 500], days_range: [1, 2] },
-      
+      { text: 'Reserve fine dining restaurant', cost_range: [80, 300], days_range: [1, 2], activity_type: 'food' },
+      { text: 'Book food tour', cost_range: [40, 150], days_range: [1, 1], activity_type: 'food' },
+      { text: 'Reserve rooftop bar table', cost_range: [50, 200], days_range: [1, 1], activity_type: 'drinks' },
+      { text: 'Book cooking class', cost_range: [40, 150], days_range: [1, 2], activity_type: 'food' },
+      { text: 'Reserve wine tasting', cost_range: [30, 180], days_range: [1, 2], activity_type: 'drinks' },
+      { text: 'Book brewery tour', cost_range: [25, 80], days_range: [1, 1], activity_type: 'drinks' },
+      { text: 'Purchase street food tour', cost_range: [20, 70], days_range: [1, 1], activity_type: 'food' },
+      { text: 'Book coffee tasting experience', cost_range: [25, 90], days_range: [1, 1], activity_type: 'coffee' },
+      { text: 'Reserve chef table experience', cost_range: [150, 500], days_range: [1, 2], activity_type: 'food' },
+
       // Activities & Tours
-      { text: 'Book guided city tour', cost_range: [20, 120], days_range: [1, 2] },
-      { text: 'Purchase museum tickets', cost_range: [15, 60], days_range: [1, 1] },
-      { text: 'Book adventure activity', cost_range: [60, 350], days_range: [1, 5] },
-      { text: 'Reserve spa treatment', cost_range: [50, 300], days_range: [1, 2] },
-      { text: 'Book scuba diving excursion', cost_range: [80, 250], days_range: [1, 3] },
-      { text: 'Purchase theme park tickets', cost_range: [40, 150], days_range: [1, 2] },
-      { text: 'Book hot air balloon ride', cost_range: [150, 400], days_range: [1, 2] },
-      { text: 'Reserve kayaking tour', cost_range: [40, 120], days_range: [1, 2] },
-      { text: 'Book zip-lining adventure', cost_range: [50, 180], days_range: [1, 1] },
-      { text: 'Purchase snorkeling equipment rental', cost_range: [20, 60], days_range: [1, 3] },
-      { text: 'Book whale watching tour', cost_range: [70, 200], days_range: [1, 2] },
-      { text: 'Reserve rock climbing session', cost_range: [40, 150], days_range: [1, 2] },
-      { text: 'Book paragliding experience', cost_range: [100, 300], days_range: [1, 2] },
-      { text: 'Purchase safari tour', cost_range: [200, 800], days_range: [2, 7] },
-      
+      { text: 'Book guided city tour', cost_range: [20, 120], days_range: [1, 2], activity_type: 'tour' },
+      { text: 'Purchase museum tickets', cost_range: [15, 60], days_range: [1, 1], activity_type: 'museum' },
+      { text: 'Book adventure activity', cost_range: [60, 350], days_range: [1, 5], activity_type: 'adventure' },
+      { text: 'Reserve spa treatment', cost_range: [50, 300], days_range: [1, 2], activity_type: 'wellness' },
+      { text: 'Book scuba diving excursion', cost_range: [80, 250], days_range: [1, 3], activity_type: 'adventure' },
+      { text: 'Purchase theme park tickets', cost_range: [40, 150], days_range: [1, 2], activity_type: 'entertainment' },
+      { text: 'Book hot air balloon ride', cost_range: [150, 400], days_range: [1, 2], activity_type: 'adventure' },
+      { text: 'Reserve kayaking tour', cost_range: [40, 120], days_range: [1, 2], activity_type: 'adventure' },
+      { text: 'Book zip-lining adventure', cost_range: [50, 180], days_range: [1, 1], activity_type: 'adventure' },
+      { text: 'Purchase snorkeling equipment rental', cost_range: [20, 60], days_range: [1, 3], activity_type: 'adventure' },
+      { text: 'Book whale watching tour', cost_range: [70, 200], days_range: [1, 2], activity_type: 'nature' },
+      { text: 'Reserve rock climbing session', cost_range: [40, 150], days_range: [1, 2], activity_type: 'sports' },
+      { text: 'Book paragliding experience', cost_range: [100, 300], days_range: [1, 2], activity_type: 'adventure' },
+      { text: 'Purchase safari tour', cost_range: [200, 800], days_range: [2, 7], activity_type: 'nature' },
+
       // Cultural & Educational
-      { text: 'Book historical walking tour', cost_range: [25, 100], days_range: [1, 1] },
-      { text: 'Reserve traditional show tickets', cost_range: [30, 150], days_range: [1, 2] },
-      { text: 'Book language lesson', cost_range: [20, 80], days_range: [1, 5] },
-      { text: 'Purchase concert tickets', cost_range: [40, 250], days_range: [1, 3] },
-      { text: 'Book photography workshop', cost_range: [60, 250], days_range: [1, 3] },
-      { text: 'Reserve art gallery tour', cost_range: [20, 100], days_range: [1, 1] },
-      { text: 'Book theater performance', cost_range: [40, 200], days_range: [1, 2] },
-      { text: 'Purchase opera tickets', cost_range: [60, 300], days_range: [1, 2] },
-      
+      { text: 'Book historical walking tour', cost_range: [25, 100], days_range: [1, 1], activity_type: 'sightseeing' },
+      { text: 'Reserve traditional show tickets', cost_range: [30, 150], days_range: [1, 2], activity_type: 'entertainment' },
+      { text: 'Book language lesson', cost_range: [20, 80], days_range: [1, 5], activity_type: 'class' },
+      { text: 'Purchase concert tickets', cost_range: [40, 250], days_range: [1, 3], activity_type: 'entertainment' },
+      { text: 'Book photography workshop', cost_range: [60, 250], days_range: [1, 3], activity_type: 'photography' },
+      { text: 'Reserve art gallery tour', cost_range: [20, 100], days_range: [1, 1], activity_type: 'museum' },
+      { text: 'Book theater performance', cost_range: [40, 200], days_range: [1, 2], activity_type: 'entertainment' },
+      { text: 'Purchase opera tickets', cost_range: [60, 300], days_range: [1, 2], activity_type: 'entertainment' },
+
       // Wellness & Relaxation
-      { text: 'Book yoga class', cost_range: [15, 60], days_range: [1, 5] },
-      { text: 'Reserve massage appointment', cost_range: [40, 180], days_range: [1, 2] },
-      { text: 'Book meditation session', cost_range: [20, 100], days_range: [1, 3] },
-      { text: 'Purchase hot springs entry', cost_range: [15, 80], days_range: [1, 2] },
-      { text: 'Book wellness retreat day', cost_range: [100, 500], days_range: [1, 3] },
-      
+      { text: 'Book yoga class', cost_range: [15, 60], days_range: [1, 5], activity_type: 'wellness' },
+      { text: 'Reserve massage appointment', cost_range: [40, 180], days_range: [1, 2], activity_type: 'wellness' },
+      { text: 'Book meditation session', cost_range: [20, 100], days_range: [1, 3], activity_type: 'wellness' },
+      { text: 'Purchase hot springs entry', cost_range: [15, 80], days_range: [1, 2], activity_type: 'wellness' },
+      { text: 'Book wellness retreat day', cost_range: [100, 500], days_range: [1, 3], activity_type: 'wellness' },
+
       // Shopping & Souvenirs
-      { text: 'Visit local market', cost_range: [5, 50], days_range: [1, 1] },
-      { text: 'Book shopping tour', cost_range: [30, 120], days_range: [1, 2] },
-      { text: 'Purchase craft workshop', cost_range: [25, 100], days_range: [1, 2] },
-      
+      { text: 'Visit local market', cost_range: [5, 50], days_range: [1, 1], activity_type: 'market' },
+      { text: 'Book shopping tour', cost_range: [30, 120], days_range: [1, 2], activity_type: 'shopping' },
+      { text: 'Purchase craft workshop', cost_range: [25, 100], days_range: [1, 2], activity_type: 'class' },
+
       // Miscellaneous
-      { text: 'Purchase travel insurance', cost_range: [30, 150], days_range: [1, 1] },
-      { text: 'Book visa assistance', cost_range: [50, 200], days_range: [7, 14] },
-      { text: 'Reserve luggage storage', cost_range: [5, 30], days_range: [1, 1] },
-      { text: 'Purchase SIM card/eSIM', cost_range: [10, 50], days_range: [1, 1] },
-      { text: 'Book photography session', cost_range: [60, 250], days_range: [1, 2] }
+      { text: 'Purchase travel insurance', cost_range: [30, 150], days_range: [1, 1], activity_type: 'admin' },
+      { text: 'Book visa assistance', cost_range: [50, 200], days_range: [7, 14], activity_type: 'admin' },
+      { text: 'Reserve luggage storage', cost_range: [5, 30], days_range: [1, 1], activity_type: 'admin' },
+      { text: 'Purchase SIM card/eSIM', cost_range: [10, 50], days_range: [1, 1], activity_type: 'admin' },
+      { text: 'Book photography session', cost_range: [60, 250], days_range: [1, 2], activity_type: 'photography' }
     ];
   }
 
@@ -1311,7 +1311,8 @@ class DataGenerator {
         planItems.push({
           text: template.text,
           cost_estimate: randomBetween(template.cost_range[0], template.cost_range[1]),
-          planning_days: randomBetween(template.days_range[0], template.days_range[1])
+          planning_days: randomBetween(template.days_range[0], template.days_range[1]),
+          activity_type: template.activity_type || null
         });
       }
 
@@ -1345,6 +1346,7 @@ class DataGenerator {
       const featuredPhoto = getRandomElement(photos);
       experiences.push({
         name: this.generateExperienceName(destination.name, experienceTypes),
+        overview: this.generateExperienceOverview(destination.name, experienceTypes),
         destination: destination._id,
         experience_type: experienceTypes,
         permissions,
@@ -1354,6 +1356,21 @@ class DataGenerator {
     }
 
     return experiences;
+  }
+
+  /**
+   * Generate experience overview text
+   */
+  generateExperienceOverview(destinationName, types) {
+    const typeStr = types.length > 0 ? types.slice(0, 2).join(' & ') : 'travel';
+    const overviews = [
+      `A curated ${typeStr} experience in ${destinationName} designed for travelers who want to make the most of their visit.`,
+      `Discover the best of ${destinationName} through this carefully crafted ${typeStr} itinerary with locally-trusted recommendations.`,
+      `This ${typeStr} experience takes you through the highlights of ${destinationName}, from iconic landmarks to hidden gems.`,
+      `An immersive ${typeStr} journey in ${destinationName} combining must-see attractions with authentic local culture.`,
+      `Plan the perfect ${typeStr} trip to ${destinationName} with this comprehensive guide covering activities, dining, and more.`
+    ];
+    return getRandomElement(overviews);
   }
 
   /**
@@ -1509,9 +1526,10 @@ class DataGenerator {
           planning_days: item.planning_days,
           text: item.text,
           url: item.url || null,
+          activity_type: item.activity_type || null,
+          location: null,
           details: {
             notes: [],
-            location: null,
             chat: [],
             photos: [],
             documents: []
@@ -1525,7 +1543,7 @@ class DataGenerator {
 
         // 40% of plan items have location data
         if (Math.random() < 0.4) {
-          planItem.details.location = this.generateLocation(destinationName);
+          planItem.location = this.generateLocation(destinationName);
         }
 
         return planItem;
@@ -1557,9 +1575,9 @@ class DataGenerator {
               text: getRandomElement(childTexts),
               url: null,
               parent: parentItem.plan_item_id,
+              location: null,
               details: {
                 notes: [],
-                location: null,
                 chat: [],
                 photos: [],
                 documents: []
@@ -1569,19 +1587,12 @@ class DataGenerator {
         });
       }
 
-      // Base permissions: owner + experience inheritance
+      // Plan permissions are standalone (no inheritance from experience per data model)
       const permissions = [
         {
           _id: user._id,
           entity: 'user',
           type: 'owner',
-          granted_at: new Date(),
-          granted_by: user._id
-        },
-        {
-          _id: experience._id,
-          entity: 'experience',
-          type: 'collaborator', // Inherit experience permissions
           granted_at: new Date(),
           granted_by: user._id
         }

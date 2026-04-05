@@ -31,8 +31,7 @@ import { getDefaultPhoto, getPhotoObjects } from "../../utilities/photo-utils";
 import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import { updateDestination } from "../../utilities/destinations-api";
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
-import { openWithAnalysis } from '../../hooks/useBienBot';
+
 
 export default function SingleDestination() {
   const { user } = useUser();
@@ -57,12 +56,9 @@ export default function SingleDestination() {
   const latestRequestIdRef = useRef(0);
   const latestInitialRequestIdRef = useRef(0);
 
-  const { enabled: hasAI } = useFeatureFlag('ai_features');
-
   // Favorite functionality state
   const [favHover, setFavHover] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
@@ -211,19 +207,6 @@ export default function SingleDestination() {
       setFavLoading(false);
     }
   }, [favLoading, destination, user, mergeDestination]);
-
-  const handleAnalyze = useCallback(async () => {
-    if (!destinationId || !destination?.name) return;
-    setAnalyzeLoading(true);
-    try {
-      await openWithAnalysis('destination', destinationId, destination.name);
-    } catch (err) {
-      showError('Could not analyze this destination. Please try again.');
-      logger.error('[SingleDestination] analyzeEntity failed', { error: err.message });
-    } finally {
-      setAnalyzeLoading(false);
-    }
-  }, [destinationId, destination?.name, showError]);
 
   // Handle delete destination
   const handleDeleteDestination = useCallback(async () => {
@@ -805,24 +788,6 @@ export default function SingleDestination() {
                   >
                     <FaShare style={{ marginRight: '8px' }} /> Share Destination
                   </Button>
-
-                  {/* Analyze with BienBot — ai_features flag required */}
-                  {user && hasAI && (
-                    <Button
-                      variant="outline"
-                      rounded
-                      fullWidth
-                      onClick={handleAnalyze}
-                      disabled={analyzeLoading}
-                      aria-busy={analyzeLoading}
-                    >
-                      {analyzeLoading ? (
-                        <span className={styles.buttonSpinner} aria-label="Analyzing..." />
-                      ) : (
-                        '✨ Analyze with BienBot'
-                      )}
-                    </Button>
-                  )}
 
                   {/* Owner Actions */}
                   {user && isOwner(user, destination) && (

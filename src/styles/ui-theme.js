@@ -1223,7 +1223,7 @@ const config = defineConfig({
             background: { _light: 'rgba(0, 0, 0, 0.5)', _dark: 'rgba(0, 0, 0, 0.7)' },
             position: 'fixed',
             inset: 0,
-            zIndex: 1050,
+            zIndex: 1500,
             backdropFilter: 'none',
             // Instant show/hide — no animations
             transition: 'none !important',
@@ -1235,7 +1235,7 @@ const config = defineConfig({
             justifyContent: 'center',
             position: 'fixed',
             inset: 0,
-            zIndex: 1050,
+            zIndex: 1500,
             padding: 0,
             width: '100%',
             maxWidth: '100%',

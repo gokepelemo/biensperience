@@ -6,12 +6,13 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { FaPencilAlt, FaTrash } from 'react-icons/fa';
+import { FaPencilAlt, FaTrash, FaRobot } from 'react-icons/fa';
 import { FadeIn } from '../../../components/design-system';
 import SplitButton from '../../../components/SplitButton/SplitButton';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { calculateGroupButtonWidth } from '../../../utilities/button-utils';
+import { useBienBotEntityAction } from '../../../hooks/useBienBotEntityAction';
 import styles from './ActionButtonsRow.module.css';
 
 export default function ActionButtonsRow({
@@ -34,6 +35,10 @@ export default function ActionButtonsRow({
   lang
 }) {
   const navigate = useNavigate();
+
+  // BienBot analyze action (ai_features flag guard)
+  const { label: bienbotLabel, loading: bienbotLoading, hasAccess: hasBienBot, handleOpen: handleBienBot } =
+    useBienBotEntityAction('destination', destinationId, destination?.name || 'Destination');
 
   // Calculate consistent button width based on all possible text states
   const buttonWidth = useMemo(() => {
@@ -112,6 +117,27 @@ export default function ActionButtonsRow({
               <FaTrash /> Delete
             </SplitButton.Item>
           </SplitButton>
+        </FadeIn>
+      )}
+
+      {/* BienBot Analyze button — shown when user has ai_features flag */}
+      {user && hasBienBot && (
+        <FadeIn>
+          <button
+            className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
+            style={{ ...buttonStyle, gap: '6px' }}
+            onClick={handleBienBot}
+            disabled={bienbotLoading}
+            aria-busy={bienbotLoading}
+            title={`${bienbotLabel} with BienBot`}
+            aria-label={`${bienbotLabel} with BienBot`}
+          >
+            {bienbotLoading ? (
+              <Loading size="sm" variant="inline" showMessage={false} />
+            ) : (
+              <><FaRobot /> {bienbotLabel}</>
+            )}
+          </button>
         </FadeIn>
       )}
     </div>

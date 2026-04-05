@@ -18,6 +18,7 @@ import { formatRestorationMessage } from "../../utilities/time-utils";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 import SuccessModal from "../SuccessModal/SuccessModal";
 import { createFilter } from "../../utilities/trie";
+import LocationAutocompleteInput from "../LocationAutocompleteInput/LocationAutocompleteInput";
 
 // Custom hooks
 import { useFormChangeHandler } from "../../hooks/useFormChangeHandler";
@@ -345,15 +346,12 @@ export default function NewExperience() {
               </Form.Group>
             </div>
 
-            <FormField
-              name="map_location"
+            <LocationAutocompleteInput
+              name="location"
               label={lang.current.label.address}
-              type="text"
-              value={newExperience.map_location || ''}
-              onChange={handleChange}
+              value={newExperience.location?.address || ''}
+              onSelect={(loc) => setNewExperience(prev => ({ ...prev, location: loc || null }))}
               placeholder={lang.current.placeholder.address}
-              tooltip={lang.current.tooltip.mapLocation}
-              tooltipPlacement="top"
             />
 
             <div className={styles.formSection}>
