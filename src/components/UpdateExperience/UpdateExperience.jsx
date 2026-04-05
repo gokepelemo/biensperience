@@ -18,6 +18,7 @@ import { formatChanges } from "../../utilities/change-formatter";
 import { Modal, Alert, Form } from '../design-system';
 import FormField from "../FormField/FormField";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
+import { getPhotoObjects } from "../../utilities/photo-utils";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 // Custom hooks
@@ -100,7 +101,10 @@ export default function UpdateExperience() {
             : experienceData.destination
         };
 
-        setExperience(normalizedExperience);
+        setExperience({
+          ...normalizedExperience,
+          photos_full: getPhotoObjects(experienceData),
+        });
         setOriginalExperience({
           ...experienceData,
           photos: (experienceData.photos || []).map(photo => 
@@ -148,11 +152,16 @@ export default function UpdateExperience() {
     // Debounce change detection to prevent flashing during rapid updates
     const timeoutId = setTimeout(() => {
       // Normalize photos by ID and ignore order
+      // Handles photoEntry schema { photo: PhotoDoc/ObjectId, default: bool }
+      // as well as plain Photo documents or bare ID strings
       const getId = (p) => {
         if (!p) return null;
         if (typeof p === 'string') return p;
-        if (p._id) return String(p._id);
-        return String(p);
+        // photoEntry wrapper: { photo: PhotoDoc, default: bool }
+        const val = ('photo' in p && 'default' in p) ? (p.photo || p) : p;
+        if (typeof val === 'string') return val;
+        if (val && val._id) return String(val._id);
+        return null;
       };
       const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
 
@@ -165,6 +174,15 @@ export default function UpdateExperience() {
       const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
       // Check if default photo changed by ID (fallback to first photo when unset)
+      // Derive default photo IDs from the photos[].default schema
+      const getDefaultId = (photosArr) => {
+        const entry = (photosArr || []).find(e => e?.default);
+        if (!entry) return null;
+        const photoVal = entry.photo || entry;
+        return getId(photoVal);
+      };
+      const originalDefaultId = getDefaultId(originalExperience.photos);
+      const currentDefaultId = getDefaultId(experience.photos);
 
       const originalDefaultRaw = originalDefaultId ? String(getId(originalDefaultId)) : null;
       const isOriginalDefaultValid = originalDefaultRaw !== null && originalPhotoIds.includes(originalDefaultRaw);

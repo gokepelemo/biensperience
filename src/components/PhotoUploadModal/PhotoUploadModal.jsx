@@ -4,6 +4,7 @@ import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import { Button, Modal } from '../design-system';
 import { lang } from '../../lang.constants';
 import { logger } from '../../utilities/logger';
+import { getPhotoObjects } from '../../utilities/photo-utils';
 
 /**
  * PhotoUploadModal - Modal for managing photo uploads on entities
@@ -71,14 +72,25 @@ export default function PhotoUploadModal({
       ? photosSource.map(p => (typeof p === 'object' ? p._id : p))
       : [];
 
-    // Determine populated photo objects for preview display
-    const photosFull = (Array.isArray(photos) && photos.length > 0 && typeof photos[0] === 'object')
-      ? photos
+    // Determine populated photo objects for preview display.
+    // Always unwrap entry-wrappers ({photo, default} schema) to flat PhotoDoc objects
+    // so PhotoUpload receives objects with a valid .url property.
+    const resolveToPhotoDocs = (arr) =>
+      (arr || []).map(p => {
+        if (!p || typeof p !== 'object') return null;
+        // Entry-wrapper shape: { photo: PhotoDoc, default: bool }
+        if ('photo' in p && 'default' in p) {
+          return (p.photo && p.photo.url) ? p.photo : null;
+        }
+        // Flat PhotoDoc shape
+        return p.url ? p : null;
+      }).filter(Boolean);
+
+    const photosFull = (Array.isArray(photos) && photos.length > 0)
+      ? resolveToPhotoDocs(photos)
       : (entity && Array.isArray(entity.photos_full) && entity.photos_full.length > 0
         ? entity.photos_full
-        : (entity && Array.isArray(entity.photos) && entity.photos.length > 0 && typeof entity.photos[0] === 'object'
-          ? entity.photos
-          : []));
+        : resolveToPhotoDocs(entity?.photos));
 
     const init = {
       // Local photos are represented both as IDs (`photos`) and populated

@@ -15,6 +15,7 @@ import { Modal, Alert, Form } from '../design-system';
 import FormField from "../FormField/FormField";
 import TravelTipsManager from "../TravelTipsManager/TravelTipsManager";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
+import { getPhotoObjects } from "../../utilities/photo-utils";
 
 // Custom hooks
 import { useChangeTrackingHandler } from "../../hooks/useFormChangeHandler";
@@ -91,7 +92,10 @@ export default function UpdateDestination() {
           return;
         }
 
-        setDestination(destinationData);
+        setDestination({
+          ...destinationData,
+          photos_full: getPhotoObjects(destinationData),
+        });
         setOriginalDestination({
           ...destinationData,
           photos: (destinationData.photos || []).map(photo => 
