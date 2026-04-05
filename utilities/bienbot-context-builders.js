@@ -15,7 +15,7 @@ const { findSimilarItems } = require('./fuzzy-match');
 const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage } = require('./hidden-signals');
 
 // Lazy-loaded models (resolved on first use)
-let Destination, Experience, Plan, User;
+let Destination, Experience, Plan, User, Activity;
 
 function loadModels() {
   if (!Destination) {
@@ -23,6 +23,7 @@ function loadModels() {
     Experience = require('../models/experience');
     Plan = require('../models/plan');
     User = require('../models/user');
+    Activity = require('../models/activity');
   }
 }
 
@@ -47,6 +48,105 @@ function trimToTokenBudget(text, tokenBudget = DEFAULT_TOKEN_BUDGET) {
   const maxChars = tokenBudget * CHARS_PER_TOKEN;
   if (text.length <= maxChars) return text;
   return text.substring(0, maxChars - 3) + '...';
+}
+
+/**
+ * Returns whole-day difference between targetDate and today.
+ * 0 = today, positive = future, negative = past/overdue, null if no date.
+ */
+function computeDaysUntil(targetDate) {
+  if (!targetDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(targetDate);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+
+/**
+ * Formats a single plan item detail into a short human-readable line.
+ * @param {string} type - 'transport'|'accommodation'|'parking'|'discount'
+ * @param {object} d - The extension data object from item.details[type]
+ */
+function formatDetailLine(type, d) {
+  if (!d) return null;
+  switch (type) {
+    case 'transport': {
+      const parts = [];
+      if (d.mode) parts.push(d.mode);
+      if (d.departureLocation || d.arrivalLocation) {
+        const route = [d.departureLocation, d.arrivalLocation].filter(Boolean).join(' → ');
+        if (route) parts.push(route);
+      }
+      if (d.departureTime) parts.push(`dep ${new Date(d.departureTime).toISOString().split('T')[0]}`);
+      if (d.trackingNumber) parts.push(`ref# ${d.trackingNumber}`);
+      return parts.length ? `🚌 Transport: ${parts.join(', ')}` : null;
+    }
+    case 'accommodation': {
+      const parts = [];
+      if (d.name) parts.push(d.name);
+      if (d.checkIn) parts.push(`in ${new Date(d.checkIn).toISOString().split('T')[0]}`);
+      if (d.checkOut) parts.push(`out ${new Date(d.checkOut).toISOString().split('T')[0]}`);
+      if (d.confirmationNumber) parts.push(`conf# ${d.confirmationNumber}`);
+      return parts.length ? `🏨 Stay: ${parts.join(', ')}` : null;
+    }
+    case 'parking': {
+      const parts = [];
+      if (d.facilityName) parts.push(d.facilityName);
+      if (d.spotNumber) parts.push(`spot ${d.spotNumber}`);
+      if (d.confirmationNumber) parts.push(`conf# ${d.confirmationNumber}`);
+      return parts.length ? `🅿️ Parking: ${parts.join(', ')}` : null;
+    }
+    case 'discount': {
+      const parts = [];
+      if (d.code) parts.push(`code: ${d.code}`);
+      if (d.discountType) parts.push(d.discountType);
+      if (d.discountValue != null) parts.push(`${d.isPercentage ? d.discountValue + '%' : d.discountValue}`);
+      return parts.length ? `🏷️ Discount: ${parts.join(', ')}` : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Groups plan items into temporal proximity buckets based on scheduled_date.
+ * Returns: { todayItems, next7Items, next30Items, proximityMin }
+ * proximityMin = closest daysUntil value among items with a date
+ */
+function buildTemporalBuckets(planItems) {
+  const todayItems = [];
+  const next7Items = [];
+  const next30Items = [];
+  let proximityMin = null;
+
+  for (const item of planItems) {
+    if (item.completed) continue;
+    const days = computeDaysUntil(item.scheduled_date);
+    if (days === null) continue;
+    if (proximityMin === null || days < proximityMin) proximityMin = days;
+    if (days === 0) todayItems.push(item);
+    else if (days > 0 && days <= 7) next7Items.push(item);
+    else if (days > 7 && days <= 30) next30Items.push(item);
+  }
+
+  return { todayItems, next7Items, next30Items, proximityMin };
+}
+
+/**
+ * Builds a compact one-line detail summary for an item for use in temporal bucket lists.
+ */
+function buildInlineDetailSummary(item) {
+  const lines = [];
+  const DETAIL_TYPES = ['transport', 'accommodation', 'parking', 'discount'];
+  for (const type of DETAIL_TYPES) {
+    const d = item.details?.[type];
+    if (d) {
+      const line = formatDetailLine(type, d);
+      if (line) lines.push(line);
+    }
+  }
+  return lines.slice(0, 2).join(' | ');
 }
 
 /**
@@ -285,6 +385,42 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       totalItems > 0 ? `Items: ${planItems.slice(0, 10).map(i => `${i.complete ? '[x]' : '[ ]'} ${i.content || i.text || i.name || '(unnamed)'}`).join(', ')}` : null
     ];
 
+    // Temporal proximity buckets: TODAY / NEXT 7 DAYS / NEXT 30 DAYS
+    try {
+      const { todayItems, next7Items, next30Items } = buildTemporalBuckets(planItems);
+      if (todayItems.length > 0) {
+        lines.push(`\n[TODAY]`);
+        for (const it of todayItems) {
+          const lbl = it.content || it.text || it.name || '(unnamed)';
+          const detail = buildInlineDetailSummary(it);
+          lines.push(`  • ${lbl}${detail ? ' — ' + detail : ''}`);
+        }
+        lines.push(`[/TODAY]`);
+      }
+      if (next7Items.length > 0) {
+        lines.push(`\n[NEXT 7 DAYS]`);
+        for (const it of next7Items) {
+          const lbl = it.content || it.text || it.name || '(unnamed)';
+          const days = computeDaysUntil(it.scheduled_date);
+          const detail = buildInlineDetailSummary(it);
+          lines.push(`  • ${lbl} (in ${days}d)${detail ? ' — ' + detail : ''}`);
+        }
+        lines.push(`[/NEXT 7 DAYS]`);
+      }
+      if (next30Items.length > 0) {
+        lines.push(`\n[NEXT 30 DAYS]`);
+        for (const it of next30Items.slice(0, 5)) {
+          const lbl = it.content || it.text || it.name || '(unnamed)';
+          const days = computeDaysUntil(it.scheduled_date);
+          lines.push(`  • ${lbl} (in ${days}d)`);
+        }
+        if (next30Items.length > 5) lines.push(`  … and ${next30Items.length - 5} more`);
+        lines.push(`[/NEXT 30 DAYS]`);
+      }
+    } catch (bucketErr) {
+      logger.debug('[bienbot-context] Temporal buckets skipped', { error: bucketErr.message });
+    }
+
     // Inject group travel signals from plan collaborators
     try {
       const memberIds = (plan.permissions || []).filter(p => p.entity === 'user').map(p => p._id);
@@ -345,6 +481,16 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
     if (!item) return null;
 
     const itemName = item.content || item.text || item.name || '(unnamed)';
+
+    // Temporal proximity
+    const daysUntil = computeDaysUntil(item.scheduled_date);
+    let proximityLine = null;
+    if (daysUntil !== null) {
+      if (daysUntil === 0) proximityLine = 'Proximity: TODAY';
+      else if (daysUntil > 0) proximityLine = `Proximity: in ${daysUntil} day${daysUntil === 1 ? '' : 's'}`;
+      else proximityLine = `Proximity: ${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue`;
+    }
+
     const lines = [
       `[Plan Item] ${itemName}`,
       `Entity: ${entityJSON(item._id.toString(), itemName, 'plan_item')}`,
@@ -352,10 +498,57 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
       plan._id ? `Plan entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}` : null,
       `Status: ${item.complete ? 'completed' : 'pending'}`,
       item.scheduled_date ? `Scheduled: ${new Date(item.scheduled_date).toISOString().split('T')[0]}` : null,
-      item.notes?.length ? `Notes: ${item.notes.length}` : null,
-      item.details?.length ? `Details: ${item.details.length}` : null,
-      item.cost_estimate ? `Cost estimate: ${item.cost_estimate}` : null
+      proximityLine,
+      item.activity_type ? `Type: ${item.activity_type}` : null,
+      item.cost ? `Item cost: ${item.cost}${plan.currency ? ' ' + plan.currency : ''}` : null
     ];
+
+    // Typed detail extensions
+    const DETAIL_TYPES = ['transport', 'accommodation', 'parking', 'discount'];
+    let hasDetail = false;
+    for (const type of DETAIL_TYPES) {
+      const d = item.details?.[type];
+      if (d) {
+        const line = formatDetailLine(type, d);
+        if (line) { lines.push(line); hasDetail = true; }
+      }
+    }
+    if (!hasDetail && item.details?.notes?.length) {
+      lines.push(`Notes: ${item.details.notes.length} attached`);
+    }
+    if (item.details?.documents?.length) {
+      lines.push(`Documents: ${item.details.documents.length} attached`);
+    }
+
+    // Associated costs from plan.costs linked to this item
+    try {
+      const linkedCosts = (plan.costs || []).filter(c => c.plan_item && String(c.plan_item) === itemIdStr);
+      if (linkedCosts.length > 0) {
+        const total = linkedCosts.reduce((s, c) => s + (c.cost || 0), 0);
+        lines.push(`Tracked costs: ${linkedCosts.length} (total ${total}${plan.currency ? ' ' + plan.currency : ''})`);
+        for (const c of linkedCosts.slice(0, 3)) {
+          lines.push(`  • ${c.title}: ${c.cost}${c.currency ? ' ' + c.currency : ''}`);
+        }
+      }
+    } catch (costErr) {
+      logger.debug('[bienbot-context] Plan item cost injection skipped', { error: costErr.message });
+    }
+
+    // Hidden signals for the user viewing this item
+    try {
+      const userDoc = await User.findById(userId).select('hidden_signals').lean();
+      if (userDoc?.hidden_signals) {
+        const decayed = applySignalDecay(userDoc.hidden_signals);
+        const signalText = signalsToNaturalLanguage(decayed, { role: 'traveler', count: 1 });
+        if (signalText) {
+          lines.push(`[TRAVEL SIGNALS]`);
+          lines.push(signalText);
+          lines.push(`[/TRAVEL SIGNALS]`);
+        }
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Plan item signal injection skipped', { error: sigErr.message });
+    }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
@@ -391,6 +584,117 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildUserProfileContext failed', { targetUserId, error: err.message });
+    return null;
+  }
+}
+
+/**
+ * Build a greeting/overview context for a user — used when BienBot is opened
+ * from a non-entity page (e.g. FAB on dashboard or profile).
+ * Includes: active plans with temporal proximity, recent activity summary,
+ * hidden travel signals, and upcoming items.
+ */
+async function buildUserGreetingContext(userId, options = {}) {
+  loadModels();
+  const { valid: userIdValid, objectId: userOid } = validateObjectId(userId, 'userId');
+  if (!userIdValid) return null;
+
+  try {
+    const { Types } = require('mongoose');
+
+    // Fetch user profile and signals in parallel with active plans and recent activity
+    const [userDoc, plans, recentActivities] = await Promise.all([
+      User.findById(userOid).select('name hidden_signals preferences').lean(),
+      Plan.find({ 'permissions': { $elemMatch: { _id: new Types.ObjectId(userId), entity: 'user' } } })
+        .populate('experience', 'name')
+        .select('experience planned_date plan permissions')
+        .sort({ planned_date: 1 })
+        .limit(10)
+        .lean(),
+      Activity.find({ user: new Types.ObjectId(userId) })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .select('entity_type entity_id action createdAt')
+        .lean()
+    ]);
+
+    if (!userDoc) return null;
+
+    const lines = [
+      `[User Greeting] Hello, ${userDoc.name || 'traveler'}`,
+      `Entity: ${entityJSON(userId, userDoc.name || 'traveler', 'user')}`
+    ];
+
+    // Active plans with temporal context
+    if (plans.length > 0) {
+      lines.push(`\nActive plans (${plans.length}):`);
+      for (const plan of plans.slice(0, 5)) {
+        const expName = plan.experience?.name || '(unknown)';
+        const planId = plan._id.toString();
+        const planItems = plan.plan || [];
+        const totalItems = planItems.length;
+        const completedItems = planItems.filter(i => i.complete).length;
+        const daysUntil = plan.planned_date ? computeDaysUntil(plan.planned_date) : null;
+        let proximityTag = '';
+        if (daysUntil !== null) {
+          if (daysUntil === 0) proximityTag = ' [TODAY]';
+          else if (daysUntil > 0 && daysUntil <= 7) proximityTag = ` [in ${daysUntil}d]`;
+          else if (daysUntil > 7 && daysUntil <= 30) proximityTag = ` [in ${daysUntil}d]`;
+          else if (daysUntil < 0) proximityTag = ` [${Math.abs(daysUntil)}d ago]`;
+        }
+        lines.push(`  • ${expName}${proximityTag} — ${completedItems}/${totalItems} items — ${entityJSON(planId, expName, 'plan')}`);
+
+        // Surface today/imminent items from this plan
+        const { todayItems, next7Items } = buildTemporalBuckets(planItems);
+        for (const it of todayItems.slice(0, 2)) {
+          const lbl = it.content || it.text || it.name || '(unnamed)';
+          lines.push(`    ↳ TODAY: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
+        }
+        for (const it of next7Items.slice(0, 2)) {
+          const lbl = it.content || it.text || it.name || '(unnamed)';
+          const days = computeDaysUntil(it.scheduled_date);
+          lines.push(`    ↳ in ${days}d: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
+        }
+      }
+      if (plans.length > 5) lines.push(`  … and ${plans.length - 5} more plans`);
+    } else {
+      lines.push(`\nNo active plans yet.`);
+    }
+
+    // Recent activity summary (last 48h)
+    if (recentActivities.length > 0) {
+      const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+      const recent48h = recentActivities.filter(a => new Date(a.createdAt).getTime() > cutoff);
+      if (recent48h.length > 0) {
+        const actionCounts = {};
+        for (const a of recent48h) {
+          actionCounts[a.action] = (actionCounts[a.action] || 0) + 1;
+        }
+        const summary = Object.entries(actionCounts)
+          .map(([action, count]) => `${action}(${count})`)
+          .join(', ');
+        lines.push(`\nRecent activity (48h): ${summary}`);
+      }
+    }
+
+    // Hidden travel signals
+    try {
+      if (userDoc.hidden_signals) {
+        const decayed = applySignalDecay(userDoc.hidden_signals);
+        const signalText = signalsToNaturalLanguage(decayed, { role: 'traveler', count: 1 });
+        if (signalText) {
+          lines.push(`\n[TRAVEL SIGNALS]`);
+          lines.push(signalText);
+          lines.push(`[/TRAVEL SIGNALS]`);
+        }
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Greeting signal injection skipped', { error: sigErr.message });
+    }
+
+    return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
+  } catch (err) {
+    logger.error('[bienbot-context] buildUserGreetingContext failed', { userId, error: err.message });
     return null;
   }
 }
@@ -694,13 +998,23 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
     case 'plan':
       return buildUserPlanContext(id, userId, options);
     case 'plan_item': {
-      // For plan_item, we need the parent plan ID from the session context.
-      // The caller should provide options.planId.
-      if (!options.planId) {
-        logger.warn('[bienbot-context] plan_item context requires options.planId');
+      // Prefer caller-supplied planId; otherwise auto-resolve from DB.
+      if (options.planId) {
+        return buildPlanItemContext(options.planId, id, userId, options);
+      }
+      try {
+        loadModels();
+        const { Types } = require('mongoose');
+        const parentPlan = await Plan.findOne({ 'plan._id': new Types.ObjectId(id) }).select('_id').lean();
+        if (!parentPlan) {
+          logger.warn('[bienbot-context] plan_item auto-resolve: parent plan not found', { itemId: id });
+          return null;
+        }
+        return buildPlanItemContext(parentPlan._id.toString(), id, userId, options);
+      } catch (resolveErr) {
+        logger.warn('[bienbot-context] plan_item auto-resolve failed', { itemId: id, error: resolveErr.message });
         return null;
       }
-      return buildPlanItemContext(options.planId, id, userId, options);
     }
     case 'user':
       return buildUserProfileContext(id, userId, options);
@@ -1506,6 +1820,7 @@ module.exports = {
   buildUserPlanContext,
   buildPlanItemContext,
   buildUserProfileContext,
+  buildUserGreetingContext,
   buildSearchContext,
   buildSuggestionContext,
   buildContextForInvokeContext,
