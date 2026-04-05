@@ -63,7 +63,7 @@ import { storePreference, retrievePreference } from "../../utilities/preferences
 import { formatCurrency } from "../../utilities/currency-utils";
 import { isOwner, canEditPlan } from "../../utilities/permissions";
 import { hasFeatureFlag } from "../../utilities/feature-flags";
-import { openWithPrefilledMessage } from "../../hooks/useBienBot";
+import { openWithPrefilledMessage, openWithAnalysis } from "../../hooks/useBienBot";
 import { isArchiveUser, isExperienceArchived, getDisplayName as getSystemUserDisplayName } from "../../utilities/system-users";
 import useOptimisticAction from "../../hooks/useOptimisticAction";
 import usePlanManagement from "../../hooks/usePlanManagement";
@@ -249,6 +249,7 @@ export default function SingleExperience() {
   const [detailsModalInitialTab, setDetailsModalInitialTab] = useState('notes');
   const [inlineCostPlanItem, setInlineCostPlanItem] = useState(null);
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [requestAccessPlanId, setRequestAccessPlanId] = useState(null);
   const [accessDeniedPlanId, setAccessDeniedPlanId] = useState(null);
@@ -293,17 +294,14 @@ export default function SingleExperience() {
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
 
-  // Memoized hero photos array (normalize to objects with url)
+  // Memoized hero photos array (unwrap {photo, default} entry wrappers to PhotoDoc objects with .url)
   const heroPhotos = useMemo(() => {
-    const photosSource = (experience && experience.photos && experience.photos.length > 0)
-      ? experience.photos
-      : (experience && experience.destination && experience.destination.photos && experience.destination.photos.length > 0)
-        ? experience.destination.photos
-        : [];
-
-    if (!photosSource || photosSource.length === 0) return [];
-
-    return photosSource.map((p) => (typeof p === 'string' ? { url: p } : p));
+    const source = (experience?.photos?.length > 0)
+      ? experience
+      : (experience?.destination?.photos?.length > 0)
+        ? experience.destination
+        : null;
+    return source ? getPhotoObjects(source) : [];
   }, [experience]);
 
   // Ref to track if component is unmounting to prevent navigation interference
@@ -2826,6 +2824,19 @@ export default function SingleExperience() {
     [experience, fetchExperiences, fetchAllData, undoable, showError]
   );
 
+  const handleAnalyzeExperience = useCallback(async () => {
+    if (!experienceId || !experience?.name) return;
+    setAnalyzeLoading(true);
+    try {
+      await openWithAnalysis('experience', experienceId, experience.name);
+    } catch (err) {
+      showError('Could not analyze this experience. Please try again.');
+      logger.error('[SingleExperience] analyzeEntity failed', { error: err.message });
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  }, [experienceId, experience?.name, showError]);
+
   const handlePlanItemToggleComplete = useCallback(
     async (planItem, { skipChildCheck = false } = {}) => {
       if (!selectedPlanId || !planItem) return;
@@ -2925,6 +2936,13 @@ export default function SingleExperience() {
         if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
           setUserPlan((prev) => updateItemComplete(prev, itemId, prevComplete));
         }
+
+        // Rollback the modal's selectedDetailsItem if it's the same item
+        setSelectedDetailsItem((prev) =>
+          prev && (idEquals(prev._id, itemId) || idEquals(prev.plan_item_id, itemId))
+            ? { ...prev, complete: prevComplete }
+            : prev
+        );
       };
 
       const onError = (err, defaultMsg) => {
@@ -2957,7 +2975,8 @@ export default function SingleExperience() {
       setUserPlan,
       showError,
       beginUserInteraction,
-      endUserInteraction
+      endUserInteraction,
+      setSelectedDetailsItem
     ]
   );
 
@@ -3678,6 +3697,19 @@ export default function SingleExperience() {
                           activeTab={activeTab}
                           onShare={handleShareExperience}
                         />
+                        {/* Analyze with BienBot — ai_features flag required */}
+                        {user && hasFeatureFlag(user, 'ai_features') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            fullWidth
+                            onClick={handleAnalyzeExperience}
+                            disabled={analyzeLoading}
+                            aria-busy={analyzeLoading}
+                          >
+                            {analyzeLoading ? 'Analyzing...' : '✨ Analyze with BienBot'}
+                          </Button>
+                        )}
                       </Flex>
                   </Box>
                 </Box>
@@ -4114,11 +4146,11 @@ export default function SingleExperience() {
         onToggleComplete={async (planItem) => {
           if (!selectedPlan || !planItem) return;
 
-          // Call the existing toggle handler
-          await handlePlanItemToggleComplete(planItem);
-
-          // Update the selectedDetailsItem to reflect new completion state
+          // Optimistically update the modal button state immediately
           setSelectedDetailsItem(prev => prev ? { ...prev, complete: !prev.complete } : prev);
+
+          // Call the existing toggle handler (handles API call + rollback for plan state)
+          await handlePlanItemToggleComplete(planItem);
         }}
         availableEntities={availableEntities}
         entityData={entityData}
