@@ -33,10 +33,16 @@ const ALLOWED_ACTION_TYPES = [
   'create_plan',
   'add_plan_items',
   'update_plan_item',
+  'mark_plan_item_complete',
+  'mark_plan_item_incomplete',
   'invite_collaborator',
   'sync_plan',
   'add_plan_item_note',
+  'update_plan_item_note',
+  'delete_plan_item_note',
   'add_plan_item_detail',
+  'update_plan_item_detail',
+  'delete_plan_item_detail',
   'assign_plan_item',
   'unassign_plan_item',
   // Experience-level
@@ -445,6 +451,38 @@ async function executeSyncPlan(payload, user) {
 // ---------------------------------------------------------------------------
 
 /**
+ * mark_plan_item_complete
+ * payload: { plan_id, item_id }
+ */
+async function executeMarkPlanItemComplete(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { complete: true },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * mark_plan_item_incomplete
+ * payload: { plan_id, item_id }
+ */
+async function executeMarkPlanItemIncomplete(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { complete: false },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItem(req, res);
+  return getResult();
+}
+
+/**
  * add_plan_item_note
  * payload: { plan_id, item_id, content, visibility? }
  */
@@ -479,6 +517,73 @@ async function executeAddPlanItemDetail(payload, user) {
   );
   const { res, getResult } = buildMockRes();
   await plansController.addPlanItemDetail(req, res);
+  return getResult();
+}
+
+/**
+ * update_plan_item_note
+ * payload: { plan_id, item_id, note_id, content, visibility? }
+ */
+async function executeUpdatePlanItemNote(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {
+      content: payload.content,
+      ...(payload.visibility && { visibility: payload.visibility })
+    },
+    { id: payload.plan_id, itemId: payload.item_id, noteId: payload.note_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItemNote(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan_item_note
+ * payload: { plan_id, item_id, note_id }
+ */
+async function executeDeletePlanItemNote(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { id: payload.plan_id, itemId: payload.item_id, noteId: payload.note_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.deletePlanItemNote(req, res);
+  return getResult();
+}
+
+/**
+ * update_plan_item_detail
+ * payload: { plan_id, item_id, detail_id?, detail_type, data }
+ */
+async function executeUpdatePlanItemDetail(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { type: payload.detail_type, data: payload.data || {} },
+    { id: payload.plan_id, itemId: payload.item_id, detailId: payload.detail_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItemDetail(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan_item_detail
+ * payload: { plan_id, item_id, detail_id?, detail_type }
+ */
+async function executeDeletePlanItemDetail(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { type: payload.detail_type },
+    { id: payload.plan_id, itemId: payload.item_id, detailId: payload.detail_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.deletePlanItemDetail(req, res);
   return getResult();
 }
 
@@ -525,7 +630,7 @@ async function executeUnassignPlanItem(payload, user) {
 async function executeUpdateExperience(payload, user) {
   loadControllers();
   const body = {};
-  const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'map_location'];
+  const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'location'];
   for (const field of updateFields) {
     if (payload[field] !== undefined) {
       body[field] = payload[field];
@@ -1150,10 +1255,16 @@ const ACTION_HANDLERS = {
   create_plan: executeCreatePlan,
   add_plan_items: executeAddPlanItems,
   update_plan_item: executeUpdatePlanItem,
+  mark_plan_item_complete: executeMarkPlanItemComplete,
+  mark_plan_item_incomplete: executeMarkPlanItemIncomplete,
   invite_collaborator: executeInviteCollaborator,
   sync_plan: executeSyncPlan,
   add_plan_item_note: executeAddPlanItemNote,
+  update_plan_item_note: executeUpdatePlanItemNote,
+  delete_plan_item_note: executeDeletePlanItemNote,
   add_plan_item_detail: executeAddPlanItemDetail,
+  update_plan_item_detail: executeUpdatePlanItemDetail,
+  delete_plan_item_detail: executeDeletePlanItemDetail,
   assign_plan_item: executeAssignPlanItem,
   unassign_plan_item: executeUnassignPlanItem,
   // Experience-level

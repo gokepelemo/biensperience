@@ -490,6 +490,86 @@
       ]
     },
     {
+      "intent": "UPDATE_PLAN_ITEM_NOTE",
+      "utterances": [
+        "Edit my note on this",
+        "Update my note",
+        "Change the note to",
+        "Edit the note I added",
+        "Update this note",
+        "Rewrite my note",
+        "Modify my note",
+        "Fix my note",
+        "Correct the note",
+        "Change what I wrote in the note",
+        "Edit the existing note",
+        "Update the note content",
+        "Revise my note",
+        "Make a change to my note",
+        "I want to edit my note"
+      ]
+    },
+    {
+      "intent": "DELETE_PLAN_ITEM_NOTE",
+      "utterances": [
+        "Delete my note",
+        "Remove that note",
+        "Clear this note",
+        "Get rid of the note",
+        "Delete the note I added",
+        "Remove my note from this item",
+        "Discard this note",
+        "Erase my note",
+        "I don't need this note anymore",
+        "Remove the note on this activity",
+        "Delete the note",
+        "Wipe this note",
+        "Take away my note",
+        "Remove this comment",
+        "Delete that comment"
+      ]
+    },
+    {
+      "intent": "UPDATE_PLAN_ITEM_DETAIL",
+      "utterances": [
+        "Update the flight details",
+        "Change the transport info",
+        "Edit the accommodation details",
+        "Update my hotel booking",
+        "Change the flight information",
+        "Modify the transport details",
+        "Update the parking info",
+        "Edit the parking details",
+        "Change the accommodation booking",
+        "Update my booking reference",
+        "Edit the flight booking",
+        "Change the transport booking",
+        "Revise the accommodation details",
+        "Update the reservation details",
+        "Change the booking information"
+      ]
+    },
+    {
+      "intent": "DELETE_PLAN_ITEM_DETAIL",
+      "utterances": [
+        "Remove the flight details",
+        "Delete the transport info",
+        "Clear the accommodation details",
+        "Remove the parking info",
+        "Delete the flight information",
+        "Remove transport details",
+        "Clear the booking details",
+        "Delete the hotel details",
+        "Remove accommodation info",
+        "Get rid of the flight details",
+        "Erase the transport details",
+        "Clear out the parking details",
+        "Delete this detail",
+        "Remove this booking info",
+        "Wipe the reservation details"
+      ]
+    },
+    {
       "intent": "ASSIGN_PLAN_ITEM",
       "utterances": [
         "Assign this to John",
@@ -1084,6 +1164,86 @@
         "Recommend destinations for solo travelers",
         "Where can I find adventure experiences",
         "Top destinations for food and culture"
+      ]
+    },
+    {
+      "intent": "QUERY_UPCOMING",
+      "utterances": [
+        "What do I have coming up",
+        "What's coming up soon",
+        "What do I have planned this week",
+        "Show me my upcoming plans",
+        "What's scheduled soon",
+        "What's happening in the next few days",
+        "What plans are coming up",
+        "What do I have next",
+        "What's around the corner",
+        "Any plans coming up soon",
+        "What do I have lined up",
+        "Show me what's ahead",
+        "What trips are coming up",
+        "Give me a rundown of upcoming plans",
+        "What's on my schedule soon"
+      ]
+    },
+    {
+      "intent": "QUERY_TODAY",
+      "utterances": [
+        "What's on for today",
+        "What do I need to do today",
+        "Show me today's plan",
+        "What's happening today",
+        "What's scheduled for today",
+        "What are my plans for today",
+        "What do I have today",
+        "Give me a briefing for today",
+        "Today's agenda",
+        "What's on my agenda today",
+        "Am I doing anything today",
+        "What activities are today",
+        "What's on the schedule today",
+        "Walk me through today",
+        "What should I be doing today"
+      ]
+    },
+    {
+      "intent": "DISCUSS_PLAN_ITEM",
+      "utterances": [
+        "Tell me about this activity",
+        "What do I need for this",
+        "Give me details on this item",
+        "What's involved in this",
+        "Explain this plan item",
+        "What should I know about this activity",
+        "Walk me through this",
+        "Give me a rundown of this",
+        "What are the details for this",
+        "Tell me more about this",
+        "What do I need to prepare for this",
+        "Describe this activity",
+        "What info do I have on this",
+        "What details are saved for this",
+        "Help me understand this plan item"
+      ]
+    },
+    {
+      "intent": "QUERY_RECENT_ACTIVITY",
+      "utterances": [
+        "What have I done recently",
+        "Show me recent changes",
+        "What's new with my plans",
+        "What happened recently",
+        "What did I update lately",
+        "What changes were made recently",
+        "Show me recent activity",
+        "What was recently completed",
+        "What did I do last",
+        "Any recent updates to my plans",
+        "What's changed in my plans recently",
+        "Give me a recent activity summary",
+        "What plan items were completed recently",
+        "What was last updated",
+        "Show me what changed"
       ]
     }
   ]
