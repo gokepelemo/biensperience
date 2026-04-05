@@ -20,6 +20,7 @@ const {
   buildExperienceContext,
   buildUserPlanContext,
   buildPlanItemContext,
+  buildUserGreetingContext,
   buildSearchContext,
   buildSuggestionContext,
   buildDiscoveryContext,
@@ -3398,24 +3399,101 @@ exports.applyTips = async (req, res) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Map of entity type to { load, permCheck } helpers.
+ * Map of entity type to { load } helpers.
  * Used by the analyze endpoint to resolve entities and check view permission.
  */
 const ANALYZE_ENTITY_MAP = {
-  destination:  { load: (id) => { loadModels(); return Destination.findById(id); } },
-  experience:   { load: (id) => { loadModels(); return Experience.findById(id).populate('destination', 'name country'); } },
-  plan:         { load: (id) => { loadModels(); return Plan.findById(id).populate('experience', 'name'); } }
+  destination: { load: (id) => { loadModels(); return Destination.findById(id); } },
+  experience:  { load: (id) => { loadModels(); return Experience.findById(id).populate('destination', 'name country'); } },
+  plan:        { load: (id) => { loadModels(); return Plan.findById(id).populate('experience', 'name'); } },
+  plan_item: {
+    custom: true,
+    load: async (id) => {
+      loadModels();
+      const { Types } = require('mongoose');
+      const plan = await Plan.findOne({ 'plan._id': new Types.ObjectId(id) })
+        .populate('experience', 'name')
+        .lean();
+      return plan || null;
+    }
+  },
+  user: {
+    custom: true,
+    load: (id) => { loadModels(); return User.findById(id).lean(); }
+  }
 };
 
 /**
- * Build the system prompt for proactive plan analysis.
- * The LLM must return a JSON array only — no prose.
- *
+ * Resolve the analysis mode from daysUntil proximity value.
+ * @param {number|null} daysUntil
+ * @param {string} entity - entity type ('user' gets 'greeting')
  * @returns {string}
  */
-function buildAnalyzeSystemPrompt() {
+function resolveModeFromDaysUntil(daysUntil, entity) {
+  if (entity === 'user') return 'greeting';
+  if (daysUntil === null) return 'standard';
+  if (daysUntil < 0) return 'overdue';
+  if (daysUntil === 0) return 'today_brief';
+  if (daysUntil <= 7) return 'imminent';
+  if (daysUntil <= 30) return 'preparation';
+  return 'planning';
+}
+
+/**
+ * Build a proximity-aware system prompt for proactive plan analysis.
+ * The LLM must return a JSON array only — no prose.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.mode] - 'overdue'|'today_brief'|'imminent'|'preparation'|'planning'|'greeting'|'standard'
+ * @param {number|null} [opts.daysUntil] - days until planned date (null if no date)
+ * @param {string} [opts.currentDate] - ISO date string (YYYY-MM-DD)
+ * @returns {string}
+ */
+function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, currentDate = null } = {}) {
+  const today = currentDate || new Date().toISOString().split('T')[0];
+
+  const modeInstructions = {
+    overdue: [
+      `The plan is OVERDUE (${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} past the planned date).`,
+      'Focus on: what remains incomplete, whether to reschedule, and any costs that may have been lost.',
+      'Tone: calm and helpful — not alarming.'
+    ].join(' '),
+    today_brief: [
+      'The plan is TODAY. Keep it very brief (2-3 suggestions max).',
+      'Focus only on: any last-minute items that are still incomplete, key confirmation numbers or logistics.',
+      'Do not suggest long-term planning improvements today.'
+    ].join(' '),
+    imminent: [
+      `The plan is in ${daysUntil} day${daysUntil === 1 ? '' : 's'} — imminent.`,
+      'Focus on: final checklist items, missing logistics (transport, accommodation), unconfirmed bookings.',
+      'Keep suggestions concrete and actionable today.'
+    ].join(' '),
+    preparation: [
+      `The plan is ${daysUntil} days away — in the preparation window.`,
+      'Focus on: incomplete items, budget gaps, any missing transport or accommodation details.',
+      'Suggestions should help the user be fully prepared well in advance.'
+    ].join(' '),
+    planning: [
+      `The plan is ${daysUntil} days away — ample time to plan.`,
+      'Focus on: overall completeness, missing details, potential improvements, budget awareness.',
+      'Suggestions can include forward-looking recommendations.'
+    ].join(' '),
+    greeting: [
+      'The user opened BienBot without a specific entity — greet them and give a high-level overview.',
+      'Focus on: upcoming plans, recently active items, any plans that are overdue or need attention.',
+      'Tone: warm and encouraging. Suggest next actions.'
+    ].join(' '),
+    standard: [
+      'Analyze the entity data and provide balanced, actionable suggestions.',
+      'Consider completeness, missing details, and potential improvements.'
+    ].join(' ')
+  };
+
   return [
     'You are BienBot, a proactive travel planning assistant for the Biensperience platform.',
+    `Today is ${today}.`,
+    '',
+    modeInstructions[mode] || modeInstructions.standard,
     '',
     'Analyze the entity data provided and return concise, actionable suggestions.',
     '',
@@ -3445,7 +3523,7 @@ function buildAnalyzeSystemPrompt() {
  * Stateless proactive analysis of an entity. Returns a list of suggestions
  * without creating or modifying any BienBot session.
  *
- * Request body: { entity: 'plan'|'experience'|'destination', entityId: <ObjectId> }
+ * Request body: { entity: 'plan'|'experience'|'destination'|'plan_item'|'user', entityId: <ObjectId> }
  *
  * Response: { suggestions: [{ type: 'warning'|'tip'|'info', message: string }] }
  */
@@ -3488,10 +3566,46 @@ exports.analyze = async (req, res) => {
 
   loadModels();
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
-  const permCheck = await enforcer.canView({ userId: req.user._id, resource });
-  if (!permCheck.allowed) {
-    return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+
+  // Permission checking varies by entity type
+  if (entity === 'user') {
+    // Users can only analyze their own profile via this endpoint
+    if (String(resource._id) !== String(req.user._id)) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
+  } else if (entity === 'plan_item') {
+    // resource is the parent plan — check canView on the plan
+    const permCheck = await enforcer.canView({ userId: req.user._id, resource });
+    if (!permCheck.allowed) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
+  } else {
+    const permCheck = await enforcer.canView({ userId: req.user._id, resource });
+    if (!permCheck.allowed) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
   }
+
+  // --- Compute temporal proximity for mode resolution ---
+  let daysUntil = null;
+  if (entity === 'plan' && resource.planned_date) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(resource.planned_date); target.setHours(0, 0, 0, 0);
+    daysUntil = Math.round((target - today) / 86400000);
+  } else if (entity === 'plan_item') {
+    // resource is the parent plan; find the item to get scheduled_date
+    const itemIdStr = validatedId.toString();
+    const planItems = resource.plan || [];
+    const item = planItems.find(i => String(i._id) === itemIdStr);
+    if (item?.scheduled_date) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const target = new Date(item.scheduled_date); target.setHours(0, 0, 0, 0);
+      daysUntil = Math.round((target - today) / 86400000);
+    }
+  }
+
+  const mode = resolveModeFromDaysUntil(daysUntil, entity);
+  const currentDate = new Date().toISOString().split('T')[0];
 
   // --- Build context block ---
   let contextBlock = null;
@@ -3505,6 +3619,13 @@ exports.analyze = async (req, res) => {
         break;
       case 'plan':
         contextBlock = await buildUserPlanContext(validatedId, userId);
+        break;
+      case 'plan_item':
+        // resource is parent plan; pass planId + itemId
+        contextBlock = await buildPlanItemContext(resource._id.toString(), validatedId, userId);
+        break;
+      case 'user':
+        contextBlock = await buildUserGreetingContext(validatedId, userId);
         break;
     }
   } catch (err) {
@@ -3527,7 +3648,7 @@ exports.analyze = async (req, res) => {
   let llmResult;
   try {
     llmResult = await callProvider(provider, [
-      { role: 'system', content: buildAnalyzeSystemPrompt() },
+      { role: 'system', content: buildAnalyzeSystemPrompt({ mode, daysUntil, currentDate }) },
       { role: 'user', content: contextBlock }
     ], {
       temperature: 0.4,
@@ -3568,6 +3689,7 @@ exports.analyze = async (req, res) => {
     userId,
     entity,
     entityId,
+    mode,
     suggestionCount: suggestions.length
   });
 

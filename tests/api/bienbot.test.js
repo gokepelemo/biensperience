@@ -1004,7 +1004,7 @@ describe('BienBot API', () => {
       const res = await request(app)
         .post('/api/bienbot/analyze')
         .set('Authorization', authToken)
-        .send({ entity: 'user', entityId: user._id.toString() });
+        .send({ entity: 'unknown_entity', entityId: user._id.toString() });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toMatch(/unsupported entity type/i);
