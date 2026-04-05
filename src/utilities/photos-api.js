@@ -65,7 +65,9 @@ export async function uploadPhoto(request, options = {}) {
         // Emit entity event (handles local + cross-tab dispatch)
         try {
             if (result) {
-                broadcastEvent('photo:created', { photo: result, photoId: result._id });
+                const ownerPermission = result?.permissions?.find(p => p.entity === 'user' && p.type === 'owner');
+                const userId = ownerPermission?._id;
+                broadcastEvent('photo:created', { photo: result, photoId: result._id, userId });
                 logger.debug('[photos-api] Photo created event dispatched', { id: result._id });
             }
         } catch (e) {
@@ -133,7 +135,9 @@ export async function uploadPhotoUrl(data) {
     // Standardized payload: { entity, entityId } for created events
     try {
         if (result) {
-            broadcastEvent('photo:created', { photo: result, photoId: result._id });
+            const ownerPermission = result?.permissions?.find(p => p.entity === 'user' && p.type === 'owner');
+            const userId = ownerPermission?._id;
+            broadcastEvent('photo:created', { photo: result, photoId: result._id, userId });
             logger.debug('[photos-api] Photo URL created event dispatched', { id: result._id });
         }
     } catch (e) {
