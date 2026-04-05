@@ -19,6 +19,7 @@ import { useUser } from '../../contexts/UserContext';
 import { isSuperAdmin } from '../../utilities/permissions';
 import useRouteContext from '../../hooks/useRouteContext';
 import { subscribeToEvent } from '../../utilities/event-bus';
+import { openWithAnalysis } from '../../hooks/useBienBot';
 import { logger } from '../../utilities/logger';
 import styles from './BienBotTrigger.module.css';
 
@@ -54,6 +55,7 @@ export default function BienBotTrigger({
   const [initialMessage, setInitialMessage] = useState(null);
   const [initialSessionId, setInitialSessionId] = useState(null);
   const [analysisSuggestions, setAnalysisSuggestions] = useState(null);
+  const [greetingLoading, setGreetingLoading] = useState(false);
 
   const isAdmin = user && isSuperAdmin(user);
   const hasChatAccess = hasAI || isAdmin;
@@ -92,12 +94,27 @@ export default function BienBotTrigger({
     return unsub;
   }, [hasChatAccess]);
 
-  const handleOpen = useCallback(() => {
+  const handleOpen = useCallback(async () => {
     const ctx = invokeContext || {};
     logger.debug('[BienBotTrigger] Opening panel', { entity: ctx.entity, entityId: ctx.id, currentView, hasChatAccess });
+    if (!isEntityView && hasChatAccess && user?._id) {
+      // Non-entity view: trigger greeting analysis so BienBot opens with context
+      setGreetingLoading(true);
+      try {
+        await openWithAnalysis('user', user._id.toString(), 'your travel plans');
+      } catch (err) {
+        logger.error('[BienBotTrigger] Greeting analysis failed', { error: err.message });
+        // Fall back to plain open on error
+        setPanelMounted(true);
+        setPanelOpen(true);
+      } finally {
+        setGreetingLoading(false);
+      }
+      return;
+    }
     setPanelMounted(true);
     setPanelOpen(true);
-  }, [invokeContext, currentView, hasChatAccess]);
+  }, [invokeContext, currentView, hasChatAccess, isEntityView, user?._id]);
 
   const handleClose = useCallback(() => {
     setPanelOpen(false);
@@ -132,6 +149,8 @@ export default function BienBotTrigger({
           type="button"
           className={`${styles.fab} ${!hasChatAccess ? styles.fabNotification : ''}`}
           onClick={handleOpen}
+          disabled={greetingLoading}
+          aria-busy={greetingLoading}
           aria-label={ariaLabel}
         >
           <span className={styles.fabIcon} aria-hidden="true">
