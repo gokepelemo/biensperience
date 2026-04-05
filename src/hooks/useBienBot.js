@@ -14,7 +14,8 @@ import {
   updateActionStatus as updateActionStatusAPI,
   getWorkflowState as getWorkflowStateAPI,
   addSessionCollaborator as addCollaboratorAPI,
-  removeSessionCollaborator as removeCollaboratorAPI
+  removeSessionCollaborator as removeCollaboratorAPI,
+  analyzeEntity,
 } from '../utilities/bienbot-api';
 import { eventBus, broadcastEvent } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
@@ -40,6 +41,25 @@ export function openWithPrefilledMessage(text) {
  */
 export function openWithSession(sessionId) {
   broadcastEvent('bienbot:open', { bienbotSessionId: sessionId });
+}
+
+/**
+ * Call the stateless analyze endpoint and open BienBot with the results
+ * displayed as a synthetic assistant message.
+ *
+ * @param {string} entity - 'experience' | 'destination' | 'plan'
+ * @param {string} entityId - MongoDB ObjectId string
+ * @param {string} entityLabel - Human-readable entity name for the message header
+ */
+export async function openWithAnalysis(entity, entityId, entityLabel) {
+  const result = await analyzeEntity(entity, entityId);
+  broadcastEvent('bienbot:open', {
+    analysisSuggestions: {
+      entity,
+      entityLabel,
+      suggestions: result.suggestions,
+    },
+  });
 }
 
 /**
