@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from '../design-system';
-import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight, FaRobot } from 'react-icons/fa';
 import {
   Chat,
   Channel,
@@ -45,6 +45,7 @@ import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import CollaboratorDetailsSection from './CollaboratorDetailsSection';
+import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
 
 export default function PlanItemDetailsModal({
   show,
@@ -915,6 +916,10 @@ export default function PlanItemDetailsModal({
     return Object.values(groupedDetails).reduce((sum, group) => sum + group.items.length, 0);
   }, [groupedDetails]);
 
+  // BienBot Discuss action (ai_features flag guard)
+  const { label: bienbotLabel, loading: bienbotLoading, hasAccess: hasBienBot, handleOpen: handleBienBot } =
+    useBienBotEntityAction('plan_item', planItemIdStr, planItem?.content || 'Plan Item');
+
   /**
    * Export details to PDF
    * Uses browser print functionality with a styled print view
@@ -1531,7 +1536,7 @@ export default function PlanItemDetailsModal({
             )}
 
             {/* Action buttons: Add and Share - stacked vertically */}
-            {(canEdit && (onAddCostForItem || onAddDetail)) || onShare ? (
+            {(canEdit && (onAddCostForItem || onAddDetail)) || onShare || hasBienBot ? (
               <div className={styles.actionButtonsStack}>
                 {/* + Add Button with Dropdown - add costs, transport details, etc. */}
                 {canEdit && (onAddCostForItem || onAddDetail) && (
@@ -1602,6 +1607,22 @@ export default function PlanItemDetailsModal({
                       fullWidth
                     >
                       {lang.current.planItemDetailsModal.share}
+                    </Button>
+                  </Tooltip>
+                )}
+
+                {/* BienBot Discuss Button */}
+                {hasBienBot && (
+                  <Tooltip content={`${bienbotLabel} this plan item with BienBot`} placement="top">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBienBot}
+                      disabled={bienbotLoading}
+                      leftIcon={bienbotLoading ? <Loading size="sm" variant="inline" showMessage={false} /> : <FaRobot />}
+                      fullWidth
+                    >
+                      {bienbotLabel}
                     </Button>
                   </Tooltip>
                 )}
