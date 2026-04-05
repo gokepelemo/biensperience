@@ -510,6 +510,19 @@ ImageAttachment.propTypes = {
  * @param {Function} props.onMarkNotificationsSeen - Callback to mark notification IDs as seen
  * @param {string|null} [props.initialMessage] - Pre-fill the textarea with this text on open
  */
+
+const ANALYSIS_TYPE_EMOJI = { warning: '⚠️', tip: '💡', info: 'ℹ️' };
+
+function formatAnalysisSuggestions({ entityLabel, suggestions }) {
+  if (!suggestions || suggestions.length === 0) {
+    return `✅ **${entityLabel}** looks good — no issues found. What would you like to work on?`;
+  }
+  const lines = suggestions.map(
+    (s) => `${ANALYSIS_TYPE_EMOJI[s.type] || 'ℹ️'} ${s.message}`
+  );
+  return `🔍 Here's what I noticed about **${entityLabel}**:\n\n${lines.join('\n')}`;
+}
+
 export default function BienBotPanel({
   open,
   onClose,
@@ -521,7 +534,9 @@ export default function BienBotPanel({
   unseenNotificationIds = [],
   onMarkNotificationsSeen,
   initialMessage = null,
-  initialSessionId = null
+  initialSessionId = null,
+  analysisSuggestions = null,
+  clearAnalysisSuggestions = null,
 }) {
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -752,6 +767,24 @@ export default function BienBotPanel({
       return () => clearTimeout(t);
     }
   }, [open, initialMessage]);
+
+  // ── Inject analysis suggestions as synthetic assistant message on open ────
+  useEffect(() => {
+    if (!open || !analysisSuggestions || messages.length > 0) return;
+
+    const content = formatAnalysisSuggestions(analysisSuggestions);
+    appendMessage({
+      _id: `analysis-${Date.now()}`,
+      role: 'assistant',
+      content,
+      createdAt: new Date().toISOString(),
+      isActionResult: true,
+    });
+
+    if (clearAnalysisSuggestions) {
+      clearAnalysisSuggestions();
+    }
+  }, [open, analysisSuggestions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Re-focus input after BienBot finishes responding ─────────────────────
   useEffect(() => {
@@ -1759,5 +1792,14 @@ BienBotPanel.propTypes = {
   notifications: PropTypes.array,
   unseenNotificationIds: PropTypes.array,
   onMarkNotificationsSeen: PropTypes.func,
-  initialMessage: PropTypes.string
+  initialMessage: PropTypes.string,
+  analysisSuggestions: PropTypes.shape({
+    entity: PropTypes.string,
+    entityLabel: PropTypes.string,
+    suggestions: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      message: PropTypes.string,
+    })),
+  }),
+  clearAnalysisSuggestions: PropTypes.func,
 };
