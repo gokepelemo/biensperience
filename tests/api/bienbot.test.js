@@ -72,9 +72,9 @@ jest.mock('../../utilities/bienbot-action-executor', () => ({
   ALLOWED_ACTION_TYPES: [
     'create_destination', 'create_experience', 'create_plan',
     'add_plan_items', 'update_plan_item', 'invite_collaborator', 'sync_plan',
-    'suggest_plan_items', 'fetch_entity_photos'
+    'suggest_plan_items', 'fetch_entity_photos', 'fetch_destination_tips', 'discover_content'
   ],
-  READ_ONLY_ACTION_TYPES: new Set(['suggest_plan_items', 'fetch_entity_photos']),
+  READ_ONLY_ACTION_TYPES: new Set(['suggest_plan_items', 'fetch_entity_photos', 'fetch_destination_tips', 'discover_content']),
   executeAction: jest.fn().mockResolvedValue({ success: true, result: null, errors: [] }),
   executeActions: jest.fn().mockResolvedValue({
     results: [{ actionId: 'action_abc12345', success: true, result: { _id: 'new-id' } }],
@@ -496,6 +496,56 @@ describe('BienBot API', () => {
       expect(actionsEvent).toBeTruthy();
       expect(actionsEvent.data.pending_actions).toHaveLength(1);
       expect(actionsEvent.data.pending_actions[0].type).toBe('create_plan');
+    });
+
+    it('sends skeleton sentinel for each read-only action type before token chunks', async () => {
+      const { callProvider } = require('../../controllers/api/ai');
+      const { executeAction } = require('../../utilities/bienbot-action-executor');
+
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: 'Here are photos and tips for your destination.',
+          pending_actions: [
+            { id: 'action_ph001', type: 'fetch_entity_photos', payload: { entity_type: 'destination', entity_id: 'dest123' }, description: 'Fetch photos' },
+            { id: 'action_tp001', type: 'fetch_destination_tips', payload: { destination_id: 'dest123' }, description: 'Fetch tips' }
+          ]
+        }),
+        usage: { prompt_tokens: 50, completion_tokens: 40 }
+      });
+
+      // Read-only actions return no result data (skeleton only, no final content blocks)
+      executeAction.mockResolvedValue({ success: true, result: null, errors: [] });
+
+      const res = await request(app)
+        .post('/api/bienbot/chat')
+        .set('Authorization', authToken)
+        .buffer(true)
+        .parse((response, callback) => {
+          let data = '';
+          response.on('data', chunk => { data += chunk.toString(); });
+          response.on('end', () => callback(null, data));
+        })
+        .send({ message: 'Show me photos and tips for this destination' });
+
+      expect(res.status).toBe(200);
+      const events = parseSSEEvents(res.body);
+
+      // Find the first structured_content event (skeleton sentinel, before tokens)
+      const tokenEvents = events.filter(e => e.event === 'token');
+      const structuredContentEvents = events.filter(e => e.event === 'structured_content');
+      const firstTokenIndex = events.findIndex(e => e.event === 'token');
+      const firstSkeletonIndex = events.findIndex(e => e.event === 'structured_content');
+
+      // A skeleton structured_content event must be present before the first token
+      expect(structuredContentEvents.length).toBeGreaterThan(0);
+      expect(firstSkeletonIndex).toBeLessThan(firstTokenIndex);
+
+      // The skeleton event must contain a null-data block for each read-only action type
+      const skeletonEvent = events[firstSkeletonIndex];
+      const skeletonBlocks = skeletonEvent.data.blocks;
+      expect(skeletonBlocks).toHaveLength(2);
+      expect(skeletonBlocks.find(b => b.type === 'photo_gallery' && b.data === null)).toBeTruthy();
+      expect(skeletonBlocks.find(b => b.type === 'tip_suggestion_list' && b.data === null)).toBeTruthy();
     });
   });
 

@@ -2173,7 +2173,11 @@ exports.chat = async (req, res) => {
   // immediately without confirmation and produce structured_content blocks.
   const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
   const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
-  const hasDiscoveryAction = readOnlyActions.some(a => a.type === 'discover_content');
+  const READ_ONLY_CONTENT_TYPES = {
+    discover_content: 'discovery_result_list',
+    fetch_entity_photos: 'photo_gallery',
+    fetch_destination_tips: 'tip_suggestion_list'
+  };
   const structuredContent = [];
 
   if (readOnlyActions.length > 0) {
@@ -2349,12 +2353,13 @@ exports.chat = async (req, res) => {
   }
   sendSSE(res, 'session', sessionEvent);
 
-  // Emit discovery skeleton sentinel before token chunks so the frontend can
-  // show placeholder cards while the assistant message streams in.
-  if (hasDiscoveryAction) {
-    sendSSE(res, 'structured_content', {
-      blocks: [{ type: 'discovery_result_list', data: null }]
-    });
+  // Emit skeleton sentinels for all read-only content types before token chunks
+  // so the frontend can show placeholder cards while the assistant message streams in.
+  const skeletonBlocks = readOnlyActions
+    .filter(a => READ_ONLY_CONTENT_TYPES[a.type])
+    .map(a => ({ type: READ_ONLY_CONTENT_TYPES[a.type], data: null }));
+  if (skeletonBlocks.length > 0) {
+    sendSSE(res, 'structured_content', { blocks: skeletonBlocks });
   }
 
   // Stream the message in adaptive chunks for progressive rendering.
