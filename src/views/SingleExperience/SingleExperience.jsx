@@ -250,6 +250,7 @@ export default function SingleExperience() {
   const [inlineCostPlanItem, setInlineCostPlanItem] = useState(null);
   const [inlineCostLoading, setInlineCostLoading] = useState(false);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzePlanLoading, setAnalyzePlanLoading] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [requestAccessPlanId, setRequestAccessPlanId] = useState(null);
   const [accessDeniedPlanId, setAccessDeniedPlanId] = useState(null);
@@ -2837,6 +2838,19 @@ export default function SingleExperience() {
     }
   }, [experienceId, experience?.name, showError]);
 
+  const handleAnalyzePlan = useCallback(async () => {
+    if (!selectedPlan?._id || !experience?.name) return;
+    setAnalyzePlanLoading(true);
+    try {
+      await openWithAnalysis('plan', selectedPlan._id.toString(), `My ${experience.name} plan`);
+    } catch (err) {
+      showError('Could not analyze this plan. Please try again.');
+      logger.error('[SingleExperience] analyzePlan failed', { error: err.message });
+    } finally {
+      setAnalyzePlanLoading(false);
+    }
+  }, [selectedPlan?._id, experience?.name, showError]);
+
   const handlePlanItemToggleComplete = useCallback(
     async (planItem, { skipChildCheck = false } = {}) => {
       if (!selectedPlanId || !planItem) return;
@@ -3708,6 +3722,19 @@ export default function SingleExperience() {
                             aria-busy={analyzeLoading}
                           >
                             {analyzeLoading ? 'Analyzing...' : '✨ Analyze with BienBot'}
+                          </Button>
+                        )}
+                        {/* Analyze Plan with BienBot — shown only when My Plan tab is active */}
+                        {user && hasFeatureFlag(user, 'ai_features') && activeTab === 'myplan' && selectedPlan && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            fullWidth
+                            onClick={handleAnalyzePlan}
+                            disabled={analyzePlanLoading}
+                            aria-busy={analyzePlanLoading}
+                          >
+                            {analyzePlanLoading ? 'Analyzing...' : '✨ Analyze Plan'}
                           </Button>
                         )}
                       </Flex>
