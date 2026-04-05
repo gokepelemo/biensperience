@@ -53,6 +53,7 @@ export default function BienBotTrigger({
   const [panelMounted, setPanelMounted] = useState(false);
   const [initialMessage, setInitialMessage] = useState(null);
   const [initialSessionId, setInitialSessionId] = useState(null);
+  const [analysisSuggestions, setAnalysisSuggestions] = useState(null);
 
   const isAdmin = user && isSuperAdmin(user);
   const hasChatAccess = hasAI || isAdmin;
@@ -80,9 +81,11 @@ export default function BienBotTrigger({
     const unsub = subscribeToEvent('bienbot:open', (event) => {
       const msg = event.initialMessage || null;
       const sid = event.bienbotSessionId || null;
-      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg, hasSessionId: !!sid });
+      const suggestions = event.analysisSuggestions || null;
+      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg, hasSessionId: !!sid, hasSuggestions: !!suggestions });
       setInitialMessage(msg);
       setInitialSessionId(sid);
+      setAnalysisSuggestions(suggestions);
       setPanelMounted(true);
       setPanelOpen(true);
     });
@@ -100,6 +103,11 @@ export default function BienBotTrigger({
     setPanelOpen(false);
     setInitialMessage(null);
     setInitialSessionId(null);
+    setAnalysisSuggestions(null);
+  }, []);
+
+  const clearAnalysisSuggestions = useCallback(() => {
+    setAnalysisSuggestions(null);
   }, []);
 
   // Do not render if user is not authenticated
@@ -160,6 +168,8 @@ export default function BienBotTrigger({
           onMarkNotificationsSeen={onMarkNotificationsSeen}
           initialMessage={initialMessage}
           initialSessionId={initialSessionId}
+          analysisSuggestions={analysisSuggestions}
+          clearAnalysisSuggestions={clearAnalysisSuggestions}
         />
       )}
     </>,
@@ -192,7 +202,9 @@ function BienBotPanelLazy({
   unseenNotificationIds,
   onMarkNotificationsSeen,
   initialMessage,
-  initialSessionId
+  initialSessionId,
+  analysisSuggestions,
+  clearAnalysisSuggestions
 }) {
   const [Panel, setPanel] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -227,6 +239,8 @@ function BienBotPanelLazy({
       onMarkNotificationsSeen={onMarkNotificationsSeen}
       initialMessage={initialMessage}
       initialSessionId={initialSessionId}
+      analysisSuggestions={analysisSuggestions}
+      clearAnalysisSuggestions={clearAnalysisSuggestions}
     />
   );
 }
@@ -246,5 +260,14 @@ BienBotPanelLazy.propTypes = {
   notifications: PropTypes.array,
   unseenNotificationIds: PropTypes.array,
   onMarkNotificationsSeen: PropTypes.func,
-  initialMessage: PropTypes.string
+  initialMessage: PropTypes.string,
+  analysisSuggestions: PropTypes.shape({
+    entity: PropTypes.string,
+    entityLabel: PropTypes.string,
+    suggestions: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      message: PropTypes.string,
+    })),
+  }),
+  clearAnalysisSuggestions: PropTypes.func,
 };

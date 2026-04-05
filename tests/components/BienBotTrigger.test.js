@@ -17,6 +17,16 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
+// ─── Mock event-bus ────────────────────────────────────────────────────────
+const mockSubscribeHandlers = {};
+jest.mock('../../src/utilities/event-bus', () => ({
+  subscribeToEvent: jest.fn((eventType, handler) => {
+    mockSubscribeHandlers[eventType] = handler;
+    return jest.fn();
+  }),
+  broadcastEvent: jest.fn(),
+}));
+
 // ─── Mock react-router-dom ─────────────────────────────────────────────────
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -53,17 +63,21 @@ jest.mock('../../src/hooks/useRouteContext', () =>
 
 // ─── Mock BienBotPanel (lazy-loaded) ─────────────────────────────────────────
 // BienBotPanelLazy does a dynamic import; mock the whole BienBotPanel module.
-jest.mock('../../src/components/BienBotPanel/BienBotPanel', () => {
+// Must export __esModule + default so that `import(...).then(mod => mod.default)` works.
+const MockBienBotPanel = jest.fn((props) => {
   const React = require('react');
-  return jest.fn(({ open, onClose, 'aria-label': label }) =>
-    open
-      ? React.createElement('div', {
-          'data-testid': 'bienbot-panel',
-          role: 'dialog',
-        }, React.createElement('button', { onClick: onClose }, 'Close Panel'))
-      : null
-  );
+  return props.open
+    ? React.createElement('div', {
+        'data-testid': 'bienbot-panel',
+        role: 'dialog',
+      }, React.createElement('button', { onClick: props.onClose }, 'Close Panel'))
+    : null;
 });
+
+jest.mock('../../src/components/BienBotPanel/BienBotPanel', () => ({
+  __esModule: true,
+  default: MockBienBotPanel,
+}));
 
 // ─── Mock react-icons ────────────────────────────────────────────────────────
 jest.mock('react-icons/fa', () => ({
@@ -243,6 +257,37 @@ describe('BienBotTrigger', () => {
       await waitFor(() => {
         expect(screen.getByTestId('bienbot-panel')).toBeInTheDocument();
       });
+    });
+  });
+
+  // ─── analysisSuggestions ──────────────────────────────────────────────
+  describe('analysisSuggestions', () => {
+    it('stores analysisSuggestions and passes them to the panel when bienbot:open fires with analysisSuggestions', async () => {
+      const { useFeatureFlag } = require('../../src/hooks/useFeatureFlag');
+      useFeatureFlag.mockReturnValue({ enabled: true });
+      const { useUser } = require('../../src/contexts/UserContext');
+      useUser.mockReturnValue({ user: { _id: 'u1', role: 'regular_user' } });
+
+      render(<BienBotTrigger />);
+
+      const suggestions = [{ type: 'tip', message: 'Add transport.' }];
+
+      await act(async () => {
+        mockSubscribeHandlers['bienbot:open']?.({
+          analysisSuggestions: { entity: 'experience', entityLabel: 'Tokyo Walk', suggestions },
+        });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bienbot-panel')).toBeInTheDocument();
+      });
+
+      expect(MockBienBotPanel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          analysisSuggestions: { entity: 'experience', entityLabel: 'Tokyo Walk', suggestions },
+        }),
+        expect.anything()
+      );
     });
   });
 
