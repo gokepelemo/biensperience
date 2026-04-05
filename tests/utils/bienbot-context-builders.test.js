@@ -180,8 +180,9 @@ describe('buildExperienceContext', () => {
     });
 
     const ctx = await buildExperienceContext(exp._id.toString(), owner._id.toString());
-    // Experience plan_items have no completed field, so all count as 0 completed
-    expect(ctx).toContain('Plan items: 2 total, 0 completed');
+    // Experience plan_items cannot be completed — only plan items on a Plan can
+    expect(ctx).toContain('Plan items: 2');
+    expect(ctx).not.toContain('completed');
   });
 });
 

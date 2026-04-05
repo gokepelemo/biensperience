@@ -3449,7 +3449,7 @@ function resolveModeFromDaysUntil(daysUntil, entity) {
  * @param {string} [opts.currentDate] - ISO date string (YYYY-MM-DD)
  * @returns {string}
  */
-function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, currentDate = null } = {}) {
+function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, currentDate = null, entity = null } = {}) {
   const today = currentDate || new Date().toISOString().split('T')[0];
 
   const modeInstructions = {
@@ -3507,14 +3507,15 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
     '- Never fabricate data. Base suggestions only on the context provided.',
     '- Keep each message under 120 characters.',
     '- Do not repeat the same observation using different wording.',
+    entity !== 'plan' ? '- Do not comment on item completion status — only plans track completed items.' : null,
     '',
     'Example response:',
     '[',
     '  { "type": "warning", "message": "This plan has no budget items — costs may add up unexpectedly." },',
     '  { "type": "tip", "message": "Consider adding travel insurance for international trips." },',
-    '  { "type": "info", "message": "3 of 8 plan items are completed (38%)." }',
+    entity === 'plan' ? '  { "type": "info", "message": "3 of 8 plan items are completed (38%)." }' : '  { "type": "info", "message": "This experience has 8 plan items across 3 activity types." }',
     ']'
-  ].join('\n');
+  ].filter(l => l !== null).join('\n');
 }
 
 /**
@@ -3648,7 +3649,7 @@ exports.analyze = async (req, res) => {
   let llmResult;
   try {
     llmResult = await callProvider(provider, [
-      { role: 'system', content: buildAnalyzeSystemPrompt({ mode, daysUntil, currentDate }) },
+      { role: 'system', content: buildAnalyzeSystemPrompt({ mode, daysUntil, currentDate, entity }) },
       { role: 'user', content: contextBlock }
     ], {
       temperature: 0.4,

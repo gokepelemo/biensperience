@@ -327,7 +327,6 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
     if (!perm.allowed) return null;
 
     const itemCount = experience.plan_items?.length || 0;
-    const completedCount = experience.plan_items?.filter(i => i.completed).length || 0;
 
     const lines = [
       `[Experience] ${experience.name}`,
@@ -336,7 +335,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       experience.destination?._id ? `Destination entity: ${entityJSON(experience.destination._id.toString(), experience.destination.name, 'destination')}` : null,
       experience.overview ? `Overview: ${experience.overview}` : null,
       experience.experience_type?.length ? `Types: ${experience.experience_type.join(', ')}` : null,
-      `Plan items: ${itemCount} total, ${completedCount} completed`,
+      `Plan items: ${itemCount}`,
       experience.difficulty ? `Difficulty: ${experience.difficulty}/10` : null,
       experience.rating ? `Rating: ${experience.rating}/5` : null,
       experience.visibility ? `Visibility: ${experience.visibility}` : null,
@@ -642,7 +641,8 @@ async function buildUserGreetingContext(userId, options = {}) {
           else if (daysUntil > 7 && daysUntil <= 30) proximityTag = ` [in ${daysUntil}d]`;
           else if (daysUntil < 0) proximityTag = ` [${Math.abs(daysUntil)}d ago]`;
         }
-        lines.push(`  • ${expName}${proximityTag} — ${completedItems}/${totalItems} items — ${entityJSON(planId, expName, 'plan')}`);
+        const itemsLabel = totalItems === 0 ? 'no items yet' : `${totalItems} item${totalItems !== 1 ? 's' : ''} (${completedItems} completed)`;
+        lines.push(`  • ${expName}${proximityTag} — ${itemsLabel} — ${entityJSON(planId, expName, 'plan')}`);
 
         // Surface today/imminent items from this plan
         const { todayItems, next7Items } = buildTemporalBuckets(planItems);
