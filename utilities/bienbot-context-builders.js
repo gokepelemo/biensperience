@@ -587,7 +587,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planOid)
-      .populate('experience', 'name destination');
+      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } });
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -741,6 +741,24 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       }
     } catch (crossErr) {
       logger.debug('[bienbot-context] Cross-entity plan plans skipped', { error: crossErr.message });
+    }
+
+    // Disambiguation: user's other plans at same destination
+    try {
+      const expId = plan.experience?._id;
+      const destName = typeof plan.experience?.destination === 'object'
+        ? plan.experience?.destination?.name
+        : null;
+      if (expId) {
+        const disambigBlock = await buildDisambiguationBlock('plan', userId, {
+          currentId: plan._id.toString(),
+          experienceId: expId.toString(),
+          destinationName: destName,
+        });
+        if (disambigBlock) lines.push('\n' + disambigBlock);
+      }
+    } catch (dErr) {
+      logger.debug('[bienbot-context] Plan disambiguation skipped', { error: dErr.message });
     }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);

@@ -292,6 +292,36 @@ describe('buildUserPlanContext', () => {
     const ctx = await buildUserPlanContext(plan._id.toString(), owner._id.toString());
     expect(ctx).toContain('0/0 items (0%)');
   });
+
+  it('includes DISAMBIGUATION block when user has 2+ plans at the same destination', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Kyoto' });
+    const exp1 = await createTestExperience(user, dest, { name: 'Arashiyama Forest' });
+    const exp2 = await createTestExperience(user, dest, { name: 'Fushimi Inari Shrine' });
+    const exp3 = await createTestExperience(user, dest, { name: 'Nishiki Market Walk' });
+    const futureA = new Date(); futureA.setDate(futureA.getDate() + 14);
+    const futureB = new Date(); futureB.setDate(futureB.getDate() + 45);
+    const futureC = new Date(); futureC.setDate(futureC.getDate() + 60);
+    const plan1 = await createTestPlan(user, exp1, { planned_date: futureA });
+    await createTestPlan(user, exp2, { planned_date: futureB });
+    await createTestPlan(user, exp3, { planned_date: futureC });
+
+    const ctx = await buildUserPlanContext(plan1._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[DISAMBIGUATION: your other Kyoto plans]');
+    expect(ctx).toContain('[/DISAMBIGUATION]');
+  });
+
+  it('omits DISAMBIGUATION when user has only 1 plan at the destination', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, { name: 'Single Visit' });
+    const plan = await createTestPlan(user, exp);
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).not.toContain('[DISAMBIGUATION');
+  });
 });
 
 // ---------------------------------------------------------------------------
