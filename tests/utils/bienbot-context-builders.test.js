@@ -771,3 +771,148 @@ describe('entity ID format in context blocks', () => {
     expect(result).not.toMatch(/User ID:\s*[a-f0-9]{24}/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildDisambiguationBlock (tested via builder integration)
+// ---------------------------------------------------------------------------
+
+const { buildDisambiguationBlock } = require('../../utilities/bienbot-context-builders');
+
+describe('buildDisambiguationBlock', () => {
+  it('returns null when fewer than 2 candidates exist (experience type)', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Solo City' });
+    // Only one experience at this destination
+    await createTestExperience(user, dest, { name: 'Only Tour' });
+
+    const result = await buildDisambiguationBlock('experience', user._id.toString(), {
+      destinationId: dest._id.toString(),
+      destinationName: 'Solo City',
+    });
+    expect(result).toBeNull();
+  });
+
+  it('returns a formatted block when 2+ experiences exist at same destination', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Bangkok' });
+    await createTestExperience(user, dest, { name: 'Floating Market Day Trip' });
+    await createTestExperience(user, dest, { name: 'Bangkok Street Food Tour' });
+
+    const result = await buildDisambiguationBlock('experience', user._id.toString(), {
+      destinationId: dest._id.toString(),
+      destinationName: 'Bangkok',
+    });
+
+    expect(result).not.toBeNull();
+    expect(result).toContain('[DISAMBIGUATION: other experiences at Bangkok]');
+    expect(result).toContain('Floating Market Day Trip');
+    expect(result).toContain('Bangkok Street Food Tour');
+    expect(result).toContain('[/DISAMBIGUATION]');
+  });
+
+  it('caps experience entries at 5', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Busy City' });
+    for (let i = 0; i < 7; i++) {
+      await createTestExperience(user, dest, { name: `Tour ${i}` });
+    }
+
+    const result = await buildDisambiguationBlock('experience', user._id.toString(), {
+      destinationId: dest._id.toString(),
+      destinationName: 'Busy City',
+    });
+
+    expect(result).not.toBeNull();
+    // 5 bullet lines + header + footer = 7 lines max
+    const bullets = (result.match(/^\s+•/gm) || []);
+    expect(bullets.length).toBeLessThanOrEqual(5);
+  });
+
+  it('excludes currentId from experience results', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Test City' });
+    const exp1 = await createTestExperience(user, dest, { name: 'Tour A' });
+    await createTestExperience(user, dest, { name: 'Tour B' });
+
+    const result = await buildDisambiguationBlock('experience', user._id.toString(), {
+      destinationId: dest._id.toString(),
+      destinationName: 'Test City',
+      currentId: exp1._id.toString(),
+    });
+
+    // exp1 excluded, only exp2 remains — less than 2 candidates
+    expect(result).toBeNull();
+  });
+
+  it('returns null for plan type when user has fewer than 2 plans for the experience', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    await createTestPlan(user, exp);
+
+    const result = await buildDisambiguationBlock('plan', user._id.toString(), {
+      experienceId: exp._id.toString(),
+      experienceName: exp.name,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('returns a formatted block when 2+ plans exist for same experience', async () => {
+    const userA = await createTestUser();
+    const userB = await createTestUser();
+    const dest = await createTestDestination(userA);
+    const exp = await createTestExperience(userA, dest, { name: 'Tokyo Tour' });
+    const futureA = new Date(); futureA.setDate(futureA.getDate() + 30);
+    const futureB = new Date(); futureB.setDate(futureB.getDate() + 60);
+    await createTestPlan(userA, exp, { planned_date: futureA });
+    await createTestPlan(userB, exp, { planned_date: futureB });
+
+    const result = await buildDisambiguationBlock('plan', userA._id.toString(), {
+      experienceId: exp._id.toString(),
+      experienceName: 'Tokyo Tour',
+    });
+
+    expect(result).not.toBeNull();
+    expect(result).toContain('[DISAMBIGUATION: other Tokyo Tour plans]');
+    expect(result).toContain('[/DISAMBIGUATION]');
+  });
+
+  it('returns null for plan_item type when no similar items exist', async () => {
+    const planItems = [
+      { _id: new mongoose.Types.ObjectId(), content: 'Visit the Eiffel Tower' },
+      { _id: new mongoose.Types.ObjectId(), content: 'Buy train tickets' },
+    ];
+    const currentId = planItems[0]._id.toString();
+
+    const result = await buildDisambiguationBlock('plan_item', 'user-id', {
+      planItems,
+      currentItemContent: 'Visit the Eiffel Tower',
+      currentId,
+    });
+    // Only 1 other item and it is dissimilar — should return null
+    expect(result).toBeNull();
+  });
+
+  it('returns a block when similar plan items exist', async () => {
+    const id1 = new mongoose.Types.ObjectId();
+    const id2 = new mongoose.Types.ObjectId();
+    const id3 = new mongoose.Types.ObjectId();
+    const planItems = [
+      { _id: id1, content: 'Book hotel in Paris' },
+      { _id: id2, content: 'Book hotel in Lyon' },
+      { _id: id3, content: 'Buy train tickets' },
+    ];
+
+    const result = await buildDisambiguationBlock('plan_item', 'user-id', {
+      planItems,
+      currentItemContent: 'Book hotel in Paris',
+      currentId: id1.toString(),
+    });
+
+    expect(result).not.toBeNull();
+    expect(result).toContain('[DISAMBIGUATION: similar items in this plan]');
+    expect(result).toContain('Book hotel in Lyon');
+    expect(result).not.toContain('Book hotel in Paris'); // current item excluded
+    expect(result).toContain('[/DISAMBIGUATION]');
+  });
+});

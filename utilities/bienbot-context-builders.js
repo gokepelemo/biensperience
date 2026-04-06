@@ -51,6 +51,112 @@ function trimToTokenBudget(text, tokenBudget = DEFAULT_TOKEN_BUDGET) {
 }
 
 /**
+ * Build a disambiguation block listing similar entities of the same type.
+ * Returns null when there are fewer than 2 candidates (unambiguous).
+ *
+ * @param {'experience'|'plan'|'plan_item'} type
+ * @param {string} userId
+ * @param {object} [options]
+ * @param {string}  [options.currentId]          - Entity _id to exclude from results
+ * @param {string}  [options.destinationId]      - Filter experiences by destination
+ * @param {string}  [options.destinationName]    - Label for block header
+ * @param {string}  [options.experienceId]       - Filter plans by experience
+ * @param {string}  [options.experienceName]     - Label for block header
+ * @param {Array}   [options.planItems]          - Pre-fetched items array (plan_item only)
+ * @param {string}  [options.currentItemContent] - Content of current item (plan_item only)
+ * @returns {Promise<string|null>}
+ */
+async function buildDisambiguationBlock(type, userId, options = {}) {
+  loadModels();
+  const { Types } = require('mongoose');
+  try {
+    // --- experience disambiguation ---
+    if (type === 'experience' && options.destinationId) {
+      const query = { destination: options.destinationId };
+      if (options.currentId) {
+        const { valid, objectId } = validateObjectId(options.currentId, 'currentId');
+        if (valid) query._id = { $ne: objectId };
+      }
+      const others = await Experience
+        .find(query)
+        .select('name plan_items difficulty permissions visibility')
+        .sort({ updatedAt: -1 })
+        .limit(6)
+        .lean();
+      const viewable = others.filter(e => {
+        if (!e.visibility || e.visibility === 'public' || e.visibility === 'authenticated') return true;
+        return (e.permissions || []).some(p => String(p._id) === String(userId));
+      });
+      if (viewable.length < 2) return null;
+      const label = options.destinationName
+        ? `other experiences at ${options.destinationName}`
+        : 'other experiences at this destination';
+      const lines = [`[DISAMBIGUATION: ${label}]`];
+      for (const e of viewable.slice(0, 5)) {
+        const name = e.name || '(unnamed)';
+        const count = (e.plan_items || []).length;
+        const diff = e.difficulty ? `, difficulty ${e.difficulty}` : '';
+        lines.push(`  • ${name} — ${entityJSON(String(e._id), name, 'experience')} (${count} items${diff})`);
+      }
+      lines.push(`[/DISAMBIGUATION]`);
+      return lines.join('\n');
+    }
+
+    // --- plan disambiguation ---
+    if (type === 'plan' && options.experienceId) {
+      const { valid: expValid, objectId: expOid } = validateObjectId(options.experienceId, 'experienceId');
+      if (!expValid) return null;
+      const planQuery = { experience: expOid };
+      if (options.currentId) {
+        const { valid, objectId } = validateObjectId(options.currentId, 'currentId');
+        if (valid) planQuery._id = { $ne: objectId };
+      }
+      const otherPlans = await Plan
+        .find(planQuery)
+        .populate('experience', 'name')
+        .select('experience planned_date plan')
+        .sort({ updatedAt: -1 })
+        .limit(6)
+        .lean();
+      if (otherPlans.length < 2) return null;
+      const expName = options.experienceName || 'this experience';
+      const lines = [`[DISAMBIGUATION: other ${expName} plans]`];
+      for (const p of otherPlans.slice(0, 5)) {
+        const dateStr = p.planned_date
+          ? new Date(p.planned_date).toISOString().split('T')[0]
+          : 'no date';
+        const items = (p.plan || []).length;
+        const pName = p.experience?.name || expName;
+        lines.push(`  • Plan (${dateStr}, ${items} items) — ${entityJSON(String(p._id), pName, 'plan')}`);
+      }
+      lines.push(`[/DISAMBIGUATION]`);
+      return lines.join('\n');
+    }
+
+    // --- plan_item disambiguation ---
+    if (type === 'plan_item' && Array.isArray(options.planItems) && options.currentItemContent) {
+      const others = options.planItems.filter(i =>
+        options.currentId ? String(i._id) !== String(options.currentId) : true
+      );
+      const similar = findSimilarItems(others, options.currentItemContent, 'content', 70);
+      if (similar.length < 1) return null;
+      const lines = [`[DISAMBIGUATION: similar items in this plan]`];
+      for (const item of similar.slice(0, 5)) {
+        const name = item.content || item.text || item.name || '(unnamed)';
+        lines.push(`  • ${name} — ${entityJSON(String(item._id), name, 'plan_item')}`);
+      }
+      lines.push(`[/DISAMBIGUATION]`);
+      return lines.join('\n');
+    }
+
+    return null;
+  } catch (err) {
+    logger.debug('[bienbot-context] buildDisambiguationBlock failed', { type, error: err.message });
+    return null;
+  }
+}
+
+/**
  * Returns whole-day difference between targetDate and today.
  * 0 = today, positive = future, negative = past/overdue, null if no date.
  */
@@ -121,7 +227,7 @@ function buildTemporalBuckets(planItems) {
   let proximityMin = null;
 
   for (const item of planItems) {
-    if (item.completed) continue;
+    if (item.complete) continue;
     const days = computeDaysUntil(item.scheduled_date);
     if (days === null) continue;
     if (proximityMin === null || days < proximityMin) proximityMin = days;
@@ -302,6 +408,42 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       logger.debug('[bienbot-context] Signal injection skipped', { error: sigErr.message });
     }
 
+    // Cross-entity: Your other plans for this destination (up to 3)
+    try {
+      const userPlansForDest = await Plan.find({ user: userId })
+        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
+        .select('experience planned_date plan')
+        .lean();
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const relatedPlans = userPlansForDest.filter(p => {
+        if (!p.experience?.destination) return false;
+        const planDestId = p.experience.destination._id || p.experience.destination;
+        return String(planDestId) === String(destination._id) ||
+          (p.experience.destination.country && destination.country &&
+           p.experience.destination.country.toLowerCase() === destination.country.toLowerCase());
+      }).slice(0, 3);
+      if (relatedPlans.length > 0) {
+        lines.push('\nYour other plans nearby:');
+        for (const p of relatedPlans) {
+          const expName = p.experience?.name || '(unnamed)';
+          const destName = p.experience?.destination?.name || destination.name;
+          const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
+          let proximity = null;
+          if (scheduled.length > 0) {
+            const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
+            proximity = min;
+          } else if (p.planned_date) {
+            const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
+            proximity = Math.round((t - today) / 86400000);
+          }
+          const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+          lines.push(`  ${expName} (${destName})${tag}`);
+        }
+      }
+    } catch (crossErr) {
+      logger.debug('[bienbot-context] Cross-entity destination plans skipped', { error: crossErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildDestinationContext failed', { destinationId, error: err.message });
@@ -339,9 +481,56 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       experience.difficulty ? `Difficulty: ${experience.difficulty}/10` : null,
       experience.rating ? `Rating: ${experience.rating}/5` : null,
       experience.visibility ? `Visibility: ${experience.visibility}` : null,
-      itemCount > 0 ? `Items: ${experience.plan_items.slice(0, 10).map(i => i.content || i.text || i.name || '(unnamed)').join(', ')}` : null,
       experience.signal_tags?.length ? `Experience tags: ${experience.signal_tags.join(', ')}` : null
     ];
+
+    // List plan items with their IDs so the LLM can reference them specifically
+    // (e.g. when asked to remove a duplicate, it can identify which item to target)
+    if (itemCount > 0) {
+      lines.push('\nPlan items (experience template):');
+      for (const item of experience.plan_items.slice(0, 15)) {
+        const name = item.content || item.text || item.name || '(unnamed)';
+        lines.push(`  - ${name} — ${entityJSON(item._id.toString(), name, 'plan_item')}`);
+      }
+    }
+
+    // Cross-entity: Your other plans for the same destination (up to 3)
+    try {
+      const destId = experience.destination?._id;
+      if (destId) {
+        const userPlans = await Plan.find({ user: userId })
+          .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+          .select('experience planned_date plan')
+          .lean();
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const relatedPlans = userPlans.filter(p => {
+          if (!p.experience?._id) return false;
+          if (String(p.experience._id) === String(experience._id)) return false;
+          const planDestId = p.experience.destination?._id || p.experience.destination;
+          return String(planDestId) === String(destId);
+        }).slice(0, 3);
+        if (relatedPlans.length > 0) {
+          lines.push('\nYour other plans nearby:');
+          for (const p of relatedPlans) {
+            const expName = p.experience?.name || '(unnamed)';
+            const destName = p.experience?.destination?.name || experience.destination?.name || '';
+            const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
+            let proximity = null;
+            if (scheduled.length > 0) {
+              const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
+              proximity = min;
+            } else if (p.planned_date) {
+              const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
+              proximity = Math.round((t - today) / 86400000);
+            }
+            const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+            lines.push(`  ${expName} (${destName})${tag}`);
+          }
+        }
+      }
+    } catch (crossErr) {
+      logger.debug('[bienbot-context] Cross-entity experience plans skipped', { error: crossErr.message });
+    }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
@@ -362,7 +551,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planOid)
-      .populate('experience', 'name');
+      .populate('experience', 'name destination');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -386,7 +575,15 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
     // Temporal proximity buckets: TODAY / NEXT 7 DAYS / NEXT 30 DAYS
     try {
-      const { todayItems, next7Items, next30Items } = buildTemporalBuckets(planItems);
+      const { todayItems, next7Items, next30Items, proximityMin } = buildTemporalBuckets(planItems);
+
+      // Proximity header: today date + nearest scheduled item distance
+      const todayStr = new Date().toISOString().split('T')[0];
+      const proximityLabel = proximityMin !== null
+        ? `Nearest scheduled item: ${proximityMin === 0 ? 'today' : `${proximityMin} day${proximityMin !== 1 ? 's' : ''} away`}`
+        : 'No scheduled items';
+      lines.push(`Today: ${todayStr} | ${proximityLabel}`);
+
       if (todayItems.length > 0) {
         lines.push(`\n[TODAY]`);
         for (const it of todayItems) {
@@ -415,6 +612,26 @@ async function buildUserPlanContext(planId, userId, options = {}) {
         }
         if (next30Items.length > 5) lines.push(`  … and ${next30Items.length - 5} more`);
         lines.push(`[/NEXT 30 DAYS]`);
+      }
+
+      // RECENT ACTIVITY bucket: items created or updated within the last 48 hours
+      const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+      const recentItems = planItems.filter(i => {
+        const updated = i.updatedAt ? new Date(i.updatedAt).getTime() : 0;
+        const created = i.createdAt ? new Date(i.createdAt).getTime() : 0;
+        return Math.max(updated, created) > cutoff48h;
+      }).slice(0, 5);
+      if (recentItems.length > 0) {
+        lines.push(`\n[RECENT ACTIVITY (last 48h)]`);
+        for (const it of recentItems) {
+          const lbl = it.content || it.text || it.name || '(unnamed)';
+          const wasCompleted = it.complete;
+          const ts = it.updatedAt || it.createdAt;
+          const dateStr = ts ? new Date(ts).toISOString().split('T')[0] : '';
+          const action = wasCompleted ? 'Completed' : (it.createdAt && new Date(it.createdAt).getTime() > cutoff48h ? 'Added' : 'Updated');
+          lines.push(`  ${action}: "${lbl}"${dateStr ? ` (${dateStr})` : ''}`);
+        }
+        lines.push(`[/RECENT ACTIVITY]`);
       }
     } catch (bucketErr) {
       logger.debug('[bienbot-context] Temporal buckets skipped', { error: bucketErr.message });
@@ -447,6 +664,47 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       if (notesBlock) lines.push(notesBlock);
     } catch (noteErr) {
       logger.debug('[bienbot-context] Plan notes injection skipped', { error: noteErr.message });
+    }
+
+    // Cross-entity: Your other plans for the same experience or destination (up to 2)
+    try {
+      const expId = plan.experience?._id;
+      const relatedQuery = { user: userId, _id: { $ne: plan._id } };
+      const userOtherPlans = await Plan.find(relatedQuery)
+        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+        .select('experience planned_date plan')
+        .lean();
+      // Prefer same experience first; otherwise same destination
+      const sameExpPlans = userOtherPlans.filter(p => expId && String(p.experience?._id) === String(expId));
+      const remainingSlots = 2 - sameExpPlans.length;
+      const sameDestPlans = remainingSlots > 0 ? userOtherPlans.filter(p => {
+        if (sameExpPlans.find(sp => String(sp._id) === String(p._id))) return false;
+        const planDestId = p.experience?.destination?._id || p.experience?.destination;
+        const curDestId = plan.experience?.destination || null;
+        return curDestId && String(planDestId) === String(curDestId);
+      }).slice(0, remainingSlots) : [];
+      const relatedPlans = [...sameExpPlans.slice(0, 2), ...sameDestPlans];
+      if (relatedPlans.length > 0) {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        lines.push('\nYour other plans nearby:');
+        for (const p of relatedPlans) {
+          const expName = p.experience?.name || '(unnamed)';
+          const destName = p.experience?.destination?.name || '';
+          const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
+          let proximity = null;
+          if (scheduled.length > 0) {
+            const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
+            proximity = min;
+          } else if (p.planned_date) {
+            const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
+            proximity = Math.round((t - today) / 86400000);
+          }
+          const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+          lines.push(`  ${expName}${destName ? ` (${destName})` : ''}${tag}`);
+        }
+      }
+    } catch (crossErr) {
+      logger.debug('[bienbot-context] Cross-entity plan plans skipped', { error: crossErr.message });
     }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
@@ -610,7 +868,7 @@ async function buildUserGreetingContext(userId, options = {}) {
         .sort({ planned_date: 1 })
         .limit(10)
         .lean(),
-      Activity.find({ user: new Types.ObjectId(userId) })
+      Activity.find({ 'actor._id': new Types.ObjectId(userId) })
         .sort({ createdAt: -1 })
         .limit(20)
         .select('entity_type entity_id action createdAt')
@@ -1827,6 +2085,7 @@ module.exports = {
   buildDiscoveryContext,
   buildPlanNextStepsContext,
   buildSimilarExperiencesContext,
+  buildDisambiguationBlock,
   SEMANTIC_ACTIVITY_MAP,
   // Discovery ranking helpers (exported for testing and direct use)
   expandActivityTypes,
