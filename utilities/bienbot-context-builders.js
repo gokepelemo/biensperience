@@ -107,9 +107,15 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
       const { valid: expValid, objectId: expOid } = validateObjectId(options.experienceId, 'experienceId');
       if (!expValid) return null;
 
-      // Resolve destination from the experience
-      const experience = await Experience.findById(expOid).select('destination name').lean();
-      const destId = experience?.destination;
+      // Resolve destination ID — skip the extra DB call if caller already provided it
+      let destId;
+      if (options.destinationId) {
+        destId = options.destinationId;
+      } else {
+        const experience = await Experience.findById(expOid).select('destination name').lean();
+        destId = experience?.destination;
+        if (!destId) return null;
+      }
       if (!destId) return null;
 
       // Fetch all user plans and filter to same destination
@@ -764,6 +770,9 @@ async function buildUserPlanContext(planId, userId, options = {}) {
     // Disambiguation: user's other plans at same destination
     try {
       const expId = plan.experience?._id;
+      const destId = typeof plan.experience?.destination === 'object'
+        ? plan.experience?.destination?._id?.toString()
+        : plan.experience?.destination?.toString();
       const destName = typeof plan.experience?.destination === 'object'
         ? plan.experience?.destination?.name
         : null;
@@ -771,6 +780,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
         const disambigBlock = await buildDisambiguationBlock('plan', userId, {
           currentId: plan._id.toString(),
           experienceId: expId.toString(),
+          destinationId: destId,      // Pass pre-resolved ID to avoid re-fetch
           destinationName: destName,
         });
         if (disambigBlock) lines.push('\n' + disambigBlock);
