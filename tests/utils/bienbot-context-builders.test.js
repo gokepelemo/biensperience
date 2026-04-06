@@ -272,6 +272,41 @@ describe('buildExperienceContext', () => {
     expect(ctx).toContain('[ATTENTION]');
     expect(ctx).toMatch(/Difficulty 8\/10 but no rest or wellness items/);
   });
+
+  it('signals no transport for a multi-day experience', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    // max_planning_days is a virtual derived from plan_items[].planning_days
+    const exp = await createTestExperience(user, dest, {
+      plan_items: [
+        { _id: new mongoose.Types.ObjectId(), content: 'Day 1 hike', activity_type: 'adventure', planning_days: 3 },
+      ],
+    });
+
+    const ctx = await buildExperienceContext(exp._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('No transport items for a multi-day experience');
+  });
+
+  it('signals cost estimate without tracking when user has a plan but no costs', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    // cost_estimate is a virtual derived from plan_items[].cost_estimate
+    const exp = await createTestExperience(user, dest, {
+      plan_items: [
+        { _id: new mongoose.Types.ObjectId(), content: 'Museum entry', cost_estimate: 500 },
+      ],
+    });
+    await createTestPlan(user, exp, { costs: [] });
+
+    const ctx = await buildExperienceContext(exp._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('Cost estimated at 500 but nothing tracked yet');
+  });
 });
 
 // ---------------------------------------------------------------------------

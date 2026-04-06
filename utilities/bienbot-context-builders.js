@@ -497,6 +497,16 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
 
     const itemCount = experience.plan_items?.length || 0;
 
+    // Fetch user's plan once — reused for display and attention signals
+    let userPlanForExp = null;
+    try {
+      userPlanForExp = await Plan.findOne({ user: userId, experience: expOid })
+        .select('planned_date plan costs')
+        .lean();
+    } catch (planFetchErr) {
+      logger.debug('[bienbot-context] User plan fetch for experience skipped', { error: planFetchErr.message });
+    }
+
     const lines = [
       `[Experience] ${experience.name}`,
       `Entity: ${entityJSON(experience._id.toString(), experience.name, 'experience')}`,
@@ -522,21 +532,14 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
     }
 
     // User's own plan for this specific experience
-    try {
-      const userPlanForExp = await Plan.findOne({ user: userId, experience: expOid })
-        .select('planned_date plan')
-        .lean();
-      if (userPlanForExp) {
-        const planItemCount = (userPlanForExp.plan || []).length;
-        const planDateStr = userPlanForExp.planned_date
-          ? new Date(userPlanForExp.planned_date).toISOString().split('T')[0]
-          : 'no date set';
-        lines.push(`\nUser's plan for this experience: exists (${planItemCount} items, date: ${planDateStr})`);
-      } else {
-        lines.push("\nUser's plan for this experience: none (user has not planned this experience yet)");
-      }
-    } catch (planCheckErr) {
-      logger.debug('[bienbot-context] User plan check for experience skipped', { error: planCheckErr.message });
+    if (userPlanForExp) {
+      const planItemCount = (userPlanForExp.plan || []).length;
+      const planDateStr = userPlanForExp.planned_date
+        ? new Date(userPlanForExp.planned_date).toISOString().split('T')[0]
+        : 'no date set';
+      lines.push(`\nUser's plan for this experience: exists (${planItemCount} items, date: ${planDateStr})`);
+    } else {
+      lines.push("\nUser's plan for this experience: none (user has not planned this experience yet)");
     }
 
     // Cross-entity: Your other plans for the same destination (up to 3)
@@ -597,12 +600,11 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       const signals = [];
 
       // No user plan for this experience
-      const userPlan = await Plan.findOne({ user: userId, experience: expOid }).select('_id costs').lean();
-      if (!userPlan) {
+      if (!userPlanForExp) {
         signals.push('⚠ You have no plan for this experience yet');
       } else {
         // Cost estimate without tracking
-        if (experience.cost_estimate > 0 && (userPlan.costs || []).length === 0) {
+        if (experience.cost_estimate > 0 && (userPlanForExp.costs || []).length === 0) {
           signals.push(`⚠ Cost estimated at ${experience.cost_estimate} but nothing tracked yet`);
         }
       }
