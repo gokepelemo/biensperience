@@ -553,6 +553,21 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       logger.debug('[bienbot-context] Cross-entity experience plans skipped', { error: crossErr.message });
     }
 
+    // Disambiguation: other experiences at same destination
+    try {
+      const destId = experience.destination?._id;
+      if (destId) {
+        const disambigBlock = await buildDisambiguationBlock('experience', userId, {
+          currentId: experience._id.toString(),
+          destinationId: destId.toString(),
+          destinationName: experience.destination?.name,
+        });
+        if (disambigBlock) lines.push('\n' + disambigBlock);
+      }
+    } catch (dErr) {
+      logger.debug('[bienbot-context] Experience disambiguation skipped', { error: dErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildExperienceContext failed', { experienceId, error: err.message });
