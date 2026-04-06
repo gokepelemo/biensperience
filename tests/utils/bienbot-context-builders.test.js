@@ -345,7 +345,7 @@ describe('buildExperienceContext', () => {
     const ctx = await buildExperienceContext(exp._id.toString(), user._id.toString());
 
     expect(ctx).toContain('[ATTENTION]');
-    expect(ctx).toContain('Cost estimated at 500 but nothing tracked yet');
+    expect(ctx).toContain('Cost estimated at $500.00 but nothing tracked yet');
   });
 });
 
@@ -371,7 +371,7 @@ describe('buildUserPlanContext', () => {
     expect(ctx).not.toBeNull();
     expect(ctx).toContain('[Plan]');
     expect(ctx).toContain('Berlin Wall Walk');
-    expect(ctx).toContain('Planned date: 2026-06-15');
+    expect(ctx).toContain('Planned date: Monday, June 15, 2026');
     expect(ctx).toContain('1/2 items (50%)');
   });
 
