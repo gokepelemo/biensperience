@@ -844,7 +844,7 @@ describe('buildDisambiguationBlock', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null for plan type when user has fewer than 2 plans for the experience', async () => {
+  it('returns null for plan type when user has fewer than 2 plans at the destination', async () => {
     const user = await createTestUser();
     const dest = await createTestDestination(user);
     const exp = await createTestExperience(user, dest);
@@ -852,28 +852,33 @@ describe('buildDisambiguationBlock', () => {
 
     const result = await buildDisambiguationBlock('plan', user._id.toString(), {
       experienceId: exp._id.toString(),
-      experienceName: exp.name,
+      destinationName: dest.name,
     });
     expect(result).toBeNull();
   });
 
-  it('returns a formatted block when 2+ plans exist for same experience', async () => {
-    const userA = await createTestUser();
-    const userB = await createTestUser();
-    const dest = await createTestDestination(userA);
-    const exp = await createTestExperience(userA, dest, { name: 'Tokyo Tour' });
+  it('returns a formatted block when user has 2+ plans at the same destination', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Paris' });
+    const exp1 = await createTestExperience(user, dest, { name: 'Eiffel Tower Tour' });
+    const exp2 = await createTestExperience(user, dest, { name: 'Louvre Museum Visit' });
+    const exp3 = await createTestExperience(user, dest, { name: 'Seine River Cruise' });
     const futureA = new Date(); futureA.setDate(futureA.getDate() + 30);
     const futureB = new Date(); futureB.setDate(futureB.getDate() + 60);
-    await createTestPlan(userA, exp, { planned_date: futureA });
-    await createTestPlan(userB, exp, { planned_date: futureB });
+    const futureC = new Date(); futureC.setDate(futureC.getDate() + 90);
+    const plan1 = await createTestPlan(user, exp1, { planned_date: futureA });
+    await createTestPlan(user, exp2, { planned_date: futureB });
+    await createTestPlan(user, exp3, { planned_date: futureC });
 
-    const result = await buildDisambiguationBlock('plan', userA._id.toString(), {
-      experienceId: exp._id.toString(),
-      experienceName: 'Tokyo Tour',
+    const result = await buildDisambiguationBlock('plan', user._id.toString(), {
+      experienceId: exp1._id.toString(),
+      destinationName: 'Paris',
+      currentId: plan1._id.toString(),
     });
 
     expect(result).not.toBeNull();
-    expect(result).toContain('[DISAMBIGUATION: other Tokyo Tour plans]');
+    expect(result).toContain('[DISAMBIGUATION: your other Paris plans]');
+    expect(result).toContain('Louvre Museum Visit');
     expect(result).toContain('[/DISAMBIGUATION]');
   });
 
@@ -900,7 +905,8 @@ describe('buildDisambiguationBlock', () => {
     const planItems = [
       { _id: id1, content: 'Book hotel in Paris' },
       { _id: id2, content: 'Book hotel in Lyon' },
-      { _id: id3, content: 'Buy train tickets' },
+      { _id: id3, content: 'Book hotel in Marseille' }, // also similar to "Book hotel in Paris"
+      { _id: new mongoose.Types.ObjectId(), content: 'Buy train tickets' },
     ];
 
     const result = await buildDisambiguationBlock('plan_item', 'user-id', {
@@ -912,6 +918,7 @@ describe('buildDisambiguationBlock', () => {
     expect(result).not.toBeNull();
     expect(result).toContain('[DISAMBIGUATION: similar items in this plan]');
     expect(result).toContain('Book hotel in Lyon');
+    expect(result).toContain('Book hotel in Marseille');
     expect(result).not.toContain('Book hotel in Paris'); // current item excluded
     expect(result).toContain('[/DISAMBIGUATION]');
   });

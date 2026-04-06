@@ -102,32 +102,41 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
       return lines.join('\n');
     }
 
-    // --- plan disambiguation ---
+    // --- plan disambiguation (user's other plans at same destination) ---
     if (type === 'plan' && options.experienceId) {
       const { valid: expValid, objectId: expOid } = validateObjectId(options.experienceId, 'experienceId');
       if (!expValid) return null;
-      const planQuery = { experience: expOid };
-      if (options.currentId) {
-        const { valid, objectId } = validateObjectId(options.currentId, 'currentId');
-        if (valid) planQuery._id = { $ne: objectId };
-      }
-      const otherPlans = await Plan
-        .find(planQuery)
-        .populate('experience', 'name')
+
+      // Resolve destination from the experience
+      const experience = await Experience.findById(expOid).select('destination name').lean();
+      const destId = experience?.destination;
+      if (!destId) return null;
+
+      // Fetch all user plans and filter to same destination
+      const userPlans = await Plan
+        .find({ user: new Types.ObjectId(userId) })
+        .populate({ path: 'experience', select: 'name destination' })
         .select('experience planned_date plan')
         .sort({ updatedAt: -1 })
-        .limit(6)
         .lean();
+
+      const otherPlans = userPlans.filter(p => {
+        if (options.currentId && String(p._id) === String(options.currentId)) return false;
+        const planDestId = p.experience?.destination?._id ?? p.experience?.destination;
+        return planDestId && String(planDestId) === String(destId);
+      });
+
       if (otherPlans.length < 2) return null;
-      const expName = options.experienceName || 'this experience';
-      const lines = [`[DISAMBIGUATION: other ${expName} plans]`];
+
+      const destName = options.destinationName || 'this destination';
+      const lines = [`[DISAMBIGUATION: your other ${destName} plans]`];
       for (const p of otherPlans.slice(0, 5)) {
         const dateStr = p.planned_date
           ? new Date(p.planned_date).toISOString().split('T')[0]
           : 'no date';
         const items = (p.plan || []).length;
-        const pName = p.experience?.name || expName;
-        lines.push(`  • Plan (${dateStr}, ${items} items) — ${entityJSON(String(p._id), pName, 'plan')}`);
+        const pName = p.experience?.name || 'plan';
+        lines.push(`  • ${pName} — ${entityJSON(String(p._id), pName, 'plan')} (${dateStr}, ${items} items)`);
       }
       lines.push(`[/DISAMBIGUATION]`);
       return lines.join('\n');
@@ -139,7 +148,7 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
         options.currentId ? String(i._id) !== String(options.currentId) : true
       );
       const similar = findSimilarItems(others, options.currentItemContent, 'content', 70);
-      if (similar.length < 1) return null;
+      if (similar.length < 2) return null;
       const lines = [`[DISAMBIGUATION: similar items in this plan]`];
       for (const item of similar.slice(0, 5)) {
         const name = item.content || item.text || item.name || '(unnamed)';
