@@ -592,6 +592,48 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       logger.debug('[bienbot-context] Experience disambiguation skipped', { error: dErr.message });
     }
 
+    // Attention signals
+    try {
+      const signals = [];
+
+      // No user plan for this experience
+      const userPlan = await Plan.findOne({ user: userId, experience: expOid }).select('_id costs').lean();
+      if (!userPlan) {
+        signals.push('⚠ You have no plan for this experience yet');
+      } else {
+        // Cost estimate without tracking
+        if (experience.cost_estimate > 0 && (userPlan.costs || []).length === 0) {
+          signals.push(`⚠ Cost estimated at ${experience.cost_estimate} but nothing tracked yet`);
+        }
+      }
+
+      // High difficulty with no wellness or rest items
+      if (experience.difficulty >= 7) {
+        const items = experience.plan_items || [];
+        const hasRecovery = items.some(i => ['wellness', 'rest'].includes(i.activity_type));
+        if (!hasRecovery) {
+          signals.push(`⚠ Difficulty ${experience.difficulty}/10 but no rest or wellness items`);
+        }
+      }
+
+      // No transport for multi-day experience
+      if (experience.max_planning_days > 1) {
+        const items = experience.plan_items || [];
+        const hasTransport = items.some(i =>
+          i.activity_type === 'transport' || i.details?.transport
+        );
+        if (!hasTransport) {
+          signals.push('⚠ No transport items for a multi-day experience');
+        }
+      }
+
+      if (signals.length > 0) {
+        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Experience attention signals skipped', { error: sigErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildExperienceContext failed', { experienceId, error: err.message });

@@ -233,6 +233,45 @@ describe('buildExperienceContext', () => {
 
     expect(ctx).not.toContain('[DISAMBIGUATION');
   });
+
+  it('signals no user plan when user has not planned this experience', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, { name: 'Unplanned Tour' });
+
+    const ctx = await buildExperienceContext(exp._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('You have no plan for this experience yet');
+  });
+
+  it('does not signal no-plan when the user has a plan', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, { name: 'Planned Tour' });
+    await createTestPlan(user, exp);
+
+    const ctx = await buildExperienceContext(exp._id.toString(), user._id.toString());
+
+    expect(ctx).not.toContain('You have no plan for this experience yet');
+  });
+
+  it('signals high difficulty with no wellness items', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, {
+      difficulty: 8,
+      plan_items: [
+        { _id: new mongoose.Types.ObjectId(), content: 'Hike mountain pass', activity_type: 'adventure' },
+      ],
+    });
+
+    const ctx = await buildExperienceContext(exp._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/Difficulty 8\/10 but no rest or wellness items/);
+  });
 });
 
 // ---------------------------------------------------------------------------
