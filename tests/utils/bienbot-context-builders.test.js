@@ -936,6 +936,30 @@ describe('buildUserGreetingContext', () => {
     expect(ctx).toContain('[ATTENTION]');
     expect(ctx).toContain('plan has no items yet');
   });
+
+  it('signals overdue items aggregated across plans', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, { name: 'Paris Trip' });
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const itemId = new mongoose.Types.ObjectId();
+    await createTestPlan(user, exp, {
+      plan: [{
+        _id: itemId,
+        plan_item_id: itemId,
+        text: 'Visit museum',
+        complete: false,
+        scheduled_date: yesterday,
+      }],
+    });
+
+    const ctx = await buildUserGreetingContext(user._id.toString());
+
+    expect(ctx).not.toBeNull();
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/You have \d+ overdue items? across your plans/);
+  });
 });
 
 // ---------------------------------------------------------------------------
