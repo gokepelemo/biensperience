@@ -2111,20 +2111,12 @@ exports.chat = async (req, res) => {
   }
 
   for (const msg of windowedMessages) {
-    let msgContent;
-    if (msg.role === 'user') {
-      msgContent = `[USER MESSAGE]\n${msg.content}\n[/USER MESSAGE]`;
-    } else {
-      // Ensure assistant messages are always in JSON format before sending to the LLM.
-      // Plain-text assistant messages (e.g. from session resume greetings) would otherwise
-      // teach the LLM to abandon the JSON response schema, causing parseLLMResponse failures
-      // on every subsequent turn.
-      const trimmed = (msg.content || '').trimStart();
-      msgContent = trimmed.startsWith('{')
-        ? msg.content
-        : JSON.stringify({ message: msg.content || '', pending_actions: [], entity_refs: [] });
-    }
-    conversationMessages.push({ role: msg.role, content: msgContent });
+    conversationMessages.push({
+      role: msg.role,
+      content: msg.role === 'user'
+        ? `[USER MESSAGE]\n${msg.content}\n[/USER MESSAGE]`
+        : msg.content
+    });
   }
 
   // Add the current user message with delimiter
@@ -2314,28 +2306,22 @@ exports.chat = async (req, res) => {
     }
     await session.addMessage('user', message, userMessageOpts);
 
-    // Add assistant response (with structured_content from read-only actions + entity refs).
-    // Skip persisting if parseLLMResponse returned the error fallback — storing that text
-    // in session history would corrupt the LLM's JSON format signal on the next turn,
-    // causing a cascading failure where every subsequent answer is also malformed.
-    const PARSE_ERROR_FALLBACK = 'I had trouble formatting my response. Could you try rephrasing your request?';
-    if (parsed.message !== PARSE_ERROR_FALLBACK) {
-      const actionsTaken = [
-        ...readOnlyActions.map(a => a.type),
-        ...parsed.pending_actions.map(a => a.type)
-      ];
-      const entityRefBlock = parsed.entity_refs?.length > 0
-        ? [{ type: 'entity_ref_list', data: { refs: parsed.entity_refs } }]
-        : [];
-      await session.addMessage('assistant', parsed.message, {
-        actions_taken: actionsTaken,
-        structured_content: [...structuredContent, ...entityRefBlock]
-      });
+    // Add assistant response (with structured_content from read-only actions + entity refs)
+    const actionsTaken = [
+      ...readOnlyActions.map(a => a.type),
+      ...parsed.pending_actions.map(a => a.type)
+    ];
+    const entityRefBlock = parsed.entity_refs?.length > 0
+      ? [{ type: 'entity_ref_list', data: { refs: parsed.entity_refs } }]
+      : [];
+    await session.addMessage('assistant', parsed.message, {
+      actions_taken: actionsTaken,
+      structured_content: [...structuredContent, ...entityRefBlock]
+    });
 
-      // Store confirmable pending actions (read-only already executed)
-      if (parsed.pending_actions.length > 0) {
-        await session.setPendingActions(parsed.pending_actions);
-      }
+    // Store confirmable pending actions (read-only already executed)
+    if (parsed.pending_actions.length > 0) {
+      await session.setPendingActions(parsed.pending_actions);
     }
 
     // Auto-generate title from first user message
