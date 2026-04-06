@@ -1265,6 +1265,54 @@ async function buildUserGreetingContext(userId, options = {}) {
       logger.debug('[bienbot-context] Greeting signal injection skipped', { error: sigErr.message });
     }
 
+    // Attention signals
+    try {
+      const attentionSignals = [];
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+
+      for (const plan of (plans || []).slice(0, 5)) {
+        const planItems = plan.plan || [];
+        const expName = plan.experience?.name || 'this trip';
+        const daysUntilTrip = plan.planned_date
+          ? Math.round((new Date(plan.planned_date).setHours(0, 0, 0, 0) - today) / 86400000)
+          : null;
+
+        // Imminent plan with incomplete items
+        if (daysUntilTrip !== null && daysUntilTrip >= 0 && daysUntilTrip <= 7) {
+          const incomplete = planItems.filter(i => !i.complete);
+          if (incomplete.length > 0) {
+            attentionSignals.push(
+              `⚠ ${incomplete.length} item${incomplete.length !== 1 ? 's' : ''} still open on your ${expName} trip in ${daysUntilTrip} day${daysUntilTrip !== 1 ? 's' : ''}`
+            );
+          }
+        }
+
+        // Empty plan
+        if (planItems.length === 0) {
+          attentionSignals.push(`⚠ Your ${expName} plan has no items yet`);
+        }
+      }
+
+      // Aggregate overdue items across all plans
+      const totalOverdue = (plans || []).reduce((sum, plan) => {
+        const planItems = plan.plan || [];
+        return sum + planItems.filter(i => {
+          if (i.complete || !i.scheduled_date) return false;
+          const d = new Date(i.scheduled_date); d.setHours(0, 0, 0, 0);
+          return d < today;
+        }).length;
+      }, 0);
+      if (totalOverdue > 0) {
+        attentionSignals.push(`⚠ You have ${totalOverdue} overdue item${totalOverdue !== 1 ? 's' : ''} across your plans`);
+      }
+
+      if (attentionSignals.length > 0) {
+        lines.push(`\n[ATTENTION]\n${attentionSignals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Greeting attention signals skipped', { error: sigErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildUserGreetingContext failed', { userId, error: err.message });

@@ -26,6 +26,7 @@ const {
   buildUserPlanContext,
   buildPlanItemContext,
   buildUserProfileContext,
+  buildUserGreetingContext,
   buildSearchContext,
   buildContextForInvokeContext
 } = require('../../utilities/bienbot-context-builders');
@@ -894,6 +895,46 @@ describe('buildSearchContext', () => {
       expect(ctx).toContain('[Search Results]');
     }
     // If fuzzy threshold doesn't match the exact substring, that's acceptable behavior
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildUserGreetingContext
+// ---------------------------------------------------------------------------
+
+describe('buildUserGreetingContext', () => {
+  it('signals imminent incomplete plan within 7 days', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, { name: 'Tokyo Sprint' });
+    const soon = new Date(); soon.setDate(soon.getDate() + 5);
+    const plan = await createTestPlan(user, exp, {
+      planned_date: soon,
+      plan: [
+        { _id: new mongoose.Types.ObjectId(), plan_item_id: new mongoose.Types.ObjectId(), text: 'Book tour', complete: false },
+        { _id: new mongoose.Types.ObjectId(), plan_item_id: new mongoose.Types.ObjectId(), text: 'Pack bags', complete: false },
+      ],
+    });
+
+    const ctx = await buildUserGreetingContext(user._id.toString());
+
+    expect(ctx).not.toBeNull();
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/2 items still open on your .* trip in \d+ day/);
+  });
+
+  it('signals empty plans when a plan exists with no items', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest, { name: 'Empty Trip' });
+    const future = new Date(); future.setDate(future.getDate() + 30);
+    await createTestPlan(user, exp, { planned_date: future, plan: [] });
+
+    const ctx = await buildUserGreetingContext(user._id.toString());
+
+    expect(ctx).not.toBeNull();
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('plan has no items yet');
   });
 });
 
