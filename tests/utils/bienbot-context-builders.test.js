@@ -123,6 +123,30 @@ describe('buildDestinationContext', () => {
     expect(ctx).toContain('Travel tips:');
     expect(ctx).toContain('Bring comfortable shoes');
   });
+
+  it('includes DISAMBIGUATION block when destination has 2+ experiences', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Lisbon' });
+    await createTestExperience(user, dest, { name: 'Alfama Walking Tour' });
+    await createTestExperience(user, dest, { name: 'Belem Tower Visit' });
+
+    const ctx = await buildDestinationContext(dest._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[DISAMBIGUATION: other experiences at Lisbon]');
+    expect(ctx).toContain('Alfama Walking Tour');
+    expect(ctx).toContain('Belem Tower Visit');
+    expect(ctx).toContain('[/DISAMBIGUATION]');
+  });
+
+  it('omits DISAMBIGUATION block when destination has fewer than 2 experiences', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Lonely Island' });
+    await createTestExperience(user, dest, { name: 'Only Beach Walk' });
+
+    const ctx = await buildDestinationContext(dest._id.toString(), user._id.toString());
+
+    expect(ctx).not.toContain('[DISAMBIGUATION');
+  });
 });
 
 // ---------------------------------------------------------------------------

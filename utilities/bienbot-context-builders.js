@@ -454,6 +454,17 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       logger.debug('[bienbot-context] Cross-entity destination plans skipped', { error: crossErr.message });
     }
 
+    // Disambiguation: list experiences at this destination
+    try {
+      const disambigBlock = await buildDisambiguationBlock('experience', userId, {
+        destinationId: destination._id.toString(),
+        destinationName: destination.name,
+      });
+      if (disambigBlock) lines.push('\n' + disambigBlock);
+    } catch (dErr) {
+      logger.debug('[bienbot-context] Destination disambiguation skipped', { error: dErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildDestinationContext failed', { destinationId, error: err.message });
