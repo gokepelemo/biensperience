@@ -222,6 +222,12 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
     '- IMPORTANT: When asking a clarifying question about a specific child entity (e.g. which plan item to remove), populate entity_refs with the relevant child entities (plan_item), never the parent (experience). Only include the parent entity in entity_refs when the action targets the parent itself.',
     '',
+    'ATTENTION SIGNALS:',
+    '- Context blocks may include [ATTENTION] sections listing gaps, anomalies, or urgencies.',
+    '- When [ATTENTION] signals are present and the user\'s opening message is open-ended (e.g. "hey", "what should I do?", "help me plan"), surface the most urgent one naturally in your response.',
+    '- Do not list all signals mechanically. Weave the most important one into a helpful, conversational observation.',
+    '- If the user\'s message already addresses the signal topic, do not repeat it.',
+    '',
     'DATE AND TIME:',
     `- Today's date is ${new Date().toISOString().split('T')[0]}.`,
     '- When the user specifies a relative time (e.g. "in 3 months", "next week", "this summer"), calculate the exact date.',
@@ -767,6 +773,13 @@ function parseLLMResponse(text) {
   const direct = tryParse(cleaned);
   if (direct) return direct;
 
+  // 1b. Strip markdown fences from anywhere in the text (handles prose before/after fences)
+  const fenceStripped = text.replace(/```(?:json)?\s*\n?/gi, '').replace(/\n?\s*```/g, '').trim();
+  if (fenceStripped !== cleaned) {
+    const fenceResult = tryParse(fenceStripped);
+    if (fenceResult) return fenceResult;
+  }
+
   // 2. Try extracting the first JSON object from the text (handles leading/trailing prose)
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
@@ -775,16 +788,52 @@ function parseLLMResponse(text) {
     if (extracted) return extracted;
   }
 
+  // 2b. Try extracting from fence-stripped text as well
+  if (fenceStripped !== cleaned) {
+    const fsBrace = fenceStripped.indexOf('{');
+    const fsLastBrace = fenceStripped.lastIndexOf('}');
+    if (fsBrace !== -1 && fsLastBrace > fsBrace) {
+      const fsExtracted = tryParse(fenceStripped.slice(fsBrace, fsLastBrace + 1));
+      if (fsExtracted) return fsExtracted;
+    }
+  }
+
   // 3. JSON-like but unparseable — try regex extraction, else friendly error
   if (text.trimStart().startsWith('{')) {
     const msgMatch = text.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (msgMatch) {
+      let message;
       try {
-        const unescaped = JSON.parse(`"${msgMatch[1]}"`);
-        return { message: unescaped, pending_actions: [], entity_refs: [] };
+        message = JSON.parse(`"${msgMatch[1]}"`);
       } catch {
-        return { message: msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'), pending_actions: [], entity_refs: [] };
+        message = msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
       }
+
+      // Also try to salvage pending_actions from the broken JSON
+      let actions = [];
+      try {
+        const actionsMatch = text.match(/"pending_actions"\s*:\s*\[/);
+        if (actionsMatch) {
+          const actionsStart = actionsMatch.index + actionsMatch[0].length - 1;
+          let depth = 0;
+          let actionsEnd = -1;
+          for (let i = actionsStart; i < text.length; i++) {
+            if (text[i] === '[') depth++;
+            else if (text[i] === ']') {
+              depth--;
+              if (depth === 0) { actionsEnd = i + 1; break; }
+            }
+          }
+          if (actionsEnd > actionsStart) {
+            const rawActions = JSON.parse(text.slice(actionsStart, actionsEnd));
+            actions = (Array.isArray(rawActions) ? rawActions : [])
+              .filter(a => a && typeof a.id === 'string' && typeof a.type === 'string' &&
+                ALLOWED_ACTION_TYPES.includes(a.type) && a.payload && typeof a.description === 'string');
+          }
+        }
+      } catch { /* ignore — return message without actions */ }
+
+      return { message, pending_actions: actions, entity_refs: [] };
     }
     logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
       length: text.length,
@@ -793,7 +842,17 @@ function parseLLMResponse(text) {
     return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
   }
 
-  // 4. No message field found — show error
+  // 4. Plain text (no JSON structure) — return the text as the message
+  // rather than showing an error, so the user at least sees the LLM response
+  const trimmed = text.trim();
+  if (trimmed.length > 0 && trimmed.length < 5000) {
+    logger.warn('[bienbot] parseLLMResponse: returning plain text response (no JSON)', {
+      length: trimmed.length,
+      preview: trimmed.slice(0, 120)
+    });
+    return { message: trimmed, pending_actions: [], entity_refs: [] };
+  }
+
   logger.warn('[bienbot] parseLLMResponse: no message field in response', {
     length: text.length,
     preview: text.slice(0, 120)

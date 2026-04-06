@@ -547,6 +547,15 @@ describe('BienBot API', () => {
       expect(skeletonBlocks.find(b => b.type === 'photo_gallery' && b.data === null)).toBeTruthy();
       expect(skeletonBlocks.find(b => b.type === 'tip_suggestion_list' && b.data === null)).toBeTruthy();
     });
+
+    it('system prompt includes ATTENTION handling instruction', () => {
+      const src = require('fs').readFileSync(
+        require('path').resolve(__dirname, '../../controllers/api/bienbot.js'),
+        'utf8'
+      );
+      expect(src).toContain('ATTENTION SIGNALS');
+      expect(src).toContain('surface the most urgent one naturally');
+    });
   });
 
   // -------------------------------------------------------------------------
