@@ -45,6 +45,7 @@ import { logger } from "../../utilities/logger";
 import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from '../../utilities/storage-keys';
 import { createUrlSlug } from "../../utilities/url-utils";
 import { useNavigationIntent, INTENT_TYPES } from "../../contexts/NavigationIntentContext";
+import { useNavigationContext } from "../../contexts/NavigationContext";
 import { useScrollHighlight } from "../../hooks/useScrollHighlight";
 import {
   formatDateShort,
@@ -99,7 +100,7 @@ import {
   unassignPlanItem,
   addPlanItemDetail,
 } from "../../utilities/plans-api";
-import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus } from "../../utilities/event-bus";
+import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus, broadcastEvent } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import './components/MyPlanTabContent/plan-item-views.css';
 import { sendEmailInvite } from "../../utilities/invites-api";
@@ -191,6 +192,9 @@ export default function SingleExperience() {
   // Navigation intent hook - single source of truth for deep-link navigation
   const { intent, consumeIntent, clearIntent } = useNavigationIntent();
 
+  // Navigation schema context - builds a lean breadcrumb for BienBot context seeding
+  const { setNavigatedEntity } = useNavigationContext();
+
   // Scroll highlight hook - consolidated scroll/highlight logic
   const { scrollToItem, applyHighlight, clearHighlight } = useScrollHighlight();
 
@@ -222,6 +226,14 @@ export default function SingleExperience() {
   useEffect(() => {
     experienceRef.current = experience;
   }, [experience]);
+
+  // Register experience and active plan in the navigation schema for BienBot context seeding
+  useEffect(() => {
+    if (experience?._id) setNavigatedEntity('experience', experience);
+  }, [experience?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (selectedPlan?._id) setNavigatedEntity('plan', selectedPlan);
+  }, [selectedPlan?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // UI state
   const [favHover, setFavHover] = useState(false);
@@ -1906,6 +1918,35 @@ export default function SingleExperience() {
       setPresenceTab(presenceTabName);
     }
   }, [activeTab, setPresenceTab]);
+
+  // Broadcast plan context to BienBot when plan tab becomes active with a selected plan
+  const prevBienBotPlanRef = useRef(null);
+  useEffect(() => {
+    if (activeTab !== 'myplan' || !selectedPlan?._id) {
+      prevBienBotPlanRef.current = null;
+      return;
+    }
+
+    const planId = selectedPlan._id?.toString();
+    if (prevBienBotPlanRef.current === planId) return; // Already broadcast for this plan
+    prevBienBotPlanRef.current = planId;
+
+    const isOwnPlan = idEquals(selectedPlan.user?._id || selectedPlan.user, user?._id);
+    const experienceName = experience?.name || 'this experience';
+    const ownerFirstName = planOwner?.name?.split(' ')?.[0] || null;
+
+    const contextDescription = isOwnPlan
+      ? `your plan for ${experienceName}`
+      : ownerFirstName
+        ? `${ownerFirstName}'s plan for ${experienceName}`
+        : `a shared plan for ${experienceName}`;
+
+    broadcastEvent('bienbot:plan_focused', {
+      planId,
+      entity: 'plan',
+      contextDescription,
+    });
+  }, [activeTab, selectedPlan?._id, user?._id, experience?.name, planOwner?.name]);
 
   /**
    * Load persisted hierarchy state from encrypted storage

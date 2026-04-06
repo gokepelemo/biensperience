@@ -954,7 +954,9 @@ describe('BienBot API', () => {
     const {
       buildDestinationContext,
       buildExperienceContext,
-      buildUserPlanContext
+      buildUserPlanContext,
+      buildPlanItemContext,
+      buildUserGreetingContext
     } = require('../../utilities/bienbot-context-builders');
 
     const ANALYZE_SUGGESTIONS = [
@@ -969,6 +971,8 @@ describe('BienBot API', () => {
       buildDestinationContext.mockClear();
       buildExperienceContext.mockClear();
       buildUserPlanContext.mockClear();
+      buildPlanItemContext.mockClear();
+      buildUserGreetingContext.mockClear();
 
       // Default: analyze returns JSON suggestion array
       callProvider.mockResolvedValue({
@@ -1094,6 +1098,8 @@ describe('BienBot API', () => {
       expect(res.body.data.suggestions[0]).toMatchObject({ type: 'warning', message: expect.any(String) });
       expect(res.body.data.suggestions[1]).toMatchObject({ type: 'tip', message: expect.any(String) });
       expect(res.body.data.suggestions[2]).toMatchObject({ type: 'info', message: expect.any(String) });
+      expect(res.body.data.suggestedPrompts).toBeDefined();
+      expect(Array.isArray(res.body.data.suggestedPrompts)).toBe(true);
 
       // Verify correct context builder was called
       expect(buildUserPlanContext).toHaveBeenCalled();
@@ -1134,6 +1140,88 @@ describe('BienBot API', () => {
       const [destArg, userArgDest] = buildDestinationContext.mock.calls[0];
       expect(destArg.toString()).toBe(destination._id.toString());
       expect(typeof userArgDest).toBe('string');
+    });
+
+    it('analyzes a plan_item and returns suggestions', async () => {
+      const planWithItem = await createTestPlan(user, experience, {
+        plan: [{ content: 'Visit the Louvre', completed: false }]
+      });
+      const planItem = planWithItem.plan[0];
+      buildPlanItemContext.mockResolvedValueOnce('[Plan Item] Visit the Louvre\nStatus: pending');
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan_item', entityId: planItem._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.entity).toBe('plan_item');
+      expect(res.body.data.entityId).toBe(planItem._id.toString());
+      expect(res.body.data.suggestions).toHaveLength(3);
+      expect(buildPlanItemContext).toHaveBeenCalled();
+    });
+
+    it('returns 404 when plan_item does not exist', async () => {
+      const fakeItemId = '507f1f77bcf86cd799439011';
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan_item', entityId: fakeItemId });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/not found/i);
+    });
+
+    it('returns 403 when user lacks view permission on the parent plan of a plan_item', async () => {
+      const otherUser = await createAIUser({ email: `other_pi_${Date.now()}@test.com` });
+      const otherExp = await createTestExperience(otherUser, destination, { name: 'Other Exp PI' });
+      const otherPlan = await createTestPlan(otherUser, otherExp, {
+        plan: [{ content: 'Private item', completed: false }]
+      });
+      const otherItem = otherPlan.plan[0];
+
+      const noPermUser = await createTestUser({
+        email: `noperm_pi_${Date.now()}@test.com`,
+        emailConfirmed: true,
+        feature_flags: [{ flag: 'ai_features', enabled: true, granted_at: new Date() }]
+      });
+      const noPermToken = generateAuthToken(noPermUser);
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', noPermToken)
+        .send({ entity: 'plan_item', entityId: otherItem._id.toString() });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/permission/i);
+    });
+
+    it('analyzes the user entity and returns a greeting brief', async () => {
+      buildUserGreetingContext.mockResolvedValueOnce('Today: 2026-04-05\n\nUPCOMING PLANS:\n  No upcoming plans.');
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'user', entityId: user._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.entity).toBe('user');
+      expect(res.body.data.suggestions).toHaveLength(3);
+      expect(buildUserGreetingContext).toHaveBeenCalled();
+      const [userIdArg] = buildUserGreetingContext.mock.calls[0];
+      expect(userIdArg.toString()).toBe(user._id.toString());
+    });
+
+    it('returns 403 when analyzing another user entity', async () => {
+      const otherUser = await createAIUser({ email: `other_usr_${Date.now()}@test.com` });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'user', entityId: otherUser._id.toString() });
+
+      expect(res.status).toBe(403);
     });
 
     // --- Context builder failure (non-fatal) ---
@@ -1282,6 +1370,53 @@ describe('BienBot API', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.suggestions[0].message.length).toBeLessThanOrEqual(200);
+    });
+
+    it('parses object format with suggestions and suggested_prompts', async () => {
+      const objectResponse = {
+        suggestions: ANALYZE_SUGGESTIONS,
+        suggested_prompts: [
+          'Which plan items still need dates?',
+          'What\'s left to plan for the trip?'
+        ]
+      };
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify(objectResponse),
+        usage: { prompt_tokens: 40, completion_tokens: 80 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestions).toHaveLength(3);
+      expect(res.body.data.suggestedPrompts).toHaveLength(2);
+      expect(res.body.data.suggestedPrompts[0]).toBe('Which plan items still need dates?');
+      expect(res.body.data.suggestedPrompts[1]).toBe('What\'s left to plan for the trip?');
+    });
+
+    it('limits suggested_prompts to max 4 items and 100 chars each', async () => {
+      const objectResponse = {
+        suggestions: ANALYZE_SUGGESTIONS,
+        suggested_prompts: [
+          'Prompt 1', 'Prompt 2', 'Prompt 3', 'Prompt 4', 'Prompt 5 should be dropped',
+          'P'.repeat(150)
+        ]
+      };
+      callProvider.mockResolvedValueOnce({
+        content: JSON.stringify(objectResponse),
+        usage: { prompt_tokens: 40, completion_tokens: 80 }
+      });
+
+      const res = await request(app)
+        .post('/api/bienbot/analyze')
+        .set('Authorization', authToken)
+        .send({ entity: 'plan', entityId: plan._id.toString() });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.suggestedPrompts.length).toBeLessThanOrEqual(4);
     });
 
     // --- Auth & feature flag ---

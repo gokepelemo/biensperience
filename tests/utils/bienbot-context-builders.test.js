@@ -749,6 +749,54 @@ describe('buildPlanItemContext', () => {
     expect(ctx).toContain('[ATTENTION]');
     expect(ctx).toContain('No cost tracked');
   });
+
+  it('signals transport incomplete when arrival exists but departure does not', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [{
+        _id: itemId,
+        plan_item_id: itemId,
+        text: 'Train from Paris',
+        activity_type: 'transport',
+        complete: false,
+        details: {
+          transport: { mode: 'train', departureLocation: '', arrivalLocation: 'Lyon Part-Dieu' },
+        },
+      }],
+    });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemId.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('Transport entry is missing arrival/departure');
+  });
+
+  it('signals overdue when item scheduled date is in the past and item is incomplete', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const itemId = new mongoose.Types.ObjectId();
+    const twoDaysAgo = new Date(); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    const plan = await createTestPlan(user, exp, {
+      plan: [{
+        _id: itemId,
+        plan_item_id: itemId,
+        text: 'Book restaurant',
+        complete: false,
+        scheduled_date: twoDaysAgo,
+      }],
+    });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemId.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/This item is \d+ days? overdue/);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -917,8 +917,10 @@ export default function PlanItemDetailsModal({
   }, [groupedDetails]);
 
   // BienBot Discuss action (ai_features flag guard)
-  const { label: bienbotLabel, loading: bienbotLoading, hasAccess: hasBienBot, handleOpen: handleBienBot } =
-    useBienBotEntityAction('plan_item', planItemIdStr, planItem?.content || 'Plan Item');
+  const { label: bienbotLabel, hasAccess: hasBienBot, handleOpen: handleBienBot } =
+    useBienBotEntityAction('plan_item', planItemIdStr, experienceName
+      ? `${planItem?.text || 'Plan Item'} in ${experienceName}`
+      : planItem?.text || 'Plan Item');
 
   /**
    * Export details to PDF
@@ -1320,6 +1322,8 @@ export default function PlanItemDetailsModal({
         title={editableTitle}
         size="fullscreen"
       centered={false}
+      trapFocus={false}
+      closeOnInteractOutside={false}
       allowBodyScroll={isMobileViewport}
       bodyClassName={isMobileViewport ? styles.modalBodyDocumentScroll : styles.modalBodyFullscreen}
     >
@@ -1618,8 +1622,7 @@ export default function PlanItemDetailsModal({
                       variant="outline"
                       size="sm"
                       onClick={handleBienBot}
-                      disabled={bienbotLoading}
-                      leftIcon={bienbotLoading ? <Loading size="sm" variant="inline" showMessage={false} /> : <FaRobot />}
+                      leftIcon={<FaRobot />}
                       fullWidth
                     >
                       {bienbotLabel}

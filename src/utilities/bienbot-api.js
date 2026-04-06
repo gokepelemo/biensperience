@@ -109,6 +109,7 @@ async function fetchCsrfToken() {
 export async function postMessage(sessionId, message, options = {}) {
   const {
     invokeContext,
+    navigationSchema,
     attachment,
     onToken,
     onSession,
@@ -142,6 +143,9 @@ export async function postMessage(sessionId, message, options = {}) {
     if (!sessionId && invokeContext) {
       formData.append('invokeContext', JSON.stringify(invokeContext));
     }
+    if (!sessionId && navigationSchema) {
+      formData.append('navigationSchema', JSON.stringify(navigationSchema));
+    }
     formData.append('attachment', attachment);
     requestBody = formData;
     // Remove Content-Type header — browser sets it automatically with boundary for multipart
@@ -154,6 +158,9 @@ export async function postMessage(sessionId, message, options = {}) {
     }
     if (!sessionId && invokeContext) {
       bodyObj.invokeContext = invokeContext;
+    }
+    if (!sessionId && navigationSchema) {
+      bodyObj.navigationSchema = navigationSchema;
     }
     requestBody = JSON.stringify(bodyObj);
   }
@@ -930,7 +937,7 @@ export async function clearMemory() {
  *
  * Returns a list of suggestions without creating or modifying any session.
  *
- * @param {string} entity - Entity type: 'plan' | 'experience' | 'destination'
+ * @param {string} entity - Entity type: 'plan' | 'experience' | 'destination' | 'plan_item' | 'user'
  * @param {string} entityId - MongoDB ObjectId of the entity
  * @returns {Promise<{ entity: string, entityId: string, suggestions: Array<{ type: 'warning'|'tip'|'info', message: string }> }>}
  */

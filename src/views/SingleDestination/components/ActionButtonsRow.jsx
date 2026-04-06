@@ -37,7 +37,7 @@ export default function ActionButtonsRow({
   const navigate = useNavigate();
 
   // BienBot analyze action (ai_features flag guard)
-  const { label: bienbotLabel, loading: bienbotLoading, hasAccess: hasBienBot, handleOpen: handleBienBot } =
+  const { label: bienbotLabel, hasAccess: hasBienBot, handleOpen: handleBienBot } =
     useBienBotEntityAction('destination', destinationId, destination?.name || 'Destination');
 
   // Calculate consistent button width based on all possible text states
@@ -56,8 +56,8 @@ export default function ActionButtonsRow({
   const buttonStyle = {
     width: `${buttonWidth}px`,
     minWidth: `${buttonWidth}px`,
-    height: '44px',
-    minHeight: '44px',
+    height: 'var(--btn-height-md)',
+    minHeight: 'var(--btn-height-md)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center'
@@ -96,7 +96,7 @@ export default function ActionButtonsRow({
         </button>
       </FadeIn>
 
-      {/* Owner actions - Edit (primary) with Delete in dropdown */}
+      {/* Owner actions - Edit (primary) with Delete and BienBot in dropdown */}
       {isOwner(user, destination) && (
         <FadeIn>
           <SplitButton
@@ -116,27 +116,29 @@ export default function ActionButtonsRow({
             >
               <FaTrash /> Delete
             </SplitButton.Item>
+            {hasBienBot && (
+              <SplitButton.Item
+                value="bienbot"
+                onClick={handleBienBot}
+              >
+                <FaRobot /> {bienbotLabel}
+              </SplitButton.Item>
+            )}
           </SplitButton>
         </FadeIn>
       )}
 
-      {/* BienBot Analyze button — shown when user has ai_features flag */}
-      {user && hasBienBot && (
+      {/* BienBot Analyze button — for non-owners with ai_features flag */}
+      {!isOwner(user, destination) && user && hasBienBot && (
         <FadeIn>
           <button
             className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
-            style={{ ...buttonStyle, gap: '6px' }}
+            style={{ ...buttonStyle, gap: 'var(--space-2)' }}
             onClick={handleBienBot}
-            disabled={bienbotLoading}
-            aria-busy={bienbotLoading}
             title={`${bienbotLabel} with BienBot`}
             aria-label={`${bienbotLabel} with BienBot`}
           >
-            {bienbotLoading ? (
-              <Loading size="sm" variant="inline" showMessage={false} />
-            ) : (
-              <><FaRobot /> {bienbotLabel}</>
-            )}
+            <FaRobot /> {bienbotLabel}
           </button>
         </FadeIn>
       )}

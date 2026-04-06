@@ -59,7 +59,7 @@ function getEntityUrl(ref) {
   }
 }
 
-export default function EntityRefList({ refs }) {
+export default function EntityRefList({ refs, onSelect }) {
   const navigate = useNavigate();
 
   if (!refs || refs.length === 0) return null;
@@ -70,15 +70,18 @@ export default function EntityRefList({ refs }) {
         const url = getEntityUrl(ref);
         const label = TYPE_LABELS[ref.type] || ref.type;
         const icon = TYPE_ICONS[ref.type] || null;
+        const handleClick = onSelect
+          ? () => onSelect(ref)
+          : (url ? () => navigate(url) : undefined);
 
         return (
           <button
             key={`${ref._id}-${i}`}
             className={styles.entityRefCard}
-            onClick={url ? () => navigate(url) : undefined}
-            disabled={!url}
+            onClick={handleClick}
+            disabled={!handleClick}
             type="button"
-            aria-label={`View ${label}: ${ref.name}`}
+            aria-label={`${onSelect ? 'Select' : 'View'} ${label}: ${ref.name}`}
           >
             {icon && <span className={styles.entityRefIcon}>{icon}</span>}
             <span className={styles.entityRefBody}>

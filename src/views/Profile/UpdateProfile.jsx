@@ -313,20 +313,22 @@ export default function UpdateProfile() {
           userData = await getUserData(userId);
           setTargetUser(userData);
         } else {
-          // Self mode: use profile data if available, otherwise fetch it
-          if (!profile) {
-            await fetchProfile();
-          }
-          userData = profile || user;
+          // Self mode: always fetch fresh profile data to ensure populated photos
+          userData = await getUserData(user._id);
         }
 
         // Deep clone to ensure originalUser and formData are independent
         const clonedUserData = JSON.parse(JSON.stringify(userData));
         // Normalize photos to IDs for consistent comparison (if PhotoUpload is used)
         if (clonedUserData.photos) {
-          clonedUserData.photos = clonedUserData.photos.map(photo => 
-            photo._id ? photo._id : photo
-          );
+          clonedUserData.photos = clonedUserData.photos.map(entry => {
+            // Handle photoEntry wrapper: {photo: PhotoDoc|ObjectId, default: bool}
+            if (entry && typeof entry === 'object' && 'photo' in entry && 'default' in entry) {
+              const p = entry.photo;
+              return typeof p === 'object' && p ? (p._id || p) : p;
+            }
+            return entry?._id || entry;
+          });
         }
         setOriginalUser(clonedUserData);
         setFormData({
@@ -346,7 +348,7 @@ export default function UpdateProfile() {
     if (user) {
       fetchUserData();
     }
-  }, [user, profile, userId, isAdminMode, fetchProfile]);
+  }, [user, userId, isAdminMode]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;

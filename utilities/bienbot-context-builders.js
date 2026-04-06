@@ -1110,8 +1110,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
         }
       }
 
-      // Overdue — only if not already shown in proximity line
-      if (!item.complete && daysUntil !== null && daysUntil < 0 && !proximityLine?.includes('overdue')) {
+      // Overdue signal — reinforces the proximity line with an actionable alert
+      if (!item.complete && daysUntil !== null && daysUntil < 0) {
         signals.push(`⚠ This item is ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''} overdue`);
       }
 

@@ -8,7 +8,7 @@ import { initVersion } from './utilities/version';
 import App from './views/App/App';
 import { StrictMode } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { ToastProvider } from './contexts/ToastContext';
+
 import themeManager from './utilities/theme-manager';
 import { migratePlanCacheFromSessionStorage } from './utilities/plan-cache';
 import { migrateFormDraftsFromLegacyStorage } from './utilities/form-persistence';
@@ -60,11 +60,9 @@ try {
 }
 root.render(
   <StrictMode>
-    <ToastProvider>
-      <Router future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }}><App /></Router>
-    </ToastProvider>
+    <Router future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }}><App /></Router>
   </StrictMode>
 );

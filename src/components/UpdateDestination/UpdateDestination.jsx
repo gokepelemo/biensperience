@@ -98,9 +98,14 @@ export default function UpdateDestination() {
         });
         setOriginalDestination({
           ...destinationData,
-          photos: (destinationData.photos || []).map(photo => 
-            photo._id ? photo._id : photo
-          ) // Normalize original photos to IDs for consistent comparison
+          photos: (destinationData.photos || []).map(entry => {
+            // Handle photoEntry wrapper: {photo: PhotoDoc|ObjectId, default: bool}
+            if (entry && typeof entry === 'object' && 'photo' in entry && 'default' in entry) {
+              const p = entry.photo;
+              return typeof p === 'object' && p ? (p._id || p) : p;
+            }
+            return entry?._id || entry;
+          }) // Normalize original photos to IDs for consistent comparison
         });
         setTravelTips(destinationData.travel_tips || []);
         setLoading(false);

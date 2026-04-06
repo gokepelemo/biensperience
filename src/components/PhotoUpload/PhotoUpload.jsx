@@ -50,6 +50,23 @@ function sanitizeImageUrl(url) {
   return trimmedUrl;
 }
 
+/**
+ * Unwrap photoEntry wrappers ({photo: PhotoDoc, default: bool}) to flat Photo docs.
+ * Handles both populated entries (photo is an object with .url) and flat Photo docs.
+ * Returns only items that have a .url property.
+ */
+function resolveToPhotoDocs(arr) {
+  return (arr || []).map(p => {
+    if (!p || typeof p !== 'object') return null;
+    // Entry-wrapper shape: { photo: PhotoDoc, default: bool }
+    if ('photo' in p && 'default' in p) {
+      return (p.photo && typeof p.photo === 'object' && p.photo.url) ? p.photo : null;
+    }
+    // Flat PhotoDoc shape
+    return p.url ? p : null;
+  }).filter(Boolean);
+}
+
 export default function PhotoUpload({ data, setData, hideUploadedPhotos = false, maxHeight = null }) {
   const [uploadForm, setUploadForm] = useState({});
   const [uploading, setUploading] = useState(false);
@@ -67,7 +84,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
 
   const [photos, setPhotos] = useState(() => {
     if (Array.isArray(data.photos_full) && data.photos_full.length > 0) return data.photos_full.filter(Boolean);
-    return (data.photos || []).filter(Boolean);
+    return resolveToPhotoDocs(data.photos);
   });
 
   const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(() => {
@@ -99,7 +116,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
   useEffect(() => {
     const externalPhotos = Array.isArray(data.photos_full) && data.photos_full.length > 0
       ? data.photos_full.filter(Boolean)
-      : (Array.isArray(data.photos) ? data.photos.filter(Boolean) : []);
+      : resolveToPhotoDocs(data.photos);
 
     // Only sync if we have external photos AND we haven't initialized yet
     // OR if external photos changed significantly (e.g., modal reopened with different entity)
@@ -125,7 +142,7 @@ export default function PhotoUpload({ data, setData, hideUploadedPhotos = false,
   useEffect(() => {
     const externalPhotos = Array.isArray(data.photos_full) && data.photos_full.length > 0
       ? data.photos_full.filter(Boolean)
-      : (Array.isArray(data.photos) ? data.photos.filter(Boolean) : []);
+      : resolveToPhotoDocs(data.photos);
 
     if (externalPhotos.length === 0 && photos.length === 0) {
       initializedFromDataRef.current = false;

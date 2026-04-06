@@ -51,7 +51,9 @@ const DialogModal = forwardRef(function DialogModal({
   bodyClassName = '',
   icon,
   showHeader = true,
-  allowBodyScroll = false
+  allowBodyScroll = false,
+  trapFocus = true,
+  closeOnInteractOutside = true
 }, ref) {
   // Generate unique ID for accessibility (hooks must be called unconditionally)
   const modalId = useId();
@@ -93,8 +95,8 @@ const DialogModal = forwardRef(function DialogModal({
         }
       }}
       closeOnEscape={true}
-      closeOnInteractOutside={true}
-      trapFocus={true}
+      closeOnInteractOutside={closeOnInteractOutside}
+      trapFocus={trapFocus}
       // We use our own useScrollLock for iOS Safari position:fixed workaround
       preventScroll={false}
       lazyMount
@@ -215,6 +217,8 @@ DialogModal.propTypes = {
   icon: PropTypes.node,
   showHeader: PropTypes.bool,
   allowBodyScroll: PropTypes.bool,
+  trapFocus: PropTypes.bool,
+  closeOnInteractOutside: PropTypes.bool,
 };
 
 export default DialogModal;

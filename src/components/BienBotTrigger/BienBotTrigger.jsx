@@ -18,6 +18,7 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useUser } from '../../contexts/UserContext';
 import { isSuperAdmin } from '../../utilities/permissions';
 import useRouteContext from '../../hooks/useRouteContext';
+import { useNavigationContext } from '../../contexts/NavigationContext';
 import { subscribeToEvent } from '../../utilities/event-bus';
 import { openWithAnalysis } from '../../hooks/useBienBot';
 import { logger } from '../../utilities/logger';
@@ -63,6 +64,9 @@ export default function BienBotTrigger({
 
   // Route-based context detection
   const { invokeContext: routeContext, currentView, isEntityView } = useRouteContext();
+
+  // Navigation schema — lean breadcrumb of entity IDs for BienBot context seeding
+  const { navigationSchema } = useNavigationContext();
 
   // Merge: explicit props override route detection
   const invokeContext = useMemo(() => {
@@ -142,8 +146,16 @@ export default function BienBotTrigger({
 
   // Render FAB and Panel via portal to document.body so they always sit above
   // any intervening stacking context (e.g. fullscreen modals with z-index 1050).
+  //
+  // The aria-live="off" attribute on the wrapper div exempts this portal from
+  // @zag-js/aria-hidden's inertOthers() call, which Chakra UI Dialog uses when
+  // trapFocus=true. Without it, Chakra sets `inert` on all document.body siblings
+  // of the dialog portal — including BienBot — making it unclickable. The
+  // aria-live check in @zag-js/aria-hidden's isIgnoredNode() skips these nodes.
+  // aria-live="off" is semantically neutral (it's the browser default for all
+  // elements) so this causes no accessibility regressions.
   return createPortal(
-    <>
+    <div aria-live="off">
       {!panelOpen && (
         <button
           type="button"
@@ -179,6 +191,7 @@ export default function BienBotTrigger({
           open={panelOpen}
           onClose={handleClose}
           invokeContext={invokeContext}
+          navigationSchema={navigationSchema}
           currentView={currentView}
           isEntityView={isEntityView}
           notificationOnly={!hasChatAccess}
@@ -191,7 +204,7 @@ export default function BienBotTrigger({
           clearAnalysisSuggestions={clearAnalysisSuggestions}
         />
       )}
-    </>,
+    </div>,
     document.body
   );
 }
@@ -214,6 +227,7 @@ function BienBotPanelLazy({
   open,
   onClose,
   invokeContext,
+  navigationSchema,
   currentView,
   isEntityView,
   notificationOnly,
@@ -250,6 +264,7 @@ function BienBotPanelLazy({
       open={open}
       onClose={onClose}
       invokeContext={invokeContext}
+      navigationSchema={navigationSchema}
       currentView={currentView}
       isEntityView={isEntityView}
       notificationOnly={notificationOnly}

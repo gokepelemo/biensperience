@@ -6,18 +6,19 @@ import { openWithAnalysis } from './useBienBot';
  * Entity types that support the "Analyze" mode (proactive suggestions).
  * All others use the "Discuss" mode (chat without pre-flight analysis).
  */
-const ANALYZE_ENTITIES = new Set(['destination', 'experience', 'plan', 'plan_item']);
+const ANALYZE_ENTITIES = new Set(['destination', 'experience']);
 
 /**
  * useBienBotEntityAction
  *
  * Provides a BienBot trigger action for an entity detail view.
  * Returns:
- *   - label: 'Analyze' for entities with analyze support, 'Discuss' for others (e.g. user)
+ *   - label: 'Analyze' for entities with analyze support (destination, experience),
+ *            'Discuss' for others (plan, plan_item, user)
  *   - loading: true while the analyze API call is in flight
  *   - hasAccess: whether the user has the ai_features flag
- *   - handleOpen: async handler — calls openWithAnalysis for analyze entities,
- *                 or openWithAnalysis with entity='user' for greeting context
+ *   - handleOpen: async handler — calls openWithAnalysis for all entity types
+ *                 (analyze entities trigger pre-flight analysis; others open in Discuss mode)
  *
  * @param {string} entity - 'destination'|'experience'|'plan'|'plan_item'|'user'
  * @param {string} entityId - MongoDB ObjectId string

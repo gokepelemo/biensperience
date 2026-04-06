@@ -208,15 +208,15 @@ export default function PendingActionCard({ action, onExecute, onUpdate, onCance
             {/* confirmation: primary confirm + secondary update/dismiss + cancel */}
             {cardIntent === 'confirmation' && (
               <>
-                <Button variant="gradient" size="sm" onClick={() => onExecute(actionId)} disabled={disabled}>
+                <Button variant="gradient" size="sm" onClick={() => onExecute(actionId)} disabled={disabled || isExecuting}>
                   {confirmLabel}
                 </Button>
                 {dismissLabel && (
-                  <Button variant="outline" size="sm" onClick={() => onUpdate(actionId, description)} disabled={disabled}>
+                  <Button variant="outline" size="sm" onClick={() => onUpdate(actionId, description)} disabled={disabled || isExecuting}>
                     {dismissLabel}
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => onCancel(actionId)} disabled={disabled}>
+                <Button variant="tertiary" size="sm" onClick={() => onCancel(actionId)} disabled={disabled || isExecuting}>
                   Cancel
                 </Button>
               </>

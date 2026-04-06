@@ -764,6 +764,11 @@ const config = defineConfig({
           borderRadius: '{radii.md}',
           cursor: 'pointer',
           transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+          // Explicitly zero out Chakra's merged-in default borderWidth:1px so
+          // non-outline variants don't inherit a visible border from defaultConfig.
+          borderWidth: '0px',
+          borderStyle: 'solid',
+          borderColor: 'transparent',
           _disabled: {
             opacity: 0.6,
             cursor: 'not-allowed',
@@ -786,7 +791,8 @@ const config = defineConfig({
             secondary: {
               background: { _light: '#f8f9fa', _dark: '#2d2d2d' },
               color: { _light: '#4a5568', _dark: '#dee2e6' },
-              border: '1px solid',
+              borderWidth: '1px',
+              borderStyle: 'solid',
               borderColor: { _light: 'rgba(0, 0, 0, 0.1)', _dark: 'rgba(255, 255, 255, 0.2)' },
               _hover: {
                 background: { _light: '#e9ecef', _dark: '#3d3d3d' },
@@ -839,7 +845,10 @@ const config = defineConfig({
             outline: {
               background: 'transparent',
               color: '{colors.brand.500}',
-              border: '2px solid',
+              // Use explicit borderWidth/borderStyle instead of the border shorthand
+              // so our 2px value wins over Chakra's merged-in default borderWidth:1px.
+              borderWidth: '2px',
+              borderStyle: 'solid',
               borderColor: '{colors.brand.500}',
               _hover: {
                 background: { _light: 'rgba(102, 126, 234, 0.08)', _dark: 'rgba(102, 126, 234, 0.15)' },

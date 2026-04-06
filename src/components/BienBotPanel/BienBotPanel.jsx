@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FaBell } from 'react-icons/fa';
@@ -34,6 +34,7 @@ import PendingActionCard from './PendingActionCard';
 import SessionHistoryView from './SessionHistoryView';
 import EntityRefList from './EntityRefList';
 import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
+import { eventBus } from '../../utilities/event-bus';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import styles from './BienBotPanel.module.css';
 
@@ -291,10 +292,10 @@ function AttachIcon() {
  */
 // Match compact JSON entity refs embedded in LLM output
 const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
-// Placeholder token used to survive markdown parsing: \x00entity{n}\x00
-const PLACEHOLDER_RE = /\x00entity(\d+)\x00/g;
+// Placeholder token used to survive markdown parsing: \uE000entity{n}\uE001 (Private Use Area - safe through remark)
+const PLACEHOLDER_RE = /\uE000entity(\d+)\uE001/g;
 
-function buildEntityChip(ref, idx, navigate, chipStyles) {
+function buildEntityChip(ref, idx, _navigate, chipStyles) {
   const { _id, name, type } = ref;
   let url = null;
   if (_id && name && type) {
@@ -305,15 +306,14 @@ function buildEntityChip(ref, idx, navigate, chipStyles) {
   const label = name || type || 'entity';
   if (url) {
     return (
-      <button
+      <Link
         key={`chip-${_id}-${idx}`}
-        type="button"
+        to={url}
         className={chipStyles.inlineEntityChip}
-        onClick={() => navigate(url)}
         aria-label={`View ${type}: ${label}`}
       >
         {label}
-      </button>
+      </Link>
     );
   }
   return <span key={`chip-nolink-${idx}`} className={chipStyles.inlineEntityChipNoLink}>{label}</span>;
@@ -353,7 +353,7 @@ function renderMessageContent(text, navigate, chipStyles, role) {
   const processedText = text.replace(ENTITY_JSON_RE, (match) => {
     try {
       entityRefs.push(JSON.parse(match));
-      return `\x00entity${entityRefs.length - 1}\x00`;
+      return `\uE000entity${entityRefs.length - 1}\uE001`;
     } catch {
       return match;
     }
@@ -550,6 +550,7 @@ export default function BienBotPanel({
   open,
   onClose,
   invokeContext,
+  navigationSchema = null,
   currentView,
   isEntityView,
   notificationOnly = false,
@@ -566,6 +567,14 @@ export default function BienBotPanel({
   const messagesEndRef = useRef(null);
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
+  // Tracks which (sessionId, entity, entityId) combos have already been reconciled
+  // so we don't call updateContext more than once per session+entity pair.
+  const sessionContextReconciledRef = useRef(null);
+  // Refs for stable plan-focus subscription (avoids stale closures)
+  const openRef = useRef(open);
+  const messagesRef = useRef([]);
+  const updateContextRef = useRef(null);
+  const planFocusRef = useRef({ sentPlans: new Set(), lastSessionId: null });
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -596,6 +605,7 @@ export default function BienBotPanel({
     messages,
     pendingActions,
     suggestedNextSteps,
+    setSuggestedNextSteps,
     isLoading,
     isStreaming,
     currentSession,
@@ -618,10 +628,11 @@ export default function BienBotPanel({
     appendStructuredContent,
     appendMessage,
     replaceInitialGreeting,
+    resetSession,
     getPersistedSession,
     clearPersistedSession,
     fetchSessions
-  } = useBienBot({ invokeContext, userId: user?._id });
+  } = useBienBot({ invokeContext, navigationSchema, userId: user?._id });
 
   // ── Handle adding suggested plan items ─────────────────────────────────
   const handleAddSuggestedItems = useCallback(
@@ -695,7 +706,33 @@ export default function BienBotPanel({
   const handlePlanDiscoveryResult = useCallback(
     (experienceName, experienceId) => {
       if (!experienceName || isStreaming || isLoading) return;
-      sendMessage(`Plan \`${experienceName}\` (experience ID: ${experienceId})`);
+      // The experience_id is available to the LLM via the discovery context block,
+      // so we don't need to expose it in the visible message text.
+      sendMessage(`I want to plan \`${experienceName}\``);
+    },
+    [sendMessage, isStreaming, isLoading]
+  );
+
+  // ── Handle entity ref card selection (disambiguation from BienBot) ──────
+  const handleEntityRefSelect = useCallback(
+    (ref) => {
+      if (isStreaming || isLoading || !ref?._id || !ref?.name) return;
+      switch (ref.type) {
+        case 'experience':
+          // Use a neutral message so the LLM continues from existing context rather than
+          // triggering the plan-creation flow (which would ask "which destination?").
+          sendMessage(`Tell me about \`${ref.name}\``);
+          break;
+        case 'plan':
+          sendMessage(`Show me the details for \`${ref.name}\``);
+          break;
+        case 'destination':
+          sendMessage(`Use \`${ref.name}\` as the destination`);
+          break;
+        default:
+          sendMessage(ref.name);
+          break;
+      }
     },
     [sendMessage, isStreaming, isLoading]
   );
@@ -805,6 +842,17 @@ export default function BienBotPanel({
     }
     if (!analysisSuggestions || analysisGreetingInjectedRef.current) return;
 
+    // If the user is already engaged in a conversation, do not inject a new greeting
+    // here — the invokeContext change effect handles that case by calling updateContext,
+    // which injects a focused ack note rather than replacing the conversation with
+    // a new analysis message.
+    const hasUserMessages = messagesRef.current.some(m => m.role === 'user');
+    if (hasUserMessages) {
+      analysisGreetingInjectedRef.current = true;
+      if (clearAnalysisSuggestions) clearAnalysisSuggestions();
+      return;
+    }
+
     analysisGreetingInjectedRef.current = true;
     const content = formatAnalysisSuggestions(analysisSuggestions);
     // replaceInitialGreeting removes any existing greeting-only messages before
@@ -818,6 +866,11 @@ export default function BienBotPanel({
       isActionResult: true,
     });
 
+    // Set suggested prompts as clickable chips so the user can act on the greeting
+    if (analysisSuggestions.suggestedPrompts?.length > 0) {
+      setSuggestedNextSteps(analysisSuggestions.suggestedPrompts);
+    }
+
     if (clearAnalysisSuggestions) {
       clearAnalysisSuggestions();
     }
@@ -830,7 +883,7 @@ export default function BienBotPanel({
     }
   }, [isLoading, isStreaming, open]);
 
-  // ── Detect invokeContext changes (e.g. plan item opened mid-chat) ────────
+  // ── Detect invokeContext changes when panel opens on a different entity ──
   useEffect(() => {
     if (!open || !invokeContext?.id) return;
 
@@ -840,11 +893,105 @@ export default function BienBotPanel({
     // Store current as previous for next comparison
     prevContextRef.current = { entity: invokeContext.entity, id: invokeContext.id };
 
-    // Only push context update when context actually changed (not on first mount)
-    if (changed && messages.length > 0) {
+    if (!changed) return;
+
+    const hasUserMessages = messagesRef.current.some(m => m.role === 'user');
+
+    if (hasUserMessages) {
+      // User is engaged in a conversation: inject an acknowledgment note so they
+      // know BienBot now has context for the new entity. The session continues
+      // with enriched context. The analysis greeting is intentionally skipped
+      // (handled above in the analysisSuggestions effect guard).
       updateContext(invokeContext.entity, invokeContext.id, invokeContext.contextDescription);
+    } else {
+      // User hasn't engaged (only saw the greeting): reset session tracking so
+      // the next message starts a fresh session anchored to the new entity.
+      // Messages are NOT cleared — the analysisSuggestions effect already
+      // replaced/injected the new entity's greeting.
+      resetSession();
     }
-  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, messages.length]);
+  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, resetSession]);
+
+  // ── Reconcile a resumed session's context with the current page entity ──────
+  // When the user resumes an old session while viewing a different entity, the
+  // session's invoke_context may point to a stale entity. This effect detects
+  // that mismatch immediately after the session is loaded and calls updateContext
+  // so BienBot is aware of what the user is currently looking at, before they
+  // send any messages.
+  useEffect(() => {
+    // Reset reconciliation tracking when the session is cleared
+    if (!currentSession?._id) {
+      sessionContextReconciledRef.current = null;
+      return;
+    }
+
+    if (!open || !invokeContext?.entity || !invokeContext?.id) return;
+
+    const reconcileKey = `${currentSession._id}:${invokeContext.entity}:${invokeContext.id}`;
+    if (sessionContextReconciledRef.current === reconcileKey) return;
+    sessionContextReconciledRef.current = reconcileKey;
+
+    // Check if the session was already created for this entity
+    const sessionEntityId = currentSession.invoke_context?.entity_id?.toString();
+    const sessionEntity = currentSession.invoke_context?.entity;
+    if (sessionEntityId === invokeContext.id && sessionEntity === invokeContext.entity) return;
+
+    // Check if the session's accumulated context already includes this entity
+    const ctx = currentSession.context || {};
+    const alreadyInContext =
+      (invokeContext.entity === 'experience' && ctx.experience_id?.toString() === invokeContext.id) ||
+      (invokeContext.entity === 'destination' && ctx.destination_id?.toString() === invokeContext.id) ||
+      (invokeContext.entity === 'plan' && ctx.plan_id?.toString() === invokeContext.id);
+    if (alreadyInContext) return;
+
+    // The resumed session doesn't have context for the entity currently in view —
+    // update it so BienBot knows what the user is looking at.
+    logger.debug('[BienBotPanel] Reconciling resumed session context with current entity', {
+      sessionId: currentSession._id,
+      sessionEntity,
+      sessionEntityId,
+      currentEntity: invokeContext.entity,
+      currentEntityId: invokeContext.id,
+    });
+    updateContext(invokeContext.entity, invokeContext.id, invokeContext.contextDescription);
+  }, [
+    open,
+    currentSession?._id,
+    currentSession?.invoke_context,
+    currentSession?.context,
+    invokeContext?.entity,
+    invokeContext?.id,
+    invokeContext?.contextDescription,
+    updateContext,
+  ]);
+
+  // ── Sync refs used by the stable plan-focus subscription ─────────────────
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { updateContextRef.current = updateContext; }, [updateContext]);
+
+  // Reset plan-focus dedup tracking when the session changes
+  useEffect(() => {
+    const sessionId = currentSession?._id || null;
+    if (planFocusRef.current.lastSessionId !== sessionId) {
+      planFocusRef.current = { sentPlans: new Set(), lastSessionId: sessionId };
+    }
+  }, [currentSession?._id]);
+
+  // ── Enrich BienBot context when plan tab becomes active mid-conversation ──
+  useEffect(() => {
+    const unsub = eventBus.subscribe('bienbot:plan_focused', (event) => {
+      if (!openRef.current) return; // Panel must be open
+      if (!messagesRef.current?.length) return; // Conversation must be in progress
+      const { planId, entity = 'plan', contextDescription } = event;
+      if (!planId) return;
+      const { sentPlans } = planFocusRef.current;
+      if (sentPlans.has(planId)) return; // Already sent for this plan in this session
+      sentPlans.add(planId);
+      updateContextRef.current?.(entity, planId, contextDescription);
+    });
+    return () => unsub();
+  }, []); // Stable — uses refs to access latest values
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
@@ -1039,9 +1186,17 @@ export default function BienBotPanel({
         const feedbackLines = [];
         for (const actionResult of result.results) {
           if (actionResult.success) {
-            const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
-            const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
-            feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
+            if (actionResult.type === 'create_plan') {
+              const expName = actionResult.result?.experience?.name || '';
+              const itemCount = actionResult.result?.plan?.length || 0;
+              feedbackLines.push(
+                `\u2705 Plan created${expName ? ` for ${expName}` : ''}${itemCount > 0 ? ` with ${itemCount} item${itemCount !== 1 ? 's' : ''}` : ''}. Taking you there now\u2026`
+              );
+            } else {
+              const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
+              const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
+              feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
+            }
           } else {
             const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
             feedbackLines.push(`\u274c ${typeLabel}: ${actionResult.error || 'failed'}`);
@@ -1067,7 +1222,7 @@ export default function BienBotPanel({
         }
       }
 
-      // Contextual enrichment: render tip suggestions after destination creation
+      // Contextual enrichment: suggestions/tips/photos after entity creation
       if (result?.enrichment) {
         appendStructuredContent(result.enrichment);
       }
@@ -1585,6 +1740,7 @@ export default function BienBotPanel({
                                 <EntityRefList
                                   key={blockIdx}
                                   refs={block.data?.refs || []}
+                                  onSelect={handleEntityRefSelect}
                                 />
                               );
                             }
@@ -1837,6 +1993,7 @@ BienBotPanel.propTypes = {
       type: PropTypes.string,
       message: PropTypes.string,
     })),
+    suggestedPrompts: PropTypes.arrayOf(PropTypes.string),
   }),
   clearAnalysisSuggestions: PropTypes.func,
 };

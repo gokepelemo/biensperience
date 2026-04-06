@@ -106,12 +106,12 @@ export default function SuggestionList({ data, onAddSelected, disabled }) {
                 {isSelected && <CheckIcon />}
               </span>
               <span className={styles.suggestionItemContent}>
-                <span className={styles.suggestionItemText}>{item.text || item.content}</span>
                 {sources && (
                   <span className={styles.suggestionItemSource}>
                     from {sources}
                   </span>
                 )}
+                <span className={styles.suggestionItemText}>{item.text || item.content}</span>
               </span>
               {item.frequency > 1 && (
                 <span className={styles.suggestionItemFrequency}>

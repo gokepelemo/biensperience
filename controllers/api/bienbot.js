@@ -10,6 +10,7 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const logger = require('../../utilities/backend-logger');
 const { validateObjectId, successResponse, errorResponse } = require('../../utilities/controller-helpers');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
@@ -29,6 +30,7 @@ const {
 const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
+const { validateNavigationSchema, extractContextIds } = require('../../utilities/navigation-context-schema');
 const { extractMemoryFromSession, extractMemoryForCollaborators, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
 const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
 const { uploadWithPipeline, retrieveFile, resolveAndValidateLocalUploadPath } = require('../../utilities/upload-pipeline');
@@ -111,7 +113,7 @@ function stripNullBytes(str) {
  * Resolve the entity label from the DB for an invokeContext.
  * Never trusts client-supplied label.
  *
- * @param {string} entity - Entity type (destination, experience, plan, user)
+ * @param {string} entity - Entity type (destination, experience, plan, plan_item, user)
  * @param {string} entityId - Entity ID
  * @returns {Promise<string|null>} Resolved label or null
  */
@@ -218,6 +220,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- For ambiguous requests, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?").',
     '- When context provides entity IDs (plan_id, experience_id, item_id, destination_id), use those IDs in action payloads. If the ID is not available in context, ask the user which entity they mean.',
     '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
+    '- IMPORTANT: When asking a clarifying question about a specific child entity (e.g. which plan item to remove), populate entity_refs with the relevant child entities (plan_item), never the parent (experience). Only include the parent entity in entity_refs when the action targets the parent itself.',
     '',
     'DATE AND TIME:',
     `- Today's date is ${new Date().toISOString().split('T')[0]}.`,
@@ -225,6 +228,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- Include the resolved date in the action payload (e.g. planned_date field).',
     '- State the calculated date in your message so the user can confirm or correct it.',
     '- Example: User says "in 3 months" on 2026-03-23 → planned_date: "2026-06-23". Message: "I\'ll set the date to June 23, 2026."',
+    '- IMPORTANT — Plan-level vs Item-level dates: `update_plan.planned_date` is the overall trip date for the plan. `update_plan_item.scheduled_date` (and `scheduled_time`) is the date/time a specific plan item is scheduled. When the active context is a plan_item, "set a date" or "set a time" means `update_plan_item` with `scheduled_date`/`scheduled_time` — NOT `update_plan`. Only use `update_plan` for the plan\'s trip date when the user explicitly refers to changing when the trip happens.',
     '',
     'ENTITY IDs:',
     '- NEVER fabricate or use placeholder IDs like "<experience_id>" or "<destination_id>".',
@@ -371,15 +375,54 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '--- Plan Items ---',
     '- add_plan_items: { plan_id, items: [{ text, url?, cost?, planning_days?, parent?, activity_type?, location? }] }',
     '- update_plan_item: { plan_id, item_id, complete?, text?, cost?, planning_days?, url?, activity_type?, scheduled_date?, scheduled_time?, visibility?, location? }',
+    '  Use scheduled_date (ISO date string) and scheduled_time ("HH:MM") to set when this specific item is scheduled.',
+    '  This is the item schedule — NOT the plan trip date. To change the trip date use update_plan instead.',
     '- mark_plan_item_complete: { plan_id, item_id } — mark a plan item as done (prefer over update_plan_item when only changing completion status)',
     '- mark_plan_item_incomplete: { plan_id, item_id } — unmark a plan item as done',
     '- delete_plan_item: { plan_id, item_id }  (⚠️ confirm with user first)',
     '- add_plan_item_note: { plan_id, item_id, content, visibility? ("private" or "contributors") }',
     '- update_plan_item_note: { plan_id, item_id, note_id, content, visibility? }',
     '- delete_plan_item_note: { plan_id, item_id, note_id }  (⚠️ confirm with user first)',
-    '- add_plan_item_detail: { plan_id, item_id, type ("transport"|"accommodation"|"parking"|"discount"), data: { ... } }',
-    '- update_plan_item_detail: { plan_id, item_id, detail_id?, detail_type, data: { ... } }',
-    '- delete_plan_item_detail: { plan_id, item_id, detail_id?, detail_type }  (⚠️ confirm with user first)',
+    '',
+    '--- Plan Item Details (structured extensions) ---',
+    'Each plan item can have one entry per detail type. Use add to create, update to modify, delete to remove.',
+    '- add_plan_item_detail: { plan_id, item_id, type, data }',
+    '- update_plan_item_detail: { plan_id, item_id, detail_type, data }  (detail_id optional — type is sufficient)',
+    '- delete_plan_item_detail: { plan_id, item_id, detail_type }  (⚠️ confirm with user first)',
+    '',
+    'Detail type schemas for the `data` field:',
+    '  type "transport": {',
+    '    mode (required, one of: flight|train|cruise|ferry|bus|coach|car_share|ride|metro|local_transit|bike_rental|scooter),',
+    '    vendor?, trackingNumber?, departureTime? (ISO), arrivalTime? (ISO),',
+    '    departureLocation?, arrivalLocation?, status? (scheduled|active|completed|cancelled|delayed),',
+    '    transportNotes?,',
+    '    flight?: { terminal?, arrivalTerminal?, gate?, arrivalGate? },',
+    '    train?: { carriageNumber?, platform?, arrivalPlatform? },',
+    '    cruise|ferry?: { deck?, shipName?, embarkationPort?, disembarkationPort? },',
+    '    bus|coach?: { stopName?, arrivalStopName? },',
+    '    carShare|ride?: { vehicleModel?, vehicleColor?, licensePlate?, pickupSpot? },',
+    '    metro|localTransit?: { lineNumber?, direction?, platform? },',
+    '    bikeRental|scooter?: { dockName?, returnDockName? }',
+    '  }',
+    '  type "accommodation": {',
+    '    name?, confirmationNumber?, address?,',
+    '    checkIn? (ISO), checkOut? (ISO), roomType?,',
+    '    cost?, currency? (3-letter code), notes?',
+    '  }',
+    '  type "parking": {',
+    '    parkingType? (street|garage|lot|valet|hotel|airport|venue|private|other),',
+    '    facilityName?, address?, spotNumber?, level?,',
+    '    startTime? (ISO), endTime? (ISO), cost?, currency?,',
+    '    prepaid? (bool), confirmationNumber?, accessCode?,',
+    '    status? (reserved|active|completed|cancelled), parkingNotes?',
+    '  }',
+    '  type "discount": {',
+    '    discountType? (promo_code|coupon|loyalty|member|early_bird|group|seasonal|referral|other),',
+    '    code?, description?, discountValue?, isPercentage? (bool), currency?,',
+    '    minimumPurchase?, maxDiscount?, expiresAt? (ISO date),',
+    '    status? (active|applied|expired|invalid), source?, discountNotes?',
+    '  }',
+    '',
     '- assign_plan_item: { plan_id, item_id, assigned_to (user ID from context) }',
     '- unassign_plan_item: { plan_id, item_id }',
     '',
@@ -497,11 +540,22 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
 /**
  * Build context blocks based on intent classification and session state.
  */
-async function buildContextBlocks(intent, entities, session, userId, message) {
+async function buildContextBlocks(intent, entities, session, userId, message, navigationSchema) {
+  loadModels();
   const blocks = [];
 
-  // Use session context IDs to enrich the prompt
-  const ctx = session.context || {};
+  // Use session context IDs to enrich the prompt.
+  // Supplement with navigationSchema IDs for turn 1: before the LLM has had a chance
+  // to return entity_refs, the schema already carries the full ancestor chain so every
+  // applicable builder (destination, experience, plan) fires in parallel immediately.
+  const sessionCtx = session.context || {};
+  const schemaIds = navigationSchema ? extractContextIds(navigationSchema) : {};
+  const ctx = {
+    destination_id: sessionCtx.destination_id || schemaIds.destination_id || null,
+    experience_id:  sessionCtx.experience_id  || schemaIds.experience_id  || null,
+    plan_id:        sessionCtx.plan_id         || schemaIds.plan_id        || null,
+    plan_item_id:   sessionCtx.plan_item_id    || schemaIds.plan_item_id   || null,
+  };
 
   try {
     const promises = [];
@@ -545,10 +599,31 @@ async function buildContextBlocks(intent, entities, session, userId, message) {
       promises.push(buildExperienceContext(ctx.experience_id.toString(), userId).then(b => b && blocks.push(b)));
     }
     if (ctx.plan_id) {
-      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
-      // Add next-steps analysis for QUERY_PLAN intent
-      if (intent === 'QUERY_PLAN') {
-        promises.push(buildPlanNextStepsContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+      // Guard: if both experience_id and plan_id are set, verify the plan actually
+      // belongs to experience_id before adding it to context. A stale plan_id from
+      // a previous session turn would otherwise mislead the LLM (e.g. telling it
+      // about Plan A on the Porto experience while the user is viewing Nashville).
+      let planBelongsToContext = true;
+      if (ctx.experience_id && ctx.plan_id) {
+        try {
+          const planDoc = await Plan.findById(ctx.plan_id).select('experience').lean();
+          if (planDoc && planDoc.experience?.toString() !== ctx.experience_id?.toString()) {
+            planBelongsToContext = false;
+            logger.debug('[bienbot] Skipping stale plan_id (belongs to different experience)', {
+              planId: ctx.plan_id, planExperience: planDoc.experience?.toString(), contextExperience: ctx.experience_id?.toString()
+            });
+          }
+        } catch (planCheckErr) {
+          logger.warn('[bienbot] Could not verify plan ownership, skipping plan context', { error: planCheckErr.message });
+          planBelongsToContext = false;
+        }
+      }
+      if (planBelongsToContext) {
+        promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+        // Add next-steps analysis for QUERY_PLAN intent
+        if (intent === 'QUERY_PLAN') {
+          promises.push(buildPlanNextStepsContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+        }
       }
     }
     if (ctx.plan_item_id && ctx.plan_id) {
@@ -1058,6 +1133,19 @@ exports.chat = async (req, res) => {
     }
   }
 
+  // Parse and validate navigationSchema (lean breadcrumb for BienBot context seeding)
+  let navigationSchema = null;
+  const rawNavSchema = req.body.navigationSchema;
+  if (rawNavSchema) {
+    try {
+      const parsed = typeof rawNavSchema === 'string' ? JSON.parse(rawNavSchema) : rawNavSchema;
+      const { valid, schema } = validateNavigationSchema(parsed);
+      if (valid) navigationSchema = schema;
+    } catch {
+      // Ignore malformed schema — fall back to single-entity seeding
+    }
+  }
+
   if (!message || typeof message !== 'string') {
     return errorResponse(res, null, 'Message is required', 400);
   }
@@ -1200,7 +1288,7 @@ exports.chat = async (req, res) => {
           break;
         case 'plan_item': {
           // plan_item is a subdocument — find parent plan and use it for permission check
-          const parentPlan = await Plan.findOne({ 'plan._id': invokeObjId }).lean();
+          const parentPlan = await Plan.findOne({ 'plan._id': invokeObjId });
           if (parentPlan) {
             resource = parentPlan;
             // Stash the parent plan ID for context builder and session context
@@ -1241,6 +1329,10 @@ exports.chat = async (req, res) => {
     const contextOptions = {};
     if (invokeContext.entity === 'plan_item' && invokeContext._parentPlanId) {
       contextOptions.planId = invokeContext._parentPlanId;
+    }
+    // Use navigationSchema to supply parent plan_id when not passed explicitly by the client
+    if (invokeContext.entity === 'plan_item' && !contextOptions.planId && navigationSchema?.plan_item?.plan_id) {
+      contextOptions.planId = navigationSchema.plan_item.plan_id;
     }
     invokeContextBlock = await buildContextForInvokeContext(
       resolvedInvokeContext,
@@ -1315,9 +1407,15 @@ exports.chat = async (req, res) => {
     } else {
       session = await BienBotSession.createSession(userId, resolvedInvokeContext || {});
 
-      // Pre-populate context from invokeContext
-      if (resolvedInvokeContext) {
-        const contextUpdate = {};
+      // Pre-populate context with the full ancestor chain.
+      // navigationSchema carries all ancestor IDs transitively (e.g. opening BienBot
+      // from a Plan also provides experience_id and destination_id immediately), so we
+      // can fire all context builders in parallel from the very first message.
+      // Fall back to single-entity seeding when no schema is present.
+      let contextUpdate = {};
+      if (navigationSchema) {
+        contextUpdate = extractContextIds(navigationSchema);
+      } else if (resolvedInvokeContext) {
         switch (resolvedInvokeContext.entity) {
           case 'destination':
             contextUpdate.destination_id = resolvedInvokeContext.entity_id;
@@ -1335,9 +1433,9 @@ exports.chat = async (req, res) => {
             }
             break;
         }
-        if (Object.keys(contextUpdate).length > 0) {
-          await session.updateContext(contextUpdate);
-        }
+      }
+      if (Object.keys(contextUpdate).length > 0) {
+        await session.updateContext(contextUpdate);
       }
     }
   } catch (err) {
@@ -2044,7 +2142,8 @@ exports.chat = async (req, res) => {
     classification.entities,
     session,
     userId,
-    message
+    message,
+    navigationSchema
   );
 
   // Merge invokeContext block with intent-based blocks, enforcing hard token cap
@@ -2566,6 +2665,59 @@ exports.execute = async (req, res) => {
       }
     }
 
+    // Auto-suggest plan items after plan creation
+    if (!enrichmentContent) {
+      const planCreation = results.find(
+        r => r.success && r.type === 'create_plan' && r.result?._id
+      );
+      // Also check workflow steps that created a plan
+      const workflowPlanCreation = !planCreation && results.find(r => {
+        if (!r.success || r.type !== 'workflow' || !r.result?.results) return false;
+        return r.result.results.some(
+          s => s.success && s.type === 'create_plan' && s.result?._id
+        );
+      });
+      const createdPlan = planCreation?.result
+        || workflowPlanCreation?.result?.results?.find(
+          s => s.success && s.type === 'create_plan'
+        )?.result;
+
+      if (createdPlan?._id) {
+        const destId = createdPlan.experience?.destination;
+        const expId = createdPlan.experience?._id || createdPlan.experience;
+        if (destId) {
+          try {
+            const { suggestPlanItems } = require('../../utilities/bienbot-external-data');
+            const suggestionResult = await suggestPlanItems(
+              {
+                destination_id: destId.toString(),
+                experience_id: expId?.toString(),
+                limit: 5
+              },
+              req.user
+            );
+            if (
+              suggestionResult.statusCode === 200 &&
+              suggestionResult.body?.data?.suggestions?.length > 0
+            ) {
+              const block = mapReadOnlyResultToStructuredContent(
+                'suggest_plan_items',
+                suggestionResult.body.data
+              );
+              if (block) {
+                enrichmentContent = block;
+              }
+            }
+          } catch (enrichErr) {
+            logger.warn('[bienbot] Post-creation plan item suggestion failed', {
+              planId: createdPlan._id,
+              error: enrichErr.message
+            });
+          }
+        }
+      }
+    }
+
     return successResponse(res, {
       results,
       contextUpdates,
@@ -2867,7 +3019,7 @@ exports.updateContext = async (req, res) => {
         resource = await Plan.findById(entityObjId).lean();
         break;
       case 'plan_item': {
-        const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).lean();
+        const parentPlan = await Plan.findOne({ 'plan._id': entityObjId });
         if (parentPlan) resource = parentPlan;
         break;
       }
@@ -2893,15 +3045,33 @@ exports.updateContext = async (req, res) => {
 
   // Build context update
   const contextUpdate = {};
+  // Keys to clear when the parent context switches to a different entity.
+  // Switching destination → clear experience, plan, plan_item (stale chain).
+  // Switching experience → clear plan, plan_item (they belonged to the old experience).
+  const contextUnset = {};
+  const existingCtx = session.context || {};
+
   switch (entity) {
     case 'destination':
       contextUpdate.destination_id = entityId;
+      // Cascade-clear experience/plan/plan_item if switching to a different destination
+      if (existingCtx.destination_id && existingCtx.destination_id.toString() !== entityId) {
+        if (existingCtx.experience_id) contextUnset['context.experience_id'] = '';
+        if (existingCtx.plan_id) contextUnset['context.plan_id'] = '';
+        if (existingCtx.plan_item_id) contextUnset['context.plan_item_id'] = '';
+      }
       break;
     case 'experience':
       contextUpdate.experience_id = entityId;
+      // Cascade-clear plan/plan_item if switching to a different experience
+      if (existingCtx.experience_id && existingCtx.experience_id.toString() !== entityId) {
+        if (existingCtx.plan_id) contextUnset['context.plan_id'] = '';
+        if (existingCtx.plan_item_id) contextUnset['context.plan_item_id'] = '';
+      }
       break;
     case 'plan':
       contextUpdate.plan_id = entityId;
+      if (existingCtx.plan_item_id) contextUnset['context.plan_item_id'] = '';
       break;
     case 'plan_item': {
       contextUpdate.plan_item_id = entityId;
@@ -2914,17 +3084,42 @@ exports.updateContext = async (req, res) => {
   }
 
   try {
+    // Use atomic findByIdAndUpdate to avoid a lost-update race condition.
+    // If a concurrent chat turn saves pending_actions between when we loaded
+    // the session (above) and when we save here, a plain session.save() would
+    // overwrite those pending_actions with the stale empty array we loaded.
+    // $set on individual context keys and $push to messages avoids that.
+    const newMsg = {
+      msg_id: `msg_${crypto.randomBytes(4).toString('hex')}`,
+      role: 'assistant',
+      content: `Now viewing: ${entityLabel}`,
+      timestamp: new Date(),
+      intent: null,
+      actions_taken: ['context_update'],
+      message_type: 'bot_query'
+    };
+
+    const atomicUpdate = { $push: { messages: newMsg } };
     if (Object.keys(contextUpdate).length > 0) {
-      await session.updateContext(contextUpdate);
+      atomicUpdate.$set = {};
+      for (const [k, v] of Object.entries(contextUpdate)) {
+        atomicUpdate.$set[`context.${k}`] = v;
+      }
+    }
+    if (Object.keys(contextUnset).length > 0) {
+      atomicUpdate.$unset = contextUnset;
     }
 
-    // Append a system-like assistant message so the conversation records the context switch
-    await session.addMessage('assistant', `Now viewing: ${entityLabel}`, {
-      actions_taken: ['context_update']
-    });
+    await BienBotSession.findByIdAndUpdate(sessionObjId, atomicUpdate);
 
-    logger.info('[bienbot] Session context updated', { userId, sessionId: id, entity, entityId });
-    return successResponse(res, { entityLabel, context: session.context });
+    logger.info('[bienbot] Session context updated', { userId, sessionId: id, entity, entityId, unset: Object.keys(contextUnset) });
+    // Compute the response context by merging the update into the loaded snapshot and removing unset fields
+    const responseContext = { ...session.context, ...contextUpdate };
+    for (const key of Object.keys(contextUnset)) {
+      // keys are 'context.plan_id' etc — strip the 'context.' prefix
+      delete responseContext[key.replace(/^context\./, '')];
+    }
+    return successResponse(res, { entityLabel, context: responseContext });
   } catch (err) {
     logger.error('[bienbot] Context update failed', { error: err.message, sessionId: id });
     return errorResponse(res, err, 'Failed to update context', 500);
@@ -3412,8 +3607,7 @@ const ANALYZE_ENTITY_MAP = {
       loadModels();
       const { Types } = require('mongoose');
       const plan = await Plan.findOne({ 'plan._id': new Types.ObjectId(id) })
-        .populate('experience', 'name')
-        .lean();
+        .populate('experience', 'name');
       return plan || null;
     }
   },
@@ -3459,14 +3653,16 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
       'Tone: calm and helpful — not alarming.'
     ].join(' '),
     today_brief: [
-      'The plan is TODAY. Keep it very brief (2-3 suggestions max).',
+      'The plan is TODAY. Keep it tightly focused (3–5 suggestions).',
       'Focus only on: any last-minute items that are still incomplete, key confirmation numbers or logistics.',
-      'Do not suggest long-term planning improvements today.'
+      'Do not suggest long-term planning improvements today.',
+      'Use type "action" for immediate to-dos alongside warning/tip/info.'
     ].join(' '),
     imminent: [
       `The plan is in ${daysUntil} day${daysUntil === 1 ? '' : 's'} — imminent.`,
       'Focus on: final checklist items, missing logistics (transport, accommodation), unconfirmed bookings.',
-      'Keep suggestions concrete and actionable today.'
+      'Keep suggestions concrete and actionable today.',
+      'Use type "action" for immediate to-dos alongside warning/tip/info.'
     ].join(' '),
     preparation: [
       `The plan is ${daysUntil} days away — in the preparation window.`,
@@ -3489,6 +3685,23 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
     ].join(' ')
   };
 
+  const charLimit = (mode === 'today_brief' || mode === 'imminent') ? 140 : 120;
+  const countRange = mode === 'today_brief' ? '3–5' : mode === 'greeting' ? '3–6' : '2–6';
+  const actionTypeNote = (mode === 'today_brief' || mode === 'imminent')
+    ? '  - action: An immediate to-do the user should act on right now'
+    : null;
+
+  const suggestedPromptsRules = [
+    '',
+    'SUGGESTED PROMPTS:',
+    '- Also return a "suggested_prompts" array of 2–4 short follow-up questions the user can click to continue the conversation.',
+    '- Each prompt must be a natural, conversational question directly related to a specific insight from the suggestions.',
+    '- Prompts should help the user take action: e.g. ask about a specific plan, view details, or address an issue.',
+    entity === 'experience' ? '- If the user has no plan for this experience, one prompt MUST be "Plan this experience" or a close variant.' : null,
+    '- Keep each prompt under 60 characters.',
+    '- Do not include generic prompts like "Tell me more" — be specific to the context.'
+  ].filter(l => l !== null);
+
   return [
     'You are BienBot, a proactive travel planning assistant for the Biensperience platform.',
     `Today is ${today}.`,
@@ -3498,23 +3711,38 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
     'Analyze the entity data provided and return concise, actionable suggestions.',
     '',
     'RULES:',
-    '- Return ONLY a valid JSON array. No markdown fences, no explanation outside JSON.',
-    '- Each suggestion must have: { "type": "<warning|tip|info>", "message": "<text>" }',
-    '  - warning: Something important that may affect the plan (e.g. missing budget, no date set)',
+    '- Return ONLY a valid JSON object. No markdown fences, no explanation outside JSON.',
+    '- The object must have a "suggestions" array and a "suggested_prompts" array.',
+    actionTypeNote
+      ? `- Each suggestion must have: { "type": "<warning|tip|info|action>", "message": "<text>" }`
+      : `- Each suggestion must have: { "type": "<warning|tip|info>", "message": "<text>" }`,
+    entity === 'experience'
+      ? '  - warning: Something important that may affect the template (e.g. mismatched items, missing budget)'
+      : '  - warning: Something important that may affect the plan (e.g. missing budget, no date set)',
     '  - tip: A helpful improvement the user could make (e.g. add travel insurance, more detail)',
     '  - info: A neutral observation (e.g. completion percentage, plan size)',
-    '- Produce 2–6 suggestions. Do not pad with trivial observations.',
+    actionTypeNote,
+    `- Produce ${countRange} suggestions. Do not pad with trivial observations.`,
     '- Never fabricate data. Base suggestions only on the context provided.',
-    '- Keep each message under 120 characters.',
+    `- Keep each message under ${charLimit} characters.`,
     '- Do not repeat the same observation using different wording.',
     entity !== 'plan' ? '- Do not comment on item completion status — only plans track completed items.' : null,
+    entity === 'experience' ? '- Experiences are planning templates; they do NOT have dates. NEVER warn about missing dates on an experience — dates belong to plans, not experiences.' : null,
+    entity === 'experience' ? '- If the context shows the user has no plan for this experience, include a tip encouraging them to create a plan. Otherwise, do not mention plan creation.' : null,
+    ...suggestedPromptsRules,
     '',
     'Example response:',
-    '[',
-    '  { "type": "warning", "message": "This plan has no budget items — costs may add up unexpectedly." },',
-    '  { "type": "tip", "message": "Consider adding travel insurance for international trips." },',
-    entity === 'plan' ? '  { "type": "info", "message": "3 of 8 plan items are completed (38%)." }' : '  { "type": "info", "message": "This experience has 8 plan items across 3 activity types." }',
-    ']'
+    '{',
+    '  "suggestions": [',
+    '    { "type": "warning", "message": "This plan has no budget items — costs may add up unexpectedly." },',
+    '    { "type": "tip", "message": "Consider adding travel insurance for international trips." },',
+    entity === 'plan' ? '    { "type": "info", "message": "3 of 8 plan items are completed (38%)." }' : '    { "type": "info", "message": "This experience has 8 plan items across 3 activity types." }',
+    '  ],',
+    '  "suggested_prompts": [',
+    '    "Which plan items still need budget estimates?",',
+    '    "What\'s left to plan for the Tokyo trip?"',
+    '  ]',
+    '}'
   ].filter(l => l !== null).join('\n');
 }
 
@@ -3580,6 +3808,12 @@ exports.analyze = async (req, res) => {
     if (!permCheck.allowed) {
       return errorResponse(res, null, 'You do not have permission to view this entity', 403);
     }
+    // Verify the specific item exists within the plan's item array
+    const itemIdStr = validatedId.toString();
+    const itemExists = (resource.plan || []).some(i => String(i._id) === itemIdStr);
+    if (!itemExists) {
+      return errorResponse(res, null, 'Plan item not found', 404);
+    }
   } else {
     const permCheck = await enforcer.canView({ userId: req.user._id, resource });
     if (!permCheck.allowed) {
@@ -3589,10 +3823,22 @@ exports.analyze = async (req, res) => {
 
   // --- Compute temporal proximity for mode resolution ---
   let daysUntil = null;
-  if (entity === 'plan' && resource.planned_date) {
+  if (entity === 'plan') {
+    // Use the nearest scheduled non-complete item; fall back to planned_date if none.
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const target = new Date(resource.planned_date); target.setHours(0, 0, 0, 0);
-    daysUntil = Math.round((target - today) / 86400000);
+    const scheduledItems = (resource.plan || []).filter(i => i.scheduled_date && !i.complete);
+    if (scheduledItems.length > 0) {
+      let minDays = Infinity;
+      for (const item of scheduledItems) {
+        const target = new Date(item.scheduled_date); target.setHours(0, 0, 0, 0);
+        const days = Math.round((target - today) / 86400000);
+        if (days < minDays) minDays = days;
+      }
+      daysUntil = minDays;
+    } else if (resource.planned_date) {
+      const target = new Date(resource.planned_date); target.setHours(0, 0, 0, 0);
+      daysUntil = Math.round((target - today) / 86400000);
+    }
   } else if (entity === 'plan_item') {
     // resource is the parent plan; find the item to get scheduled_date
     const itemIdStr = validatedId.toString();
@@ -3626,7 +3872,7 @@ exports.analyze = async (req, res) => {
         contextBlock = await buildPlanItemContext(resource._id.toString(), validatedId, userId);
         break;
       case 'user':
-        contextBlock = await buildUserGreetingContext(validatedId, userId);
+        contextBlock = await buildUserGreetingContext(validatedId);
         break;
     }
   } catch (err) {
@@ -3663,19 +3909,27 @@ exports.analyze = async (req, res) => {
     return errorResponse(res, null, 'AI service temporarily unavailable', 503);
   }
 
-  // --- Parse suggestions ---
+  // --- Parse suggestions and suggested prompts ---
   let suggestions = [];
+  let suggestedPrompts = [];
   try {
     const cleaned = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
-    if (Array.isArray(parsed)) {
-      const VALID_TYPES = new Set(['warning', 'tip', 'info']);
-      suggestions = parsed
-        .filter(s => s && VALID_TYPES.has(s.type) && typeof s.message === 'string' && s.message.trim())
-        .slice(0, 10)
-        .map(s => ({ type: s.type, message: s.message.trim().slice(0, 200) }));
-    }
+    // Support both old format (array) and new format (object with suggestions + suggested_prompts)
+    const suggestionsArr = Array.isArray(parsed) ? parsed : (parsed.suggestions || []);
+    const promptsArr = Array.isArray(parsed) ? [] : (parsed.suggested_prompts || []);
+
+    const VALID_TYPES = new Set(['warning', 'tip', 'info', 'action']);
+    suggestions = suggestionsArr
+      .filter(s => s && VALID_TYPES.has(s.type) && typeof s.message === 'string' && s.message.trim())
+      .slice(0, 10)
+      .map(s => ({ type: s.type, message: s.message.trim().slice(0, 200) }));
+
+    suggestedPrompts = promptsArr
+      .filter(p => typeof p === 'string' && p.trim())
+      .slice(0, 4)
+      .map(p => p.trim().slice(0, 100));
   } catch (err) {
     logger.warn('[bienbot] analyze: failed to parse LLM suggestions', {
       entity,
@@ -3691,13 +3945,15 @@ exports.analyze = async (req, res) => {
     entity,
     entityId,
     mode,
-    suggestionCount: suggestions.length
+    suggestionCount: suggestions.length,
+    suggestedPromptsCount: suggestedPrompts.length
   });
 
   return successResponse(res, {
     entity,
     entityId: validatedId,
-    suggestions
+    suggestions,
+    suggestedPrompts
   });
 };
 

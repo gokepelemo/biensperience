@@ -6,7 +6,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--z-index-popover, 1060);
+  z-index: var(--z-index-bienbot, 1600);
   background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity 0.25s ease;
@@ -23,7 +23,7 @@
    --------------------------------------------------------------------------- */
 .panel {
   position: fixed;
-  z-index: var(--z-index-tooltip, 1070);
+  z-index: calc(var(--z-index-bienbot, 1600) + 10);
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -1352,6 +1352,7 @@
   align-items: flex-start;
   gap: var(--space-2, 0.5rem);
   padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  overflow: hidden;
   border: none;
   border-bottom: 1px solid var(--color-border-light, #f1f5f9);
   background: transparent;
@@ -1402,7 +1403,8 @@
   border: 2px solid var(--color-border, #cbd5e1);
   border-radius: var(--radius-sm, 4px);
   flex-shrink: 0;
-  margin-top: 1px;
+  /* offset past the source line (xs font ~1rem line-height) to align with item text */
+  margin-top: calc(var(--font-size-xs, 0.75rem) * 1.4);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -1425,9 +1427,13 @@
 }
 
 .suggestionItemSource {
+  display: block;
   font-size: var(--font-size-xs, 0.75rem);
   color: var(--color-text-tertiary, #94a3b8);
   font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .suggestionItemFrequency {
@@ -1562,6 +1568,7 @@
   cursor: pointer;
   vertical-align: baseline;
   line-height: 1.4;
+  text-decoration: none;
   transition: background 0.15s, border-color 0.15s;
   white-space: nowrap;
 }
@@ -1569,6 +1576,7 @@
 .inlineEntityChip:hover {
   background: var(--color-bg-hover, #e8edf4);
   border-color: var(--color-primary, #4f46e5);
+  text-decoration: none;
 }
 
 .inlineEntityChipNoLink {

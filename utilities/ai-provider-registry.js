@@ -231,6 +231,13 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   };
   // o-series models do not support temperature (gpt-5+ still does)
   if (!isOSeries) requestBody.temperature = temperature;
+  // Enable JSON object mode for tasks that always return JSON (BienBot chat/analyze).
+  // Requires the system or user prompt to mention "JSON" — which BienBot's prompts do.
+  // Skipped for o-series models and o1/o1-mini which do not support response_format.
+  const isJsonTask = options.jsonMode === true || (typeof options.task === 'string' && options.task.startsWith('bienbot'));
+  if (isJsonTask && !isOSeries) {
+    requestBody.response_format = { type: 'json_object' };
+  }
 
   const response = await fetch(endpoint, {
     method: 'POST',
