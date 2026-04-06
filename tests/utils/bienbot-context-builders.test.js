@@ -408,6 +408,42 @@ describe('buildPlanItemContext', () => {
     );
     expect(ctx).toBeNull();
   });
+
+  it('includes DISAMBIGUATION when plan contains similar items', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const idA = new mongoose.Types.ObjectId();
+    const idB = new mongoose.Types.ObjectId();
+    const idC = new mongoose.Types.ObjectId();
+    const idD = new mongoose.Types.ObjectId();
+    const itemA = { _id: idA, plan_item_id: idA, text: 'Book hotel in Paris', complete: false };
+    const itemB = { _id: idB, plan_item_id: idB, text: 'Book hotel in Lyon', complete: false };
+    const itemC = { _id: idC, plan_item_id: idC, text: 'Book hotel in Marseille', complete: false };
+    const itemD = { _id: idD, plan_item_id: idD, text: 'Buy train tickets', complete: false };
+    const plan = await createTestPlan(user, exp, { plan: [itemA, itemB, itemC, itemD] });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemA._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[DISAMBIGUATION: similar items in this plan]');
+    expect(ctx).toContain('Book hotel in Lyon');
+    expect(ctx).toContain('[/DISAMBIGUATION]');
+  });
+
+  it('omits DISAMBIGUATION when no similar items exist in plan', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const idA = new mongoose.Types.ObjectId();
+    const idB = new mongoose.Types.ObjectId();
+    const itemA = { _id: idA, plan_item_id: idA, text: 'Visit Eiffel Tower', complete: false };
+    const itemB = { _id: idB, plan_item_id: idB, text: 'Buy train tickets', complete: false };
+    const plan = await createTestPlan(user, exp, { plan: [itemA, itemB] });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemA._id.toString(), user._id.toString());
+
+    expect(ctx).not.toContain('[DISAMBIGUATION');
+  });
 });
 
 // ---------------------------------------------------------------------------

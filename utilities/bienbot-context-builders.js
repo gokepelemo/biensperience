@@ -515,6 +515,24 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       }
     }
 
+    // User's own plan for this specific experience
+    try {
+      const userPlanForExp = await Plan.findOne({ user: userId, experience: expOid })
+        .select('planned_date plan')
+        .lean();
+      if (userPlanForExp) {
+        const planItemCount = (userPlanForExp.plan || []).length;
+        const planDateStr = userPlanForExp.planned_date
+          ? new Date(userPlanForExp.planned_date).toISOString().split('T')[0]
+          : 'no date set';
+        lines.push(`\nUser's plan for this experience: exists (${planItemCount} items, date: ${planDateStr})`);
+      } else {
+        lines.push("\nUser's plan for this experience: none (user has not planned this experience yet)");
+      }
+    } catch (planCheckErr) {
+      logger.debug('[bienbot-context] User plan check for experience skipped', { error: planCheckErr.message });
+    }
+
     // Cross-entity: Your other plans for the same destination (up to 3)
     try {
       const destId = experience.destination?._id;
@@ -859,6 +877,24 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
       }
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan item signal injection skipped', { error: sigErr.message });
+    }
+
+    // Disambiguation: similar items in this plan
+    try {
+      // Normalize planItems so that findSimilarItems can match on 'content'
+      // (plan snapshot items use 'text', but buildDisambiguationBlock searches on 'content')
+      const normalizedItems = planItems.map(i => ({
+        ...i,
+        content: i.content || i.text || i.name || '',
+      }));
+      const disambigBlock = await buildDisambiguationBlock('plan_item', userId, {
+        currentId: itemIdStr,
+        planItems: normalizedItems,
+        currentItemContent: itemName,
+      });
+      if (disambigBlock) lines.push('\n' + disambigBlock);
+    } catch (dErr) {
+      logger.debug('[bienbot-context] Plan item disambiguation skipped', { error: dErr.message });
     }
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
