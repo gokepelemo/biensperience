@@ -471,6 +471,41 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       logger.debug('[bienbot-context] Destination disambiguation skipped', { error: dErr.message });
     }
 
+    // Attention signals
+    try {
+      const signals = [];
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+
+      // Fetch all user plans for this destination (small targeted query)
+      const allUserPlans = await Plan.find({ user: userId })
+        .populate({ path: 'experience', select: 'destination' })
+        .select('planned_date')
+        .lean();
+      const destPlans = allUserPlans.filter(p => {
+        const dId = p.experience?.destination?._id || p.experience?.destination;
+        return dId && String(dId) === String(destination._id);
+      });
+
+      if (destPlans.length === 0) {
+        signals.push('⚠ You have no plans here yet');
+      } else {
+        const futurePlans = destPlans.filter(p => p.planned_date && new Date(p.planned_date) >= today);
+        const pastPlans = destPlans.filter(p => !p.planned_date || new Date(p.planned_date) < today);
+
+        if (futurePlans.length === 0 && pastPlans.length > 0) {
+          signals.push('⚠ All your plans here are past — time for another visit?');
+        } else if (futurePlans.length >= 2) {
+          signals.push(`⚠ You have ${futurePlans.length} upcoming plans here`);
+        }
+      }
+
+      if (signals.length > 0) {
+        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Destination attention signals skipped', { error: sigErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildDestinationContext failed', { destinationId, error: err.message });

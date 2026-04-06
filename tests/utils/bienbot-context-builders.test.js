@@ -147,6 +147,46 @@ describe('buildDestinationContext', () => {
 
     expect(ctx).not.toContain('[DISAMBIGUATION');
   });
+
+  it('signals no plans when user has no plans at the destination', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Unexplored City' });
+
+    const ctx = await buildDestinationContext(dest._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('You have no plans here yet');
+  });
+
+  it('signals all plans past when all destination plans are in the past', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Old City' });
+    const exp = await createTestExperience(user, dest);
+    const past = new Date(); past.setDate(past.getDate() - 30);
+    await createTestPlan(user, exp, { planned_date: past });
+
+    const ctx = await buildDestinationContext(dest._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('All your plans here are past');
+  });
+
+  it('signals multiple upcoming plans when user has 2+ future plans at destination', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user, { name: 'Busy Dest' });
+    // Create 2 different experiences so we can have 2 different plans (unique index: 1 plan per user+experience)
+    const expA = await createTestExperience(user, dest, { name: 'Tour A' });
+    const expB = await createTestExperience(user, dest, { name: 'Tour B' });
+    const futureA = new Date(); futureA.setDate(futureA.getDate() + 10);
+    const futureB = new Date(); futureB.setDate(futureB.getDate() + 20);
+    await createTestPlan(user, expA, { planned_date: futureA });
+    await createTestPlan(user, expB, { planned_date: futureB });
+
+    const ctx = await buildDestinationContext(dest._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/You have 2 upcoming plans here/);
+  });
 });
 
 // ---------------------------------------------------------------------------
