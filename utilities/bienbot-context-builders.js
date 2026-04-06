@@ -61,7 +61,6 @@ function trimToTokenBudget(text, tokenBudget = DEFAULT_TOKEN_BUDGET) {
  * @param {string}  [options.destinationId]      - Filter experiences by destination
  * @param {string}  [options.destinationName]    - Label for block header
  * @param {string}  [options.experienceId]       - Filter plans by experience
- * @param {string}  [options.experienceName]     - Label for block header
  * @param {Array}   [options.planItems]          - Pre-fetched items array (plan_item only)
  * @param {string}  [options.currentItemContent] - Content of current item (plan_item only)
  * @returns {Promise<string|null>}
@@ -84,7 +83,8 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
         .limit(6)
         .lean();
       const viewable = others.filter(e => {
-        if (!e.visibility || e.visibility === 'public' || e.visibility === 'authenticated') return true;
+        if (!e.visibility || e.visibility === 'public') return true;
+        // 'contributors' and 'private': require explicit permission entry
         return (e.permissions || []).some(p => String(p._id) === String(userId));
       });
       if (viewable.length < 2) return null;
@@ -118,6 +118,7 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
         .populate({ path: 'experience', select: 'name destination' })
         .select('experience planned_date plan')
         .sort({ updatedAt: -1 })
+        .limit(50)
         .lean();
 
       const otherPlans = userPlans.filter(p => {
