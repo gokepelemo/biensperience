@@ -411,6 +411,37 @@ describe('buildUserPlanContext', () => {
     expect(ctx).toContain('[ATTENTION]');
     expect(ctx).toMatch(/1 item overdue/);
   });
+
+  it('signals no return transport when two transport legs have no round-trip', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const itemId1 = new mongoose.Types.ObjectId();
+    const itemId2 = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [
+        {
+          _id: itemId1,
+          plan_item_id: itemId1,
+          content: 'Flight to Tokyo',
+          complete: false,
+          details: { transport: { departureLocation: 'London Heathrow', arrivalLocation: 'Tokyo Narita', mode: 'flight' } },
+        },
+        {
+          _id: itemId2,
+          plan_item_id: itemId2,
+          content: 'Train to Kyoto',
+          complete: false,
+          details: { transport: { departureLocation: 'Tokyo Station', arrivalLocation: 'Kyoto Station', mode: 'train' } },
+        },
+      ],
+    });
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('No return transport detected');
+  });
 });
 
 // ---------------------------------------------------------------------------

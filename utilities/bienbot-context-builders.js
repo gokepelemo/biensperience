@@ -812,9 +812,13 @@ async function buildUserPlanContext(planId, userId, options = {}) {
         i => i.details?.transport?.departureLocation && i.details.transport.arrivalLocation
       );
       if (transportItems.length >= 2) {
-        const allArrivals = transportItems.map(i => i.details.transport.arrivalLocation.toLowerCase().trim());
-        const allDepartures = transportItems.map(i => i.details.transport.departureLocation.toLowerCase().trim());
-        const hasRoundTrip = allArrivals.some(a => allDepartures.includes(a));
+        const hasRoundTrip = transportItems.some((itemA, i) =>
+          transportItems.some((itemB, j) => {
+            if (i === j) return false;
+            return itemA.details.transport.arrivalLocation.toLowerCase().trim() ===
+                   itemB.details.transport.departureLocation.toLowerCase().trim();
+          })
+        );
         if (!hasRoundTrip) {
           signals.push('⚠ No return transport detected');
         }
@@ -836,7 +840,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
       // All items complete
       if (totalItems > 0 && completedItems === totalItems) {
-        signals.push('⚠ All items complete — consider archiving this plan');
+        signals.push('⚠ All items complete — consider archiving');
       }
 
       if (signals.length > 0) {
