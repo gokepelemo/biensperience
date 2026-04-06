@@ -322,6 +322,95 @@ describe('buildUserPlanContext', () => {
 
     expect(ctx).not.toContain('[DISAMBIGUATION');
   });
+
+  it('signals no accommodation when trip is within 30 days and no accommodation item exists', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const soon = new Date(); soon.setDate(soon.getDate() + 7);
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      planned_date: soon,
+      plan: [{ _id: itemId, plan_item_id: itemId, content: 'Visit museum', complete: false }],
+    });
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/No accommodation booked; trip in \d+ day/);
+  });
+
+  it('signals unscheduled items when incomplete items have no scheduled_date', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const idA = new mongoose.Types.ObjectId();
+    const idB = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [
+        { _id: idA, plan_item_id: idA, content: 'Item A', complete: false },
+        { _id: idB, plan_item_id: idB, content: 'Item B', complete: false },
+      ],
+    });
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/2 items have no scheduled date/);
+  });
+
+  it('signals cost gap when plan has items but no costs tracked', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [{ _id: itemId, plan_item_id: itemId, content: 'Visit museum', complete: false }],
+      costs: [],
+    });
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('No costs tracked yet');
+  });
+
+  it('signals all complete when every item is done', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const idA = new mongoose.Types.ObjectId();
+    const idB = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [
+        { _id: idA, plan_item_id: idA, content: 'Done A', complete: true },
+        { _id: idB, plan_item_id: idB, content: 'Done B', complete: true },
+      ],
+    });
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('All items complete');
+  });
+
+  it('signals overdue items when incomplete items have past scheduled dates', async () => {
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [
+        { _id: itemId, plan_item_id: itemId, content: 'Missed item', complete: false, scheduled_date: yesterday },
+      ],
+    });
+
+    const ctx = await buildUserPlanContext(plan._id.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toMatch(/1 item overdue/);
+  });
 });
 
 // ---------------------------------------------------------------------------

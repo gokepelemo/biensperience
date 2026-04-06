@@ -789,6 +789,63 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       logger.debug('[bienbot-context] Plan disambiguation skipped', { error: dErr.message });
     }
 
+    // Attention signals
+    try {
+      const signals = [];
+      const daysUntilTrip = plan.planned_date ? computeDaysUntil(plan.planned_date) : null;
+
+      // No accommodation when trip is soon
+      if (daysUntilTrip !== null && daysUntilTrip > 0 && daysUntilTrip <= 30) {
+        if (planItems.length > 0 && planItems.every(i => !i.details?.accommodation)) {
+          signals.push(`⚠ No accommodation booked; trip in ${daysUntilTrip} day${daysUntilTrip !== 1 ? 's' : ''}`);
+        }
+      }
+
+      // Unscheduled incomplete items
+      const unscheduled = planItems.filter(i => !i.scheduled_date && !i.complete);
+      if (unscheduled.length > 0) {
+        signals.push(`⚠ ${unscheduled.length} item${unscheduled.length !== 1 ? 's' : ''} ${unscheduled.length === 1 ? 'has' : 'have'} no scheduled date`);
+      }
+
+      // No return transport: plan has ≥2 transport items but no leg reverses another
+      const transportItems = planItems.filter(
+        i => i.details?.transport?.departureLocation && i.details.transport.arrivalLocation
+      );
+      if (transportItems.length >= 2) {
+        const allArrivals = transportItems.map(i => i.details.transport.arrivalLocation.toLowerCase().trim());
+        const allDepartures = transportItems.map(i => i.details.transport.departureLocation.toLowerCase().trim());
+        const hasRoundTrip = allArrivals.some(a => allDepartures.includes(a));
+        if (!hasRoundTrip) {
+          signals.push('⚠ No return transport detected');
+        }
+      }
+
+      // Overdue incomplete items
+      const overdueItems = planItems.filter(i => {
+        if (i.complete || !i.scheduled_date) return false;
+        return computeDaysUntil(i.scheduled_date) < 0;
+      });
+      if (overdueItems.length > 0) {
+        signals.push(`⚠ ${overdueItems.length} item${overdueItems.length !== 1 ? 's' : ''} overdue`);
+      }
+
+      // No costs tracked when there are items
+      if (planItems.length > 0 && (plan.costs || []).length === 0) {
+        signals.push('⚠ No costs tracked yet');
+      }
+
+      // All items complete
+      if (totalItems > 0 && completedItems === totalItems) {
+        signals.push('⚠ All items complete — consider archiving this plan');
+      }
+
+      if (signals.length > 0) {
+        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Plan attention signals skipped', { error: sigErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildUserPlanContext failed', { planId, error: err.message });
