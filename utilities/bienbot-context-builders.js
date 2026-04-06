@@ -1077,6 +1077,51 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
       logger.debug('[bienbot-context] Plan item disambiguation skipped', { error: dErr.message });
     }
 
+    // Attention signals
+    try {
+      const signals = [];
+
+      // Accommodation missing check-out
+      const accomm = item.details?.accommodation;
+      if (accomm?.checkIn && !accomm.checkOut) {
+        signals.push('⚠ Accommodation missing check-out date');
+      }
+
+      // Transport missing one leg
+      const transport = item.details?.transport;
+      if (transport) {
+        const hasDeparture = transport.departureLocation && transport.departureLocation.trim().length > 0;
+        const hasArrival = transport.arrivalLocation && transport.arrivalLocation.trim().length > 0;
+        if (hasDeparture !== hasArrival) {
+          signals.push('⚠ Transport entry is missing arrival/departure');
+        }
+      }
+
+      // No cost while sibling items have costs
+      if (!item.cost || item.cost === 0) {
+        const siblingCosts = (plan.costs || []).filter(c =>
+          c.plan_item && String(c.plan_item) !== itemIdStr && (c.cost || 0) > 0
+        );
+        if (siblingCosts.length > 0) {
+          const avg = Math.round(
+            siblingCosts.reduce((sum, c) => sum + c.cost, 0) / siblingCosts.length
+          );
+          signals.push(`⚠ No cost tracked; other items average $${avg}`);
+        }
+      }
+
+      // Overdue — only if not already shown in proximity line
+      if (!item.complete && daysUntil !== null && daysUntil < 0 && !proximityLine?.includes('overdue')) {
+        signals.push(`⚠ This item is ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''} overdue`);
+      }
+
+      if (signals.length > 0) {
+        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
+      }
+    } catch (sigErr) {
+      logger.debug('[bienbot-context] Plan item attention signals skipped', { error: sigErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildPlanItemContext failed', { planId, itemId, error: err.message });

@@ -678,6 +678,77 @@ describe('buildPlanItemContext', () => {
 
     expect(ctx).not.toContain('[DISAMBIGUATION');
   });
+
+  it('signals accommodation missing check-out when checkIn exists but not checkOut', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const checkIn = new Date(); checkIn.setDate(checkIn.getDate() + 10);
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [{
+        _id: itemId,
+        plan_item_id: itemId,
+        text: 'Hotel Stay',
+        complete: false,
+        details: {
+          accommodation: { name: 'Grand Hotel', checkIn, checkOut: null },
+        },
+      }],
+    });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemId.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('Accommodation missing check-out date');
+  });
+
+  it('signals transport incomplete when departure exists but arrival does not', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const itemId = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [{
+        _id: itemId,
+        plan_item_id: itemId,
+        text: 'Flight to Paris',
+        activity_type: 'transport',
+        complete: false,
+        details: {
+          transport: { mode: 'flight', departureLocation: 'London Heathrow', arrivalLocation: '' },
+        },
+      }],
+    });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemId.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('Transport entry is missing arrival/departure');
+  });
+
+  it('signals no cost tracked when sibling items have costs', async () => {
+    const mongoose = require('mongoose');
+    const user = await createTestUser();
+    const dest = await createTestDestination(user);
+    const exp = await createTestExperience(user, dest);
+    const itemA = new mongoose.Types.ObjectId();
+    const itemB = new mongoose.Types.ObjectId();
+    const plan = await createTestPlan(user, exp, {
+      plan: [
+        { _id: itemA, plan_item_id: itemA, text: 'Museum visit', complete: false },
+        { _id: itemB, plan_item_id: itemB, text: 'Lunch', complete: false, cost: 25 },
+      ],
+      costs: [{ plan_item: itemB, cost: 25, title: 'Lunch', currency: 'USD' }],
+    });
+
+    const ctx = await buildPlanItemContext(plan._id.toString(), itemA.toString(), user._id.toString());
+
+    expect(ctx).toContain('[ATTENTION]');
+    expect(ctx).toContain('No cost tracked');
+  });
 });
 
 // ---------------------------------------------------------------------------
