@@ -39,6 +39,32 @@ function entityJSON(id, name, type) {
 }
 
 /**
+ * Format a date as "Monday, March 31, 2026" for LLM context.
+ * Uses UTC to avoid server-timezone drift on date-only values.
+ */
+function formatPlanDate(date) {
+  try {
+    return new Date(date).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+    });
+  } catch {
+    return new Date(date).toISOString().split('T')[0];
+  }
+}
+
+/**
+ * Format a numeric amount with its currency symbol (e.g. "$632.00", "€200.00").
+ * Falls back to "CURRENCY amount" if the code is invalid.
+ */
+function formatCostAmount(amount, currency = 'USD') {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(amount);
+  } catch {
+    return `${currency || 'USD'} ${amount}`;
+  }
+}
+
+/**
  * Rough token estimate: ~4 chars per token for English text.
  */
 const CHARS_PER_TOKEN = 4;
@@ -424,12 +450,19 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       logger.debug('[bienbot-context] Signal injection skipped', { error: sigErr.message });
     }
 
-    // Cross-entity: Your other plans for this destination (up to 3)
+    // Fetch user plans once — reused by cross-entity block and attention signals block
+    let userPlansForDest = [];
     try {
-      const userPlansForDest = await Plan.find({ user: userId })
+      userPlansForDest = await Plan.find({ user: userId })
         .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
         .select('experience planned_date plan')
         .lean();
+    } catch (planFetchErr) {
+      logger.debug('[bienbot-context] Destination plan fetch skipped', { error: planFetchErr.message });
+    }
+
+    // Cross-entity: Your other plans for this destination (up to 3)
+    try {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const relatedPlans = userPlansForDest.filter(p => {
         if (!p.experience?.destination) return false;
@@ -476,12 +509,8 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       const signals = [];
       const today = new Date(); today.setHours(0, 0, 0, 0);
 
-      // Fetch all user plans for this destination (small targeted query)
-      const allUserPlans = await Plan.find({ user: userId })
-        .populate({ path: 'experience', select: 'destination' })
-        .select('planned_date')
-        .lean();
-      const destPlans = allUserPlans.filter(p => {
+      // Reuse userPlansForDest fetched above — filter to exact destination ID match
+      const destPlans = userPlansForDest.filter(p => {
         const dId = p.experience?.destination?._id || p.experience?.destination;
         return dId && String(dId) === String(destination._id);
       });
@@ -536,7 +565,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
     let userPlanForExp = null;
     try {
       userPlanForExp = await Plan.findOne({ user: userId, experience: expOid })
-        .select('planned_date plan costs')
+        .select('planned_date plan costs currency')
         .lean();
     } catch (planFetchErr) {
       logger.debug('[bienbot-context] User plan fetch for experience skipped', { error: planFetchErr.message });
@@ -570,7 +599,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
     if (userPlanForExp) {
       const planItemCount = (userPlanForExp.plan || []).length;
       const planDateStr = userPlanForExp.planned_date
-        ? new Date(userPlanForExp.planned_date).toISOString().split('T')[0]
+        ? formatPlanDate(userPlanForExp.planned_date)
         : 'no date set';
       lines.push(`\nUser's plan for this experience: exists (${planItemCount} items, date: ${planDateStr})`);
     } else {
@@ -640,7 +669,8 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       } else {
         // Cost estimate without tracking
         if (experience.cost_estimate > 0 && (userPlanForExp.costs || []).length === 0) {
-          signals.push(`⚠ Cost estimated at ${experience.cost_estimate} but nothing tracked yet`);
+          const costStr = formatCostAmount(experience.cost_estimate, userPlanForExp.currency);
+          signals.push(`⚠ Cost estimated at ${costStr} but nothing tracked yet`);
         }
       }
 
@@ -705,7 +735,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       `[Plan] for experience "${plan.experience?.name || '(unknown)'}"`,
       `Entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}`,
       plan.experience?._id ? `Experience entity: ${entityJSON(plan.experience._id.toString(), plan.experience.name, 'experience')}` : null,
-      plan.planned_date ? `Planned date: ${new Date(plan.planned_date).toISOString().split('T')[0]}` : null,
+      plan.planned_date ? `Planned date: ${formatPlanDate(plan.planned_date)}` : null,
       `Completion: ${completedItems}/${totalItems} items (${completionPct}%)`,
       plan.currency ? `Currency: ${plan.currency}` : null,
       plan.costs?.length ? `Costs tracked: ${plan.costs.length}` : null,

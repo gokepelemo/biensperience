@@ -168,7 +168,7 @@ describe('buildDestinationContext', () => {
     const ctx = await buildDestinationContext(dest._id.toString(), user._id.toString());
 
     expect(ctx).toContain('[ATTENTION]');
-    expect(ctx).toContain('All your plans here are past');
+    expect(ctx).toContain('All your plans here are past — time for another visit?');
   });
 
   it('signals multiple upcoming plans when user has 2+ future plans at destination', async () => {
