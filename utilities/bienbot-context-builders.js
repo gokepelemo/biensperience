@@ -669,8 +669,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       } else {
         // Cost estimate without tracking
         if (experience.cost_estimate > 0 && (userPlanForExp.costs || []).length === 0) {
-          const costStr = formatCostAmount(experience.cost_estimate, userPlanForExp.currency);
-          signals.push(`⚠ Cost estimated at ${costStr} but nothing tracked yet`);
+          signals.push(`⚠ Cost estimated at ${experience.cost_estimate} but nothing tracked yet`);
         }
       }
 
@@ -735,7 +734,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       `[Plan] for experience "${plan.experience?.name || '(unknown)'}"`,
       `Entity: ${entityJSON(plan._id.toString(), plan.experience?.name || 'plan', 'plan')}`,
       plan.experience?._id ? `Experience entity: ${entityJSON(plan.experience._id.toString(), plan.experience.name, 'experience')}` : null,
-      plan.planned_date ? `Planned date: ${formatPlanDate(plan.planned_date)}` : null,
+      plan.planned_date ? `Planned date: ${new Date(plan.planned_date).toISOString().split('T')[0]}` : null,
       `Completion: ${completedItems}/${totalItems} items (${completionPct}%)`,
       plan.currency ? `Currency: ${plan.currency}` : null,
       plan.costs?.length ? `Costs tracked: ${plan.costs.length}` : null,
