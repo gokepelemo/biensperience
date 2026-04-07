@@ -1139,8 +1139,16 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
   if (!userIdValid) return null;
 
   try {
-    const user = await User.findById(userOid)
-      .select('name email preferences bio links feature_flags');
+    const { Types } = require('mongoose');
+
+    const [user, experienceCount] = await Promise.all([
+      User.findById(userOid)
+        .select('name email preferences bio links feature_flags'),
+      Experience.countDocuments({
+        permissions: { $elemMatch: { _id: new Types.ObjectId(targetUserId), entity: 'user', type: 'owner' } }
+      })
+    ]);
+
     if (!user) return null;
 
     const lines = [
@@ -1150,7 +1158,10 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
       user.bio ? `Bio: ${user.bio}` : null,
       user.preferences?.currency ? `Currency: ${user.preferences.currency}` : null,
       user.preferences?.timezone ? `Timezone: ${user.preferences.timezone}` : null,
-      user.links?.length ? `Links: ${user.links.map(l => l.title || l.url).join(', ')}` : null
+      user.links?.length ? `Links: ${user.links.map(l => l.title || l.url).join(', ')}` : null,
+      experienceCount > 0
+        ? `Experiences created: ${experienceCount}  (use list_user_experiences to fetch them)`
+        : null
     ];
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);

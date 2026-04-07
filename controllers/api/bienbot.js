@@ -21,6 +21,7 @@ const {
   buildExperienceContext,
   buildUserPlanContext,
   buildPlanItemContext,
+  buildUserProfileContext,
   buildUserGreetingContext,
   buildSearchContext,
   buildSuggestionContext,
@@ -380,6 +381,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '',
     '--- Plan Items ---',
     '- add_plan_items: { plan_id, items: [{ text, url?, cost?, planning_days?, parent?, activity_type?, location? }] }',
+    '  IMPORTANT: For add_plan_items, include ONLY the "text" field per item unless the user explicitly provides url, cost, or other details. This keeps the response compact.',
     '- update_plan_item: { plan_id, item_id, complete?, text?, cost?, planning_days?, url?, activity_type?, scheduled_date?, scheduled_time?, visibility?, location? }',
     '  Use scheduled_date (ISO date string) and scheduled_time ("HH:MM") to set when this specific item is scheduled.',
     '  This is the item schedule — NOT the plan trip date. To change the trip date use update_plan instead.',
@@ -595,6 +597,35 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       if (!entities.destination_name && !entities.experience_name && message) {
         promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
       }
+    }
+
+    // Search intent — build search context from the raw user message
+    if (intent === 'SEARCH_CONTENT' && message) {
+      promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Country query — build discovery context filtered by destination/country name
+    if (intent === 'QUERY_COUNTRY') {
+      const countryFilters = {};
+      if (entities.destination_name) countryFilters.destination_name = entities.destination_name;
+      promises.push(buildDiscoveryContext(countryFilters, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Dashboard / overview — build user greeting context with stats and summaries
+    if (intent === 'QUERY_DASHBOARD' || intent === 'QUERY_ACTIVITY_FEED') {
+      promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
+    }
+
+    // Profile queries — build user profile context from invoke context
+    if (intent === 'QUERY_PROFILE' || intent === 'FOLLOW_USER' || intent === 'UNFOLLOW_USER' || intent === 'QUERY_FOLLOWERS') {
+      if (session.invoke_context?.entity === 'user' && session.invoke_context?.entity_id) {
+        promises.push(buildUserProfileContext(session.invoke_context.entity_id, userId).then(b => b && blocks.push(b)));
+      }
+    }
+
+    // Plan costs — build plan context which includes cost data
+    if (intent === 'QUERY_PLAN_COSTS' && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
     }
 
     // Session-level context (already resolved entities)
@@ -2308,11 +2339,21 @@ exports.chat = async (req, res) => {
     return errorResponse(res, null, 'The AI service is not configured yet.', 503);
   }
 
+  // Increase token budget for intents that produce large action payloads
+  // (e.g. add_plan_items with 10+ items, workflow with many steps)
+  const BULK_ACTION_INTENTS = new Set([
+    'ADD_PLAN_ITEMS', 'PLAN_EXPERIENCE', 'BULK_OPERATION'
+  ]);
+  const baseBudget = 1500;
+  const needsMoreTokens = BULK_ACTION_INTENTS.has(classification.intent) ||
+    /add\s+(these|all|selected)\s+plan\s+items/i.test(message);
+  const maxTokens = needsMoreTokens ? 3000 : baseBudget;
+
   let llmResult;
   try {
     llmResult = await callProvider(provider, conversationMessages, {
       temperature: 0.7,
-      maxTokens: 1500,
+      maxTokens,
       _user: req.user,
       task: AI_TASKS.BIENBOT_CHAT,
       intent: classification.intent || null,

@@ -591,6 +591,7 @@ function AppContent() {
 
     return (
       <>
+<<<<<<< Updated upstream
         {/* Skip link for keyboard navigation - WCAG 2.1 SC 2.4.1 Bypass Blocks */}
         <SkipLink />
         <Box
@@ -599,6 +600,9 @@ function AppContent() {
           minH="100dvh"
           bg="bg"
         >
+=======
+        <div className={styles.app}>
+>>>>>>> Stashed changes
           <CookieConsent />
           {/* Legal modals accessible via hash links (#terms, #privacy) */}
           <LegalModalsHandler />

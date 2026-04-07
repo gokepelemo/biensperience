@@ -1303,6 +1303,10 @@
 .suggestionTitle {
   font-weight: var(--font-weight-semibold, 600);
   color: var(--color-text-primary, #1e293b);
+
+  @mixin dark {
+    color: var(--color-text-primary, #e2e8f0);
+  }
 }
 
 .suggestionMeta {
@@ -1364,6 +1368,7 @@
   width: 100%;
 
   @mixin dark {
+    color: var(--color-text-primary, #e2e8f0);
     border-bottom-color: var(--color-border-dark, #475569);
   }
 }

@@ -837,6 +837,29 @@ describe('buildUserProfileContext', () => {
     expect(ctx).not.toBeNull();
     expect(ctx).toContain('[User] Minimal User');
   });
+
+  it('includes experience count hint when user has owned experiences', async () => {
+    const owner = await createTestUser({ name: 'Curator User' });
+    const dest = await createTestDestination(owner, { name: 'Paris', country: 'France' });
+    await createTestExperience(owner, dest, { name: 'Food Tour' });
+    await createTestExperience(owner, dest, { name: 'Art Walk' });
+
+    const ctx = await buildUserProfileContext(owner._id.toString(), owner._id.toString());
+
+    expect(ctx).not.toBeNull();
+    expect(ctx).toContain('Experiences created: 2');
+    expect(ctx).toContain('list_user_experiences');
+  });
+
+  it('omits experience count hint when user has no owned experiences', async () => {
+    const user = await createTestUser({ name: 'New User' });
+
+    const ctx = await buildUserProfileContext(user._id.toString(), user._id.toString());
+
+    expect(ctx).not.toBeNull();
+    expect(ctx).not.toContain('Experiences created');
+    expect(ctx).not.toContain('list_user_experiences');
+  });
 });
 
 // ---------------------------------------------------------------------------

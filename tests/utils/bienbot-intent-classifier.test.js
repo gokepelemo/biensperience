@@ -22,7 +22,7 @@ describe('bienbot-intent-classifier', () => {
     resetManager();
     // Warm up the model with a single classification
     await classifyIntent('hello');
-  });
+  }, 120000); // 120s — training corpus with 70 intents / 1500+ utterances
 
   // -------------------------------------------------------------------------
   // INTENTS enum
@@ -127,6 +127,126 @@ describe('bienbot-intent-classifier', () => {
     it('classifies QUERY_USER_EXPERIENCES for profile browsing', async () => {
       const result = await classifyIntent('List their experiences');
       expect(result.intent).toBe('QUERY_USER_EXPERIENCES');
+    });
+
+    it('classifies CREATE_DESTINATION intent', async () => {
+      const result = await classifyIntent('Create a destination for Tokyo');
+      expect(result.intent).toBe('CREATE_DESTINATION');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies SEARCH_CONTENT intent', async () => {
+      const result = await classifyIntent('Search for beach experiences');
+      expect(result.intent).toBe('SEARCH_CONTENT');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies FOLLOW_USER intent', async () => {
+      const result = await classifyIntent('Follow this user');
+      expect(result.intent).toBe('FOLLOW_USER');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies UNFOLLOW_USER intent', async () => {
+      const result = await classifyIntent('Stop following this person');
+      expect(result.intent).toBe('UNFOLLOW_USER');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_FOLLOWERS intent', async () => {
+      const result = await classifyIntent('Show me my followers');
+      expect(result.intent).toBe('QUERY_FOLLOWERS');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_DASHBOARD intent', async () => {
+      const result = await classifyIntent('Show me my dashboard');
+      expect(result.intent).toBe('QUERY_DASHBOARD');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_PLAN_COSTS intent', async () => {
+      const result = await classifyIntent('Show me the budget');
+      expect(result.intent).toBe('QUERY_PLAN_COSTS');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies PIN_PLAN_ITEM intent', async () => {
+      const result = await classifyIntent('Pin this plan item');
+      expect(result.intent).toBe('PIN_PLAN_ITEM');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies SHIFT_PLAN_DATES intent', async () => {
+      const result = await classifyIntent('Shift all dates forward by 3 days');
+      expect(result.intent).toBe('SHIFT_PLAN_DATES');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies UPDATE_PLAN_COST intent', async () => {
+      const result = await classifyIntent('Update the hotel cost');
+      expect(result.intent).toBe('UPDATE_PLAN_COST');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies DELETE_PLAN_COST intent', async () => {
+      const result = await classifyIntent('Remove the flight expense');
+      expect(result.intent).toBe('DELETE_PLAN_COST');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_PROFILE intent', async () => {
+      const result = await classifyIntent('Tell me about this person');
+      expect(result.intent).toBe('QUERY_PROFILE');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies UPDATE_PROFILE intent', async () => {
+      const result = await classifyIntent('Update my profile');
+      expect(result.intent).toBe('UPDATE_PROFILE');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_COUNTRY intent', async () => {
+      const result = await classifyIntent('What destinations are in Japan');
+      expect(result.intent).toBe('QUERY_COUNTRY');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_ACTIVITY_FEED intent', async () => {
+      const result = await classifyIntent('Show my activity feed');
+      expect(result.intent).toBe('QUERY_ACTIVITY_FEED');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies CREATE_INVITE intent', async () => {
+      const result = await classifyIntent('Create an invite code');
+      expect(result.intent).toBe('CREATE_INVITE');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies REQUEST_PLAN_ACCESS intent', async () => {
+      const result = await classifyIntent('Request access to this plan');
+      expect(result.intent).toBe('REQUEST_PLAN_ACCESS');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies UPLOAD_DOCUMENT intent', async () => {
+      const result = await classifyIntent('Upload a travel document');
+      expect(result.intent).toBe('UPLOAD_DOCUMENT');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_PHOTOS intent', async () => {
+      const result = await classifyIntent('Show me the photos');
+      expect(result.intent).toBe('QUERY_PHOTOS');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_DOCUMENTS intent', async () => {
+      const result = await classifyIntent('What documents are attached');
+      expect(result.intent).toBe('QUERY_DOCUMENTS');
+      expect(result.confidence).toBeGreaterThan(0.5);
     });
 
     it('classifies ANSWER_QUESTION for greetings', async () => {
