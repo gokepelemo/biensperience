@@ -1152,8 +1152,12 @@ describe('BienBot API', () => {
     });
 
     it('analyzes a plan_item and returns suggestions', async () => {
-      const planWithItem = await createTestPlan(user, experience, {
-        plan: [{ content: 'Visit the Louvre', completed: false }]
+      const mongoose = require('mongoose');
+      // Use a separate experience to avoid duplicate key (user+experience unique index)
+      const itemExp = await createTestExperience(user, destination, { name: 'Item Test Exp' });
+      const itemId = new mongoose.Types.ObjectId();
+      const planWithItem = await createTestPlan(user, itemExp, {
+        plan: [{ _id: itemId, plan_item_id: itemId, text: 'Visit the Louvre', complete: false }]
       });
       const planItem = planWithItem.plan[0];
       buildPlanItemContext.mockResolvedValueOnce('[Plan Item] Visit the Louvre\nStatus: pending');
@@ -1185,8 +1189,10 @@ describe('BienBot API', () => {
     it('returns 403 when user lacks view permission on the parent plan of a plan_item', async () => {
       const otherUser = await createAIUser({ email: `other_pi_${Date.now()}@test.com` });
       const otherExp = await createTestExperience(otherUser, destination, { name: 'Other Exp PI' });
+      const mongoose = require('mongoose');
+      const privateItemId = new mongoose.Types.ObjectId();
       const otherPlan = await createTestPlan(otherUser, otherExp, {
-        plan: [{ content: 'Private item', completed: false }]
+        plan: [{ _id: privateItemId, plan_item_id: privateItemId, text: 'Private item', complete: false }]
       });
       const otherItem = otherPlan.plan[0];
 
