@@ -91,7 +91,8 @@ describe('bienbot-action-executor', () => {
         'add_plan_items',
         'update_plan_item',
         'invite_collaborator',
-        'sync_plan'
+        'sync_plan',
+        'list_user_experiences'
       ];
       for (const type of expected) {
         expect(ALLOWED_ACTION_TYPES).toContain(type);
@@ -542,6 +543,97 @@ describe('bienbot-action-executor', () => {
       );
 
       expect(session.pending_actions).toHaveLength(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // executeAction() — list_user_experiences
+  // -------------------------------------------------------------------------
+
+  describe('executeAction() — list_user_experiences', () => {
+    const Experience = require('../../models/experience');
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('returns experiences owned by the target user', async () => {
+      const userId = '507f1f77bcf86cd799439011';
+      const mockExperiences = [
+        {
+          _id: { toString: () => 'exp-1' },
+          name: 'Food Tour',
+          overview: 'Great eats',
+          destination: { name: 'Paris', country: 'France' },
+          plan_items: [1, 2, 3]
+        },
+        {
+          _id: { toString: () => 'exp-2' },
+          name: 'Art Walk',
+          overview: null,
+          destination: { name: 'Paris', country: 'France' },
+          plan_items: []
+        }
+      ];
+
+      const leanMock = jest.fn().mockResolvedValue(mockExperiences);
+      const limitMock = jest.fn().mockReturnValue({ lean: leanMock });
+      const selectMock = jest.fn().mockReturnValue({ limit: limitMock });
+      const populateMock = jest.fn().mockReturnValue({ select: selectMock });
+      jest.spyOn(Experience, 'find').mockReturnValue({ populate: populateMock });
+
+      const result = await executeAction(
+        {
+          id: 'action_lue12345',
+          type: 'list_user_experiences',
+          payload: { user_id: userId }
+        },
+        makeUser()
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.result.experiences).toHaveLength(2);
+      expect(result.result.experiences[0].name).toBe('Food Tour');
+      expect(result.result.experiences[0].plan_item_count).toBe(3);
+      expect(result.result.experiences[1].plan_item_count).toBe(0);
+      expect(result.result.total).toBe(2);
+      expect(result.result.user_id).toBe(userId);
+    });
+
+    it('returns empty list when user has no owned experiences', async () => {
+      const userId = '507f1f77bcf86cd799439011';
+
+      const leanMock = jest.fn().mockResolvedValue([]);
+      const limitMock = jest.fn().mockReturnValue({ lean: leanMock });
+      const selectMock = jest.fn().mockReturnValue({ limit: limitMock });
+      const populateMock = jest.fn().mockReturnValue({ select: selectMock });
+      jest.spyOn(Experience, 'find').mockReturnValue({ populate: populateMock });
+
+      const result = await executeAction(
+        {
+          id: 'action_lue_empty',
+          type: 'list_user_experiences',
+          payload: { user_id: userId }
+        },
+        makeUser()
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.result.experiences).toHaveLength(0);
+      expect(result.result.total).toBe(0);
+    });
+
+    it('returns error result when user_id is missing', async () => {
+      const result = await executeAction(
+        {
+          id: 'action_lue_noid',
+          type: 'list_user_experiences',
+          payload: {}
+        },
+        makeUser()
+      );
+
+      expect(result.success).toBe(false);
     });
   });
 });

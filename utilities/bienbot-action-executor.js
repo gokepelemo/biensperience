@@ -79,7 +79,9 @@ const ALLOWED_ACTION_TYPES = [
   // Destination selection (disambiguation)
   'select_destination',
   // Plan item date shifting
-  'shift_plan_item_dates'
+  'shift_plan_item_dates',
+  // Read-only: list experiences owned by a user
+  'list_user_experiences'
 ];
 
 /**
@@ -90,7 +92,8 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'suggest_plan_items',
   'fetch_entity_photos',
   'fetch_destination_tips',
-  'discover_content'
+  'discover_content',
+  'list_user_experiences'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -989,6 +992,64 @@ async function executeDiscoverContent(payload, user) {
 }
 
 /**
+ * list_user_experiences — read-only, no confirmation.
+ * payload: { user_id: string, limit?: number }
+ * Returns experiences where the target user is an owner.
+ */
+async function executeListUserExperiences(payload, user) {
+  const { user_id, limit = 20 } = payload || {};
+
+  if (!user_id) {
+    return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+  }
+
+  const ExperienceModel = require('../models/experience');
+
+  try {
+    const { Types } = require('mongoose');
+    let userOid;
+    try {
+      userOid = new Types.ObjectId(user_id);
+    } catch {
+      return { statusCode: 400, body: { success: false, error: 'Invalid user_id format' } };
+    }
+
+    const rawExperiences = await ExperienceModel.find({
+      permissions: { $elemMatch: { _id: userOid, entity: 'user', type: 'owner' } }
+    })
+      .populate('destination', 'name country')
+      .select('name overview destination plan_items')
+      .limit(limit)
+      .lean();
+
+    const experiences = rawExperiences.map(exp => ({
+      _id: exp._id.toString(),
+      name: exp.name,
+      overview: exp.overview || null,
+      destination: exp.destination
+        ? { name: exp.destination.name, country: exp.destination.country }
+        : null,
+      plan_item_count: (exp.plan_items || []).length
+    }));
+
+    return {
+      statusCode: 200,
+      body: {
+        success: true,
+        data: {
+          experiences,
+          user_id,
+          total: experiences.length
+        }
+      }
+    };
+  } catch (err) {
+    logger.error('[bienbot-executor] executeListUserExperiences failed', { user_id, error: err.message });
+    return { statusCode: 500, body: { success: false, error: 'Failed to fetch experiences' } };
+  }
+}
+
+/**
  * add_entity_photos — mutating, requires confirmation.
  * payload: { entity_type, entity_id, photos: [{ url, photographer, photographer_url }] }
  */
@@ -1301,7 +1362,8 @@ const ACTION_HANDLERS = {
   // Destination disambiguation
   select_destination: executeSelectDestination,
   // Plan item date shifting
-  shift_plan_item_dates: executeShiftPlanItemDates
+  shift_plan_item_dates: executeShiftPlanItemDates,
+  list_user_experiences: executeListUserExperiences
 };
 
 // ---------------------------------------------------------------------------
