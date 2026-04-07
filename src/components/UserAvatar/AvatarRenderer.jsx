@@ -19,7 +19,7 @@
  * - Link-to-profile wrapping (handled by parent UserAvatar)
  */
 
-import { forwardRef, useState, useEffect, useCallback } from 'react';
+import { forwardRef, useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Avatar } from '@chakra-ui/react';
 import styles from './UserAvatar.module.css';
@@ -43,6 +43,10 @@ function markImageLoaded(url) {
 function isImageLoaded(url) {
   return !!url && loadedImages.has(url);
 }
+
+// If an image hasn't loaded or errored within this time, treat it as failed
+// and show the initials fallback instead of an infinite skeleton.
+const IMG_LOAD_TIMEOUT_MS = 8000;
 
 /**
  * AvatarRenderer – renders the visual avatar element using Avatar primitives.
@@ -82,12 +86,34 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
   const [imgLoaded, setImgLoaded] = useState(() => isImageLoaded(src));
   // Track image load failures so we can immediately fall back to initials
   const [imgError, setImgError] = useState(false);
+  const timeoutRef = useRef(null);
 
   // Reset loaded/error state when src changes, but skip the skeleton
   // if we've already loaded this URL before.
   useEffect(() => {
     setImgLoaded(isImageLoaded(src));
     setImgError(false);
+
+    // Clear any previous timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    // If there's a src, start a timeout so we don't show a skeleton forever
+    // when the image request hangs without firing onLoad or onError.
+    if (src) {
+      timeoutRef.current = setTimeout(() => {
+        setImgError(true);
+      }, IMG_LOAD_TIMEOUT_MS);
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [src]);
 
   // Ref callback to handle images that load from browser cache before
@@ -175,8 +201,16 @@ const AvatarRenderer = forwardRef(function AvatarRenderer(
           src={src}
           alt={name || 'User avatar'}
           referrerPolicy="no-referrer"
-          onLoad={() => { markImageLoaded(src); setImgLoaded(true); }}
-          onError={() => { loadedImages.delete(src); setImgError(true); }}
+          onLoad={() => {
+            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+            markImageLoaded(src);
+            setImgLoaded(true);
+          }}
+          onError={() => {
+            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+            loadedImages.delete(src);
+            setImgError(true);
+          }}
           style={{
             position: imgLoaded ? 'static' : 'absolute',
             opacity: imgLoaded ? 1 : 0,
