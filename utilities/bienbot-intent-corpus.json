@@ -1245,6 +1245,21 @@
         "What was last updated",
         "Show me what changed"
       ]
+    },
+    {
+      "intent": "QUERY_USER_EXPERIENCES",
+      "utterances": [
+        "Show me experiences created by this user",
+        "What experiences has this person made",
+        "List their experiences",
+        "Show me their experiences",
+        "What has this curator created",
+        "Browse experiences by this user",
+        "What experiences did they create",
+        "Show experiences from this profile",
+        "What experiences are on their profile",
+        "Show me all experiences by them"
+      ]
     }
   ]
 }

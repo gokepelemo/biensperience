@@ -37,7 +37,8 @@ describe('bienbot-intent-classifier', () => {
         'ADD_PLAN_ITEMS',
         'INVITE_COLLABORATOR',
         'SYNC_PLAN',
-        'ANSWER_QUESTION'
+        'ANSWER_QUESTION',
+        'QUERY_USER_EXPERIENCES'
       ];
       for (const intent of required) {
         expect(INTENTS).toHaveProperty(intent);
@@ -115,6 +116,17 @@ describe('bienbot-intent-classifier', () => {
     it('classifies SYNC_PLAN for outdated plan', async () => {
       const result = await classifyIntent('My plan is out of date');
       expect(result.intent).toBe('SYNC_PLAN');
+    });
+
+    it('classifies QUERY_USER_EXPERIENCES intent', async () => {
+      const result = await classifyIntent('Show me experiences created by this user');
+      expect(result.intent).toBe('QUERY_USER_EXPERIENCES');
+      expect(result.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('classifies QUERY_USER_EXPERIENCES for profile browsing', async () => {
+      const result = await classifyIntent('List their experiences');
+      expect(result.intent).toBe('QUERY_USER_EXPERIENCES');
     });
 
     it('classifies ANSWER_QUESTION for greetings', async () => {
