@@ -124,8 +124,6 @@ const SortablePlanItem = memo(function SortablePlanItem({
     setShowPlanInstanceDeleteModal,
   ]);
 
-  const hasMeta = Number(planItem.cost) > 0 || Number(planItem.planning_days) > 0 || planItem.visibility === 'public';
-
   return (
     <div
       ref={setNodeRef}
@@ -135,7 +133,6 @@ const SortablePlanItem = memo(function SortablePlanItem({
         planItem.isVisible ? "" : "collapsed"
       } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
     >
-<<<<<<< Updated upstream
       <div className="plan-item-header" style={{ padding: 'var(--space-4)' }}>
         <div className="plan-item-title-row">
           <div className="plan-item-tree">
@@ -160,27 +157,16 @@ const SortablePlanItem = memo(function SortablePlanItem({
                       </span>
                     );
                   }
-=======
-      {/* Row 1: Tree indicator + Title */}
-      <div className="plan-item-card-title">
-        <div className="plan-item-tree">
-          {!planItem.isChild ? (
-            (() => {
-              if (hasChildren) {
-                if (isPinned) {
->>>>>>> Stashed changes
                   return (
                     <span
-                      className={`expand-toggle pinned-expand-toggle ${!isExpanded ? 'collapsed' : ''}`}
+                      className="expand-toggle"
                       onClick={() => toggleExpanded(planItem)}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                      title={lang.current.tooltip.pinnedToTopExpandCollapse}
                     >
-<<<<<<< Updated upstream
                       {isExpanded ? '▼' : '▶'}
                     </span>
                   );
@@ -189,40 +175,15 @@ const SortablePlanItem = memo(function SortablePlanItem({
                   return (
                     <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
                       {isPinned ? <FaThumbtack style={{ color: 'var(--color-warning)' }} aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
-=======
-                      <FaThumbtack className={`${styles.textWarning} pinned-pin-icon`} />
-                      <span className="expand-arrow-icon">{isExpanded ? '▼' : '▶'}</span>
->>>>>>> Stashed changes
                     </span>
                   );
                 }
-                return (
-                  <span
-                    className="expand-toggle"
-                    onClick={() => toggleExpanded(planItem)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(planItem); } }}
-                    aria-expanded={isExpanded}
-                    aria-label={isExpanded ? "Collapse child items" : "Expand child items"}
-                  >
-                    {isExpanded ? '▼' : '▶'}
-                  </span>
-                );
-              } else {
-                return (
-                  <span className={`no-child-arrow ${isPinned ? 'pinned-pin' : ''}`}>
-                    {isPinned ? <FaThumbtack className={styles.textWarning} aria-label={lang.current.aria.pinnedItem} title={lang.current.tooltip.pinnedToTop} /> : '•'}
-                  </span>
-                );
-              }
-            })()
-          ) : (
-            <span className="child-arrow">↳</span>
-          )}
-        </div>
+              })()
+            ) : (
+              <span className="child-arrow">↳</span>
+            )}
+          </div>
 
-<<<<<<< Updated upstream
           <div className="plan-item-title" style={{ flexGrow: 1, fontWeight: 600 }}>
             {planItem.url ? (() => {
               const safeUrl = sanitizeUrl(planItem.url);
@@ -245,16 +206,6 @@ const SortablePlanItem = memo(function SortablePlanItem({
                 </button>
               );
             })() : (
-=======
-        <div className={`plan-item-title ${styles.flexGrow1} ${styles.fwSemibold}`}>
-          {planItem.url ? (() => {
-            const safeUrl = sanitizeUrl(planItem.url);
-            return safeUrl ? (
-              <a href={safeUrl} target="_blank" rel="noopener noreferrer">
-                {sanitizeText(planItem.text)}
-              </a>
-            ) : (
->>>>>>> Stashed changes
               <button
                 type="button"
                 className="plan-item-title-button"
@@ -263,52 +214,10 @@ const SortablePlanItem = memo(function SortablePlanItem({
               >
                 {sanitizeText(planItem.text)}
               </button>
-            );
-          })() : (
-            <button
-              type="button"
-              className="plan-item-title-button"
-              onClick={() => handleViewPlanItemDetails(planItem)}
-              title={lang.current.tooltip.viewNotesAssignmentsDetails}
-            >
-              {sanitizeText(planItem.text)}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Row 2: Metadata pills (left) + Actions (right) */}
-      <div className="plan-item-card-footer">
-        <div className="plan-item-card-meta">
-          {hasMeta && (
-            <>
-              {planItem.visibility === 'public' && (
-                <span className={`plan-item-visibility ${styles.textSuccess}`} title="Visible on experience feed">
-                  <BsGlobe /> <small>Public</small>
-                </span>
-              )}
-              {Number(planItem.cost) > 0 && (
-                <span className="plan-item-cost">
-                  <CostEstimate
-                    cost={planItem.cost}
-                    showTooltip={true}
-                    compact={true}
-                  />
-                </span>
-              )}
-              {Number(planItem.planning_days) > 0 && (
-                <span className="plan-item-days">
-                  <PlanningTime
-                    days={planItem.planning_days}
-                    showTooltip={true}
-                  />
-                </span>
-              )}
-            </>
-          )}
+            )}
+          </div>
         </div>
 
-<<<<<<< Updated upstream
         {/* Drag handle - positioned between title and action buttons */}
         {/* Pinned items don't show drag handle since they're always at top */}
         {canEdit && !isPinned && (
@@ -326,22 +235,6 @@ const SortablePlanItem = memo(function SortablePlanItem({
         )}
 
         <div className="plan-item-actions plan-item-card-actions">
-=======
-        <div className="plan-item-card-actions">
-          {/* Drag handle - visible on card hover */}
-          {canEdit && !isPinned && (
-            <div
-              {...attributes}
-              {...listeners}
-              className={`drag-handle-wrapper ${isDragging ? styles.grabbing : styles.grab}`}
-            >
-              <DragHandle
-                isDragging={isDragging}
-                disabled={!canEdit}
-              />
-            </div>
-          )}
->>>>>>> Stashed changes
           <button
             type="button"
             className="btn btn-sm btn-outline-secondary"
@@ -364,13 +257,19 @@ const SortablePlanItem = memo(function SortablePlanItem({
             disabled={!canEdit}
             onClick={(e) => {
               if (!canEdit) return;
+              // Blur the button to prevent focus-based scroll restoration
               e.currentTarget.blur();
               handlePlanItemToggleComplete(planItem);
             }}
             onMouseEnter={() =>
-              setHoveredPlanItem(planItem._id || planItem.plan_item_id)
+              setHoveredPlanItem(
+                planItem._id ||
+                  planItem.plan_item_id
+              )
             }
-            onMouseLeave={() => setHoveredPlanItem(null)}
+            onMouseLeave={() =>
+              setHoveredPlanItem(null)
+            }
             aria-label={
               planItem.complete
                 ? `${lang.current.button.undoComplete} ${planItem.text}`
@@ -384,7 +283,9 @@ const SortablePlanItem = memo(function SortablePlanItem({
             }
           >
             {planItem.complete
-              ? hoveredPlanItem === (planItem._id || planItem.plan_item_id)
+              ? hoveredPlanItem ===
+                (planItem._id ||
+                  planItem.plan_item_id)
                 ? lang.current.button.undoComplete
                 : lang.current.button.done
               : lang.current.button.markComplete}
@@ -392,13 +293,12 @@ const SortablePlanItem = memo(function SortablePlanItem({
           <ActionsMenu
             actions={cardActions}
             ariaLabel={`Actions: ${planItem.text}`}
-            size="sm"
+            size="md"
             position="bottom-right"
             disabled={!canEdit}
           />
         </div>
       </div>
-<<<<<<< Updated upstream
       {(Number(planItem.cost) > 0 || Number(planItem.planning_days) > 0 || planItem.visibility === 'public') && (
         <div className="plan-item-details" style={{ padding: 'var(--space-2)' }}>
           <div className="plan-item-meta">
@@ -427,8 +327,6 @@ const SortablePlanItem = memo(function SortablePlanItem({
           </div>
         </div>
       )}
-=======
->>>>>>> Stashed changes
     </div>
   );
 }, (prevProps, nextProps) => {

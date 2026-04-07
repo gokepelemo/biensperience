@@ -17,12 +17,7 @@ import CostSummary from '../CostSummary';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
 import Pagination from '../Pagination/Pagination';
 import { EmptyState, Pill, Accordion, Button } from '../design-system';
-<<<<<<< Updated upstream
 import styles from './CostsList.module.css';
-=======
-import SkeletonLoader from '../SkeletonLoader/SkeletonLoader';
-import styles from './CostsList.module.scss';
->>>>>>> Stashed changes
 
 const COSTS_PER_PAGE = 10;
 
@@ -246,14 +241,7 @@ export default function CostsList({
                 />
               </Box>
             )}
-            {loading ? (
-              /* Loading State */
-              <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <SkeletonLoader key={`skeleton-cost-${i}`} variant="rectangle" width="100%" height="48px" />
-                ))}
-              </div>
-            ) : costs.length === 0 ? (
+            {costs.length === 0 ? (
               /* Empty State */
               <EmptyState
                 variant="generic"

@@ -348,13 +348,8 @@ async function getRecentActivity(userId, options = {}) {
     const actorsMap = new Map();
     if (actorIds.length > 0) {
       const actors = await User.find({ _id: { $in: actorIds } })
-<<<<<<< Updated upstream
         .select('name oauthProfilePhoto photos')
         .populate('photos.photo', 'url')
-=======
-        .select('name oauthProfilePhoto photo photos default_photo_id')
-        .populate('photos', 'url')
->>>>>>> Stashed changes
         .lean();
       actors.forEach(actor => {
         const photo = getDefaultPhoto(actor);

@@ -1,6 +1,5 @@
 {
   "base": "USD",
-<<<<<<< Updated upstream
   "date": "2026-03-27",
   "description": "Fallback exchange rates for offline/error scenarios. These rates are updated periodically and should not be used for financial transactions.",
   "source": "Compiled from Frankfurter API, X-Rates, and Wise",
@@ -39,45 +38,5 @@
     "PLN": 3.7228,
     "CZK": 21.309,
     "HUF": 338.4
-=======
-  "date": "2026-03-06",
-  "description": "Fallback exchange rates for offline/error scenarios. These rates are updated periodically and should not be used for financial transactions.",
-  "source": "Compiled from Frankfurter API, X-Rates, and Wise",
-  "lastUpdated": "2026-03-08T22:07:56.580Z",
-  "rates": {
-    "USD": 1,
-    "EUR": 0.86498,
-    "GBP": 0.74987,
-    "JPY": 157.92,
-    "AUD": 1.4273,
-    "CAD": 1.3651,
-    "CHF": 0.78237,
-    "CNY": 6.9047,
-    "INR": 91.83,
-    "KRW": 1485.18,
-    "MXN": 17.7857,
-    "NZD": 1.7029,
-    "SGD": 1.281,
-    "THB": 31.975,
-    "BRL": 5.2765,
-    "ZAR": 16.718,
-    "SEK": 9.2492,
-    "NOK": 9.664,
-    "DKK": 6.4621,
-    "HKD": 7.8194,
-    "TWD": 31.197,
-    "PHP": 59.273,
-    "IDR": 16973,
-    "MYR": 3.946,
-    "VND": 26364,
-    "AED": 3.6725,
-    "SAR": 3.75,
-    "ILS": 3.0928,
-    "TRY": 44.074,
-    "RUB": 76.727,
-    "PLN": 3.7086,
-    "CZK": 21.122,
-    "HUF": 340.28
->>>>>>> Stashed changes
   }
 }

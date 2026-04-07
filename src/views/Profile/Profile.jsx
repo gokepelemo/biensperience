@@ -1,5 +1,4 @@
 import { FaUser, FaPassport, FaCheckCircle, FaKey, FaEye, FaEdit, FaEnvelope, FaUserShield, FaMapMarkerAlt, FaPlane, FaHeart, FaCamera, FaStar, FaGlobe, FaExternalLinkAlt, FaCode, FaExclamationTriangle, FaCodeBranch, FaCog, FaShieldAlt, FaChartLine, FaUsers, FaCalendarAlt, FaPlusCircle, FaUserMinus, FaList, FaUserFriends, FaArrowLeft } from "react-icons/fa";
-
 import { getSocialNetwork, getLinkIcon, getLinkDisplayText, buildLinkUrl } from "../../utilities/social-links";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from "react";
@@ -26,8 +25,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import { deduplicateById } from "../../utilities/deduplication";
 import { USER_ROLES, USER_ROLE_DISPLAY_NAMES } from "../../utilities/user-roles";
 import { isSuperAdmin } from "../../utilities/permissions";
-import { Button, EmptyState, Container, EntityNotFound, Alert, Card, Row, Col } from "../../components/design-system";
-import SplitButton from "../../components/SplitButton/SplitButton";
+import { Button, EmptyState, Container, EntityNotFound, Alert, Card, Row, Col, Dropdown, DropdownToggle, DropdownMenu, DropdownItem } from "../../components/design-system";
 import { useToast } from '../../contexts/ToastContext';
 import { getDefaultPhoto } from "../../utilities/photo-utils";
 import { getFirstName } from "../../utilities/name-utils";
@@ -1546,18 +1544,13 @@ export default function Profile() {
                   )}
                   {isOwner && (
                     <SplitButton
-<<<<<<< Updated upstream
                       label={lang.current.label.editProfile}
-=======
-                      label="Update Profile"
->>>>>>> Stashed changes
                       icon={<FaEdit />}
                       onClick={() => navigate('/profile/update')}
                       variant="outline"
                       size="sm"
                       rounded
                       menuAriaLabel={lang.current.aria.profileActions}
-<<<<<<< Updated upstream
                       placement="bottom-end"
                     >
                       <SplitButton.Item value="photos" onClick={() => setShowPhotoUploadModal(true)}>
@@ -1567,44 +1560,6 @@ export default function Profile() {
                       {currentProfile && !currentProfile.emailConfirmed && (
                         <SplitButton.Item
                           value="resend-email"
-=======
-                    >
-                      {isSuperAdmin(user) && (
-                        <>
-                          <SplitButton.Item
-                            value="api-tokens"
-                            className={styles.dropdownItem}
-                            onClick={handleOpenApiModal}
-                          >
-                            <FaKey className={styles.dropdownIcon} />
-                            <span>API Tokens</span>
-                          </SplitButton.Item>
-                          <SplitButton.Item
-                            value="activity-monitor"
-                            className={styles.dropdownItem}
-                            onClick={handleOpenActivityMonitor}
-                          >
-                            <FaEye className={styles.dropdownIcon} />
-                            <span>Activity Monitor</span>
-                          </SplitButton.Item>
-                        </>
-                      )}
-                      <SplitButton.Item
-                        value="manage-photos"
-                        className={styles.dropdownItem}
-                        onClick={() => setShowPhotoUploadModal(true)}
-                        title={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
-                        aria-label={(lang.current && lang.current.aria && lang.current.aria.managePhotos) || 'Manage Photos'}
-                      >
-                        <FaCamera className={styles.dropdownIcon} />
-                        <span>Manage Photos</span>
-                      </SplitButton.Item>
-                      {currentProfile && !currentProfile.emailConfirmed && (
-                        <SplitButton.Item
-                          value="resend-verification"
-                          className={styles.dropdownItem}
-                          disabled={resendInProgress || resendDisabled}
->>>>>>> Stashed changes
                           onClick={async () => {
                             if (!currentProfile || !currentProfile.email) return;
                             if (resendInProgress || resendDisabled) return;
@@ -1620,7 +1575,6 @@ export default function Profile() {
                               setResendInProgress(false);
                             }
                           }}
-<<<<<<< Updated upstream
                           disabled={resendInProgress || resendDisabled}
                         >
                           <FaEnvelope className={styles.dropdownIcon} />
@@ -1646,21 +1600,6 @@ export default function Profile() {
                             <FaUserShield className={styles.dropdownIcon} />
                             Admin Update
                           </Link>
-=======
-                        >
-                          <FaEnvelope className={styles.dropdownIcon} />
-                          <span>{lang.current.alert.emailNotVerifiedAction} {resendDisabled && cooldownRemaining > 0 ? `(${cooldownRemaining}s)` : ''}</span>
-                        </SplitButton.Item>
-                      )}
-                      {isSuperAdmin(user) && profileId && profileId !== user._id && (
-                        <SplitButton.Item
-                          value="admin-update"
-                          className={`${styles.dropdownItem} ${styles.dropdownItemAdmin}`}
-                          onClick={() => navigate(`/profile/${profileId}/update`)}
-                        >
-                          <FaUserShield className={styles.dropdownIcon} />
-                          <span>Admin Update</span>
->>>>>>> Stashed changes
                         </SplitButton.Item>
                       )}
                     </SplitButton>

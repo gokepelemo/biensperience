@@ -12,11 +12,7 @@ import {
 import 'stream-chat-react/dist/css/v2/index.css';
 
 import { Modal, Alert } from '../design-system';
-<<<<<<< Updated upstream
 import styles from './ChatModal.module.css';
-=======
-import styles from './ChatModal.module.scss';
->>>>>>> Stashed changes
 import StreamChatAvatar from './StreamChatAvatar';
 
 import { logger } from '../../utilities/logger';

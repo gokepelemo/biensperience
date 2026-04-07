@@ -3,7 +3,6 @@
  * WCAG 2.1 Level AA compliance utilities
  */
 
-<<<<<<< Updated upstream:src/styles/accessibility.css
 /* Skip Navigation Link - WCAG 2.1 SC 2.4.1 Bypass Blocks
  * Hidden by default, visible only on keyboard focus.
  * This provides keyboard users a way to skip repetitive navigation
@@ -47,9 +46,6 @@
     outline-offset: 2px;
   }
 }
-=======
-@use './scss/abstracts' as *;
->>>>>>> Stashed changes:src/styles/accessibility.scss
 
 /* Focus Styles - Purple Theme */
 *:focus-visible {

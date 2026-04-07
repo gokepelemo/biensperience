@@ -3,14 +3,6 @@
   position: relative;
   display: block;
   width: 100%;
-<<<<<<< Updated upstream:src/components/FormField/FormField.module.css
-=======
-
-  textarea {
-    width: 100% !important;
-    box-sizing: border-box;
-  }
->>>>>>> Stashed changes:src/components/FormField/FormField.module.scss
 }
 
 .textareaControl {
@@ -19,7 +11,6 @@
   padding: 22px 20px 34px 20px; /* space for counter */
   border-radius: 14px;
   border: 1px solid var(--color-border, #d9e3ef);
-  background: var(--color-input-bg, var(--color-surface, #fff));
   /* input-specific tokens so inputs match design system in light/dark themes */
   color: var(--color-input-text, var(--color-text-primary, #12263f));
   /* subtle elevation and inset highlight using design tokens */
