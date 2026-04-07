@@ -46,6 +46,7 @@ import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import CollaboratorDetailsSection from './CollaboratorDetailsSection';
 import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
+import { useNavigationContext } from '../../contexts/NavigationContext';
 
 export default function PlanItemDetailsModal({
   show,
@@ -212,6 +213,19 @@ export default function PlanItemDetailsModal({
 
   // Compute stable plan item ID string
   const planItemIdStr = normalizeId(planItem?._id);
+
+  // Register plan and plan_item in NavigationContext so any BienBot session opened
+  // from this modal has plan_id available in the navigationSchema from turn 1,
+  // enabling all plan-item actions that require plan_id to resolve correctly.
+  const { setNavigatedEntity, clearNavigationLevel } = useNavigationContext();
+  useEffect(() => {
+    if (!show || !plan?._id || !planItemIdStr) return;
+    setNavigatedEntity('plan', { _id: plan._id, experience: plan.experience });
+    setNavigatedEntity('plan_item', { _id: planItemIdStr, plan_id: plan._id });
+    return () => {
+      clearNavigationLevel(2);
+    };
+  }, [show, plan?._id, planItemIdStr, setNavigatedEntity, clearNavigationLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canInitChat = useMemo(() => {
     return Boolean(show && activeTab === 'chat' && streamApiKey && plan?._id && planItemIdStr);

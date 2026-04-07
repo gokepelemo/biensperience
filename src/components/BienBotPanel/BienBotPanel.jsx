@@ -36,6 +36,7 @@ import EntityRefList from './EntityRefList';
 import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { eventBus } from '../../utilities/event-bus';
 import Autocomplete from '../Autocomplete/Autocomplete';
+import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import styles from './BienBotPanel.module.css';
 
 // ─── Close icon ──────────────────────────────────────────────────────────────
@@ -581,6 +582,9 @@ export default function BienBotPanel({
   const [executingActionId, setExecutingActionId] = useState(null);
   const [savedSession, setSavedSession] = useState(null);
   const [viewMode, setViewMode] = useState('chat');
+  // Pending context switch: set when the user navigates to a different entity while
+  // a conversation is in progress. Cleared when the user picks Stay or Switch.
+  const [pendingContextSwitch, setPendingContextSwitch] = useState(null);
 
   const { user } = useUser();
 
@@ -614,6 +618,7 @@ export default function BienBotPanel({
     executeActions,
     cancelAction,
     updateContext,
+    switchContext,
     loadSession,
     clearSession,
     deleteSession,
@@ -890,19 +895,30 @@ export default function BienBotPanel({
     const prev = prevContextRef.current;
     const changed = prev && (prev.id !== invokeContext.id || prev.entity !== invokeContext.entity);
 
-    // Store current as previous for next comparison
-    prevContextRef.current = { entity: invokeContext.entity, id: invokeContext.id };
+    // Store current as previous for next comparison (include label for ContextSwitchPrompt)
+    prevContextRef.current = {
+      entity: invokeContext.entity,
+      id: invokeContext.id,
+      label: invokeContext.contextDescription || invokeContext.label || invokeContext.entity,
+    };
 
     if (!changed) return;
 
     const hasUserMessages = messagesRef.current.some(m => m.role === 'user');
 
     if (hasUserMessages) {
-      // User is engaged in a conversation: inject an acknowledgment note so they
-      // know BienBot now has context for the new entity. The session continues
-      // with enriched context. The analysis greeting is intentionally skipped
-      // (handled above in the analysisSuggestions effect guard).
-      updateContext(invokeContext.entity, invokeContext.id, invokeContext.contextDescription);
+      // User is engaged in a conversation: show a prompt instead of silently switching
+      // context. The user can choose to continue their current conversation or switch
+      // BienBot's focus to the newly navigated entity.
+      const prevLabel = prev.label || prev.entity;
+      const newLabel = invokeContext.contextDescription || invokeContext.label || invokeContext.entity;
+      setPendingContextSwitch({
+        entity: invokeContext.entity,
+        entityId: invokeContext.id,
+        contextDescription: invokeContext.contextDescription,
+        prevEntityLabel: prevLabel,
+        newEntityLabel: newLabel,
+      });
     } else {
       // User hasn't engaged (only saw the greeting): reset session tracking so
       // the next message starts a fresh session anchored to the new entity.
@@ -1921,6 +1937,22 @@ export default function BienBotPanel({
                   <CloseIcon />
                 </button>
               </div>
+            )}
+            {pendingContextSwitch && (
+              <ContextSwitchPrompt
+                prevEntityLabel={pendingContextSwitch.prevEntityLabel}
+                newEntityLabel={pendingContextSwitch.newEntityLabel}
+                newEntityType={pendingContextSwitch.entity}
+                onStay={() => setPendingContextSwitch(null)}
+                onSwitch={() => {
+                  switchContext(
+                    pendingContextSwitch.entity,
+                    pendingContextSwitch.entityId,
+                    pendingContextSwitch.contextDescription
+                  );
+                  setPendingContextSwitch(null);
+                }}
+              />
             )}
             <div className={styles.inputArea}>
               <input

@@ -13,13 +13,17 @@ const logger = require('./backend-logger');
 const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos, fetchDestinationTips } = require('./bienbot-external-data');
 
 // Lazy-loaded controllers (resolved on first use to avoid circular deps)
-let destinationsController, experiencesController, plansController;
+let destinationsController, experiencesController, plansController, followsController, usersController, activitiesController, documentsController;
 
 function loadControllers() {
   if (!destinationsController) {
     destinationsController = require('../controllers/api/destinations');
     experiencesController = require('../controllers/api/experiences');
     plansController = require('../controllers/api/plans');
+    followsController = require('../controllers/api/follows');
+    usersController = require('../controllers/api/users');
+    activitiesController = require('../controllers/api/activities');
+    documentsController = require('../controllers/api/documents');
   }
 }
 
@@ -81,7 +85,25 @@ const ALLOWED_ACTION_TYPES = [
   // Plan item date shifting
   'shift_plan_item_dates',
   // Read-only: list experiences owned by a user
-  'list_user_experiences'
+  'list_user_experiences',
+  // Social / follows
+  'follow_user',
+  'unfollow_user',
+  'accept_follow_request',
+  'list_user_followers',
+  // User profile update
+  'update_user_profile',
+  // Activity feed
+  'list_user_activities',
+  // Plan item operations
+  'pin_plan_item',
+  'unpin_plan_item',
+  'reorder_plan_items',
+  // Documents
+  'list_entity_documents',
+  // Invites / access
+  'create_invite',
+  'request_plan_access'
 ];
 
 /**
@@ -93,7 +115,10 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'fetch_entity_photos',
   'fetch_destination_tips',
   'discover_content',
-  'list_user_experiences'
+  'list_user_experiences',
+  'list_user_followers',
+  'list_user_activities',
+  'list_entity_documents'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -106,13 +131,15 @@ const READ_ONLY_ACTION_TYPES = new Set([
  * @param {object} user - Authenticated user (from session).
  * @param {object} [body={}] - Request body fields.
  * @param {object} [params={}] - Route params (e.g. :id, :experienceId).
+ * @param {object} [query={}] - Query string parameters (e.g. { limit: 10 }).
  * @returns {object} Mock req compatible with controller expectations.
  */
-function buildMockReq(user, body = {}, params = {}) {
+function buildMockReq(user, body = {}, params = {}, query = {}) {
   return {
     user,
     body,
     params,
+    query,
     ip: '127.0.0.1',
     method: 'POST',
     path: '/api/bienbot/action',
@@ -1062,7 +1089,214 @@ async function executeAddEntityPhotos(payload, user, session) {
 // ---------------------------------------------------------------------------
 
 /**
- * navigate_to_entity — client-only action.
+ * follow_user — mutating, requires confirmation.
+ * payload: { user_id }
+ */
+async function executeFollowUser(payload, user) {
+  const { user_id } = payload || {};
+  if (!user_id) return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+
+  loadControllers();
+  const req = buildMockReq(user, {}, { userId: user_id });
+  const { res, getResult } = buildMockRes();
+  await followsController.followUser(req, res);
+  return getResult();
+}
+
+/**
+ * unfollow_user — mutating, requires confirmation.
+ * payload: { user_id }
+ */
+async function executeUnfollowUser(payload, user) {
+  const { user_id } = payload || {};
+  if (!user_id) return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+
+  loadControllers();
+  const req = buildMockReq(user, {}, { userId: user_id });
+  const { res, getResult } = buildMockRes();
+  await followsController.unfollowUser(req, res);
+  return getResult();
+}
+
+/**
+ * accept_follow_request — mutating, requires confirmation.
+ * payload: { follower_id }
+ */
+async function executeAcceptFollowRequest(payload, user) {
+  const { follower_id } = payload || {};
+  if (!follower_id) return { statusCode: 400, body: { success: false, error: 'follower_id is required' } };
+
+  loadControllers();
+  const req = buildMockReq(user, {}, { followerId: follower_id });
+  const { res, getResult } = buildMockRes();
+  await followsController.acceptFollowRequest(req, res);
+  return getResult();
+}
+
+/**
+ * list_user_followers — read-only, no confirmation.
+ * payload: { user_id, type?: 'followers'|'following', limit?: 20 }
+ * Returns followers or following list for the given user.
+ */
+async function executeListUserFollowers(payload, user) {
+  const { user_id, type = 'followers', limit = 20 } = payload || {};
+  if (!user_id) return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+
+  loadControllers();
+  const controllerFn = type === 'following' ? followsController.getFollowing : followsController.getFollowers;
+  const req = buildMockReq(user, {}, { userId: user_id }, { limit });
+  const { res, getResult } = buildMockRes();
+  await controllerFn(req, res);
+  return getResult();
+}
+
+/**
+ * update_user_profile — mutating, requires confirmation.
+ * payload: { name?, bio?, preferences?: { currency?, timezone?, theme? } }
+ * Always scoped to the logged-in user — never accepts a target user_id.
+ */
+async function executeUpdateUserProfile(payload, user) {
+  const { name, bio, preferences } = payload || {};
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { name, bio, preferences },
+    { id: user._id.toString() }
+  );
+  const { res, getResult } = buildMockRes();
+  await usersController.updateUser(req, res);
+  return getResult();
+}
+
+/**
+ * list_user_activities — read-only, no confirmation.
+ * payload: { limit?: 10 }
+ * Returns the activity feed for the logged-in user.
+ */
+async function executeListUserActivities(payload, user) {
+  const { limit = 10 } = payload || {};
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { actorId: user._id.toString() },
+    { limit }
+  );
+  const { res, getResult } = buildMockRes();
+  await activitiesController.getActorHistory(req, res);
+  return getResult();
+}
+
+/**
+ * pin_plan_item — mutating, requires confirmation.
+ * payload: { plan_id, item_id }
+ * Pins a plan item so it appears at the top of the plan timeline.
+ */
+async function executePinPlanItem(payload, user) {
+  const { plan_id, item_id } = payload || {};
+  if (!plan_id || !item_id) return { statusCode: 400, body: { success: false, error: 'plan_id and item_id are required' } };
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: plan_id, itemId: item_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.pinPlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * reorder_plan_items — mutating, requires confirmation.
+ * payload: { plan_id, item_ids: string[] }
+ * Reorders plan items to the specified order. item_ids must be an ordered array
+ * containing ALL item IDs for the plan.
+ */
+async function executeReorderPlanItems(payload, user) {
+  const { plan_id, item_ids } = payload || {};
+  if (!plan_id || !Array.isArray(item_ids) || item_ids.length === 0) {
+    return { statusCode: 400, body: { success: false, error: 'plan_id and item_ids (non-empty array) are required' } };
+  }
+  loadControllers();
+  const req = buildMockReq(user, { item_ids }, { id: plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.reorderPlanItems(req, res);
+  return getResult();
+}
+
+/**
+ * unpin_plan_item — mutating, requires confirmation.
+ * payload: { plan_id, item_id }
+ * Unpins a plan item, removing its pinned status.
+ */
+async function executeUnpinPlanItem(payload, user) {
+  const { plan_id, item_id } = payload || {};
+  if (!plan_id || !item_id) return { statusCode: 400, body: { success: false, error: 'plan_id and item_id are required' } };
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: plan_id, itemId: item_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.unpinPlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * list_entity_documents — read-only, no confirmation.
+ * payload: { entity_type, entity_id, plan_id?, limit?: 10 }
+ * Lists documents attached to an entity (plan, experience, destination, plan_item).
+ */
+async function executeListEntityDocuments(payload, user) {
+  const { entity_type, entity_id, plan_id, limit = 10 } = payload || {};
+  if (!entity_type || !entity_id) return { statusCode: 400, body: { success: false, error: 'entity_type and entity_id are required' } };
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { entityType: entity_type, entityId: entity_id },
+    { planId: plan_id, limit }
+  );
+  const { res, getResult } = buildMockRes();
+  await documentsController.getByEntity(req, res);
+  return getResult();
+}
+
+/**
+ * create_invite — mutating, requires confirmation.
+ * payload: { max_uses?: 1, expires_in_days?: 7, label? }
+ * Creates a shareable invite code for the logged-in user.
+ */
+async function executeCreateInvite(payload, user) {
+  const InviteCode = require('../models/inviteCode');
+  const { max_uses = 1, expires_in_days = 7 } = payload || {};
+  const expiresAt = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000);
+  const code = `${user._id.toString().slice(-4)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const invite = new InviteCode({
+    code,
+    createdBy: user._id,
+    maxUses: max_uses,
+    expiresAt,
+    uses: 0
+  });
+  await invite.save();
+  return { statusCode: 201, body: { success: true, data: invite } };
+}
+
+/**
+ * request_plan_access — mutating, requires confirmation.
+ * payload: { plan_id, message? }
+ * Requests access to a plan the user does not have permission to view.
+ */
+async function executeRequestPlanAccess(payload, user) {
+  const { plan_id, message = '' } = payload || {};
+  if (!plan_id) return { statusCode: 400, body: { success: false, error: 'plan_id is required' } };
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { message },
+    { id: plan_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.requestPlanAccess(req, res);
+  return getResult();
+}
+
+/**
+ * navigate_to_entity — no-op on the backend, executes without confirmation.
  * The frontend handles navigation; the backend just marks it as successful.
  * payload: { entity, entityId, url }
  */
@@ -1363,7 +1597,25 @@ const ACTION_HANDLERS = {
   select_destination: executeSelectDestination,
   // Plan item date shifting
   shift_plan_item_dates: executeShiftPlanItemDates,
-  list_user_experiences: executeListUserExperiences
+  list_user_experiences: executeListUserExperiences,
+  // Social / follows
+  follow_user: executeFollowUser,
+  unfollow_user: executeUnfollowUser,
+  accept_follow_request: executeAcceptFollowRequest,
+  list_user_followers: executeListUserFollowers,
+  // User profile
+  update_user_profile: executeUpdateUserProfile,
+  // Activity feed
+  list_user_activities: executeListUserActivities,
+  // Plan item pin/unpin
+  pin_plan_item: executePinPlanItem,
+  unpin_plan_item: executeUnpinPlanItem,
+  reorder_plan_items: executeReorderPlanItems,
+  // Documents
+  list_entity_documents: executeListEntityDocuments,
+  // Invites / access
+  create_invite: executeCreateInvite,
+  request_plan_access: executeRequestPlanAccess
 };
 
 // ---------------------------------------------------------------------------

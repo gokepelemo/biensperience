@@ -408,7 +408,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
    * @param {string} [contextDescription] - Rich description for display (e.g. "My Plan on \"Paris Trip\"")
    * @returns {Promise<string|null>} Resolved entity label, or null on error
    */
-  const updateContext = useCallback(async (entity, entityId, contextDescription) => {
+  const updateContext = useCallback(async (entity, entityId, contextDescription, { isSwitch = false } = {}) => {
     const sid = sessionIdRef.current;
     if (!sid || !entity || !entityId) return null;
 
@@ -426,13 +426,19 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         // Build ack message — prefer rich contextDescription over bare label
         const displayText = contextDescription || `"${label}"`;
         const isUserEntity = entity?.toLowerCase() === 'user';
-        const contextSuffix = isUserEntity
-          ? 'You can ask me anything about them or tell me to take actions on their profile.'
-          : 'You can ask me anything about it or tell me to take actions on it.';
+        let ackContent;
+        if (isSwitch) {
+          ackContent = `Context switched to ${displayText}. I'll now focus on this ${entity} unless you tell me otherwise.`;
+        } else {
+          const contextSuffix = isUserEntity
+            ? 'You can ask me anything about them or tell me to take actions on their profile.'
+            : 'You can ask me anything about it or tell me to take actions on it.';
+          ackContent = `My context has been enriched with information about ${displayText}. ${contextSuffix}`;
+        }
         const ackMessage = {
           _id: `ctx-${Date.now()}`,
           role: 'assistant',
-          content: `My context has been enriched with information about ${displayText}. ${contextSuffix}`,
+          content: ackContent,
           createdAt: new Date().toISOString(),
           isContextAck: true
         };
@@ -446,6 +452,21 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       return null;
     }
   }, []);
+
+  /**
+   * Explicitly switch BienBot's context to a new entity. Unlike updateContext (passive
+   * enrichment), this signals a deliberate focus change — triggered by the user choosing
+   * to switch context via the ContextSwitchPrompt.
+   *
+   * @param {string} entity - Entity type
+   * @param {string} entityId - Entity ID
+   * @param {string} [contextDescription] - Rich description for display
+   * @returns {Promise<string|null>} Resolved entity label, or null on error
+   */
+  const switchContext = useCallback(
+    (entity, entityId, contextDescription) => updateContext(entity, entityId, contextDescription, { isSwitch: true }),
+    [updateContext]
+  );
 
   // ---------------------------------------------------------------------------
   // Session management
@@ -953,6 +974,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     executeActions,
     cancelAction,
     updateContext,
+    switchContext,
     loadSession,
     clearSession,
     fetchSessions,

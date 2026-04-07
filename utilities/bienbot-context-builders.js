@@ -359,6 +359,7 @@ async function collectPlanNotes(planItems, userId, threshold = 500) {
           { role: 'system', content: 'Summarize these travel plan notes concisely, preserving key details and who said what. Output only the summary.' },
           { role: 'user', content: noteLines.join('\n') }
         ],
+        user: null, // context builder does not hold a user document; usage tracking is skipped
         task: 'summarize',
         options: { maxTokens: 150 }
       });
@@ -1022,8 +1023,20 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
         if (line) { lines.push(line); hasDetail = true; }
       }
     }
-    if (!hasDetail && item.details?.notes?.length) {
-      lines.push(`Notes: ${item.details.notes.length} attached`);
+    if (item.details?.notes?.length) {
+      // Expose note IDs so the LLM can reference them in update_plan_item_note / delete_plan_item_note actions.
+      // Private notes are only shown to their author.
+      const visibleNotes = item.details.notes.filter(
+        n => n.visibility !== 'private' || String(n.user) === String(userId)
+      );
+      if (visibleNotes.length > 0) {
+        lines.push(`Notes (${visibleNotes.length}):`);
+        for (const note of visibleNotes) {
+          const noteId = note._id?.toString();
+          const privateTag = note.visibility === 'private' ? ' [private]' : '';
+          lines.push(`  • [id:${noteId}]${privateTag} ${note.content}`);
+        }
+      }
     }
     if (item.details?.documents?.length) {
       lines.push(`Documents: ${item.details.documents.length} attached`);
@@ -1140,13 +1153,16 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
 
   try {
     const { Types } = require('mongoose');
+    const Follow = require('../models/follow');
 
-    const [user, experienceCount] = await Promise.all([
+    const [user, experienceCount, followerCount, followingCount] = await Promise.all([
       User.findById(userOid)
         .select('name email preferences bio links feature_flags'),
       Experience.countDocuments({
         permissions: { $elemMatch: { _id: new Types.ObjectId(targetUserId), entity: 'user', type: 'owner' } }
-      })
+      }),
+      Follow.countDocuments({ following: userOid }),
+      Follow.countDocuments({ user: userOid })
     ]);
 
     if (!user) return null;
@@ -1161,7 +1177,8 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
       user.links?.length ? `Links: ${user.links.map(l => l.title || l.url).join(', ')}` : null,
       experienceCount > 0
         ? `Experiences created: ${experienceCount}  (use list_user_experiences to fetch them)`
-        : null
+        : null,
+      `Followers: ${followerCount}  Following: ${followingCount}  (use list_user_followers to list them)`
     ];
 
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);

@@ -165,7 +165,7 @@ export async function postMessage(sessionId, message, options = {}) {
     requestBody = JSON.stringify(bodyObj);
   }
 
-  const MAX_RETRIES = 2;
+  const MAX_RETRIES = attachment ? 0 : 2; // File attachments cannot be safely retried after stream consumption
   const BASE_DELAY_MS = 1000;
   let attempt = 0;
 

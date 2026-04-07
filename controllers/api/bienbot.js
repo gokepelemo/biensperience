@@ -261,6 +261,27 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- If you do NOT have a real _id for an entity (e.g. the user named a destination not yet in context), use plain text for the name — do NOT embed a JSON object.',
     '- _id must be a real MongoDB ObjectId or other ID exactly as it appears in the context — never a slug, abbreviation, or made-up string.',
     '- The name field is what the user sees; always include it.',
+    '',
+    'INTENT-SPECIFIC BEHAVIOR:',
+    '- QUERY_DASHBOARD: Summarize the user\'s overview — upcoming plans, recent activity, stats from the context. Be proactive about surfacing important information.',
+    '- QUERY_PLAN_COSTS: Present a clear cost breakdown from the plan context. Include total cost, currency, and per-category breakdown when available. Suggest update_plan_cost or add_plan_cost if data seems incomplete.',
+    '- QUERY_EXPERIENCE_TAGS: List the activity types/tags on the experience. Suggest update_experience if the user wants to add or change tags.',
+    '- SEARCH_CONTENT: Summarize the search results from context. If no results, offer to create or suggest narrowing the query.',
+    '- QUERY_COUNTRY: Provide context about the destination/country from discovery context. Include practical travel info and suggest creating an experience or plan if the user is interested.',
+    '- QUERY_PHOTOS: Use fetch_entity_photos to retrieve photos for the current experience or destination. The entity_id comes from the session context — never ask for it.',
+    '- ADD_PHOTO: Explain that photos can be uploaded via the entity\'s photo section. You cannot upload photos directly — guide the user to the relevant page using navigate_to_entity.',
+    '- QUERY_ACTIVITY_FEED: Use list_user_activities to retrieve recent activity (READ-ONLY, executes immediately). Summarize the history in natural language.',
+    '- QUERY_DOCUMENTS: Use list_entity_documents to retrieve documents for the current entity (READ-ONLY, executes immediately). Summarize what documents are attached.',
+    '- PIN_PLAN_ITEM: Use pin_plan_item with the plan_id and item_id from context. Confirm which item the user wants to pin if ambiguous.',
+    '- UNPIN_PLAN_ITEM: Use unpin_plan_item with the plan_id and item_id from context.',
+    '- CREATE_INVITE: Use create_invite. Confirm the invite settings (max uses, expiry) with the user before proposing.',
+    '- REQUEST_PLAN_ACCESS: Use request_plan_access with the plan_id. Confirm with the user if context is ambiguous.',
+    '- FOLLOW_USER: Use follow_user with the user_id from context. Always confirm which user the user wants to follow before proposing — never guess.',
+    '- UNFOLLOW_USER: Use unfollow_user with the user_id from context. Confirm with the user before proposing.',
+    '- QUERY_FOLLOWERS: Use list_user_followers (READ-ONLY, executes immediately) with the user_id from the profile context. Default type is "followers"; set type to "following" when the user asks who they follow.',
+    '- ACCEPT_FOLLOW_REQUEST: Use accept_follow_request with follower_id from context. If multiple pending requests exist, list them and ask which one to accept.',
+    '- UPDATE_PROFILE: Use update_user_profile with only the fields the user explicitly asked to change (name, bio, or preferences). Never update fields the user did not mention.',
+    '- REORDER_PLAN_ITEMS: Use reorder_plan_items with plan_id and item_ids ordered as the user described. Read all current item IDs from the plan context block — do not omit any items.',
     ''
   ];
 
@@ -355,7 +376,14 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '  add_plan_cost, update_plan_cost, delete_plan_cost,',
     '  invite_collaborator, remove_collaborator, sync_plan,',
     '  toggle_favorite_destination, set_member_location, remove_member_location,',
-    '  navigate_to_entity',
+    '  navigate_to_entity, list_user_experiences,',
+    '  follow_user, unfollow_user, accept_follow_request, list_user_followers,',
+    '  update_user_profile,',
+    '  list_user_activities,',
+    '  pin_plan_item, unpin_plan_item, reorder_plan_items,',
+    '  shift_plan_item_dates,',
+    '  list_entity_documents,',
+    '  create_invite, request_plan_access',
     '',
     'Action payload schemas:',
     '',
@@ -465,8 +493,51 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '  (culinary, adventure, cultural, wellness, nightlife) or specific types (food, museum, etc.).',
     '  Use when user asks to discover, explore, or find experiences by category or destination.',
     '',
-    'NOTE: suggest_plan_items, fetch_entity_photos, fetch_destination_tips, and discover_content are READ-ONLY actions.',
+    '- list_user_experiences: { user_id, limit?: 20 }',
+    '  Returns experiences created by the given user. READ-ONLY — executes immediately.',
+    '  Use when the user asks to see another user\'s experiences or when in a user profile context.',
+    '',
+    '- list_user_followers: { user_id, type?: "followers"|"following", limit?: 20 }',
+    '  Returns followers or following list for the given user. READ-ONLY — executes immediately.',
+    '  Use when the user asks who follows someone or who they follow.',
+    '',
+    '- list_user_activities: { limit?: 10 }',
+    '  Returns the activity feed for the logged-in user (recent actions they have taken). READ-ONLY — executes immediately.',
+    '  Use when the user asks "what have I done recently", "show my activity", or similar.',
+    '',
+    '- list_entity_documents: { entity_type ("plan"|"experience"|"destination"|"plan_item"), entity_id, plan_id? (required when entity_type is "plan_item"), limit?: 10 }',
+    '  Returns documents attached to an entity. READ-ONLY — executes immediately.',
+    '  Use when the user asks to see documents, files, or attachments for a plan, experience, or destination.',
+    '',
+    'NOTE: suggest_plan_items, fetch_entity_photos, fetch_destination_tips, discover_content, list_user_experiences, list_user_followers, list_user_activities, and list_entity_documents are READ-ONLY actions.',
     'They execute immediately without user confirmation and return structured data.',
+    '',
+    '--- Social ---',
+    '- follow_user: { user_id }  — Follow the specified user.',
+    '- unfollow_user: { user_id }  — Unfollow the specified user.',
+    '- accept_follow_request: { follower_id }  — Accept a pending follow request from follower_id.',
+    '  Use these when the user asks to follow, unfollow, or accept a follow request.',
+    '  Always use the user_id from the context — never ask the user for an ID.',
+    '',
+    '--- Plan Item Actions ---',
+    '- pin_plan_item: { plan_id, item_id }  — Pin a plan item so it appears highlighted at the top of the timeline.',
+    '- unpin_plan_item: { plan_id, item_id }  — Remove the pinned status from a plan item.',
+    '  Use when the user asks to pin/highlight/feature or unpin a specific plan item.',
+    '- reorder_plan_items: { plan_id, item_ids: [string] }  — Reorder all plan items to the given order.',
+    '  item_ids must contain ALL item IDs for the plan in the desired new order.',
+    '  Use when the user asks to move, rearrange, or reorder items in their plan. Read item IDs from the plan context block.',
+    '',
+    '--- User Profile ---',
+    '- update_user_profile: { name?, bio?, preferences?: { currency?, timezone?, theme? } }',
+    '  Updates the logged-in user\'s own profile. Never accepts a target user_id.',
+    '  Use for requests like "update my bio", "change my currency", "set my timezone".',
+    '',
+    '--- Invites & Access ---',
+    '- create_invite: { max_uses?: 1, expires_in_days?: 7 }',
+    '  Creates a shareable invite code the logged-in user can send to others.',
+    '  Use when the user asks to invite someone or create an invitation link.',
+    '- request_plan_access: { plan_id, message? }',
+    '  Sends an access request to the plan owner. Use when the user asks to join or view a plan they cannot access.',
     '',
     '--- Navigation ---',
     '- navigate_to_entity: { entity ("destination"|"experience"|"plan"), entityId, url }',
@@ -565,6 +636,20 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     plan_item_id:   sessionCtx.plan_item_id    || schemaIds.plan_item_id   || null,
   };
 
+  // When plan_id is known but experience_id is not, resolve it from the plan document.
+  // This ensures intents like UPDATE_EXPERIENCE_PLAN_ITEM and DELETE_EXPERIENCE_PLAN_ITEM
+  // work correctly even when the session was seeded solely with a plan context.
+  if (ctx.plan_id && !ctx.experience_id) {
+    try {
+      const planDoc = await Plan.findById(ctx.plan_id).select('experience').lean();
+      if (planDoc?.experience) {
+        ctx.experience_id = planDoc.experience.toString();
+      }
+    } catch (e) {
+      // Non-blocking — proceed without experience_id fallback
+    }
+  }
+
   try {
     const promises = [];
 
@@ -616,11 +701,46 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
+    // Photo queries / add photo — auto-load photo context from the current entity in ctx
+    if (intent === 'QUERY_PHOTOS' || intent === 'ADD_PHOTO') {
+      if (ctx.experience_id) {
+        promises.push(buildExperienceContext(ctx.experience_id.toString(), userId).then(b => b && blocks.push(b)));
+      } else if (ctx.destination_id) {
+        promises.push(buildDestinationContext(ctx.destination_id.toString(), userId).then(b => b && blocks.push(b)));
+      }
+    }
+
     // Profile queries — build user profile context from invoke context
-    if (intent === 'QUERY_PROFILE' || intent === 'FOLLOW_USER' || intent === 'UNFOLLOW_USER' || intent === 'QUERY_FOLLOWERS') {
+    if (intent === 'QUERY_PROFILE' || intent === 'FOLLOW_USER' || intent === 'UNFOLLOW_USER' || intent === 'QUERY_FOLLOWERS' || intent === 'ACCEPT_FOLLOW_REQUEST') {
       if (session.invoke_context?.entity === 'user' && session.invoke_context?.entity_id) {
         promises.push(buildUserProfileContext(session.invoke_context.entity_id, userId).then(b => b && blocks.push(b)));
       }
+    }
+
+    // Profile self-edit — build the requesting user's own profile context
+    if (intent === 'UPDATE_PROFILE') {
+      promises.push(buildUserProfileContext(userId, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Plan item pin/unpin — ensure plan context is available
+    if ((intent === 'PIN_PLAN_ITEM' || intent === 'UNPIN_PLAN_ITEM') && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+
+    // Documents — build plan/experience/destination context as anchor for document queries
+    if (intent === 'QUERY_DOCUMENTS' || intent === 'UPLOAD_DOCUMENT') {
+      if (ctx.plan_id) {
+        promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+      } else if (ctx.experience_id) {
+        promises.push(buildExperienceContext(ctx.experience_id.toString(), userId).then(b => b && blocks.push(b)));
+      } else if (ctx.destination_id) {
+        promises.push(buildDestinationContext(ctx.destination_id.toString(), userId).then(b => b && blocks.push(b)));
+      }
+    }
+
+    // Invites / access requests — build plan context so the assistant knows which plan to reference
+    if ((intent === 'CREATE_INVITE' || intent === 'REQUEST_PLAN_ACCESS') && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
     }
 
     // Plan costs — build plan context which includes cost data
@@ -1184,6 +1304,63 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
         }
       };
 
+    case 'list_user_experiences':
+      if (result.experiences && result.experiences.length > 0) {
+        return {
+          type: 'experience_list',
+          data: {
+            experiences: result.experiences,
+            user_id: result.user_id || null,
+            total: result.total || result.experiences.length
+          }
+        };
+      }
+      return null;
+
+    case 'list_user_followers': {
+      const items = result.followers || result.following || result.data || [];
+      if (items.length > 0) {
+        return {
+          type: 'follower_list',
+          data: {
+            users: items,
+            list_type: result.type || 'followers',
+            user_id: result.user_id || null,
+            total: result.total || items.length
+          }
+        };
+      }
+      return null;
+    }
+
+    case 'list_user_activities': {
+      const history = result.history || result.data || [];
+      if (history.length > 0) {
+        return {
+          type: 'activity_feed',
+          data: {
+            activities: history,
+            total: result.count || history.length
+          }
+        };
+      }
+      return null;
+    }
+
+    case 'list_entity_documents': {
+      const docs = result.documents || result.data || [];
+      if (docs.length > 0) {
+        return {
+          type: 'document_list',
+          data: {
+            documents: docs,
+            total: result.total || docs.length
+          }
+        };
+      }
+      return null;
+    }
+
     default:
       return null;
   }
@@ -1646,6 +1823,10 @@ exports.chat = async (req, res) => {
           sessionId: session._id.toString(),
           count: disambiguationActions.length,
           types: disambiguationActions.map(a => a.type)
+        });
+        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+        await session.addMessage('assistant', 'I found multiple possible matches. Please select which one you meant.', {
+          actions_taken: disambiguationActions.map(a => a.type)
         });
         sendSSE(res, 'actions', { actions: disambiguationActions });
         sendSSE(res, 'done', { intent: 'disambiguate', message: '' });
@@ -2384,7 +2565,11 @@ exports.chat = async (req, res) => {
   const READ_ONLY_CONTENT_TYPES = {
     discover_content: 'discovery_result_list',
     fetch_entity_photos: 'photo_gallery',
-    fetch_destination_tips: 'tip_suggestion_list'
+    fetch_destination_tips: 'tip_suggestion_list',
+    list_user_experiences: 'experience_list',
+    list_user_followers: 'follower_list',
+    list_user_activities: 'activity_feed',
+    list_entity_documents: 'document_list'
   };
   const structuredContent = [];
 
