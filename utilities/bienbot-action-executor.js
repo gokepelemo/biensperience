@@ -1030,7 +1030,7 @@ async function executeListUserExperiences(payload, user) {
     return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
   }
 
-  const ExperienceModel = require('../models/experience');
+  const Experience = require('../models/experience');
 
   try {
     const { Types } = require('mongoose');
@@ -1041,7 +1041,9 @@ async function executeListUserExperiences(payload, user) {
       return { statusCode: 400, body: { success: false, error: 'Invalid user_id format' } };
     }
 
-    const rawExperiences = await ExperienceModel.find({
+    // No permission check on the requesting user — public profiles expose
+    // their owned experiences to any authenticated caller.
+    const rawExperiences = await Experience.find({
       permissions: { $elemMatch: { _id: userOid, entity: 'user', type: 'owner' } }
     })
       .populate('destination', 'name country')
