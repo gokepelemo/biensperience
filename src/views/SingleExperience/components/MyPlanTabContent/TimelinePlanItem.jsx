@@ -35,6 +35,15 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   const itemId = planItem.plan_item_id || planItem._id;
   const formattedTime = formatTimeForDisplay(planItem.scheduled_time);
 
+  const isOverdue = useMemo(() => {
+    if (planItem.complete || !planItem.scheduled_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const scheduled = new Date(planItem.scheduled_date);
+    scheduled.setHours(0, 0, 0, 0);
+    return scheduled < today;
+  }, [planItem.complete, planItem.scheduled_date]);
+
   // Build actions array for ActionsMenu (same pattern as SortableCompactPlanItem)
   const actions = useMemo(() => {
     return buildStandardPlanItemActions({
@@ -169,14 +178,26 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
       {/* Time display for timeline view */}
       {formattedTime && (
         <span
-          className={`timeline-item-time ${planItem.inheritedSchedule ? 'inherited' : ''}`}
-          title={planItem.inheritedSchedule
-            ? `Inherited from parent - ${formattedTime}`
-            : `Scheduled at ${formattedTime}`
+          className={`timeline-item-time ${planItem.inheritedSchedule ? 'inherited' : ''} ${isOverdue ? 'overdue' : ''}`}
+          title={
+            isOverdue
+              ? `Overdue — was scheduled for ${new Date(planItem.scheduled_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`
+              : planItem.inheritedSchedule
+                ? `Inherited from parent - ${formattedTime}`
+                : `Scheduled at ${formattedTime}`
           }
         >
-          🕐 {formattedTime}
+          {isOverdue ? '⚠️' : '🕐'} {formattedTime}
           {planItem.inheritedSchedule && <span className="inherited-indicator">*</span>}
+        </span>
+      )}
+      {/* Overdue badge for items with no scheduled time */}
+      {isOverdue && !formattedTime && (
+        <span
+          className="timeline-item-overdue-badge"
+          title={`Overdue — was scheduled for ${new Date(planItem.scheduled_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`}
+        >
+          ⚠️ Overdue
         </span>
       )}
 

@@ -1191,9 +1191,23 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
 /**
  * Build a greeting/overview context for a user — used when BienBot is opened
  * from a non-entity page (e.g. FAB on dashboard or profile).
- * Includes: active plans with temporal proximity, recent activity summary,
- * hidden travel signals, and upcoming items.
+ * Includes: active plans with experience + destination entity refs, temporal
+ * proximity, today/next7 items, recent activity with entity refs, imminent
+ * incomplete items, plans without dates, hidden travel signals, and overdue items.
+ * Every entity mentioned carries an inline entityJSON ref so follow-up questions
+ * ("which item is overdue?", "show me my Paris plans", "what did I do recently?")
+ * can be answered with real IDs and navigation can be proposed immediately.
  */
+
+/** Maps Activity model resource.type values to entityJSON type strings. */
+const ACTIVITY_TYPE_MAP = {
+  Experience: 'experience',
+  Destination: 'destination',
+  Plan: 'plan',
+  PlanItem: 'plan_item',
+  User: 'user'
+};
+
 async function buildUserGreetingContext(userId, options = {}) {
   loadModels();
   const { valid: userIdValid, objectId: userOid } = validateObjectId(userId, 'userId');
@@ -1202,11 +1216,12 @@ async function buildUserGreetingContext(userId, options = {}) {
   try {
     const { Types } = require('mongoose');
 
-    // Fetch user profile and signals in parallel with active plans and recent activity
+    // Fetch user profile, plans (with experience + destination), and recent activities in parallel.
+    // Activity model stores resource.name and resource.id so no additional lookups are needed.
     const [userDoc, plans, recentActivities] = await Promise.all([
       User.findById(userOid).select('name hidden_signals preferences').lean(),
       Plan.find({ 'permissions': { $elemMatch: { _id: new Types.ObjectId(userId), entity: 'user' } } })
-        .populate('experience', 'name')
+        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
         .select('experience planned_date plan permissions')
         .sort({ planned_date: 1 })
         .limit(10)
@@ -1214,27 +1229,35 @@ async function buildUserGreetingContext(userId, options = {}) {
       Activity.find({ 'actor._id': new Types.ObjectId(userId) })
         .sort({ createdAt: -1 })
         .limit(20)
-        .select('entity_type entity_id action createdAt')
+        .select('resource target action createdAt')
         .lean()
     ]);
 
     if (!userDoc) return null;
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
 
     const lines = [
       `[User Greeting] Hello, ${userDoc.name || 'traveler'}`,
       `Entity: ${entityJSON(userId, userDoc.name || 'traveler', 'user')}`
     ];
 
-    // Active plans with temporal context
+    // ------------------------------------------------------------------
+    // Active plans — ALL up to 10, each with experience + destination refs
+    // ------------------------------------------------------------------
     if (plans.length > 0) {
       lines.push(`\nActive plans (${plans.length}):`);
-      for (const plan of plans.slice(0, 5)) {
+      for (const plan of plans) {
         const expName = plan.experience?.name || '(unknown)';
+        const expId = plan.experience?._id?.toString() || null;
+        const destName = plan.experience?.destination?.name || null;
+        const destId = plan.experience?.destination?._id?.toString() || null;
         const planId = plan._id.toString();
         const planItems = plan.plan || [];
         const totalItems = planItems.length;
         const completedItems = planItems.filter(i => i.complete).length;
         const daysUntil = plan.planned_date ? computeDaysUntil(plan.planned_date) : null;
+
         let proximityTag = '';
         if (daysUntil !== null) {
           if (daysUntil === 0) proximityTag = ' [TODAY]';
@@ -1242,10 +1265,17 @@ async function buildUserGreetingContext(userId, options = {}) {
           else if (daysUntil > 7 && daysUntil <= 30) proximityTag = ` [in ${daysUntil}d]`;
           else if (daysUntil < 0) proximityTag = ` [${Math.abs(daysUntil)}d ago]`;
         }
+        const dateStr = plan.planned_date ? new Date(plan.planned_date).toISOString().split('T')[0] : 'no date set';
         const itemsLabel = totalItems === 0 ? 'no items yet' : `${totalItems} item${totalItems !== 1 ? 's' : ''} (${completedItems} completed)`;
-        lines.push(`  • ${expName}${proximityTag} — ${itemsLabel} — ${entityJSON(planId, expName, 'plan')}`);
 
-        // Surface today/imminent items from this plan
+        // Build entity ref suffix: plan + experience + destination (all refs on one line)
+        let entityRefs = `Plan: ${entityJSON(planId, expName, 'plan')}`;
+        if (expId) entityRefs += ` Experience: ${entityJSON(expId, expName, 'experience')}`;
+        if (destId && destName) entityRefs += ` Destination: ${entityJSON(destId, destName, 'destination')}`;
+
+        lines.push(`  • ${expName}${proximityTag} (${dateStr}) — ${itemsLabel} — ${entityRefs}`);
+
+        // Surface today/imminent items from this plan (with entity refs)
         const { todayItems, next7Items } = buildTemporalBuckets(planItems);
         for (const it of todayItems.slice(0, 2)) {
           const lbl = it.content || it.text || it.name || '(unnamed)';
@@ -1257,28 +1287,44 @@ async function buildUserGreetingContext(userId, options = {}) {
           lines.push(`    ↳ in ${days}d: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
         }
       }
-      if (plans.length > 5) lines.push(`  … and ${plans.length - 5} more plans`);
     } else {
       lines.push(`\nNo active plans yet.`);
     }
 
-    // Recent activity summary (last 48h)
-    if (recentActivities.length > 0) {
+    // ------------------------------------------------------------------
+    // Recent activity — entity refs per event so follow-ups can navigate
+    // ------------------------------------------------------------------
+    try {
       const cutoff = Date.now() - 48 * 60 * 60 * 1000;
       const recent48h = recentActivities.filter(a => new Date(a.createdAt).getTime() > cutoff);
       if (recent48h.length > 0) {
-        const actionCounts = {};
-        for (const a of recent48h) {
-          actionCounts[a.action] = (actionCounts[a.action] || 0) + 1;
+        lines.push(`\n[RECENT ACTIVITY (48h)]`);
+        for (const a of recent48h.slice(0, 10)) {
+          const resourceName = a.resource?.name || null;
+          const resourceId = a.resource?.id?.toString() || null;
+          const resourceType = ACTIVITY_TYPE_MAP[a.resource?.type] || null;
+
+          let activityLine = `  • ${a.action}`;
+          if (resourceName) activityLine += ` — "${resourceName}"`;
+          if (resourceId && resourceType && resourceName) {
+            activityLine += ` ${entityJSON(resourceId, resourceName, resourceType)}`;
+          }
+          // Include target entity ref for relationship actions (e.g. collaborator added)
+          if (a.target?.id && a.target?.name && ACTIVITY_TYPE_MAP[a.target?.type]) {
+            const targetType = ACTIVITY_TYPE_MAP[a.target.type];
+            activityLine += ` → ${entityJSON(a.target.id.toString(), a.target.name, targetType)}`;
+          }
+          lines.push(activityLine);
         }
-        const summary = Object.entries(actionCounts)
-          .map(([action, count]) => `${action}(${count})`)
-          .join(', ');
-        lines.push(`\nRecent activity (48h): ${summary}`);
+        lines.push(`[/RECENT ACTIVITY]`);
       }
+    } catch (actErr) {
+      logger.debug('[bienbot-context] Greeting activity section skipped', { error: actErr.message });
     }
 
+    // ------------------------------------------------------------------
     // Hidden travel signals
+    // ------------------------------------------------------------------
     try {
       if (userDoc.hidden_signals) {
         const decayed = applySignalDecay(userDoc.hidden_signals);
@@ -1293,55 +1339,132 @@ async function buildUserGreetingContext(userId, options = {}) {
       logger.debug('[bienbot-context] Greeting signal injection skipped', { error: sigErr.message });
     }
 
-    // Attention signals
+    // ------------------------------------------------------------------
+    // Attention signals + detailed entity sections
+    // ------------------------------------------------------------------
     try {
       const attentionSignals = [];
-      const today = new Date(); today.setHours(0, 0, 0, 0);
 
-      for (const plan of (plans || []).slice(0, 5)) {
+      // Collect imminent incomplete items (≤7 days) with full entity refs
+      const imminentIncompleteItems = [];
+      // Collect empty plans with entity refs
+      const emptyPlanRefs = [];
+      // Collect plans without a date set
+      const undatedPlanRefs = [];
+
+      for (const plan of (plans || [])) {
         const planItems = plan.plan || [];
         const expName = plan.experience?.name || 'this trip';
+        const expId = plan.experience?._id?.toString() || null;
+        const destName = plan.experience?.destination?.name || null;
+        const destId = plan.experience?.destination?._id?.toString() || null;
+        const planId = plan._id.toString();
+
         const daysUntilTrip = plan.planned_date
           ? Math.round((new Date(plan.planned_date).setHours(0, 0, 0, 0) - today) / 86400000)
           : null;
 
-        // Imminent plan with incomplete items
+        // Plans with no planned date
+        if (!plan.planned_date) {
+          undatedPlanRefs.push({ planId, expName, expId, destName, destId });
+        }
+
+        // Empty plans
+        if (planItems.length === 0) {
+          const planRef = entityJSON(planId, expName, 'plan');
+          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+          attentionSignals.push(`⚠ Your "${expName}" plan has no items yet — Plan: ${planRef}${expRef}`);
+          emptyPlanRefs.push({ planId, expName, expId, destName, destId });
+        }
+
+        // Imminent trip (≤7 days) with open items
         if (daysUntilTrip !== null && daysUntilTrip >= 0 && daysUntilTrip <= 7) {
           const incomplete = planItems.filter(i => !i.complete);
           if (incomplete.length > 0) {
+            const planRef = entityJSON(planId, expName, 'plan');
             attentionSignals.push(
-              `⚠ ${incomplete.length} item${incomplete.length !== 1 ? 's' : ''} still open on your ${expName} trip in ${daysUntilTrip} day${daysUntilTrip !== 1 ? 's' : ''}`
+              `⚠ ${incomplete.length} item${incomplete.length !== 1 ? 's' : ''} still open on your "${expName}" trip in ${daysUntilTrip} day${daysUntilTrip !== 1 ? 's' : ''} — Plan: ${planRef}`
             );
+            for (const item of incomplete.slice(0, 5)) {
+              const itemName = item.content || item.text || '(unnamed item)';
+              imminentIncompleteItems.push({ planId, expName, expId, destName, destId, item, itemName, daysUntilTrip });
+            }
           }
-        }
-
-        // Empty plan
-        if (planItems.length === 0) {
-          attentionSignals.push(`⚠ Your ${expName} plan has no items yet`);
         }
       }
 
-      // Aggregate overdue items across all plans
-      const totalOverdue = (plans || []).reduce((sum, plan) => {
+      // Aggregate overdue items across all plans — collect full details for entity refs
+      const overdueItemDetails = [];
+      for (const plan of (plans || [])) {
         const planItems = plan.plan || [];
-        return sum + planItems.filter(i => {
-          if (i.complete || !i.scheduled_date) return false;
-          const d = new Date(i.scheduled_date); d.setHours(0, 0, 0, 0);
-          return d < today;
-        }).length;
-      }, 0);
+        const planId = plan._id.toString();
+        const expName = plan.experience?.name || 'this trip';
+        const expId = plan.experience?._id?.toString() || null;
+        const destName = plan.experience?.destination?.name || null;
+        const destId = plan.experience?.destination?._id?.toString() || null;
+        for (const item of planItems) {
+          if (item.complete || !item.scheduled_date) continue;
+          const d = new Date(item.scheduled_date); d.setHours(0, 0, 0, 0);
+          if (d < today) {
+            const daysOverdue = Math.round((today - d) / 86400000);
+            const itemName = item.content || item.text || '(unnamed item)';
+            overdueItemDetails.push({ planId, expName, expId, destName, destId, item, itemName, daysOverdue });
+          }
+        }
+      }
+      const totalOverdue = overdueItemDetails.length;
       if (totalOverdue > 0) {
-        attentionSignals.push(`⚠ You have ${totalOverdue} overdue item${totalOverdue !== 1 ? 's' : ''} across your plans`);
+        attentionSignals.push(`⚠ You have ${totalOverdue} overdue item${totalOverdue !== 1 ? 's' : ''} across your plans—worth reviewing first`);
       }
 
       if (attentionSignals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${attentionSignals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
+        lines.push(`\n[ATTENTION]\n${attentionSignals.slice(0, 6).join('\n')}\n[/ATTENTION]`);
+      }
+
+      // Detailed overdue items — BienBot can answer "which item is overdue?" and propose navigation
+      if (overdueItemDetails.length > 0) {
+        lines.push(`\n[OVERDUE ITEMS]`);
+        for (const { planId, expName, expId, destName, destId, item, itemName, daysOverdue } of overdueItemDetails.slice(0, 10)) {
+          const planRef = entityJSON(planId, expName, 'plan');
+          const itemRef = entityJSON(item._id.toString(), itemName, 'plan_item');
+          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+          const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
+          lines.push(`  • ${itemName} (${daysOverdue}d overdue) in "${expName}" — Item: ${itemRef} Plan: ${planRef}${expRef}${destRef}`);
+        }
+        lines.push(`[/OVERDUE ITEMS]`);
+      }
+
+      // Imminent incomplete items — BienBot can answer "what's still open for my trip this week?"
+      if (imminentIncompleteItems.length > 0) {
+        lines.push(`\n[IMMINENT INCOMPLETE ITEMS]`);
+        for (const { planId, expName, expId, destName, destId, item, itemName, daysUntilTrip } of imminentIncompleteItems.slice(0, 10)) {
+          const planRef = entityJSON(planId, expName, 'plan');
+          const itemRef = entityJSON(item._id.toString(), itemName, 'plan_item');
+          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+          const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
+          lines.push(`  • ${itemName} (trip in ${daysUntilTrip}d — "${expName}") — Item: ${itemRef} Plan: ${planRef}${expRef}${destRef}`);
+        }
+        lines.push(`[/IMMINENT INCOMPLETE ITEMS]`);
+      }
+
+      // Plans without a date — BienBot can surface these and ask the user to set one
+      if (undatedPlanRefs.length > 0) {
+        lines.push(`\n[PLANS WITHOUT DATE]`);
+        for (const { planId, expName, expId, destName, destId } of undatedPlanRefs.slice(0, 5)) {
+          const planRef = entityJSON(planId, expName, 'plan');
+          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+          const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
+          lines.push(`  • "${expName}" — no trip date set — Plan: ${planRef}${expRef}${destRef}`);
+        }
+        lines.push(`[/PLANS WITHOUT DATE]`);
       }
     } catch (sigErr) {
       logger.debug('[bienbot-context] Greeting attention signals skipped', { error: sigErr.message });
     }
 
-    return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
+    // Greeting context is the sole context block for QUERY_DASHBOARD — use a larger
+    // budget (2500 tokens) so the enriched entity refs are not truncated.
+    return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || 2500);
   } catch (err) {
     logger.error('[bienbot-context] buildUserGreetingContext failed', { userId, error: err.message });
     return null;

@@ -21,6 +21,9 @@
 const { NlpManager } = require('node-nlp-rn');
 const logger = require('./backend-logger');
 const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
 
 /**
  * All recognised BienBot intents.
@@ -187,6 +190,25 @@ async function loadCorpusData() {
 }
 
 /**
+ * Compute a short MD5 hash of the corpus data for cache invalidation.
+ * @param {Array} corpusData
+ * @returns {string}
+ */
+function computeCorpusHash(corpusData) {
+  return crypto.createHash('md5').update(JSON.stringify(corpusData)).digest('hex').slice(0, 12);
+}
+
+/**
+ * Path to the on-disk NLP model cache for a given corpus hash.
+ * Stored in the OS temp directory so it persists across test runs but never gets committed.
+ * @param {string} hash
+ * @returns {string}
+ */
+function getCacheFilePath(hash) {
+  return path.join(os.tmpdir(), `bienbot-nlp-${hash}.json`);
+}
+
+/**
  * Build and train the NLP manager from the corpus.
  * Loads from DB first, falls back to JSON.
  */
@@ -195,14 +217,30 @@ async function getManager() {
   if (trainingPromise) return trainingPromise;
 
   trainingPromise = (async () => {
+    const corpusData = await loadCorpusData();
+    const hash = computeCorpusHash(corpusData);
+    const cacheFile = getCacheFilePath(hash);
+
+    // Load from disk cache if available — skips training entirely
+    if (fs.existsSync(cacheFile)) {
+      try {
+        const cached = fs.readFileSync(cacheFile, 'utf8');
+        const nlp = new NlpManager({ languages: ['en'], forceNER: true, nlu: { useNoneFeature: true, log: false }, autoSave: false });
+        nlp.import(cached);
+        logger.info('[bienbot-intent-classifier] NLP model loaded from cache', { hash });
+        manager = nlp;
+        return nlp;
+      } catch (cacheErr) {
+        logger.warn('[bienbot-intent-classifier] Cache load failed, retraining', { error: cacheErr.message });
+      }
+    }
+
     const nlp = new NlpManager({
       languages: ['en'],
       forceNER: true,
       nlu: { useNoneFeature: true, log: false },
       autoSave: false
     });
-
-    const corpusData = await loadCorpusData();
 
     // Add named entity for email detection
     nlp.addRegexEntity('user_email', 'en', /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
@@ -223,6 +261,14 @@ async function getManager() {
       intents: corpusData.length,
       utterances: totalUtterances
     });
+
+    // Persist to disk for subsequent runs
+    try {
+      fs.writeFileSync(cacheFile, nlp.export(false), 'utf8');
+      logger.info('[bienbot-intent-classifier] NLP model cached to disk', { hash, path: cacheFile });
+    } catch (writeErr) {
+      logger.warn('[bienbot-intent-classifier] Could not write model cache', { error: writeErr.message });
+    }
 
     manager = nlp;
     return nlp;
