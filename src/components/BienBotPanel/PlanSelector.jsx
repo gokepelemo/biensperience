@@ -69,7 +69,10 @@ function PlanSelector({ actions, onExecute, onCancel, disabled }) {
             const actionId = action._id || action.id;
             const { experience_name, destination_name, planned_date, item_count } = action.payload || {};
             const dateStr = planned_date
-              ? new Date(planned_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+              ? (() => {
+                  const safe = typeof planned_date === 'string' && planned_date.length === 10 ? `${planned_date}T12:00:00` : planned_date;
+                  return new Date(safe).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                })()
               : null;
             const isSelected = selectedId === actionId;
 

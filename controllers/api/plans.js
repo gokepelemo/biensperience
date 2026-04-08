@@ -5008,6 +5008,7 @@ const pinPlanItem = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
+    planId: planId.toString(),
     pinnedItemId: plan.pinnedItemId,
     action: wasAlreadyPinned ? 'unpinned' : 'pinned',
     message: wasAlreadyPinned ? 'Plan item unpinned' : 'Plan item pinned'
@@ -5068,6 +5069,7 @@ const unpinPlanItem = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
+    planId: planId.toString(),
     pinnedItemId: null,
     message: 'Plan item unpinned'
   });
@@ -5494,7 +5496,7 @@ const shiftPlanItemDates = asyncHandler(async (req, res) => {
     } catch (_) { /* ignore websocket errors */ }
   }
 
-  return res.json({ shifted_count: shiftedCount });
+  return res.json({ shifted_count: shiftedCount, planId: id.toString() });
 });
 
 /**

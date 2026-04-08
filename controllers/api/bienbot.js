@@ -2730,17 +2730,37 @@ exports.chat = async (req, res) => {
       actions_taken: actionsTaken,
       structured_content: [...structuredContent, ...entityRefBlock]
     });
+  } catch (err) {
+    logger.error('[bienbot] Session message persistence failed', { error: err.message, errorType: err.name });
+    // Continue — we can still return the response even if message persistence fails
+  }
 
-    // Store confirmable pending actions (read-only already executed)
-    if (parsed.pending_actions.length > 0) {
+  // Store confirmable pending actions in a separate try/catch so that a message
+  // persistence failure above does not prevent the actions from being saved.
+  // Without this, the SSE would send actions to the frontend that are not in the DB,
+  // causing 400 "Invalid or already executed action IDs" errors on execute.
+  if (parsed.pending_actions.length > 0) {
+    try {
       await session.setPendingActions(parsed.pending_actions);
+      logger.debug('[bienbot] Pending actions saved', {
+        sessionId: session._id?.toString(),
+        actionIds: parsed.pending_actions.map(a => a.id)
+      });
+    } catch (err) {
+      logger.error('[bienbot] setPendingActions failed — actions will not be executable', {
+        error: err.message,
+        errorType: err.name,
+        sessionId: session._id?.toString(),
+        actionIds: parsed.pending_actions.map(a => a.id)
+      });
     }
+  }
 
+  try {
     // Auto-generate title from first user message
     await session.generateTitle();
   } catch (err) {
-    logger.error('[bienbot] Session persistence failed', { error: err.message });
-    // Continue — we can still return the response even if persistence fails
+    logger.warn('[bienbot] generateTitle failed', { error: err.message });
   }
 
   // Non-blocking background memory extraction after each chat turn
@@ -2887,6 +2907,14 @@ exports.execute = async (req, res) => {
   }
 
   if (invalidIds.length > 0) {
+    logger.warn('[bienbot] Execute: action IDs not found or already executed', {
+      userId,
+      sessionId: id,
+      requestedIds: actionIds,
+      invalidIds,
+      storedIds: (session.pending_actions || []).map(a => a.id),
+      storedCount: (session.pending_actions || []).length
+    });
     return errorResponse(res, null, `Invalid or already executed action IDs: ${invalidIds.join(', ')}`, 400);
   }
 

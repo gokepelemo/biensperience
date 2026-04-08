@@ -122,6 +122,26 @@ const READ_ONLY_ACTION_TYPES = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Date normalisation
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalise an ISO date-only string ("2026-04-24") to noon UTC so that
+ * `new Date()` in any timezone still falls on the intended calendar day.
+ * Full ISO timestamps (with T, Z, or offset) are returned as-is.
+ *
+ * @param {*} value - The value to normalise.
+ * @returns {*} The original value, or the noon-UTC string if it was date-only.
+ */
+function normalizeDateOnly(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return `${value}T12:00:00Z`;
+  }
+  return value;
+}
+
+// ---------------------------------------------------------------------------
 // Mock req/res for controller delegation
 // ---------------------------------------------------------------------------
 
@@ -249,7 +269,7 @@ async function executeCreatePlan(payload, user) {
   const req = buildMockReq(
     user,
     {
-      planned_date: payload.planned_date,
+      planned_date: normalizeDateOnly(payload.planned_date),
       currency: payload.currency
     },
     { experienceId: payload.experience_id }
@@ -330,6 +350,8 @@ async function executeUpdatePlanItem(payload, user) {
       body[field] = payload[field];
     }
   }
+  // Normalise date-only strings to noon UTC to prevent off-by-one shifts
+  if (body.scheduled_date) body.scheduled_date = normalizeDateOnly(body.scheduled_date);
   const req = buildMockReq(
     user,
     body,
@@ -776,7 +798,7 @@ async function executeToggleFavoriteDestination(payload, user) {
 async function executeUpdatePlan(payload, user, session) {
   loadControllers();
   const body = {};
-  if (payload.planned_date !== undefined) body.planned_date = payload.planned_date;
+  if (payload.planned_date !== undefined) body.planned_date = normalizeDateOnly(payload.planned_date);
   if (payload.currency !== undefined) body.currency = payload.currency;
   if (payload.notes !== undefined) body.notes = payload.notes;
   const req = buildMockReq(user, body, { id: payload.plan_id });
@@ -1215,8 +1237,29 @@ async function executeReorderPlanItems(payload, user) {
   if (!plan_id || !Array.isArray(item_ids) || item_ids.length === 0) {
     return { statusCode: 400, body: { success: false, error: 'plan_id and item_ids (non-empty array) are required' } };
   }
+
+  // The reorderPlanItems controller expects body.plan to be the full item objects
+  // in the new order — not just IDs — so that plan.plan = reorderedItems does not
+  // truncate subdocument fields. Fetch the current plan to sort the full objects.
+  const Plan = require('../models/plan');
+  const currentPlan = await Plan.findById(plan_id).lean();
+  if (!currentPlan) {
+    return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
+  }
+
+  const itemMap = new Map((currentPlan.plan || []).map(item => [item._id.toString(), item]));
+  const requestedSet = new Set(item_ids.map(id => id.toString()));
+
+  // Requested IDs first (in provided order), then any items not in the list (preserved at end).
+  const reorderedItems = item_ids
+    .filter(id => itemMap.has(id.toString()))
+    .map(id => itemMap.get(id.toString()));
+  for (const item of (currentPlan.plan || [])) {
+    if (!requestedSet.has(item._id.toString())) reorderedItems.push(item);
+  }
+
   loadControllers();
-  const req = buildMockReq(user, { item_ids }, { id: plan_id });
+  const req = buildMockReq(user, { plan: reorderedItems }, { id: plan_id });
   const { res, getResult } = buildMockRes();
   await plansController.reorderPlanItems(req, res);
   return getResult();
@@ -1866,11 +1909,34 @@ async function executeSingleWorkflowStep(action, workflowActions, user) {
   }
 }
 
+/**
+ * Valid structured_content block types for BienBot session messages.
+ * Single source of truth — imported by the BienBotSession model schema
+ * so the Mongoose enum stays in sync with the controller/mapper code.
+ *
+ * When adding a new structured content type:
+ *   1. Add it here
+ *   2. Add a case in mapReadOnlyResultToStructuredContent() (controllers/api/bienbot.js)
+ *   3. Add a renderer in BienBotPanel.jsx
+ */
+const STRUCTURED_CONTENT_TYPES = [
+  'photo_gallery',
+  'suggestion_list',
+  'discovery_result_list',
+  'tip_suggestion_list',
+  'entity_ref_list',
+  'experience_list',
+  'follower_list',
+  'document_list',
+  'activity_feed'
+];
+
 module.exports = {
   executeAction,
   executeActions,
   executeSingleWorkflowStep,
   resolveRefs,
   ALLOWED_ACTION_TYPES,
-  READ_ONLY_ACTION_TYPES
+  READ_ONLY_ACTION_TYPES,
+  STRUCTURED_CONTENT_TYPES
 };

@@ -443,7 +443,16 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
           isContextAck: true
         };
 
-        setMessages(prev => [...prev, ackMessage]);
+        // If the most recent message is already a context ack (e.g. experience ack
+        // immediately followed by plan ack during navigation), replace it so the user
+        // only ever sees one enrichment message at a time.
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.isContextAck) {
+            return [...prev.slice(0, -1), ackMessage];
+          }
+          return [...prev, ackMessage];
+        });
       }
 
       return label;
@@ -497,7 +506,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
       batchedUpdates(() => {
         setCurrentSession(session);
-        setPendingActions(session.pending_actions || []);
+        setPendingActions(
+          (session.pending_actions || []).filter(a => !a.executed)
+        );
 
         // Build initial messages: greeting + any existing history
         const initialMessages = [];
@@ -802,7 +813,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
       // Sync pending actions from server response
       if (data?.pending_actions) {
-        setPendingActions(data.pending_actions);
+        setPendingActions(data.pending_actions.filter(a => !a.executed));
       }
 
       return data;
@@ -828,7 +839,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       const data = await updateActionStatusAPI(sid, actionId, 'skipped');
 
       if (data?.pending_actions) {
-        setPendingActions(data.pending_actions);
+        setPendingActions(data.pending_actions.filter(a => !a.executed));
       }
 
       return data;
@@ -854,7 +865,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       const data = await updateActionStatusAPI(sid, actionId, 'approved', newPayload);
 
       if (data?.pending_actions) {
-        setPendingActions(data.pending_actions);
+        setPendingActions(data.pending_actions.filter(a => !a.executed));
       }
 
       return data;
@@ -895,7 +906,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     try {
       const sessionData = await getSession(sid);
       if (sessionData?.pending_actions) {
-        setPendingActions(sessionData.pending_actions);
+        setPendingActions(sessionData.pending_actions.filter(a => !a.executed));
       }
     } catch (err) {
       logger.error('[useBienBot] Failed to refresh after workflow cancel', { error: err.message });

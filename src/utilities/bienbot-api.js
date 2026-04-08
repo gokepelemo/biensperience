@@ -453,7 +453,7 @@ export async function executeActions(sessionId, actionIds) {
       for (const actionResult of data.results) {
         if (!actionResult.success) continue;
 
-        const entity = actionResult.entity || actionResult.data;
+        const entity = actionResult.result || actionResult.entity || actionResult.data;
         if (!entity) continue;
 
         switch (actionResult.type) {
@@ -516,10 +516,16 @@ export async function executeActions(sessionId, actionIds) {
 
           case 'add_plan_items':
           case 'update_plan_item':
+          case 'mark_plan_item_complete':
+          case 'mark_plan_item_incomplete':
           case 'delete_plan_item':
           case 'sync_plan':
           case 'add_plan_item_note':
+          case 'update_plan_item_note':
+          case 'delete_plan_item_note':
           case 'add_plan_item_detail':
+          case 'update_plan_item_detail':
+          case 'delete_plan_item_detail':
           case 'assign_plan_item':
           case 'unassign_plan_item':
           case 'update_plan':
@@ -537,10 +543,43 @@ export async function executeActions(sessionId, actionIds) {
             break;
 
           case 'invite_collaborator':
+          case 'create_invite':
             broadcastEvent('invite:created', {
               invite: entity,
               inviteId: entity._id
             });
+            break;
+
+          // pin/unpin/shift return { planId, ... } not the full plan — emit a
+          // partial plan:updated so DataContext re-fetches the current state.
+          case 'pin_plan_item':
+          case 'unpin_plan_item':
+          case 'shift_plan_item_dates':
+            if (entity?.planId) {
+              broadcastEvent('plan:updated', {
+                planId: entity.planId,
+                version: Date.now()
+              });
+            }
+            break;
+
+          // reorder_plan_items returns the full plan
+          case 'reorder_plan_items':
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: entity._id || actionResult.planId,
+              version: Date.now()
+            });
+            break;
+
+          // update_user_profile returns { user, token } — extract the user
+          case 'update_user_profile':
+            if (entity?.user?._id) {
+              broadcastEvent('user:updated', {
+                user: entity.user,
+                userId: entity.user._id
+              });
+            }
             break;
 
           case 'workflow':
@@ -573,7 +612,20 @@ export async function executeActions(sessionId, actionIds) {
                     broadcastEvent('plan:deleted', { planId: stepEntity._id, version: Date.now() });
                     break;
                   case 'invite_collaborator':
+                  case 'create_invite':
                     broadcastEvent('invite:created', { invite: stepEntity, inviteId: stepEntity._id });
+                    break;
+                  case 'update_user_profile':
+                    if (stepEntity?.user?._id) {
+                      broadcastEvent('user:updated', { user: stepEntity.user, userId: stepEntity.user._id });
+                    }
+                    break;
+                  case 'pin_plan_item':
+                  case 'unpin_plan_item':
+                  case 'shift_plan_item_dates':
+                    if (stepEntity?.planId) {
+                      broadcastEvent('plan:updated', { planId: stepEntity.planId, version: Date.now() });
+                    }
                     break;
                   default:
                     if (stepResult.type?.includes('plan')) {

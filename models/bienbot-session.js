@@ -9,7 +9,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const crypto = require('crypto');
-const { ALLOWED_ACTION_TYPES } = require('../utilities/bienbot-action-executor');
+const { ALLOWED_ACTION_TYPES, STRUCTURED_CONTENT_TYPES } = require('../utilities/bienbot-action-executor');
 
 /**
  * Invoke context sub-schema — records which entity page the user
@@ -142,7 +142,7 @@ const messageSchema = new Schema({
     type: {
       type: String,
       required: true,
-      enum: ['photo_gallery', 'suggestion_list', 'discovery_result_list', 'tip_suggestion_list']
+      enum: STRUCTURED_CONTENT_TYPES
     },
     data: {
       type: Schema.Types.Mixed,

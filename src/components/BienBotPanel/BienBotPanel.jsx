@@ -580,6 +580,7 @@ export default function BienBotPanel({
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [executingActionId, setExecutingActionId] = useState(null);
+  const executingActionRef = useRef(null);
   const [savedSession, setSavedSession] = useState(null);
   const [viewMode, setViewMode] = useState('chat');
   // Pending context switch: set when the user navigates to a different entity while
@@ -1155,6 +1156,11 @@ export default function BienBotPanel({
     async (actionId) => {
       logger.debug('[BienBotPanel] Executing action', { actionId });
 
+      // Guard against rapid double-clicks: state updates are async so we
+      // use a ref to prevent re-entry before the disabled prop propagates.
+      if (executingActionRef.current === actionId) return;
+      executingActionRef.current = actionId;
+
       // Check if it's a navigate action (client-only, no server call)
       const action = pendingActions.find(a => (a._id || a.id) === actionId);
       if (action && action.type === 'navigate_to_entity') {
@@ -1163,10 +1169,12 @@ export default function BienBotPanel({
         if (url && !/<[^>]+>/.test(url)) {
           navigate(url);
           cancelAction(actionId);
+          executingActionRef.current = null;
           return;
         }
         // Bad URL — cancel without navigating
         cancelAction(actionId);
+        executingActionRef.current = null;
         return;
       }
 
@@ -1196,6 +1204,14 @@ export default function BienBotPanel({
       const result = await executeActions([actionId]);
 
       setExecutingActionId(null);
+      // On success the action is removed from pendingActions and the card
+      // disappears on the next render — leave the ref set so any click that
+      // snuck in while the fetch was in-flight (already queued as a macrotask)
+      // is still blocked. On failure the card stays visible and the user must
+      // be able to retry, so we clear the ref only then.
+      if (!result) {
+        executingActionRef.current = null;
+      }
 
       // Build a feedback message summarizing what happened
       if (result?.results) {
@@ -1208,6 +1224,19 @@ export default function BienBotPanel({
               feedbackLines.push(
                 `\u2705 Plan created${expName ? ` for ${expName}` : ''}${itemCount > 0 ? ` with ${itemCount} item${itemCount !== 1 ? 's' : ''}` : ''}. Taking you there now\u2026`
               );
+            } else if (actionResult.type === 'update_plan_item') {
+              // For plan item updates, summarize what changed
+              const payload = action?.payload || {};
+              const changes = [];
+              if (payload.scheduled_date) changes.push('scheduled date');
+              if (payload.scheduled_time) changes.push('scheduled time');
+              if (payload.text) changes.push('description');
+              if (payload.cost !== undefined) changes.push('cost');
+              if (payload.activity_type) changes.push('activity type');
+              if (payload.complete !== undefined) changes.push(payload.complete ? 'marked complete' : 'marked incomplete');
+              if (payload.location) changes.push('location');
+              const summary = changes.length > 0 ? changes.join(', ') : 'details';
+              feedbackLines.push(`\u2705 Plan item updated: ${summary}`);
             } else {
               const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
               const typeLabel = (actionResult.type || '').replace(/_/g, ' ');

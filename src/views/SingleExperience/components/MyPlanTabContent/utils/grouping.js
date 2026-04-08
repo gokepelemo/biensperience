@@ -124,7 +124,11 @@ export function groupPlanItemsByDate(items) {
       return;
     }
 
-    const dateKey = date.toISOString().split('T')[0];
+    // Use UTC date components for the key so UTC-midnight dates don't shift
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    const dateKey = `${y}-${m}-${d}`;
     if (!groups[dateKey]) {
       groups[dateKey] = {
         date,

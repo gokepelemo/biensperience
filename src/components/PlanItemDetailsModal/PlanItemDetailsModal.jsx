@@ -44,6 +44,7 @@ import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
+import { displayInTimezone } from '../../utilities/time-utils';
 import CollaboratorDetailsSection from './CollaboratorDetailsSection';
 import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
 import { useNavigationContext } from '../../contexts/NavigationContext';
@@ -1199,19 +1200,15 @@ export default function PlanItemDetailsModal({
   // Format scheduled date for display (short format without year)
   const getFormattedScheduledDate = () => {
     if (!scheduledDate) return null;
-    const d = new Date(scheduledDate);
-    if (isNaN(d.getTime())) return null;
-    const options = { weekday: 'short', month: 'short', day: 'numeric' };
-    return d.toLocaleDateString(undefined, options);
+    const result = displayInTimezone(scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' }, currentUser);
+    return result || null;
   };
 
   // Format scheduled date for tooltip (full format with year)
   const getFullScheduledDate = () => {
     if (!scheduledDate) return null;
-    const d = new Date(scheduledDate);
-    if (isNaN(d.getTime())) return null;
-    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
-    return d.toLocaleDateString(undefined, options);
+    const result = displayInTimezone(scheduledDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }, currentUser);
+    return result || null;
   };
 
   // Format scheduled time for display (12-hour format)

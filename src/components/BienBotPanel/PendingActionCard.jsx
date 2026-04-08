@@ -72,7 +72,11 @@ function renderCreateExperience(payload) {
 }
 
 function renderCreatePlan(payload) {
-  const date = payload.planned_date ? new Date(payload.planned_date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : null;
+  const date = payload.planned_date ? (() => {
+    const val = payload.planned_date;
+    const safe = typeof val === 'string' && val.length === 10 ? `${val}T12:00:00` : val;
+    return new Date(safe).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  })() : null;
   return (
     <div className={styles.cardFields}>
       {payload.experience_name && <div className={styles.cardFieldPrimary}>{payload.experience_name}</div>}
@@ -98,10 +102,27 @@ function renderAddItems(payload) {
   );
 }
 
+const DATE_FIELDS = new Set(['scheduled_date', 'planned_date', 'due_date', 'start_date', 'end_date', 'date']);
+
+function formatUpdateValue(key, value) {
+  if (DATE_FIELDS.has(key) && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const [y, mo, day] = value.split('-').map(Number);
+    const d = new Date(y, mo - 1, day); // local midnight — avoids UTC offset shifting the displayed date
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+  }
+  return String(value);
+}
+
+function toTitleCase(str) {
+  return str.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function renderUpdateItem(payload) {
   const changed = Object.entries(payload)
     .filter(([k]) => !['plan_id', 'item_id', 'plan_item_id', 'experience_id'].includes(k) && payload[k] != null)
-    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`);
+    .map(([k, v]) => `${toTitleCase(k.replace(/_/g, ' '))}: ${formatUpdateValue(k, v)}`);
   return (
     <div className={styles.cardFields}>
       {changed.length > 0 && changed.map((field, i) => (
