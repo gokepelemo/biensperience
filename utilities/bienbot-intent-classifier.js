@@ -141,6 +141,16 @@ const CONFIG_CACHE_TTL = 60_000; // 1 minute
  * @returns {Promise<object>}
  */
 async function getClassifierConfig() {
+  // In test environments skip the DB to avoid connection timeouts
+  if (process.env.NODE_ENV === 'test') {
+    return {
+      low_confidence_threshold: 0.65,
+      llm_fallback_enabled: false,
+      llm_fallback_threshold: 0.4,
+      log_all_classifications: false,
+      log_retention_days: 90
+    };
+  }
   const now = Date.now();
   if (configCache && (now - configCacheTime) < CONFIG_CACHE_TTL) {
     return configCache;
@@ -174,6 +184,11 @@ function invalidateConfigCache() {
  * @returns {Promise<Array<{ intent: string, utterances: string[] }>>}
  */
 async function loadCorpusData() {
+  // In test environments skip the DB entirely to avoid connection timeouts
+  if (process.env.NODE_ENV === 'test') {
+    const corpus = require('./bienbot-intent-corpus.json');
+    return corpus.data;
+  }
   try {
     const IntentCorpus = require('../models/intent-corpus');
     const docs = await IntentCorpus.find({ enabled: true }).lean();
