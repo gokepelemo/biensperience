@@ -1786,7 +1786,11 @@ exports.chat = async (req, res) => {
       const rawPriorGreeting = req.body.priorGreeting;
       if (rawPriorGreeting && typeof rawPriorGreeting === 'string') {
         const sanitizedGreeting = stripNullBytes(rawPriorGreeting).trim().slice(0, 4000);
-        if (sanitizedGreeting) {
+        // Only accept analysis greetings that originate from the server's own /analyze
+        // endpoint. The [ANALYSIS] sentinel is prepended client-side from formatAnalysisSuggestions;
+        // greetings without it are silently dropped to prevent prompt injection.
+        const isServerAnalysisGreeting = sanitizedGreeting.startsWith('[ANALYSIS]');
+        if (sanitizedGreeting && isServerAnalysisGreeting) {
           try {
             await session.addMessage('assistant', sanitizedGreeting, { message_type: 'greeting' });
           } catch (greetingErr) {
@@ -3200,10 +3204,60 @@ exports.execute = async (req, res) => {
       }
     }
 
+    // --- Post-execution follow-up: generate "what's next?" LLM message for plan mutations ---
+    // Triggered when update_plan or create_plan succeeded, so the LLM can suggest next steps
+    // with full plan items context loaded.
+    let followUpMessage = null;
+    const planMutation = results.find(r =>
+      r.success && (r.type === 'update_plan' || r.type === 'create_plan') && r.result?._id
+    );
+    if (planMutation) {
+      try {
+        const planId = planMutation.result._id.toString();
+        const nextStepsBlock = await buildPlanNextStepsContext(planId, userId);
+        if (nextStepsBlock) {
+          const executedDesc = actionsToExecute.find(a => a.type === planMutation.type)?.description || planMutation.type.replace(/_/g, ' ');
+          const followUpSystemPrompt = [
+            'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
+            'Use sentence case for all text. Always use US English spellings.',
+            'The user just confirmed and executed a plan action. Acknowledge it in one sentence (do not repeat the full action description verbatim), then ask what they want to do next and proactively suggest 2–3 concrete next steps based on the plan items below.',
+            'Be specific — name actual plan items that need attention. Keep the total response under 80 words.',
+            'Do NOT propose any pending_actions. Respond ONLY with valid JSON: { "message": "..." }',
+            '',
+            `Action completed: ${executedDesc}`,
+            '',
+            nextStepsBlock
+          ].join('\n');
+
+          const { provider } = await getProviderForTask(AI_TASKS.CHAT);
+          const llmResult = await callProvider(provider, [
+            { role: 'system', content: followUpSystemPrompt },
+            { role: 'user', content: '[USER MESSAGE]\nWhat should I do next?\n[/USER MESSAGE]' }
+          ], { stream: false });
+
+          const raw = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+          try {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.message === 'string') followUpMessage = parsed.message;
+          } catch {
+            // If LLM returned plain text (not JSON), use it directly
+            if (raw && raw.length < 600) followUpMessage = raw;
+          }
+
+          if (followUpMessage) {
+            await session.addMessage('assistant', followUpMessage, { actions_taken: [] });
+          }
+        }
+      } catch (followUpErr) {
+        logger.warn('[bienbot] Post-execution follow-up LLM call failed', { error: followUpErr.message });
+      }
+    }
+
     return successResponse(res, {
       results,
       contextUpdates,
       ...(enrichmentContent ? { enrichment: enrichmentContent } : {}),
+      ...(followUpMessage ? { followUpMessage } : {}),
       session: {
         id: session._id.toString(),
         context: session.context

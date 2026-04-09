@@ -634,6 +634,7 @@ export default function BienBotPanel({
     appendStructuredContent,
     appendMessage,
     replaceInitialGreeting,
+    setPriorGreeting,
     resetSession,
     getPersistedSession,
     clearPersistedSession,
@@ -871,6 +872,11 @@ export default function BienBotPanel({
       createdAt: new Date().toISOString(),
       isActionResult: true,
     });
+
+    // Stash the formatted greeting so that if the user replies before any session
+    // exists, the backend can persist it as the opening assistant turn. This gives
+    // the LLM the context it needs to answer follow-up questions coherently.
+    setPriorGreeting(`[ANALYSIS]\n${content}`);
 
     // Set suggested prompts as clickable chips so the user can act on the greeting
     if (analysisSuggestions.suggestedPrompts?.length > 0) {
@@ -1239,11 +1245,13 @@ export default function BienBotPanel({
               feedbackLines.push(`\u2705 Plan item updated: ${summary}`);
             } else {
               const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
-              const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
+              const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
+              const typeLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
               feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
             }
           } else {
-            const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
+            const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
+            const typeLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
             feedbackLines.push(`\u274c ${typeLabel}: ${actionResult.error || 'failed'}`);
           }
         }
@@ -1270,6 +1278,16 @@ export default function BienBotPanel({
       // Contextual enrichment: suggestions/tips/photos after entity creation
       if (result?.enrichment) {
         appendStructuredContent(result.enrichment);
+      }
+
+      // Post-execution follow-up: LLM "what's next?" message with plan items context
+      if (result?.followUpMessage) {
+        appendMessage({
+          _id: `exec-followup-${Date.now()}`,
+          role: 'assistant',
+          content: result.followUpMessage,
+          createdAt: new Date().toISOString()
+        });
       }
     },
     [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent, appendMessage]
