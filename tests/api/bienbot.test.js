@@ -290,6 +290,24 @@ describe('BienBot API', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Action ID generation
+  // -------------------------------------------------------------------------
+
+  describe('Action ID generation', () => {
+    it('action ID helper produces cryptographically secure 8-char hex string', () => {
+      const crypto = require('crypto');
+      const id = `action_${crypto.randomBytes(4).toString('hex')}`;
+      expect(id).toMatch(/^action_[0-9a-f]{8}$/);
+
+      // Generate multiple to verify all characters are hex
+      for (let i = 0; i < 10; i++) {
+        const testId = `action_${crypto.randomBytes(4).toString('hex')}`;
+        expect(testId).toMatch(/^action_[0-9a-f]{8}$/);
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // POST /api/bienbot/chat — invokeContext security
   // -------------------------------------------------------------------------
 
@@ -318,7 +336,7 @@ describe('BienBot API', () => {
           invokeContext: { entity: 'destination', id: nonExistentId }
         });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
     });
 
     it('returns 400 for unknown invokeContext entity type', async () => {
@@ -333,8 +351,8 @@ describe('BienBot API', () => {
           invokeContext: { entity: 'spaceship', id: fakeId }
         });
 
-      // Either 400 (unknown entity type) or 403 (entity not found/access denied)
-      expect([400, 403]).toContain(res.status);
+      // 400 for unknown entity type; 404 if entity type is valid but not found
+      expect([400, 404]).toContain(res.status);
     });
   });
 

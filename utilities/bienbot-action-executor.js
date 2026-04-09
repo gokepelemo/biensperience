@@ -9,6 +9,7 @@
  * @module utilities/bienbot-action-executor
  */
 
+const crypto = require('crypto');
 const logger = require('./backend-logger');
 const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos, fetchDestinationTips } = require('./bienbot-external-data');
 
@@ -118,7 +119,12 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'list_user_experiences',
   'list_user_followers',
   'list_user_activities',
-  'list_entity_documents'
+  'list_entity_documents',
+  // Disambiguation actions have no side effects — auto-execute to update session
+  // context immediately so the follow-up LLM turn can proceed without an extra
+  // user confirmation step.
+  'select_plan',
+  'select_destination'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -811,7 +817,7 @@ async function executeUpdatePlan(payload, user, session) {
     const { scheduled_items_count, date_diff_days } = result.body._shift_meta;
     session.pending_actions = session.pending_actions || [];
     session.pending_actions.push({
-      id: `action_${Math.random().toString(36).substring(2, 10)}`,
+      id: `action_${crypto.randomBytes(4).toString('hex')}`,
       type: 'shift_plan_item_dates',
       payload: { plan_id: payload.plan_id, diff_days: date_diff_days },
       description: `Shift ${scheduled_items_count} plan item date(s) by ${date_diff_days > 0 ? '+' : ''}${date_diff_days} day(s) to match your updated plan date`,
@@ -1304,20 +1310,21 @@ async function executeListEntityDocuments(payload, user) {
  * create_invite — mutating, requires confirmation.
  * payload: { max_uses?: 1, expires_in_days?: 7, label? }
  * Creates a shareable invite code for the logged-in user.
+ *
+ * Delegates to InviteCode.createInvite() to reuse the model's collision-resistant
+ * code generation (crypto.randomInt-based) and uniqueness retry logic.
+ * The frontend bienbot-api.js broadcasts 'invite:created' via the event bus
+ * when the executed action result is processed.
  */
 async function executeCreateInvite(payload, user) {
   const InviteCode = require('../models/inviteCode');
   const { max_uses = 1, expires_in_days = 7 } = payload || {};
   const expiresAt = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000);
-  const code = `${user._id.toString().slice(-4)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-  const invite = new InviteCode({
-    code,
+  const invite = await InviteCode.createInvite({
     createdBy: user._id,
     maxUses: max_uses,
-    expiresAt,
-    uses: 0
+    expiresAt
   });
-  await invite.save();
   return { statusCode: 201, body: { success: true, data: invite } };
 }
 
@@ -1394,7 +1401,7 @@ function resolveRefs(value, stepResults) {
  *
  * payload: {
  *   steps: [{
- *     step: 1,
+ *     step: 1,                       // 1-based step number
  *     type: "<action_type>",
  *     payload: { ... may contain $step_N.field refs ... },
  *     description: "Human-readable step description"
@@ -1403,7 +1410,7 @@ function resolveRefs(value, stepResults) {
  *
  * Steps are executed sequentially in `step` order.  Each step's result is
  * stored so that later steps can reference earlier outputs via `$ref` syntax
- * in their payloads (e.g. `"destination_id": "$step_1._id"`).
+ * in their payloads (e.g. `"destination_id": "$step_1._id"` references step 1's result).
  *
  * If any step fails, execution halts and partial results are returned.
  */
