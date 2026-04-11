@@ -23,6 +23,7 @@ const {
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
 const crypto = require('crypto');
 const planUnplanQueue = require('../../utilities/plan-unplan-queue');
+const { updateExperienceSignals } = require('../../utilities/hidden-signals');
 
 // Sanitize location data for GeoJSON
 function sanitizeLocation(location) {
@@ -313,6 +314,10 @@ const createPlan = asyncHandler(async (req, res) => {
         });
         return;
       }
+
+      // Recompute content signals for the experience now that a new plan exists.
+      // Fire-and-forget — updateExperienceSignals never throws.
+      updateExperienceSignals(experienceId);
 
       const enforcer = getEnforcer({ Plan, Experience, Destination, User });
       const userRole = await enforcer.getUserRole(req.user._id, experience);
@@ -1549,6 +1554,13 @@ const deletePlan = asyncHandler(async (req, res) => {
   }
 
   res.json({ message: "Plan deleted successfully" });
+
+  // Recompute content signals now that one fewer plan exists for this experience.
+  // Fire-and-forget — runs after response is sent; updateExperienceSignals never throws.
+  const deletedPlanExperienceId = plan.experience?._id || plan.experience;
+  if (deletedPlanExperienceId) {
+    setImmediate(() => updateExperienceSignals(deletedPlanExperienceId));
+  }
 });
 
 /**

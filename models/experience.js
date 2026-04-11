@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
-const { hiddenSignalVectorSchema } = require('./hidden-signals');
+const { hiddenSignalVectorSchema, contentSignalsSchema } = require('./hidden-signals');
 
 const photoEntrySchema = new Schema({
   photo: { type: Schema.Types.ObjectId, ref: 'Photo', required: true },
@@ -208,6 +208,20 @@ const experienceSchema = new Schema(
      */
     hidden_signals: {
       type: hiddenSignalVectorSchema,
+      default: () => ({})
+    },
+    /**
+     * Content-quality signals pre-computed at plan create/delete events.
+     * trustScore   — curator / public / content quality blend
+     * popularity   — raw plan-count metrics (normalised at ranking time)
+     * reviews      — placeholder; written when the reviews feature ships
+     * computed_at  — UTC timestamp of last computation (null = not yet run)
+     *
+     * Weights for each dimension are configured via SIGNALS_CONFIG env var.
+     * Do NOT use this for user preference matching — that is hidden_signals.
+     */
+    signals: {
+      type: contentSignalsSchema,
       default: () => ({})
     },
     /**

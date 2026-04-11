@@ -398,6 +398,240 @@ async function processSignalEvent(userId, eventData) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Content-signal compute functions (pure)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute a trustScore [0, 1] for an experience from its content attributes.
+ *
+ * Weights are read from signals-config so the blend can be adjusted via
+ * the SIGNALS_CONFIG environment variable without a code change.
+ *
+ * @param {Object} opts
+ * @param {boolean} opts.isCurator       - Whether the experience creator has the curator flag.
+ * @param {boolean} opts.isPublic        - Whether the experience is publicly listed.
+ * @param {number}  opts.completionRate  - Fraction of plans with >= 1 completed item (0–1).
+ * @param {number}  opts.planCount       - Total number of distinct plans.
+ * @param {Object}  [config]             - Parsed signals config (default: module singleton).
+ * @returns {number} Clamped trust score [0, 1].
+ */
+function computeTrustScore(
+  { isCurator = false, isPublic = false, completionRate = 0, planCount = 0 },
+  config
+) {
+  // Lazy-load to avoid a circular-require at module evaluation time
+  const cfg = config || require('./signals-config');
+  const w = cfg.trustScore;
+
+  let score = 0;
+  if (isCurator) score += w.curator;
+  if (isPublic)  score += w.public;
+  score += clamp01(completionRate) * w.completionRate;
+  if (planCount >= (w.minPlanItems || 1)) score += w.base;
+
+  return clamp01(score);
+}
+
+/**
+ * Compute a normalised popularity score [0, 1] from raw plan-count dimensions.
+ *
+ * Normalisation is done relative to the largest values seen in the current
+ * candidate set (passed as `maxRaw`).  This keeps every experience's popularity
+ * meaningful within its destination context rather than against a global maximum.
+ *
+ * @param {Object} raw    - { planCount, planCountWithActivity, completedPlanCount }
+ * @param {Object} maxRaw - Per-dimension maximums across the candidate set.
+ * @param {Object} [config]
+ * @returns {number} Normalised popularity score [0, 1].
+ */
+function computePopularityScore(raw, maxRaw, config) {
+  const cfg = config || require('./signals-config');
+  const w = cfg.popularity;
+
+  const norm = (val, max) => (max > 0 ? clamp01(val / max) : 0);
+
+  return clamp01(
+    w.planCount        * norm(raw.planCount        || 0, maxRaw.planCount        || 1) +
+    w.planWithActivity * norm(raw.planCountWithActivity || 0, maxRaw.planCountWithActivity || 1) +
+    w.completedPlans   * norm(raw.completedPlanCount   || 0, maxRaw.completedPlanCount   || 1)
+  );
+}
+
+/**
+ * Compute the affinity score between a user's behavioral signal vector and an
+ * entity's behavioral signal vector.
+ *
+ * Formula: `1 - weighted_mean_absolute_difference` across all DIMENSIONS,
+ * where per-dimension weights come from `config.affinity` (already normalised
+ * to sum to 1 at startup).
+ *
+ * Confidence gating: if either vector's confidence is below
+ * `config.affinity.confidenceThreshold`, the neutral score
+ * (`config.affinity.neutralAffinityScore`) is returned instead, because the
+ * vectors are too uncertain for meaningful comparison.
+ *
+ * @param {Object|null} userSignals   - Decayed user hidden_signals vector.
+ * @param {Object|null} entitySignals - Experience/entity hidden_signals vector.
+ * @param {Object}      [config]      - Parsed signals config (default: module singleton).
+ * @returns {number} Affinity score [0, 1].
+ */
+function computeAffinityScore(userSignals, entitySignals, config) {
+  const cfg = config || require('./signals-config');
+  const { confidenceThreshold, neutralAffinityScore } = cfg.affinity;
+
+  // Return neutral score when either vector is absent or confidence is too low
+  const userConf   = typeof userSignals?.confidence   === 'number' ? userSignals.confidence   : 0;
+  const entityConf = typeof entitySignals?.confidence === 'number' ? entitySignals.confidence : 0;
+
+  if (userConf < confidenceThreshold || entityConf < confidenceThreshold) {
+    return neutralAffinityScore;
+  }
+
+  // Weighted mean absolute difference across dimensions
+  let weightedDiff = 0;
+  for (const dim of DIMENSIONS) {
+    const uVal = typeof userSignals[dim]   === 'number' ? userSignals[dim]   : NEUTRAL;
+    const eVal = typeof entitySignals[dim] === 'number' ? entitySignals[dim] : NEUTRAL;
+    const w    = cfg.affinity[dim] ?? 0;
+    weightedDiff += w * Math.abs(uVal - eVal);
+  }
+
+  return clamp01(1 - weightedDiff);
+}
+
+// ---------------------------------------------------------------------------
+// Content-signal update: fire-and-forget
+// ---------------------------------------------------------------------------
+
+/**
+ * Recompute and persist content signals for an experience.
+ *
+ * Called as a fire-and-forget side-effect from plan create/delete events.
+ * Never throws — errors are logged and silently absorbed.
+ *
+ * Pipeline:
+ *  1. Load experience + creator user (for curator flag).
+ *  2. Run a single Plan aggregation to obtain the three popularity dimensions.
+ *  3. Compute trustScore and store raw popularity counts.
+ *  4. Write back to experience.signals atomically.
+ *
+ * @param {string|import('mongoose').Types.ObjectId} experienceId
+ */
+async function updateExperienceSignals(experienceId) {
+  try {
+    const Experience = require('../models/experience');
+    const User       = require('../models/user');
+    const Plan       = require('../models/plan');
+    const { hasFeatureFlag } = require('./feature-flags');
+    const config     = require('./signals-config');
+
+    // 1. Load experience and its creator
+    const experience = await Experience
+      .findById(experienceId)
+      .select('user public plan_items')
+      .lean();
+
+    if (!experience) {
+      backendLogger.warn('[hidden-signals] updateExperienceSignals: experience not found', { experienceId });
+      return;
+    }
+
+    const creator = experience.user
+      ? await User.findById(experience.user).select('feature_flags').lean()
+      : null;
+
+    const isCurator = creator ? hasFeatureFlag(creator, 'curator') : false;
+    const isPublic  = !!experience.public;
+
+    // 2. Aggregate plan metrics for this experience in one query
+    const [metrics = {}] = await Plan.aggregate([
+      { $match: { experience: experience._id } },
+      {
+        $project: {
+          hasActivity: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ['$plan', []] },
+                    as: 'item',
+                    cond: {
+                      $and: [
+                        { $ne: ['$$item.activity_type', null] },
+                        { $ne: ['$$item.activity_type', ''] }
+                      ]
+                    }
+                  }
+                }
+              },
+              0
+            ]
+          },
+          hasCompleted: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ['$plan', []] },
+                    as: 'item',
+                    cond: { $eq: ['$$item.complete', true] }
+                  }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          planCount:             { $sum: 1 },
+          planCountWithActivity: { $sum: { $cond: ['$hasActivity', 1, 0] } },
+          completedPlanCount:    { $sum: { $cond: ['$hasCompleted', 1, 0] } }
+        }
+      }
+    ]);
+
+    const planCount             = metrics.planCount             || 0;
+    const planCountWithActivity = metrics.planCountWithActivity || 0;
+    const completedPlanCount    = metrics.completedPlanCount    || 0;
+    const completionRate        = planCount > 0 ? completedPlanCount / planCount : 0;
+
+    // 3. Compute trust score
+    const trustScore = computeTrustScore(
+      { isCurator, isPublic, completionRate, planCount },
+      config
+    );
+
+    // 4. Persist (atomic, no read-modify-write race)
+    await Experience.findByIdAndUpdate(experienceId, {
+      $set: {
+        'signals.trustScore': trustScore,
+        'signals.popularity.planCount':             planCount,
+        'signals.popularity.planCountWithActivity': planCountWithActivity,
+        'signals.popularity.completedPlanCount':    completedPlanCount,
+        'signals.computed_at': new Date()
+      }
+    });
+
+    backendLogger.debug('[hidden-signals] updateExperienceSignals: signals updated', {
+      experienceId: experienceId.toString(),
+      trustScore,
+      planCount,
+      planCountWithActivity,
+      completedPlanCount
+    });
+  } catch (err) {
+    backendLogger.error('[hidden-signals] updateExperienceSignals failed', {
+      experienceId: experienceId?.toString(),
+      error: err.message
+    });
+    // Never throw — fire-and-forget
+  }
+}
+
 module.exports = {
   // Constants (exported for testing)
   ACTIVITY_TYPE_SIGNAL_MAP,
@@ -413,6 +647,10 @@ module.exports = {
   applySignalDecay,
   injectSurprise,
   computeExperienceSignalTags,
+  computeTrustScore,
+  computePopularityScore,
+  computeAffinityScore,
   // Side-effectful
-  processSignalEvent
+  processSignalEvent,
+  updateExperienceSignals
 };

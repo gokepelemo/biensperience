@@ -783,6 +783,39 @@ export async function executeActions(sessionId, actionIds) {
             }
             break;
 
+          // Disambiguation actions: update session context on the frontend so
+          // BienBotPanel and BienBotTrigger can reflect the newly focused entity.
+          // fromDisambiguation=true distinguishes these from reconciliation-sourced
+          // bienbot:context_updated events (which must NOT trigger invokeContext overrides).
+          case 'select_plan': {
+            const selectedPlanId = entity?.plan_id;
+            if (selectedPlanId) {
+              broadcastEvent('bienbot:context_updated', {
+                sessionId,
+                entity: 'plan',
+                entityId: selectedPlanId,
+                experienceId: entity?.experience_id || null,
+                fromDisambiguation: true,
+                version: Date.now()
+              });
+            }
+            break;
+          }
+
+          case 'select_destination': {
+            const selectedDestId = entity?.destination_id || entity?._id?.toString();
+            if (selectedDestId) {
+              broadcastEvent('bienbot:context_updated', {
+                sessionId,
+                entity: 'destination',
+                entityId: selectedDestId,
+                fromDisambiguation: true,
+                version: Date.now()
+              });
+            }
+            break;
+          }
+
           default:
             logger.debug('[bienbot-api] No event mapping for action type', { type: actionResult.type });
         }

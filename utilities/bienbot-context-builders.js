@@ -12,7 +12,8 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
-const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage } = require('./hidden-signals');
+const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore } = require('./hidden-signals');
+const signalsConfig = require('./signals-config');
 
 // Lazy-loaded models (resolved on first use)
 let Destination, Experience, Plan, User, Activity;
@@ -2126,22 +2127,83 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
       logger.warn('[bienbot-context] Failed to fetch user signals for ranking', { userId, error: err.message });
     }
 
-    // Compute adaptive weights
+    // Compute adaptive weights (personalized by user behavioral signals)
     const weights = computeAdaptiveWeights(signals);
 
     const allCosts = candidates.map(c => c.cost_estimate).filter(Boolean);
     const maxCoOccurrence = Math.max(...candidates.map(c => c.co_occurrence_count), 1);
     const maxCollaborators = Math.max(...candidates.map(c => c.collaborator_count), 1);
 
+    // Load pre-computed content signals from Experience documents.
+    // One secondary query keyed by experience_id — avoids modifying the aggregation pipeline.
+    // Experiences whose signals haven't been computed yet fall back to neutral defaults.
+    let experienceSignalsMap = new Map();
+    try {
+      const ExperienceModel = require('../models/experience');
+      const candidateIds = candidates.map(c => c.experience_id).filter(Boolean);
+      const storedSignalDocs = await ExperienceModel
+        .find({ _id: { $in: candidateIds } })
+        .select('signals hidden_signals')
+        .lean();
+      for (const doc of storedSignalDocs) {
+        if (doc._id) experienceSignalsMap.set(doc._id.toString(), {
+          signals: doc.signals || null,
+          hidden_signals: doc.hidden_signals || null
+        });
+      }
+    } catch (err) {
+      logger.warn('[bienbot-context] Failed to load stored content signals; falling back to neutral', { error: err.message });
+    }
+
+    // Compute per-candidate-set maximums for popularity normalisation.
+    // This makes each candidate's popularity score relative to the destination
+    // context rather than a global absolute value.
+    const maxPopularity = {
+      planCount:             Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.planCount             || 0), 1),
+      planCountWithActivity: Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.planCountWithActivity || 0), 1),
+      completedPlanCount:    Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.completedPlanCount    || 0), 1)
+    };
+
+    const formula = signalsConfig.formula;
+
     // Score and rank
     const scored = candidates.map(c => {
       const recencyScore = computeRecencyScore(c.latest_planned_date);
-      const relevanceScore =
-        weights.plan_count * normalizeCount(c.co_occurrence_count, maxCoOccurrence) +
+
+      // Adaptive score: existing multi-factor formula personalized by user behavioral signals.
+      // Weights are re-normalized internally by computeAdaptiveWeights.
+      const adaptiveScore =
+        weights.plan_count      * normalizeCount(c.co_occurrence_count, maxCoOccurrence) +
         weights.completion_rate * (c.avg_completion_rate || 0) +
-        weights.recency * recencyScore +
-        weights.collaborators * normalizeCount(c.collaborator_count, maxCollaborators) +
-        weights.cost_alignment * computeCostAlignment(c.cost_estimate, signals, allCosts);
+        weights.recency         * recencyScore +
+        weights.collaborators   * normalizeCount(c.collaborator_count, maxCollaborators) +
+        weights.cost_alignment  * computeCostAlignment(c.cost_estimate, signals, allCosts);
+
+      // Stored content signals — neutral defaults for experiences not yet computed.
+      // trustScore null → 0.5 (unknown, not penalised); popularity absent → 0.
+      const storedEntry    = experienceSignalsMap.get(c.experience_id.toString());
+      const storedSignals  = storedEntry?.signals   || null;
+      const entityBehavior = storedEntry?.hidden_signals || null;
+      const trustScore     = storedSignals?.trustScore ?? 0.5;
+      const popularityNorm = computePopularityScore(
+        storedSignals?.popularity || {},
+        maxPopularity
+      );
+
+      // Affinity: similarity between the user's decayed behavioral vector and the
+      // experience's behavioral hidden_signals.  Returns neutralAffinityScore when
+      // either side lacks sufficient confidence (config-driven threshold).
+      const affinityScore = computeAffinityScore(signals, entityBehavior);
+
+      // Blended formula: formula coefficients from signalsConfig (SIGNALS_CONFIG env var).
+      // recencyBoost is always computed fresh — not stored — so it stays accurate between
+      // signal update events.
+      const relevanceScore =
+        formula.adaptiveFactor * adaptiveScore   +
+        formula.trustScore     * trustScore      +
+        formula.popularity     * popularityNorm  +
+        formula.recencyBoost   * recencyScore    +
+        formula.affinity       * affinityScore;
 
       const matchReason = generateMatchReason(
         { ...c, recency_score: recencyScore },
@@ -2159,6 +2221,9 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
         plan_count: c.co_occurrence_count,
         completion_rate: c.avg_completion_rate,
         collaborator_count: c.collaborator_count,
+        trust_score: Math.round(trustScore * 1000) / 1000,
+        popularity_score: Math.round(popularityNorm * 1000) / 1000,
+        affinity_score: Math.round(affinityScore * 1000) / 1000,
         relevance_score: Math.round(relevanceScore * 1000) / 1000,
         match_reason: matchReason,
         default_photo_url: c.default_photo_url
