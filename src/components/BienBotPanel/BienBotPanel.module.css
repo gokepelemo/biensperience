@@ -1408,8 +1408,7 @@
   border: 2px solid var(--color-border, #cbd5e1);
   border-radius: var(--radius-sm, 4px);
   flex-shrink: 0;
-  /* offset past the source line (xs font ~1rem line-height) to align with item text */
-  margin-top: calc(var(--font-size-xs, 0.75rem) * 1.4);
+  margin-top: 2px;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -1464,6 +1463,30 @@
 
   @mixin dark {
     border-top-color: var(--color-border-dark, #475569);
+  }
+}
+
+/* All suggestions already in the plan */
+.suggestionAllAdded {
+  padding: var(--space-3, 0.75rem);
+  text-align: center;
+}
+
+.suggestionAllAddedText {
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+}
+
+/* "N items already in your plan hidden" note above the list */
+.suggestionFilteredNote {
+  display: block;
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+
+  @mixin dark {
+    border-bottom-color: var(--color-border-dark, #475569);
   }
 }
 

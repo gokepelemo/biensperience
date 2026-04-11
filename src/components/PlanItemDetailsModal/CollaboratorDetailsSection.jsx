@@ -125,7 +125,9 @@ export default function CollaboratorDetailsSection({
                   {/* Name + avatar */}
                   <TableCell style={{ whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <UserAvatar user={user} size="xs" linkToProfile={false} />
+                      <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+                        <UserAvatar user={user} size="xs" linkToProfile={false} />
+                      </span>
                       <Link
                         to={`/profile/${userId}`}
                         style={{
@@ -133,11 +135,14 @@ export default function CollaboratorDetailsSection({
                           fontSize: 'var(--font-size-sm)',
                           color: 'var(--color-text-primary)',
                           textDecoration: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25em',
                         }}
                       >
                         {user?.name || 'Unknown User'}
                         {isCurrentUser && (
-                          <span style={{ color: 'var(--color-text-muted)', fontWeight: 'var(--font-weight-normal)', marginLeft: '0.25em' }}>
+                          <span style={{ color: 'var(--color-text-muted)', fontWeight: 'var(--font-weight-normal)' }}>
                             (you)
                           </span>
                         )}

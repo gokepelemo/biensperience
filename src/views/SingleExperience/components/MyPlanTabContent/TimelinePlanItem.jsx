@@ -32,7 +32,8 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   hasChildren = false,
   isExpanded = true,
   onToggleExpand = null,
-  user = null
+  user = null,
+  isNew = false
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
   const formattedTime = formatTimeForDisplay(planItem.scheduled_time);
@@ -83,7 +84,7 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   return (
     <div
       data-plan-item-id={planItem._id}
-      className={`timeline-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''}`}
+      className={`timeline-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''} ${isNew ? 'plan-item-new' : ''}`}
     >
       {/* Hierarchy indicator - pin replaces bullet when pinned, expand/collapse for parents with children */}
       <span className={`timeline-item-indent ${isPinned && !planItem.isChild ? 'pinned-pin' : ''}`}>

@@ -52,10 +52,10 @@ const VIEW_PATTERNS = [
 export default function useRouteContext() {
   const location = useLocation();
   const { user } = useUser();
-  const { getDestination, getExperience } = useData();
+  const { getDestination, getExperience, getPlan } = useData();
 
   const result = useMemo(() => {
-    const { pathname } = location;
+    const { pathname, hash } = location;
 
     // Try entity routes first
     for (const { pattern, entity, paramIndex } of ROUTE_PATTERNS) {
@@ -68,6 +68,52 @@ export default function useRouteContext() {
         if (entity === 'experience') {
           const exp = getExperience(entityId);
           label = exp?.name || null;
+
+          // When on an experience page, check if a plan/plan-item is active via hash.
+          // Check plan-item first (more specific), then fall back to plan-level.
+          // Note: DataContext.plans only contains the user's own plans; shared/collaborative
+          // plans won't be found via getPlan(). We still produce plan-level context in
+          // that case — just without ownership info in the label.
+          const planItemHashMatch = hash && hash.match(/^#plan-([a-f0-9]{24})-item-([a-f0-9]{24})/i);
+          const planHashMatch = !planItemHashMatch && hash && hash.match(/^#plan-([a-f0-9]{24})/i);
+
+          if (planItemHashMatch) {
+            const planId = planItemHashMatch[1];
+            const itemId = planItemHashMatch[2];
+            const plan = getPlan(planId); // null for shared plans — that's fine
+            const experienceName = exp?.name || 'this experience';
+            const item = plan
+              ? (plan.plan || []).find(
+                  i => i._id?.toString() === itemId || i.plan_item_id?.toString() === itemId
+                )
+              : null;
+            const itemLabel = item?.text
+              ? `"${item.text}" in ${experienceName}`
+              : `a plan item in ${experienceName}`;
+            return {
+              invokeContext: { entity: 'plan_item', id: itemId, label: itemLabel },
+              currentView: 'experience',
+              isEntityView: true,
+            };
+          } else if (planHashMatch) {
+            const planId = planHashMatch[1];
+            const plan = getPlan(planId); // null for shared plans — that's fine
+            const experienceName = exp?.name || 'this experience';
+            // Determine ownership only when plan data is available (own plans);
+            // shared plans not in DataContext still get plan-level context.
+            const isOwnPlan = plan && (
+              plan.user?.toString() === user?._id?.toString() ||
+              plan.user?._id?.toString() === user?._id?.toString()
+            );
+            const planLabel = isOwnPlan
+              ? `your plan for ${experienceName}`
+              : `a plan for ${experienceName}`;
+            return {
+              invokeContext: { entity: 'plan', id: planId, label: planLabel },
+              currentView: 'experience',
+              isEntityView: true,
+            };
+          }
         } else if (entity === 'destination') {
           const dest = getDestination(entityId);
           label = dest?.name || null;
@@ -94,7 +140,7 @@ export default function useRouteContext() {
     }
 
     return { invokeContext: null, currentView: null, isEntityView: false };
-  }, [location.pathname, user?._id, user?.name, getDestination, getExperience]);
+  }, [location.pathname, location.hash, user?._id, user?.name, getDestination, getExperience, getPlan]);
 
   return result;
 }

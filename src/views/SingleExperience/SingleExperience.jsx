@@ -100,7 +100,7 @@ import {
   unassignPlanItem,
   addPlanItemDetail,
 } from "../../utilities/plans-api";
-import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus, broadcastEvent } from "../../utilities/event-bus";
+import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import './components/MyPlanTabContent/plan-item-views.css';
 import { sendEmailInvite } from "../../utilities/invites-api";
@@ -1918,35 +1918,6 @@ export default function SingleExperience() {
       setPresenceTab(presenceTabName);
     }
   }, [activeTab, setPresenceTab]);
-
-  // Broadcast plan context to BienBot when plan tab becomes active with a selected plan
-  const prevBienBotPlanRef = useRef(null);
-  useEffect(() => {
-    if (activeTab !== 'myplan' || !selectedPlan?._id) {
-      prevBienBotPlanRef.current = null;
-      return;
-    }
-
-    const planId = selectedPlan._id?.toString();
-    if (prevBienBotPlanRef.current === planId) return; // Already broadcast for this plan
-    prevBienBotPlanRef.current = planId;
-
-    const isOwnPlan = idEquals(selectedPlan.user?._id || selectedPlan.user, user?._id);
-    const experienceName = experience?.name || 'this experience';
-    const ownerFirstName = planOwner?.name?.split(' ')?.[0] || null;
-
-    const contextDescription = isOwnPlan
-      ? `your plan for ${experienceName}`
-      : ownerFirstName
-        ? `${ownerFirstName}'s plan for ${experienceName}`
-        : `a shared plan for ${experienceName}`;
-
-    broadcastEvent('bienbot:plan_focused', {
-      planId,
-      entity: 'plan',
-      contextDescription,
-    });
-  }, [activeTab, selectedPlan?._id, user?._id, experience?.name, planOwner?.name]);
 
   /**
    * Load persisted hierarchy state from encrypted storage

@@ -969,6 +969,40 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       logger.debug('[bienbot-context] Plan attention signals skipped', { error: sigErr.message });
     }
 
+    // Collaborators and member locations block
+    try {
+      const userPermissions = (plan.permissions || []).filter(p => p.entity === 'user');
+      if (userPermissions.length > 0) {
+        const memberUserIds = userPermissions.map(p => p._id);
+        const memberUsers = await User.find({ _id: { $in: memberUserIds } }).select('name').lean();
+        const memberMap = Object.fromEntries(memberUsers.map(u => [String(u._id), u.name]));
+        const memberLocationMap = Object.fromEntries(
+          (plan.member_locations || []).map(ml => [String(ml.user), ml])
+        );
+        const collaboratorLines = userPermissions.map(p => {
+          const uid = String(p._id);
+          const name = memberMap[uid] || 'Unknown';
+          const role = p.type || 'collaborator';
+          const ml = memberLocationMap[uid];
+          let locationStr = '';
+          if (ml?.location) {
+            const loc = ml.location;
+            const parts = [loc.city, loc.state, loc.country].filter(Boolean);
+            if (parts.length > 0) {
+              locationStr = ` — travel origin: ${parts.join(', ')}`;
+              if (ml.travel_cost_estimate) {
+                locationStr += ` (est. ${ml.travel_cost_estimate} ${ml.currency || 'USD'})`;
+              }
+            }
+          }
+          return `  - ${name} (${role}, _id: ${uid})${locationStr}`;
+        });
+        lines.push(`\n[COLLABORATORS]\n${collaboratorLines.join('\n')}\n[/COLLABORATORS]`);
+      }
+    } catch (collabErr) {
+      logger.debug('[bienbot-context] Collaborators block skipped', { error: collabErr.message });
+    }
+
     return trimToTokenBudget(lines.filter(Boolean).join('\n'), options.tokenBudget || DEFAULT_TOKEN_BUDGET);
   } catch (err) {
     logger.error('[bienbot-context] buildUserPlanContext failed', { planId, error: err.message });

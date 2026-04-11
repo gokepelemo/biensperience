@@ -1324,8 +1324,10 @@ async function executeListEntityDocuments(payload, user) {
 
 /**
  * create_invite — mutating, requires confirmation.
- * payload: { max_uses?: 1, expires_in_days?: 7, label? }
+ * payload: { max_uses?: 1, expires_in_days?: 7, email?: string, invitee_name?: string, send_email?: boolean }
  * Creates a shareable invite code for the logged-in user.
+ * When email is provided the code is tied to that address; when send_email is true
+ * an invitation email is dispatched via the email service.
  *
  * Delegates to InviteCode.createInvite() to reuse the model's collision-resistant
  * code generation (crypto.randomInt-based) and uniqueness retry logic.
@@ -1334,14 +1336,52 @@ async function executeListEntityDocuments(payload, user) {
  */
 async function executeCreateInvite(payload, user) {
   const InviteCode = require('../models/inviteCode');
-  const { max_uses = 1, expires_in_days = 7 } = payload || {};
+  const { max_uses = 1, expires_in_days = 7, email, invitee_name, send_email = false } = payload || {};
   const expiresAt = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000);
+
+  // Validate email format when provided
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { statusCode: 400, body: { success: false, error: 'Invalid email address format' } };
+  }
+
   const invite = await InviteCode.createInvite({
     createdBy: user._id,
     maxUses: max_uses,
-    expiresAt
+    expiresAt,
+    ...(email ? { email: email.toLowerCase().trim() } : {}),
+    ...(invitee_name ? { inviteeName: invitee_name.trim() } : {})
   });
-  return { statusCode: 201, body: { success: true, data: invite } };
+
+  let emailSent = false;
+  if (send_email && email) {
+    try {
+      const { sendInviteEmail } = require('./email-service');
+      await sendInviteEmail({
+        toEmail: email,
+        inviterName: user.name,
+        inviteCode: invite.code,
+        inviteeName: invitee_name || undefined
+      });
+      emailSent = true;
+      invite.inviteMetadata = {
+        ...(invite.inviteMetadata || {}),
+        emailSent: true,
+        sentAt: new Date(),
+        sentFrom: user._id
+      };
+      await invite.save();
+    } catch (emailError) {
+      logger.error('[bienbot] executeCreateInvite: failed to send invite email', {
+        userId: user._id,
+        inviteId: invite._id,
+        email,
+        error: emailError.message
+      });
+      // Don't fail the action — invite code was created successfully
+    }
+  }
+
+  return { statusCode: 201, body: { success: true, data: { ...invite.toObject(), emailSent } } };
 }
 
 /**

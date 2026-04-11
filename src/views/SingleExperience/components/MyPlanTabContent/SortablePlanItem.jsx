@@ -45,7 +45,8 @@ const SortablePlanItem = memo(function SortablePlanItem({
   planCollaborators,
   lang,
   onPinItem,
-  isPinned = false
+  isPinned = false,
+  isNew = false
 }) {
   const {
     attributes,
@@ -131,7 +132,7 @@ const SortablePlanItem = memo(function SortablePlanItem({
       data-plan-item-id={planItem._id}
       className={`plan-item-card ${
         planItem.isVisible ? "" : "collapsed"
-      } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''}`}
+      } ${isDragging ? 'dragging' : ''} ${planItem.isChild ? 'is-child-item' : ''} ${isPinned ? 'is-pinned' : ''} ${isNew ? 'plan-item-new' : ''}`}
     >
       <div className="plan-item-header" style={{ padding: 'var(--space-4)' }}>
         <div className="plan-item-title-row">

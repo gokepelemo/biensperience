@@ -38,7 +38,8 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
   // Expand/collapse props
   hasChildren = false,
   isExpanded = true,
-  onToggleExpand = null
+  onToggleExpand = null,
+  isNew = false
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
 
@@ -98,7 +99,7 @@ const SortableCompactPlanItem = memo(function SortableCompactPlanItem({
       ref={setNodeRef}
       style={style}
       data-plan-item-id={planItem._id}
-      className={`compact-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`compact-plan-item ${planItem.complete ? 'completed' : ''} ${planItem.isChild ? 'is-child' : ''} ${isDragging ? 'dragging' : ''} ${isNew ? 'plan-item-new' : ''}`}
     >
       {/* Drag handle - hidden for pinned items since they're always at top */}
       {canEdit && !isPinned && (

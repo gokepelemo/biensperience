@@ -196,9 +196,16 @@ async function suggestPlanItems(payload, user) {
     // --- Tier 3: Wikivoyage structured plan items (no API key required) ---
     let wikivoyageCount = 0;
     if (suggestions.length < limit) {
-      const wvItems = await fetchWikivoyagePlanItems(destination.name, {
+      let wvItems = await fetchWikivoyagePlanItems(destination.name, {
         maxTotal: Math.min(10, limit - suggestions.length + 5)
       });
+
+      // Reformulate passive place-names → active action phrases (e.g.
+      // "Christchurch Art Gallery" → "Visit the Christchurch Art Gallery").
+      // Falls back to the original names if the LLM is unavailable.
+      if (wvItems.length > 0) {
+        wvItems = await reformulateWikivoyagePlanItems(wvItems, destination.name, user);
+      }
 
       const existingNormalized = [
         ...candidates.map(c => c.normalized),
@@ -1251,6 +1258,106 @@ async function fetchWikivoyagePlanItems(destinationName, options = {}) {
   }, { label: 'wikivoyage-plan-items', timeoutMs: 12000 });
 
   return items || [];
+}
+
+// ---------------------------------------------------------------------------
+// Wikivoyage plan item reformulation (passive → active)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reformulate WikiVoyage plan item names from passive noun-phrases to active,
+ * actionable travel plan items using the LLM.
+ *
+ * Always resolves — returns the original items unchanged if the AI provider
+ * is unavailable, if the gateway blocks the request, or if the LLM response
+ * cannot be parsed.
+ *
+ * @param {Array<{ name: string, description: string, activity_type: string|null, source_url: string }>} items
+ * @param {string} destinationName
+ * @param {object} user - Authenticated user (for AI gateway policy resolution)
+ * @returns {Promise<Array>} Items with reformulated names
+ */
+async function reformulateWikivoyagePlanItems(items, destinationName, user) {
+  if (!items || items.length === 0) return items;
+
+  // Lazy-load to avoid circular dependencies at module initialisation time
+  let executeAIRequest, GatewayError;
+  try {
+    ({ executeAIRequest, GatewayError } = require('./ai-gateway'));
+  } catch {
+    return items;
+  }
+
+  const { getApiKey, getProviderForTask, AI_TASKS } = require('../controllers/api/ai');
+  const { lang } = require('./lang.constants');
+
+  const provider = getProviderForTask(AI_TASKS.GENERATE_TIPS);
+  if (!getApiKey(provider)) {
+    logger.debug('[bienbot-external-data] AI provider not configured — skipping wikivoyage reformulation');
+    return items;
+  }
+
+  const systemPrompt = lang.en.prompts.wikivoyage_reformat;
+
+  // Build a numbered list so the LLM can return items in matching order
+  const itemLines = items.map((item, idx) =>
+    `${idx + 1}. [${item.activity_type || 'sightseeing'}] "${item.name}"`
+  ).join('\n');
+
+  const userPrompt = `Destination: ${destinationName}\n\nItems:\n${itemLines}`;
+
+  try {
+    const result = await executeAIRequest({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      task: AI_TASKS.GENERATE_TIPS,
+      user: user || null,
+      options: {
+        provider,
+        temperature: 0.3,
+        maxTokens: 800
+      }
+    });
+
+    const text = (result.content || '').trim();
+
+    let reformulated;
+    try {
+      const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+      reformulated = JSON.parse(cleaned);
+    } catch {
+      logger.warn('[bienbot-external-data] Could not parse wikivoyage reformulation response', {
+        raw: text.substring(0, 200)
+      });
+      return items;
+    }
+
+    if (!Array.isArray(reformulated) || reformulated.length !== items.length) {
+      logger.warn('[bienbot-external-data] Unexpected reformulation response length', {
+        expected: items.length,
+        got: Array.isArray(reformulated) ? reformulated.length : typeof reformulated
+      });
+      return items;
+    }
+
+    return items.map((item, idx) => {
+      const rewritten = reformulated[idx];
+      if (typeof rewritten === 'string' && rewritten.trim().length > 0) {
+        return { ...item, name: rewritten.trim() };
+      }
+      return item; // keep original on per-item failure
+    });
+
+  } catch (err) {
+    if (GatewayError && err instanceof GatewayError) {
+      logger.debug('[bienbot-external-data] AI gateway declined wikivoyage reformulation', { code: err.code });
+    } else {
+      logger.warn('[bienbot-external-data] Wikivoyage reformulation failed', { error: err.message });
+    }
+    return items; // always fall back gracefully
+  }
 }
 
 // ---------------------------------------------------------------------------

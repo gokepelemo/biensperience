@@ -337,9 +337,13 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- ADD_PHOTO: Explain that photos can be uploaded via the entity\'s photo section. You cannot upload photos directly — guide the user to the relevant page using navigate_to_entity.',
     '- QUERY_ACTIVITY_FEED: Use list_user_activities to retrieve recent activity (READ-ONLY, executes immediately). Summarize the history in natural language.',
     '- QUERY_DOCUMENTS: Use list_entity_documents to retrieve documents for the current entity (READ-ONLY, executes immediately). Summarize what documents are attached.',
+    '- UPLOAD_DOCUMENT: Documents must be uploaded through the entity\'s document section in the UI. Guide the user to the relevant page using navigate_to_entity and explain that document uploads are handled there.',
+    '- DISCUSS_PLAN_ITEM: Summarize what is known about the plan item from context — its notes, details (transport, accommodation, parking, discount), cost, scheduled date/time, assignee, and any photos. If the user asks follow-up questions about the item (e.g. "how much does it cost", "what notes are on it"), answer from the plan context. Propose relevant actions if the item is incomplete (e.g. add_plan_item_note, add_plan_item_detail, update_plan_item).',
+    '- ADD_DESTINATION_TIP: The user wants to add a travel tip to the current destination. Use update_destination with a travel_tips array that appends the new tip to any existing tips from the context. Never overwrite existing tips — merge the new tip with the current list. Ask the user for the tip content if not already provided.',
     '- PIN_PLAN_ITEM: Use pin_plan_item with the plan_id and item_id from context. Confirm which item the user wants to pin if ambiguous.',
     '- UNPIN_PLAN_ITEM: Use unpin_plan_item with the plan_id and item_id from context.',
-    '- CREATE_INVITE: Use create_invite. Confirm the invite settings (max uses, expiry) with the user before proposing.',
+    '- CREATE_INVITE: Use create_invite. If the user provides an email address, include it in the payload and set send_email: true to dispatch the invitation. Confirm the invite settings (email if given, max uses, expiry) with the user before proposing.',
+    '- SHARE_INVITE: The user wants to invite someone by email. Use create_invite with the email and send_email: true. Ask for the recipient\'s email if not provided. Confirm before proposing.',
     '- REQUEST_PLAN_ACCESS: Use request_plan_access with the plan_id. Confirm with the user if context is ambiguous.',
     '- FOLLOW_USER: Use follow_user with the user_id from context. Always confirm which user the user wants to follow before proposing — never guess.',
     '- UNFOLLOW_USER: Use unfollow_user with the user_id from context. Confirm with the user before proposing.',
@@ -347,6 +351,10 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- ACCEPT_FOLLOW_REQUEST: Use accept_follow_request with follower_id from context. If multiple pending requests exist, list them and ask which one to accept.',
     '- UPDATE_PROFILE: Use update_user_profile with only the fields the user explicitly asked to change (name, bio, or preferences). Never update fields the user did not mention.',
     '- REORDER_PLAN_ITEMS: Use reorder_plan_items with plan_id and item_ids ordered as the user described. Read all current item IDs from the plan context block — do not omit any items.',
+    '- INVITE_COLLABORATOR: The user wants to add someone to their plan or experience. Use invite_collaborator with plan_id (from plan context) or experience_id. To resolve the user_id: first check the COLLABORATORS section in context for an existing member; if not found, propose list_user_followers with type "following" as an immediate read-only step so the user can pick from a list — never guess a user_id. Confirm the person and role (default: "collaborator") before proposing the invite action.',
+    '- REMOVE_COLLABORATOR: Use remove_collaborator with plan_id and user_id from the COLLABORATORS section in context. List current collaborators for the user to choose if it is ambiguous. Always confirm before proposing — this revokes their access.',
+    '- SET_MEMBER_LOCATION: The user wants to set their travel origin for the plan. Use set_member_location with plan_id from context. Ask for city and country if not mentioned. Accept an optional travel_cost_estimate and currency if the user provides one. This action always applies to the logged-in user — never set location for someone else.',
+    '- REMOVE_MEMBER_LOCATION: Use remove_member_location with plan_id from context. Confirm with the user before proposing.',
     ''
   ];
 
@@ -619,9 +627,10 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '  Use for requests like "update my bio", "change my currency", "set my timezone".',
     '',
     '--- Invites & Access ---',
-    '- create_invite: { max_uses?: 1, expires_in_days?: 7 }',
-    '  Creates a shareable invite code the logged-in user can send to others.',
-    '  Use when the user asks to invite someone or create an invitation link.',
+    '- create_invite: { email?, invitee_name?, send_email?: false, max_uses?: 1, expires_in_days?: 7 }',
+    '  Creates a shareable invite code. When email is provided the code is tied to that address.',
+    '  Set send_email: true to dispatch the invitation email automatically.',
+    '  Use when the user asks to invite someone (with or without an email address) or generate an invite link.',
     '- request_plan_access: { plan_id, message? }',
     '  Sends an access request to the plan owner. Use when the user asks to join or view a plan they cannot access.',
     '',
@@ -841,7 +850,12 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     }
 
     // Invites / access requests — build plan context so the assistant knows which plan to reference
-    if ((intent === 'CREATE_INVITE' || intent === 'REQUEST_PLAN_ACCESS') && ctx.plan_id) {
+    if ((intent === 'CREATE_INVITE' || intent === 'SHARE_INVITE' || intent === 'REQUEST_PLAN_ACCESS') && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+
+    // Member location removal — build plan context so the assistant has the plan_id
+    if (intent === 'REMOVE_MEMBER_LOCATION' && ctx.plan_id) {
       promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
     }
 

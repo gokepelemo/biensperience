@@ -601,7 +601,35 @@ export async function executeActions(sessionId, actionIds) {
             break;
           }
 
-          case 'add_plan_items':
+          case 'add_plan_items': {
+            const addPlanIdStr = entity._id?.toString ? entity._id.toString() : entity._id || actionResult.planId;
+            const addVersion = Date.now();
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: addPlanIdStr,
+              version: addVersion
+            });
+            // Emit granular plan:item:added for each newly added item so the plan UI
+            // can apply a fade-in animation. New items are appended to the end of the
+            // plan array, so we take the last N items (N = payload items count).
+            const requestedCount = Array.isArray(actionResult.payload?.items) ? actionResult.payload.items.length : 1;
+            const allPlanItems = Array.isArray(entity.plan) ? entity.plan : [];
+            const addedItems = allPlanItems.slice(-requestedCount);
+            for (const addedItem of addedItems) {
+              const addedItemId = addedItem._id?.toString ? addedItem._id.toString() : addedItem._id;
+              if (addedItemId) {
+                broadcastEvent('plan:item:added', {
+                  planId: addPlanIdStr,
+                  itemId: addedItemId,
+                  planItemId: addedItemId,
+                  item: addedItem,
+                  version: addVersion
+                });
+              }
+            }
+            break;
+          }
+
           case 'sync_plan':
           case 'update_plan':
           case 'add_plan_cost':

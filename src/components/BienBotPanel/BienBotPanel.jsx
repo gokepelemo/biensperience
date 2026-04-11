@@ -572,11 +572,7 @@ export default function BienBotPanel({
   // Tracks which (sessionId, entity, entityId) combos have already been reconciled
   // so we don't call updateContext more than once per session+entity pair.
   const sessionContextReconciledRef = useRef(null);
-  // Refs for stable plan-focus subscription (avoids stale closures)
-  const openRef = useRef(open);
   const messagesRef = useRef([]);
-  const updateContextRef = useRef(null);
-  const planFocusRef = useRef({ sentPlans: new Set(), lastSessionId: null });
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -587,6 +583,9 @@ export default function BienBotPanel({
   // Pending context switch: set when the user navigates to a different entity while
   // a conversation is in progress. Cleared when the user picks Stay or Switch.
   const [pendingContextSwitch, setPendingContextSwitch] = useState(null);
+  // Normalised texts of items currently in the active plan — used to filter
+  // suggestion_list blocks so already-added items are not offered again.
+  const [currentPlanItemTexts, setCurrentPlanItemTexts] = useState(new Set());
 
   const { user } = useUser();
 
@@ -989,33 +988,22 @@ export default function BienBotPanel({
     updateContext,
   ]);
 
-  // ── Sync refs used by the stable plan-focus subscription ─────────────────
-  useEffect(() => { openRef.current = open; }, [open]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
-  useEffect(() => { updateContextRef.current = updateContext; }, [updateContext]);
 
-  // Reset plan-focus dedup tracking when the session changes
+  // ── Track current plan items for suggestion deduplication ────────────────
+  // When a plan is updated (item added, synced, etc.) we rebuild the set of
+  // normalised item texts so SuggestionList can filter out already-added items.
   useEffect(() => {
-    const sessionId = currentSession?._id || null;
-    if (planFocusRef.current.lastSessionId !== sessionId) {
-      planFocusRef.current = { sentPlans: new Set(), lastSessionId: sessionId };
-    }
-  }, [currentSession?._id]);
-
-  // ── Enrich BienBot context when plan tab becomes active mid-conversation ──
-  useEffect(() => {
-    const unsub = eventBus.subscribe('bienbot:plan_focused', (event) => {
-      if (!openRef.current) return; // Panel must be open
-      if (!messagesRef.current?.length) return; // Conversation must be in progress
-      const { planId, entity = 'plan', contextDescription } = event;
-      if (!planId) return;
-      const { sentPlans } = planFocusRef.current;
-      if (sentPlans.has(planId)) return; // Already sent for this plan in this session
-      sentPlans.add(planId);
-      updateContextRef.current?.(entity, planId, contextDescription);
-    });
+    const handlePlanUpdated = (event) => {
+      const plan = event.plan || event.data;
+      if (!Array.isArray(plan?.plan)) return;
+      setCurrentPlanItemTexts(
+        new Set(plan.plan.map(i => (i.text || '').toLowerCase().trim()).filter(Boolean))
+      );
+    };
+    const unsub = eventBus.subscribe('plan:updated', handlePlanUpdated);
     return () => unsub();
-  }, []); // Stable — uses refs to access latest values
+  }, []);
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
@@ -1825,6 +1813,7 @@ export default function BienBotPanel({
                                   data={block.data}
                                   onAddSelected={handleAddSuggestedItems}
                                   disabled={isLoading || isStreaming}
+                                  existingItemTexts={currentPlanItemTexts}
                                 />
                               );
                             }
