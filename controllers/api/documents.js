@@ -462,13 +462,20 @@ async function getDocumentsByEntity(req, res) {
     const { entityType, entityId } = req.params;
     const { planId, includeDisabled, page = 1, limit = 10 } = req.query;
 
-    if (!['plan', 'plan_item', 'experience', 'destination'].includes(entityType)) {
+    // Derive safeEntityType from our own constant so the value entering the DB
+    // query is never tainted user input (breaks CodeQL CWE-943 taint chain).
+    const VALID_ENTITY_TYPES = ['plan', 'plan_item', 'experience', 'destination'];
+    const entityTypeIndex = VALID_ENTITY_TYPES.indexOf(entityType);
+    if (entityTypeIndex === -1) {
       return res.status(400).json({ error: 'Invalid entity type' });
     }
+    const safeEntityType = VALID_ENTITY_TYPES[entityTypeIndex];
 
     if (!mongoose.Types.ObjectId.isValid(entityId)) {
       return res.status(400).json({ error: 'Invalid entity ID' });
     }
+    // Cast to ObjectId to break the taint chain for entityId
+    const safeEntityId = new mongoose.Types.ObjectId(entityId);
 
     // Validate planId if provided
     if (planId && !mongoose.Types.ObjectId.isValid(planId)) {
@@ -476,7 +483,7 @@ async function getDocumentsByEntity(req, res) {
     }
 
     // Verify access to entity (pass planId for plan_item access checks)
-    const hasAccess = await verifyEntityAccess(req.user._id, entityType, entityId, planId);
+    const hasAccess = await verifyEntityAccess(req.user._id, safeEntityType, safeEntityId, planId);
     if (!hasAccess) {
       return res.status(403).json({ error: 'You do not have access to this entity' });
     }
@@ -489,11 +496,10 @@ async function getDocumentsByEntity(req, res) {
     // Determine if user is super admin
     const isSuperAdmin = req.user.role === 'super_admin';
 
-    // Build query: show all documents visible to collaborators, plus user's private documents.
-    // Cast entityId to ObjectId (already validated above) to break the taint chain.
+    // Build query using sanitized values (taint chain broken above).
     const query = {
-      entityType,
-      entityId: new mongoose.Types.ObjectId(entityId),
+      entityType: safeEntityType,
+      entityId: safeEntityId,
       $or: [
         { visibility: 'collaborators' },
         { visibility: 'private', user: req.user._id }
