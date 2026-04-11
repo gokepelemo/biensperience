@@ -1784,7 +1784,7 @@ export default function PlanItemDetailsModal({
                   primaryAction={canEdit && (onAddCostForItem || onAddDetail) ? (lang.current.planItemDetailsModal.addDetails || 'Add Details') : null}
                   onPrimaryAction={canEdit && (onAddCostForItem || onAddDetail) ? () => setShowDetailTypeSelectorModal(true) : null}
                   size="md"
-                  fillContainer
+                  fillContainer={collaborators.length === 0}
                 />
               )}
 

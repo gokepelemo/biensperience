@@ -193,7 +193,7 @@ async function findPlanContainingItem(itemId, opts = {}) {
  * @param {object|null} params.userHiddenSignals - User's behavioral signal vector
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, resolvedEntityObjects, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals, lastShownEntities }) {
+function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, resolvedEntityObjects, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals, lastShownEntities }) {
   // Build USER PROFILE block (personalization context)
   const profileLines = [];
   if (userName) {
@@ -356,7 +356,16 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
   }
 
   if (invokeLabel) {
-    lines.push(`Viewing: ${invokeLabel}`);
+    const entityTypeLabels = {
+      destination: 'destination',
+      experience: 'experience',
+      plan: 'plan',
+      plan_item: 'plan item',
+      user: 'user profile',
+    };
+    const effectiveEntityType = invokeEntityType || session?.invoke_context?.entity || null;
+    const entityTypeStr = effectiveEntityType ? (entityTypeLabels[effectiveEntityType] || effectiveEntityType) : null;
+    lines.push(entityTypeStr ? `Viewing ${entityTypeStr}: ${invokeLabel}` : `Viewing: ${invokeLabel}`);
     if (contextDescription) {
       lines.push(`Page context: ${contextDescription}`);
     }
@@ -2494,18 +2503,48 @@ exports.chat = async (req, res) => {
   // Extract entity refs from the most recent assistant message so the LLM
   // can treat a short follow-up ("plan it", "yes", "go ahead") as referring
   // to the entity that was just shown in a card.
+  // Refs are verified against the DB so a fabricated ID stored in a prior turn
+  // cannot re-enter the LAST SHOWN ENTITY prompt block and drive a bad action.
   const lastAssistantMsg = (session.messages || [])
     .filter(m => m.role === 'assistant')
     .slice(-1)[0];
-  const lastShownEntities = lastAssistantMsg
+  const rawLastShownRefs = lastAssistantMsg
     ? ((lastAssistantMsg.structured_content || [])
         .find(b => b.type === 'entity_ref_list')
         ?.data?.refs || [])
-      .filter(r => r._id && !/<[^>]+>/.test(r._id))
+      .filter(r => r._id && !/<[^>]+>/.test(r._id) && mongoose.Types.ObjectId.isValid(r._id))
     : [];
+  let lastShownEntities = [];
+  if (rawLastShownRefs.length > 0) {
+    loadModels();
+    const verifiedLastShown = [];
+    await Promise.all(rawLastShownRefs.map(async (ref) => {
+      try {
+        if (ref.type === 'plan') {
+          const plan = await Plan.findById(ref._id).select('_id experience').lean();
+          if (plan) verifiedLastShown.push({ ...ref, experience_id: plan.experience?.toString() || ref.experience_id });
+          else logger.warn('[bienbot] lastShownEntity plan not found, dropping from LAST SHOWN ENTITY', { id: ref._id });
+        } else if (ref.type === 'experience') {
+          const exists = await Experience.findById(ref._id).select('_id').lean();
+          if (exists) verifiedLastShown.push(ref);
+          else logger.warn('[bienbot] lastShownEntity experience not found, dropping from LAST SHOWN ENTITY', { id: ref._id });
+        } else if (ref.type === 'destination') {
+          const exists = await Destination.findById(ref._id).select('_id').lean();
+          if (exists) verifiedLastShown.push(ref);
+          else logger.warn('[bienbot] lastShownEntity destination not found, dropping from LAST SHOWN ENTITY', { id: ref._id });
+        } else {
+          verifiedLastShown.push(ref); // plan_item: pass through
+        }
+      } catch (e) {
+        logger.warn('[bienbot] lastShownEntity verification error, dropping', { id: ref._id, error: e.message });
+      }
+    }));
+    lastShownEntities = verifiedLastShown;
+  }
 
   const systemPrompt = buildSystemPrompt({
     invokeLabel,
+    invokeEntityType: invokeContext?.entity || null,
     contextDescription: invokeContext?.contextDescription || null,
     contextBlock: combinedContext,
     session,
@@ -2669,12 +2708,94 @@ exports.chat = async (req, res) => {
     entity_refs: rawParsed.entity_refs || []
   };
 
+  // --- Verify entity_refs against the database ---
+  // The LLM may fabricate MongoDB ObjectIds that pass string-format checks.
+  // We do a lightweight existence query for each ref and strip any that don't
+  // resolve, preventing 404 links from being surfaced to the user.
+  // For plan refs we also derive experience_id from the DB so it is never wrong.
+  if (parsed.entity_refs.length > 0) {
+    loadModels();
+    const verifiedRefs = [];
+    await Promise.all(parsed.entity_refs.map(async (ref) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(ref._id)) {
+          logger.warn('[bienbot] entity_ref dropped: invalid ObjectId format', { id: ref._id, type: ref.type });
+          return;
+        }
+        if (ref.type === 'experience') {
+          const exists = await Experience.findById(ref._id).select('_id').lean();
+          if (exists) {
+            verifiedRefs.push(ref);
+          } else {
+            logger.warn('[bienbot] entity_ref experience not found in DB, dropping', { id: ref._id });
+          }
+        } else if (ref.type === 'destination') {
+          const exists = await Destination.findById(ref._id).select('_id').lean();
+          if (exists) {
+            verifiedRefs.push(ref);
+          } else {
+            logger.warn('[bienbot] entity_ref destination not found in DB, dropping', { id: ref._id });
+          }
+        } else if (ref.type === 'plan') {
+          const plan = await Plan.findById(ref._id).select('_id experience').lean();
+          if (plan) {
+            // Always source experience_id from the DB — never trust the LLM value
+            verifiedRefs.push({ ...ref, experience_id: plan.experience?.toString() || undefined });
+          } else {
+            logger.warn('[bienbot] entity_ref plan not found in DB, dropping', { id: ref._id });
+          }
+        } else {
+          // plan_item and other types pass through (embedded in experience; costly to verify separately)
+          verifiedRefs.push(ref);
+        }
+      } catch (verifyErr) {
+        logger.warn('[bienbot] entity_ref verification failed, dropping', { id: ref._id, error: verifyErr.message });
+      }
+    }));
+    parsed.entity_refs = verifiedRefs;
+  }
+
+  // --- Verify plan_id in pending plan-mutation actions ---
+  // The LLM may carry a fabricated plan_id from LAST SHOWN ENTITY context or
+  // session history. Strip any action whose plan_id doesn't resolve in the DB.
+  const PLAN_MUTATION_ACTION_TYPES = new Set([
+    'update_plan', 'add_plan_items', 'update_plan_item', 'delete_plan_item',
+    'update_plan_item_note', 'update_plan_item_detail', 'shift_plan_item_dates',
+    'update_plan_cost', 'delete_plan_cost', 'sync_plan'
+  ]);
+  if (parsed.pending_actions.some(a => PLAN_MUTATION_ACTION_TYPES.has(a.type) && a.payload?.plan_id)) {
+    loadModels();
+    const verifiedActions = [];
+    await Promise.all(parsed.pending_actions.map(async (action) => {
+      if (!PLAN_MUTATION_ACTION_TYPES.has(action.type) || !action.payload?.plan_id) {
+        verifiedActions.push(action);
+        return;
+      }
+      const planId = action.payload.plan_id;
+      if (!mongoose.Types.ObjectId.isValid(planId)) {
+        logger.warn('[bienbot] pending_action dropped: invalid plan_id format', { type: action.type, planId });
+        return;
+      }
+      try {
+        const plan = await Plan.findById(planId).select('_id').lean();
+        if (plan) {
+          verifiedActions.push(action);
+        } else {
+          logger.warn('[bienbot] pending_action dropped: plan_id not found in DB', { type: action.type, planId });
+        }
+      } catch (e) {
+        logger.warn('[bienbot] pending_action plan_id verification error, dropping', { type: action.type, planId, error: e.message });
+      }
+    }));
+    parsed.pending_actions = verifiedActions;
+  }
+
   // Hydrate session context from entity_refs returned by the LLM.
   // This ensures subsequent messages can use entity IDs (e.g. a destination resolved
   // in a prior turn) without the user having to repeat the entity name.
   try {
     const ctxFromRefs = {};
-    for (const ref of (rawParsed.entity_refs || [])) {
+    for (const ref of parsed.entity_refs) {
       if (!ref._id || /<[^>]+>/.test(ref._id)) continue; // skip placeholder IDs
       if (ref.type === 'destination' && !session.context?.destination_id) {
         ctxFromRefs.destination_id = ref._id;
@@ -3251,6 +3372,15 @@ exports.execute = async (req, res) => {
       } catch (followUpErr) {
         logger.warn('[bienbot] Post-execution follow-up LLM call failed', { error: followUpErr.message });
       }
+    }
+
+    // Invalidate the cached session summary so the next resume() reflects the executed actions
+    try {
+      session.summary = undefined;
+      session.markModified('summary');
+      await session.save();
+    } catch (summaryErr) {
+      logger.warn('[bienbot] Failed to invalidate summary cache after action execution', { error: summaryErr.message });
     }
 
     return successResponse(res, {
@@ -3967,9 +4097,10 @@ exports.getMutualFollowers = async (req, res) => {
     // Step 3: Fetch user details and apply search filter
     const query = { _id: { $in: mutualIds } };
     if (searchTerm) {
+      const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { name: { $regex: searchTerm, $options: 'i' } },
-        { email: { $regex: searchTerm, $options: 'i' } }
+        { name: { $regex: escapedTerm, $options: 'i' } },
+        { email: { $regex: escapedTerm, $options: 'i' } }
       ];
     }
 

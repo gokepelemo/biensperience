@@ -232,7 +232,7 @@ export default function PendingActionCard({ action, onExecute, onUpdate, onCance
                 <Button variant="gradient" size="sm" onClick={() => onExecute(actionId)} disabled={disabled || isExecuting}>
                   {confirmLabel}
                 </Button>
-                {dismissLabel && (
+                {dismissLabel && dismissLabel !== 'Cancel' && (
                   <Button variant="outline" size="sm" onClick={() => onUpdate(actionId, description)} disabled={disabled || isExecuting}>
                     {dismissLabel}
                   </Button>

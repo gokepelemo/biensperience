@@ -451,13 +451,19 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       logger.debug('[bienbot-context] Signal injection skipped', { error: sigErr.message });
     }
 
-    // Fetch user plans once — reused by cross-entity block and attention signals block
+    // Fetch user plans once — reused by cross-entity block and attention signals block.
+    // Caller may pass opts.userPlans to avoid a redundant DB query when multiple
+    // context builders run in parallel.
     let userPlansForDest = [];
     try {
-      userPlansForDest = await Plan.find({ user: userId })
-        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
-        .select('experience planned_date plan')
-        .lean();
+      if (options.userPlans) {
+        userPlansForDest = options.userPlans;
+      } else {
+        userPlansForDest = await Plan.find({ user: userId })
+          .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
+          .select('experience planned_date plan')
+          .lean();
+      }
     } catch (planFetchErr) {
       logger.debug('[bienbot-context] Destination plan fetch skipped', { error: planFetchErr.message });
     }
@@ -608,10 +614,11 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
     }
 
     // Cross-entity: Your other plans for the same destination (up to 3)
+    // Caller may pass opts.userPlans to avoid a redundant DB query.
     try {
       const destId = experience.destination?._id;
       if (destId) {
-        const userPlans = await Plan.find({ user: userId })
+        const userPlans = options.userPlans || await Plan.find({ user: userId })
           .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
           .select('experience planned_date plan')
           .lean();
@@ -740,7 +747,7 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       `Completion: ${completedItems}/${totalItems} items (${completionPct}%)`,
       plan.currency ? `Currency: ${plan.currency}` : null,
       plan.costs?.length ? `Costs tracked: ${plan.costs.length}` : null,
-      totalItems > 0 ? `Items: ${planItems.slice(0, 10).map(i => `${i.complete ? '[x]' : '[ ]'} ${i.content || i.text || i.name || '(unnamed)'}`).join(', ')}` : null
+      totalItems > 0 ? `Items:\n${planItems.slice(0, 15).map(i => `  ${i.complete ? '[x]' : '[ ]'} ${i.content || i.text || i.name || '(unnamed)'} — ${entityJSON(i._id.toString(), i.content || i.text || i.name || 'item', 'plan_item')}`).join('\n')}` : null
     ];
 
     // Temporal proximity buckets: TODAY / NEXT 7 DAYS / NEXT 30 DAYS
@@ -837,13 +844,15 @@ async function buildUserPlanContext(planId, userId, options = {}) {
     }
 
     // Cross-entity: Your other plans for the same experience or destination (up to 2)
+    // Caller may pass opts.userPlans to avoid a redundant DB query.
     try {
       const expId = plan.experience?._id;
-      const relatedQuery = { user: userId, _id: { $ne: plan._id } };
-      const userOtherPlans = await Plan.find(relatedQuery)
+      const planIdStr = plan._id.toString();
+      const baseUserPlans = options.userPlans || await Plan.find({ user: userId, _id: { $ne: plan._id } })
         .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
         .select('experience planned_date plan')
         .lean();
+      const userOtherPlans = baseUserPlans.filter(p => String(p._id) !== planIdStr);
       // Prefer same experience first; otherwise same destination
       const sameExpPlans = userOtherPlans.filter(p => expId && String(p.experience?._id) === String(expId));
       const remainingSlots = 2 - sameExpPlans.length;

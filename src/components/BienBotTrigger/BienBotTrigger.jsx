@@ -56,6 +56,7 @@ export default function BienBotTrigger({
   const [initialMessage, setInitialMessage] = useState(null);
   const [initialSessionId, setInitialSessionId] = useState(null);
   const [analysisSuggestions, setAnalysisSuggestions] = useState(null);
+  const [invokeContextOverride, setInvokeContextOverride] = useState(null);
   const [greetingLoading, setGreetingLoading] = useState(false);
 
   const isAdmin = user && isSuperAdmin(user);
@@ -92,6 +93,17 @@ export default function BienBotTrigger({
       setInitialMessage(msg);
       setInitialSessionId(sid);
       setAnalysisSuggestions(suggestions);
+      // When the analysis was run for a specific entity (e.g. plan_item), override
+      // the route-based invokeContext so the backend session is scoped to that entity.
+      if (suggestions?.entityId && suggestions?.entity) {
+        setInvokeContextOverride({
+          entity: suggestions.entity,
+          id: suggestions.entityId,
+          label: suggestions.entityLabel || suggestions.entity,
+        });
+      } else {
+        setInvokeContextOverride(null);
+      }
       setPanelMounted(true);
       setPanelOpen(true);
     });
@@ -125,6 +137,7 @@ export default function BienBotTrigger({
     setInitialMessage(null);
     setInitialSessionId(null);
     setAnalysisSuggestions(null);
+    setInvokeContextOverride(null);
   }, []);
 
   const clearAnalysisSuggestions = useCallback(() => {
@@ -190,7 +203,7 @@ export default function BienBotTrigger({
         <BienBotPanelLazy
           open={panelOpen}
           onClose={handleClose}
-          invokeContext={invokeContext}
+          invokeContext={invokeContextOverride || invokeContext}
           navigationSchema={navigationSchema}
           currentView={currentView}
           isEntityView={isEntityView}

@@ -110,6 +110,7 @@ export async function postMessage(sessionId, message, options = {}) {
   const {
     invokeContext,
     navigationSchema,
+    priorGreeting,
     attachment,
     onToken,
     onSession,
@@ -161,6 +162,9 @@ export async function postMessage(sessionId, message, options = {}) {
     }
     if (!sessionId && navigationSchema) {
       bodyObj.navigationSchema = navigationSchema;
+    }
+    if (!sessionId && priorGreeting) {
+      bodyObj.priorGreeting = priorGreeting;
     }
     requestBody = JSON.stringify(bodyObj);
   }
@@ -514,20 +518,91 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
-          case 'add_plan_items':
+          // Any action that modifies a specific plan item: emit plan:updated (for
+          // usePlanManagement to reconcile) AND plan:item:updated (for
+          // PlanItemDetailsModal / SingleExperience to update the open item in-place).
+          // This mirrors the same dual-event pattern used by plans-api.js on direct
+          // user interactions, so BienBot actions produce identical UI side-effects.
           case 'update_plan_item':
-          case 'mark_plan_item_complete':
-          case 'mark_plan_item_incomplete':
-          case 'delete_plan_item':
-          case 'sync_plan':
-          case 'add_plan_item_note':
           case 'update_plan_item_note':
+          case 'update_plan_item_detail':
+          case 'add_plan_item_note':
           case 'delete_plan_item_note':
           case 'add_plan_item_detail':
-          case 'update_plan_item_detail':
           case 'delete_plan_item_detail':
           case 'assign_plan_item':
-          case 'unassign_plan_item':
+          case 'unassign_plan_item': {
+            const updatePlanIdStr = entity._id?.toString ? entity._id.toString() : entity._id || actionResult.payload?.plan_id;
+            const updateItemIdStr = actionResult.payload?.item_id?.toString
+              ? actionResult.payload.item_id.toString()
+              : actionResult.payload?.item_id;
+
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: updatePlanIdStr,
+              version: Date.now()
+            });
+
+            // Also emit a granular plan:item:updated so PlanItemDetailsModal
+            // and SingleExperience can update the specific item in-place without
+            // waiting for a full plan re-fetch. Covers field updates as well as
+            // note / detail / assignment changes on the same item.
+            if (updateItemIdStr) {
+              const updatedItem = Array.isArray(entity?.plan)
+                ? entity.plan.find(i => {
+                    const iid = i?._id?.toString ? i._id.toString() : i?._id;
+                    const iPlanItemId = i?.plan_item_id?.toString ? i.plan_item_id.toString() : i?.plan_item_id;
+                    return iid === updateItemIdStr || iPlanItemId === updateItemIdStr;
+                  })
+                : null;
+
+              if (updatedItem) {
+                const resolvedItemId = updatedItem._id?.toString
+                  ? updatedItem._id.toString()
+                  : updatedItem._id;
+
+                broadcastEvent('plan:item:updated', {
+                  planId: updatePlanIdStr,
+                  itemId: resolvedItemId,
+                  planItemId: resolvedItemId,
+                  planItem: updatedItem,
+                  data: entity,
+                  version: Date.now()
+                });
+              }
+            }
+            break;
+          }
+
+          // Item deletion: emit plan:updated (list re-renders) + plan:item:deleted
+          // (modal closes / item removed from view).
+          case 'delete_plan_item': {
+            const deletePlanIdStr = entity._id?.toString
+              ? entity._id.toString()
+              : entity._id || actionResult.payload?.plan_id;
+            const deleteItemIdStr = actionResult.payload?.item_id?.toString
+              ? actionResult.payload.item_id.toString()
+              : actionResult.payload?.item_id;
+
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: deletePlanIdStr,
+              version: Date.now()
+            });
+
+            if (deleteItemIdStr) {
+              broadcastEvent('plan:item:deleted', {
+                planId: deletePlanIdStr,
+                planItemId: deleteItemIdStr,
+                itemId: deleteItemIdStr,
+                version: Date.now()
+              });
+            }
+            break;
+          }
+
+          case 'add_plan_items':
+          case 'sync_plan':
           case 'update_plan':
           case 'add_plan_cost':
           case 'update_plan_cost':
@@ -537,10 +612,54 @@ export async function executeActions(sessionId, actionIds) {
           case 'remove_member_location':
             broadcastEvent('plan:updated', {
               plan: entity,
-              planId: entity._id || actionResult.planId,
+              planId: entity._id?.toString ? entity._id.toString() : entity._id || actionResult.planId,
               version: Date.now()
             });
             break;
+
+          case 'mark_plan_item_complete':
+          case 'mark_plan_item_incomplete': {
+            const planIdStr = entity._id?.toString ? entity._id.toString() : entity._id || actionResult.planId;
+            const itemIdStr = actionResult.payload?.item_id?.toString
+              ? actionResult.payload.item_id.toString()
+              : actionResult.payload?.item_id;
+            const isComplete = actionResult.type === 'mark_plan_item_complete';
+
+            // Find the updated item in the returned plan — match by subdoc _id OR plan_item_id
+            // (BienBot may use either the plan snapshot _id or the experience template plan_item_id)
+            const updatedItem = Array.isArray(entity?.plan)
+              ? entity.plan.find(i => {
+                  const iid = i?._id?.toString ? i._id.toString() : i?._id;
+                  const iPlanItemId = i?.plan_item_id?.toString ? i.plan_item_id.toString() : i?.plan_item_id;
+                  return itemIdStr && (iid === itemIdStr || iPlanItemId === itemIdStr);
+                })
+              : null;
+
+            // Use the matched item's actual _id for the granular event so subscribers can find it
+            const resolvedItemId = updatedItem?._id?.toString
+              ? updatedItem._id.toString()
+              : (updatedItem?._id || itemIdStr);
+
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: planIdStr,
+              version: Date.now()
+            });
+
+            // Also emit the granular item event so all UI subscribers are notified
+            if (itemIdStr) {
+              broadcastEvent(isComplete ? 'plan:item:completed' : 'plan:item:uncompleted', {
+                planId: planIdStr,
+                itemId: resolvedItemId,
+                planItemId: resolvedItemId,
+                planItem: updatedItem,
+                data: entity,
+                action: isComplete ? 'item_completed' : 'item_uncompleted',
+                version: Date.now()
+              });
+            }
+            break;
+          }
 
           case 'invite_collaborator':
           case 'create_invite':
@@ -911,7 +1030,7 @@ export async function removeSessionCollaborator(sessionId, userId) {
  * @returns {Promise<{ session: Object, message: Object }>}
  */
 export async function postSharedComment(sessionId, message, replyTo = null) {
-  const body = { message, sessionId };
+  const body = { message, sessionId, comment_only: true };
   if (replyTo) {
     body.reply_to = replyTo;
   }

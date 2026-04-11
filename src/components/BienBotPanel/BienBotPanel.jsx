@@ -24,6 +24,7 @@ import {
   getNavigationUrlForResult
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
+import { broadcastEvent } from '../../utilities/event-bus';
 import WorkflowStepCard from './WorkflowStepCard';
 import PlanSelector from './PlanSelector';
 import SuggestionList from './SuggestionList';
@@ -1243,6 +1244,17 @@ export default function BienBotPanel({
               if (payload.location) changes.push('location');
               const summary = changes.length > 0 ? changes.join(', ') : 'details';
               feedbackLines.push(`\u2705 Plan item updated: ${summary}`);
+            } else if (actionResult.type === 'mark_plan_item_complete' || actionResult.type === 'mark_plan_item_incomplete') {
+              const isComplete = actionResult.type === 'mark_plan_item_complete';
+              const itemPayload = action?.payload || {};
+              const itemIdStr = itemPayload.item_id?.toString ? itemPayload.item_id.toString() : itemPayload.item_id;
+              const planItems = Array.isArray(actionResult.result?.plan) ? actionResult.result.plan : [];
+              const matchedItem = planItems.find(i => (i._id?.toString ? i._id.toString() : i._id) === itemIdStr);
+              const itemName = matchedItem?.text || action?.description || '';
+              feedbackLines.push(isComplete
+                ? `\u2705 ${itemName ? `"${itemName}" marked complete` : 'Plan item marked complete'}`
+                : `\u2705 ${itemName ? `"${itemName}" marked incomplete` : 'Plan item marked incomplete'}`
+              );
             } else {
               const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
               const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
@@ -1266,12 +1278,62 @@ export default function BienBotPanel({
         }
 
         // Auto-navigate to newly created entities (panel stays open)
+        let navigated = false;
         for (const actionResult of result.results) {
           const navUrl = getNavigationUrlForResult(actionResult);
           if (navUrl) {
             navigate(navUrl);
+            navigated = true;
             break; // Only navigate once
           }
+        }
+
+        // Re-emit entity events after navigation so that page components
+        // that mount on the new route can pick them up (they may have missed
+        // the initial broadcast fired before navigate() was called).
+        if (navigated && result.results) {
+          setTimeout(() => {
+            try {
+              for (const actionResult of result.results) {
+                if (!actionResult.success) continue;
+                const entity = actionResult.result || actionResult.entity || actionResult.data;
+                if (!entity) continue;
+                switch (actionResult.type) {
+                  case 'create_plan':
+                    broadcastEvent('plan:created', {
+                      plan: entity,
+                      planId: entity._id,
+                      experienceId: entity.experience?._id || entity.experience,
+                      version: Date.now()
+                    });
+                    break;
+                  case 'update_plan':
+                  case 'add_plan_items':
+                  case 'sync_plan':
+                    broadcastEvent('plan:updated', {
+                      plan: entity,
+                      planId: entity._id || actionResult.planId,
+                      version: Date.now()
+                    });
+                    break;
+                  case 'create_experience':
+                    broadcastEvent('experience:created', { experience: entity, experienceId: entity._id });
+                    break;
+                  case 'update_experience':
+                    broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
+                    break;
+                  case 'create_destination':
+                    broadcastEvent('destination:created', { destination: entity, destinationId: entity._id });
+                    break;
+                  case 'update_destination':
+                    broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
+                    break;
+                  default:
+                    break;
+                }
+              }
+            } catch (e) { /* silently ignore */ }
+          }, 300);
         }
       }
 

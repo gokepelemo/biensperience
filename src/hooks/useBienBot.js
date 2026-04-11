@@ -56,6 +56,7 @@ export async function openWithAnalysis(entity, entityId, entityLabel) {
   broadcastEvent('bienbot:open', {
     analysisSuggestions: {
       entity,
+      entityId,
       entityLabel,
       suggestions: result.suggestions,
       suggestedPrompts: result.suggestedPrompts || [],
@@ -90,6 +91,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   const abortControllerRef = useRef(null);
   const sessionIdRef = useRef(initialSessionId);
   const invokeContextSentRef = useRef(false);
+  // Holds the formatted analysis greeting text that was shown to the user before the
+  // first message was sent. Sent once as `priorGreeting` on new session creation so
+  // the backend can persist it as the opening assistant turn, giving the LLM the
+  // context it needs to answer follow-up questions about the analysis.
+  const priorGreetingRef = useRef(null);
 
   // Keep sessionIdRef in sync with currentSession
   useEffect(() => {
@@ -162,6 +168,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     // Clear suggested next steps when user sends a new message
     setSuggestedNextSteps([]);
 
+    // Dismiss any pending action prompts — the new message supersedes them
+    setPendingActions([]);
+
     // Optimistic: append user message immediately
     const userMessage = {
       _id: `temp-${Date.now()}`,
@@ -198,11 +207,15 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     // Determine whether to send invokeContext (only when present and not yet sent)
     const sid = sessionIdRef.current;
     const shouldSendContext = !sid && invokeContext?.entity && invokeContext?.id && !invokeContextSentRef.current;
+    const priorGreeting = !sid ? priorGreetingRef.current : null;
+    // Clear after capture so it is only ever sent once
+    if (priorGreeting) priorGreetingRef.current = null;
 
     try {
       await postMessage(sid, text, {
         invokeContext: shouldSendContext ? invokeContext : undefined,
         navigationSchema: (!sid && !invokeContextSentRef.current && navigationSchema) ? navigationSchema : undefined,
+        priorGreeting: priorGreeting || undefined,
         attachment: attachment || undefined,
         signal: controller.signal,
 
@@ -359,9 +372,12 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         prev.filter(a => !actionIds.includes(a._id || a.id))
       );
 
-      // If the server returned an updated session, sync it
+      // If the server returned an updated session, merge it — don't replace.
+      // The execute endpoint returns a sparse { id, context } object and does not
+      // include the `user` field, so a full replace would make isSessionOwner false
+      // on subsequent renders, incorrectly routing follow-up messages to sendSharedComment.
       if (result?.session) {
-        setCurrentSession(result.session);
+        setCurrentSession(prev => prev ? { ...prev, ...result.session } : result.session);
       }
 
       return result;
@@ -923,6 +939,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, [cancelStream]);
 
   // ---------------------------------------------------------------------------
+  /** Store the formatted analysis greeting so it is persisted as the first session message. */
+  const setPriorGreeting = useCallback((text) => {
+    priorGreetingRef.current = text || null;
+  }, []);
+
   // appendStructuredContent — inject a structured content block into the last
   // assistant message (used for post-action enrichment like tip suggestions)
   // ---------------------------------------------------------------------------
@@ -998,6 +1019,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     appendStructuredContent,
     appendMessage,
     replaceInitialGreeting,
+    setPriorGreeting,
     getPersistedSession,
     clearPersistedSession,
     resetSession

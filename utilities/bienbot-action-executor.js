@@ -28,6 +28,20 @@ function loadControllers() {
   }
 }
 
+// Lazy-loaded models (resolved on first use to avoid circular deps)
+let _mongoose, _Plan, _Experience, _Destination, _User, _getEnforcer;
+
+function loadModels() {
+  if (!_mongoose) {
+    _mongoose = require('mongoose');
+    _Plan = require('../models/plan');
+    _Experience = require('../models/experience');
+    _Destination = require('../models/destination');
+    _User = require('../models/user');
+    _getEnforcer = require('./permission-enforcer').getEnforcer;
+  }
+}
+
 /**
  * Strict allowlist of action types that can be executed.
  * Unknown types are dropped and logged — never executed.
@@ -420,31 +434,26 @@ async function executeInviteCollaborator(payload, user) {
 async function executeSyncPlan(payload, user) {
   // sync_plan has no dedicated controller endpoint — implement directly
   // using models, but still respecting permission enforcer.
-  const mongoose = require('mongoose');
-  const { getEnforcer } = require('./permission-enforcer');
-  const Plan = require('../models/plan');
-  const Experience = require('../models/experience');
-  const Destination = require('../models/destination');
-  const User = require('../models/user');
+  loadModels();
 
   const planId = payload.plan_id;
 
-  if (!mongoose.Types.ObjectId.isValid(planId)) {
+  if (!_mongoose.Types.ObjectId.isValid(planId)) {
     return { statusCode: 400, body: { success: false, error: 'Invalid plan ID' } };
   }
 
-  const plan = await Plan.findById(planId);
+  const plan = await _Plan.findById(planId);
   if (!plan) {
     return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
   }
 
-  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const enforcer = _getEnforcer({ Plan: _Plan, Experience: _Experience, Destination: _Destination, User: _User });
   const permCheck = await enforcer.canEdit({ userId: user._id, resource: plan });
   if (!permCheck.allowed) {
     return { statusCode: 403, body: { success: false, error: permCheck.reason || 'Insufficient permissions' } };
   }
 
-  const experience = await Experience.findById(plan.experience);
+  const experience = await _Experience.findById(plan.experience);
   if (!experience) {
     return { statusCode: 404, body: { success: false, error: 'Source experience not found' } };
   }
@@ -1580,17 +1589,35 @@ async function executeSelectPlan(payload, user) {
  * @param {object} payload - { destination_id, destination_name? }
  * @returns {Promise<{ statusCode: number, body: object }>}
  */
-async function executeSelectDestination(payload) {
+async function executeSelectDestination(payload, user) {
   if (!payload.destination_id) {
     return { statusCode: 400, body: { success: false, error: 'select_destination requires destination_id' } };
   }
+
+  loadModels();
+
+  if (!_mongoose.Types.ObjectId.isValid(payload.destination_id)) {
+    return { statusCode: 400, body: { success: false, error: 'Invalid destination_id format' } };
+  }
+
+  const destination = await _Destination.findById(payload.destination_id).select('_id name country').lean();
+  if (!destination) {
+    return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
+  }
+
+  const enforcer = _getEnforcer({ Plan: _Plan, Experience: _Experience, Destination: _Destination, User: _User });
+  const perm = await enforcer.canView({ userId: user._id, resource: destination });
+  if (!perm.allowed) {
+    return { statusCode: 403, body: { success: false, error: 'Not authorized to view this destination' } };
+  }
+
   return {
     statusCode: 200,
     body: {
       success: true,
       data: {
-        destination_id: payload.destination_id,
-        destination_name: payload.destination_name || null
+        destination_id: destination._id.toString(),
+        destination_name: destination.name || payload.destination_name || null
       }
     }
   };
@@ -1755,7 +1782,7 @@ async function executeActions(actions, user, session) {
 
   for (const action of actions) {
     const outcome = await executeAction(action, user, session);
-    results.push({ actionId: action.id, type: action.type, ...outcome });
+    results.push({ actionId: action.id, type: action.type, payload: action.payload || {}, ...outcome });
 
     // Mark action as executed on the session
     if (session && typeof session.markActionExecuted === 'function') {

@@ -86,6 +86,11 @@ const DialogModal = forwardRef(function DialogModal({
   // dialogClassName and contentClassName both apply to the content card
   const contentClasses = [contentClassName, dialogClassName].filter(Boolean).join(' ') || undefined;
 
+  // Fullscreen modals fill the entire viewport regardless of placement.
+  // Force 'center' to avoid the 'top' placement variant adding paddingTop
+  // to the positioner, which would push the dialog below the navbar.
+  const placement = chakraSize === 'full' ? 'center' : (centered ? 'center' : 'top');
+
   return (
     <Dialog.Root
       open={show}
@@ -103,7 +108,7 @@ const DialogModal = forwardRef(function DialogModal({
       unmountOnExit
       motionPreset="none"
       size={chakraSize}
-      placement={centered ? 'center' : 'top'}
+      placement={placement}
       scrollBehavior={scrollBehavior}
     >
       <Portal>

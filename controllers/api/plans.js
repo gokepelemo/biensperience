@@ -2195,11 +2195,18 @@ const updatePlanItem = asyncHandler(async (req, res) => {
   }
 
   // Find and update the plan item
-  const planItem = plan.plan.id(itemId);
+  // Support both subdocument _id and plan_item_id (BienBot uses experience plan item IDs)
+  let planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    planItem = plan.plan.find(i => i.plan_item_id?.toString() === itemId?.toString());
+  }
 
   if (!planItem) {
     return res.status(404).json({ error: "Plan item not found" });
   }
+
+  // Use the actual subdocument _id for positional queries (itemId may be plan_item_id)
+  const subdocId = planItem._id;
 
   // Scheduling policy: only root (parent) items may be scheduled.
   // Child items must follow their parent in Timeline grouping.
@@ -2321,7 +2328,7 @@ const updatePlanItem = asyncHandler(async (req, res) => {
 
     // Perform atomic update using the positional $ operator
     const updatedPlan = await Plan.findOneAndUpdate(
-      { _id: plan._id, 'plan._id': itemId },
+      { _id: plan._id, 'plan._id': subdocId },
       { $set: setObj },
       { new: true }
     )
@@ -2330,6 +2337,10 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       path: 'user',
       select: 'name email'
     });
+
+    if (!updatedPlan) {
+      return res.status(404).json({ error: 'Plan item not found' });
+    }
 
     // If completion changed, track it
     if (complete !== undefined && wasComplete !== willBeComplete) {
@@ -2346,12 +2357,12 @@ const updatePlanItem = asyncHandler(async (req, res) => {
 
     // Broadcast plan item update via WebSocket
     try {
-      const updatedItem = updatedPlan.plan?.find(i => i._id?.toString() === itemId?.toString());
+      const updatedItem = updatedPlan.plan?.find(i => i._id?.toString() === subdocId.toString());
       broadcastEvent('plan', id.toString(), {
         type: 'plan:item:updated',
         payload: {
           planId: id.toString(),
-          planItemId: itemId.toString(),
+          planItemId: subdocId.toString(),
           planItem: updatedItem,
           userId: req.user._id.toString()
         }
@@ -2365,7 +2376,7 @@ const updatePlanItem = asyncHandler(async (req, res) => {
       setImmediate(async () => {
         try {
           const experienceId = updatedPlan.experience?._id || updatedPlan.experience;
-          const updatedItem = updatedPlan.plan?.find(i => i._id?.toString() === itemId?.toString());
+          const updatedItem = updatedPlan.plan?.find(i => i._id?.toString() === subdocId.toString());
           if (visibility === 'public') {
             const itemUser = await User.findById(req.user._id).select('preferences.profileVisibility name email').lean();
             if (itemUser?.preferences?.profileVisibility !== 'private') {

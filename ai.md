@@ -483,6 +483,8 @@ Message Arrives
 
 The NLP.js manager is trained **once on first use** and cached as a singleton. The training takes ~100ms and the model persists in memory for the lifetime of the server process. `resetManager()` is available for testing. `retrainManager()` reloads the corpus from DB and retrains the model live (called after admin corpus changes).
 
+**Disk cache** — In addition to the in-memory singleton, the trained model is serialised to `{os.tmpdir()}/bienbot-nlp-{hash}.json` where `hash` is an MD5 of the corpus data (first 12 hex chars). On subsequent starts the classifier loads from the cache file and skips training entirely, making cold starts and test runs fast. A stale cache is automatically busted when the corpus changes (different hash → different file path). **Test environment shortcut** — when `NODE_ENV=test` the classifier reads the corpus directly from the JSON file and skips the DB, preventing connection timeouts in isolated test runs.
+
 ### MongoDB-Backed Corpus
 
 The runtime corpus is stored in the `IntentCorpus` model, enabling admins to add/edit utterances without code deploys:
@@ -756,9 +758,11 @@ To make BienBot understand a new user intent:
 To let BienBot propose and execute a new type of write action:
 
 1. Add the action type to `ALLOWED_ACTION_TYPES` in `utilities/bienbot-action-executor.js`
-2. Implement the execution logic (reuse existing controller functions)
-3. Update the LLM system prompt to describe the new action type
-4. Add the action type to the event emission map in `src/utilities/bienbot-api.js`
+2. If it should auto-execute without user confirmation, add it to `READ_ONLY_ACTION_TYPES` as well
+3. Implement the execution logic (reuse existing controller functions)
+4. Update the LLM system prompt to describe the new action type
+5. Add the action type to the event emission map in `src/utilities/bienbot-api.js`
+6. If the action produces a structured content block, add its type to `STRUCTURED_CONTENT_TYPES` in `bienbot-action-executor.js`, add a `case` in `mapReadOnlyResultToStructuredContent()` in `controllers/api/bienbot.js`, and add a renderer in `BienBotPanel.jsx`
 
 ### Frontend: Creating an AI-Powered Component
 
@@ -1383,8 +1387,8 @@ The notification is suppressed if:
     generated_at: Date         // used to decide whether to regenerate on next resume
   },
   pending_actions: [{
-    id: String,              // uuid
-    type: String,            // Any of the 25 action types (see Action Executor section)
+    id: String,              // 'action_' + 8-char hex (crypto.randomBytes(4))
+    type: String,            // Any of the ALLOWED_ACTION_TYPES (see Action Executor section)
     payload: Object,         // structured params ready to execute
     description: String,     // human-readable summary shown to user for confirmation
     executed: Boolean,
@@ -1520,10 +1524,20 @@ buildExperienceContext(experienceId, userId)        → string
 buildUserPlanContext(planId | experienceId, userId) → string
 buildPlanItemContext(planId, itemId, userId)        → string  // invoked from plan item modal
 buildUserProfileContext(userId)                     → string  // user's plans, favourites, recent activity
+buildUserGreetingContext(userId)                    → string  // dashboard/profile FAB greeting
 buildSearchContext(query, userId)                   → string  // fuzzy destination/experience search
 ```
 
 **`buildContextForInvokeContext(invokeContext, userId)`** — convenience wrapper called at session creation time. Dispatches to the correct builder(s) based on `invokeContext.entity` and returns a pre-built context string stored in the session for the first turn. For example, `entity: 'plan'` calls both `buildExperienceContext` and `buildUserPlanContext` so the bot immediately understands both the template and the user's copy.
+
+**`buildUserGreetingContext`** — used when BienBot is opened from a non-entity page (dashboard FAB, profile page). Returns an enriched context block that includes:
+- All active plans (up to 10) each annotated with inline `entityJSON` refs for the plan, experience, and destination — enabling follow-up questions like "show me my Paris plans" to resolve immediately without a search round-trip.
+- Today's and next-7-days plan items per plan.
+- Recent activity (last 48 h) with per-event entity refs so the model can propose navigation actions.
+- Imminent incomplete items (≤7 days until trip) flagged for attention.
+- Plans without a date set and empty plans, each with entity refs.
+- Overdue plan items (past scheduled date, not complete) with entity refs.
+- Hidden travel signals (decay-weighted destination affinity) for proactive destination suggestions.
 
 Each builder:
 - Respects the permissions enforcer (`canView`)
@@ -1592,7 +1606,7 @@ The system prompt is built dynamically by `buildSystemPrompt()` and includes:
 4. **Viewing context** — The `invokeContext.entity_label` provides a natural-language hint about the user's current page
 5. **Entity context block** — Injected by context builders with destination, experience, plan, and plan item data
 6. **Response schema** — Strict JSON with `message` and `pending_actions` array
-7. **All 25 action types** with payload schemas grouped by entity (Destination, Experience, Plan, Plan Items, Plan Costs, Collaboration, Member Location)
+7. **All ALLOWED_ACTION_TYPES** with payload schemas grouped by entity (Destination, Experience, Plan, Plan Items, Plan Costs, Collaboration, Member Location)
 
 ```
 [SYSTEM]
@@ -1618,11 +1632,21 @@ Available action types:
   create_destination, create_experience, create_plan,
   update_experience, update_destination, update_plan,
   add_plan_items, update_plan_item, delete_plan_item, delete_plan,
+  mark_plan_item_complete, mark_plan_item_incomplete,
+  pin_plan_item, unpin_plan_item, reorder_plan_items,
   add_experience_plan_item, update_experience_plan_item, delete_experience_plan_item,
-  add_plan_item_note, add_plan_item_detail, assign_plan_item, unassign_plan_item,
+  add_plan_item_note, update_plan_item_note, delete_plan_item_note,
+  add_plan_item_detail, update_plan_item_detail, delete_plan_item_detail,
+  assign_plan_item, unassign_plan_item,
   add_plan_cost, update_plan_cost, delete_plan_cost,
   invite_collaborator, remove_collaborator, sync_plan,
-  toggle_favorite_destination, set_member_location, remove_member_location
+  toggle_favorite_destination, set_member_location, remove_member_location,
+  navigate_to_entity, workflow, add_entity_photos,
+  suggest_plan_items, fetch_entity_photos, fetch_destination_tips, discover_content,
+  select_plan, select_destination, shift_plan_item_dates,
+  list_user_experiences, list_user_followers, list_user_activities, list_entity_documents,
+  follow_user, unfollow_user, accept_follow_request,
+  update_user_profile, create_invite, request_plan_access
 
 [Action payload schemas for all 25 types — grouped by entity]
 
@@ -1714,6 +1738,69 @@ Maps `action.type` → existing service logic. **Does not call models directly**
 | `remove_collaborator` | `plans` controller `removeCollaborator` or `experiences` controller `removeExperiencePermission` — determined by plan_id vs experience_id |
 | `set_member_location` | `plans` controller `setMemberLocation` — location, travel_cost_estimate, currency |
 | `remove_member_location` | `plans` controller `removeMemberLocation` — **always uses logged-in user; no external user_id accepted** |
+| `create_invite` | `InviteCode.createInvite()` directly — delegates to the model's collision-resistant code generation (`crypto.randomInt`-based with uniqueness retry); `bienbot-api.js` broadcasts `invite:created` via the event bus after execution |
+| `request_plan_access` | `plans` controller access request logic |
+
+**Plan Item Operations**
+
+| `action.type` | Calls |
+|---|---|
+| `mark_plan_item_complete` | `plans` controller `updatePlanItem` with `complete: true` |
+| `mark_plan_item_incomplete` | `plans` controller `updatePlanItem` with `complete: false` |
+| `pin_plan_item` | `plans` controller pin logic |
+| `unpin_plan_item` | `plans` controller unpin logic |
+| `reorder_plan_items` | `plans` controller `reorderPlanItems` — fetches full plan objects first (not just IDs) and sorts them before delegating, so subdocument fields are preserved |
+
+**Social & Profile Actions**
+
+| `action.type` | Calls |
+|---|---|
+| `follow_user` | `users` controller follow logic |
+| `unfollow_user` | `users` controller unfollow logic |
+| `accept_follow_request` | `users` controller accept-follow logic |
+| `update_user_profile` | `users` controller `updateUser` — name, bio, preferences |
+
+**Read-Only / Data Fetching Actions (auto-execute, no confirmation)**
+
+| `action.type` | Returns |
+|---|---|
+| `suggest_plan_items` | AI-generated plan item suggestions for the experience |
+| `fetch_entity_photos` | Photos attached to a destination, experience, or plan item |
+| `fetch_destination_tips` | Travel tips for a destination |
+| `discover_content` | Destination + experience discovery results |
+| `list_user_experiences` | Experiences owned by the logged-in user |
+| `list_user_followers` | User's followers list |
+| `list_user_activities` | User's activity feed |
+| `list_entity_documents` | Documents attached to an entity |
+
+**Disambiguation Actions (auto-execute, no confirmation)**
+
+| `action.type` | Calls |
+|---|---|
+| `select_plan` | Updates `session.context.plan_id`; treated as read-only — no confirmation required |
+| `select_destination` | Updates `session.context.destination_id`; treated as read-only — no confirmation required |
+
+These types are in `READ_ONLY_ACTION_TYPES` and auto-execute when the LLM needs to lock onto a specific entity before the next turn. The user is not prompted to confirm them.
+
+**Date Normalisation**
+
+All date fields passed to `create_plan`, `update_plan`, `update_plan_item`, and `update_plan_item_dates` are normalised through `normalizeDateOnly()` before being forwarded to controllers. ISO date-only strings (`YYYY-MM-DD`) are rewritten to `YYYY-MM-DDT12:00:00Z` (noon UTC) so that `new Date()` in any server timezone still resolves to the intended calendar day, preventing off-by-one date shifts.
+
+**Structured Content Types**
+
+`STRUCTURED_CONTENT_TYPES` is exported from `bienbot-action-executor.js` as the canonical list of valid structured content block types for BienBot messages. The `BienBotSession` model imports this array for its Mongoose enum, keeping the schema in sync with the controller mapper and the panel renderer.
+
+| Block type | Rendered as |
+|---|---|
+| `photo_gallery` | Photo strip |
+| `suggestion_list` | Tappable suggestion chips |
+| `discovery_result_list` | Destination/experience discovery cards |
+| `tip_suggestion_list` | Travel tip cards |
+| `entity_ref_list` | Linked entity references |
+| `experience_list` | Experience cards |
+| `follower_list` | User follower cards |
+| `document_list` | Document attachment cards |
+| `activity_feed` | Activity timeline |
 
 The executor returns `{ success, result, errors[] }` per action. Results are merged back into `session.context` (e.g. a newly created `experience_id` is stored for subsequent turns).
 
@@ -1779,6 +1866,7 @@ BienBot reuses the existing `ai_features` flag. No new flag is introduced at thi
 7. **Input sanitization** — User messages are length-capped (8000 chars) and stripped of null bytes before being stored or forwarded to the LLM.
 8. **invokeContext ID validation** — `invokeContext.id` is validated with `validateObjectId` and run through `PermissionEnforcer.canView()` before any context builder is called. An invalid or inaccessible ID results in `invoke_context` being stored with `entity_id: null` and a warning logged — the session continues without pre-seeded context.
 9. **Label injection safety** — only `invokeContext.entity_label` (a human-readable string) is placed in the prompt, never raw IDs. Labels are server-resolved from the DB — the client-supplied label is never used verbatim.
+10. **`priorGreeting` sentinel guard** — The optional `priorGreeting` field in the chat request body is included verbatim in the session-resume prompt. To prevent prompt injection via this field, the controller checks that the value does not contain the `[ANALYSIS]` sentinel string (prepended by client-side formatting utilities). If the sentinel is detected, the field is dropped and a warning is logged.
 
 ---
 
