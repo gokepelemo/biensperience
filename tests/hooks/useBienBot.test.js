@@ -29,6 +29,7 @@ jest.mock('../../src/utilities/bienbot-api', () => ({
   cancelAction: jest.fn(),
   deleteSession: jest.fn(),
   updateSessionContext: jest.fn(),
+  analyzeEntity: jest.fn(),  // ADD THIS LINE
 }));
 
 // ─── Mock event-bus ────────────────────────────────────────────────────────
@@ -781,5 +782,48 @@ describe('useBienBot', () => {
 
       global.AbortController = OriginalAbortController;
     });
+  });
+});
+
+// ─── openWithAnalysis ────────────────────────────────────────────────────────
+describe('openWithAnalysis', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('calls analyzeEntity with entity and entityId', async () => {
+    const { openWithAnalysis } = await import('../../src/hooks/useBienBot');
+    bienbotApi.analyzeEntity.mockResolvedValueOnce({ suggestions: [] });
+
+    await openWithAnalysis('experience', 'exp123', 'Tokyo Walk');
+
+    expect(bienbotApi.analyzeEntity).toHaveBeenCalledWith('experience', 'exp123');
+  });
+
+  it('broadcasts bienbot:open with analysisSuggestions payload', async () => {
+    const { broadcastEvent } = await import('../../src/utilities/event-bus');
+    const { openWithAnalysis } = await import('../../src/hooks/useBienBot');
+    const suggestions = [
+      { type: 'warning', message: 'No planned date.' },
+      { type: 'tip', message: 'Add transport.' },
+    ];
+    bienbotApi.analyzeEntity.mockResolvedValueOnce({ suggestions });
+
+    await openWithAnalysis('experience', 'exp123', 'Tokyo Walk');
+
+    expect(broadcastEvent).toHaveBeenCalledWith('bienbot:open', {
+      analysisSuggestions: {
+        entity: 'experience',
+        entityLabel: 'Tokyo Walk',
+        suggestions,
+      },
+    });
+  });
+
+  it('propagates errors thrown by analyzeEntity', async () => {
+    const { openWithAnalysis } = await import('../../src/hooks/useBienBot');
+    bienbotApi.analyzeEntity.mockRejectedValueOnce(new Error('network'));
+
+    await expect(openWithAnalysis('experience', 'exp123', 'Tokyo Walk')).rejects.toThrow('network');
   });
 });

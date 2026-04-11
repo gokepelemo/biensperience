@@ -287,7 +287,7 @@ export default function NavBar() {
   /* ── Render: mobile nav within Drawer ─────────────────────── */
 
   const renderMobileNavContent = () => (
-    <Flex direction="column" gap="1" py="2" minH="60vh" position="relative">
+    <Flex direction="column" gap="1" py="2" pb="4" position="relative">
       {/* Search */}
       <Box px="4" pt="2" pb="1" w="full">
         <SearchBar
@@ -427,20 +427,15 @@ export default function NavBar() {
 
       <Box h="1px" bg="border" mx="4" my="2" />
 
-      {/* Persistent sticky logout button for mobile/tablet */}
-      <Box flex="1 0 auto" />
-      <Box px="4" py="2" position="sticky" bottom="0" zIndex="10" bg="bg.primary">
-        <NavLink
-          to="/logout"
-          onClick={(e) => { closeMobile(); handleLogOut(); }}
-          className={`${styles.mobileNavLink} ${styles.logoutLink}`}
-          aria-label={lang.current.aria.logOutOfAccount}
-          style={{ justifyContent: 'center', fontSize: '1.1em', fontWeight: 900 }}
-        >
-          <FaSignOutAlt className={styles.mobileIcon} />
-          Logout
-        </NavLink>
-      </Box>
+      <NavLink
+        to="/logout"
+        onClick={(e) => { closeMobile(); handleLogOut(); }}
+        className={`${styles.mobileNavLink} ${styles.logoutLink}`}
+        aria-label={lang.current.aria.logOutOfAccount}
+      >
+        <FaSignOutAlt className={styles.mobileIcon} />
+        Logout
+      </NavLink>
 
       {/* Dynamic action buttons */}
       {showActionButtons && actionButtons.length > 0 && (
@@ -587,7 +582,7 @@ export default function NavBar() {
               id={drawerId}
               className={styles.drawerContent}
             >
-              <Drawer.Body p="0">
+              <Drawer.Body p="0" overflowY="auto" maxH="calc(100dvh - 68px)">
                 {renderMobileNavContent()}
               </Drawer.Body>
             </Drawer.Content>

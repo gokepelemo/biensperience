@@ -109,6 +109,8 @@ async function fetchCsrfToken() {
 export async function postMessage(sessionId, message, options = {}) {
   const {
     invokeContext,
+    navigationSchema,
+    priorGreeting,
     attachment,
     onToken,
     onSession,
@@ -118,6 +120,9 @@ export async function postMessage(sessionId, message, options = {}) {
     onError,
     signal
   } = options;
+
+  const isNewSession = !sessionId;
+  let createdSessionId = null;
 
   const headers = await buildAuthHeaders();
 
@@ -139,6 +144,9 @@ export async function postMessage(sessionId, message, options = {}) {
     if (!sessionId && invokeContext) {
       formData.append('invokeContext', JSON.stringify(invokeContext));
     }
+    if (!sessionId && navigationSchema) {
+      formData.append('navigationSchema', JSON.stringify(navigationSchema));
+    }
     formData.append('attachment', attachment);
     requestBody = formData;
     // Remove Content-Type header — browser sets it automatically with boundary for multipart
@@ -152,122 +160,197 @@ export async function postMessage(sessionId, message, options = {}) {
     if (!sessionId && invokeContext) {
       bodyObj.invokeContext = invokeContext;
     }
+    if (!sessionId && navigationSchema) {
+      bodyObj.navigationSchema = navigationSchema;
+    }
+    if (!sessionId && priorGreeting) {
+      bodyObj.priorGreeting = priorGreeting;
+    }
     requestBody = JSON.stringify(bodyObj);
   }
 
-  let response;
-  try {
-    response = await fetch(`${BASE_URL}/chat`, {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: requestBody,
-      signal
-    });
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      logger.debug('[bienbot-api] Chat request aborted');
-      return;
-    }
-    const error = new Error('Network error. Please check your connection and try again.');
-    if (onError) onError(error);
-    throw error;
-  }
+  const MAX_RETRIES = attachment ? 0 : 2; // File attachments cannot be safely retried after stream consumption
+  const BASE_DELAY_MS = 1000;
+  let attempt = 0;
 
-  if (!response.ok) {
-    let errorMessage = `Chat request failed: ${response.status}`;
+  while (attempt <= MAX_RETRIES) {
+    let response;
     try {
-      const errorData = await response.json();
-      if (errorData.error) errorMessage = errorData.error;
-    } catch {
-      // ignore parse errors
+      response = await fetch(`${BASE_URL}/chat`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: requestBody,
+        signal
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        logger.debug('[bienbot-api] Chat request aborted');
+        return;
+      }
+      attempt++;
+      if (attempt > MAX_RETRIES) {
+        logger.error('[bienbot-api] Max retries reached', { error: err.message });
+        const error = new Error('Network error. Please check your connection and try again.');
+        if (onError) onError(error);
+        return;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn('[bienbot-api] SSE fetch error, retrying', { attempt, delay, error: err.message });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
     }
-    const error = new Error(errorMessage);
-    if (onError) onError(error);
-    throw error;
-  }
 
-  // Parse SSE stream
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
+    if (!response.ok) {
+      if (response.status >= 400 && response.status < 500) {
+        // 4xx: client error, do not retry
+        let errorMessage = `Chat request failed: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) errorMessage = errorData.error;
+        } catch {
+          // ignore parse errors
+        }
+        const error = new Error(errorMessage);
+        if (onError) onError(error);
+        return;
+      }
+      // 5xx: server error, retry
+      attempt++;
+      if (attempt > MAX_RETRIES) {
+        logger.error('[bienbot-api] Max retries reached after server error', { status: response.status });
+        const error = new Error(`Chat request failed: ${response.status}`);
+        if (onError) onError(error);
+        return;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn('[bienbot-api] Server error, retrying', { attempt, delay, status: response.status });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    // Parse SSE stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-      buffer += decoder.decode(value, { stream: true });
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      // Process complete SSE events (separated by double newlines)
-      const events = buffer.split('\n\n');
-      // Keep the last incomplete chunk in the buffer
-      buffer = events.pop() || '';
+        buffer += decoder.decode(value, { stream: true });
 
-      for (const eventBlock of events) {
-        if (!eventBlock.trim()) continue;
+        // Process complete SSE events (separated by double newlines)
+        const events = buffer.split('\n\n');
+        // Keep the last incomplete chunk in the buffer
+        buffer = events.pop() || '';
 
-        let eventType = null;
-        let eventData = null;
+        for (const eventBlock of events) {
+          if (!eventBlock.trim()) continue;
 
-        for (const line of eventBlock.split('\n')) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            try {
-              eventData = JSON.parse(line.slice(6));
-            } catch {
-              logger.warn('[bienbot-api] Failed to parse SSE data', { line });
+          let eventType = null;
+          let eventData = null;
+
+          for (const line of eventBlock.split('\n')) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              try {
+                eventData = JSON.parse(line.slice(6));
+              } catch {
+                logger.warn('[bienbot-api] Failed to parse SSE data', { line });
+              }
             }
           }
-        }
 
-        if (!eventType || !eventData) continue;
+          if (!eventType || !eventData) continue;
 
-        switch (eventType) {
-          case 'session':
-            if (onSession) onSession(eventData);
-            break;
+          switch (eventType) {
+            case 'session':
+              if (isNewSession && eventData.sessionId) {
+                createdSessionId = eventData.sessionId;
+              }
+              if (onSession) onSession(eventData);
+              break;
 
-          case 'token':
-            if (onToken) onToken(eventData.text);
-            break;
+            case 'token':
+              if (onToken) onToken(eventData.text);
+              break;
 
-          case 'actions':
-            if (onActions) onActions(eventData.pending_actions);
-            break;
+            case 'actions':
+              if (onActions) onActions(eventData.pending_actions);
+              break;
 
-          case 'structured_content':
-            if (onStructuredContent) onStructuredContent(eventData.blocks);
-            break;
+            case 'structured_content':
+              if (onStructuredContent) onStructuredContent(eventData.blocks);
+              break;
 
-          case 'done':
-            if (onDone) onDone(eventData);
-            break;
+            case 'done':
+              if (onDone) onDone(eventData);
+              break;
 
-          default:
-            logger.debug('[bienbot-api] Unknown SSE event type', { eventType });
+            default:
+              logger.debug('[bienbot-api] Unknown SSE event type', { eventType });
+          }
         }
       }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        logger.debug('[bienbot-api] SSE stream aborted');
+        return;
+      }
+      attempt++;
+      if (attempt > MAX_RETRIES) {
+        logger.error('[bienbot-api] Max retries reached after stream error', { error: err.message });
+        if (onError) onError(err);
+        return;
+      }
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn('[bienbot-api] SSE stream error, retrying', { attempt, delay, error: err.message });
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
     }
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      logger.debug('[bienbot-api] SSE stream aborted');
-      return;
-    }
-    throw err;
+
+    // Success — exit retry loop
+    break;
   }
 
   // Emit event after successful chat turn
   try {
+    const finalSessionId = createdSessionId || sessionId;
     broadcastEvent('bienbot:message_added', {
-      sessionId,
+      sessionId: finalSessionId,
       message,
       version: Date.now()
     });
-    logger.debug('[bienbot-api] bienbot:message_added event dispatched', { sessionId });
+    logger.debug('[bienbot-api] bienbot:message_added event dispatched', { sessionId: finalSessionId });
   } catch (e) {
     // Silently ignore — don't break the mutation
+  }
+
+  // Emit session_created for cross-tab sync when a brand-new session was implicitly created
+  if (isNewSession && createdSessionId) {
+    try {
+      let userId = null;
+      try {
+        const token = getToken();
+        if (token) {
+          const tokenPayload = parseJwtPayload(token.split('.')[1]);
+          userId = tokenPayload.user?._id || null;
+        }
+      } catch {
+        // Ignore token parse errors
+      }
+      broadcastEvent('bienbot:session_created', {
+        sessionId: createdSessionId,
+        userId,
+        version: Date.now()
+      });
+      logger.debug('[bienbot-api] bienbot:session_created event dispatched', { sessionId: createdSessionId });
+    } catch (e) {
+      // Silently ignore — don't break the mutation
+    }
   }
 }
 
@@ -374,7 +457,7 @@ export async function executeActions(sessionId, actionIds) {
       for (const actionResult of data.results) {
         if (!actionResult.success) continue;
 
-        const entity = actionResult.entity || actionResult.data;
+        const entity = actionResult.result || actionResult.entity || actionResult.data;
         if (!entity) continue;
 
         switch (actionResult.type) {
@@ -435,14 +518,91 @@ export async function executeActions(sessionId, actionIds) {
             });
             break;
 
-          case 'add_plan_items':
+          // Any action that modifies a specific plan item: emit plan:updated (for
+          // usePlanManagement to reconcile) AND plan:item:updated (for
+          // PlanItemDetailsModal / SingleExperience to update the open item in-place).
+          // This mirrors the same dual-event pattern used by plans-api.js on direct
+          // user interactions, so BienBot actions produce identical UI side-effects.
           case 'update_plan_item':
-          case 'delete_plan_item':
-          case 'sync_plan':
+          case 'update_plan_item_note':
+          case 'update_plan_item_detail':
           case 'add_plan_item_note':
+          case 'delete_plan_item_note':
           case 'add_plan_item_detail':
+          case 'delete_plan_item_detail':
           case 'assign_plan_item':
-          case 'unassign_plan_item':
+          case 'unassign_plan_item': {
+            const updatePlanIdStr = entity._id?.toString ? entity._id.toString() : entity._id || actionResult.payload?.plan_id;
+            const updateItemIdStr = actionResult.payload?.item_id?.toString
+              ? actionResult.payload.item_id.toString()
+              : actionResult.payload?.item_id;
+
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: updatePlanIdStr,
+              version: Date.now()
+            });
+
+            // Also emit a granular plan:item:updated so PlanItemDetailsModal
+            // and SingleExperience can update the specific item in-place without
+            // waiting for a full plan re-fetch. Covers field updates as well as
+            // note / detail / assignment changes on the same item.
+            if (updateItemIdStr) {
+              const updatedItem = Array.isArray(entity?.plan)
+                ? entity.plan.find(i => {
+                    const iid = i?._id?.toString ? i._id.toString() : i?._id;
+                    const iPlanItemId = i?.plan_item_id?.toString ? i.plan_item_id.toString() : i?.plan_item_id;
+                    return iid === updateItemIdStr || iPlanItemId === updateItemIdStr;
+                  })
+                : null;
+
+              if (updatedItem) {
+                const resolvedItemId = updatedItem._id?.toString
+                  ? updatedItem._id.toString()
+                  : updatedItem._id;
+
+                broadcastEvent('plan:item:updated', {
+                  planId: updatePlanIdStr,
+                  itemId: resolvedItemId,
+                  planItemId: resolvedItemId,
+                  planItem: updatedItem,
+                  data: entity,
+                  version: Date.now()
+                });
+              }
+            }
+            break;
+          }
+
+          // Item deletion: emit plan:updated (list re-renders) + plan:item:deleted
+          // (modal closes / item removed from view).
+          case 'delete_plan_item': {
+            const deletePlanIdStr = entity._id?.toString
+              ? entity._id.toString()
+              : entity._id || actionResult.payload?.plan_id;
+            const deleteItemIdStr = actionResult.payload?.item_id?.toString
+              ? actionResult.payload.item_id.toString()
+              : actionResult.payload?.item_id;
+
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: deletePlanIdStr,
+              version: Date.now()
+            });
+
+            if (deleteItemIdStr) {
+              broadcastEvent('plan:item:deleted', {
+                planId: deletePlanIdStr,
+                planItemId: deleteItemIdStr,
+                itemId: deleteItemIdStr,
+                version: Date.now()
+              });
+            }
+            break;
+          }
+
+          case 'add_plan_items':
+          case 'sync_plan':
           case 'update_plan':
           case 'add_plan_cost':
           case 'update_plan_cost':
@@ -452,16 +612,93 @@ export async function executeActions(sessionId, actionIds) {
           case 'remove_member_location':
             broadcastEvent('plan:updated', {
               plan: entity,
+              planId: entity._id?.toString ? entity._id.toString() : entity._id || actionResult.planId,
+              version: Date.now()
+            });
+            break;
+
+          case 'mark_plan_item_complete':
+          case 'mark_plan_item_incomplete': {
+            const planIdStr = entity._id?.toString ? entity._id.toString() : entity._id || actionResult.planId;
+            const itemIdStr = actionResult.payload?.item_id?.toString
+              ? actionResult.payload.item_id.toString()
+              : actionResult.payload?.item_id;
+            const isComplete = actionResult.type === 'mark_plan_item_complete';
+
+            // Find the updated item in the returned plan — match by subdoc _id OR plan_item_id
+            // (BienBot may use either the plan snapshot _id or the experience template plan_item_id)
+            const updatedItem = Array.isArray(entity?.plan)
+              ? entity.plan.find(i => {
+                  const iid = i?._id?.toString ? i._id.toString() : i?._id;
+                  const iPlanItemId = i?.plan_item_id?.toString ? i.plan_item_id.toString() : i?.plan_item_id;
+                  return itemIdStr && (iid === itemIdStr || iPlanItemId === itemIdStr);
+                })
+              : null;
+
+            // Use the matched item's actual _id for the granular event so subscribers can find it
+            const resolvedItemId = updatedItem?._id?.toString
+              ? updatedItem._id.toString()
+              : (updatedItem?._id || itemIdStr);
+
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: planIdStr,
+              version: Date.now()
+            });
+
+            // Also emit the granular item event so all UI subscribers are notified
+            if (itemIdStr) {
+              broadcastEvent(isComplete ? 'plan:item:completed' : 'plan:item:uncompleted', {
+                planId: planIdStr,
+                itemId: resolvedItemId,
+                planItemId: resolvedItemId,
+                planItem: updatedItem,
+                data: entity,
+                action: isComplete ? 'item_completed' : 'item_uncompleted',
+                version: Date.now()
+              });
+            }
+            break;
+          }
+
+          case 'invite_collaborator':
+          case 'create_invite':
+            broadcastEvent('invite:created', {
+              invite: entity,
+              inviteId: entity._id
+            });
+            break;
+
+          // pin/unpin/shift return { planId, ... } not the full plan — emit a
+          // partial plan:updated so DataContext re-fetches the current state.
+          case 'pin_plan_item':
+          case 'unpin_plan_item':
+          case 'shift_plan_item_dates':
+            if (entity?.planId) {
+              broadcastEvent('plan:updated', {
+                planId: entity.planId,
+                version: Date.now()
+              });
+            }
+            break;
+
+          // reorder_plan_items returns the full plan
+          case 'reorder_plan_items':
+            broadcastEvent('plan:updated', {
+              plan: entity,
               planId: entity._id || actionResult.planId,
               version: Date.now()
             });
             break;
 
-          case 'invite_collaborator':
-            broadcastEvent('invite:created', {
-              invite: entity,
-              inviteId: entity._id
-            });
+          // update_user_profile returns { user, token } — extract the user
+          case 'update_user_profile':
+            if (entity?.user?._id) {
+              broadcastEvent('user:updated', {
+                user: entity.user,
+                userId: entity.user._id
+              });
+            }
             break;
 
           case 'workflow':
@@ -494,7 +731,20 @@ export async function executeActions(sessionId, actionIds) {
                     broadcastEvent('plan:deleted', { planId: stepEntity._id, version: Date.now() });
                     break;
                   case 'invite_collaborator':
+                  case 'create_invite':
                     broadcastEvent('invite:created', { invite: stepEntity, inviteId: stepEntity._id });
+                    break;
+                  case 'update_user_profile':
+                    if (stepEntity?.user?._id) {
+                      broadcastEvent('user:updated', { user: stepEntity.user, userId: stepEntity.user._id });
+                    }
+                    break;
+                  case 'pin_plan_item':
+                  case 'unpin_plan_item':
+                  case 'shift_plan_item_dates':
+                    if (stepEntity?.planId) {
+                      broadcastEvent('plan:updated', { planId: stepEntity.planId, version: Date.now() });
+                    }
                     break;
                   default:
                     if (stepResult.type?.includes('plan')) {
@@ -780,7 +1030,7 @@ export async function removeSessionCollaborator(sessionId, userId) {
  * @returns {Promise<{ session: Object, message: Object }>}
  */
 export async function postSharedComment(sessionId, message, replyTo = null) {
-  const body = { message, sessionId };
+  const body = { message, sessionId, comment_only: true };
   if (replyTo) {
     body.reply_to = replyTo;
   }
@@ -858,7 +1108,7 @@ export async function clearMemory() {
  *
  * Returns a list of suggestions without creating or modifying any session.
  *
- * @param {string} entity - Entity type: 'plan' | 'experience' | 'destination'
+ * @param {string} entity - Entity type: 'plan' | 'experience' | 'destination' | 'plan_item' | 'user'
  * @param {string} entityId - MongoDB ObjectId of the entity
  * @returns {Promise<{ entity: string, entityId: string, suggestions: Array<{ type: 'warning'|'tip'|'info', message: string }> }>}
  */

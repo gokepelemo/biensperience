@@ -9,6 +9,7 @@ import { AppProvider, useApp } from "../../contexts/AppContext";
 import { TooltipProvider } from "../../contexts/TooltipContext";
 import { PlanExperienceProvider } from "../../contexts/PlanExperienceContext";
 import { NavigationIntentProvider } from "../../contexts/NavigationIntentContext";
+import { NavigationProvider } from "../../contexts/NavigationContext";
 import { ExperienceWizardProvider } from "../../contexts/ExperienceWizardContext";
 import { DestinationWizardProvider } from "../../contexts/DestinationWizardContext";
 import { UploadProgressProvider } from "../../contexts/UploadProgressContext";
@@ -128,13 +129,15 @@ export default function App() {
                 <TooltipProvider>
                   <PlanExperienceProvider>
                     <NavigationIntentProvider>
-                      <ExperienceWizardProvider>
+                      <NavigationProvider>
+                        <ExperienceWizardProvider>
                         <DestinationWizardProvider>
                           <UploadProgressProvider>
                             <AppContent />
                           </UploadProgressProvider>
                         </DestinationWizardProvider>
-                      </ExperienceWizardProvider>
+                        </ExperienceWizardProvider>
+                      </NavigationProvider>
                     </NavigationIntentProvider>
                   </PlanExperienceProvider>
                 </TooltipProvider>

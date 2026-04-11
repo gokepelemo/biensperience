@@ -141,6 +141,8 @@ ModalWrapper.propTypes = {
   icon: PropTypes.node,
   showHeader: PropTypes.bool,
   allowBodyScroll: PropTypes.bool,
+  trapFocus: PropTypes.bool,
+  closeOnInteractOutside: PropTypes.bool,
 };
 
 export default ModalWrapper;

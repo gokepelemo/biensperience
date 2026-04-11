@@ -159,24 +159,6 @@ function migrateKeyIfPresent(fromKeys, toKey) {
 }
 
 /**
- * Migration v2: CamelCase key normalization + encrypted migration marker
- * - Moves bien:pending_hash -> bien:pendingHash (plaintext exception)
- * - Moves bien:encrypted_prefs -> bien:encryptedPrefs (encrypted bucket)
- * - Moves bien:prefs_meta -> bien:prefsMeta (encrypted meta)
- */
-function migrateV2() {
-  logger.info('[StorageMigration] Running migration v2: CamelCase key normalization');
-
-  let movedCount = 0;
-  movedCount += migrateKeyIfPresent(['bien:pending_hash'], STORAGE_KEYS.pendingHash);
-  movedCount += migrateKeyIfPresent(['bien:encrypted_prefs'], STORAGE_KEYS.encryptedPrefs);
-  movedCount += migrateKeyIfPresent(['bien:prefs_meta'], STORAGE_KEYS.prefsMeta);
-
-  logger.info('[StorageMigration] Migration v2 complete', { movedCount });
-  return movedCount;
-}
-
-/**
  * Migration v3: Remove remaining legacy biensperience:* keys
  * - Migrates legacy encrypted prefs/meta/session keys to canonical bien:* keys
  * - Migrates legacy UI preferences (plaintext JSON) to obfuscated bien:uiPreferences
@@ -429,38 +411,6 @@ function migrateV3() {
 }
 
 /**
- * Migration v1: Remove deprecated event keys
- *
- * Old system used separate keys for events:
- * - `bien:event` - General events
- * - `bien:plan_event` - Plan-specific events
- *
- * New system uses:
- * - `bien:events` - Consolidated, encrypted event store
- */
-function migrateV1() {
-  logger.info('[StorageMigration] Running migration v1: Removing deprecated event keys');
-
-  let removedCount = 0;
-
-  DEPRECATED_KEYS.forEach(key => {
-    try {
-      const value = localStorage.getItem(key);
-      if (value !== null) {
-        localStorage.removeItem(key);
-        removedCount++;
-        logger.debug('[StorageMigration] Removed deprecated key', { key });
-      }
-    } catch (error) {
-      logger.warn('[StorageMigration] Failed to remove key', { key, error: error.message });
-    }
-  });
-
-  logger.info('[StorageMigration] Migration v1 complete', { removedCount });
-  return removedCount;
-}
-
-/**
  * Clean up any orphaned or corrupted event data
  */
 function cleanupOrphanedData() {
@@ -544,16 +494,6 @@ export function runStorageMigrations() {
 
   // Run pending migrations
   try {
-    // V1: Remove deprecated keys
-    if (currentVersion < 1) {
-      totalChanges += migrateV1();
-    }
-
-    // V2: Normalize camelCase keys
-    if (currentVersion < 2) {
-      totalChanges += migrateV2();
-    }
-
     // V3: Legacy key cleanup (biensperience:* removal)
     if (currentVersion < 3) {
       totalChanges += migrateV3();

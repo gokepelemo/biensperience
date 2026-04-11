@@ -9,7 +9,9 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { FaBell } from 'react-icons/fa';
 import { Button, Text, Heading } from '../design-system';
 import { Tag } from '@chakra-ui/react';
@@ -22,6 +24,7 @@ import {
   getNavigationUrlForResult
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
+import { broadcastEvent } from '../../utilities/event-bus';
 import WorkflowStepCard from './WorkflowStepCard';
 import PlanSelector from './PlanSelector';
 import SuggestionList from './SuggestionList';
@@ -32,7 +35,9 @@ import PendingActionCard from './PendingActionCard';
 import SessionHistoryView from './SessionHistoryView';
 import EntityRefList from './EntityRefList';
 import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
+import { eventBus } from '../../utilities/event-bus';
 import Autocomplete from '../Autocomplete/Autocomplete';
+import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import styles from './BienBotPanel.module.css';
 
 // ─── Close icon ──────────────────────────────────────────────────────────────
@@ -287,79 +292,99 @@ function AttachIcon() {
  * @param {object} chipStyles - CSS module styles object
  * @returns {React.ReactNode}
  */
-function renderMessageContent(text, navigate, chipStyles) {
+// Match compact JSON entity refs embedded in LLM output
+const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
+// Placeholder token used to survive markdown parsing: \uE000entity{n}\uE001 (Private Use Area - safe through remark)
+const PLACEHOLDER_RE = /\uE000entity(\d+)\uE001/g;
+
+function buildEntityChip(ref, idx, _navigate, chipStyles) {
+  const { _id, name, type } = ref;
+  let url = null;
+  if (_id && name && type) {
+    if (type === 'destination') url = `/destinations/${_id}`;
+    else if (type === 'experience') url = `/experiences/${_id}`;
+    else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
+  }
+  const label = name || type || 'entity';
+  if (url) {
+    return (
+      <Link
+        key={`chip-${_id}-${idx}`}
+        to={url}
+        className={chipStyles.inlineEntityChip}
+        aria-label={`View ${type}: ${label}`}
+      >
+        {label}
+      </Link>
+    );
+  }
+  return <span key={`chip-nolink-${idx}`} className={chipStyles.inlineEntityChipNoLink}>{label}</span>;
+}
+
+function substituteChips(text, entityRefs, navigate, chipStyles) {
+  if (typeof text !== 'string') return text;
+  const parts = [];
+  let last = 0;
+  let m;
+  PLACEHOLDER_RE.lastIndex = 0;
+  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const ref = entityRefs[parseInt(m[1], 10)];
+    if (ref) parts.push(buildEntityChip(ref, m.index, navigate, chipStyles));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  if (parts.length === 0) return text;
+  if (parts.length === 1) return parts[0];
+  return parts.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
+}
+
+function processChildren(children, entityRefs, navigate, chipStyles) {
+  return React.Children.map(children, (child) => {
+    if (typeof child === 'string') return substituteChips(child, entityRefs, navigate, chipStyles);
+    return child;
+  });
+}
+
+function renderMessageContent(text, navigate, chipStyles, role) {
   if (!text) return null;
 
-  // Match compact JSON objects that contain at minimum _id, name, and type keys
-  const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
-
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = ENTITY_JSON_RE.exec(text)) !== null) {
-    // Text before the match
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-
-    // Try to parse
-    let ref = null;
+  // Extract entity JSON refs and replace with placeholder tokens
+  const entityRefs = [];
+  ENTITY_JSON_RE.lastIndex = 0;
+  const processedText = text.replace(ENTITY_JSON_RE, (match) => {
     try {
-      ref = JSON.parse(match[0]);
+      entityRefs.push(JSON.parse(match));
+      return `\uE000entity${entityRefs.length - 1}\uE001`;
     } catch {
-      // Not valid JSON — keep raw
-      parts.push(match[0]);
-      lastIndex = match.index + match[0].length;
-      continue;
+      return match;
     }
+  });
 
-    const { _id, name, type } = ref;
-
-    // Determine URL
-    let url = null;
-    if (_id && name && type) {
-      if (type === 'destination') url = `/destinations/${_id}`;
-      else if (type === 'experience') url = `/experiences/${_id}`;
-      else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
-    }
-
-    const label = name || type || 'entity';
-
-    if (url) {
-      parts.push(
-        <button
-          key={`${_id}-${match.index}`}
-          type="button"
-          className={chipStyles.inlineEntityChip}
-          onClick={() => navigate(url)}
-          aria-label={`View ${type}: ${label}`}
-        >
-          {label}
-        </button>
-      );
-    } else {
-      // No navigable URL or no real ID — render as a non-clickable chip
-      parts.push(
-        <span key={`entity-${match.index}`} className={chipStyles.inlineEntityChipNoLink}>
-          {label}
-        </span>
-      );
-    }
-
-    lastIndex = match.index + match[0].length;
+  // User messages: plain text with entity chips (no markdown parsing)
+  if (role !== 'assistant') {
+    const result = substituteChips(processedText, entityRefs, navigate, chipStyles);
+    if (!Array.isArray(result)) return result;
+    return result.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
   }
 
-  // Remaining text after last match
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
+  // Assistant messages: full markdown rendering with entity chip substitution
+  const bindChip = (children) => processChildren(children, entityRefs, navigate, chipStyles);
 
-  // If nothing was replaced, return the string directly
-  if (parts.length === 1 && typeof parts[0] === 'string') return parts[0];
+  const mdComponents = {
+    p: ({ children }) => <p>{bindChip(children)}</p>,
+    li: ({ children }) => <li>{bindChip(children)}</li>,
+    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
+    pre: ({ children }) => <pre className={chipStyles.codeBlock}>{children}</pre>,
+    code: ({ children, className }) => <code className={className}>{children}</code>,
+  };
 
-  return parts.map((part, i) =>
-    typeof part === 'string' ? <React.Fragment key={i}>{part}</React.Fragment> : part
+  return (
+    <div className={chipStyles.markdownContent}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+        {processedText}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -510,10 +535,24 @@ ImageAttachment.propTypes = {
  * @param {Function} props.onMarkNotificationsSeen - Callback to mark notification IDs as seen
  * @param {string|null} [props.initialMessage] - Pre-fill the textarea with this text on open
  */
+
+const ANALYSIS_TYPE_EMOJI = { warning: '⚠️', tip: '💡', info: 'ℹ️' };
+
+function formatAnalysisSuggestions({ entityLabel, suggestions }) {
+  if (!suggestions || suggestions.length === 0) {
+    return `✅ **${entityLabel}** looks good — no issues found. What would you like to work on?`;
+  }
+  const lines = suggestions.map(
+    (s) => `${ANALYSIS_TYPE_EMOJI[s.type] || 'ℹ️'} ${s.message}`
+  );
+  return `🔍 Here's what I noticed about **${entityLabel}**:\n\n${lines.join('\n')}`;
+}
+
 export default function BienBotPanel({
   open,
   onClose,
   invokeContext,
+  navigationSchema = null,
   currentView,
   isEntityView,
   notificationOnly = false,
@@ -521,19 +560,33 @@ export default function BienBotPanel({
   unseenNotificationIds = [],
   onMarkNotificationsSeen,
   initialMessage = null,
-  initialSessionId = null
+  initialSessionId = null,
+  analysisSuggestions = null,
+  clearAnalysisSuggestions = null,
 }) {
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
+  // Tracks which (sessionId, entity, entityId) combos have already been reconciled
+  // so we don't call updateContext more than once per session+entity pair.
+  const sessionContextReconciledRef = useRef(null);
+  // Refs for stable plan-focus subscription (avoids stale closures)
+  const openRef = useRef(open);
+  const messagesRef = useRef([]);
+  const updateContextRef = useRef(null);
+  const planFocusRef = useRef({ sentPlans: new Set(), lastSessionId: null });
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [executingActionId, setExecutingActionId] = useState(null);
+  const executingActionRef = useRef(null);
   const [savedSession, setSavedSession] = useState(null);
   const [viewMode, setViewMode] = useState('chat');
+  // Pending context switch: set when the user navigates to a different entity while
+  // a conversation is in progress. Cleared when the user picks Stay or Switch.
+  const [pendingContextSwitch, setPendingContextSwitch] = useState(null);
 
   const { user } = useUser();
 
@@ -558,6 +611,7 @@ export default function BienBotPanel({
     messages,
     pendingActions,
     suggestedNextSteps,
+    setSuggestedNextSteps,
     isLoading,
     isStreaming,
     currentSession,
@@ -566,6 +620,7 @@ export default function BienBotPanel({
     executeActions,
     cancelAction,
     updateContext,
+    switchContext,
     loadSession,
     clearSession,
     deleteSession,
@@ -579,10 +634,13 @@ export default function BienBotPanel({
     cancelWorkflow,
     appendStructuredContent,
     appendMessage,
+    replaceInitialGreeting,
+    setPriorGreeting,
+    resetSession,
     getPersistedSession,
     clearPersistedSession,
     fetchSessions
-  } = useBienBot({ invokeContext, userId: user?._id });
+  } = useBienBot({ invokeContext, navigationSchema, userId: user?._id });
 
   // ── Handle adding suggested plan items ─────────────────────────────────
   const handleAddSuggestedItems = useCallback(
@@ -656,7 +714,33 @@ export default function BienBotPanel({
   const handlePlanDiscoveryResult = useCallback(
     (experienceName, experienceId) => {
       if (!experienceName || isStreaming || isLoading) return;
-      sendMessage(`Plan \`${experienceName}\` (experience ID: ${experienceId})`);
+      // The experience_id is available to the LLM via the discovery context block,
+      // so we don't need to expose it in the visible message text.
+      sendMessage(`I want to plan \`${experienceName}\``);
+    },
+    [sendMessage, isStreaming, isLoading]
+  );
+
+  // ── Handle entity ref card selection (disambiguation from BienBot) ──────
+  const handleEntityRefSelect = useCallback(
+    (ref) => {
+      if (isStreaming || isLoading || !ref?._id || !ref?.name) return;
+      switch (ref.type) {
+        case 'experience':
+          // Use a neutral message so the LLM continues from existing context rather than
+          // triggering the plan-creation flow (which would ask "which destination?").
+          sendMessage(`Tell me about \`${ref.name}\``);
+          break;
+        case 'plan':
+          sendMessage(`Show me the details for \`${ref.name}\``);
+          break;
+        case 'destination':
+          sendMessage(`Use \`${ref.name}\` as the destination`);
+          break;
+        default:
+          sendMessage(ref.name);
+          break;
+      }
     },
     [sendMessage, isStreaming, isLoading]
   );
@@ -753,6 +837,58 @@ export default function BienBotPanel({
     }
   }, [open, initialMessage]);
 
+  // ── Inject analysis suggestions as synthetic assistant message on open ────
+  // Use a ref to prevent double-injection: React StrictMode re-runs effects from
+  // the same render snapshot (so `messages` is stale/empty on both runs). The ref
+  // persists across the double-invoke and gates the second run out.
+  // Reset on close so the next open can show a fresh greeting.
+  const analysisGreetingInjectedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      analysisGreetingInjectedRef.current = false;
+      return;
+    }
+    if (!analysisSuggestions || analysisGreetingInjectedRef.current) return;
+
+    // If the user is already engaged in a conversation, do not inject a new greeting
+    // here — the invokeContext change effect handles that case by calling updateContext,
+    // which injects a focused ack note rather than replacing the conversation with
+    // a new analysis message.
+    const hasUserMessages = messagesRef.current.some(m => m.role === 'user');
+    if (hasUserMessages) {
+      analysisGreetingInjectedRef.current = true;
+      if (clearAnalysisSuggestions) clearAnalysisSuggestions();
+      return;
+    }
+
+    analysisGreetingInjectedRef.current = true;
+    const content = formatAnalysisSuggestions(analysisSuggestions);
+    // replaceInitialGreeting removes any existing greeting-only messages before
+    // inserting the new one, so the user never sees stale or duplicate greetings
+    // when they reopen BienBot without having sent anything.
+    replaceInitialGreeting({
+      _id: `analysis-${Date.now()}`,
+      role: 'assistant',
+      content,
+      createdAt: new Date().toISOString(),
+      isActionResult: true,
+    });
+
+    // Stash the formatted greeting so that if the user replies before any session
+    // exists, the backend can persist it as the opening assistant turn. This gives
+    // the LLM the context it needs to answer follow-up questions coherently.
+    setPriorGreeting(`[ANALYSIS]\n${content}`);
+
+    // Set suggested prompts as clickable chips so the user can act on the greeting
+    if (analysisSuggestions.suggestedPrompts?.length > 0) {
+      setSuggestedNextSteps(analysisSuggestions.suggestedPrompts);
+    }
+
+    if (clearAnalysisSuggestions) {
+      clearAnalysisSuggestions();
+    }
+  }, [open, analysisSuggestions]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Re-focus input after BienBot finishes responding ─────────────────────
   useEffect(() => {
     if (!isLoading && !isStreaming && open && inputRef.current) {
@@ -760,21 +896,126 @@ export default function BienBotPanel({
     }
   }, [isLoading, isStreaming, open]);
 
-  // ── Detect invokeContext changes (e.g. plan item opened mid-chat) ────────
+  // ── Detect invokeContext changes when panel opens on a different entity ──
   useEffect(() => {
     if (!open || !invokeContext?.id) return;
 
     const prev = prevContextRef.current;
     const changed = prev && (prev.id !== invokeContext.id || prev.entity !== invokeContext.entity);
 
-    // Store current as previous for next comparison
-    prevContextRef.current = { entity: invokeContext.entity, id: invokeContext.id };
+    // Store current as previous for next comparison (include label for ContextSwitchPrompt)
+    prevContextRef.current = {
+      entity: invokeContext.entity,
+      id: invokeContext.id,
+      label: invokeContext.contextDescription || invokeContext.label || invokeContext.entity,
+    };
 
-    // Only push context update when context actually changed (not on first mount)
-    if (changed && messages.length > 0) {
-      updateContext(invokeContext.entity, invokeContext.id, invokeContext.contextDescription);
+    if (!changed) return;
+
+    const hasUserMessages = messagesRef.current.some(m => m.role === 'user');
+
+    if (hasUserMessages) {
+      // User is engaged in a conversation: show a prompt instead of silently switching
+      // context. The user can choose to continue their current conversation or switch
+      // BienBot's focus to the newly navigated entity.
+      const prevLabel = prev.label || prev.entity;
+      const newLabel = invokeContext.contextDescription || invokeContext.label || invokeContext.entity;
+      setPendingContextSwitch({
+        entity: invokeContext.entity,
+        entityId: invokeContext.id,
+        contextDescription: invokeContext.contextDescription,
+        prevEntityLabel: prevLabel,
+        newEntityLabel: newLabel,
+      });
+    } else {
+      // User hasn't engaged (only saw the greeting): reset session tracking so
+      // the next message starts a fresh session anchored to the new entity.
+      // Messages are NOT cleared — the analysisSuggestions effect already
+      // replaced/injected the new entity's greeting.
+      resetSession();
     }
-  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, messages.length]);
+  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, resetSession]);
+
+  // ── Reconcile a resumed session's context with the current page entity ──────
+  // When the user resumes an old session while viewing a different entity, the
+  // session's invoke_context may point to a stale entity. This effect detects
+  // that mismatch immediately after the session is loaded and calls updateContext
+  // so BienBot is aware of what the user is currently looking at, before they
+  // send any messages.
+  useEffect(() => {
+    // Reset reconciliation tracking when the session is cleared
+    if (!currentSession?._id) {
+      sessionContextReconciledRef.current = null;
+      return;
+    }
+
+    if (!open || !invokeContext?.entity || !invokeContext?.id) return;
+
+    const reconcileKey = `${currentSession._id}:${invokeContext.entity}:${invokeContext.id}`;
+    if (sessionContextReconciledRef.current === reconcileKey) return;
+    sessionContextReconciledRef.current = reconcileKey;
+
+    // Check if the session was already created for this entity
+    const sessionEntityId = currentSession.invoke_context?.entity_id?.toString();
+    const sessionEntity = currentSession.invoke_context?.entity;
+    if (sessionEntityId === invokeContext.id && sessionEntity === invokeContext.entity) return;
+
+    // Check if the session's accumulated context already includes this entity
+    const ctx = currentSession.context || {};
+    const alreadyInContext =
+      (invokeContext.entity === 'experience' && ctx.experience_id?.toString() === invokeContext.id) ||
+      (invokeContext.entity === 'destination' && ctx.destination_id?.toString() === invokeContext.id) ||
+      (invokeContext.entity === 'plan' && ctx.plan_id?.toString() === invokeContext.id);
+    if (alreadyInContext) return;
+
+    // The resumed session doesn't have context for the entity currently in view —
+    // update it so BienBot knows what the user is looking at.
+    logger.debug('[BienBotPanel] Reconciling resumed session context with current entity', {
+      sessionId: currentSession._id,
+      sessionEntity,
+      sessionEntityId,
+      currentEntity: invokeContext.entity,
+      currentEntityId: invokeContext.id,
+    });
+    updateContext(invokeContext.entity, invokeContext.id, invokeContext.contextDescription);
+  }, [
+    open,
+    currentSession?._id,
+    currentSession?.invoke_context,
+    currentSession?.context,
+    invokeContext?.entity,
+    invokeContext?.id,
+    invokeContext?.contextDescription,
+    updateContext,
+  ]);
+
+  // ── Sync refs used by the stable plan-focus subscription ─────────────────
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { updateContextRef.current = updateContext; }, [updateContext]);
+
+  // Reset plan-focus dedup tracking when the session changes
+  useEffect(() => {
+    const sessionId = currentSession?._id || null;
+    if (planFocusRef.current.lastSessionId !== sessionId) {
+      planFocusRef.current = { sentPlans: new Set(), lastSessionId: sessionId };
+    }
+  }, [currentSession?._id]);
+
+  // ── Enrich BienBot context when plan tab becomes active mid-conversation ──
+  useEffect(() => {
+    const unsub = eventBus.subscribe('bienbot:plan_focused', (event) => {
+      if (!openRef.current) return; // Panel must be open
+      if (!messagesRef.current?.length) return; // Conversation must be in progress
+      const { planId, entity = 'plan', contextDescription } = event;
+      if (!planId) return;
+      const { sentPlans } = planFocusRef.current;
+      if (sentPlans.has(planId)) return; // Already sent for this plan in this session
+      sentPlans.add(planId);
+      updateContextRef.current?.(entity, planId, contextDescription);
+    });
+    return () => unsub();
+  }, []); // Stable — uses refs to access latest values
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
@@ -922,6 +1163,11 @@ export default function BienBotPanel({
     async (actionId) => {
       logger.debug('[BienBotPanel] Executing action', { actionId });
 
+      // Guard against rapid double-clicks: state updates are async so we
+      // use a ref to prevent re-entry before the disabled prop propagates.
+      if (executingActionRef.current === actionId) return;
+      executingActionRef.current = actionId;
+
       // Check if it's a navigate action (client-only, no server call)
       const action = pendingActions.find(a => (a._id || a.id) === actionId);
       if (action && action.type === 'navigate_to_entity') {
@@ -930,10 +1176,12 @@ export default function BienBotPanel({
         if (url && !/<[^>]+>/.test(url)) {
           navigate(url);
           cancelAction(actionId);
+          executingActionRef.current = null;
           return;
         }
         // Bad URL — cancel without navigating
         cancelAction(actionId);
+        executingActionRef.current = null;
         return;
       }
 
@@ -963,17 +1211,59 @@ export default function BienBotPanel({
       const result = await executeActions([actionId]);
 
       setExecutingActionId(null);
+      // On success the action is removed from pendingActions and the card
+      // disappears on the next render — leave the ref set so any click that
+      // snuck in while the fetch was in-flight (already queued as a macrotask)
+      // is still blocked. On failure the card stays visible and the user must
+      // be able to retry, so we clear the ref only then.
+      if (!result) {
+        executingActionRef.current = null;
+      }
 
       // Build a feedback message summarizing what happened
       if (result?.results) {
         const feedbackLines = [];
         for (const actionResult of result.results) {
           if (actionResult.success) {
-            const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
-            const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
-            feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
+            if (actionResult.type === 'create_plan') {
+              const expName = actionResult.result?.experience?.name || '';
+              const itemCount = actionResult.result?.plan?.length || 0;
+              feedbackLines.push(
+                `\u2705 Plan created${expName ? ` for ${expName}` : ''}${itemCount > 0 ? ` with ${itemCount} item${itemCount !== 1 ? 's' : ''}` : ''}. Taking you there now\u2026`
+              );
+            } else if (actionResult.type === 'update_plan_item') {
+              // For plan item updates, summarize what changed
+              const payload = action?.payload || {};
+              const changes = [];
+              if (payload.scheduled_date) changes.push('scheduled date');
+              if (payload.scheduled_time) changes.push('scheduled time');
+              if (payload.text) changes.push('description');
+              if (payload.cost !== undefined) changes.push('cost');
+              if (payload.activity_type) changes.push('activity type');
+              if (payload.complete !== undefined) changes.push(payload.complete ? 'marked complete' : 'marked incomplete');
+              if (payload.location) changes.push('location');
+              const summary = changes.length > 0 ? changes.join(', ') : 'details';
+              feedbackLines.push(`\u2705 Plan item updated: ${summary}`);
+            } else if (actionResult.type === 'mark_plan_item_complete' || actionResult.type === 'mark_plan_item_incomplete') {
+              const isComplete = actionResult.type === 'mark_plan_item_complete';
+              const itemPayload = action?.payload || {};
+              const itemIdStr = itemPayload.item_id?.toString ? itemPayload.item_id.toString() : itemPayload.item_id;
+              const planItems = Array.isArray(actionResult.result?.plan) ? actionResult.result.plan : [];
+              const matchedItem = planItems.find(i => (i._id?.toString ? i._id.toString() : i._id) === itemIdStr);
+              const itemName = matchedItem?.text || action?.description || '';
+              feedbackLines.push(isComplete
+                ? `\u2705 ${itemName ? `"${itemName}" marked complete` : 'Plan item marked complete'}`
+                : `\u2705 ${itemName ? `"${itemName}" marked incomplete` : 'Plan item marked incomplete'}`
+              );
+            } else {
+              const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
+              const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
+              const typeLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+              feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
+            }
           } else {
-            const typeLabel = (actionResult.type || '').replace(/_/g, ' ');
+            const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
+            const typeLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
             feedbackLines.push(`\u274c ${typeLabel}: ${actionResult.error || 'failed'}`);
           }
         }
@@ -988,18 +1278,78 @@ export default function BienBotPanel({
         }
 
         // Auto-navigate to newly created entities (panel stays open)
+        let navigated = false;
         for (const actionResult of result.results) {
           const navUrl = getNavigationUrlForResult(actionResult);
           if (navUrl) {
             navigate(navUrl);
+            navigated = true;
             break; // Only navigate once
           }
         }
+
+        // Re-emit entity events after navigation so that page components
+        // that mount on the new route can pick them up (they may have missed
+        // the initial broadcast fired before navigate() was called).
+        if (navigated && result.results) {
+          setTimeout(() => {
+            try {
+              for (const actionResult of result.results) {
+                if (!actionResult.success) continue;
+                const entity = actionResult.result || actionResult.entity || actionResult.data;
+                if (!entity) continue;
+                switch (actionResult.type) {
+                  case 'create_plan':
+                    broadcastEvent('plan:created', {
+                      plan: entity,
+                      planId: entity._id,
+                      experienceId: entity.experience?._id || entity.experience,
+                      version: Date.now()
+                    });
+                    break;
+                  case 'update_plan':
+                  case 'add_plan_items':
+                  case 'sync_plan':
+                    broadcastEvent('plan:updated', {
+                      plan: entity,
+                      planId: entity._id || actionResult.planId,
+                      version: Date.now()
+                    });
+                    break;
+                  case 'create_experience':
+                    broadcastEvent('experience:created', { experience: entity, experienceId: entity._id });
+                    break;
+                  case 'update_experience':
+                    broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
+                    break;
+                  case 'create_destination':
+                    broadcastEvent('destination:created', { destination: entity, destinationId: entity._id });
+                    break;
+                  case 'update_destination':
+                    broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
+                    break;
+                  default:
+                    break;
+                }
+              }
+            } catch (e) { /* silently ignore */ }
+          }, 300);
+        }
       }
 
-      // Contextual enrichment: render tip suggestions after destination creation
+      // Contextual enrichment: suggestions/tips/photos after entity creation
       if (result?.enrichment) {
         appendStructuredContent(result.enrichment);
+      }
+
+      // Post-execution follow-up: LLM "what's next?" message with plan items context
+      if (result?.followUpMessage) {
+        appendMessage({
+          _id: `exec-followup-${Date.now()}`,
+          role: 'assistant',
+          content: result.followUpMessage,
+          createdAt: new Date().toISOString()
+        });
       }
     },
     [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent, appendMessage]
@@ -1464,7 +1814,7 @@ export default function BienBotPanel({
                           })}
                         </div>
                       )}
-                      {renderMessageContent(msg.content, navigate, styles)}
+                      {renderMessageContent(msg.content, navigate, styles, msg.role)}
                       {msg.structured_content?.length > 0 && (
                         <div className={styles.structuredContent}>
                           {msg.structured_content.map((block, blockIdx) => {
@@ -1515,6 +1865,7 @@ export default function BienBotPanel({
                                 <EntityRefList
                                   key={blockIdx}
                                   refs={block.data?.refs || []}
+                                  onSelect={handleEntityRefSelect}
                                 />
                               );
                             }
@@ -1696,6 +2047,22 @@ export default function BienBotPanel({
                 </button>
               </div>
             )}
+            {pendingContextSwitch && (
+              <ContextSwitchPrompt
+                prevEntityLabel={pendingContextSwitch.prevEntityLabel}
+                newEntityLabel={pendingContextSwitch.newEntityLabel}
+                newEntityType={pendingContextSwitch.entity}
+                onStay={() => setPendingContextSwitch(null)}
+                onSwitch={() => {
+                  switchContext(
+                    pendingContextSwitch.entity,
+                    pendingContextSwitch.entityId,
+                    pendingContextSwitch.contextDescription
+                  );
+                  setPendingContextSwitch(null);
+                }}
+              />
+            )}
             <div className={styles.inputArea}>
               <input
                 ref={fileInputRef}
@@ -1759,5 +2126,15 @@ BienBotPanel.propTypes = {
   notifications: PropTypes.array,
   unseenNotificationIds: PropTypes.array,
   onMarkNotificationsSeen: PropTypes.func,
-  initialMessage: PropTypes.string
+  initialMessage: PropTypes.string,
+  analysisSuggestions: PropTypes.shape({
+    entity: PropTypes.string,
+    entityLabel: PropTypes.string,
+    suggestions: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      message: PropTypes.string,
+    })),
+    suggestedPrompts: PropTypes.arrayOf(PropTypes.string),
+  }),
+  clearAnalysisSuggestions: PropTypes.func,
 };

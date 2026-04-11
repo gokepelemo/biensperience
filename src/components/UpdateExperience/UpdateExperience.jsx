@@ -18,6 +18,8 @@ import { formatChanges } from "../../utilities/change-formatter";
 import { Modal, Alert, Form } from '../design-system';
 import FormField from "../FormField/FormField";
 import { isOwner, isSuperAdmin } from "../../utilities/permissions";
+import LocationAutocompleteInput from "../LocationAutocompleteInput/LocationAutocompleteInput";
+import { getPhotoObjects } from "../../utilities/photo-utils";
 import NewDestinationModal from "../NewDestinationModal/NewDestinationModal";
 
 // Custom hooks
@@ -100,12 +102,20 @@ export default function UpdateExperience() {
             : experienceData.destination
         };
 
-        setExperience(normalizedExperience);
+        setExperience({
+          ...normalizedExperience,
+          photos_full: getPhotoObjects(experienceData),
+        });
         setOriginalExperience({
           ...experienceData,
-          photos: (experienceData.photos || []).map(photo => 
-            photo._id ? photo._id : photo
-          ) // Normalize original photos to IDs for consistent comparison
+          photos: (experienceData.photos || []).map(entry => {
+            // Handle photoEntry wrapper: {photo: PhotoDoc|ObjectId, default: bool}
+            if (entry && typeof entry === 'object' && 'photo' in entry && 'default' in entry) {
+              const p = entry.photo;
+              return typeof p === 'object' && p ? (p._id || p) : p;
+            }
+            return entry?._id || entry;
+          }) // Normalize original photos to IDs for consistent comparison
         });
         if (destData) setDestinations(destData);
 
@@ -148,11 +158,16 @@ export default function UpdateExperience() {
     // Debounce change detection to prevent flashing during rapid updates
     const timeoutId = setTimeout(() => {
       // Normalize photos by ID and ignore order
+      // Handles photoEntry schema { photo: PhotoDoc/ObjectId, default: bool }
+      // as well as plain Photo documents or bare ID strings
       const getId = (p) => {
         if (!p) return null;
         if (typeof p === 'string') return p;
-        if (p._id) return String(p._id);
-        return String(p);
+        // photoEntry wrapper: { photo: PhotoDoc, default: bool }
+        const val = ('photo' in p && 'default' in p) ? (p.photo || p) : p;
+        if (typeof val === 'string') return val;
+        if (val && val._id) return String(val._id);
+        return null;
       };
       const normalizePhotos = (arr = []) => arr.map(getId).filter(Boolean).sort();
 
@@ -165,6 +180,15 @@ export default function UpdateExperience() {
       const photosChanged = JSON.stringify(originalPhotoIds) !== JSON.stringify(currentPhotoIds);
 
       // Check if default photo changed by ID (fallback to first photo when unset)
+      // Derive default photo IDs from the photos[].default schema
+      const getDefaultId = (photosArr) => {
+        const entry = (photosArr || []).find(e => e?.default);
+        if (!entry) return null;
+        const photoVal = entry.photo || entry;
+        return getId(photoVal);
+      };
+      const originalDefaultId = getDefaultId(originalExperience.photos);
+      const currentDefaultId = getDefaultId(experience.photos);
 
       const originalDefaultRaw = originalDefaultId ? String(getId(originalDefaultId)) : null;
       const isOriginalDefaultValid = originalDefaultRaw !== null && originalPhotoIds.includes(originalDefaultRaw);
@@ -362,7 +386,7 @@ export default function UpdateExperience() {
         name: experience.name,
         overview: experience.overview,
         destination: destinationToSend,
-        map_location: experience.map_location,
+        location: experience.location,
         experience_type: experience.experience_type,
         plan_items: experience.plan_items,
         photos: photosToSend,
@@ -629,15 +653,12 @@ export default function UpdateExperience() {
               </small>
             </Form.Group>
 
-            <FormField
-              name="map_location"
+            <LocationAutocompleteInput
+              name="location"
               label={lang.current.label.address}
-              type="text"
-              value={experience.map_location || ''}
-              onChange={handleChange}
+              value={experience.location?.address || experience.map_location || ''}
+              onSelect={(loc) => setExperience(prev => ({ ...prev, location: loc || null }))}
               placeholder={lang.current.placeholder.address}
-              tooltip={lang.current.helper.addressOptional}
-              tooltipPlacement="top"
             />
 
             {/* Planning days and cost estimate removed from update form — computed from plan items (virtuals). */}

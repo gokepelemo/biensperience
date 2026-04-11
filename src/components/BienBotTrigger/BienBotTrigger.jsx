@@ -18,7 +18,9 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useUser } from '../../contexts/UserContext';
 import { isSuperAdmin } from '../../utilities/permissions';
 import useRouteContext from '../../hooks/useRouteContext';
+import { useNavigationContext } from '../../contexts/NavigationContext';
 import { subscribeToEvent } from '../../utilities/event-bus';
+import { openWithAnalysis } from '../../hooks/useBienBot';
 import { logger } from '../../utilities/logger';
 import styles from './BienBotTrigger.module.css';
 
@@ -53,6 +55,9 @@ export default function BienBotTrigger({
   const [panelMounted, setPanelMounted] = useState(false);
   const [initialMessage, setInitialMessage] = useState(null);
   const [initialSessionId, setInitialSessionId] = useState(null);
+  const [analysisSuggestions, setAnalysisSuggestions] = useState(null);
+  const [invokeContextOverride, setInvokeContextOverride] = useState(null);
+  const [greetingLoading, setGreetingLoading] = useState(false);
 
   const isAdmin = user && isSuperAdmin(user);
   const hasChatAccess = hasAI || isAdmin;
@@ -60,6 +65,9 @@ export default function BienBotTrigger({
 
   // Route-based context detection
   const { invokeContext: routeContext, currentView, isEntityView } = useRouteContext();
+
+  // Navigation schema — lean breadcrumb of entity IDs for BienBot context seeding
+  const { navigationSchema } = useNavigationContext();
 
   // Merge: explicit props override route detection
   const invokeContext = useMemo(() => {
@@ -80,26 +88,60 @@ export default function BienBotTrigger({
     const unsub = subscribeToEvent('bienbot:open', (event) => {
       const msg = event.initialMessage || null;
       const sid = event.bienbotSessionId || null;
-      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg, hasSessionId: !!sid });
+      const suggestions = event.analysisSuggestions || null;
+      logger.debug('[BienBotTrigger] Received bienbot:open event', { hasMessage: !!msg, hasSessionId: !!sid, hasSuggestions: !!suggestions });
       setInitialMessage(msg);
       setInitialSessionId(sid);
+      setAnalysisSuggestions(suggestions);
+      // When the analysis was run for a specific entity (e.g. plan_item), override
+      // the route-based invokeContext so the backend session is scoped to that entity.
+      if (suggestions?.entityId && suggestions?.entity) {
+        setInvokeContextOverride({
+          entity: suggestions.entity,
+          id: suggestions.entityId,
+          label: suggestions.entityLabel || suggestions.entity,
+        });
+      } else {
+        setInvokeContextOverride(null);
+      }
       setPanelMounted(true);
       setPanelOpen(true);
     });
     return unsub;
   }, [hasChatAccess]);
 
-  const handleOpen = useCallback(() => {
+  const handleOpen = useCallback(async () => {
     const ctx = invokeContext || {};
     logger.debug('[BienBotTrigger] Opening panel', { entity: ctx.entity, entityId: ctx.id, currentView, hasChatAccess });
+    if (!isEntityView && hasChatAccess && user?._id) {
+      // Non-entity view: trigger greeting analysis so BienBot opens with context
+      setGreetingLoading(true);
+      try {
+        await openWithAnalysis('user', user._id.toString(), 'your travel plans');
+      } catch (err) {
+        logger.error('[BienBotTrigger] Greeting analysis failed', { error: err.message });
+        // Fall back to plain open on error
+        setPanelMounted(true);
+        setPanelOpen(true);
+      } finally {
+        setGreetingLoading(false);
+      }
+      return;
+    }
     setPanelMounted(true);
     setPanelOpen(true);
-  }, [invokeContext, currentView, hasChatAccess]);
+  }, [invokeContext, currentView, hasChatAccess, isEntityView, user?._id]);
 
   const handleClose = useCallback(() => {
     setPanelOpen(false);
     setInitialMessage(null);
     setInitialSessionId(null);
+    setAnalysisSuggestions(null);
+    setInvokeContextOverride(null);
+  }, []);
+
+  const clearAnalysisSuggestions = useCallback(() => {
+    setAnalysisSuggestions(null);
   }, []);
 
   // Do not render if user is not authenticated
@@ -117,13 +159,23 @@ export default function BienBotTrigger({
 
   // Render FAB and Panel via portal to document.body so they always sit above
   // any intervening stacking context (e.g. fullscreen modals with z-index 1050).
+  //
+  // The aria-live="off" attribute on the wrapper div exempts this portal from
+  // @zag-js/aria-hidden's inertOthers() call, which Chakra UI Dialog uses when
+  // trapFocus=true. Without it, Chakra sets `inert` on all document.body siblings
+  // of the dialog portal — including BienBot — making it unclickable. The
+  // aria-live check in @zag-js/aria-hidden's isIgnoredNode() skips these nodes.
+  // aria-live="off" is semantically neutral (it's the browser default for all
+  // elements) so this causes no accessibility regressions.
   return createPortal(
-    <>
+    <div aria-live="off">
       {!panelOpen && (
         <button
           type="button"
           className={`${styles.fab} ${!hasChatAccess ? styles.fabNotification : ''}`}
           onClick={handleOpen}
+          disabled={greetingLoading}
+          aria-busy={greetingLoading}
           aria-label={ariaLabel}
         >
           <span className={styles.fabIcon} aria-hidden="true">
@@ -151,7 +203,8 @@ export default function BienBotTrigger({
         <BienBotPanelLazy
           open={panelOpen}
           onClose={handleClose}
-          invokeContext={invokeContext}
+          invokeContext={invokeContextOverride || invokeContext}
+          navigationSchema={navigationSchema}
           currentView={currentView}
           isEntityView={isEntityView}
           notificationOnly={!hasChatAccess}
@@ -160,9 +213,11 @@ export default function BienBotTrigger({
           onMarkNotificationsSeen={onMarkNotificationsSeen}
           initialMessage={initialMessage}
           initialSessionId={initialSessionId}
+          analysisSuggestions={analysisSuggestions}
+          clearAnalysisSuggestions={clearAnalysisSuggestions}
         />
       )}
-    </>,
+    </div>,
     document.body
   );
 }
@@ -185,6 +240,7 @@ function BienBotPanelLazy({
   open,
   onClose,
   invokeContext,
+  navigationSchema,
   currentView,
   isEntityView,
   notificationOnly,
@@ -192,7 +248,9 @@ function BienBotPanelLazy({
   unseenNotificationIds,
   onMarkNotificationsSeen,
   initialMessage,
-  initialSessionId
+  initialSessionId,
+  analysisSuggestions,
+  clearAnalysisSuggestions
 }) {
   const [Panel, setPanel] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -219,6 +277,7 @@ function BienBotPanelLazy({
       open={open}
       onClose={onClose}
       invokeContext={invokeContext}
+      navigationSchema={navigationSchema}
       currentView={currentView}
       isEntityView={isEntityView}
       notificationOnly={notificationOnly}
@@ -227,6 +286,8 @@ function BienBotPanelLazy({
       onMarkNotificationsSeen={onMarkNotificationsSeen}
       initialMessage={initialMessage}
       initialSessionId={initialSessionId}
+      analysisSuggestions={analysisSuggestions}
+      clearAnalysisSuggestions={clearAnalysisSuggestions}
     />
   );
 }
@@ -246,5 +307,14 @@ BienBotPanelLazy.propTypes = {
   notifications: PropTypes.array,
   unseenNotificationIds: PropTypes.array,
   onMarkNotificationsSeen: PropTypes.func,
-  initialMessage: PropTypes.string
+  initialMessage: PropTypes.string,
+  analysisSuggestions: PropTypes.shape({
+    entity: PropTypes.string,
+    entityLabel: PropTypes.string,
+    suggestions: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      message: PropTypes.string,
+    })),
+  }),
+  clearAnalysisSuggestions: PropTypes.func,
 };

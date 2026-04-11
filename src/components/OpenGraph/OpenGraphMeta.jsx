@@ -146,10 +146,6 @@ export function generateSchemaData(entity, entityType) {
           '@type': 'GeoCoordinates',
           latitude: entity.location.geo.coordinates[1],
           longitude: entity.location.geo.coordinates[0]
-        } : entity.map_location ? {
-          '@type': 'GeoCoordinates',
-          latitude: entity.map_location.lat,
-          longitude: entity.map_location.lng
         } : undefined,
         containsPlace: entity.experiences?.length > 0 ? entity.experiences.map(exp => ({
           '@type': 'TouristTrip',

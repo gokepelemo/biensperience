@@ -19,6 +19,7 @@ import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
 import PageSchema from '../../components/PageSchema/PageSchema';
 import { buildDestinationSchema } from '../../utilities/schema-utils';
 import { isOwner, canEdit as canEditPermission } from "../../utilities/permissions";
+import { useNavigationContext } from "../../contexts/NavigationContext";
 import { Container, Button, SkeletonLoader, EntityNotFound, EmptyState, Alert, Breadcrumb, Row, Col } from "../../components/design-system";
 import { Box, Flex } from "@chakra-ui/react";
 import SingleDestinationSkeleton from "./components/SingleDestinationSkeleton";
@@ -32,6 +33,7 @@ import PhotoModal from "../../components/PhotoModal/PhotoModal";
 import PhotoUploadModal from "../../components/PhotoUploadModal/PhotoUploadModal";
 import { updateDestination } from "../../utilities/destinations-api";
 
+
 export default function SingleDestination() {
   const { user } = useUser();
   const { experiences, destinations, plans, fetchDestinations } = useData();
@@ -40,6 +42,7 @@ export default function SingleDestination() {
   const { openExperienceWizard } = useExperienceWizard();
   const { destinationId } = useParams();
   const navigate = useNavigate();
+  const { setNavigatedEntity } = useNavigationContext();
   const [destination, setDestination] = useState(null);
   const [destinationExperiences, setDestinationExperiences] = useState([]);
   const [directDestinationExperiences, setDirectDestinationExperiences] = useState(null);
@@ -160,6 +163,11 @@ export default function SingleDestination() {
     setDirectDestinationExperiences(null);
     setIsInitialLoading(true);
   }, [destinationId, mergeDestination]);
+
+  // Register destination in navigation schema when data loads
+  useEffect(() => {
+    if (destination?._id) setNavigatedEntity('destination', destination);
+  }, [destination?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle favorite/unfavorite destination with optimistic UI
   const handleFavorite = useCallback(async () => {

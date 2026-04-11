@@ -504,7 +504,8 @@ export default function MyPlanTabContent({
     lang,
     planOwner,
     planCollaborators,
-    canEdit
+    canEdit,
+    user
   }), [
     handlePlanItemToggleComplete,
     handleViewPlanItemDetails,
@@ -518,7 +519,8 @@ export default function MyPlanTabContent({
     lang,
     planOwner,
     planCollaborators,
-    canEdit
+    canEdit,
+    user
   ]);
 
   /**

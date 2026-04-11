@@ -159,15 +159,15 @@ export function getSuggestionsForContext(entityType, currentView, entityData) {
 // ── Placeholder text ────────────────────────────────────────────────────────
 
 const VIEW_PLACEHOLDERS = {
-  home: 'Discover destinations, plan experiences, or ask me anything...',
-  experiences: 'Search experiences, get recommendations, or create something new...',
-  destinations: 'Explore destinations, find experiences, or add a new place...',
-  dashboard: 'Check your plans, get updates, or start something new...',
-  'experience-types': 'Find experiences in this category or explore others...',
-  countries: 'Explore destinations in this country or find experiences...',
-  settings: 'Need help with your account or profile settings?',
-  invites: 'Need help managing your invitations?',
-  admin: 'How can I help with administration?',
+  home: 'Discover, explore, plan...',
+  experiences: 'Discover, discuss, create...',
+  destinations: 'Explore, discover, ask...',
+  dashboard: 'Review, plan, explore...',
+  'experience-types': 'Browse, discover, ask...',
+  countries: 'Explore, discover, plan...',
+  settings: 'Ask...',
+  invites: 'Ask...',
+  admin: 'Ask...',
 };
 
 /**
@@ -178,16 +178,13 @@ const VIEW_PLACEHOLDERS = {
  * @returns {string} Placeholder text
  */
 export function getPlaceholderForContext(invokeContext, currentView) {
-  if (invokeContext?.contextDescription) {
-    return `Ask me anything about ${invokeContext.contextDescription}.`;
-  }
-  if (invokeContext?.label) {
-    return `Ask me anything about "${invokeContext.label}".`;
+  if (invokeContext?.contextDescription || invokeContext?.label) {
+    return 'Discuss, explore, plan...';
   }
   if (currentView && VIEW_PLACEHOLDERS[currentView]) {
     return VIEW_PLACEHOLDERS[currentView];
   }
-  return 'Discover destinations, plan experiences, or ask me anything...';
+  return 'Discover, explore, plan...';
 }
 
 /**

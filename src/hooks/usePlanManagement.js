@@ -688,7 +688,7 @@ export default function usePlanManagement(experienceId, userId) {
       batchedUpdates(() => {
         // Update user plan if it matches
         setUserPlan(prev => {
-          if (!prev || prev._id !== planId) return prev;
+          if (!prev || String(prev._id) !== String(planId)) return prev;
 
           // Use conflict resolver for concurrent edits
           if (isConcurrent) {
@@ -739,7 +739,7 @@ export default function usePlanManagement(experienceId, userId) {
 
           let changed = false;
           const updated = prev.map(p => {
-            if (p._id !== planId) return p;
+            if (String(p._id) !== planIdStr) return p;
 
             // Use conflict resolver for concurrent edits
             if (isConcurrent) {
@@ -807,7 +807,7 @@ export default function usePlanManagement(experienceId, userId) {
       batchedUpdates(() => {
         // Remove from user plan if it matches and update flags atomically
         setUserPlan(prev => {
-          if (!prev || prev._id !== planId) return prev;
+          if (!prev || String(prev._id) !== String(planId)) return prev;
           // For deletions, null is acceptable - this is a legitimate empty state
           // Update flags in same batch
           setUserHasExperience(false);
@@ -817,7 +817,7 @@ export default function usePlanManagement(experienceId, userId) {
         });
 
         // Remove from shared plans
-        setSharedPlans(prev => prev.filter(p => p._id !== planId));
+        setSharedPlans(prev => prev.filter(p => String(p._id) !== String(planId)));
       });
     };
 
@@ -867,7 +867,7 @@ export default function usePlanManagement(experienceId, userId) {
       batchedUpdates(() => {
         // Apply operation to user plan if it matches
         setUserPlan(prev => {
-          if (!prev || prev._id !== planId) return prev;
+          if (!prev || String(prev._id) !== String(planId)) return prev;
 
           const newState = applyOperation(prev, operation);
           if (newState !== prev) {
@@ -935,6 +935,43 @@ export default function usePlanManagement(experienceId, userId) {
     const unsubscribe = eventBus.subscribe('plan:operation', handlePlanOperation);
     return () => unsubscribe();
   }, [userId, mergePlanVectorClock]);
+
+  /**
+   * Event handler for plan:item:completed / plan:item:uncompleted events
+   * Directly patches the plan item's complete field without going through reconcileState.
+   * This handles the BienBot action path where the plan:updated event may not be sufficient.
+   */
+  useEffect(() => {
+    const handleItemCompletionChange = (event) => {
+      const planId = event?.planId;
+      const itemId = event?.planItemId || event?.itemId;
+      const isComplete = event?.action !== 'item_uncompleted';
+
+      if (!planId || !itemId) return;
+
+      const patchPlan = (plan) => {
+        if (!plan) return plan;
+        const pId = plan._id?.toString ? plan._id.toString() : plan._id;
+        if (pId !== String(planId)) return plan;
+        const updatedItems = (plan.plan || []).map(item => {
+          const iId = item._id?.toString ? item._id.toString() : item._id;
+          const iPlanItemId = item.plan_item_id?.toString ? item.plan_item_id.toString() : item.plan_item_id;
+          if (iId === String(itemId) || iPlanItemId === String(itemId)) {
+            return { ...item, complete: isComplete };
+          }
+          return item;
+        });
+        return { ...plan, plan: updatedItems };
+      };
+
+      setUserPlan(prev => patchPlan(prev) || prev);
+      setSharedPlans(prev => prev.map(p => patchPlan(p) || p));
+    };
+
+    const unsubComp = eventBus.subscribe('plan:item:completed', handleItemCompletionChange);
+    const unsubUncomp = eventBus.subscribe('plan:item:uncompleted', handleItemCompletionChange);
+    return () => { unsubComp(); unsubUncomp(); };
+  }, []);
 
   /**
    * Initial load

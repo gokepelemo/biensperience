@@ -38,7 +38,8 @@ function extractCoords(location) {
  */
 function buildAddressString(item, type) {
   if (type === 'destination') {
-    // Use map_location if available, otherwise build from name + country
+    // Prefer structured location address, fall back to legacy map_location string
+    if (item.location?.address) return item.location.address;
     if (item.map_location) return item.map_location;
     const parts = [item.name];
     if (item.state) parts.push(item.state);
@@ -109,7 +110,7 @@ export default function useGeocodedMarkers({
         const coords = extractCoords(dest.location);
 
         // Build location name for display
-        const destLocationName = dest.map_location || (dest.state ? `${dest.state}, ${dest.country}` : dest.country);
+        const destLocationName = dest.location?.address || dest.map_location || (dest.state ? `${dest.state}, ${dest.country}` : dest.country);
 
         if (coords) {
           generatedMarkers.push({

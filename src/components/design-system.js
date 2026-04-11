@@ -127,3 +127,7 @@ export { Row, Col } from './GridWrapper';
 // IMPORTANT: All popover consumers should import from here, NOT from react-bootstrap
 // This enables zero-regression migration between implementations
 export { OverlayTrigger, Popover } from './PopoverWrapper';
+
+// SplitButton - Chakra UI split menu button (primary action + dropdown)
+// IMPORTANT: All split button consumers should import from here
+export { default as SplitButton } from './SplitButton';

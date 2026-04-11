@@ -8,11 +8,10 @@ import { initVersion } from './utilities/version';
 import App from './views/App/App';
 import { StrictMode } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { ToastProvider } from './contexts/ToastContext';
+
 import themeManager from './utilities/theme-manager';
 import { migratePlanCacheFromSessionStorage } from './utilities/plan-cache';
 import { migrateFormDraftsFromLegacyStorage } from './utilities/form-persistence';
-import { migratePreferencesToBienNamespace } from './utilities/preferences-utils';
 import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from './utilities/storage-keys';
 
 initVersion();
@@ -49,13 +48,6 @@ try {
   // ignore
 }
 
-// Migrate legacy preference keys
-try {
-  migratePreferencesToBienNamespace();
-} catch (e) {
-  // ignore
-}
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 // Apply stored theme (if any) before rendering for immediate effect
@@ -68,11 +60,9 @@ try {
 }
 root.render(
   <StrictMode>
-    <ToastProvider>
-      <Router future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }}><App /></Router>
-    </ToastProvider>
+    <Router future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }}><App /></Router>
   </StrictMode>
 );

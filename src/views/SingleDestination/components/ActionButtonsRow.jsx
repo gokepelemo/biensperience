@@ -6,12 +6,13 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { FaPencilAlt, FaTrash } from 'react-icons/fa';
+import { FaPencilAlt, FaTrash, FaRobot } from 'react-icons/fa';
 import { FadeIn } from '../../../components/design-system';
 import SplitButton from '../../../components/SplitButton/SplitButton';
 import Loading from '../../../components/Loading/Loading';
 import { isOwner } from '../../../utilities/permissions';
 import { calculateGroupButtonWidth } from '../../../utilities/button-utils';
+import { useBienBotEntityAction } from '../../../hooks/useBienBotEntityAction';
 import styles from './ActionButtonsRow.module.css';
 
 export default function ActionButtonsRow({
@@ -35,6 +36,10 @@ export default function ActionButtonsRow({
 }) {
   const navigate = useNavigate();
 
+  // BienBot analyze action (ai_features flag guard)
+  const { label: bienbotLabel, hasAccess: hasBienBot, handleOpen: handleBienBot } =
+    useBienBotEntityAction('destination', destinationId, destination?.name || 'Destination');
+
   // Calculate consistent button width based on all possible text states
   const buttonWidth = useMemo(() => {
     const allTexts = [
@@ -51,8 +56,8 @@ export default function ActionButtonsRow({
   const buttonStyle = {
     width: `${buttonWidth}px`,
     minWidth: `${buttonWidth}px`,
-    height: '44px',
-    minHeight: '44px',
+    height: 'var(--btn-height-md)',
+    minHeight: 'var(--btn-height-md)',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center'
@@ -91,7 +96,7 @@ export default function ActionButtonsRow({
         </button>
       </FadeIn>
 
-      {/* Owner actions - Edit (primary) with Delete in dropdown */}
+      {/* Owner actions - Edit (primary) with Delete and BienBot in dropdown */}
       {isOwner(user, destination) && (
         <FadeIn>
           <SplitButton
@@ -111,7 +116,30 @@ export default function ActionButtonsRow({
             >
               <FaTrash /> Delete
             </SplitButton.Item>
+            {hasBienBot && (
+              <SplitButton.Item
+                value="bienbot"
+                onClick={handleBienBot}
+              >
+                <FaRobot /> {bienbotLabel}
+              </SplitButton.Item>
+            )}
           </SplitButton>
+        </FadeIn>
+      )}
+
+      {/* BienBot Analyze button — for non-owners with ai_features flag */}
+      {!isOwner(user, destination) && user && hasBienBot && (
+        <FadeIn>
+          <button
+            className={`btn btn-sm btn-icon ${styles.buttonSpacing}`}
+            style={{ ...buttonStyle, gap: 'var(--space-2)' }}
+            onClick={handleBienBot}
+            title={`${bienbotLabel} with BienBot`}
+            aria-label={`${bienbotLabel} with BienBot`}
+          >
+            <FaRobot /> {bienbotLabel}
+          </button>
         </FadeIn>
       )}
     </div>

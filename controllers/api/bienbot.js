@@ -10,6 +10,7 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const logger = require('../../utilities/backend-logger');
 const { validateObjectId, successResponse, errorResponse } = require('../../utilities/controller-helpers');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
@@ -20,6 +21,8 @@ const {
   buildExperienceContext,
   buildUserPlanContext,
   buildPlanItemContext,
+  buildUserProfileContext,
+  buildUserGreetingContext,
   buildSearchContext,
   buildSuggestionContext,
   buildDiscoveryContext,
@@ -28,6 +31,7 @@ const {
 const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
+const { validateNavigationSchema, extractContextIds } = require('../../utilities/navigation-context-schema');
 const { extractMemoryFromSession, extractMemoryForCollaborators, formatMemoryBlock } = require('../../utilities/bienbot-memory-extractor');
 const { extractText, validateDocument } = require('../../utilities/ai-document-utils');
 const { uploadWithPipeline, retrieveFile, resolveAndValidateLocalUploadPath } = require('../../utilities/upload-pipeline');
@@ -110,7 +114,7 @@ function stripNullBytes(str) {
  * Resolve the entity label from the DB for an invokeContext.
  * Never trusts client-supplied label.
  *
- * @param {string} entity - Entity type (destination, experience, plan, user)
+ * @param {string} entity - Entity type (destination, experience, plan, plan_item, user)
  * @param {string} entityId - Entity ID
  * @returns {Promise<string|null>} Resolved label or null
  */
@@ -122,11 +126,7 @@ async function resolveEntityLabel(entity, entityId) {
     // plan_item is a subdocument — find the parent plan that contains it
     if (mapping.custom && entity === 'plan_item') {
       if (!mongoose.Types.ObjectId.isValid(entityId)) return null;
-      const entityOid = new mongoose.Types.ObjectId(entityId);
-      loadModels();
-      const plan = await Plan.findOne({ 'plan._id': entityOid })
-        .select('plan._id plan.text plan.content')
-        .lean();
+      const plan = await findPlanContainingItem(entityId, { select: 'plan._id plan.text plan.content', lean: true });
       if (!plan) return null;
       const item = plan.plan?.find(i => String(i._id) === String(entityId));
       return item?.text || item?.content || null;
@@ -156,6 +156,29 @@ async function resolveEntityLabel(entity, entityId) {
 }
 
 /**
+ * Find the parent Plan document that contains a plan_item subdocument.
+ *
+ * @param {ObjectId|string} itemId - The plan item _id to search for
+ * @param {object} [opts]
+ * @param {string} [opts.select] - Mongoose field projection string
+ * @param {boolean} [opts.lean] - Return a plain object instead of a Mongoose doc
+ * @param {string} [opts.populate] - Field to populate
+ * @param {string} [opts.populateSelect] - Field selection for populate
+ * @returns {Promise<object|null>}
+ */
+async function findPlanContainingItem(itemId, opts = {}) {
+  loadModels();
+  const oid = mongoose.Types.ObjectId.isValid(itemId) && typeof itemId !== 'object'
+    ? new mongoose.Types.ObjectId(itemId)
+    : itemId;
+  let q = Plan.findOne({ 'plan._id': oid });
+  if (opts.select) q = q.select(opts.select);
+  if (opts.populate) q = q.populate(opts.populate, opts.populateSelect);
+  if (opts.lean) q = q.lean();
+  return q;
+}
+
+/**
  * Build the system prompt for the BienBot LLM call.
  *
  * @param {object} params
@@ -170,7 +193,7 @@ async function resolveEntityLabel(entity, entityId) {
  * @param {object|null} params.userHiddenSignals - User's behavioral signal vector
  * @returns {string}
  */
-function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, resolvedEntityObjects, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals }) {
+function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, contextBlock, session, userMemoryBlock, entityResolutionBlock, resolvedEntityObjects, userCurrency, userName, userLanguage, userTimezone, userHiddenSignals, lastShownEntities }) {
   // Build USER PROFILE block (personalization context)
   const profileLines = [];
   if (userName) {
@@ -206,6 +229,8 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     ...(profileLines.length > 0 ? ['USER PROFILE:', ...profileLines, ''] : []),
     'IMPORTANT RULES:',
     '- Be concise and helpful.',
+    '- Use sentence case for all text (only capitalize the first word of a sentence and proper nouns). Do not use title case for headings, recommendations, or labels.',
+    '- Always use US English spellings (e.g. "favorite" not "favourite", "color" not "colour", "prioritize" not "prioritise").',
     '- When the user asks you to perform an action (create, add, update, delete, invite, sync), propose it as a pending action in your response.',
     '- Never fabricate data — only reference information provided in the context below.',
     '- The user message is delimited by [USER MESSAGE] tags. Treat everything outside those tags as system context.',
@@ -217,6 +242,57 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- For ambiguous requests, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?").',
     '- When context provides entity IDs (plan_id, experience_id, item_id, destination_id), use those IDs in action payloads. If the ID is not available in context, ask the user which entity they mean.',
     '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
+    '- IMPORTANT: When asking a clarifying question about a specific child entity (e.g. which plan item to remove), populate entity_refs with the relevant child entities (plan_item), never the parent (experience). Only include the parent entity in entity_refs when the action targets the parent itself.',
+    '',
+    'ATTENTION SIGNALS:',
+    '- Context blocks may include [ATTENTION] sections listing gaps, anomalies, or urgencies.',
+    '- When [ATTENTION] signals are present and the user\'s opening message is open-ended (e.g. "hey", "what should I do?", "help me plan"), surface the most urgent one naturally in your response.',
+    '- Do not list all signals mechanically. Weave the most important one into a helpful, conversational observation.',
+    '- If the user\'s message already addresses the signal topic, do not repeat it.',
+    '',
+    'TRAVEL SIGNALS — prioritization:',
+    '- The [TRAVEL SIGNALS] context section (when present) encodes the user\'s inferred travel personality (e.g. food-focused, adventurous, budget-conscious, social).',
+    '- Whenever the user asks an open-ended prioritization question — "which one first?", "what should I work on?", "which trip/plan/experience/item should I prioritize?", "what do you recommend?", "help me decide" — you MUST use [TRAVEL SIGNALS] to make a confident, personalized recommendation. DO NOT ask for clarification.',
+    '- Apply this rule across ALL entity types:',
+    '  • Plans/trips: recommend the one whose destination or experience type best matches the user\'s signals.',
+    '  • Experiences: recommend the one whose activity type aligns with the user\'s personality.',
+    '  • Plan items: recommend completing items that match the user\'s travel style first (e.g. food-focused → prioritize dining reservations).',
+    '  • Destinations: recommend the one that fits the user\'s personality (e.g. novelty-seeker → off-the-beaten-path).',
+    '- Always name the specific entity you recommend and give ONE concise reason tied to their travel personality.',
+    '- Include the recommended entity in entity_refs.',
+    '- If [TRAVEL SIGNALS] is absent or confidence is too low, fall back to objective signals (soonest trip date, most overdue item, most items remaining) and explain the reasoning briefly.',
+    '',
+    'GREETING CONTEXT SECTIONS — follow-up handling:',
+    '- Every entity mentioned in the greeting carries an inline entityJSON ref. Use those IDs for actions and navigation without asking the user.',
+    '',
+    'OVERDUE ITEMS ([OVERDUE ITEMS] section):',
+    '- When the user asks which item is overdue, or asks to see/go to the overdue item, use the [OVERDUE ITEMS] section to identify the item by name and plan.',
+    '- Always propose a navigate_to_entity action (entity: "plan") so the user can jump directly to the plan containing the overdue item.',
+    '- Include the overdue plan_item in entity_refs so the frontend can highlight it.',
+    '- For prioritization questions ("which overdue item should I fix first?", "where should I start?"), apply the global TRAVEL SIGNALS prioritization rule — recommend the item whose activity type or destination best matches the user\'s personality.',
+    '',
+    'IMMINENT INCOMPLETE ITEMS ([IMMINENT INCOMPLETE ITEMS] section):',
+    '- When the user asks "what\'s still open for my upcoming trip?" or "what do I need to do before my trip?", use [IMMINENT INCOMPLETE ITEMS].',
+    '- List the items by name and propose navigate_to_entity to the containing plan.',
+    '- Include each plan_item and its parent plan in entity_refs.',
+    '- For prioritization questions ("which open item should I tackle first?"), apply the global TRAVEL SIGNALS prioritization rule — then fall back to the item closest to its scheduled date.',
+    '',
+    'PLANS WITHOUT DATE ([PLANS WITHOUT DATE] section):',
+    '- When the user asks "which plans have no date?" or "which trips aren\'t scheduled yet?", list these plans and offer to set a date with update_plan.',
+    '- Include each plan in entity_refs and propose update_plan with planned_date if the user provides one.',
+    '- For prioritization questions ("which plan should I date first?"), apply the global TRAVEL SIGNALS prioritization rule above — pick the best match and offer to set the date immediately.',
+    '',
+    'RECENT ACTIVITY ([RECENT ACTIVITY (48h)] section):',
+    '- When the user asks "what did I do recently?", "which experience did I update?", or "show my recent changes", use [RECENT ACTIVITY (48h)].',
+    '- Each activity line includes an entityJSON ref for the affected entity — use those IDs directly.',
+    '- Propose navigate_to_entity if the user wants to go to a recently-modified entity.',
+    '',
+    'ACTIVE PLANS (active plans list):',
+    '- Every plan in the list has Plan, Experience, and Destination entity refs on its line.',
+    '- When the user asks "show me my Paris plans", "take me to my Aruba trip", or filters by destination/experience name, match against the listed plans and propose navigate_to_entity.',
+    '- When the user asks "which plans are coming up this week?", filter by the [in Nd] proximity tags.',
+    '- When the user asks "which plan has progress?", check the completed item count.',
+    '- For prioritization questions ("which active plan should I focus on?", "where should I start?"), apply the global TRAVEL SIGNALS prioritization rule — then fall back to the plan with the nearest upcoming date or the most items remaining.',
     '',
     'DATE AND TIME:',
     `- Today's date is ${new Date().toISOString().split('T')[0]}.`,
@@ -224,6 +300,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- Include the resolved date in the action payload (e.g. planned_date field).',
     '- State the calculated date in your message so the user can confirm or correct it.',
     '- Example: User says "in 3 months" on 2026-03-23 → planned_date: "2026-06-23". Message: "I\'ll set the date to June 23, 2026."',
+    '- IMPORTANT — Plan-level vs Item-level dates: `update_plan.planned_date` is the overall trip date for the plan. `update_plan_item.scheduled_date` (and `scheduled_time`) is the date/time a specific plan item is scheduled. When the active context is a plan_item, "set a date" or "set a time" means `update_plan_item` with `scheduled_date`/`scheduled_time` — NOT `update_plan`. Only use `update_plan` for the plan\'s trip date when the user explicitly refers to changing when the trip happens.',
     '',
     'ENTITY IDs:',
     '- NEVER fabricate or use placeholder IDs like "<experience_id>" or "<destination_id>".',
@@ -249,6 +326,27 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '- If you do NOT have a real _id for an entity (e.g. the user named a destination not yet in context), use plain text for the name — do NOT embed a JSON object.',
     '- _id must be a real MongoDB ObjectId or other ID exactly as it appears in the context — never a slug, abbreviation, or made-up string.',
     '- The name field is what the user sees; always include it.',
+    '',
+    'INTENT-SPECIFIC BEHAVIOR:',
+    '- QUERY_DASHBOARD: Summarize the user\'s overview — upcoming plans, recent activity, stats from the context. Be proactive about surfacing important information. When the user follows up with a prioritization question ("what should I focus on?", "where do I start?"), apply the global TRAVEL SIGNALS prioritization rule.',
+    '- QUERY_PLAN_COSTS: Present a clear cost breakdown from the plan context. Include total cost, currency, and per-category breakdown when available. Suggest update_plan_cost or add_plan_cost if data seems incomplete.',
+    '- QUERY_EXPERIENCE_TAGS: List the activity types/tags on the experience. Suggest update_experience if the user wants to add or change tags.',
+    '- SEARCH_CONTENT: Summarize the search results from context. If no results, offer to create or suggest narrowing the query.',
+    '- QUERY_COUNTRY: Provide context about the destination/country from discovery context. Include practical travel info and suggest creating an experience or plan if the user is interested.',
+    '- QUERY_PHOTOS: Use fetch_entity_photos to retrieve photos for the current experience or destination. The entity_id comes from the session context — never ask for it.',
+    '- ADD_PHOTO: Explain that photos can be uploaded via the entity\'s photo section. You cannot upload photos directly — guide the user to the relevant page using navigate_to_entity.',
+    '- QUERY_ACTIVITY_FEED: Use list_user_activities to retrieve recent activity (READ-ONLY, executes immediately). Summarize the history in natural language.',
+    '- QUERY_DOCUMENTS: Use list_entity_documents to retrieve documents for the current entity (READ-ONLY, executes immediately). Summarize what documents are attached.',
+    '- PIN_PLAN_ITEM: Use pin_plan_item with the plan_id and item_id from context. Confirm which item the user wants to pin if ambiguous.',
+    '- UNPIN_PLAN_ITEM: Use unpin_plan_item with the plan_id and item_id from context.',
+    '- CREATE_INVITE: Use create_invite. Confirm the invite settings (max uses, expiry) with the user before proposing.',
+    '- REQUEST_PLAN_ACCESS: Use request_plan_access with the plan_id. Confirm with the user if context is ambiguous.',
+    '- FOLLOW_USER: Use follow_user with the user_id from context. Always confirm which user the user wants to follow before proposing — never guess.',
+    '- UNFOLLOW_USER: Use unfollow_user with the user_id from context. Confirm with the user before proposing.',
+    '- QUERY_FOLLOWERS: Use list_user_followers (READ-ONLY, executes immediately) with the user_id from the profile context. Default type is "followers"; set type to "following" when the user asks who they follow.',
+    '- ACCEPT_FOLLOW_REQUEST: Use accept_follow_request with follower_id from context. If multiple pending requests exist, list them and ask which one to accept.',
+    '- UPDATE_PROFILE: Use update_user_profile with only the fields the user explicitly asked to change (name, bio, or preferences). Never update fields the user did not mention.',
+    '- REORDER_PLAN_ITEMS: Use reorder_plan_items with plan_id and item_ids ordered as the user described. Read all current item IDs from the plan context block — do not omit any items.',
     ''
   ];
 
@@ -258,7 +356,16 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
   }
 
   if (invokeLabel) {
-    lines.push(`Viewing: ${invokeLabel}`);
+    const entityTypeLabels = {
+      destination: 'destination',
+      experience: 'experience',
+      plan: 'plan',
+      plan_item: 'plan item',
+      user: 'user profile',
+    };
+    const effectiveEntityType = invokeEntityType || session?.invoke_context?.entity || null;
+    const entityTypeStr = effectiveEntityType ? (entityTypeLabels[effectiveEntityType] || effectiveEntityType) : null;
+    lines.push(entityTypeStr ? `Viewing ${entityTypeStr}: ${invokeLabel}` : `Viewing: ${invokeLabel}`);
     if (contextDescription) {
       lines.push(`Page context: ${contextDescription}`);
     }
@@ -288,6 +395,17 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     lines.push('');
   }
 
+  if (lastShownEntities && lastShownEntities.length > 0) {
+    lines.push('LAST SHOWN ENTITY:');
+    lines.push('- The previous response highlighted these entities. If the user\'s reply is a short affirmation ("yes", "ok", "plan it", "go ahead", "do it", "sure", "that one") or does not reference a specific entity by name, treat it as referring to the entity shown below.');
+    lines.push('- Use the IDs below directly in action payloads — do NOT ask which entity the user means.');
+    for (const e of lastShownEntities) {
+      const extra = e.experience_id ? `, experience_id: ${e.experience_id}` : '';
+      lines.push(`  • ${e.type}: "${e.name}" (_id: ${e._id}${extra})`);
+    }
+    lines.push('');
+  }
+
   lines.push(
     'PLANNING AN EXPERIENCE:',
     'The user wants to plan an experience. Follow this flow:',
@@ -298,6 +416,7 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '5. After the date is set, use `suggest_plan_items` to show popular items.',
     'Never propose a `navigate_to_entity` action when the user wants to plan.',
     'If has_user_plan is true in context for the selected experience, ask whether they want a new plan or to work on the existing one before proposing create_plan.',
+    'When multiple experiences match and the user asks "which should I plan first?" or similar prioritization questions, apply the global TRAVEL SIGNALS prioritization rule.',
     ''
   );
 
@@ -335,25 +454,34 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     'Available action types:',
     '  create_destination, create_experience, create_plan,',
     '  update_experience, update_destination, update_plan,',
-    '  add_plan_items, update_plan_item, delete_plan_item, delete_plan,',
+    '  add_plan_items, update_plan_item, mark_plan_item_complete, mark_plan_item_incomplete, delete_plan_item, delete_plan,',
     '  add_experience_plan_item, update_experience_plan_item, delete_experience_plan_item,',
-    '  add_plan_item_note, add_plan_item_detail, assign_plan_item, unassign_plan_item,',
+    '  add_plan_item_note, update_plan_item_note, delete_plan_item_note,',
+    '  add_plan_item_detail, update_plan_item_detail, delete_plan_item_detail,',
+    '  assign_plan_item, unassign_plan_item,',
     '  add_plan_cost, update_plan_cost, delete_plan_cost,',
     '  invite_collaborator, remove_collaborator, sync_plan,',
     '  toggle_favorite_destination, set_member_location, remove_member_location,',
-    '  navigate_to_entity',
+    '  navigate_to_entity, list_user_experiences,',
+    '  follow_user, unfollow_user, accept_follow_request, list_user_followers,',
+    '  update_user_profile,',
+    '  list_user_activities,',
+    '  pin_plan_item, unpin_plan_item, reorder_plan_items,',
+    '  shift_plan_item_dates,',
+    '  list_entity_documents,',
+    '  create_invite, request_plan_access',
     '',
     'Action payload schemas:',
     '',
     '--- Destination ---',
     '- create_destination: { name, country, state?, overview?, location? }',
-    '- update_destination: { destination_id, name?, country?, state?, overview?, location?, map_location?, travel_tips? }',
+    '- update_destination: { destination_id, name?, country?, state?, overview?, location?, travel_tips? }',
     '  travel_tips is an array of strings (e.g. ["Bring an umbrella", "Learn basic phrases"])',
     '- toggle_favorite_destination: { destination_id }  (always uses logged-in user)',
     '',
     '--- Experience ---',
     '- create_experience: { name, destination_id?, description?, plan_items?, experience_type?, visibility? }',
-    '- update_experience: { experience_id, name?, overview?, destination?, experience_type?, visibility?, map_location? }',
+    '- update_experience: { experience_id, name?, overview?, destination?, experience_type?, visibility?, location? }',
     '- add_experience_plan_item: { experience_id, text, url?, cost_estimate?, planning_days?, parent?, activity_type?, location? }',
     '- update_experience_plan_item: { experience_id, plan_item_id, text?, url?, cost_estimate?, planning_days?, parent?, activity_type?, location? }',
     '- delete_experience_plan_item: { experience_id, plan_item_id }',
@@ -367,10 +495,56 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '',
     '--- Plan Items ---',
     '- add_plan_items: { plan_id, items: [{ text, url?, cost?, planning_days?, parent?, activity_type?, location? }] }',
+    '  IMPORTANT: For add_plan_items, include ONLY the "text" field per item unless the user explicitly provides url, cost, or other details. This keeps the response compact.',
     '- update_plan_item: { plan_id, item_id, complete?, text?, cost?, planning_days?, url?, activity_type?, scheduled_date?, scheduled_time?, visibility?, location? }',
+    '  Use scheduled_date (ISO date string) and scheduled_time ("HH:MM") to set when this specific item is scheduled.',
+    '  This is the item schedule — NOT the plan trip date. To change the trip date use update_plan instead.',
+    '- mark_plan_item_complete: { plan_id, item_id } — mark a plan item as done (prefer over update_plan_item when only changing completion status)',
+    '- mark_plan_item_incomplete: { plan_id, item_id } — unmark a plan item as done',
     '- delete_plan_item: { plan_id, item_id }  (⚠️ confirm with user first)',
     '- add_plan_item_note: { plan_id, item_id, content, visibility? ("private" or "contributors") }',
-    '- add_plan_item_detail: { plan_id, item_id, type ("transport"|"accommodation"|"parking"|"discount"), data: { ... } }',
+    '- update_plan_item_note: { plan_id, item_id, note_id, content, visibility? }',
+    '- delete_plan_item_note: { plan_id, item_id, note_id }  (⚠️ confirm with user first)',
+    '',
+    '--- Plan Item Details (structured extensions) ---',
+    'Each plan item can have one entry per detail type. Use add to create, update to modify, delete to remove.',
+    '- add_plan_item_detail: { plan_id, item_id, type, data }',
+    '- update_plan_item_detail: { plan_id, item_id, detail_type, data }  (detail_id optional — type is sufficient)',
+    '- delete_plan_item_detail: { plan_id, item_id, detail_type }  (⚠️ confirm with user first)',
+    '',
+    'Detail type schemas for the `data` field:',
+    '  type "transport": {',
+    '    mode (required, one of: flight|train|cruise|ferry|bus|coach|car_share|ride|metro|local_transit|bike_rental|scooter),',
+    '    vendor?, trackingNumber?, departureTime? (ISO), arrivalTime? (ISO),',
+    '    departureLocation?, arrivalLocation?, status? (scheduled|active|completed|cancelled|delayed),',
+    '    transportNotes?,',
+    '    flight?: { terminal?, arrivalTerminal?, gate?, arrivalGate? },',
+    '    train?: { carriageNumber?, platform?, arrivalPlatform? },',
+    '    cruise|ferry?: { deck?, shipName?, embarkationPort?, disembarkationPort? },',
+    '    bus|coach?: { stopName?, arrivalStopName? },',
+    '    carShare|ride?: { vehicleModel?, vehicleColor?, licensePlate?, pickupSpot? },',
+    '    metro|localTransit?: { lineNumber?, direction?, platform? },',
+    '    bikeRental|scooter?: { dockName?, returnDockName? }',
+    '  }',
+    '  type "accommodation": {',
+    '    name?, confirmationNumber?, address?,',
+    '    checkIn? (ISO), checkOut? (ISO), roomType?,',
+    '    cost?, currency? (3-letter code), notes?',
+    '  }',
+    '  type "parking": {',
+    '    parkingType? (street|garage|lot|valet|hotel|airport|venue|private|other),',
+    '    facilityName?, address?, spotNumber?, level?,',
+    '    startTime? (ISO), endTime? (ISO), cost?, currency?,',
+    '    prepaid? (bool), confirmationNumber?, accessCode?,',
+    '    status? (reserved|active|completed|cancelled), parkingNotes?',
+    '  }',
+    '  type "discount": {',
+    '    discountType? (promo_code|coupon|loyalty|member|early_bird|group|seasonal|referral|other),',
+    '    code?, description?, discountValue?, isPercentage? (bool), currency?,',
+    '    minimumPurchase?, maxDiscount?, expiresAt? (ISO date),',
+    '    status? (active|applied|expired|invalid), source?, discountNotes?',
+    '  }',
+    '',
     '- assign_plan_item: { plan_id, item_id, assigned_to (user ID from context) }',
     '- unassign_plan_item: { plan_id, item_id }',
     '',
@@ -405,8 +579,51 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
     '  (culinary, adventure, cultural, wellness, nightlife) or specific types (food, museum, etc.).',
     '  Use when user asks to discover, explore, or find experiences by category or destination.',
     '',
-    'NOTE: suggest_plan_items, fetch_entity_photos, fetch_destination_tips, and discover_content are READ-ONLY actions.',
+    '- list_user_experiences: { user_id, limit?: 20 }',
+    '  Returns experiences created by the given user. READ-ONLY — executes immediately.',
+    '  Use when the user asks to see another user\'s experiences or when in a user profile context.',
+    '',
+    '- list_user_followers: { user_id, type?: "followers"|"following", limit?: 20 }',
+    '  Returns followers or following list for the given user. READ-ONLY — executes immediately.',
+    '  Use when the user asks who follows someone or who they follow.',
+    '',
+    '- list_user_activities: { limit?: 10 }',
+    '  Returns the activity feed for the logged-in user (recent actions they have taken). READ-ONLY — executes immediately.',
+    '  Use when the user asks "what have I done recently", "show my activity", or similar.',
+    '',
+    '- list_entity_documents: { entity_type ("plan"|"experience"|"destination"|"plan_item"), entity_id, plan_id? (required when entity_type is "plan_item"), limit?: 10 }',
+    '  Returns documents attached to an entity. READ-ONLY — executes immediately.',
+    '  Use when the user asks to see documents, files, or attachments for a plan, experience, or destination.',
+    '',
+    'NOTE: suggest_plan_items, fetch_entity_photos, fetch_destination_tips, discover_content, list_user_experiences, list_user_followers, list_user_activities, and list_entity_documents are READ-ONLY actions.',
     'They execute immediately without user confirmation and return structured data.',
+    '',
+    '--- Social ---',
+    '- follow_user: { user_id }  — Follow the specified user.',
+    '- unfollow_user: { user_id }  — Unfollow the specified user.',
+    '- accept_follow_request: { follower_id }  — Accept a pending follow request from follower_id.',
+    '  Use these when the user asks to follow, unfollow, or accept a follow request.',
+    '  Always use the user_id from the context — never ask the user for an ID.',
+    '',
+    '--- Plan Item Actions ---',
+    '- pin_plan_item: { plan_id, item_id }  — Pin a plan item so it appears highlighted at the top of the timeline.',
+    '- unpin_plan_item: { plan_id, item_id }  — Remove the pinned status from a plan item.',
+    '  Use when the user asks to pin/highlight/feature or unpin a specific plan item.',
+    '- reorder_plan_items: { plan_id, item_ids: [string] }  — Reorder all plan items to the given order.',
+    '  item_ids must contain ALL item IDs for the plan in the desired new order.',
+    '  Use when the user asks to move, rearrange, or reorder items in their plan. Read item IDs from the plan context block.',
+    '',
+    '--- User Profile ---',
+    '- update_user_profile: { name?, bio?, preferences?: { currency?, timezone?, theme? } }',
+    '  Updates the logged-in user\'s own profile. Never accepts a target user_id.',
+    '  Use for requests like "update my bio", "change my currency", "set my timezone".',
+    '',
+    '--- Invites & Access ---',
+    '- create_invite: { max_uses?: 1, expires_in_days?: 7 }',
+    '  Creates a shareable invite code the logged-in user can send to others.',
+    '  Use when the user asks to invite someone or create an invitation link.',
+    '- request_plan_access: { plan_id, message? }',
+    '  Sends an access request to the plan owner. Use when the user asks to join or view a plan they cannot access.',
     '',
     '--- Navigation ---',
     '- navigate_to_entity: { entity ("destination"|"experience"|"plan"), entityId, url }',
@@ -488,11 +705,52 @@ function buildSystemPrompt({ invokeLabel, contextDescription, contextBlock, sess
 /**
  * Build context blocks based on intent classification and session state.
  */
-async function buildContextBlocks(intent, entities, session, userId, message) {
+async function buildContextBlocks(intent, entities, session, userId, message, navigationSchema) {
+  loadModels();
   const blocks = [];
 
-  // Use session context IDs to enrich the prompt
-  const ctx = session.context || {};
+  // Use session context IDs to enrich the prompt.
+  // Supplement with navigationSchema IDs for turn 1: before the LLM has had a chance
+  // to return entity_refs, the schema already carries the full ancestor chain so every
+  // applicable builder (destination, experience, plan) fires in parallel immediately.
+  const sessionCtx = session.context || {};
+  const schemaIds = navigationSchema ? extractContextIds(navigationSchema) : {};
+  const ctx = {
+    destination_id: sessionCtx.destination_id || schemaIds.destination_id || null,
+    experience_id:  sessionCtx.experience_id  || schemaIds.experience_id  || null,
+    plan_id:        sessionCtx.plan_id         || schemaIds.plan_id        || null,
+    plan_item_id:   sessionCtx.plan_item_id    || schemaIds.plan_item_id   || null,
+  };
+
+  // Pre-fetch all user plans once when entity context is present.
+  // Multiple builders (buildDestinationContext, buildExperienceContext, buildUserPlanContext)
+  // each query Plan.find({ user: userId }) when they run in parallel — this shared cache
+  // is passed as opts.userPlans to eliminate N redundant concurrent queries.
+  let sharedUserPlans = null;
+  if (ctx.destination_id || ctx.experience_id || ctx.plan_id) {
+    try {
+      sharedUserPlans = await Plan.find({ user: userId })
+        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
+        .select('experience planned_date plan')
+        .lean();
+    } catch (prefetchErr) {
+      logger.debug('[bienbot] User plans prefetch skipped', { error: prefetchErr.message });
+    }
+  }
+
+  // When plan_id is known but experience_id is not, resolve it from the plan document.
+  // This ensures intents like UPDATE_EXPERIENCE_PLAN_ITEM and DELETE_EXPERIENCE_PLAN_ITEM
+  // work correctly even when the session was seeded solely with a plan context.
+  if (ctx.plan_id && !ctx.experience_id) {
+    try {
+      const planDoc = await Plan.findById(ctx.plan_id).select('experience').lean();
+      if (planDoc?.experience) {
+        ctx.experience_id = planDoc.experience.toString();
+      }
+    } catch (e) {
+      // Non-blocking — proceed without experience_id fallback
+    }
+  }
 
   try {
     const promises = [];
@@ -528,18 +786,108 @@ async function buildContextBlocks(intent, entities, session, userId, message) {
       }
     }
 
+    // Search intent — build search context from the raw user message
+    if (intent === 'SEARCH_CONTENT' && message) {
+      promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Country query — build discovery context filtered by destination/country name
+    if (intent === 'QUERY_COUNTRY') {
+      const countryFilters = {};
+      if (entities.destination_name) countryFilters.destination_name = entities.destination_name;
+      promises.push(buildDiscoveryContext(countryFilters, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Dashboard / overview — build user greeting context with stats and summaries
+    if (intent === 'QUERY_DASHBOARD' || intent === 'QUERY_ACTIVITY_FEED') {
+      promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
+    }
+
+    // Photo queries / add photo — auto-load photo context from the current entity in ctx
+    if (intent === 'QUERY_PHOTOS' || intent === 'ADD_PHOTO') {
+      if (ctx.experience_id) {
+        promises.push(buildExperienceContext(ctx.experience_id.toString(), userId).then(b => b && blocks.push(b)));
+      } else if (ctx.destination_id) {
+        promises.push(buildDestinationContext(ctx.destination_id.toString(), userId).then(b => b && blocks.push(b)));
+      }
+    }
+
+    // Profile queries — build user profile context from invoke context
+    if (intent === 'QUERY_PROFILE' || intent === 'FOLLOW_USER' || intent === 'UNFOLLOW_USER' || intent === 'QUERY_FOLLOWERS' || intent === 'ACCEPT_FOLLOW_REQUEST') {
+      if (session.invoke_context?.entity === 'user' && session.invoke_context?.entity_id) {
+        promises.push(buildUserProfileContext(session.invoke_context.entity_id, userId).then(b => b && blocks.push(b)));
+      }
+    }
+
+    // Profile self-edit — build the requesting user's own profile context
+    if (intent === 'UPDATE_PROFILE') {
+      promises.push(buildUserProfileContext(userId, userId).then(b => b && blocks.push(b)));
+    }
+
+    // Plan item pin/unpin — ensure plan context is available
+    if ((intent === 'PIN_PLAN_ITEM' || intent === 'UNPIN_PLAN_ITEM') && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+
+    // Documents — build plan/experience/destination context as anchor for document queries
+    if (intent === 'QUERY_DOCUMENTS' || intent === 'UPLOAD_DOCUMENT') {
+      if (ctx.plan_id) {
+        promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+      } else if (ctx.experience_id) {
+        promises.push(buildExperienceContext(ctx.experience_id.toString(), userId).then(b => b && blocks.push(b)));
+      } else if (ctx.destination_id) {
+        promises.push(buildDestinationContext(ctx.destination_id.toString(), userId).then(b => b && blocks.push(b)));
+      }
+    }
+
+    // Invites / access requests — build plan context so the assistant knows which plan to reference
+    if ((intent === 'CREATE_INVITE' || intent === 'REQUEST_PLAN_ACCESS') && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+
+    // Plan costs — build plan context which includes cost data
+    if (intent === 'QUERY_PLAN_COSTS' && ctx.plan_id) {
+      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+
     // Session-level context (already resolved entities)
+    const ctxOpts = sharedUserPlans ? { userPlans: sharedUserPlans } : {};
     if (ctx.destination_id) {
-      promises.push(buildDestinationContext(ctx.destination_id.toString(), userId).then(b => b && blocks.push(b)));
+      promises.push(buildDestinationContext(ctx.destination_id.toString(), userId, ctxOpts).then(b => b && blocks.push(b)));
     }
     if (ctx.experience_id) {
-      promises.push(buildExperienceContext(ctx.experience_id.toString(), userId).then(b => b && blocks.push(b)));
+      promises.push(buildExperienceContext(ctx.experience_id.toString(), userId, ctxOpts).then(b => b && blocks.push(b)));
     }
     if (ctx.plan_id) {
-      promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
-      // Add next-steps analysis for QUERY_PLAN intent
-      if (intent === 'QUERY_PLAN') {
-        promises.push(buildPlanNextStepsContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+      // Guard: if both experience_id and plan_id are set, verify the plan actually
+      // belongs to experience_id before adding it to context. A stale plan_id from
+      // a previous session turn would otherwise mislead the LLM (e.g. telling it
+      // about Plan A on the Porto experience while the user is viewing Nashville).
+      let planBelongsToContext = true;
+      if (ctx.experience_id && ctx.plan_id) {
+        try {
+          // Reuse sharedUserPlans if available to avoid an extra Plan.findById
+          const planDoc = sharedUserPlans
+            ? sharedUserPlans.find(p => String(p._id) === String(ctx.plan_id))
+            : await Plan.findById(ctx.plan_id).select('experience').lean();
+          if (planDoc && planDoc.experience?.toString() !== ctx.experience_id?.toString() &&
+              planDoc.experience?._id?.toString() !== ctx.experience_id?.toString()) {
+            planBelongsToContext = false;
+            logger.debug('[bienbot] Skipping stale plan_id (belongs to different experience)', {
+              planId: ctx.plan_id, planExperience: (planDoc.experience?._id || planDoc.experience)?.toString(), contextExperience: ctx.experience_id?.toString()
+            });
+          }
+        } catch (planCheckErr) {
+          logger.warn('[bienbot] Could not verify plan ownership, skipping plan context', { error: planCheckErr.message });
+          planBelongsToContext = false;
+        }
+      }
+      if (planBelongsToContext) {
+        promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId, ctxOpts).then(b => b && blocks.push(b)));
+        // Add next-steps analysis for QUERY_PLAN intent
+        if (intent === 'QUERY_PLAN') {
+          promises.push(buildPlanNextStepsContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+        }
       }
     }
     if (ctx.plan_item_id && ctx.plan_id) {
@@ -582,14 +930,16 @@ async function buildContextBlocks(intent, entities, session, userId, message) {
           if (!ref._id || /<[^>]+>/.test(ref._id)) continue;
           if (ref.type === 'destination' && !historyDestId) historyDestId = ref._id;
           if (ref.type === 'experience' && !historyExpId) historyExpId = ref._id;
+          // Plans carry experience_id — use it to load experience context for follow-ups
+          if (ref.type === 'plan' && ref.experience_id && !historyExpId) historyExpId = ref.experience_id;
         }
         if (historyDestId || historyExpId) break;
       }
       if (historyDestId) {
-        promises.push(buildDestinationContext(historyDestId, userId).then(b => b && blocks.push(b)));
+        promises.push(buildDestinationContext(historyDestId, userId, ctxOpts).then(b => b && blocks.push(b)));
       }
       if (historyExpId) {
-        promises.push(buildExperienceContext(historyExpId, userId).then(b => b && blocks.push(b)));
+        promises.push(buildExperienceContext(historyExpId, userId, ctxOpts).then(b => b && blocks.push(b)));
       }
     }
 
@@ -683,6 +1033,13 @@ function parseLLMResponse(text) {
   const direct = tryParse(cleaned);
   if (direct) return direct;
 
+  // 1b. Strip markdown fences from anywhere in the text (handles prose before/after fences)
+  const fenceStripped = text.replace(/```(?:json)?\s*\n?/gi, '').replace(/\n?\s*```/g, '').trim();
+  if (fenceStripped !== cleaned) {
+    const fenceResult = tryParse(fenceStripped);
+    if (fenceResult) return fenceResult;
+  }
+
   // 2. Try extracting the first JSON object from the text (handles leading/trailing prose)
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
@@ -691,16 +1048,52 @@ function parseLLMResponse(text) {
     if (extracted) return extracted;
   }
 
+  // 2b. Try extracting from fence-stripped text as well
+  if (fenceStripped !== cleaned) {
+    const fsBrace = fenceStripped.indexOf('{');
+    const fsLastBrace = fenceStripped.lastIndexOf('}');
+    if (fsBrace !== -1 && fsLastBrace > fsBrace) {
+      const fsExtracted = tryParse(fenceStripped.slice(fsBrace, fsLastBrace + 1));
+      if (fsExtracted) return fsExtracted;
+    }
+  }
+
   // 3. JSON-like but unparseable — try regex extraction, else friendly error
   if (text.trimStart().startsWith('{')) {
     const msgMatch = text.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (msgMatch) {
+      let message;
       try {
-        const unescaped = JSON.parse(`"${msgMatch[1]}"`);
-        return { message: unescaped, pending_actions: [], entity_refs: [] };
+        message = JSON.parse(`"${msgMatch[1]}"`);
       } catch {
-        return { message: msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\'), pending_actions: [], entity_refs: [] };
+        message = msgMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
       }
+
+      // Also try to salvage pending_actions from the broken JSON
+      let actions = [];
+      try {
+        const actionsMatch = text.match(/"pending_actions"\s*:\s*\[/);
+        if (actionsMatch) {
+          const actionsStart = actionsMatch.index + actionsMatch[0].length - 1;
+          let depth = 0;
+          let actionsEnd = -1;
+          for (let i = actionsStart; i < text.length; i++) {
+            if (text[i] === '[') depth++;
+            else if (text[i] === ']') {
+              depth--;
+              if (depth === 0) { actionsEnd = i + 1; break; }
+            }
+          }
+          if (actionsEnd > actionsStart) {
+            const rawActions = JSON.parse(text.slice(actionsStart, actionsEnd));
+            actions = (Array.isArray(rawActions) ? rawActions : [])
+              .filter(a => a && typeof a.id === 'string' && typeof a.type === 'string' &&
+                ALLOWED_ACTION_TYPES.includes(a.type) && a.payload && typeof a.description === 'string');
+          }
+        }
+      } catch { /* ignore — return message without actions */ }
+
+      return { message, pending_actions: actions, entity_refs: [] };
     }
     logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
       length: text.length,
@@ -709,7 +1102,17 @@ function parseLLMResponse(text) {
     return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
   }
 
-  // 4. No message field found — show error
+  // 4. Plain text (no JSON structure) — return the text as the message
+  // rather than showing an error, so the user at least sees the LLM response
+  const trimmed = text.trim();
+  if (trimmed.length > 0 && trimmed.length < 5000) {
+    logger.warn('[bienbot] parseLLMResponse: returning plain text response (no JSON)', {
+      length: trimmed.length,
+      preview: trimmed.slice(0, 120)
+    });
+    return { message: trimmed, pending_actions: [], entity_refs: [] };
+  }
+
   logger.warn('[bienbot] parseLLMResponse: no message field in response', {
     length: text.length,
     preview: text.slice(0, 120)
@@ -1010,6 +1413,63 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
         }
       };
 
+    case 'list_user_experiences':
+      if (result.experiences && result.experiences.length > 0) {
+        return {
+          type: 'experience_list',
+          data: {
+            experiences: result.experiences,
+            user_id: result.user_id || null,
+            total: result.total || result.experiences.length
+          }
+        };
+      }
+      return null;
+
+    case 'list_user_followers': {
+      const items = result.followers || result.following || result.data || [];
+      if (items.length > 0) {
+        return {
+          type: 'follower_list',
+          data: {
+            users: items,
+            list_type: result.type || 'followers',
+            user_id: result.user_id || null,
+            total: result.total || items.length
+          }
+        };
+      }
+      return null;
+    }
+
+    case 'list_user_activities': {
+      const history = result.history || result.data || [];
+      if (history.length > 0) {
+        return {
+          type: 'activity_feed',
+          data: {
+            activities: history,
+            total: result.count || history.length
+          }
+        };
+      }
+      return null;
+    }
+
+    case 'list_entity_documents': {
+      const docs = result.documents || result.data || [];
+      if (docs.length > 0) {
+        return {
+          type: 'document_list',
+          data: {
+            documents: docs,
+            total: result.total || docs.length
+          }
+        };
+      }
+      return null;
+    }
+
     default:
       return null;
   }
@@ -1046,6 +1506,19 @@ exports.chat = async (req, res) => {
       invokeContext = JSON.parse(invokeContext);
     } catch {
       invokeContext = null;
+    }
+  }
+
+  // Parse and validate navigationSchema (lean breadcrumb for BienBot context seeding)
+  let navigationSchema = null;
+  const rawNavSchema = req.body.navigationSchema;
+  if (rawNavSchema) {
+    try {
+      const parsed = typeof rawNavSchema === 'string' ? JSON.parse(rawNavSchema) : rawNavSchema;
+      const { valid, schema } = validateNavigationSchema(parsed);
+      if (valid) navigationSchema = schema;
+    } catch {
+      // Ignore malformed schema — fall back to single-entity seeding
     }
   }
 
@@ -1170,7 +1643,7 @@ exports.chat = async (req, res) => {
     // Resolve entity label from DB (never trust client-supplied label)
     invokeLabel = await resolveEntityLabel(invokeContext.entity, invokeContext.id);
     if (!invokeLabel) {
-      return errorResponse(res, null, 'Entity not found', 403);
+      return errorResponse(res, null, 'Entity not found', 404);
     }
 
     // Permission check: canView
@@ -1191,7 +1664,7 @@ exports.chat = async (req, res) => {
           break;
         case 'plan_item': {
           // plan_item is a subdocument — find parent plan and use it for permission check
-          const parentPlan = await Plan.findOne({ 'plan._id': invokeObjId }).lean();
+          const parentPlan = await findPlanContainingItem(invokeObjId);
           if (parentPlan) {
             resource = parentPlan;
             // Stash the parent plan ID for context builder and session context
@@ -1211,7 +1684,7 @@ exports.chat = async (req, res) => {
     }
 
     if (!resource) {
-      return errorResponse(res, null, 'Entity not found', 403);
+      return errorResponse(res, null, 'Entity not found', 404);
     }
 
     // User entities don't go through canView - any authenticated user can view profiles
@@ -1233,6 +1706,10 @@ exports.chat = async (req, res) => {
     if (invokeContext.entity === 'plan_item' && invokeContext._parentPlanId) {
       contextOptions.planId = invokeContext._parentPlanId;
     }
+    // Use navigationSchema to supply parent plan_id when not passed explicitly by the client
+    if (invokeContext.entity === 'plan_item' && !contextOptions.planId && navigationSchema?.plan_item?.plan_id) {
+      contextOptions.planId = navigationSchema.plan_item.plan_id;
+    }
     invokeContextBlock = await buildContextForInvokeContext(
       resolvedInvokeContext,
       userId,
@@ -1242,6 +1719,9 @@ exports.chat = async (req, res) => {
 
   // --- Step 1: Load or create session ---
   let session;
+  // Hoisted so the LLM pipeline gate below can enforce role regardless of control flow.
+  // null means a new session (owner by definition); 'owner' | 'editor' | 'viewer' for existing.
+  let sessionRole = null;
 
   try {
     if (sessionId) {
@@ -1253,6 +1733,7 @@ exports.chat = async (req, res) => {
       if (!access.hasAccess) {
         return errorResponse(res, null, 'Session not found', 404);
       }
+      sessionRole = access.role;
       // Viewers cannot send messages — only owner and editors can
       if (access.role === 'viewer') {
         return errorResponse(res, null, 'You have view-only access to this session', 403);
@@ -1261,8 +1742,10 @@ exports.chat = async (req, res) => {
       // --- Shared comment shortcut ---
       // Editors (shared collaborators) always post shared_comments — no LLM pipeline.
       // Session owners posting a reply to a shared comment are also peer exchanges.
-      const { reply_to: replyToMsgId } = req.body;
-      const isSharedComment = access.role === 'editor' || (access.role === 'owner' && replyToMsgId);
+      // comment_only flag: explicitly signals that the frontend wants a JSON response,
+      // not SSE (used by postSharedComment regardless of replyTo).
+      const { reply_to: replyToMsgId, comment_only: commentOnly } = req.body;
+      const isSharedComment = access.role === 'editor' || commentOnly === true || (access.role === 'owner' && replyToMsgId);
 
       if (isSharedComment) {
         try {
@@ -1306,9 +1789,35 @@ exports.chat = async (req, res) => {
     } else {
       session = await BienBotSession.createSession(userId, resolvedInvokeContext || {});
 
-      // Pre-populate context from invokeContext
-      if (resolvedInvokeContext) {
-        const contextUpdate = {};
+      // Persist the analysis greeting (if any) as the opening assistant turn so
+      // the LLM has context for follow-up questions. Only accepted on new sessions
+      // (no sessionId) to prevent injecting arbitrary history into existing sessions.
+      const rawPriorGreeting = req.body.priorGreeting;
+      if (rawPriorGreeting && typeof rawPriorGreeting === 'string') {
+        const sanitizedGreeting = stripNullBytes(rawPriorGreeting).trim().slice(0, 4000);
+        // Only accept analysis greetings that originate from the server's own /analyze
+        // endpoint. The [ANALYSIS] sentinel is prepended client-side from formatAnalysisSuggestions;
+        // greetings without it are silently dropped to prevent prompt injection.
+        const isServerAnalysisGreeting = sanitizedGreeting.startsWith('[ANALYSIS]');
+        if (sanitizedGreeting && isServerAnalysisGreeting) {
+          try {
+            await session.addMessage('assistant', sanitizedGreeting, { message_type: 'greeting' });
+          } catch (greetingErr) {
+            // Non-fatal — proceed without the prior greeting
+            logger.warn('[bienbot] Failed to persist prior greeting', { error: greetingErr.message });
+          }
+        }
+      }
+
+      // Pre-populate context with the full ancestor chain.
+      // navigationSchema carries all ancestor IDs transitively (e.g. opening BienBot
+      // from a Plan also provides experience_id and destination_id immediately), so we
+      // can fire all context builders in parallel from the very first message.
+      // Fall back to single-entity seeding when no schema is present.
+      let contextUpdate = {};
+      if (navigationSchema) {
+        contextUpdate = extractContextIds(navigationSchema);
+      } else if (resolvedInvokeContext) {
         switch (resolvedInvokeContext.entity) {
           case 'destination':
             contextUpdate.destination_id = resolvedInvokeContext.entity_id;
@@ -1326,14 +1835,29 @@ exports.chat = async (req, res) => {
             }
             break;
         }
-        if (Object.keys(contextUpdate).length > 0) {
-          await session.updateContext(contextUpdate);
-        }
+      }
+      if (Object.keys(contextUpdate).length > 0) {
+        await session.updateContext(contextUpdate);
       }
     }
   } catch (err) {
     logger.error('[bienbot] Session load/create failed', { error: err.message });
     return errorResponse(res, null, 'Failed to load session', 500);
+  }
+
+  // --- LLM pipeline gate ---
+  // Hard enforcement: only session owners may reach the LLM pipeline.
+  // Editors are always diverted to the shared-comment path above and must never
+  // reach this point. If they do (e.g. due to a future code path change or
+  // payload manipulation that bypasses the isSharedComment check), reject here.
+  // sessionRole is null only for brand-new sessions, where the creator is owner.
+  if (sessionRole !== null && sessionRole !== 'owner') {
+    logger.error('[bienbot] LLM pipeline access denied — non-owner reached pipeline', {
+      userId,
+      sessionId: session?._id?.toString(),
+      role: sessionRole
+    });
+    return errorResponse(res, null, 'Only the session owner can use the AI assistant', 403);
   }
 
   // --- Step 2: Classify intent ---
@@ -1419,6 +1943,46 @@ exports.chat = async (req, res) => {
           entityResolutionBlock = [entityResolutionBlock, ...unresolvedBlocks].filter(Boolean).join('\n\n');
         }
       }
+
+      // Short-circuit with disambiguation actions for ambiguous entity matches.
+      // Only handles destination and plan since experience/user ambiguity is left to the LLM.
+      const disambiguationActions = [];
+      if (Object.keys(resolutionResult.ambiguous).length > 0) {
+        for (const [field, candidates] of Object.entries(resolutionResult.ambiguous)) {
+          const entityType = FIELD_TYPE_MAP[field];
+          let actionType = null;
+          if (entityType === 'destination') {
+            actionType = 'select_destination';
+          } else if (entityType === 'plan') {
+            actionType = 'select_plan';
+          }
+          if (actionType && candidates?.length > 1) {
+            disambiguationActions.push({
+              id: `action_${crypto.randomBytes(4).toString('hex')}`,
+              type: actionType,
+              payload: { candidates },
+              description: `Which ${entityType} did you mean? (${candidates.map(c => c.name).join(', ')})`,
+              executed: false
+            });
+          }
+        }
+      }
+      if (disambiguationActions.length > 0) {
+        logger.info('[bienbot] Short-circuiting with disambiguation actions', {
+          userId,
+          sessionId: session._id.toString(),
+          count: disambiguationActions.length,
+          types: disambiguationActions.map(a => a.type)
+        });
+        await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+        await session.addMessage('assistant', 'I found multiple possible matches. Please select which one you meant.', {
+          actions_taken: disambiguationActions.map(a => a.type)
+        });
+        sendSSE(res, 'actions', { actions: disambiguationActions });
+        sendSSE(res, 'done', { intent: 'disambiguate', message: '' });
+        res.end();
+        return;
+      }
     }
   } catch (err) {
     logger.warn('[bienbot] Entity resolution failed, continuing without it', { error: err.message });
@@ -1441,13 +2005,17 @@ exports.chat = async (req, res) => {
       const navHint = rawHint.toLowerCase();
       logger.debug('[bienbot] Nav search hint', { rawHint, navHint });
 
-      // Search user plans, experiences, and destinations in parallel
+      // Search user plans, experiences, and destinations in parallel.
+      // Experiences include public ones AND those the user has access to (owns or is a collaborator on).
+      const navUserObjectId = new mongoose.Types.ObjectId(userId);
       const [navUserPlans, navExperiences, navDestinations] = await Promise.all([
         Plan.find({ user: userId })
           .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
           .select('experience planned_date')
           .lean(),
-        Experience.find({ visibility: 'public' }).select('name destination').populate('destination', 'name').limit(50).lean(),
+        Experience.find({
+          $or: [{ visibility: 'public' }, { 'permissions._id': navUserObjectId }]
+        }).select('name destination').populate('destination', 'name').limit(100).lean(),
         Destination.find({ visibility: 'public' }).select('name').limit(50).lean()
       ]);
 
@@ -1578,108 +2146,7 @@ exports.chat = async (req, res) => {
   //   MEDIUM confidence → stream select_destination disambiguation cards
   //   LOW confidence    → fall through to LLM
 
-  /**
-   * runPlanDiscover — shared helper that fetches existing user plans and discovery
-   * results for a given destination name, then SSE-streams the combined response.
-   * Returns true if it streamed a response (caller should return early), false if
-   * there was nothing useful to show (caller should fall through).
-   */
-  async function runPlanDiscover(destName) {
-    loadModels();
-    const destLower = destName.toLowerCase();
-
-    // Fetch user's existing plans, filtering to those matching the destination
-    const allUserPlans = await Plan.find({ user: userId })
-      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
-      .select('experience planned_date plan')
-      .lean();
-
-    const destPlans = allUserPlans.filter(p => {
-      const pDest = (p.experience?.destination?.name || '').toLowerCase();
-      return pDest && (pDest.includes(destLower) || destLower.includes(pDest));
-    });
-
-    // Build select_plan actions for existing plans
-    const planActions = destPlans.slice(0, 6).map(p => ({
-      id: `action_${crypto.randomBytes(4).toString('hex')}`,
-      type: 'select_plan',
-      payload: {
-        plan_id: p._id.toString(),
-        experience_name: p.experience?.name || '(unnamed)',
-        destination_name: p.experience?.destination?.name || '',
-        planned_date: p.planned_date || null,
-        item_count: (p.plan || []).length
-      },
-      description: `${p.experience?.name || 'Plan'}${p.experience?.destination?.name ? ` in ${p.experience.destination.name}` : ''}${p.planned_date ? ` (${new Date(p.planned_date).toISOString().split('T')[0]})` : ''}`
-    }));
-
-    // Fetch available experiences via discovery (for new plan creation)
-    const discoveryResult = await buildDiscoveryContext({ destination_name: destName }, userId).catch(() => null);
-
-    // Only short-circuit if we have something useful to show
-    if (planActions.length === 0 && !(discoveryResult?.results?.length > 0)) {
-      return false;
-    }
-
-    const hasBoth = planActions.length > 0 && discoveryResult?.results?.length > 0;
-    const hasPlansOnly = planActions.length > 0 && !discoveryResult?.results?.length;
-
-    let msg;
-    if (hasBoth) {
-      msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue, or choose a new experience to plan below.`;
-    } else if (hasPlansOnly) {
-      msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue.`;
-    } else {
-      msg = `Here are experiences you can plan in ${destName}:`;
-    }
-
-    const discoveryBlock = discoveryResult?.results?.length > 0
-      ? [{ type: 'discovery_result_list', data: { results: discoveryResult.results, query_metadata: discoveryResult.query_metadata || {} } }]
-      : [];
-
-    await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
-    await session.addMessage('assistant', msg, {
-      actions_taken: [...planActions.map(() => 'select_plan'), ...(discoveryBlock.length ? ['discover_content'] : [])],
-      structured_content: discoveryBlock
-    });
-    if (planActions.length > 0) {
-      await session.setPendingActions(planActions);
-    }
-    await session.generateTitle();
-
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no'
-    });
-
-    sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
-
-    // Emit discovery skeleton before tokens so cards appear as message streams in
-    if (discoveryBlock.length > 0) {
-      sendSSE(res, 'structured_content', { blocks: [{ type: 'discovery_result_list', data: null }] });
-    }
-
-    const chunks = adaptiveChunks(msg);
-    for (const chunk of chunks) {
-      sendSSE(res, 'token', { text: chunk });
-    }
-
-    if (discoveryBlock.length > 0) {
-      sendSSE(res, 'structured_content', { blocks: discoveryBlock });
-    }
-
-    if (planActions.length > 0) {
-      sendSSE(res, 'actions', { pending_actions: planActions });
-    }
-
-    sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_resolution' });
-    res.end();
-
-    logger.info('[bienbot] Plan+discover short-circuit', { userId, destination: destName, plans: planActions.length, experiences: discoveryResult?.results?.length || 0 });
-    return true;
-  }
+  // runPlanDiscover is defined as a module-level function — see below exports.chat.
 
 
   if (classification.intent === 'PLAN_EXPERIENCE' && !session.context?.plan_id) {
@@ -1796,7 +2263,7 @@ exports.chat = async (req, res) => {
         const ctxDest = await Destination.findById(session.context.destination_id).select('name').lean();
         const destNameFromCtx = ctxDest?.name || classification.entities?.destination_name || '';
         if (destNameFromCtx) {
-          const streamed = await runPlanDiscover(destNameFromCtx);
+          const streamed = await runPlanDiscover(destNameFromCtx, { userId, session, message, classification, req, res });
           if (streamed) return;
         }
       } else {
@@ -1811,7 +2278,7 @@ exports.chat = async (req, res) => {
           if (confidence === ResolutionConfidence.HIGH && candidates.length > 0) {
             const top = candidates[0];
             await session.updateContext({ destination_id: top.id });
-            const streamed = await runPlanDiscover(top.name || destQuery.trim());
+            const streamed = await runPlanDiscover(top.name || destQuery.trim(), { userId, session, message, classification, req, res });
             if (streamed) return;
           } else if (confidence === ResolutionConfidence.MEDIUM && candidates.length > 0) {
             const destActions = candidates.slice(0, 5).map(c => ({
@@ -1999,7 +2466,8 @@ exports.chat = async (req, res) => {
     classification.entities,
     session,
     userId,
-    message
+    message,
+    navigationSchema
   );
 
   // Merge invokeContext block with intent-based blocks, enforcing hard token cap
@@ -2031,8 +2499,52 @@ exports.chat = async (req, res) => {
   }
 
   // --- Step 4: Build system prompt and call LLM ---
+
+  // Extract entity refs from the most recent assistant message so the LLM
+  // can treat a short follow-up ("plan it", "yes", "go ahead") as referring
+  // to the entity that was just shown in a card.
+  // Refs are verified against the DB so a fabricated ID stored in a prior turn
+  // cannot re-enter the LAST SHOWN ENTITY prompt block and drive a bad action.
+  const lastAssistantMsg = (session.messages || [])
+    .filter(m => m.role === 'assistant')
+    .slice(-1)[0];
+  const rawLastShownRefs = lastAssistantMsg
+    ? ((lastAssistantMsg.structured_content || [])
+        .find(b => b.type === 'entity_ref_list')
+        ?.data?.refs || [])
+      .filter(r => r._id && !/<[^>]+>/.test(r._id) && mongoose.Types.ObjectId.isValid(r._id))
+    : [];
+  let lastShownEntities = [];
+  if (rawLastShownRefs.length > 0) {
+    loadModels();
+    const verifiedLastShown = [];
+    await Promise.all(rawLastShownRefs.map(async (ref) => {
+      try {
+        if (ref.type === 'plan') {
+          const plan = await Plan.findById(ref._id).select('_id experience').lean();
+          if (plan) verifiedLastShown.push({ ...ref, experience_id: plan.experience?.toString() || ref.experience_id });
+          else logger.warn('[bienbot] lastShownEntity plan not found, dropping from LAST SHOWN ENTITY', { id: ref._id });
+        } else if (ref.type === 'experience') {
+          const exists = await Experience.findById(ref._id).select('_id').lean();
+          if (exists) verifiedLastShown.push(ref);
+          else logger.warn('[bienbot] lastShownEntity experience not found, dropping from LAST SHOWN ENTITY', { id: ref._id });
+        } else if (ref.type === 'destination') {
+          const exists = await Destination.findById(ref._id).select('_id').lean();
+          if (exists) verifiedLastShown.push(ref);
+          else logger.warn('[bienbot] lastShownEntity destination not found, dropping from LAST SHOWN ENTITY', { id: ref._id });
+        } else {
+          verifiedLastShown.push(ref); // plan_item: pass through
+        }
+      } catch (e) {
+        logger.warn('[bienbot] lastShownEntity verification error, dropping', { id: ref._id, error: e.message });
+      }
+    }));
+    lastShownEntities = verifiedLastShown;
+  }
+
   const systemPrompt = buildSystemPrompt({
     invokeLabel,
+    invokeEntityType: invokeContext?.entity || null,
     contextDescription: invokeContext?.contextDescription || null,
     contextBlock: combinedContext,
     session,
@@ -2043,7 +2555,8 @@ exports.chat = async (req, res) => {
     userName: req.user?.name ? req.user.name.split(' ')[0] : null,
     userLanguage: req.user?.preferences?.language || null,
     userTimezone: req.user?.preferences?.timezone || null,
-    userHiddenSignals: req.user?.hidden_signals || null
+    userHiddenSignals: req.user?.hidden_signals || null,
+    lastShownEntities
   });
 
   // Build conversation history for multi-turn
@@ -2105,11 +2618,21 @@ exports.chat = async (req, res) => {
     return errorResponse(res, null, 'The AI service is not configured yet.', 503);
   }
 
+  // Increase token budget for intents that produce large action payloads
+  // (e.g. add_plan_items with 10+ items, workflow with many steps)
+  const BULK_ACTION_INTENTS = new Set([
+    'ADD_PLAN_ITEMS', 'PLAN_EXPERIENCE', 'BULK_OPERATION'
+  ]);
+  const baseBudget = 1500;
+  const needsMoreTokens = BULK_ACTION_INTENTS.has(classification.intent) ||
+    /add\s+(these|all|selected)\s+plan\s+items/i.test(message);
+  const maxTokens = needsMoreTokens ? 3000 : baseBudget;
+
   let llmResult;
   try {
     llmResult = await callProvider(provider, conversationMessages, {
       temperature: 0.7,
-      maxTokens: 1500,
+      maxTokens,
       _user: req.user,
       task: AI_TASKS.BIENBOT_CHAT,
       intent: classification.intent || null,
@@ -2137,7 +2660,15 @@ exports.chat = async (req, res) => {
   // immediately without confirmation and produce structured_content blocks.
   const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
   const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
-  const hasDiscoveryAction = readOnlyActions.some(a => a.type === 'discover_content');
+  const READ_ONLY_CONTENT_TYPES = {
+    discover_content: 'discovery_result_list',
+    fetch_entity_photos: 'photo_gallery',
+    fetch_destination_tips: 'tip_suggestion_list',
+    list_user_experiences: 'experience_list',
+    list_user_followers: 'follower_list',
+    list_user_activities: 'activity_feed',
+    list_entity_documents: 'document_list'
+  };
   const structuredContent = [];
 
   if (readOnlyActions.length > 0) {
@@ -2173,15 +2704,98 @@ exports.chat = async (req, res) => {
 
   const parsed = {
     message: rawParsed.message,
-    pending_actions: confirmableActions
+    pending_actions: confirmableActions,
+    entity_refs: rawParsed.entity_refs || []
   };
+
+  // --- Verify entity_refs against the database ---
+  // The LLM may fabricate MongoDB ObjectIds that pass string-format checks.
+  // We do a lightweight existence query for each ref and strip any that don't
+  // resolve, preventing 404 links from being surfaced to the user.
+  // For plan refs we also derive experience_id from the DB so it is never wrong.
+  if (parsed.entity_refs.length > 0) {
+    loadModels();
+    const verifiedRefs = [];
+    await Promise.all(parsed.entity_refs.map(async (ref) => {
+      try {
+        if (!mongoose.Types.ObjectId.isValid(ref._id)) {
+          logger.warn('[bienbot] entity_ref dropped: invalid ObjectId format', { id: ref._id, type: ref.type });
+          return;
+        }
+        if (ref.type === 'experience') {
+          const exists = await Experience.findById(ref._id).select('_id').lean();
+          if (exists) {
+            verifiedRefs.push(ref);
+          } else {
+            logger.warn('[bienbot] entity_ref experience not found in DB, dropping', { id: ref._id });
+          }
+        } else if (ref.type === 'destination') {
+          const exists = await Destination.findById(ref._id).select('_id').lean();
+          if (exists) {
+            verifiedRefs.push(ref);
+          } else {
+            logger.warn('[bienbot] entity_ref destination not found in DB, dropping', { id: ref._id });
+          }
+        } else if (ref.type === 'plan') {
+          const plan = await Plan.findById(ref._id).select('_id experience').lean();
+          if (plan) {
+            // Always source experience_id from the DB — never trust the LLM value
+            verifiedRefs.push({ ...ref, experience_id: plan.experience?.toString() || undefined });
+          } else {
+            logger.warn('[bienbot] entity_ref plan not found in DB, dropping', { id: ref._id });
+          }
+        } else {
+          // plan_item and other types pass through (embedded in experience; costly to verify separately)
+          verifiedRefs.push(ref);
+        }
+      } catch (verifyErr) {
+        logger.warn('[bienbot] entity_ref verification failed, dropping', { id: ref._id, error: verifyErr.message });
+      }
+    }));
+    parsed.entity_refs = verifiedRefs;
+  }
+
+  // --- Verify plan_id in pending plan-mutation actions ---
+  // The LLM may carry a fabricated plan_id from LAST SHOWN ENTITY context or
+  // session history. Strip any action whose plan_id doesn't resolve in the DB.
+  const PLAN_MUTATION_ACTION_TYPES = new Set([
+    'update_plan', 'add_plan_items', 'update_plan_item', 'delete_plan_item',
+    'update_plan_item_note', 'update_plan_item_detail', 'shift_plan_item_dates',
+    'update_plan_cost', 'delete_plan_cost', 'sync_plan'
+  ]);
+  if (parsed.pending_actions.some(a => PLAN_MUTATION_ACTION_TYPES.has(a.type) && a.payload?.plan_id)) {
+    loadModels();
+    const verifiedActions = [];
+    await Promise.all(parsed.pending_actions.map(async (action) => {
+      if (!PLAN_MUTATION_ACTION_TYPES.has(action.type) || !action.payload?.plan_id) {
+        verifiedActions.push(action);
+        return;
+      }
+      const planId = action.payload.plan_id;
+      if (!mongoose.Types.ObjectId.isValid(planId)) {
+        logger.warn('[bienbot] pending_action dropped: invalid plan_id format', { type: action.type, planId });
+        return;
+      }
+      try {
+        const plan = await Plan.findById(planId).select('_id').lean();
+        if (plan) {
+          verifiedActions.push(action);
+        } else {
+          logger.warn('[bienbot] pending_action dropped: plan_id not found in DB', { type: action.type, planId });
+        }
+      } catch (e) {
+        logger.warn('[bienbot] pending_action plan_id verification error, dropping', { type: action.type, planId, error: e.message });
+      }
+    }));
+    parsed.pending_actions = verifiedActions;
+  }
 
   // Hydrate session context from entity_refs returned by the LLM.
   // This ensures subsequent messages can use entity IDs (e.g. a destination resolved
   // in a prior turn) without the user having to repeat the entity name.
   try {
     const ctxFromRefs = {};
-    for (const ref of (rawParsed.entity_refs || [])) {
+    for (const ref of parsed.entity_refs) {
       if (!ref._id || /<[^>]+>/.test(ref._id)) continue; // skip placeholder IDs
       if (ref.type === 'destination' && !session.context?.destination_id) {
         ctxFromRefs.destination_id = ref._id;
@@ -2268,18 +2882,47 @@ exports.chat = async (req, res) => {
       actions_taken: actionsTaken,
       structured_content: [...structuredContent, ...entityRefBlock]
     });
+  } catch (err) {
+    logger.error('[bienbot] Session message persistence failed', { error: err.message, errorType: err.name });
+    // Continue — we can still return the response even if message persistence fails
+  }
 
-    // Store confirmable pending actions (read-only already executed)
-    if (parsed.pending_actions.length > 0) {
+  // Store confirmable pending actions in a separate try/catch so that a message
+  // persistence failure above does not prevent the actions from being saved.
+  // Without this, the SSE would send actions to the frontend that are not in the DB,
+  // causing 400 "Invalid or already executed action IDs" errors on execute.
+  if (parsed.pending_actions.length > 0) {
+    try {
       await session.setPendingActions(parsed.pending_actions);
+      logger.debug('[bienbot] Pending actions saved', {
+        sessionId: session._id?.toString(),
+        actionIds: parsed.pending_actions.map(a => a.id)
+      });
+    } catch (err) {
+      logger.error('[bienbot] setPendingActions failed — actions will not be executable', {
+        error: err.message,
+        errorType: err.name,
+        sessionId: session._id?.toString(),
+        actionIds: parsed.pending_actions.map(a => a.id)
+      });
     }
+  }
 
+  try {
     // Auto-generate title from first user message
     await session.generateTitle();
   } catch (err) {
-    logger.error('[bienbot] Session persistence failed', { error: err.message });
-    // Continue — we can still return the response even if persistence fails
+    logger.warn('[bienbot] generateTitle failed', { error: err.message });
   }
+
+  // Non-blocking background memory extraction after each chat turn
+  setImmediate(async () => {
+    try {
+      await extractMemoryFromSession({ session, user: req.user });
+    } catch (e) {
+      logger.debug('[bienbot] Background memory extraction failed', { error: e.message });
+    }
+  });
 
   // --- Step 7: SSE-stream the response ---
   res.writeHead(200, {
@@ -2303,12 +2946,13 @@ exports.chat = async (req, res) => {
   }
   sendSSE(res, 'session', sessionEvent);
 
-  // Emit discovery skeleton sentinel before token chunks so the frontend can
-  // show placeholder cards while the assistant message streams in.
-  if (hasDiscoveryAction) {
-    sendSSE(res, 'structured_content', {
-      blocks: [{ type: 'discovery_result_list', data: null }]
-    });
+  // Emit skeleton sentinels for all read-only content types before token chunks
+  // so the frontend can show placeholder cards while the assistant message streams in.
+  const skeletonBlocks = readOnlyActions
+    .filter(a => READ_ONLY_CONTENT_TYPES[a.type])
+    .map(a => ({ type: READ_ONLY_CONTENT_TYPES[a.type], data: null }));
+  if (skeletonBlocks.length > 0) {
+    sendSSE(res, 'structured_content', { blocks: skeletonBlocks });
   }
 
   // Stream the message in adaptive chunks for progressive rendering.
@@ -2351,6 +2995,120 @@ exports.chat = async (req, res) => {
 
   res.end();
 };
+
+/**
+ * Fetch existing user plans and discovery results for a given destination name,
+ * then SSE-stream the combined response.
+ *
+ * Extracted from exports.chat to avoid recreating a closure on every request
+ * and to make the `res` reference explicit rather than captured.
+ *
+ * @param {string} destName - Destination name to search
+ * @param {object} params - Explicit dependencies (no closure capture)
+ * @param {string} params.userId
+ * @param {object} params.session - BienBot session document
+ * @param {string} params.message - Original user message
+ * @param {object} params.classification - Intent classification result
+ * @param {object} params.req - Express request (for sentBy)
+ * @param {object} params.res - Express response (SSE)
+ * @returns {Promise<boolean>} true if response was streamed, false to fall through
+ */
+async function runPlanDiscover(destName, { userId, session, message, classification, req, res }) {
+  loadModels();
+  const destLower = destName.toLowerCase();
+
+  // Fetch user's existing plans, filtering to those matching the destination
+  const allUserPlans = await Plan.find({ user: userId })
+    .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+    .select('experience planned_date plan')
+    .lean();
+
+  const destPlans = allUserPlans.filter(p => {
+    const pDest = (p.experience?.destination?.name || '').toLowerCase();
+    return pDest && (pDest.includes(destLower) || destLower.includes(pDest));
+  });
+
+  // Build select_plan actions for existing plans
+  const planActions = destPlans.slice(0, 6).map(p => ({
+    id: `action_${crypto.randomBytes(4).toString('hex')}`,
+    type: 'select_plan',
+    payload: {
+      plan_id: p._id.toString(),
+      experience_name: p.experience?.name || '(unnamed)',
+      destination_name: p.experience?.destination?.name || '',
+      planned_date: p.planned_date || null,
+      item_count: (p.plan || []).length
+    },
+    description: `${p.experience?.name || 'Plan'}${p.experience?.destination?.name ? ` in ${p.experience.destination.name}` : ''}${p.planned_date ? ` (${new Date(p.planned_date).toISOString().split('T')[0]})` : ''}`
+  }));
+
+  // Fetch available experiences via discovery (for new plan creation)
+  const discoveryResult = await buildDiscoveryContext({ destination_name: destName }, userId).catch(() => null);
+
+  // Only short-circuit if we have something useful to show
+  if (planActions.length === 0 && !(discoveryResult?.results?.length > 0)) {
+    return false;
+  }
+
+  const hasBoth = planActions.length > 0 && discoveryResult?.results?.length > 0;
+  const hasPlansOnly = planActions.length > 0 && !discoveryResult?.results?.length;
+
+  let msg;
+  if (hasBoth) {
+    msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue, or choose a new experience to plan below.`;
+  } else if (hasPlansOnly) {
+    msg = `You have ${planActions.length} plan${planActions.length !== 1 ? 's' : ''} in ${destName}. Select one to continue.`;
+  } else {
+    msg = `Here are experiences you can plan in ${destName}:`;
+  }
+
+  const discoveryBlock = discoveryResult?.results?.length > 0
+    ? [{ type: 'discovery_result_list', data: { results: discoveryResult.results, query_metadata: discoveryResult.query_metadata || {} } }]
+    : [];
+
+  await session.addMessage('user', message, { intent: classification.intent, sentBy: req.user._id });
+  await session.addMessage('assistant', msg, {
+    actions_taken: [...planActions.map(() => 'select_plan'), ...(discoveryBlock.length ? ['discover_content'] : [])],
+    structured_content: discoveryBlock
+  });
+  if (planActions.length > 0) {
+    await session.setPendingActions(planActions);
+  }
+  await session.generateTitle();
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+
+  sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+
+  // Emit discovery skeleton before tokens so cards appear as message streams in
+  if (discoveryBlock.length > 0) {
+    sendSSE(res, 'structured_content', { blocks: [{ type: 'discovery_result_list', data: null }] });
+  }
+
+  const chunks = adaptiveChunks(msg);
+  for (const chunk of chunks) {
+    sendSSE(res, 'token', { text: chunk });
+  }
+
+  if (discoveryBlock.length > 0) {
+    sendSSE(res, 'structured_content', { blocks: discoveryBlock });
+  }
+
+  if (planActions.length > 0) {
+    sendSSE(res, 'actions', { pending_actions: planActions });
+  }
+
+  sendSSE(res, 'done', { intent: classification.intent, confidence: classification.confidence, source: 'plan_experience_resolution' });
+  res.end();
+
+  logger.info('[bienbot] Plan+discover short-circuit', { userId, destination: destName, plans: planActions.length, experiences: discoveryResult?.results?.length || 0 });
+  return true;
+}
 
 /**
  * POST /api/bienbot/sessions/:id/execute
@@ -2415,6 +3173,14 @@ exports.execute = async (req, res) => {
   }
 
   if (invalidIds.length > 0) {
+    logger.warn('[bienbot] Execute: action IDs not found or already executed', {
+      userId,
+      sessionId: id,
+      requestedIds: actionIds,
+      invalidIds,
+      storedIds: (session.pending_actions || []).map(a => a.id),
+      storedCount: (session.pending_actions || []).length
+    });
     return errorResponse(res, null, `Invalid or already executed action IDs: ${invalidIds.join(', ')}`, 400);
   }
 
@@ -2506,10 +3272,122 @@ exports.execute = async (req, res) => {
       }
     }
 
+    // Auto-suggest plan items after plan creation
+    if (!enrichmentContent) {
+      const planCreation = results.find(
+        r => r.success && r.type === 'create_plan' && r.result?._id
+      );
+      // Also check workflow steps that created a plan
+      const workflowPlanCreation = !planCreation && results.find(r => {
+        if (!r.success || r.type !== 'workflow' || !r.result?.results) return false;
+        return r.result.results.some(
+          s => s.success && s.type === 'create_plan' && s.result?._id
+        );
+      });
+      const createdPlan = planCreation?.result
+        || workflowPlanCreation?.result?.results?.find(
+          s => s.success && s.type === 'create_plan'
+        )?.result;
+
+      if (createdPlan?._id) {
+        const destId = createdPlan.experience?.destination;
+        const expId = createdPlan.experience?._id || createdPlan.experience;
+        if (destId) {
+          try {
+            const { suggestPlanItems } = require('../../utilities/bienbot-external-data');
+            const suggestionResult = await suggestPlanItems(
+              {
+                destination_id: destId.toString(),
+                experience_id: expId?.toString(),
+                limit: 5
+              },
+              req.user
+            );
+            if (
+              suggestionResult.statusCode === 200 &&
+              suggestionResult.body?.data?.suggestions?.length > 0
+            ) {
+              const block = mapReadOnlyResultToStructuredContent(
+                'suggest_plan_items',
+                suggestionResult.body.data
+              );
+              if (block) {
+                enrichmentContent = block;
+              }
+            }
+          } catch (enrichErr) {
+            logger.warn('[bienbot] Post-creation plan item suggestion failed', {
+              planId: createdPlan._id,
+              error: enrichErr.message
+            });
+          }
+        }
+      }
+    }
+
+    // --- Post-execution follow-up: generate "what's next?" LLM message for plan mutations ---
+    // Triggered when update_plan or create_plan succeeded, so the LLM can suggest next steps
+    // with full plan items context loaded.
+    let followUpMessage = null;
+    const planMutation = results.find(r =>
+      r.success && (r.type === 'update_plan' || r.type === 'create_plan') && r.result?._id
+    );
+    if (planMutation) {
+      try {
+        const planId = planMutation.result._id.toString();
+        const nextStepsBlock = await buildPlanNextStepsContext(planId, userId);
+        if (nextStepsBlock) {
+          const executedDesc = actionsToExecute.find(a => a.type === planMutation.type)?.description || planMutation.type.replace(/_/g, ' ');
+          const followUpSystemPrompt = [
+            'You are BienBot, a helpful travel planning assistant for the Biensperience platform.',
+            'Use sentence case for all text. Always use US English spellings.',
+            'The user just confirmed and executed a plan action. Acknowledge it in one sentence (do not repeat the full action description verbatim), then ask what they want to do next and proactively suggest 2–3 concrete next steps based on the plan items below.',
+            'Be specific — name actual plan items that need attention. Keep the total response under 80 words.',
+            'Do NOT propose any pending_actions. Respond ONLY with valid JSON: { "message": "..." }',
+            '',
+            `Action completed: ${executedDesc}`,
+            '',
+            nextStepsBlock
+          ].join('\n');
+
+          const { provider } = await getProviderForTask(AI_TASKS.CHAT);
+          const llmResult = await callProvider(provider, [
+            { role: 'system', content: followUpSystemPrompt },
+            { role: 'user', content: '[USER MESSAGE]\nWhat should I do next?\n[/USER MESSAGE]' }
+          ], { stream: false });
+
+          const raw = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+          try {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.message === 'string') followUpMessage = parsed.message;
+          } catch {
+            // If LLM returned plain text (not JSON), use it directly
+            if (raw && raw.length < 600) followUpMessage = raw;
+          }
+
+          if (followUpMessage) {
+            await session.addMessage('assistant', followUpMessage, { actions_taken: [] });
+          }
+        }
+      } catch (followUpErr) {
+        logger.warn('[bienbot] Post-execution follow-up LLM call failed', { error: followUpErr.message });
+      }
+    }
+
+    // Invalidate the cached session summary so the next resume() reflects the executed actions
+    try {
+      session.summary = undefined;
+      session.markModified('summary');
+      await session.save();
+    } catch (summaryErr) {
+      logger.warn('[bienbot] Failed to invalidate summary cache after action execution', { error: summaryErr.message });
+    }
+
     return successResponse(res, {
       results,
       contextUpdates,
       ...(enrichmentContent ? { enrichment: enrichmentContent } : {}),
+      ...(followUpMessage ? { followUpMessage } : {}),
       session: {
         id: session._id.toString(),
         context: session.context
@@ -2807,7 +3685,7 @@ exports.updateContext = async (req, res) => {
         resource = await Plan.findById(entityObjId).lean();
         break;
       case 'plan_item': {
-        const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).lean();
+        const parentPlan = await findPlanContainingItem(entityObjId);
         if (parentPlan) resource = parentPlan;
         break;
       }
@@ -2833,19 +3711,37 @@ exports.updateContext = async (req, res) => {
 
   // Build context update
   const contextUpdate = {};
+  // Keys to clear when the parent context switches to a different entity.
+  // Switching destination → clear experience, plan, plan_item (stale chain).
+  // Switching experience → clear plan, plan_item (they belonged to the old experience).
+  const contextUnset = {};
+  const existingCtx = session.context || {};
+
   switch (entity) {
     case 'destination':
       contextUpdate.destination_id = entityId;
+      // Cascade-clear experience/plan/plan_item if switching to a different destination
+      if (existingCtx.destination_id && existingCtx.destination_id.toString() !== entityId) {
+        if (existingCtx.experience_id) contextUnset['context.experience_id'] = '';
+        if (existingCtx.plan_id) contextUnset['context.plan_id'] = '';
+        if (existingCtx.plan_item_id) contextUnset['context.plan_item_id'] = '';
+      }
       break;
     case 'experience':
       contextUpdate.experience_id = entityId;
+      // Cascade-clear plan/plan_item if switching to a different experience
+      if (existingCtx.experience_id && existingCtx.experience_id.toString() !== entityId) {
+        if (existingCtx.plan_id) contextUnset['context.plan_id'] = '';
+        if (existingCtx.plan_item_id) contextUnset['context.plan_item_id'] = '';
+      }
       break;
     case 'plan':
       contextUpdate.plan_id = entityId;
+      if (existingCtx.plan_item_id) contextUnset['context.plan_item_id'] = '';
       break;
     case 'plan_item': {
       contextUpdate.plan_item_id = entityId;
-      const parentPlan = await Plan.findOne({ 'plan._id': entityObjId }).select('_id').lean();
+      const parentPlan = await findPlanContainingItem(entityObjId, { select: '_id', lean: true });
       if (parentPlan) contextUpdate.plan_id = parentPlan._id.toString();
       break;
     }
@@ -2854,17 +3750,42 @@ exports.updateContext = async (req, res) => {
   }
 
   try {
+    // Use atomic findByIdAndUpdate to avoid a lost-update race condition.
+    // If a concurrent chat turn saves pending_actions between when we loaded
+    // the session (above) and when we save here, a plain session.save() would
+    // overwrite those pending_actions with the stale empty array we loaded.
+    // $set on individual context keys and $push to messages avoids that.
+    const newMsg = {
+      msg_id: `msg_${crypto.randomBytes(4).toString('hex')}`,
+      role: 'assistant',
+      content: `Now viewing: ${entityLabel}`,
+      timestamp: new Date(),
+      intent: null,
+      actions_taken: ['context_update'],
+      message_type: 'bot_query'
+    };
+
+    const atomicUpdate = { $push: { messages: newMsg } };
     if (Object.keys(contextUpdate).length > 0) {
-      await session.updateContext(contextUpdate);
+      atomicUpdate.$set = {};
+      for (const [k, v] of Object.entries(contextUpdate)) {
+        atomicUpdate.$set[`context.${k}`] = v;
+      }
+    }
+    if (Object.keys(contextUnset).length > 0) {
+      atomicUpdate.$unset = contextUnset;
     }
 
-    // Append a system-like assistant message so the conversation records the context switch
-    await session.addMessage('assistant', `Now viewing: ${entityLabel}`, {
-      actions_taken: ['context_update']
-    });
+    await BienBotSession.findByIdAndUpdate(sessionObjId, atomicUpdate);
 
-    logger.info('[bienbot] Session context updated', { userId, sessionId: id, entity, entityId });
-    return successResponse(res, { entityLabel, context: session.context });
+    logger.info('[bienbot] Session context updated', { userId, sessionId: id, entity, entityId, unset: Object.keys(contextUnset) });
+    // Compute the response context by merging the update into the loaded snapshot and removing unset fields
+    const responseContext = { ...session.context, ...contextUpdate };
+    for (const key of Object.keys(contextUnset)) {
+      // keys are 'context.plan_id' etc — strip the 'context.' prefix
+      delete responseContext[key.replace(/^context\./, '')];
+    }
+    return successResponse(res, { entityLabel, context: responseContext });
   } catch (err) {
     logger.error('[bienbot] Context update failed', { error: err.message, sessionId: id });
     return errorResponse(res, err, 'Failed to update context', 500);
@@ -3176,9 +4097,10 @@ exports.getMutualFollowers = async (req, res) => {
     // Step 3: Fetch user details and apply search filter
     const query = { _id: { $in: mutualIds } };
     if (searchTerm) {
+      const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { name: { $regex: searchTerm, $options: 'i' } },
-        { email: { $regex: searchTerm, $options: 'i' } }
+        { name: { $regex: escapedTerm, $options: 'i' } },
+        { email: { $regex: escapedTerm, $options: 'i' } }
       ];
     }
 
@@ -3339,45 +4261,152 @@ exports.applyTips = async (req, res) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Map of entity type to { load, permCheck } helpers.
+ * Map of entity type to { load } helpers.
  * Used by the analyze endpoint to resolve entities and check view permission.
  */
 const ANALYZE_ENTITY_MAP = {
-  destination:  { load: (id) => { loadModels(); return Destination.findById(id); } },
-  experience:   { load: (id) => { loadModels(); return Experience.findById(id).populate('destination', 'name country'); } },
-  plan:         { load: (id) => { loadModels(); return Plan.findById(id).populate('experience', 'name'); } }
+  destination: { load: (id) => { loadModels(); return Destination.findById(id); } },
+  experience:  { load: (id) => { loadModels(); return Experience.findById(id).populate('destination', 'name country'); } },
+  plan:        { load: (id) => { loadModels(); return Plan.findById(id).populate('experience', 'name'); } },
+  plan_item: {
+    custom: true,
+    load: async (id) => {
+      return findPlanContainingItem(id, { populate: 'experience', populateSelect: 'name' });
+    }
+  },
+  user: {
+    custom: true,
+    load: (id) => { loadModels(); return User.findById(id).lean(); }
+  }
 };
 
 /**
- * Build the system prompt for proactive plan analysis.
- * The LLM must return a JSON array only — no prose.
- *
+ * Resolve the analysis mode from daysUntil proximity value.
+ * @param {number|null} daysUntil
+ * @param {string} entity - entity type ('user' gets 'greeting')
  * @returns {string}
  */
-function buildAnalyzeSystemPrompt() {
+function resolveModeFromDaysUntil(daysUntil, entity) {
+  if (entity === 'user') return 'greeting';
+  if (daysUntil === null) return 'standard';
+  if (daysUntil < 0) return 'overdue';
+  if (daysUntil === 0) return 'today_brief';
+  if (daysUntil <= 7) return 'imminent';
+  if (daysUntil <= 30) return 'preparation';
+  return 'planning';
+}
+
+/**
+ * Build a proximity-aware system prompt for proactive plan analysis.
+ * The LLM must return a JSON array only — no prose.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.mode] - 'overdue'|'today_brief'|'imminent'|'preparation'|'planning'|'greeting'|'standard'
+ * @param {number|null} [opts.daysUntil] - days until planned date (null if no date)
+ * @param {string} [opts.currentDate] - ISO date string (YYYY-MM-DD)
+ * @returns {string}
+ */
+function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, currentDate = null, entity = null } = {}) {
+  const today = currentDate || new Date().toISOString().split('T')[0];
+
+  const modeInstructions = {
+    overdue: [
+      `The plan is OVERDUE (${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} past the planned date).`,
+      'Focus on: what remains incomplete, whether to reschedule, and any costs that may have been lost.',
+      'Tone: calm and helpful — not alarming.'
+    ].join(' '),
+    today_brief: [
+      'The plan is TODAY. Keep it tightly focused (3–5 suggestions).',
+      'Focus only on: any last-minute items that are still incomplete, key confirmation numbers or logistics.',
+      'Do not suggest long-term planning improvements today.',
+      'Use type "action" for immediate to-dos alongside warning/tip/info.'
+    ].join(' '),
+    imminent: [
+      `The plan is in ${daysUntil} day${daysUntil === 1 ? '' : 's'} — imminent.`,
+      'Focus on: final checklist items, missing logistics (transport, accommodation), unconfirmed bookings.',
+      'Keep suggestions concrete and actionable today.',
+      'Use type "action" for immediate to-dos alongside warning/tip/info.'
+    ].join(' '),
+    preparation: [
+      `The plan is ${daysUntil} days away — in the preparation window.`,
+      'Focus on: incomplete items, budget gaps, any missing transport or accommodation details.',
+      'Suggestions should help the user be fully prepared well in advance.'
+    ].join(' '),
+    planning: [
+      `The plan is ${daysUntil} days away — ample time to plan.`,
+      'Focus on: overall completeness, missing details, potential improvements, budget awareness.',
+      'Suggestions can include forward-looking recommendations.'
+    ].join(' '),
+    greeting: [
+      'The user opened BienBot without a specific entity — greet them and give a high-level overview.',
+      'Focus on: upcoming plans, recently active items, any plans that are overdue or need attention.',
+      'Tone: warm and encouraging. Suggest next actions.'
+    ].join(' '),
+    standard: [
+      'Analyze the entity data and provide balanced, actionable suggestions.',
+      'Consider completeness, missing details, and potential improvements.'
+    ].join(' ')
+  };
+
+  const charLimit = (mode === 'today_brief' || mode === 'imminent') ? 140 : 120;
+  const countRange = mode === 'today_brief' ? '3–5' : mode === 'greeting' ? '3–6' : '2–6';
+  const actionTypeNote = (mode === 'today_brief' || mode === 'imminent')
+    ? '  - action: An immediate to-do the user should act on right now'
+    : null;
+
+  const suggestedPromptsRules = [
+    '',
+    'SUGGESTED PROMPTS:',
+    '- Also return a "suggested_prompts" array of 2–4 short follow-up questions the user can click to continue the conversation.',
+    '- Each prompt must be a natural, conversational question directly related to a specific insight from the suggestions.',
+    '- Prompts should help the user take action: e.g. ask about a specific plan, view details, or address an issue.',
+    entity === 'experience' ? '- If the user has no plan for this experience, one prompt MUST be "Plan this experience" or a close variant.' : null,
+    '- Keep each prompt under 60 characters.',
+    '- Do not include generic prompts like "Tell me more" — be specific to the context.'
+  ].filter(l => l !== null);
+
   return [
     'You are BienBot, a proactive travel planning assistant for the Biensperience platform.',
+    `Today is ${today}.`,
+    '',
+    modeInstructions[mode] || modeInstructions.standard,
     '',
     'Analyze the entity data provided and return concise, actionable suggestions.',
     '',
     'RULES:',
-    '- Return ONLY a valid JSON array. No markdown fences, no explanation outside JSON.',
-    '- Each suggestion must have: { "type": "<warning|tip|info>", "message": "<text>" }',
-    '  - warning: Something important that may affect the plan (e.g. missing budget, no date set)',
+    '- Return ONLY a valid JSON object. No markdown fences, no explanation outside JSON.',
+    '- The object must have a "suggestions" array and a "suggested_prompts" array.',
+    actionTypeNote
+      ? `- Each suggestion must have: { "type": "<warning|tip|info|action>", "message": "<text>" }`
+      : `- Each suggestion must have: { "type": "<warning|tip|info>", "message": "<text>" }`,
+    entity === 'experience'
+      ? '  - warning: Something important that may affect the template (e.g. mismatched items, missing budget)'
+      : '  - warning: Something important that may affect the plan (e.g. missing budget, no date set)',
     '  - tip: A helpful improvement the user could make (e.g. add travel insurance, more detail)',
     '  - info: A neutral observation (e.g. completion percentage, plan size)',
-    '- Produce 2–6 suggestions. Do not pad with trivial observations.',
+    actionTypeNote,
+    `- Produce ${countRange} suggestions. Do not pad with trivial observations.`,
     '- Never fabricate data. Base suggestions only on the context provided.',
-    '- Keep each message under 120 characters.',
+    `- Keep each message under ${charLimit} characters.`,
     '- Do not repeat the same observation using different wording.',
+    entity !== 'plan' ? '- Do not comment on item completion status — only plans track completed items.' : null,
+    entity === 'experience' ? '- Experiences are planning templates; they do NOT have dates. NEVER warn about missing dates on an experience — dates belong to plans, not experiences.' : null,
+    entity === 'experience' ? '- If the context shows the user has no plan for this experience, include a tip encouraging them to create a plan. Otherwise, do not mention plan creation.' : null,
+    ...suggestedPromptsRules,
     '',
     'Example response:',
-    '[',
-    '  { "type": "warning", "message": "This plan has no budget items — costs may add up unexpectedly." },',
-    '  { "type": "tip", "message": "Consider adding travel insurance for international trips." },',
-    '  { "type": "info", "message": "3 of 8 plan items are completed (38%)." }',
-    ']'
-  ].join('\n');
+    '{',
+    '  "suggestions": [',
+    '    { "type": "warning", "message": "This plan has no budget items — costs may add up unexpectedly." },',
+    '    { "type": "tip", "message": "Consider adding travel insurance for international trips." },',
+    entity === 'plan' ? '    { "type": "info", "message": "3 of 8 plan items are completed (38%)." }' : '    { "type": "info", "message": "This experience has 8 plan items across 3 activity types." }',
+    '  ],',
+    '  "suggested_prompts": [',
+    '    "Which plan items still need budget estimates?",',
+    '    "What\'s left to plan for the Tokyo trip?"',
+    '  ]',
+    '}'
+  ].filter(l => l !== null).join('\n');
 }
 
 /**
@@ -3386,7 +4415,7 @@ function buildAnalyzeSystemPrompt() {
  * Stateless proactive analysis of an entity. Returns a list of suggestions
  * without creating or modifying any BienBot session.
  *
- * Request body: { entity: 'plan'|'experience'|'destination', entityId: <ObjectId> }
+ * Request body: { entity: 'plan'|'experience'|'destination'|'plan_item'|'user', entityId: <ObjectId> }
  *
  * Response: { suggestions: [{ type: 'warning'|'tip'|'info', message: string }] }
  */
@@ -3429,10 +4458,64 @@ exports.analyze = async (req, res) => {
 
   loadModels();
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
-  const permCheck = await enforcer.canView({ userId: req.user._id, resource });
-  if (!permCheck.allowed) {
-    return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+
+  // Permission checking varies by entity type
+  if (entity === 'user') {
+    // Users can only analyze their own profile via this endpoint
+    if (String(resource._id) !== String(req.user._id)) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
+  } else if (entity === 'plan_item') {
+    // resource is the parent plan — check canView on the plan
+    const permCheck = await enforcer.canView({ userId: req.user._id, resource });
+    if (!permCheck.allowed) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
+    // Verify the specific item exists within the plan's item array
+    const itemIdStr = validatedId.toString();
+    const itemExists = (resource.plan || []).some(i => String(i._id) === itemIdStr);
+    if (!itemExists) {
+      return errorResponse(res, null, 'Plan item not found', 404);
+    }
+  } else {
+    const permCheck = await enforcer.canView({ userId: req.user._id, resource });
+    if (!permCheck.allowed) {
+      return errorResponse(res, null, 'You do not have permission to view this entity', 403);
+    }
   }
+
+  // --- Compute temporal proximity for mode resolution ---
+  let daysUntil = null;
+  if (entity === 'plan') {
+    // Use the nearest scheduled non-complete item; fall back to planned_date if none.
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const scheduledItems = (resource.plan || []).filter(i => i.scheduled_date && !i.complete);
+    if (scheduledItems.length > 0) {
+      let minDays = Infinity;
+      for (const item of scheduledItems) {
+        const target = new Date(item.scheduled_date); target.setHours(0, 0, 0, 0);
+        const days = Math.round((target - today) / 86400000);
+        if (days < minDays) minDays = days;
+      }
+      daysUntil = minDays;
+    } else if (resource.planned_date) {
+      const target = new Date(resource.planned_date); target.setHours(0, 0, 0, 0);
+      daysUntil = Math.round((target - today) / 86400000);
+    }
+  } else if (entity === 'plan_item') {
+    // resource is the parent plan; find the item to get scheduled_date
+    const itemIdStr = validatedId.toString();
+    const planItems = resource.plan || [];
+    const item = planItems.find(i => String(i._id) === itemIdStr);
+    if (item?.scheduled_date) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const target = new Date(item.scheduled_date); target.setHours(0, 0, 0, 0);
+      daysUntil = Math.round((target - today) / 86400000);
+    }
+  }
+
+  const mode = resolveModeFromDaysUntil(daysUntil, entity);
+  const currentDate = new Date().toISOString().split('T')[0];
 
   // --- Build context block ---
   let contextBlock = null;
@@ -3446,6 +4529,13 @@ exports.analyze = async (req, res) => {
         break;
       case 'plan':
         contextBlock = await buildUserPlanContext(validatedId, userId);
+        break;
+      case 'plan_item':
+        // resource is parent plan; pass planId + itemId
+        contextBlock = await buildPlanItemContext(resource._id.toString(), validatedId, userId);
+        break;
+      case 'user':
+        contextBlock = await buildUserGreetingContext(validatedId);
         break;
     }
   } catch (err) {
@@ -3468,7 +4558,7 @@ exports.analyze = async (req, res) => {
   let llmResult;
   try {
     llmResult = await callProvider(provider, [
-      { role: 'system', content: buildAnalyzeSystemPrompt() },
+      { role: 'system', content: buildAnalyzeSystemPrompt({ mode, daysUntil, currentDate, entity }) },
       { role: 'user', content: contextBlock }
     ], {
       temperature: 0.4,
@@ -3482,19 +4572,27 @@ exports.analyze = async (req, res) => {
     return errorResponse(res, null, 'AI service temporarily unavailable', 503);
   }
 
-  // --- Parse suggestions ---
+  // --- Parse suggestions and suggested prompts ---
   let suggestions = [];
+  let suggestedPrompts = [];
   try {
     const cleaned = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
-    if (Array.isArray(parsed)) {
-      const VALID_TYPES = new Set(['warning', 'tip', 'info']);
-      suggestions = parsed
-        .filter(s => s && VALID_TYPES.has(s.type) && typeof s.message === 'string' && s.message.trim())
-        .slice(0, 10)
-        .map(s => ({ type: s.type, message: s.message.trim().slice(0, 200) }));
-    }
+    // Support both old format (array) and new format (object with suggestions + suggested_prompts)
+    const suggestionsArr = Array.isArray(parsed) ? parsed : (parsed.suggestions || []);
+    const promptsArr = Array.isArray(parsed) ? [] : (parsed.suggested_prompts || []);
+
+    const VALID_TYPES = new Set(['warning', 'tip', 'info', 'action']);
+    suggestions = suggestionsArr
+      .filter(s => s && VALID_TYPES.has(s.type) && typeof s.message === 'string' && s.message.trim())
+      .slice(0, 10)
+      .map(s => ({ type: s.type, message: s.message.trim().slice(0, 200) }));
+
+    suggestedPrompts = promptsArr
+      .filter(p => typeof p === 'string' && p.trim())
+      .slice(0, 4)
+      .map(p => p.trim().slice(0, 100));
   } catch (err) {
     logger.warn('[bienbot] analyze: failed to parse LLM suggestions', {
       entity,
@@ -3509,13 +4607,16 @@ exports.analyze = async (req, res) => {
     userId,
     entity,
     entityId,
-    suggestionCount: suggestions.length
+    mode,
+    suggestionCount: suggestions.length,
+    suggestedPromptsCount: suggestedPrompts.length
   });
 
   return successResponse(res, {
     entity,
     entityId: validatedId,
-    suggestions
+    suggestions,
+    suggestedPrompts
   });
 };
 

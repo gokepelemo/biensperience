@@ -187,8 +187,7 @@ Authentication and profile data for platform users.
 | `twitterId` | String | Twitter OAuth ID |
 | `oauthProfilePhoto` | String | OAuth profile photo URL |
 | `linkedAccounts` | Array | Linked social accounts |
-| `photos` | [ObjectId] | References to Photo documents |
-| `default_photo_id` | ObjectId | Default profile photo |
+| `photos` | [PhotoEntry] | Profile photos (`{ photo: ObjectId, default: Boolean }`) |
 | `isSuperAdmin` | Boolean | Super admin flag |
 | `role` | String | `super_admin` or `regular_user` |
 | `resetPasswordToken` | String | Password reset token |
@@ -261,7 +260,7 @@ Authentication and profile data for platform users.
 | `webhooks` | [String] | Per-user webhook endpoints for webhook channel |
 | `types` | [String] | Notification types: `activity`, `reminder`, `marketing`, `updates` |
 
-**Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `default_photo_id`, `location.coordinates` (2dsphere), `location.city`, `location.country`, `feature_flags.flag`, `feature_flags.enabled+flag`, `links.type`
+**Indexes:** `email`, `role`, `provider`, `resetPasswordToken`, `emailConfirmationToken`, `currentSessionId`, `sessionExpiresAt`, `createdAt`, `photos`, `location.coordinates` (2dsphere), `location.city`, `location.country`, `feature_flags.flag`, `feature_flags.enabled+flag`, `links.type`
 
 ---
 
@@ -279,8 +278,7 @@ Travel destinations that contain experiences.
 | `map_location` | String | **[Deprecated]** Legacy location string. Use `location` field instead |
 | `location` | Location | Structured location with geocoded coordinates (see Location sub-schema) |
 | `users_favorite` | [ObjectId] | Users who favorited this destination |
-| `photos` | [ObjectId] | References to Photo documents |
-| `default_photo_id` | ObjectId | Default display photo |
+| `photos` | [PhotoEntry] | Destination photos (`{ photo: ObjectId, default: Boolean }`) |
 | `travel_tips` | [Mixed] | Array of tips (string or structured object) |
 | `visibility` | String | `private`, `contributors`, or `public` |
 | `permissions` | [Permission] | Access control list |
@@ -313,7 +311,7 @@ Travel destinations that contain experiences.
 | `granted_at` | Date | When permission was granted (Plan/Photo only) |
 | `granted_by` | ObjectId | User who granted permission (Plan/Photo only) |
 
-**Indexes:** `name+country`, `country`, `permissions._id`, `users_favorite`, `createdAt`, `photos`, `default_photo_id`, `location.geo` (2dsphere)
+**Indexes:** `name+country`, `country`, `permissions._id`, `users_favorite`, `createdAt`, `photos`, `location.geo` (2dsphere)
 
 ---
 
@@ -333,8 +331,7 @@ Travel experiences/itineraries containing plan items.
 | `experience_type` | [String] | Tags/categories |
 | `experience_type_slugs` | [String] | Slugified tags for search |
 | `plan_items` | [PlanItem] | Template plan items |
-| `photos` | [ObjectId] | References to Photo documents |
-| `default_photo_id` | ObjectId | Default display photo |
+| `photos` | [PhotoEntry] | Experience photos (`{ photo: ObjectId, default: Boolean }`) |
 | `visibility` | String | `private`, `contributors`, or `public` |
 | `permissions` | [Permission] | Access control list |
 | `difficulty` | Number | 1-10 scale |
@@ -367,9 +364,8 @@ Travel experiences/itineraries containing plan items.
 - **Experiences**: `sightseeing`, `museum`, `nature`, `adventure`, `sports`, `entertainment`, `wellness`, `tour`, `class`, `nightlife`, `religious`, `local`
 - **Services**: `shopping`, `market`, `health`, `banking`, `communication`, `admin`, `laundry`, `rental`
 - **Other**: `photography`, `meeting`, `work`, `rest`, `packing`, `checkpoint`, `custom`
-- **Legacy**: `activity` (for backwards compatibility)
 
-**Indexes:** `destination`, `name`, `permissions._id+type`, `experience_type`, `experience_type_slugs`, `destination+createdAt`, `createdAt`, `photos`, `default_photo_id`, `location.geo` (2dsphere)
+**Indexes:** `destination`, `name`, `permissions._id+type`, `experience_type`, `experience_type_slugs`, `destination+createdAt`, `createdAt`, `photos`, `location.geo` (2dsphere)
 
 ---
 
@@ -408,7 +404,7 @@ User-specific plan derived from an experience.
 | `planning_days` | Number | User-specific days |
 | `text` | String | Item text snapshot |
 | `url` | String | URL snapshot |
-| `photo` | ObjectId | Photo reference |
+| `photos` | [ObjectId] | Photo references (snapshot) |
 | `parent` | ObjectId | Parent item reference |
 | `activity_type` | String | Activity type (same expanded enum as Experience.plan_items) |
 | `scheduled_date` | Date | User-specific date |

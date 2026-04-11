@@ -51,7 +51,9 @@ const DialogModal = forwardRef(function DialogModal({
   bodyClassName = '',
   icon,
   showHeader = true,
-  allowBodyScroll = false
+  allowBodyScroll = false,
+  trapFocus = true,
+  closeOnInteractOutside = true
 }, ref) {
   // Generate unique ID for accessibility (hooks must be called unconditionally)
   const modalId = useId();
@@ -84,6 +86,11 @@ const DialogModal = forwardRef(function DialogModal({
   // dialogClassName and contentClassName both apply to the content card
   const contentClasses = [contentClassName, dialogClassName].filter(Boolean).join(' ') || undefined;
 
+  // Fullscreen modals fill the entire viewport regardless of placement.
+  // Force 'center' to avoid the 'top' placement variant adding paddingTop
+  // to the positioner, which would push the dialog below the navbar.
+  const placement = chakraSize === 'full' ? 'center' : (centered ? 'center' : 'top');
+
   return (
     <Dialog.Root
       open={show}
@@ -93,15 +100,15 @@ const DialogModal = forwardRef(function DialogModal({
         }
       }}
       closeOnEscape={true}
-      closeOnInteractOutside={true}
-      trapFocus={true}
+      closeOnInteractOutside={closeOnInteractOutside}
+      trapFocus={trapFocus}
       // We use our own useScrollLock for iOS Safari position:fixed workaround
       preventScroll={false}
       lazyMount
       unmountOnExit
       motionPreset="none"
       size={chakraSize}
-      placement={centered ? 'center' : 'top'}
+      placement={placement}
       scrollBehavior={scrollBehavior}
     >
       <Portal>
@@ -215,6 +222,8 @@ DialogModal.propTypes = {
   icon: PropTypes.node,
   showHeader: PropTypes.bool,
   allowBodyScroll: PropTypes.bool,
+  trapFocus: PropTypes.bool,
+  closeOnInteractOutside: PropTypes.bool,
 };
 
 export default DialogModal;

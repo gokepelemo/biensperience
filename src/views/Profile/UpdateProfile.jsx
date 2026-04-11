@@ -15,6 +15,7 @@ import { handleError } from "../../utilities/error-handler";
 import { formatChanges } from "../../utilities/change-formatter";
 import FormField from "../../components/FormField/FormField";
 import { isSuperAdmin } from "../../utilities/permissions";
+import { getPhotoObjects } from "../../utilities/photo-utils";
 import { reverseGeocode } from "../../utilities/address-utils";
 import { Spinner } from "@chakra-ui/react";
 import { Button, Alert, Checkbox, FormTooltip, Modal, Form } from "../../components/design-system";
@@ -312,23 +313,28 @@ export default function UpdateProfile() {
           userData = await getUserData(userId);
           setTargetUser(userData);
         } else {
-          // Self mode: use profile data if available, otherwise fetch it
-          if (!profile) {
-            await fetchProfile();
-          }
-          userData = profile || user;
+          // Self mode: always fetch fresh profile data to ensure populated photos
+          userData = await getUserData(user._id);
         }
 
         // Deep clone to ensure originalUser and formData are independent
         const clonedUserData = JSON.parse(JSON.stringify(userData));
         // Normalize photos to IDs for consistent comparison (if PhotoUpload is used)
         if (clonedUserData.photos) {
-          clonedUserData.photos = clonedUserData.photos.map(photo => 
-            photo._id ? photo._id : photo
-          );
+          clonedUserData.photos = clonedUserData.photos.map(entry => {
+            // Handle photoEntry wrapper: {photo: PhotoDoc|ObjectId, default: bool}
+            if (entry && typeof entry === 'object' && 'photo' in entry && 'default' in entry) {
+              const p = entry.photo;
+              return typeof p === 'object' && p ? (p._id || p) : p;
+            }
+            return entry?._id || entry;
+          });
         }
         setOriginalUser(clonedUserData);
-        setFormData(JSON.parse(JSON.stringify(userData)));
+        setFormData({
+          ...JSON.parse(JSON.stringify(userData)),
+          photos_full: getPhotoObjects(userData),
+        });
   setLoading(false);
   // Mark initial load complete on next tick to allow state to settle
   setTimeout(() => setIsInitialLoad(false), 0);
@@ -342,7 +348,7 @@ export default function UpdateProfile() {
     if (user) {
       fetchUserData();
     }
-  }, [user, profile, userId, isAdminMode, fetchProfile]);
+  }, [user, userId, isAdminMode]);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -472,13 +478,22 @@ export default function UpdateProfile() {
     const originalPhotos = originalUser.photos || [];
     const currentPhotos = formData.photos || [];
 
-    // Normalize for comparison: extract _ids from objects, keep ObjectIds as strings
+    // Normalize a photo value to a plain ID string.
+    // Handles photoEntry wrappers { photo: PhotoDoc/ObjectId, default: bool } (_id: false),
+    // plain Photo documents, ObjectIds, and bare strings.
+    const normalizeId = (p) => {
+      if (!p) return null;
+      if (typeof p === 'string') return p;
+      // photoEntry wrapper: { photo: ..., default: bool }
+      const val = ('photo' in p && 'default' in p) ? (p.photo || p) : p;
+      if (typeof val === 'string') return val;
+      if (val && val._id) return val._id.toString();
+      return val ? val.toString() : null;
+    };
+
+    // Normalize for comparison: extract IDs from objects/wrappers, keep strings as-is
     const normalizePhotos = (photos) => {
-      return photos.map(photo => {
-        if (typeof photo === 'string') return photo;
-        if (photo._id) return photo._id.toString();
-        return photo.toString();
-      }).sort();
+      return photos.map(normalizeId).filter(Boolean).sort();
     };
 
     const originalPhotoIds = normalizePhotos(originalPhotos);
@@ -500,14 +515,18 @@ export default function UpdateProfile() {
 
     // Check if default photo changed
 
-    // Normalize default photo IDs for comparison
-    const normalizeId = (id) => {
-      if (!id) return null;
-      if (typeof id === 'string') return id;
-      if (id._id) return id._id.toString();
-      return id.toString();
-    };
+    // Derive default photo IDs from the photos[].default schema
+    const originalDefaultEntry = (originalUser.photos || []).find(p => p?.default);
+    const originalDefaultId = originalDefaultEntry
+      ? (originalDefaultEntry.photo?._id || originalDefaultEntry.photo)
+      : null;
 
+    const currentDefaultEntry = (formData.photos || []).find(p => p?.default);
+    const currentDefaultId = currentDefaultEntry
+      ? (currentDefaultEntry.photo?._id || currentDefaultEntry.photo)
+      : null;
+
+    // Normalize default photo IDs for comparison
     const originalDefaultRaw = normalizeId(originalDefaultId);
     const isOriginalDefaultValid = originalDefaultRaw !== null &&
       originalPhotoIds.includes(originalDefaultRaw);

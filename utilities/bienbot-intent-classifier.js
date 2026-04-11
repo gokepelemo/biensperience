@@ -21,6 +21,9 @@
 const { NlpManager } = require('node-nlp-rn');
 const logger = require('./backend-logger');
 const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
 
 /**
  * All recognised BienBot intents.
@@ -40,6 +43,10 @@ const INTENTS = {
   SET_PLAN_ITEM_LOCATION: 'SET_PLAN_ITEM_LOCATION',
   UPDATE_PLAN_ITEM_COST: 'UPDATE_PLAN_ITEM_COST',
   ADD_PLAN_ITEM_DETAIL: 'ADD_PLAN_ITEM_DETAIL',
+  UPDATE_PLAN_ITEM_NOTE: 'UPDATE_PLAN_ITEM_NOTE',
+  DELETE_PLAN_ITEM_NOTE: 'DELETE_PLAN_ITEM_NOTE',
+  UPDATE_PLAN_ITEM_DETAIL: 'UPDATE_PLAN_ITEM_DETAIL',
+  DELETE_PLAN_ITEM_DETAIL: 'DELETE_PLAN_ITEM_DETAIL',
   ASSIGN_PLAN_ITEM: 'ASSIGN_PLAN_ITEM',
   UPDATE_PLAN_ITEM_TEXT: 'UPDATE_PLAN_ITEM_TEXT',
   UPDATE_PLAN_ITEM_URL: 'UPDATE_PLAN_ITEM_URL',
@@ -67,7 +74,54 @@ const INTENTS = {
   QUERY_PLAN: 'QUERY_PLAN',
   // Discovery
   DISCOVER_EXPERIENCES: 'DISCOVER_EXPERIENCES',
-  DISCOVER_DESTINATIONS: 'DISCOVER_DESTINATIONS'
+  DISCOVER_DESTINATIONS: 'DISCOVER_DESTINATIONS',
+  // Temporal awareness
+  QUERY_UPCOMING: 'QUERY_UPCOMING',
+  QUERY_TODAY: 'QUERY_TODAY',
+  DISCUSS_PLAN_ITEM: 'DISCUSS_PLAN_ITEM',
+  QUERY_RECENT_ACTIVITY: 'QUERY_RECENT_ACTIVITY',
+  QUERY_USER_EXPERIENCES: 'QUERY_USER_EXPERIENCES',
+  // Destination creation
+  CREATE_DESTINATION: 'CREATE_DESTINATION',
+  // Search
+  SEARCH_CONTENT: 'SEARCH_CONTENT',
+  // Social / follows
+  FOLLOW_USER: 'FOLLOW_USER',
+  UNFOLLOW_USER: 'UNFOLLOW_USER',
+  QUERY_FOLLOWERS: 'QUERY_FOLLOWERS',
+  ACCEPT_FOLLOW_REQUEST: 'ACCEPT_FOLLOW_REQUEST',
+  // Dashboard / overview
+  QUERY_DASHBOARD: 'QUERY_DASHBOARD',
+  // Plan costs / budget
+  QUERY_PLAN_COSTS: 'QUERY_PLAN_COSTS',
+  UPDATE_PLAN_COST: 'UPDATE_PLAN_COST',
+  DELETE_PLAN_COST: 'DELETE_PLAN_COST',
+  // Plan item pinning
+  PIN_PLAN_ITEM: 'PIN_PLAN_ITEM',
+  UNPIN_PLAN_ITEM: 'UNPIN_PLAN_ITEM',
+  // Plan item ordering
+  REORDER_PLAN_ITEMS: 'REORDER_PLAN_ITEMS',
+  SHIFT_PLAN_DATES: 'SHIFT_PLAN_DATES',
+  // User profile
+  UPDATE_PROFILE: 'UPDATE_PROFILE',
+  QUERY_PROFILE: 'QUERY_PROFILE',
+  // Experience tags / categories
+  QUERY_EXPERIENCE_TAGS: 'QUERY_EXPERIENCE_TAGS',
+  // Country-based queries
+  QUERY_COUNTRY: 'QUERY_COUNTRY',
+  // Activity feed
+  QUERY_ACTIVITY_FEED: 'QUERY_ACTIVITY_FEED',
+  // Invites
+  CREATE_INVITE: 'CREATE_INVITE',
+  SHARE_INVITE: 'SHARE_INVITE',
+  // Plan access
+  REQUEST_PLAN_ACCESS: 'REQUEST_PLAN_ACCESS',
+  // Document management
+  UPLOAD_DOCUMENT: 'UPLOAD_DOCUMENT',
+  QUERY_DOCUMENTS: 'QUERY_DOCUMENTS',
+  // Photo management
+  ADD_PHOTO: 'ADD_PHOTO',
+  QUERY_PHOTOS: 'QUERY_PHOTOS'
 };
 
 // ---------------------------------------------------------------------------
@@ -87,6 +141,16 @@ const CONFIG_CACHE_TTL = 60_000; // 1 minute
  * @returns {Promise<object>}
  */
 async function getClassifierConfig() {
+  // In test environments skip the DB to avoid connection timeouts
+  if (process.env.NODE_ENV === 'test') {
+    return {
+      low_confidence_threshold: 0.65,
+      llm_fallback_enabled: false,
+      llm_fallback_threshold: 0.4,
+      log_all_classifications: false,
+      log_retention_days: 90
+    };
+  }
   const now = Date.now();
   if (configCache && (now - configCacheTime) < CONFIG_CACHE_TTL) {
     return configCache;
@@ -120,6 +184,11 @@ function invalidateConfigCache() {
  * @returns {Promise<Array<{ intent: string, utterances: string[] }>>}
  */
 async function loadCorpusData() {
+  // In test environments skip the DB entirely to avoid connection timeouts
+  if (process.env.NODE_ENV === 'test') {
+    const corpus = require('./bienbot-intent-corpus.json');
+    return corpus.data;
+  }
   try {
     const IntentCorpus = require('../models/intent-corpus');
     const docs = await IntentCorpus.find({ enabled: true }).lean();
@@ -136,6 +205,25 @@ async function loadCorpusData() {
 }
 
 /**
+ * Compute a short MD5 hash of the corpus data for cache invalidation.
+ * @param {Array} corpusData
+ * @returns {string}
+ */
+function computeCorpusHash(corpusData) {
+  return crypto.createHash('md5').update(JSON.stringify(corpusData)).digest('hex').slice(0, 12);
+}
+
+/**
+ * Path to the on-disk NLP model cache for a given corpus hash.
+ * Stored in the OS temp directory so it persists across test runs but never gets committed.
+ * @param {string} hash
+ * @returns {string}
+ */
+function getCacheFilePath(hash) {
+  return path.join(os.tmpdir(), `bienbot-nlp-${hash}.json`);
+}
+
+/**
  * Build and train the NLP manager from the corpus.
  * Loads from DB first, falls back to JSON.
  */
@@ -144,14 +232,30 @@ async function getManager() {
   if (trainingPromise) return trainingPromise;
 
   trainingPromise = (async () => {
+    const corpusData = await loadCorpusData();
+    const hash = computeCorpusHash(corpusData);
+    const cacheFile = getCacheFilePath(hash);
+
+    // Load from disk cache if available — skips training entirely
+    if (fs.existsSync(cacheFile)) {
+      try {
+        const cached = fs.readFileSync(cacheFile, 'utf8');
+        const nlp = new NlpManager({ languages: ['en'], forceNER: true, nlu: { useNoneFeature: true, log: false }, autoSave: false });
+        nlp.import(cached);
+        logger.info('[bienbot-intent-classifier] NLP model loaded from cache', { hash });
+        manager = nlp;
+        return nlp;
+      } catch (cacheErr) {
+        logger.warn('[bienbot-intent-classifier] Cache load failed, retraining', { error: cacheErr.message });
+      }
+    }
+
     const nlp = new NlpManager({
       languages: ['en'],
       forceNER: true,
       nlu: { useNoneFeature: true, log: false },
       autoSave: false
     });
-
-    const corpusData = await loadCorpusData();
 
     // Add named entity for email detection
     nlp.addRegexEntity('user_email', 'en', /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
@@ -172,6 +276,14 @@ async function getManager() {
       intents: corpusData.length,
       utterances: totalUtterances
     });
+
+    // Persist to disk for subsequent runs
+    try {
+      fs.writeFileSync(cacheFile, nlp.export(false), 'utf8');
+      logger.info('[bienbot-intent-classifier] NLP model cached to disk', { hash, path: cacheFile });
+    } catch (writeErr) {
+      logger.warn('[bienbot-intent-classifier] Could not write model cache', { error: writeErr.message });
+    }
 
     manager = nlp;
     return nlp;

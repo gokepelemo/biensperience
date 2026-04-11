@@ -235,6 +235,12 @@ export function ToastProvider({ children }) {
 
       if (!error) return;
 
+      // Suppress toast for BienBot action execution errors — these are handled
+      // silently by the panel (the race condition fix prevents most 400s, and
+      // the panel already shows feedback inline for action failures).
+      const url = event?.url || '';
+      if (url.includes('/api/bienbot/') && url.includes('/execute')) return;
+
       // Generate toast configuration from structured error
       const toastConfig = createToastConfig(error);
 

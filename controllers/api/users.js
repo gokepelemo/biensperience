@@ -353,11 +353,15 @@ async function updateUser(req, res, next) {
     // Validate photos array if provided
     if (updateData.photos !== undefined) {
       if (Array.isArray(updateData.photos)) {
-        // Validate each photo ID (should be ObjectId references to Photo documents)
-        const validPhotoIds = updateData.photos.filter(photoId => {
-          return photoId === null || mongoose.Types.ObjectId.isValid(photoId);
-        });
-        validatedUpdateData.photos = validPhotoIds;
+        // Validate each photoEntry object ({photo: ObjectId, default: Boolean})
+        const validPhotos = updateData.photos.filter(entry => {
+          return entry && typeof entry === 'object' &&
+                 mongoose.Types.ObjectId.isValid(entry.photo);
+        }).map(entry => ({
+          photo: entry.photo,
+          default: !!entry.default
+        }));
+        validatedUpdateData.photos = validPhotos;
       }
     }
     
@@ -740,14 +744,14 @@ async function updateUserAsAdmin(req, res) {
     // Validate photos array if provided
     if (updateData.photos !== undefined) {
       if (Array.isArray(updateData.photos)) {
-        // Validate each photo object
-        const validPhotos = updateData.photos.filter(photo => {
-          return photo &&
-                 typeof photo === 'object' &&
-                 typeof photo.url === 'string' &&
-                 photo.url.length > 0 &&
-                 photo.url.length <= 2048; // Reasonable URL length limit
-        });
+        // Validate each photoEntry object ({photo: ObjectId, default: Boolean})
+        const validPhotos = updateData.photos.filter(entry => {
+          return entry && typeof entry === 'object' &&
+                 mongoose.Types.ObjectId.isValid(entry.photo);
+        }).map(entry => ({
+          photo: entry.photo,
+          default: !!entry.default
+        }));
         validatedUpdateData.photos = validPhotos;
       }
     }

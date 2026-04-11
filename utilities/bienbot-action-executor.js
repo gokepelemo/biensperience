@@ -9,17 +9,36 @@
  * @module utilities/bienbot-action-executor
  */
 
+const crypto = require('crypto');
 const logger = require('./backend-logger');
 const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos, fetchDestinationTips } = require('./bienbot-external-data');
 
 // Lazy-loaded controllers (resolved on first use to avoid circular deps)
-let destinationsController, experiencesController, plansController;
+let destinationsController, experiencesController, plansController, followsController, usersController, activitiesController, documentsController;
 
 function loadControllers() {
   if (!destinationsController) {
     destinationsController = require('../controllers/api/destinations');
     experiencesController = require('../controllers/api/experiences');
     plansController = require('../controllers/api/plans');
+    followsController = require('../controllers/api/follows');
+    usersController = require('../controllers/api/users');
+    activitiesController = require('../controllers/api/activities');
+    documentsController = require('../controllers/api/documents');
+  }
+}
+
+// Lazy-loaded models (resolved on first use to avoid circular deps)
+let _mongoose, _Plan, _Experience, _Destination, _User, _getEnforcer;
+
+function loadModels() {
+  if (!_mongoose) {
+    _mongoose = require('mongoose');
+    _Plan = require('../models/plan');
+    _Experience = require('../models/experience');
+    _Destination = require('../models/destination');
+    _User = require('../models/user');
+    _getEnforcer = require('./permission-enforcer').getEnforcer;
   }
 }
 
@@ -33,10 +52,16 @@ const ALLOWED_ACTION_TYPES = [
   'create_plan',
   'add_plan_items',
   'update_plan_item',
+  'mark_plan_item_complete',
+  'mark_plan_item_incomplete',
   'invite_collaborator',
   'sync_plan',
   'add_plan_item_note',
+  'update_plan_item_note',
+  'delete_plan_item_note',
   'add_plan_item_detail',
+  'update_plan_item_detail',
+  'delete_plan_item_detail',
   'assign_plan_item',
   'unassign_plan_item',
   // Experience-level
@@ -73,7 +98,27 @@ const ALLOWED_ACTION_TYPES = [
   // Destination selection (disambiguation)
   'select_destination',
   // Plan item date shifting
-  'shift_plan_item_dates'
+  'shift_plan_item_dates',
+  // Read-only: list experiences owned by a user
+  'list_user_experiences',
+  // Social / follows
+  'follow_user',
+  'unfollow_user',
+  'accept_follow_request',
+  'list_user_followers',
+  // User profile update
+  'update_user_profile',
+  // Activity feed
+  'list_user_activities',
+  // Plan item operations
+  'pin_plan_item',
+  'unpin_plan_item',
+  'reorder_plan_items',
+  // Documents
+  'list_entity_documents',
+  // Invites / access
+  'create_invite',
+  'request_plan_access'
 ];
 
 /**
@@ -84,8 +129,37 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'suggest_plan_items',
   'fetch_entity_photos',
   'fetch_destination_tips',
-  'discover_content'
+  'discover_content',
+  'list_user_experiences',
+  'list_user_followers',
+  'list_user_activities',
+  'list_entity_documents',
+  // Disambiguation actions have no side effects — auto-execute to update session
+  // context immediately so the follow-up LLM turn can proceed without an extra
+  // user confirmation step.
+  'select_plan',
+  'select_destination'
 ]);
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Date normalisation
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalise an ISO date-only string ("2026-04-24") to noon UTC so that
+ * `new Date()` in any timezone still falls on the intended calendar day.
+ * Full ISO timestamps (with T, Z, or offset) are returned as-is.
+ *
+ * @param {*} value - The value to normalise.
+ * @returns {*} The original value, or the noon-UTC string if it was date-only.
+ */
+function normalizeDateOnly(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return `${value}T12:00:00Z`;
+  }
+  return value;
+}
 
 // ---------------------------------------------------------------------------
 // Mock req/res for controller delegation
@@ -97,13 +171,15 @@ const READ_ONLY_ACTION_TYPES = new Set([
  * @param {object} user - Authenticated user (from session).
  * @param {object} [body={}] - Request body fields.
  * @param {object} [params={}] - Route params (e.g. :id, :experienceId).
+ * @param {object} [query={}] - Query string parameters (e.g. { limit: 10 }).
  * @returns {object} Mock req compatible with controller expectations.
  */
-function buildMockReq(user, body = {}, params = {}) {
+function buildMockReq(user, body = {}, params = {}, query = {}) {
   return {
     user,
     body,
     params,
+    query,
     ip: '127.0.0.1',
     method: 'POST',
     path: '/api/bienbot/action',
@@ -213,7 +289,7 @@ async function executeCreatePlan(payload, user) {
   const req = buildMockReq(
     user,
     {
-      planned_date: payload.planned_date,
+      planned_date: normalizeDateOnly(payload.planned_date),
       currency: payload.currency
     },
     { experienceId: payload.experience_id }
@@ -294,6 +370,8 @@ async function executeUpdatePlanItem(payload, user) {
       body[field] = payload[field];
     }
   }
+  // Normalise date-only strings to noon UTC to prevent off-by-one shifts
+  if (body.scheduled_date) body.scheduled_date = normalizeDateOnly(body.scheduled_date);
   const req = buildMockReq(
     user,
     body,
@@ -356,31 +434,26 @@ async function executeInviteCollaborator(payload, user) {
 async function executeSyncPlan(payload, user) {
   // sync_plan has no dedicated controller endpoint — implement directly
   // using models, but still respecting permission enforcer.
-  const mongoose = require('mongoose');
-  const { getEnforcer } = require('./permission-enforcer');
-  const Plan = require('../models/plan');
-  const Experience = require('../models/experience');
-  const Destination = require('../models/destination');
-  const User = require('../models/user');
+  loadModels();
 
   const planId = payload.plan_id;
 
-  if (!mongoose.Types.ObjectId.isValid(planId)) {
+  if (!_mongoose.Types.ObjectId.isValid(planId)) {
     return { statusCode: 400, body: { success: false, error: 'Invalid plan ID' } };
   }
 
-  const plan = await Plan.findById(planId);
+  const plan = await _Plan.findById(planId);
   if (!plan) {
     return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
   }
 
-  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const enforcer = _getEnforcer({ Plan: _Plan, Experience: _Experience, Destination: _Destination, User: _User });
   const permCheck = await enforcer.canEdit({ userId: user._id, resource: plan });
   if (!permCheck.allowed) {
     return { statusCode: 403, body: { success: false, error: permCheck.reason || 'Insufficient permissions' } };
   }
 
-  const experience = await Experience.findById(plan.experience);
+  const experience = await _Experience.findById(plan.experience);
   if (!experience) {
     return { statusCode: 404, body: { success: false, error: 'Source experience not found' } };
   }
@@ -445,6 +518,38 @@ async function executeSyncPlan(payload, user) {
 // ---------------------------------------------------------------------------
 
 /**
+ * mark_plan_item_complete
+ * payload: { plan_id, item_id }
+ */
+async function executeMarkPlanItemComplete(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { complete: true },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * mark_plan_item_incomplete
+ * payload: { plan_id, item_id }
+ */
+async function executeMarkPlanItemIncomplete(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { complete: false },
+    { id: payload.plan_id, itemId: payload.item_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItem(req, res);
+  return getResult();
+}
+
+/**
  * add_plan_item_note
  * payload: { plan_id, item_id, content, visibility? }
  */
@@ -479,6 +584,73 @@ async function executeAddPlanItemDetail(payload, user) {
   );
   const { res, getResult } = buildMockRes();
   await plansController.addPlanItemDetail(req, res);
+  return getResult();
+}
+
+/**
+ * update_plan_item_note
+ * payload: { plan_id, item_id, note_id, content, visibility? }
+ */
+async function executeUpdatePlanItemNote(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {
+      content: payload.content,
+      ...(payload.visibility && { visibility: payload.visibility })
+    },
+    { id: payload.plan_id, itemId: payload.item_id, noteId: payload.note_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItemNote(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan_item_note
+ * payload: { plan_id, item_id, note_id }
+ */
+async function executeDeletePlanItemNote(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { id: payload.plan_id, itemId: payload.item_id, noteId: payload.note_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.deletePlanItemNote(req, res);
+  return getResult();
+}
+
+/**
+ * update_plan_item_detail
+ * payload: { plan_id, item_id, detail_id?, detail_type, data }
+ */
+async function executeUpdatePlanItemDetail(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { type: payload.detail_type, data: payload.data || {} },
+    { id: payload.plan_id, itemId: payload.item_id, detailId: payload.detail_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.updatePlanItemDetail(req, res);
+  return getResult();
+}
+
+/**
+ * delete_plan_item_detail
+ * payload: { plan_id, item_id, detail_id?, detail_type }
+ */
+async function executeDeletePlanItemDetail(payload, user) {
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { type: payload.detail_type },
+    { id: payload.plan_id, itemId: payload.item_id, detailId: payload.detail_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.deletePlanItemDetail(req, res);
   return getResult();
 }
 
@@ -525,7 +697,7 @@ async function executeUnassignPlanItem(payload, user) {
 async function executeUpdateExperience(payload, user) {
   loadControllers();
   const body = {};
-  const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'map_location'];
+  const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'location'];
   for (const field of updateFields) {
     if (payload[field] !== undefined) {
       body[field] = payload[field];
@@ -641,7 +813,7 @@ async function executeToggleFavoriteDestination(payload, user) {
 async function executeUpdatePlan(payload, user, session) {
   loadControllers();
   const body = {};
-  if (payload.planned_date !== undefined) body.planned_date = payload.planned_date;
+  if (payload.planned_date !== undefined) body.planned_date = normalizeDateOnly(payload.planned_date);
   if (payload.currency !== undefined) body.currency = payload.currency;
   if (payload.notes !== undefined) body.notes = payload.notes;
   const req = buildMockReq(user, body, { id: payload.plan_id });
@@ -654,7 +826,7 @@ async function executeUpdatePlan(payload, user, session) {
     const { scheduled_items_count, date_diff_days } = result.body._shift_meta;
     session.pending_actions = session.pending_actions || [];
     session.pending_actions.push({
-      id: `action_${Math.random().toString(36).substring(2, 10)}`,
+      id: `action_${crypto.randomBytes(4).toString('hex')}`,
       type: 'shift_plan_item_dates',
       payload: { plan_id: payload.plan_id, diff_days: date_diff_days },
       description: `Shift ${scheduled_items_count} plan item date(s) by ${date_diff_days > 0 ? '+' : ''}${date_diff_days} day(s) to match your updated plan date`,
@@ -884,6 +1056,66 @@ async function executeDiscoverContent(payload, user) {
 }
 
 /**
+ * list_user_experiences — read-only, no confirmation.
+ * payload: { user_id: string, limit?: number }
+ * Returns experiences where the target user is an owner.
+ */
+async function executeListUserExperiences(payload, user) {
+  const { user_id, limit = 20 } = payload || {};
+
+  if (!user_id) {
+    return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+  }
+
+  const Experience = require('../models/experience');
+
+  try {
+    const { Types } = require('mongoose');
+    let userOid;
+    try {
+      userOid = new Types.ObjectId(user_id);
+    } catch {
+      return { statusCode: 400, body: { success: false, error: 'Invalid user_id format' } };
+    }
+
+    // No permission check on the requesting user — public profiles expose
+    // their owned experiences to any authenticated caller.
+    const rawExperiences = await Experience.find({
+      permissions: { $elemMatch: { _id: userOid, entity: 'user', type: 'owner' } }
+    })
+      .populate('destination', 'name country')
+      .select('name overview destination plan_items')
+      .limit(limit)
+      .lean();
+
+    const experiences = rawExperiences.map(exp => ({
+      _id: exp._id.toString(),
+      name: exp.name,
+      overview: exp.overview || null,
+      destination: exp.destination
+        ? { name: exp.destination.name, country: exp.destination.country }
+        : null,
+      plan_item_count: (exp.plan_items || []).length
+    }));
+
+    return {
+      statusCode: 200,
+      body: {
+        success: true,
+        data: {
+          experiences,
+          user_id,
+          total: experiences.length
+        }
+      }
+    };
+  } catch (err) {
+    logger.error('[bienbot-executor] executeListUserExperiences failed', { user_id, error: err.message });
+    return { statusCode: 500, body: { success: false, error: 'Failed to fetch experiences' } };
+  }
+}
+
+/**
  * add_entity_photos — mutating, requires confirmation.
  * payload: { entity_type, entity_id, photos: [{ url, photographer, photographer_url }] }
  */
@@ -896,7 +1128,243 @@ async function executeAddEntityPhotos(payload, user, session) {
 // ---------------------------------------------------------------------------
 
 /**
- * navigate_to_entity — client-only action.
+ * follow_user — mutating, requires confirmation.
+ * payload: { user_id }
+ */
+async function executeFollowUser(payload, user) {
+  const { user_id } = payload || {};
+  if (!user_id) return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+
+  loadControllers();
+  const req = buildMockReq(user, {}, { userId: user_id });
+  const { res, getResult } = buildMockRes();
+  await followsController.followUser(req, res);
+  return getResult();
+}
+
+/**
+ * unfollow_user — mutating, requires confirmation.
+ * payload: { user_id }
+ */
+async function executeUnfollowUser(payload, user) {
+  const { user_id } = payload || {};
+  if (!user_id) return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+
+  loadControllers();
+  const req = buildMockReq(user, {}, { userId: user_id });
+  const { res, getResult } = buildMockRes();
+  await followsController.unfollowUser(req, res);
+  return getResult();
+}
+
+/**
+ * accept_follow_request — mutating, requires confirmation.
+ * payload: { follower_id }
+ */
+async function executeAcceptFollowRequest(payload, user) {
+  const { follower_id } = payload || {};
+  if (!follower_id) return { statusCode: 400, body: { success: false, error: 'follower_id is required' } };
+
+  loadControllers();
+  const req = buildMockReq(user, {}, { followerId: follower_id });
+  const { res, getResult } = buildMockRes();
+  await followsController.acceptFollowRequest(req, res);
+  return getResult();
+}
+
+/**
+ * list_user_followers — read-only, no confirmation.
+ * payload: { user_id, type?: 'followers'|'following', limit?: 20 }
+ * Returns followers or following list for the given user.
+ */
+async function executeListUserFollowers(payload, user) {
+  const { user_id, type = 'followers', limit = 20 } = payload || {};
+  if (!user_id) return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
+
+  loadControllers();
+  const controllerFn = type === 'following' ? followsController.getFollowing : followsController.getFollowers;
+  const req = buildMockReq(user, {}, { userId: user_id }, { limit });
+  const { res, getResult } = buildMockRes();
+  await controllerFn(req, res);
+  return getResult();
+}
+
+/**
+ * update_user_profile — mutating, requires confirmation.
+ * payload: { name?, bio?, preferences?: { currency?, timezone?, theme? } }
+ * Always scoped to the logged-in user — never accepts a target user_id.
+ */
+async function executeUpdateUserProfile(payload, user) {
+  const { name, bio, preferences } = payload || {};
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { name, bio, preferences },
+    { id: user._id.toString() }
+  );
+  const { res, getResult } = buildMockRes();
+  await usersController.updateUser(req, res);
+  return getResult();
+}
+
+/**
+ * list_user_activities — read-only, no confirmation.
+ * payload: { limit?: 10 }
+ * Returns the activity feed for the logged-in user.
+ */
+async function executeListUserActivities(payload, user) {
+  const { limit = 10 } = payload || {};
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { actorId: user._id.toString() },
+    { limit }
+  );
+  const { res, getResult } = buildMockRes();
+  await activitiesController.getActorHistory(req, res);
+  return getResult();
+}
+
+/**
+ * pin_plan_item — mutating, requires confirmation.
+ * payload: { plan_id, item_id }
+ * Pins a plan item so it appears at the top of the plan timeline.
+ */
+async function executePinPlanItem(payload, user) {
+  const { plan_id, item_id } = payload || {};
+  if (!plan_id || !item_id) return { statusCode: 400, body: { success: false, error: 'plan_id and item_id are required' } };
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: plan_id, itemId: item_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.pinPlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * reorder_plan_items — mutating, requires confirmation.
+ * payload: { plan_id, item_ids: string[] }
+ * Reorders plan items to the specified order. item_ids must be an ordered array
+ * containing ALL item IDs for the plan.
+ */
+async function executeReorderPlanItems(payload, user) {
+  const { plan_id, item_ids } = payload || {};
+  if (!plan_id || !Array.isArray(item_ids) || item_ids.length === 0) {
+    return { statusCode: 400, body: { success: false, error: 'plan_id and item_ids (non-empty array) are required' } };
+  }
+
+  loadModels();
+
+  if (!_mongoose.Types.ObjectId.isValid(plan_id)) {
+    return { statusCode: 400, body: { success: false, error: 'Invalid plan_id format' } };
+  }
+  // Cast to ObjectId to break the taint chain for CodeQL
+  const safePlanId = new _mongoose.Types.ObjectId(plan_id);
+
+  // The reorderPlanItems controller expects body.plan to be the full item objects
+  // in the new order — not just IDs — so that plan.plan = reorderedItems does not
+  // truncate subdocument fields. Fetch the current plan to sort the full objects.
+  const currentPlan = await _Plan.findById(safePlanId).lean();
+  if (!currentPlan) {
+    return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
+  }
+
+  const itemMap = new Map((currentPlan.plan || []).map(item => [item._id.toString(), item]));
+  const requestedSet = new Set(item_ids.map(id => id.toString()));
+
+  // Requested IDs first (in provided order), then any items not in the list (preserved at end).
+  const reorderedItems = item_ids
+    .filter(id => itemMap.has(id.toString()))
+    .map(id => itemMap.get(id.toString()));
+  for (const item of (currentPlan.plan || [])) {
+    if (!requestedSet.has(item._id.toString())) reorderedItems.push(item);
+  }
+
+  loadControllers();
+  const req = buildMockReq(user, { plan: reorderedItems }, { id: plan_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.reorderPlanItems(req, res);
+  return getResult();
+}
+
+/**
+ * unpin_plan_item — mutating, requires confirmation.
+ * payload: { plan_id, item_id }
+ * Unpins a plan item, removing its pinned status.
+ */
+async function executeUnpinPlanItem(payload, user) {
+  const { plan_id, item_id } = payload || {};
+  if (!plan_id || !item_id) return { statusCode: 400, body: { success: false, error: 'plan_id and item_id are required' } };
+  loadControllers();
+  const req = buildMockReq(user, {}, { id: plan_id, itemId: item_id });
+  const { res, getResult } = buildMockRes();
+  await plansController.unpinPlanItem(req, res);
+  return getResult();
+}
+
+/**
+ * list_entity_documents — read-only, no confirmation.
+ * payload: { entity_type, entity_id, plan_id?, limit?: 10 }
+ * Lists documents attached to an entity (plan, experience, destination, plan_item).
+ */
+async function executeListEntityDocuments(payload, user) {
+  const { entity_type, entity_id, plan_id, limit = 10 } = payload || {};
+  if (!entity_type || !entity_id) return { statusCode: 400, body: { success: false, error: 'entity_type and entity_id are required' } };
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    {},
+    { entityType: entity_type, entityId: entity_id },
+    { planId: plan_id, limit }
+  );
+  const { res, getResult } = buildMockRes();
+  await documentsController.getByEntity(req, res);
+  return getResult();
+}
+
+/**
+ * create_invite — mutating, requires confirmation.
+ * payload: { max_uses?: 1, expires_in_days?: 7, label? }
+ * Creates a shareable invite code for the logged-in user.
+ *
+ * Delegates to InviteCode.createInvite() to reuse the model's collision-resistant
+ * code generation (crypto.randomInt-based) and uniqueness retry logic.
+ * The frontend bienbot-api.js broadcasts 'invite:created' via the event bus
+ * when the executed action result is processed.
+ */
+async function executeCreateInvite(payload, user) {
+  const InviteCode = require('../models/inviteCode');
+  const { max_uses = 1, expires_in_days = 7 } = payload || {};
+  const expiresAt = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000);
+  const invite = await InviteCode.createInvite({
+    createdBy: user._id,
+    maxUses: max_uses,
+    expiresAt
+  });
+  return { statusCode: 201, body: { success: true, data: invite } };
+}
+
+/**
+ * request_plan_access — mutating, requires confirmation.
+ * payload: { plan_id, message? }
+ * Requests access to a plan the user does not have permission to view.
+ */
+async function executeRequestPlanAccess(payload, user) {
+  const { plan_id, message = '' } = payload || {};
+  if (!plan_id) return { statusCode: 400, body: { success: false, error: 'plan_id is required' } };
+  loadControllers();
+  const req = buildMockReq(
+    user,
+    { message },
+    { id: plan_id }
+  );
+  const { res, getResult } = buildMockRes();
+  await plansController.requestPlanAccess(req, res);
+  return getResult();
+}
+
+/**
+ * navigate_to_entity — no-op on the backend, executes without confirmation.
  * The frontend handles navigation; the backend just marks it as successful.
  * payload: { entity, entityId, url }
  */
@@ -949,7 +1417,7 @@ function resolveRefs(value, stepResults) {
  *
  * payload: {
  *   steps: [{
- *     step: 1,
+ *     step: 1,                       // 1-based step number
  *     type: "<action_type>",
  *     payload: { ... may contain $step_N.field refs ... },
  *     description: "Human-readable step description"
@@ -958,7 +1426,7 @@ function resolveRefs(value, stepResults) {
  *
  * Steps are executed sequentially in `step` order.  Each step's result is
  * stored so that later steps can reference earlier outputs via `$ref` syntax
- * in their payloads (e.g. `"destination_id": "$step_1._id"`).
+ * in their payloads (e.g. `"destination_id": "$step_1._id"` references step 1's result).
  *
  * If any step fails, execution halts and partial results are returned.
  */
@@ -1128,17 +1596,35 @@ async function executeSelectPlan(payload, user) {
  * @param {object} payload - { destination_id, destination_name? }
  * @returns {Promise<{ statusCode: number, body: object }>}
  */
-async function executeSelectDestination(payload) {
+async function executeSelectDestination(payload, user) {
   if (!payload.destination_id) {
     return { statusCode: 400, body: { success: false, error: 'select_destination requires destination_id' } };
   }
+
+  loadModels();
+
+  if (!_mongoose.Types.ObjectId.isValid(payload.destination_id)) {
+    return { statusCode: 400, body: { success: false, error: 'Invalid destination_id format' } };
+  }
+
+  const destination = await _Destination.findById(payload.destination_id).select('_id name country').lean();
+  if (!destination) {
+    return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
+  }
+
+  const enforcer = _getEnforcer({ Plan: _Plan, Experience: _Experience, Destination: _Destination, User: _User });
+  const perm = await enforcer.canView({ userId: user._id, resource: destination });
+  if (!perm.allowed) {
+    return { statusCode: 403, body: { success: false, error: 'Not authorized to view this destination' } };
+  }
+
   return {
     statusCode: 200,
     body: {
       success: true,
       data: {
-        destination_id: payload.destination_id,
-        destination_name: payload.destination_name || null
+        destination_id: destination._id.toString(),
+        destination_name: destination.name || payload.destination_name || null
       }
     }
   };
@@ -1150,10 +1636,16 @@ const ACTION_HANDLERS = {
   create_plan: executeCreatePlan,
   add_plan_items: executeAddPlanItems,
   update_plan_item: executeUpdatePlanItem,
+  mark_plan_item_complete: executeMarkPlanItemComplete,
+  mark_plan_item_incomplete: executeMarkPlanItemIncomplete,
   invite_collaborator: executeInviteCollaborator,
   sync_plan: executeSyncPlan,
   add_plan_item_note: executeAddPlanItemNote,
+  update_plan_item_note: executeUpdatePlanItemNote,
+  delete_plan_item_note: executeDeletePlanItemNote,
   add_plan_item_detail: executeAddPlanItemDetail,
+  update_plan_item_detail: executeUpdatePlanItemDetail,
+  delete_plan_item_detail: executeDeletePlanItemDetail,
   assign_plan_item: executeAssignPlanItem,
   unassign_plan_item: executeUnassignPlanItem,
   // Experience-level
@@ -1190,7 +1682,26 @@ const ACTION_HANDLERS = {
   // Destination disambiguation
   select_destination: executeSelectDestination,
   // Plan item date shifting
-  shift_plan_item_dates: executeShiftPlanItemDates
+  shift_plan_item_dates: executeShiftPlanItemDates,
+  list_user_experiences: executeListUserExperiences,
+  // Social / follows
+  follow_user: executeFollowUser,
+  unfollow_user: executeUnfollowUser,
+  accept_follow_request: executeAcceptFollowRequest,
+  list_user_followers: executeListUserFollowers,
+  // User profile
+  update_user_profile: executeUpdateUserProfile,
+  // Activity feed
+  list_user_activities: executeListUserActivities,
+  // Plan item pin/unpin
+  pin_plan_item: executePinPlanItem,
+  unpin_plan_item: executeUnpinPlanItem,
+  reorder_plan_items: executeReorderPlanItems,
+  // Documents
+  list_entity_documents: executeListEntityDocuments,
+  // Invites / access
+  create_invite: executeCreateInvite,
+  request_plan_access: executeRequestPlanAccess
 };
 
 // ---------------------------------------------------------------------------
@@ -1278,7 +1789,7 @@ async function executeActions(actions, user, session) {
 
   for (const action of actions) {
     const outcome = await executeAction(action, user, session);
-    results.push({ actionId: action.id, type: action.type, ...outcome });
+    results.push({ actionId: action.id, type: action.type, payload: action.payload || {}, ...outcome });
 
     // Mark action as executed on the session
     if (session && typeof session.markActionExecuted === 'function') {
@@ -1439,11 +1950,34 @@ async function executeSingleWorkflowStep(action, workflowActions, user) {
   }
 }
 
+/**
+ * Valid structured_content block types for BienBot session messages.
+ * Single source of truth — imported by the BienBotSession model schema
+ * so the Mongoose enum stays in sync with the controller/mapper code.
+ *
+ * When adding a new structured content type:
+ *   1. Add it here
+ *   2. Add a case in mapReadOnlyResultToStructuredContent() (controllers/api/bienbot.js)
+ *   3. Add a renderer in BienBotPanel.jsx
+ */
+const STRUCTURED_CONTENT_TYPES = [
+  'photo_gallery',
+  'suggestion_list',
+  'discovery_result_list',
+  'tip_suggestion_list',
+  'entity_ref_list',
+  'experience_list',
+  'follower_list',
+  'document_list',
+  'activity_feed'
+];
+
 module.exports = {
   executeAction,
   executeActions,
   executeSingleWorkflowStep,
   resolveRefs,
   ALLOWED_ACTION_TYPES,
-  READ_ONLY_ACTION_TYPES
+  READ_ONLY_ACTION_TYPES,
+  STRUCTURED_CONTENT_TYPES
 };

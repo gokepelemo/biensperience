@@ -4,7 +4,7 @@
   position: fixed;
   bottom: var(--space-6, 1.5rem);
   right: var(--space-6, 1.5rem);
-  z-index: var(--z-index-tooltip, 1070);
+  z-index: var(--z-index-bienbot, 1600);
 
   /* Override pointer-events: none inherited from document.body when a modal
      dialog is open (Chakra/Ark disablePointerEventsOutside sets body to none) */

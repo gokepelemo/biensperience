@@ -230,7 +230,7 @@ export default function ActivityMonitor({ show, onHide }) {
           <div className={styles.filtersSection}>
             <Form onSubmit={handleSearch}>
               {/* Search - Full Width Row */}
-              <div className={styles.searchRow}>
+              <Form.Group className={styles.searchRow}>
                 <Form.Label>Search Activities</Form.Label>
                 <InputGroup className={styles.searchInputGroup}>
                   <Form.Control
@@ -243,12 +243,12 @@ export default function ActivityMonitor({ show, onHide }) {
                     <FaSearch />
                   </Button>
                 </InputGroup>
-              </div>
+              </Form.Group>
 
               {/* Filter Fields Row */}
               <div className={styles.filtersRow}>
                 {/* Action Filter */}
-                <div className={styles.filterField}>
+                <Form.Group className={styles.filterField}>
                   <Form.Label>Action</Form.Label>
                   <Form.Control
                     as="select"
@@ -262,10 +262,10 @@ export default function ActivityMonitor({ show, onHide }) {
                       </option>
                     ))}
                   </Form.Control>
-                </div>
+                </Form.Group>
 
                 {/* Resource Type Filter */}
-                <div className={styles.filterField}>
+                <Form.Group className={styles.filterField}>
                   <Form.Label>Resource</Form.Label>
                   <Form.Control
                     as="select"
@@ -277,27 +277,27 @@ export default function ActivityMonitor({ show, onHide }) {
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </Form.Control>
-                </div>
+                </Form.Group>
 
                 {/* Start Date */}
-                <div className={styles.filterField}>
+                <Form.Group className={styles.filterField}>
                   <Form.Label>Start Date</Form.Label>
                   <Form.Control
                     type="date"
                     value={filters.startDate}
                     onChange={(e) => handleFilterChange('startDate', e.target.value)}
                   />
-                </div>
+                </Form.Group>
 
                 {/* End Date */}
-                <div className={styles.filterField}>
+                <Form.Group className={styles.filterField}>
                   <Form.Label>End Date</Form.Label>
                   <Form.Control
                     type="date"
                     value={filters.endDate}
                     onChange={(e) => handleFilterChange('endDate', e.target.value)}
                   />
-                </div>
+                </Form.Group>
               </div>
 
               {/* Actions Row */}

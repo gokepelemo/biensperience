@@ -92,8 +92,6 @@ const planItemSchema = new Schema({
       'shopping', 'market', 'health', 'banking', 'communication', 'admin', 'laundry', 'rental',
       // Other
       'photography', 'meeting', 'work', 'rest', 'packing', 'checkpoint', 'custom',
-      // Legacy (for backwards compatibility)
-      'activity',
       null
     ],
     default: null

@@ -45,6 +45,7 @@ import { logger } from "../../utilities/logger";
 import { STORAGE_KEYS, LEGACY_STORAGE_KEYS } from '../../utilities/storage-keys';
 import { createUrlSlug } from "../../utilities/url-utils";
 import { useNavigationIntent, INTENT_TYPES } from "../../contexts/NavigationIntentContext";
+import { useNavigationContext } from "../../contexts/NavigationContext";
 import { useScrollHighlight } from "../../hooks/useScrollHighlight";
 import {
   formatDateShort,
@@ -99,7 +100,7 @@ import {
   unassignPlanItem,
   addPlanItemDetail,
 } from "../../utilities/plans-api";
-import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus } from "../../utilities/event-bus";
+import { reconcileState, generateOptimisticId, subscribeToEvent, eventBus, broadcastEvent } from "../../utilities/event-bus";
 import { searchUsers } from "../../utilities/search-api";
 import './components/MyPlanTabContent/plan-item-views.css';
 import { sendEmailInvite } from "../../utilities/invites-api";
@@ -191,6 +192,9 @@ export default function SingleExperience() {
   // Navigation intent hook - single source of truth for deep-link navigation
   const { intent, consumeIntent, clearIntent } = useNavigationIntent();
 
+  // Navigation schema context - builds a lean breadcrumb for BienBot context seeding
+  const { setNavigatedEntity } = useNavigationContext();
+
   // Scroll highlight hook - consolidated scroll/highlight logic
   const { scrollToItem, applyHighlight, clearHighlight } = useScrollHighlight();
 
@@ -222,6 +226,14 @@ export default function SingleExperience() {
   useEffect(() => {
     experienceRef.current = experience;
   }, [experience]);
+
+  // Register experience and active plan in the navigation schema for BienBot context seeding
+  useEffect(() => {
+    if (experience?._id) setNavigatedEntity('experience', experience);
+  }, [experience?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (selectedPlan?._id) setNavigatedEntity('plan', selectedPlan);
+  }, [selectedPlan?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // UI state
   const [favHover, setFavHover] = useState(false);
@@ -293,17 +305,14 @@ export default function SingleExperience() {
   // Ref for h1 element to ensure proper registration
   const h1Ref = useRef(null);
 
-  // Memoized hero photos array (normalize to objects with url)
+  // Memoized hero photos array (unwrap {photo, default} entry wrappers to PhotoDoc objects with .url)
   const heroPhotos = useMemo(() => {
-    const photosSource = (experience && experience.photos && experience.photos.length > 0)
-      ? experience.photos
-      : (experience && experience.destination && experience.destination.photos && experience.destination.photos.length > 0)
-        ? experience.destination.photos
-        : [];
-
-    if (!photosSource || photosSource.length === 0) return [];
-
-    return photosSource.map((p) => (typeof p === 'string' ? { url: p } : p));
+    const source = (experience?.photos?.length > 0)
+      ? experience
+      : (experience?.destination?.photos?.length > 0)
+        ? experience.destination
+        : null;
+    return source ? getPhotoObjects(source) : [];
   }, [experience]);
 
   // Ref to track if component is unmounting to prevent navigation interference
@@ -1910,6 +1919,35 @@ export default function SingleExperience() {
     }
   }, [activeTab, setPresenceTab]);
 
+  // Broadcast plan context to BienBot when plan tab becomes active with a selected plan
+  const prevBienBotPlanRef = useRef(null);
+  useEffect(() => {
+    if (activeTab !== 'myplan' || !selectedPlan?._id) {
+      prevBienBotPlanRef.current = null;
+      return;
+    }
+
+    const planId = selectedPlan._id?.toString();
+    if (prevBienBotPlanRef.current === planId) return; // Already broadcast for this plan
+    prevBienBotPlanRef.current = planId;
+
+    const isOwnPlan = idEquals(selectedPlan.user?._id || selectedPlan.user, user?._id);
+    const experienceName = experience?.name || 'this experience';
+    const ownerFirstName = planOwner?.name?.split(' ')?.[0] || null;
+
+    const contextDescription = isOwnPlan
+      ? `your plan for ${experienceName}`
+      : ownerFirstName
+        ? `${ownerFirstName}'s plan for ${experienceName}`
+        : `a shared plan for ${experienceName}`;
+
+    broadcastEvent('bienbot:plan_focused', {
+      planId,
+      entity: 'plan',
+      contextDescription,
+    });
+  }, [activeTab, selectedPlan?._id, user?._id, experience?.name, planOwner?.name]);
+
   /**
    * Load persisted hierarchy state from encrypted storage
    * 
@@ -2925,6 +2963,13 @@ export default function SingleExperience() {
         if (userPlan && idEquals(userPlan._id, selectedPlanId)) {
           setUserPlan((prev) => updateItemComplete(prev, itemId, prevComplete));
         }
+
+        // Rollback the modal's selectedDetailsItem if it's the same item
+        setSelectedDetailsItem((prev) =>
+          prev && (idEquals(prev._id, itemId) || idEquals(prev.plan_item_id, itemId))
+            ? { ...prev, complete: prevComplete }
+            : prev
+        );
       };
 
       const onError = (err, defaultMsg) => {
@@ -2957,7 +3002,8 @@ export default function SingleExperience() {
       setUserPlan,
       showError,
       beginUserInteraction,
-      endUserInteraction
+      endUserInteraction,
+      setSelectedDetailsItem
     ]
   );
 
@@ -4114,11 +4160,11 @@ export default function SingleExperience() {
         onToggleComplete={async (planItem) => {
           if (!selectedPlan || !planItem) return;
 
-          // Call the existing toggle handler
-          await handlePlanItemToggleComplete(planItem);
-
-          // Update the selectedDetailsItem to reflect new completion state
+          // Optimistically update the modal button state immediately
           setSelectedDetailsItem(prev => prev ? { ...prev, complete: !prev.complete } : prev);
+
+          // Call the existing toggle handler (handles API call + rollback for plan state)
+          await handlePlanItemToggleComplete(planItem);
         }}
         availableEntities={availableEntities}
         entityData={entityData}

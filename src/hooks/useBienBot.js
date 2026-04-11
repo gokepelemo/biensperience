@@ -14,7 +14,8 @@ import {
   updateActionStatus as updateActionStatusAPI,
   getWorkflowState as getWorkflowStateAPI,
   addSessionCollaborator as addCollaboratorAPI,
-  removeSessionCollaborator as removeCollaboratorAPI
+  removeSessionCollaborator as removeCollaboratorAPI,
+  analyzeEntity,
 } from '../utilities/bienbot-api';
 import { eventBus, broadcastEvent } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
@@ -43,6 +44,27 @@ export function openWithSession(sessionId) {
 }
 
 /**
+ * Call the stateless analyze endpoint and open BienBot with the results
+ * displayed as a synthetic assistant message.
+ *
+ * @param {string} entity - 'experience' | 'destination' | 'plan'
+ * @param {string} entityId - MongoDB ObjectId string
+ * @param {string} entityLabel - Human-readable entity name for the message header
+ */
+export async function openWithAnalysis(entity, entityId, entityLabel) {
+  const result = await analyzeEntity(entity, entityId);
+  broadcastEvent('bienbot:open', {
+    analysisSuggestions: {
+      entity,
+      entityId,
+      entityLabel,
+      suggestions: result.suggestions,
+      suggestedPrompts: result.suggestedPrompts || [],
+    },
+  });
+}
+
+/**
  * useBienBot — manages BienBot conversation state, SSE streaming,
  * pending actions, and session lifecycle.
  *
@@ -51,7 +73,7 @@ export function openWithSession(sessionId) {
  * @param {Object} [params.invokeContext] - Entity context ({ entity, id, label }) from the mounting component
  * @returns {Object} BienBot state and actions
  */
-export default function useBienBot({ sessionId: initialSessionId = null, invokeContext, userId = null } = {}) {
+export default function useBienBot({ sessionId: initialSessionId = null, invokeContext, navigationSchema = null, userId = null } = {}) {
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -69,6 +91,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   const abortControllerRef = useRef(null);
   const sessionIdRef = useRef(initialSessionId);
   const invokeContextSentRef = useRef(false);
+  // Holds the formatted analysis greeting text that was shown to the user before the
+  // first message was sent. Sent once as `priorGreeting` on new session creation so
+  // the backend can persist it as the opening assistant turn, giving the LLM the
+  // context it needs to answer follow-up questions about the analysis.
+  const priorGreetingRef = useRef(null);
 
   // Keep sessionIdRef in sync with currentSession
   useEffect(() => {
@@ -141,6 +168,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     // Clear suggested next steps when user sends a new message
     setSuggestedNextSteps([]);
 
+    // Dismiss any pending action prompts — the new message supersedes them
+    setPendingActions([]);
+
     // Optimistic: append user message immediately
     const userMessage = {
       _id: `temp-${Date.now()}`,
@@ -177,10 +207,15 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     // Determine whether to send invokeContext (only when present and not yet sent)
     const sid = sessionIdRef.current;
     const shouldSendContext = !sid && invokeContext?.entity && invokeContext?.id && !invokeContextSentRef.current;
+    const priorGreeting = !sid ? priorGreetingRef.current : null;
+    // Clear after capture so it is only ever sent once
+    if (priorGreeting) priorGreetingRef.current = null;
 
     try {
       await postMessage(sid, text, {
         invokeContext: shouldSendContext ? invokeContext : undefined,
+        navigationSchema: (!sid && !invokeContextSentRef.current && navigationSchema) ? navigationSchema : undefined,
+        priorGreeting: priorGreeting || undefined,
         attachment: attachment || undefined,
         signal: controller.signal,
 
@@ -337,9 +372,12 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         prev.filter(a => !actionIds.includes(a._id || a.id))
       );
 
-      // If the server returned an updated session, sync it
+      // If the server returned an updated session, merge it — don't replace.
+      // The execute endpoint returns a sparse { id, context } object and does not
+      // include the `user` field, so a full replace would make isSessionOwner false
+      // on subsequent renders, incorrectly routing follow-up messages to sendSharedComment.
       if (result?.session) {
-        setCurrentSession(result.session);
+        setCurrentSession(prev => prev ? { ...prev, ...result.session } : result.session);
       }
 
       return result;
@@ -386,7 +424,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
    * @param {string} [contextDescription] - Rich description for display (e.g. "My Plan on \"Paris Trip\"")
    * @returns {Promise<string|null>} Resolved entity label, or null on error
    */
-  const updateContext = useCallback(async (entity, entityId, contextDescription) => {
+  const updateContext = useCallback(async (entity, entityId, contextDescription, { isSwitch = false } = {}) => {
     const sid = sessionIdRef.current;
     if (!sid || !entity || !entityId) return null;
 
@@ -394,22 +432,43 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       const result = await updateSessionContextAPI(sid, entity, entityId);
       const label = result?.entityLabel;
 
+      // Sync local currentSession.context with the server's authoritative response
+      // (it includes cascade-cleared plan_id/experience_id when switching entities)
+      if (result?.context) {
+        setCurrentSession(prev => prev ? { ...prev, context: result.context } : prev);
+      }
+
       if (label) {
         // Build ack message — prefer rich contextDescription over bare label
         const displayText = contextDescription || `"${label}"`;
         const isUserEntity = entity?.toLowerCase() === 'user';
-        const contextSuffix = isUserEntity
-          ? 'You can ask me anything about them or tell me to take actions on their profile.'
-          : 'You can ask me anything about it or tell me to take actions on it.';
+        let ackContent;
+        if (isSwitch) {
+          ackContent = `Context switched to ${displayText}. I'll now focus on this ${entity} unless you tell me otherwise.`;
+        } else {
+          const contextSuffix = isUserEntity
+            ? 'You can ask me anything about them or tell me to take actions on their profile.'
+            : 'You can ask me anything about it or tell me to take actions on it.';
+          ackContent = `My context has been enriched with information about ${displayText}. ${contextSuffix}`;
+        }
         const ackMessage = {
           _id: `ctx-${Date.now()}`,
           role: 'assistant',
-          content: `My context has been enriched with information about ${displayText}. ${contextSuffix}`,
+          content: ackContent,
           createdAt: new Date().toISOString(),
           isContextAck: true
         };
 
-        setMessages(prev => [...prev, ackMessage]);
+        // If the most recent message is already a context ack (e.g. experience ack
+        // immediately followed by plan ack during navigation), replace it so the user
+        // only ever sees one enrichment message at a time.
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.isContextAck) {
+            return [...prev.slice(0, -1), ackMessage];
+          }
+          return [...prev, ackMessage];
+        });
       }
 
       return label;
@@ -418,6 +477,21 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       return null;
     }
   }, []);
+
+  /**
+   * Explicitly switch BienBot's context to a new entity. Unlike updateContext (passive
+   * enrichment), this signals a deliberate focus change — triggered by the user choosing
+   * to switch context via the ContextSwitchPrompt.
+   *
+   * @param {string} entity - Entity type
+   * @param {string} entityId - Entity ID
+   * @param {string} [contextDescription] - Rich description for display
+   * @returns {Promise<string|null>} Resolved entity label, or null on error
+   */
+  const switchContext = useCallback(
+    (entity, entityId, contextDescription) => updateContext(entity, entityId, contextDescription, { isSwitch: true }),
+    [updateContext]
+  );
 
   // ---------------------------------------------------------------------------
   // Session management
@@ -448,7 +522,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
       batchedUpdates(() => {
         setCurrentSession(session);
-        setPendingActions(session.pending_actions || []);
+        setPendingActions(
+          (session.pending_actions || []).filter(a => !a.executed)
+        );
 
         // Build initial messages: greeting + any existing history
         const initialMessages = [];
@@ -502,6 +578,28 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       setSuggestedNextSteps([]);
       setIsLoading(false);
       setIsStreaming(false);
+    });
+  }, [cancelStream, clearPersistedSession]);
+
+  /**
+   * Reset session tracking without clearing messages or suggested prompts.
+   * Used when the user navigates to a new entity without sending any messages,
+   * so the analysis greeting for the new entity can be shown while ensuring the
+   * next message creates a fresh session anchored to the new entity.
+   */
+  const resetSession = useCallback(() => {
+    cancelStream();
+    clearPersistedSession();
+
+    batchedUpdates(() => {
+      sessionIdRef.current = null;
+      invokeContextSentRef.current = false;
+      setCurrentSession(null);
+      setPendingActions([]);
+      setIsLoading(false);
+      setIsStreaming(false);
+      // Intentionally does NOT clear messages or suggestedNextSteps so the
+      // analysis greeting for the new entity remains visible.
     });
   }, [cancelStream, clearPersistedSession]);
 
@@ -581,11 +679,20 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       }
     });
 
+    const unsubCreated = eventBus.subscribe('bienbot:session_created', (event) => {
+      const { sessionId: createdId, userId: creatorId } = event;
+      // Only react to sessions created by this user in another tab
+      if (createdId && creatorId === userId && createdId !== sessionIdRef.current) {
+        fetchSessions();
+      }
+    });
+
     return () => {
       unsubDeleted();
       unsubResumed();
+      unsubCreated();
     };
-  }, [clearSession]);
+  }, [clearSession, fetchSessions, userId]);
 
   // ---------------------------------------------------------------------------
   // Session sharing
@@ -722,7 +829,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
       // Sync pending actions from server response
       if (data?.pending_actions) {
-        setPendingActions(data.pending_actions);
+        setPendingActions(data.pending_actions.filter(a => !a.executed));
       }
 
       return data;
@@ -748,7 +855,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       const data = await updateActionStatusAPI(sid, actionId, 'skipped');
 
       if (data?.pending_actions) {
-        setPendingActions(data.pending_actions);
+        setPendingActions(data.pending_actions.filter(a => !a.executed));
       }
 
       return data;
@@ -774,7 +881,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       const data = await updateActionStatusAPI(sid, actionId, 'approved', newPayload);
 
       if (data?.pending_actions) {
-        setPendingActions(data.pending_actions);
+        setPendingActions(data.pending_actions.filter(a => !a.executed));
       }
 
       return data;
@@ -815,7 +922,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     try {
       const sessionData = await getSession(sid);
       if (sessionData?.pending_actions) {
-        setPendingActions(sessionData.pending_actions);
+        setPendingActions(sessionData.pending_actions.filter(a => !a.executed));
       }
     } catch (err) {
       logger.error('[useBienBot] Failed to refresh after workflow cancel', { error: err.message });
@@ -832,6 +939,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, [cancelStream]);
 
   // ---------------------------------------------------------------------------
+  /** Store the formatted analysis greeting so it is persisted as the first session message. */
+  const setPriorGreeting = useCallback((text) => {
+    priorGreetingRef.current = text || null;
+  }, []);
+
   // appendStructuredContent — inject a structured content block into the last
   // assistant message (used for post-action enrichment like tip suggestions)
   // ---------------------------------------------------------------------------
@@ -862,6 +974,20 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, []);
 
   // ---------------------------------------------------------------------------
+  // replaceInitialGreeting — replace greeting-only state with a new greeting.
+  // If the user has already sent a message, appends instead of replacing so
+  // that real conversation history is never lost.
+  // ---------------------------------------------------------------------------
+  const replaceInitialGreeting = useCallback((msg) => {
+    if (!msg) return;
+    setMessages(prev => {
+      const hasUserMessages = prev.some(m => m.role === 'user');
+      if (hasUserMessages) return [...prev, msg];
+      return [msg];
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Return API
   // ---------------------------------------------------------------------------
   return {
@@ -870,6 +996,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     messages,
     pendingActions,
     suggestedNextSteps,
+    setSuggestedNextSteps,
     isLoading,
     deleteSession,
     isStreaming,
@@ -879,6 +1006,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     executeActions,
     cancelAction,
     updateContext,
+    switchContext,
     loadSession,
     clearSession,
     fetchSessions,
@@ -890,7 +1018,10 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     cancelWorkflow,
     appendStructuredContent,
     appendMessage,
+    replaceInitialGreeting,
+    setPriorGreeting,
     getPersistedSession,
-    clearPersistedSession
+    clearPersistedSession,
+    resetSession
   };
 }

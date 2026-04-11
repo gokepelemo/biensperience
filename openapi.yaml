@@ -260,7 +260,7 @@ components:
                   type: array
                   items:
                     type: string
-                    enum: [email, push, sms]
+                    enum: [email, push, sms, bienbot, webhook]
                 types:
                   type: array
                   items:
@@ -454,7 +454,7 @@ components:
           description: Parent plan item ID for hierarchy
         activity_type:
           type: string
-          enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+          enum: [accommodation, transport, food, drinks, coffee, sightseeing, museum, nature, adventure, sports, entertainment, wellness, tour, class, nightlife, religious, local, shopping, market, health, banking, communication, admin, laundry, rental, photography, meeting, work, rest, packing, checkpoint, custom, null]
         location:
           $ref: '#/components/schemas/Location'
       required:
@@ -486,6 +486,27 @@ components:
             $ref: '#/components/schemas/Permission'
         notes:
           type: string
+        currency:
+          type: string
+          default: USD
+          description: Currency code for all costs in this plan
+        pinnedItemId:
+          type: string
+          description: Plan item ID pinned to the top of the plan
+        accessRequests:
+          type: array
+          description: Pending access requests from users
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                description: User ID requesting access
+              requestedAt:
+                type: string
+                format: date-time
+              message:
+                type: string
         total_cost:
           type: number
           description: Virtual property - total cost
@@ -523,13 +544,16 @@ components:
           type: string
         url:
           type: string
-        photo:
-          type: string
+        photos:
+          type: array
+          items:
+            type: string
+          description: Photo IDs (snapshot)
         parent:
           type: string
         activity_type:
           type: string
-          enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+          enum: [accommodation, transport, food, drinks, coffee, sightseeing, museum, nature, adventure, sports, entertainment, wellness, tour, class, nightlife, religious, local, shopping, market, health, banking, communication, admin, laundry, rental, photography, meeting, work, rest, packing, checkpoint, custom, null]
         scheduled_date:
           type: string
           format: date
@@ -856,20 +880,27 @@ components:
       properties:
         _id:
           type: string
-        filename:
-          type: string
-        originalName:
-          type: string
-        mimeType:
-          type: string
-        size:
-          type: number
-        s3Key:
-          type: string
         url:
           type: string
+          description: Public URL to access the photo
+        s3_key:
+          type: string
+          description: AWS S3 object key
+        photo_credit:
+          type: string
+          description: Attribution/credit for the photo
+        photo_credit_url:
+          type: string
+          description: URL for the photo credit link
         caption:
           type: string
+          description: Photo caption/description
+        width:
+          type: number
+          description: Photo width in pixels
+        height:
+          type: number
+          description: Photo height in pixels
         permissions:
           type: array
           items:
@@ -882,8 +913,7 @@ components:
           format: date-time
       required:
         - _id
-        - filename
-        - s3Key
+        - url
 
     Activity:
       type: object
@@ -1272,64 +1302,120 @@ components:
 
     Invite:
       type: object
+      description: Invite code for granting access to experiences or destinations
       properties:
         _id:
           type: string
+        code:
+          type: string
+          description: Unique invite code string
+        createdBy:
+          type: string
+          description: User ID who created the invite
         email:
           type: string
           format: email
-        invitedBy:
+          description: Optional email address the invite is intended for
+        inviteeName:
           type: string
-          description: User ID who sent the invite
-        inviteCode:
-          type: string
-        status:
-          type: string
-          enum: [pending, accepted, expired, cancelled]
-        expiresAt:
-          type: string
-          format: date-time
-        createdAt:
-          type: string
-          format: date-time
-        acceptedAt:
-          type: string
-          format: date-time
-      required:
-        - email
-        - invitedBy
-        - inviteCode
-
-    Token:
-      type: object
-      properties:
-        _id:
-          type: string
-        name:
-          type: string
-        token:
-          type: string
-        user:
-          type: string
-          description: User ID
-        permissions:
+          description: Optional name for the invitee
+        experiences:
           type: array
           items:
             type: string
-            enum: [read, write, admin]
+          description: Experience IDs this invite grants access to
+        destinations:
+          type: array
+          items:
+            type: string
+          description: Destination IDs this invite grants access to
+        maxUses:
+          type: number
+          default: 1
+          description: Maximum number of times this invite can be used
+        usedCount:
+          type: number
+          default: 0
+          description: Number of times this invite has been redeemed
+        redeemedBy:
+          type: array
+          items:
+            type: string
+          description: User IDs who have redeemed this invite
         expiresAt:
           type: string
           format: date-time
-        lastUsed:
+        isActive:
+          type: boolean
+          default: true
+        customMessage:
           type: string
-          format: date-time
+          description: Optional message to include with the invite
+        permissionType:
+          type: string
+          enum: [collaborator, contributor]
+          default: collaborator
+        mutualFollow:
+          type: boolean
+          default: false
+          description: Whether accepting the invite creates a mutual follow
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       required:
-        - name
-        - token
+        - code
+        - createdBy
+
+    Token:
+      type: object
+      description: API token for programmatic access
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+          description: User ID who owns this token
+        tokenHash:
+          type: string
+          description: Hashed token value (only the hash is stored, never the raw token)
+        tokenPrefix:
+          type: string
+          description: First 8 characters of the token for display/identification purposes
+        name:
+          type: string
+          description: User-provided name for this token
+          default: API Token
+        lastUsed:
+          type: string
+          format: date-time
+          description: Last time this token was used
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiration date (null means never expires)
+        isActive:
+          type: boolean
+          default: true
+          description: Whether the token is active (false = revoked)
+        createdFrom:
+          type: string
+          description: IP address where the token was created
+        createdUserAgent:
+          type: string
+          description: User agent string from token creation
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
         - user
+        - tokenHash
+        - tokenPrefix
 
     FeatureFlag:
       type: object
@@ -1338,7 +1424,7 @@ components:
         flag:
           type: string
           description: Unique feature flag identifier
-          enum: [ai_features, beta_ui, advanced_analytics, real_time_collaboration, document_ai_parsing, bulk_export, curator, chat]
+          enum: [ai_features, beta_ui, advanced_analytics, real_time_collaboration, document_ai_parsing, bulk_export, curator, chat, bienbot]
         enabled:
           type: boolean
           default: true
@@ -3530,11 +3616,9 @@ paths:
                   type: number
                 parent:
                   type: string
-                photo:
-                  type: string
                 activity_type:
                   type: string
-                  enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+                  enum: [accommodation, transport, food, drinks, coffee, sightseeing, museum, nature, adventure, sports, entertainment, wellness, tour, class, nightlife, religious, local, shopping, market, health, banking, communication, admin, laundry, rental, photography, meeting, work, rest, packing, checkpoint, custom, null]
                 location:
                   $ref: '#/components/schemas/Location'
                 plan_item_id:
@@ -3589,7 +3673,7 @@ paths:
                   type: string
                 activity_type:
                   type: string
-                  enum: [food, transport, accommodation, activity, shopping, entertainment, sightseeing, custom, null]
+                  enum: [accommodation, transport, food, drinks, coffee, sightseeing, museum, nature, adventure, sports, entertainment, wellness, tour, class, nightlife, religious, local, shopping, market, health, banking, communication, admin, laundry, rental, photography, meeting, work, rest, packing, checkpoint, custom, null]
                 scheduled_date:
                   type: string
                   format: date

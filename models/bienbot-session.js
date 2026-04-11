@@ -9,7 +9,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const crypto = require('crypto');
-const { ALLOWED_ACTION_TYPES } = require('../utilities/bienbot-action-executor');
+const { ALLOWED_ACTION_TYPES, STRUCTURED_CONTENT_TYPES } = require('../utilities/bienbot-action-executor');
 
 /**
  * Invoke context sub-schema — records which entity page the user
@@ -142,7 +142,7 @@ const messageSchema = new Schema({
     type: {
       type: String,
       required: true,
-      enum: ['photo_gallery', 'suggestion_list', 'discovery_result_list', 'tip_suggestion_list']
+      enum: STRUCTURED_CONTENT_TYPES
     },
     data: {
       type: Schema.Types.Mixed,
@@ -175,7 +175,7 @@ const messageSchema = new Schema({
    */
   message_type: {
     type: String,
-    enum: ['bot_query', 'shared_comment'],
+    enum: ['bot_query', 'shared_comment', 'greeting'],
     default: 'bot_query'
   },
   /**
@@ -469,7 +469,7 @@ bienBotSessionSchema.statics.listSessions = async function (userId, options = {}
  * @param {string|object|null} [opts.sentBy] - User ID of the sender (for
  *   'user' role messages in shared sessions). Enables per-participant memory
  *   extraction when the session is archived.
- * @param {string} [opts.message_type] - 'bot_query' (default) or 'shared_comment'
+ * @param {string} [opts.message_type] - 'bot_query' (default), 'shared_comment', or 'greeting'
  * @param {string|null} [opts.sender_name] - Display name for shared_comment messages
  * @param {string|null} [opts.reply_to] - msg_id of the message being replied to
  * @param {string|null} [opts.reply_to_preview] - First 200 chars of the replied message

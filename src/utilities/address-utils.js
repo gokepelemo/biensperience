@@ -479,7 +479,10 @@ export function formatAddressComponents(components, options = {}) {
 export function createMapLocationString(destination) {
   if (!destination) return '';
 
-  // Use explicit map_location if available
+  // Prefer structured location address, fall back to legacy map_location string
+  if (destination.location?.address) {
+    return destination.location.address;
+  }
   if (destination.map_location) {
     return destination.map_location;
   }

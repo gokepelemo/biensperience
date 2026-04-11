@@ -127,7 +127,7 @@ export default function FormField({
         maxRows={10}
         disabled={disabled}
         readOnly={readOnly}
-        className={`${taClasses} ${isInvalid ? 'is-invalid' : ''} ${isValid ? 'is-valid' : ''}`}
+        className={`form-control ${taClasses} ${isInvalid ? 'is-invalid' : ''} ${isValid ? 'is-valid' : ''}`}
         {...rest}
       />
     );

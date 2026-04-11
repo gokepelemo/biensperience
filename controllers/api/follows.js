@@ -7,6 +7,7 @@
  * Feed = Activity records from users you follow.
  */
 
+const mongoose = require('mongoose');
 const Follow = require('../../models/follow');
 const User = require('../../models/user');
 const Activity = require('../../models/activity');
@@ -128,7 +129,11 @@ function formatTimeAgo(timestamp) {
 async function followUser(req, res) {
   try {
     const followerId = req.user._id;
-    const followingId = req.params.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const followingId = new mongoose.Types.ObjectId(req.params.userId);
 
     // Prevent following yourself
     if (followerId.toString() === followingId.toString()) {
@@ -412,7 +417,11 @@ async function followUser(req, res) {
 async function unfollowUser(req, res) {
   try {
     const followerId = req.user._id;
-    const followingId = req.params.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const followingId = new mongoose.Types.ObjectId(req.params.userId);
 
     const result = await Follow.removeFollow(followerId, followingId);
 

@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from '../design-system';
-import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight, FaRobot } from 'react-icons/fa';
 import {
   Chat,
   Channel,
@@ -44,7 +44,10 @@ import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
 import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
+import { displayInTimezone } from '../../utilities/time-utils';
 import CollaboratorDetailsSection from './CollaboratorDetailsSection';
+import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
+import { useNavigationContext } from '../../contexts/NavigationContext';
 
 export default function PlanItemDetailsModal({
   show,
@@ -211,6 +214,19 @@ export default function PlanItemDetailsModal({
 
   // Compute stable plan item ID string
   const planItemIdStr = normalizeId(planItem?._id);
+
+  // Register plan and plan_item in NavigationContext so any BienBot session opened
+  // from this modal has plan_id available in the navigationSchema from turn 1,
+  // enabling all plan-item actions that require plan_id to resolve correctly.
+  const { setNavigatedEntity, clearNavigationLevel } = useNavigationContext();
+  useEffect(() => {
+    if (!show || !plan?._id || !planItemIdStr) return;
+    setNavigatedEntity('plan', { _id: plan._id, experience: plan.experience });
+    setNavigatedEntity('plan_item', { _id: planItemIdStr, plan_id: plan._id });
+    return () => {
+      clearNavigationLevel(2);
+    };
+  }, [show, plan?._id, planItemIdStr, setNavigatedEntity, clearNavigationLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canInitChat = useMemo(() => {
     return Boolean(show && activeTab === 'chat' && streamApiKey && plan?._id && planItemIdStr);
@@ -915,6 +931,12 @@ export default function PlanItemDetailsModal({
     return Object.values(groupedDetails).reduce((sum, group) => sum + group.items.length, 0);
   }, [groupedDetails]);
 
+  // BienBot Discuss action (ai_features flag guard)
+  const { label: bienbotLabel, hasAccess: hasBienBot, handleOpen: handleBienBot } =
+    useBienBotEntityAction('plan_item', planItemIdStr, experienceName
+      ? `${planItem?.text || 'Plan Item'} in ${experienceName}`
+      : planItem?.text || 'Plan Item');
+
   /**
    * Export details to PDF
    * Uses browser print functionality with a styled print view
@@ -1178,19 +1200,15 @@ export default function PlanItemDetailsModal({
   // Format scheduled date for display (short format without year)
   const getFormattedScheduledDate = () => {
     if (!scheduledDate) return null;
-    const d = new Date(scheduledDate);
-    if (isNaN(d.getTime())) return null;
-    const options = { weekday: 'short', month: 'short', day: 'numeric' };
-    return d.toLocaleDateString(undefined, options);
+    const result = displayInTimezone(scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' }, currentUser);
+    return result || null;
   };
 
   // Format scheduled date for tooltip (full format with year)
   const getFullScheduledDate = () => {
     if (!scheduledDate) return null;
-    const d = new Date(scheduledDate);
-    if (isNaN(d.getTime())) return null;
-    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
-    return d.toLocaleDateString(undefined, options);
+    const result = displayInTimezone(scheduledDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }, currentUser);
+    return result || null;
   };
 
   // Format scheduled time for display (12-hour format)
@@ -1315,6 +1333,8 @@ export default function PlanItemDetailsModal({
         title={editableTitle}
         size="fullscreen"
       centered={false}
+      trapFocus={false}
+      closeOnInteractOutside={false}
       allowBodyScroll={isMobileViewport}
       bodyClassName={isMobileViewport ? styles.modalBodyDocumentScroll : styles.modalBodyFullscreen}
     >
@@ -1531,7 +1551,7 @@ export default function PlanItemDetailsModal({
             )}
 
             {/* Action buttons: Add and Share - stacked vertically */}
-            {(canEdit && (onAddCostForItem || onAddDetail)) || onShare ? (
+            {(canEdit && (onAddCostForItem || onAddDetail)) || onShare || hasBienBot ? (
               <div className={styles.actionButtonsStack}>
                 {/* + Add Button with Dropdown - add costs, transport details, etc. */}
                 {canEdit && (onAddCostForItem || onAddDetail) && (
@@ -1602,6 +1622,21 @@ export default function PlanItemDetailsModal({
                       fullWidth
                     >
                       {lang.current.planItemDetailsModal.share}
+                    </Button>
+                  </Tooltip>
+                )}
+
+                {/* BienBot Discuss Button */}
+                {hasBienBot && (
+                  <Tooltip content={`${bienbotLabel} this plan item with BienBot`} placement="top">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBienBot}
+                      leftIcon={<FaRobot />}
+                      fullWidth
+                    >
+                      {bienbotLabel}
                     </Button>
                   </Tooltip>
                 )}
@@ -1749,7 +1784,7 @@ export default function PlanItemDetailsModal({
                   primaryAction={canEdit && (onAddCostForItem || onAddDetail) ? (lang.current.planItemDetailsModal.addDetails || 'Add Details') : null}
                   onPrimaryAction={canEdit && (onAddCostForItem || onAddDetail) ? () => setShowDetailTypeSelectorModal(true) : null}
                   size="md"
-                  fillContainer
+                  fillContainer={collaborators.length === 0}
                 />
               )}
 

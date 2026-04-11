@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import TimelinePlanItem from './TimelinePlanItem';
 
 /**
@@ -22,6 +22,31 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
     evening: 'Evening',
     unspecified: ''
   };
+
+  const { isGroupOverdue, overdueCount } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const groupDate = new Date(group.date);
+    groupDate.setHours(0, 0, 0, 0);
+    if (groupDate >= today) return { isGroupOverdue: false, overdueCount: 0 };
+
+    let count = 0;
+    const allActivityData = [
+      group.morningByActivity,
+      group.afternoonByActivity,
+      group.eveningByActivity,
+      group.unspecifiedByActivity,
+    ].filter(Boolean);
+
+    for (const activityData of allActivityData) {
+      for (const g of (activityData.groups || [])) {
+        count += (g.items || []).filter(item => !item.complete).length;
+      }
+      count += (activityData.ungrouped || []).filter(item => !item.complete).length;
+    }
+
+    return { isGroupOverdue: count > 0, overdueCount: count };
+  }, [group]);
 
   // Render activity type groups within a time section
   const renderActivityGroups = (activityData) => {
@@ -117,8 +142,16 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
 
   return (
     <div className="timeline-date-group">
-      <div className="timeline-date-header">
+      <div className={`timeline-date-header${isGroupOverdue ? ' overdue' : ''}`}>
         {formatDateHeader(group.date)}
+        {isGroupOverdue && (
+          <span
+            className="timeline-date-overdue-badge"
+            title={`${overdueCount} incomplete ${overdueCount === 1 ? 'item' : 'items'} past their scheduled date`}
+          >
+            ⚠ {overdueCount} overdue
+          </span>
+        )}
       </div>
       <div className="timeline-date-content">
         {renderTimeSection(group.morningByActivity, 'morning')}

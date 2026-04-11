@@ -8,7 +8,7 @@
 
 import { memo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaCalendarAlt, FaPencilAlt, FaTrash, FaShareAlt } from 'react-icons/fa';
+import { FaCalendarAlt, FaPencilAlt, FaTrash, FaShareAlt, FaRobot } from 'react-icons/fa';
 import { Box, Flex } from '@chakra-ui/react';
 import { FadeIn } from '../../../components/design-system';
 import Loading from '../../../components/Loading/Loading';
@@ -16,6 +16,7 @@ import { isOwner } from '../../../utilities/permissions';
 import { formatDateForInput, formatDateOrdinal } from '../../../utilities/date-utils';
 import useButtonWidth from '../../../hooks/useButtonWidth';
 import { idEquals } from '../../../utilities/id-utils';
+import { useBienBotEntityAction } from '../../../hooks/useBienBotEntityAction';
 
 /* Base styles shared by all action buttons */
 const actionButtonBase = {
@@ -29,7 +30,7 @@ const actionButtonBase = {
   fontSize: "var(--font-size-sm)",
   fontWeight: "semibold",
   whiteSpace: "nowrap",
-  minH: "44px",
+  minH: "var(--btn-height-md)",
   borderWidth: "2px",
   borderStyle: "solid",
   borderColor: "transparent",
@@ -108,6 +109,12 @@ function ActionButtonsRow({
     lang.current.button.expPlanAdded,
     lang.current.button.removeFavoriteExp
   ], { extraPadding: 12 });
+
+  // BienBot analyze actions (ai_features flag guard)
+  const { label: expBienbotLabel, hasAccess: hasBienBot, handleOpen: handleAnalyzeExperience, loading: expBienbotLoading } =
+    useBienBotEntityAction('experience', experienceId, experience?.name || 'Experience');
+  const { label: planBienbotLabel, handleOpen: handleAnalyzePlan } =
+    useBienBotEntityAction('plan', selectedPlan?._id?.toString(), `My ${experience?.name || 'Plan'} plan`);
 
   // Sidebar variant - vertical stacking with full-width buttons
   if (variant === "sidebar") {
@@ -241,7 +248,7 @@ function ActionButtonsRow({
                       : "Click to add planned date")
                 }
               >
-                <FaCalendarAlt /> Update Date
+                <FaCalendarAlt />
               </Box>
             </FadeIn>
           )}
@@ -270,6 +277,33 @@ function ActionButtonsRow({
                 title={lang.current.button.share}
               >
                 <FaShareAlt />
+              </Box>
+            </FadeIn>
+          )}
+
+          {/* BienBot: Discuss Plan when plan is in focus, else Analyze Experience */}
+          {user && hasBienBot && (
+            <FadeIn>
+              <Box
+                as="button"
+                {...actionButtonBase}
+                bg="var(--color-bg-primary)"
+                color="var(--color-text-primary)"
+                borderColor="var(--color-border-medium)"
+                minW="44px"
+                px="var(--space-3)"
+                py="var(--space-2)"
+                _hover={{
+                  transform: "translateY(-2px)",
+                  boxShadow: "var(--shadow-md)",
+                  bg: "var(--color-bg-hover)",
+                  borderColor: "var(--color-border-dark)",
+                }}
+                onClick={activeTab === "myplan" && selectedPlan ? handleAnalyzePlan : handleAnalyzeExperience}
+                aria-label={activeTab === "myplan" && selectedPlan ? `${planBienbotLabel} Plan with BienBot` : `${expBienbotLabel} with BienBot`}
+                title={activeTab === "myplan" && selectedPlan ? `${planBienbotLabel} Plan with BienBot` : `${expBienbotLabel} with BienBot`}
+              >
+                <FaRobot />
               </Box>
             </FadeIn>
           )}
@@ -313,7 +347,7 @@ function ActionButtonsRow({
                   _hover={{
                     transform: "translateY(-2px)",
                     boxShadow: "var(--shadow-md)",
-                    bg: "rgba(220, 53, 69, 0.1)",
+                    bg: "var(--color-danger-light)",
                     borderColor: "var(--color-danger)",
                   }}
                   onClick={() => setShowDeleteModal(true)}
@@ -326,6 +360,7 @@ function ActionButtonsRow({
             </>
           )}
         </Flex>
+
       </Flex>
     );
   }
@@ -531,7 +566,7 @@ function ActionButtonsRow({
               _hover={{
                 transform: "translateY(-2px)",
                 boxShadow: "var(--shadow-md)",
-                bg: "rgba(220, 53, 69, 0.1)",
+                bg: "var(--color-danger-light)",
                 borderColor: "var(--color-danger)",
               }}
               onClick={() => setShowDeleteModal(true)}
@@ -542,6 +577,37 @@ function ActionButtonsRow({
             </Box>
           </FadeIn>
         </>
+      )}
+
+      {/* BienBot: Discuss Plan when plan is in focus, else Analyze Experience */}
+      {user && hasBienBot && (
+        <FadeIn>
+          <Box
+            as="button"
+            {...actionButtonBase}
+            bg="var(--color-bg-primary)"
+            color="var(--color-text-primary)"
+            borderColor="var(--color-border-medium)"
+            minW="44px"
+            px="var(--space-3)"
+            py="var(--space-2)"
+            _hover={{
+              transform: "translateY(-2px)",
+              boxShadow: "var(--shadow-md)",
+              bg: "var(--color-bg-hover)",
+              borderColor: "var(--color-border-dark)",
+            }}
+            onClick={activeTab === "myplan" && selectedPlan ? handleAnalyzePlan : handleAnalyzeExperience}
+            disabled={expBienbotLoading}
+            aria-label={activeTab === "myplan" && selectedPlan ? `${planBienbotLabel} Plan with BienBot` : `${expBienbotLabel} with BienBot`}
+            title={activeTab === "myplan" && selectedPlan ? `${planBienbotLabel} Plan with BienBot` : `${expBienbotLabel} with BienBot`}
+          >
+            {expBienbotLoading
+              ? <Loading size="xs" variant="inline" showMessage={false} />
+              : <FaRobot />
+            }
+          </Box>
+        </FadeIn>
       )}
     </Flex>
   );

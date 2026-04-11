@@ -354,7 +354,7 @@ async function getRecentActivity(userId, options = {}) {
       actors.forEach(actor => {
         const photo = getDefaultPhoto(actor);
         actorsMap.set(actor._id.toString(), {
-          photo: photo?.url || actor.oauthProfilePhoto || null
+          photo: photo?.url || actor.oauthProfilePhoto || (typeof actor.photo === 'string' ? actor.photo : null) || null
         });
       });
     }

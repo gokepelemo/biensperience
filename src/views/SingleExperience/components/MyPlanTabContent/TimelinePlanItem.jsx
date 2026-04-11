@@ -6,6 +6,7 @@ import { sanitizeUrl, sanitizeText } from '../../../../utilities/sanitize';
 import { getActivityTypeDisplay } from '../../../../constants/activity-types';
 import { formatTimeForDisplay } from './utils/time';
 import { buildStandardPlanItemActions } from './utils/actions';
+import { displayInTimezone } from '../../../../utilities/time-utils';
 
 /**
  * TimelinePlanItem - Similar to compact item but with time display for Timeline view.
@@ -30,10 +31,21 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
   // Expand/collapse props
   hasChildren = false,
   isExpanded = true,
-  onToggleExpand = null
+  onToggleExpand = null,
+  user = null
 }) {
   const itemId = planItem.plan_item_id || planItem._id;
   const formattedTime = formatTimeForDisplay(planItem.scheduled_time);
+
+  const isOverdue = useMemo(() => {
+    if (planItem.complete || !planItem.scheduled_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const scheduled = new Date(planItem.scheduled_date);
+    // Use UTC date parts to avoid timezone shift for dates stored as UTC midnight
+    const scheduledLocal = new Date(scheduled.getUTCFullYear(), scheduled.getUTCMonth(), scheduled.getUTCDate());
+    return scheduledLocal < today;
+  }, [planItem.complete, planItem.scheduled_date]);
 
   // Build actions array for ActionsMenu (same pattern as SortableCompactPlanItem)
   const actions = useMemo(() => {
@@ -169,14 +181,26 @@ const TimelinePlanItem = memo(function TimelinePlanItem({
       {/* Time display for timeline view */}
       {formattedTime && (
         <span
-          className={`timeline-item-time ${planItem.inheritedSchedule ? 'inherited' : ''}`}
-          title={planItem.inheritedSchedule
-            ? `Inherited from parent - ${formattedTime}`
-            : `Scheduled at ${formattedTime}`
+          className={`timeline-item-time ${planItem.inheritedSchedule ? 'inherited' : ''} ${isOverdue ? 'overdue' : ''}`}
+          title={
+            isOverdue
+              ? `Overdue — was scheduled for ${displayInTimezone(planItem.scheduled_date, { weekday: 'short', month: 'short', day: 'numeric' }, user)}`
+              : planItem.inheritedSchedule
+                ? `Inherited from parent - ${formattedTime}`
+                : `Scheduled at ${formattedTime}`
           }
         >
-          🕐 {formattedTime}
+          {isOverdue ? '⚠️' : '🕐'} {formattedTime}
           {planItem.inheritedSchedule && <span className="inherited-indicator">*</span>}
+        </span>
+      )}
+      {/* Overdue badge for items with no scheduled time */}
+      {isOverdue && !formattedTime && (
+        <span
+          className="timeline-item-overdue-badge"
+          title={`Overdue — was scheduled for ${displayInTimezone(planItem.scheduled_date, { weekday: 'short', month: 'short', day: 'numeric' }, user)}`}
+        >
+          ⚠️ Overdue
         </span>
       )}
 

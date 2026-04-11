@@ -24,9 +24,11 @@ import { createFilter } from '../../utilities/trie';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import { formatRestorationMessage } from '../../utilities/time-utils';
 import { lang } from '../../lang.constants';
+import { logger } from '../../utilities/logger';
 import { Button, Pill, Alert, FormTooltip, Form } from '../design-system';
 import FormField from '../FormField/FormField';
 import Autocomplete from '../Autocomplete/Autocomplete';
+import LocationAutocompleteInput from '../LocationAutocompleteInput/LocationAutocompleteInput';
 import TagInput from '../TagInput/TagInput';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import NewDestinationModal from '../NewDestinationModal/NewDestinationModal';
@@ -65,7 +67,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     name: '',
     description: '',
     destination: '',
-    map_location: '',
+    location: '',
     experience_type: [],
     visibility: 'public',
   });
@@ -132,8 +134,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
                 name: '',
                 description: '',
                 destination: '',
-                map_location: '',
-                experience_type: [],
+                location: '',                experience_type: [],
               });
               setTags([]);
               setDestinationSearchTerm('');
@@ -160,7 +161,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         name: '',
         description: '',
         destination: '',
-        map_location: '',
+        location: '',
         experience_type: [],
         visibility: 'public',
       });
@@ -184,8 +185,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           name: initialValues.name || '',
           description: initialValues.description || '',
           destination: initialValues.destinationId || initialValues.destination || '',
-          map_location: initialValues.map_location || '',
-          experience_type: initialValues.experience_type || [],
+          location: initialValues.location?.address || initialValues.map_location || '',          experience_type: initialValues.experience_type || [],
           visibility: initialValues.visibility || 'public',
         };
         setExperienceData(pre);
@@ -441,15 +441,14 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
       setCreatedExperience(updated);
       updateExpInContext(updated);
     } catch (err) {
-      // Silently handle update errors - the data is saved locally and will sync
-      console.warn('Failed to update experience field', fieldName, err);
+      logger.warn('Failed to update experience field', { fieldName }, err);
     }
   }, [createdExperience, updateExpInContext]);
 
   // Handle address blur
   const handleAddressBlur = useCallback(() => {
-    handleFieldBlur('map_location', experienceData.map_location?.trim() || '');
-  }, [experienceData.map_location, handleFieldBlur]);
+    handleFieldBlur('location', experienceData.location?.trim() || '');
+  }, [experienceData.location, handleFieldBlur]);
 
   // Handle tags change with auto-save
   const handleTagsChangeWithSave = useCallback(async (newTags) => {
@@ -463,7 +462,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         setCreatedExperience(updated);
         updateExpInContext(updated);
       } catch (err) {
-        console.warn('Failed to update experience types', err);
+        logger.warn('Failed to update experience types', {}, err);
       }
     }
   }, [createdExperience, updateExpInContext]);
@@ -485,7 +484,7 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
         updateExpInContext(updated);
       }
     } catch (err) {
-      console.warn('Failed to update photos', err);
+      logger.warn('Failed to update photos', {}, err);
     }
   }, [createdExperience, updateExpInContext]);
 
@@ -495,8 +494,8 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
     if (createdExperience) {
       try {
         const updateData = {};
-        if (experienceData.map_location?.trim()) {
-          updateData.map_location = experienceData.map_location.trim();
+        if (experienceData.location && (typeof experienceData.location === 'object' || experienceData.location.trim())) {
+          updateData.location = experienceData.location;
         }
         if (tags.length > 0) {
           updateData.experience_type = tags;
@@ -511,11 +510,11 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
           updateExpInContext(updated);
         }
       } catch (err) {
-        console.warn('Failed to save Step 2 updates', err);
+        logger.warn('Failed to save Step 2 updates', {}, err);
       }
     }
     setCurrentStep(STEPS.PLAN_ITEMS);
-  }, [createdExperience, experienceData.map_location, tags, updateExpInContext]);
+  }, [createdExperience, experienceData.location, tags, updateExpInContext]);
 
   // Step 3: Add Plan Items
   const handleSavePlanItems = async () => {
@@ -753,15 +752,13 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
 
   const renderStep2 = () => (
     <Form onSubmit={(e) => { e.preventDefault(); handleProceedToStep3(); }}>
-      <FormField
-        name="map_location"
+      <LocationAutocompleteInput
+        name="location"
         label={lang.current.label.address}
-        type="text"
-        value={experienceData.map_location || ''}
-        onChange={handleChange}
+        value={typeof experienceData.location === 'object' ? experienceData.location.address || '' : experienceData.location || ''}
+        onSelect={(loc) => setExperienceData(prev => ({ ...prev, location: loc || '' }))}
         onBlur={handleAddressBlur}
         placeholder={lang.current.placeholder.address}
-        tooltip={lang.current.helper.addressOptional}
       />
 
       <div className={styles.mb4}>

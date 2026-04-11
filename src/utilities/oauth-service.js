@@ -6,6 +6,7 @@
 import { getUser } from './users-service';
 import { clearStoredToken, setStoredToken } from './token-storage';
 import { sendRequest } from './send-request';
+import { logger } from './logger';
 
 /**
  * Process OAuth callback from URL parameters
@@ -40,22 +41,19 @@ export async function handleOAuthCallback() {
   // If OAuth provider parameter exists, try to fetch user (cookies will be sent automatically)
   if (provider) {
     try {
-      console.log('[OAuth] OAuth provider detected, fetching user profile...');
-      // Fetch user data using cookie-based authentication
+      logger.info('[OAuth] OAuth provider detected, fetching user profile...');
       const data = await sendRequest('/api/users/profile');
       const user = data.data;
-      console.log('[OAuth] Successfully fetched user:', user.email);
-      
-      // Store the token in localStorage for WebSocket authentication
+      logger.info('[OAuth] Successfully fetched user', { email: user.email });
+
       if (user.token) {
         setStoredToken(user.token);
-        console.log('[OAuth] Token stored in localStorage for WebSocket auth');
+        logger.info('[OAuth] Token stored in localStorage for WebSocket auth');
       }
-      
+
       return { user, provider };
     } catch (err) {
-      console.error('[OAuth] Error during OAuth auth:', err);
-      // Remove any invalid tokens
+      logger.error('[OAuth] Error during OAuth auth', err);
       clearStoredToken();
       throw new Error(`Failed to complete ${provider} login. Please try again.`);
     }

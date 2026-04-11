@@ -752,11 +752,52 @@
     font-style: italic;
   }
 
+  &.overdue {
+    background: color-mix(in srgb, var(--color-danger, #e53e3e) 12%, transparent);
+    color: var(--color-danger, #e53e3e);
+  }
+
   .inherited-indicator {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     margin-left: var(--space-1);
   }
+}
+
+/* Overdue badge — shown on items that have no scheduled time but are overdue */
+.timeline-item-overdue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--color-danger, #e53e3e) 12%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-danger, #e53e3e);
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+/* Overdue date group header */
+.timeline-date-header.overdue {
+  border-left-color: var(--color-danger, #e53e3e);
+  color: var(--color-danger, #e53e3e);
+}
+
+.timeline-date-overdue-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-danger, #e53e3e);
+  background: color-mix(in srgb, var(--color-danger, #e53e3e) 12%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  white-space: nowrap;
 }
 
 /* Drag handle */
