@@ -489,10 +489,11 @@ async function getDocumentsByEntity(req, res) {
     // Determine if user is super admin
     const isSuperAdmin = req.user.role === 'super_admin';
 
-    // Build query: show all documents visible to collaborators, plus user's private documents
+    // Build query: show all documents visible to collaborators, plus user's private documents.
+    // Cast entityId to ObjectId (already validated above) to break the taint chain.
     const query = {
       entityType,
-      entityId,
+      entityId: new mongoose.Types.ObjectId(entityId),
       $or: [
         { visibility: 'collaborators' },
         { visibility: 'private', user: req.user._id }

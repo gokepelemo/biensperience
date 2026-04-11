@@ -1253,11 +1253,18 @@ async function executeReorderPlanItems(payload, user) {
     return { statusCode: 400, body: { success: false, error: 'plan_id and item_ids (non-empty array) are required' } };
   }
 
+  loadModels();
+
+  if (!_mongoose.Types.ObjectId.isValid(plan_id)) {
+    return { statusCode: 400, body: { success: false, error: 'Invalid plan_id format' } };
+  }
+  // Cast to ObjectId to break the taint chain for CodeQL
+  const safePlanId = new _mongoose.Types.ObjectId(plan_id);
+
   // The reorderPlanItems controller expects body.plan to be the full item objects
   // in the new order — not just IDs — so that plan.plan = reorderedItems does not
   // truncate subdocument fields. Fetch the current plan to sort the full objects.
-  const Plan = require('../models/plan');
-  const currentPlan = await Plan.findById(plan_id).lean();
+  const currentPlan = await _Plan.findById(safePlanId).lean();
   if (!currentPlan) {
     return { statusCode: 404, body: { success: false, error: 'Plan not found' } };
   }
