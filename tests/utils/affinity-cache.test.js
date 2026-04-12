@@ -39,26 +39,28 @@ const mockUser = {
     };
   }),
   findByIdAndUpdate: jest.fn(async (userId, update) => {
-    // Simulate $pull (remove by experience_id) then $push with $slice
     let entries = [..._getStore(userId)];
 
-    // Handle $pull stage
-    const pull = update.$pull;
-    if (pull && pull.affinity_cache) {
-      const pullExperienceId = pull.affinity_cache.experience_id;
-      entries = entries.filter(
-        (e) => e.experience_id.toString() !== pullExperienceId.toString()
-      );
-    }
-
-    // Handle $push with $slice
-    const push = update.$push;
-    if (push && push.affinity_cache) {
-      const eachItems = push.affinity_cache.$each || [];
-      entries = [...entries, ...eachItems];
-      const slice = push.affinity_cache.$slice;
-      if (typeof slice === 'number' && slice < 0) {
-        entries = entries.slice(slice);
+    if (Array.isArray(update)) {
+      // Simulate the aggregation pipeline used by MongoAffinityCache.setAffinityEntry:
+      // [{ $set: { affinity_cache: { $slice: [{ $concatArrays: [{ $filter: ... }, [newEntry]] }, -MAX_ENTRIES] } } }]
+      const pipeline = update[0];
+      const sliceOp = pipeline?.$set?.affinity_cache?.$slice;
+      if (sliceOp) {
+        const concatOp = sliceOp[0]?.$concatArrays;
+        const maxEntries = typeof sliceOp[1] === 'number' ? Math.abs(sliceOp[1]) : 50;
+        if (concatOp) {
+          // concatOp[1] is the literal array containing the new entry
+          const newEntries = concatOp[1];
+          const newExperienceId = newEntries[0]?.experience_id?.toString();
+          // Filter out any existing entry for the same experienceId
+          const filtered = newExperienceId
+            ? entries.filter((e) => e.experience_id.toString() !== newExperienceId)
+            : entries;
+          // Append new entries and cap at MAX_ENTRIES (slice from end)
+          const combined = [...filtered, ...newEntries];
+          entries = combined.length > maxEntries ? combined.slice(-maxEntries) : combined;
+        }
       }
     }
 

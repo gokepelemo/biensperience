@@ -645,13 +645,16 @@ const getPlanById = asyncHandler(async (req, res) => {
   filterNotesByVisibility(plan, req.user._id);
 
   res.json(plan);
-  setImmediate(() =>
-    refreshSignalsAndAffinity(
-      plan.experience._id.toString(),
-      req.user._id.toString(),
-      null  // experience.signals.computed_at not loaded here; treat as unknown → always refresh
-    )
-  );
+  const planExperienceId = plan.experience?._id?.toString();
+  if (planExperienceId) {
+    setImmediate(() =>
+      refreshSignalsAndAffinity(
+        planExperienceId,
+        req.user._id.toString(),
+        null  // experience.signals.computed_at not loaded here; treat as unknown → always refresh
+      )
+    );
+  }
 });
 
 /**
