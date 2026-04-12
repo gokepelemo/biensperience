@@ -291,16 +291,17 @@ describe('refreshSignalsAndAffinity', () => {
   });
 
   test('7. never throws even if computeAndCacheAffinity rejects', async () => {
-    // Make user lookup fail so computeAndCacheAffinity will log a warning and return early
-    // But more directly: make affinityCache.setAffinityEntry reject
+    // Force affinityCache.setAffinityEntry to reject so we exercise the rejection path
     const affinityCache = require('../../utilities/affinity-cache');
     affinityCache.setAffinityEntry.mockRejectedValueOnce(new Error('Cache write failure'));
 
-    // computedAt is null so staleness check will call updateExperienceSignals too
-    // We need models to work for the test but setAffinityEntry to fail
-    // refreshSignalsAndAffinity should still not throw
+    // computedAt is null → staleness check triggers updateExperienceSignals before compute
+    // refreshSignalsAndAffinity should still not throw even if the cache write fails
     await expect(
       refreshSignalsAndAffinity(VALID_EXPERIENCE_ID, VALID_USER_ID, null)
     ).resolves.not.toThrow();
+
+    // Confirm the failing cache write path was actually exercised
+    expect(affinityCache.setAffinityEntry).toHaveBeenCalledTimes(1);
   });
 });

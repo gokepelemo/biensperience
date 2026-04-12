@@ -62,7 +62,7 @@ class MongoAffinityCache {
       return map;
     } catch (err) {
       logger.warn('[affinity-cache] MongoDB getAffinityMap failed', {
-        userId: userId.toString(),
+        userId: String(userId),
         error: err.message
       });
       return new Map();
@@ -83,8 +83,8 @@ class MongoAffinityCache {
       return map.get(experienceId.toString()) || null;
     } catch (err) {
       logger.warn('[affinity-cache] MongoDB getAffinityEntry failed', {
-        userId: userId.toString(),
-        experienceId: experienceId.toString(),
+        userId: String(userId),
+        experienceId: String(experienceId),
         error: err.message
       });
       return null;
@@ -105,6 +105,10 @@ class MongoAffinityCache {
   async setAffinityEntry(userId, experienceId, entry) {
     try {
       const User = this._getUser();
+      const mongoose = require('mongoose');
+      // Convert to ObjectId once so the aggregation $ne comparison works reliably
+      // without relying on the server-side $toObjectId cast.
+      const expObjId = new mongoose.Types.ObjectId(experienceId.toString());
       // Atomic: filter existing entry for this experienceId + append new one +
       // cap at MAX_ENTRIES in a single aggregation pipeline update (MongoDB 4.2+).
       await User.findByIdAndUpdate(userId, [
@@ -118,7 +122,7 @@ class MongoAffinityCache {
                       $filter: {
                         input: { $ifNull: ['$affinity_cache', []] },
                         cond: {
-                          $ne: ['$$this.experience_id', { $toObjectId: experienceId.toString() }]
+                          $ne: ['$$this.experience_id', expObjId]
                         }
                       }
                     },
@@ -133,8 +137,8 @@ class MongoAffinityCache {
       ]);
     } catch (err) {
       logger.warn('[affinity-cache] MongoDB setAffinityEntry failed', {
-        userId: userId.toString(),
-        experienceId: experienceId.toString(),
+        userId: String(userId),
+        experienceId: String(experienceId),
         error: err.message
       });
     }
@@ -231,7 +235,7 @@ class RedisAffinityCache {
       return map;
     } catch (err) {
       logger.warn('[affinity-cache] Redis getAffinityMap failed, falling back to MongoDB', {
-        userId: userId.toString(),
+        userId: String(userId),
         error: err.message
       });
       return this._fallback.getAffinityMap(userId);
@@ -253,8 +257,8 @@ class RedisAffinityCache {
       return map.get(experienceId.toString()) || null;
     } catch (err) {
       logger.warn('[affinity-cache] Redis getAffinityEntry failed, falling back to MongoDB', {
-        userId: userId.toString(),
-        experienceId: experienceId.toString(),
+        userId: String(userId),
+        experienceId: String(experienceId),
         error: err.message
       });
       return this._fallback.getAffinityEntry(userId, experienceId);
@@ -298,8 +302,8 @@ class RedisAffinityCache {
       await client.setex(key, ttlSeconds, JSON.stringify(entries));
     } catch (err) {
       logger.warn('[affinity-cache] Redis setAffinityEntry failed, falling back to MongoDB', {
-        userId: userId.toString(),
-        experienceId: experienceId.toString(),
+        userId: String(userId),
+        experienceId: String(experienceId),
         error: err.message
       });
       return this._fallback.setAffinityEntry(userId, experienceId, entry);

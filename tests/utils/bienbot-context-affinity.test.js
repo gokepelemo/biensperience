@@ -178,4 +178,69 @@ describe('appendAffinityBlock (via buildContextForInvokeContext)', () => {
     expect(result).toContain('[AFFINITY]');
     expect(result).toContain('moderate alignment');
   });
+
+  test('does not throw and omits [AFFINITY] when affinityCache.getAffinityEntry throws', async () => {
+    // appendAffinityBlock wraps in try/catch — errors must be swallowed
+    affinityCache.getAffinityEntry.mockRejectedValue(new Error('Redis connection lost'));
+
+    // Should not throw
+    await expect(
+      buildContextForInvokeContext(invokeCtx, VALID_USER_ID)
+    ).resolves.not.toThrow();
+
+    // [AFFINITY] block must be absent (error was swallowed)
+    const result = await buildContextForInvokeContext(invokeCtx, VALID_USER_ID);
+    expect(result).not.toContain('[AFFINITY]');
+  });
+
+  test('appends [AFFINITY] for plan entity when experience is resolvable from plan doc', async () => {
+    const Plan = require('../../models/plan');
+
+    const VALID_PLAN_ID = '64f1234567890abcdef12388';
+
+    // First call: buildUserPlanContext calls Plan.findById(planOid).populate(...)
+    const mockPlanDoc = {
+      _id: { toString: () => VALID_PLAN_ID },
+      experience: { _id: { toString: () => VALID_EXPERIENCE_ID }, name: 'Test Experience' },
+      plan: [],
+      permissions: [{ entity: 'user', _id: VALID_USER_ID, type: 'owner' }],
+      planned_date: null,
+      currency: null,
+      costs: [],
+    };
+
+    // Second call: buildContextForInvokeContext calls Plan.findById(id).select('experience').lean()
+    // to resolve planExperienceId for the affinity block
+    let callCount = 0;
+    Plan.findById.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        // buildUserPlanContext: .populate(...)
+        return { populate: jest.fn().mockResolvedValue(mockPlanDoc) };
+      }
+      // affinity resolution: .select('experience').lean()
+      return {
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue({ experience: VALID_EXPERIENCE_ID }),
+        }),
+      };
+    });
+
+    affinityCache.getAffinityEntry.mockResolvedValue({
+      score: 0.78,
+      top_dims: [{ dim: 'adventure' }],
+    });
+
+    const planInvokeCtx = {
+      entity: 'plan',
+      entity_id: VALID_PLAN_ID,
+      entity_label: 'Test Plan',
+    };
+
+    const result = await buildContextForInvokeContext(planInvokeCtx, VALID_USER_ID);
+
+    // Plan path must resolve experience ID and append [AFFINITY]
+    expect(result).toContain('[AFFINITY]');
+    expect(result).toContain('strong alignment');
+  });
 });

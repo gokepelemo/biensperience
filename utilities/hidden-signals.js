@@ -744,6 +744,7 @@ async function computeAndCacheAffinity(userId, experienceId) {
  * @returns {Promise<void>}
  */
 async function refreshSignalsAndAffinity(experienceId, userId, computedAt) {
+  if (!userId) return; // No-op without a user — avoids log noise from unauthenticated paths
   try {
     const config = require('./signals-config');
     const isStale = !computedAt || (Date.now() - new Date(computedAt).getTime() > config.SIGNALS_STALENESS_MS);

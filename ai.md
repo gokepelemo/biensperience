@@ -2298,7 +2298,7 @@ The block is suppressed when:
 **Discovery ranking** (`buildDiscoveryContext()`):
 - Calls `affinityCache.getAffinityMap(userId)` once before iterating over experience candidates.
 - For each candidate, looks up `cachedAffinity.score` from the map.
-- Falls back to a cold `computeAffinityScore()` call (using undecked signals) when no cache entry exists.
+- Falls back to a cold `computeAffinityScore()` call (using undecayed signals) when no cache entry exists.
 
 **Cache-miss fallback** (`controllers/api/bienbot.js` — `POST /api/bienbot/chat`):
 - Before building the invoke context, the controller checks the affinity cache.

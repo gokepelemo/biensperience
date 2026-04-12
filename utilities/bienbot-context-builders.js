@@ -2227,12 +2227,14 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
 
     const formula = signalsConfig.formula;
 
-    // Load affinity map once for all candidates (cache-first; empty Map on failure)
+    // Load affinity map once for all candidates (cache-first; empty Map on failure or missing userId)
     let affinityMap = new Map();
-    try {
-      affinityMap = await affinityCache.getAffinityMap(userId);
-    } catch (affinityErr) {
-      logger.warn('[bienbot-context] Failed to load affinity map for discovery ranking', { userId, error: affinityErr.message });
+    if (userId) {
+      try {
+        affinityMap = await affinityCache.getAffinityMap(userId);
+      } catch (affinityErr) {
+        logger.warn('[bienbot-context] Failed to load affinity map for discovery ranking', { userId, error: affinityErr.message });
+      }
     }
 
     // Score and rank

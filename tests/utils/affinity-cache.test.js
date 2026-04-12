@@ -187,4 +187,31 @@ describe('affinity-cache (MongoDB provider)', () => {
     const map = await getAffinityMap(userId);
     expect(map.size).toBe(50);
   });
+
+  it('6. getAffinityMap excludes entries older than AFFINITY_CACHE_TTL_MS (TTL filtering)', async () => {
+    const { AFFINITY_CACHE_TTL_MS } = require('../../utilities/signals-config');
+    const userId = makeId();
+    const freshExpId = makeId();
+    const staleExpId = makeId();
+
+    // Build entries with explicit computed_at timestamps
+    const freshEntry = makeEntry(freshExpId, 0.9);
+    freshEntry.computed_at = new Date(); // within TTL
+
+    const staleEntry = makeEntry(staleExpId, 0.7);
+    staleEntry.computed_at = new Date(Date.now() - AFFINITY_CACHE_TTL_MS - 1000); // past TTL
+
+    // Directly populate the in-memory store to bypass setAffinityEntry's timestamp
+    _store[userId.toString()] = [freshEntry, staleEntry];
+
+    const map = await getAffinityMap(userId);
+
+    expect(map.size).toBe(1);
+    expect(map.has(freshExpId.toString())).toBe(true);
+    expect(map.has(staleExpId.toString())).toBe(false);
+
+    // getAffinityEntry should also return null for the stale entry
+    const staleResult = await getAffinityEntry(userId, staleExpId);
+    expect(staleResult).toBeNull();
+  });
 });
