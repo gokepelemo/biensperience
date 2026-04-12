@@ -104,8 +104,31 @@ const contentSignalsSchema = new Schema({
   computed_at: { type: Date, default: null }
 }, { _id: false });
 
+/**
+ * A single cached affinity computation for one (user, experience) pair.
+ * Stored as a bounded array on the User document (max 50, oldest evicted).
+ */
+const affinityCacheEntrySchema = new Schema({
+  /** The experience this affinity was computed against. */
+  experience_id: { type: Schema.Types.ObjectId, required: true },
+  /** Affinity score [0, 1]. 0.5 is neutral. */
+  score: { type: Number, min: 0, max: 1, required: true },
+  /**
+   * Top 2–3 dimensions driving the match (lowest delta = strongest alignment).
+   * Empty when both vectors are below the confidence threshold.
+   */
+  top_dims: [{
+    dim:        { type: String },   // e.g. 'food_focus'
+    user_val:   { type: Number },   // user's signal value
+    entity_val: { type: Number },   // experience's signal value
+    delta:      { type: Number }    // abs(user_val - entity_val)
+  }],
+  computed_at: { type: Date, default: Date.now }
+}, { _id: false });
+
 module.exports = {
   hiddenSignalVectorSchema,
   hiddenSignalEventSchema,
-  contentSignalsSchema
+  contentSignalsSchema,
+  affinityCacheEntrySchema
 };
