@@ -637,7 +637,7 @@ const userSchema = new Schema(
      */
     affinity_cache: {
       type: [affinityCacheEntrySchema],
-      default: () => []
+      default: []
     }
   },
   {

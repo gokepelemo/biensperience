@@ -117,12 +117,15 @@ const affinityCacheEntrySchema = new Schema({
    * Top 2–3 dimensions driving the match (lowest delta = strongest alignment).
    * Empty when both vectors are below the confidence threshold.
    */
-  top_dims: [{
-    dim:        { type: String },   // e.g. 'food_focus'
-    user_val:   { type: Number },   // user's signal value
-    entity_val: { type: Number },   // experience's signal value
-    delta:      { type: Number }    // abs(user_val - entity_val)
-  }],
+  top_dims: {
+    type: [new Schema({
+      dim:        { type: String, default: null },
+      user_val:   { type: Number, default: null },
+      entity_val: { type: Number, default: null },
+      delta:      { type: Number, default: null }
+    }, { _id: false })],
+    default: []
+  },
   computed_at: { type: Date, default: Date.now }
 }, { _id: false });
 
