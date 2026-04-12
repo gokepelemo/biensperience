@@ -1548,6 +1548,15 @@ exports.chat = async (req, res) => {
   // When multipart/form-data is used (file attachment), fields are strings in req.body
   let { message, sessionId, invokeContext } = req.body;
 
+  // hiddenUserMessage — ephemeral override sent to the LLM instead of `message`.
+  // Stored message (session history) always uses `message`; never stored.
+  let hiddenUserMessage = req.body.hiddenUserMessage || null;
+  if (hiddenUserMessage && typeof hiddenUserMessage === 'string') {
+    hiddenUserMessage = stripNullBytes(hiddenUserMessage).trim().slice(0, MAX_MESSAGE_LENGTH) || null;
+  } else {
+    hiddenUserMessage = null;
+  }
+
   // Parse invokeContext from string when sent as multipart form data
   if (typeof invokeContext === 'string') {
     try {
@@ -1932,7 +1941,10 @@ exports.chat = async (req, res) => {
   }
 
   // --- Step 2: Classify intent ---
-  const classification = await classifyIntent(message, {
+  // Use hiddenUserMessage when present so the classifier sees the true intent
+  // ("confirm plan, suggest next steps") rather than the stored visible text.
+  const classifyText = hiddenUserMessage || message;
+  const classification = await classifyIntent(classifyText, {
     userId,
     sessionId: session._id.toString(),
     user: req.user
@@ -2537,7 +2549,7 @@ exports.chat = async (req, res) => {
     classification.entities,
     session,
     userId,
-    message,
+    classifyText,
     navigationSchema
   );
 
@@ -2658,9 +2670,11 @@ exports.chat = async (req, res) => {
     });
   }
 
-  // Add the current user message with delimiter
-  // If there's an attachment, note it in the message so the LLM is aware
-  let userContent = `[USER MESSAGE]\n${message}\n[/USER MESSAGE]`;
+  // Add the current user message with delimiter.
+  // When hiddenUserMessage is present, use it as the LLM prompt while the
+  // visible `message` is stored in session history (already done above).
+  const llmUserContent = hiddenUserMessage || message;
+  let userContent = `[USER MESSAGE]\n${llmUserContent}\n[/USER MESSAGE]`;
   if (attachmentData) {
     // Sanitize filename before embedding in the LLM context to prevent prompt injection.
     // Replace non-word characters with underscores and cap length.
@@ -2696,7 +2710,7 @@ exports.chat = async (req, res) => {
   ]);
   const baseBudget = 1500;
   const needsMoreTokens = BULK_ACTION_INTENTS.has(classification.intent) ||
-    /add\s+(these|all|selected)\s+plan\s+items/i.test(message);
+    /add\s+(these|all|selected)\s+plan\s+items/i.test(classifyText);
   const maxTokens = needsMoreTokens ? 3000 : baseBudget;
 
   let llmResult;

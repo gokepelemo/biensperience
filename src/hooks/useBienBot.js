@@ -349,6 +349,162 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, [invokeContext, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
+  // sendHiddenMessage — programmatic follow-up that stores visibleText in the
+  // session history but sends hiddenText to the LLM.  Used after local actions
+  // (e.g. "Plan this") so the LLM can suggest next steps without a round-trip.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send a follow-up message after a locally-executed action.
+   * - Does NOT append a user bubble (caller is responsible for that).
+   * - Does NOT clear suggestedNextSteps or pendingActions.
+   * - Stores `storedText` in session history; sends `hiddenText` to the LLM.
+   *
+   * @param {string} storedText  - Visible text stored in session (shown to user)
+   * @param {string} hiddenText  - Text sent to LLM instead of storedText
+   */
+  const sendHiddenMessage = useCallback(async (storedText, hiddenText) => {
+    if (!storedText?.trim() || !hiddenText?.trim()) return;
+    if (isStreaming || isLoading) return;
+
+    const assistantMessageId = `temp-${Date.now()}-assistant`;
+    let streamedContent = '';
+
+    batchedUpdates(() => {
+      setIsLoading(true);
+      setIsStreaming(true);
+    });
+
+    setMessages(prev => [...prev, {
+      _id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString()
+    }]);
+
+    cancelStream();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const sid = sessionIdRef.current;
+    // Replicate first-send bootstrap so invokeContext, navigationSchema, and the
+    // prior greeting are forwarded even when sendHiddenMessage creates the session.
+    const shouldSendContext = !sid && invokeContext?.entity && invokeContext?.id && !invokeContextSentRef.current;
+    const capturedPriorGreeting = !sid ? priorGreetingRef.current : null;
+    if (capturedPriorGreeting) priorGreetingRef.current = null;
+
+    try {
+      await postMessage(sid, storedText, {
+        hiddenUserMessage: hiddenText,
+        invokeContext: shouldSendContext ? invokeContext : undefined,
+        navigationSchema: (!sid && !invokeContextSentRef.current && navigationSchema) ? navigationSchema : undefined,
+        priorGreeting: capturedPriorGreeting || undefined,
+        signal: controller.signal,
+
+        onSession: ({ sessionId: newSessionId, title }) => {
+          sessionIdRef.current = newSessionId;
+          if (shouldSendContext) {
+            invokeContextSentRef.current = true;
+          }
+          setCurrentSession(prev => ({
+            ...(prev || {}),
+            _id: newSessionId,
+            title: title || prev?.title,
+            user: userId
+          }));
+          persistSessionId(newSessionId);
+        },
+
+        onToken: (tokenText) => {
+          streamedContent += tokenText;
+          const captured = streamedContent;
+          setMessages(prev =>
+            prev.map(m =>
+              m._id === assistantMessageId
+                ? { ...m, content: captured }
+                : m
+            )
+          );
+        },
+
+        onActions: (actions) => {
+          setPendingActions(actions || []);
+        },
+
+        onStructuredContent: (blocks) => {
+          if (blocks && blocks.length > 0) {
+            setMessages(prev =>
+              prev.map(m => {
+                if (m._id !== assistantMessageId) return m;
+                let existing = m.structured_content || [];
+                let updated = [...existing];
+                for (const block of blocks) {
+                  if (block.type === 'discovery_result_list') {
+                    const sentinelIdx = updated.findIndex(
+                      b => b.type === 'discovery_result_list' && b.data === null
+                    );
+                    if (sentinelIdx !== -1) {
+                      updated = [...updated];
+                      updated[sentinelIdx] = block;
+                    } else {
+                      updated = [...updated, block];
+                    }
+                  } else {
+                    updated = [...updated, block];
+                  }
+                }
+                return { ...m, structured_content: updated };
+              })
+            );
+          }
+        },
+
+        onDone: () => {
+          batchedUpdates(() => {
+            setIsStreaming(false);
+            setIsLoading(false);
+          });
+          abortControllerRef.current = null;
+        },
+
+        onError: (error) => {
+          logger.error('[useBienBot] sendHiddenMessage stream error', { error: error.message });
+          batchedUpdates(() => {
+            setIsStreaming(false);
+            setIsLoading(false);
+          });
+          setMessages(prev =>
+            prev.map(m =>
+              m._id === assistantMessageId
+                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true }
+                : m
+            )
+          );
+          abortControllerRef.current = null;
+        }
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        logger.debug('[useBienBot] sendHiddenMessage aborted');
+      } else {
+        logger.error('[useBienBot] sendHiddenMessage failed', { error: err.message });
+        setMessages(prev =>
+          prev.map(m =>
+            m._id === assistantMessageId
+              ? { ...m, content: 'Something went wrong. Please try again.', error: true }
+              : m
+          )
+        );
+      }
+      batchedUpdates(() => {
+        setIsStreaming(false);
+        setIsLoading(false);
+      });
+      abortControllerRef.current = null;
+    }
+  }, [isStreaming, isLoading, invokeContext, navigationSchema, cancelStream, persistSessionId]);
+
+  // ---------------------------------------------------------------------------
   // executeActions
   // ---------------------------------------------------------------------------
 
@@ -1010,6 +1166,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     deleteSession,
     isStreaming,
     sendMessage,
+    sendHiddenMessage,
     sendSharedComment,
     searchMutualFollowers,
     executeActions,

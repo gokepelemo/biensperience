@@ -166,6 +166,9 @@ export async function postMessage(sessionId, message, options = {}) {
     if (!sessionId && priorGreeting) {
       bodyObj.priorGreeting = priorGreeting;
     }
+    if (options.hiddenUserMessage) {
+      bodyObj.hiddenUserMessage = options.hiddenUserMessage;
+    }
     requestBody = JSON.stringify(bodyObj);
   }
 

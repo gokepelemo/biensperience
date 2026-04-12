@@ -37,6 +37,7 @@ import PendingActionCard from './PendingActionCard';
 import SessionHistoryView from './SessionHistoryView';
 import EntityRefList from './EntityRefList';
 import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
+import { createPlan } from '../../utilities/plans-api';
 import { eventBus } from '../../utilities/event-bus';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
@@ -580,6 +581,9 @@ export default function BienBotPanel({
   const [shareOpen, setShareOpen] = useState(false);
   const [executingActionId, setExecutingActionId] = useState(null);
   const executingActionRef = useRef(null);
+  // Prevents duplicate plan creation if the user double-clicks "Plan this" before
+  // createPlan resolves (isStreaming/isLoading are only set later, inside sendHiddenMessage).
+  const isPlanningRef = useRef(false);
   const [savedSession, setSavedSession] = useState(null);
   const [viewMode, setViewMode] = useState('chat');
   // Pending context switch: set when the user navigates to a different entity while
@@ -619,6 +623,7 @@ export default function BienBotPanel({
     currentSession,
     sessions,
     sendMessage,
+    sendHiddenMessage,
     executeActions,
     cancelAction,
     updateContext,
@@ -719,13 +724,52 @@ export default function BienBotPanel({
 
   // ── Handle planning a discovery result ─────────────────────────────────
   const handlePlanDiscoveryResult = useCallback(
-    (experienceName, experienceId) => {
-      if (!experienceName || isStreaming || isLoading) return;
-      // The experience_id is available to the LLM via the discovery context block,
-      // so we don't need to expose it in the visible message text.
-      sendMessage(`I want to plan \`${experienceName}\``);
+    async (experienceName, experienceId) => {
+      if (!experienceName || !experienceId || isStreaming || isLoading || isPlanningRef.current) return;
+      isPlanningRef.current = true;
+
+      // Step 1: optimistic user bubble
+      appendMessage({
+        role: 'user',
+        _id: `plan-btn-${Date.now()}`,
+        content: `I want to plan \`${experienceName}\``,
+        createdAt: new Date().toISOString(),
+      });
+
+      try {
+        // Step 2: execute locally
+        const plan = await createPlan(experienceId);
+
+        // Step 3: navigate
+        navigate(`/experiences/${experienceId}#plan-${plan._id}`);
+
+        // Step 4: action result bubble
+        appendMessage({
+          role: 'assistant',
+          _id: `plan-result-${Date.now()}`,
+          content: `✅ Plan created for \`${experienceName}\`!`,
+          createdAt: new Date().toISOString(),
+          isActionResult: true,
+        });
+
+        // Step 5: hidden LLM trigger
+        await sendHiddenMessage(
+          `I want to plan \`${experienceName}\``,
+          `A plan for \`${experienceName}\` (plan_id: ${plan._id}) was just created. Confirm it's ready and suggest 3–4 specific next steps.`
+        );
+      } catch (err) {
+        appendMessage({
+          role: 'assistant',
+          _id: `plan-err-${Date.now()}`,
+          content: `Could not create the plan for \`${experienceName}\`. Please try again.`,
+          createdAt: new Date().toISOString(),
+          error: true,
+        });
+      } finally {
+        isPlanningRef.current = false;
+      }
     },
-    [sendMessage, isStreaming, isLoading]
+    [appendMessage, sendHiddenMessage, isStreaming, isLoading, navigate]
   );
 
   // ── Handle entity ref card selection (disambiguation from BienBot) ──────
