@@ -40,6 +40,7 @@ class MongoAffinityCache {
 
   /**
    * Build a Map<experienceIdString, entry> for a given user.
+   * Entries older than AFFINITY_CACHE_TTL_MS are excluded (TTL enforcement).
    *
    * @param {string|ObjectId} userId
    * @returns {Promise<Map<string, Object>>}
@@ -50,8 +51,12 @@ class MongoAffinityCache {
       const user = await User.findById(userId).select('affinity_cache').lean();
       if (!user || !Array.isArray(user.affinity_cache)) return new Map();
 
+      const cutoff = Date.now() - AFFINITY_CACHE_TTL_MS;
       const map = new Map();
       for (const entry of user.affinity_cache) {
+        // Skip entries that have passed the TTL (stale affinity scores)
+        const computedAt = entry.computed_at ? new Date(entry.computed_at).getTime() : 0;
+        if (computedAt < cutoff) continue;
         map.set(entry.experience_id.toString(), entry);
       }
       return map;
@@ -66,6 +71,7 @@ class MongoAffinityCache {
 
   /**
    * Retrieve a single affinity entry for (userId, experienceId).
+   * Returns null if the entry is absent or older than AFFINITY_CACHE_TTL_MS.
    *
    * @param {string|ObjectId} userId
    * @param {string|ObjectId} experienceId
@@ -87,8 +93,9 @@ class MongoAffinityCache {
 
   /**
    * Store or replace an affinity entry for (userId, experienceId).
-   * Removes any existing entry with the same experienceId before pushing,
-   * then caps the array at MAX_ENTRIES (keeping the most recent).
+   * Uses a single aggregation pipeline update to atomically filter out any
+   * existing entry for this experienceId, append the new entry, and cap at
+   * MAX_ENTRIES — eliminating the two-step $pull + $push race condition.
    *
    * @param {string|ObjectId} userId
    * @param {string|ObjectId} experienceId
@@ -98,20 +105,32 @@ class MongoAffinityCache {
   async setAffinityEntry(userId, experienceId, entry) {
     try {
       const User = this._getUser();
-      // Step 1: remove existing entry for this experienceId (MongoDB does not
-      // support upsert on subdocument array fields by a nested key).
-      await User.findByIdAndUpdate(userId, {
-        $pull: { affinity_cache: { experience_id: experienceId } }
-      });
-      // Step 2: push new entry with $slice to enforce the cap.
-      await User.findByIdAndUpdate(userId, {
-        $push: {
-          affinity_cache: {
-            $each: [entry],
-            $slice: -MAX_ENTRIES
+      // Atomic: filter existing entry for this experienceId + append new one +
+      // cap at MAX_ENTRIES in a single aggregation pipeline update (MongoDB 4.2+).
+      await User.findByIdAndUpdate(userId, [
+        {
+          $set: {
+            affinity_cache: {
+              $slice: [
+                {
+                  $concatArrays: [
+                    {
+                      $filter: {
+                        input: { $ifNull: ['$affinity_cache', []] },
+                        cond: {
+                          $ne: ['$$this.experience_id', { $toObjectId: experienceId.toString() }]
+                        }
+                      }
+                    },
+                    [entry]
+                  ]
+                },
+                -MAX_ENTRIES
+              ]
+            }
           }
         }
-      });
+      ]);
     } catch (err) {
       logger.warn('[affinity-cache] MongoDB setAffinityEntry failed', {
         userId: userId.toString(),
@@ -130,7 +149,8 @@ class RedisAffinityCache {
   constructor(redisUrl) {
     this._redisUrl = redisUrl;
     this._client = null;
-    this._connecting = false;
+    /** @type {Promise<import('ioredis').Redis|null>|null} */
+    this._connectionPromise = null;
     this._fallback = new MongoAffinityCache();
   }
 
@@ -144,37 +164,48 @@ class RedisAffinityCache {
     return `bien:affinity:${userId.toString()}`;
   }
 
+  /**
+   * Establish the Redis connection. Returns the connected client or null on failure.
+   * Stores the pending Promise so concurrent callers await the same connection
+   * instead of falling through to MongoDB before the first connect resolves.
+   *
+   * @returns {Promise<import('ioredis').Redis|null>}
+   */
   async _getClient() {
     if (this._client) return this._client;
-    if (this._connecting) return null;
-    this._connecting = true;
-    try {
-      const Redis = require('ioredis');
-      const client = new Redis(this._redisUrl, {
-        maxRetriesPerRequest: 1,
-        lazyConnect: true,
-        connectTimeout: 3000,
-        retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 2000))
-      });
-      await client.connect();
-      logger.info('[affinity-cache] Redis cache connected');
-      client.on('error', (err) => {
-        logger.warn('[affinity-cache] Redis error, will fallback to MongoDB', {
+    if (this._connectionPromise) return this._connectionPromise;
+
+    this._connectionPromise = (async () => {
+      try {
+        const Redis = require('ioredis');
+        const client = new Redis(this._redisUrl, {
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+          connectTimeout: 3000,
+          retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 2000))
+        });
+        await client.connect();
+        logger.info('[affinity-cache] Redis cache connected');
+        client.on('error', (err) => {
+          logger.warn('[affinity-cache] Redis error, will fallback to MongoDB', {
+            error: err.message
+          });
+          this._client = null;
+          this._connectionPromise = null;
+        });
+        this._client = client;
+        return this._client;
+      } catch (err) {
+        logger.warn('[affinity-cache] Redis connection failed, using MongoDB fallback', {
           error: err.message
         });
         this._client = null;
-        this._connecting = false;
-      });
-      this._client = client;
-      return this._client;
-    } catch (err) {
-      logger.warn('[affinity-cache] Redis connection failed, using MongoDB fallback', {
-        error: err.message
-      });
-      this._client = null;
-      this._connecting = false;
-      return null;
-    }
+        this._connectionPromise = null;
+        return null;
+      }
+    })();
+
+    return this._connectionPromise;
   }
 
   /**
@@ -190,8 +221,11 @@ class RedisAffinityCache {
       const raw = await client.get(this._key(userId));
       if (!raw) return new Map();
       const entries = JSON.parse(raw);
+      const cutoff = Date.now() - AFFINITY_CACHE_TTL_MS;
       const map = new Map();
       for (const entry of entries) {
+        const computedAt = entry.computed_at ? new Date(entry.computed_at).getTime() : 0;
+        if (computedAt < cutoff) continue;
         map.set(entry.experience_id.toString(), entry);
       }
       return map;
@@ -258,7 +292,9 @@ class RedisAffinityCache {
         entries = entries.slice(-MAX_ENTRIES);
       }
 
-      const ttlSeconds = Math.ceil(AFFINITY_CACHE_TTL_MS / 1000);
+      const ttlSeconds = Number.isFinite(AFFINITY_CACHE_TTL_MS) && AFFINITY_CACHE_TTL_MS > 0
+        ? Math.ceil(AFFINITY_CACHE_TTL_MS / 1000)
+        : 6 * 60 * 60; // 6-hour safe default
       await client.setex(key, ttlSeconds, JSON.stringify(entries));
     } catch (err) {
       logger.warn('[affinity-cache] Redis setAffinityEntry failed, falling back to MongoDB', {

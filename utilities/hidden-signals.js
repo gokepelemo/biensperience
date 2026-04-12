@@ -115,7 +115,8 @@ function updateHiddenSignals(currentSignals, event) {
   const influence = activityType ? ACTIVITY_TYPE_SIGNAL_MAP[activityType] : null;
   const eventWeight = EVENT_WEIGHT_MAP[event.type] ?? 0;
   const eventValue = typeof event.value === 'number' ? event.value : 0;
-  const combinedWeight = eventWeight * (eventValue || 1);
+  // Use explicit non-zero check so value:0 (valid falsy number) is not replaced with 1.
+  const combinedWeight = eventWeight * (eventValue !== 0 ? eventValue : 1);
 
   if (influence) {
     for (const [dim, strength] of Object.entries(influence)) {
@@ -142,37 +143,41 @@ function aggregateGroupSignals(userDocuments) {
     return { confidence: 0 };
   }
 
-  const sums = {};
-  const sqSums = {};
-  let totalConfidence = 0;
-  const count = userDocuments.length;
+  const weightedSums = {};
+  const sqWeightedSums = {};
+  let totalWeight = 0;
 
   for (const dim of DIMENSIONS) {
-    sums[dim] = 0;
-    sqSums[dim] = 0;
+    weightedSums[dim] = 0;
+    sqWeightedSums[dim] = 0;
   }
 
   for (const doc of userDocuments) {
     const sig = doc.hidden_signals || {};
+    // Use each user's confidence as their weight — high-confidence profiles
+    // (many signal events) influence the group average more than sparse ones.
+    const w = typeof sig.confidence === 'number' && sig.confidence > 0 ? sig.confidence : 0.01;
+    totalWeight += w;
     for (const dim of DIMENSIONS) {
       const val = typeof sig[dim] === 'number' ? sig[dim] : NEUTRAL;
-      sums[dim] += val;
-      sqSums[dim] += val * val;
+      weightedSums[dim] += val * w;
+      sqWeightedSums[dim] += val * val * w;
     }
-    totalConfidence += typeof sig.confidence === 'number' ? sig.confidence : 0;
   }
 
   const result = {};
   let varianceSum = 0;
 
   for (const dim of DIMENSIONS) {
-    result[dim] = sums[dim] / count;
-    const variance = (sqSums[dim] / count) - (result[dim] * result[dim]);
-    varianceSum += Math.max(0, variance);
+    result[dim] = weightedSums[dim] / totalWeight;
+    // Bessel-corrected weighted variance approximation
+    const rawVariance = (sqWeightedSums[dim] / totalWeight) - (result[dim] * result[dim]);
+    varianceSum += Math.max(0, rawVariance);
   }
 
   const avgVariance = varianceSum / DIMENSIONS.length;
-  const avgConfidence = totalConfidence / count;
+  // Group confidence: average of individual confidences, penalised by intra-group variance
+  const avgConfidence = totalWeight / userDocuments.length;
   result.confidence = clamp01(avgConfidence * (1 - avgVariance));
   result.last_updated = new Date();
 
@@ -255,6 +260,9 @@ function applySignalDecay(signals) {
 /**
  * Inject a high-novelty "surprise" recommendation when the user's novelty
  * score is low.
+ *
+ * @internal Not exported — candidate for wiring into discovery ranking once
+ *   the scored output carries per-candidate hidden_signals.
  *
  * @param {Array<Object>} recommendations - Array of experience/destination objects.
  * @param {Object} userSignals - User's signal vector.
@@ -766,7 +774,6 @@ module.exports = {
   aggregateGroupSignals,
   signalsToNaturalLanguage,
   applySignalDecay,
-  injectSurprise,
   computeExperienceSignalTags,
   computeTrustScore,
   computePopularityScore,

@@ -31,8 +31,7 @@ const hiddenSignalVectorSchema = new Schema({
   cultural_depth: { type: Number, min: 0, max: 1, default: 0.5 },
   comfort_zone: { type: Number, min: 0, max: 1, default: 0.5 },
   confidence: { type: Number, min: 0, max: 1, default: 0 },
-  last_updated: { type: Date, default: null },
-  weights: { type: Map, of: Number, default: () => new Map() }
+  last_updated: { type: Date, default: null }
 }, { _id: false });
 
 /**

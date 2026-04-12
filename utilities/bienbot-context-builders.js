@@ -12,7 +12,7 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
-const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore } = require('./hidden-signals');
+const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore, computeAndCacheAffinity } = require('./hidden-signals');
 const signalsConfig = require('./signals-config');
 const affinityCache = require('./affinity-cache');
 
@@ -321,16 +321,24 @@ async function collectPlanNotes(planItems, userId, threshold = 500) {
       // Visibility filter: private notes only visible to author
       if (note.visibility === 'private' && String(note.user) !== String(userId)) continue;
       authorIds.add(String(note.user));
+      const votes = (note.relevancy_votes || []).length;
       allNotes.push({
         itemLabel,
         content: note.content,
         authorId: String(note.user),
-        date: note.createdAt
+        date: note.createdAt,
+        relevancyVotes: votes
       });
     }
   }
 
   if (allNotes.length === 0) return null;
+
+  // Sort: important notes (any votes) first, then by date descending
+  allNotes.sort((a, b) => {
+    if (b.relevancyVotes !== a.relevancyVotes) return b.relevancyVotes - a.relevancyVotes;
+    return new Date(b.date || 0) - new Date(a.date || 0);
+  });
 
   // Batch-resolve author names
   const authorMap = {};
@@ -343,11 +351,14 @@ async function collectPlanNotes(planItems, userId, threshold = 500) {
     logger.debug('[bienbot-context] Author name resolution failed', { error: err.message });
   }
 
-  // Format notes
+  // Format notes — prepend [IMPORTANT (N votes)] for voted notes, [NEUTRAL] otherwise
   const noteLines = allNotes.map(n => {
     const author = authorMap[n.authorId] || 'Unknown';
     const dateStr = n.date ? new Date(n.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-    return `- [${author}${dateStr ? `, ${dateStr}` : ''}] (${n.itemLabel}): ${n.content}`;
+    const importantTag = n.relevancyVotes > 0
+      ? `[IMPORTANT (${n.relevancyVotes} vote${n.relevancyVotes === 1 ? '' : 's'})] `
+      : '[NEUTRAL] ';
+    return `- ${importantTag}[${author}${dateStr ? `, ${dateStr}` : ''}] (${n.itemLabel}): ${n.content}`;
   });
 
   const totalChars = noteLines.reduce((sum, l) => sum + l.length, 0);
@@ -358,7 +369,7 @@ async function collectPlanNotes(planItems, userId, threshold = 500) {
       const { executeAIRequest } = require('./ai-gateway');
       const result = await executeAIRequest({
         messages: [
-          { role: 'system', content: 'Summarize these travel plan notes concisely, preserving key details and who said what. Output only the summary.' },
+          { role: 'system', content: 'Summarize these travel plan notes concisely, preserving key details and who said what. Each note is tagged [IMPORTANT (N votes)] or [NEUTRAL]. IMPORTANT notes have been explicitly marked as high-priority by plan members and contain details the team considers critical to the plan (e.g. confirmed bookings, restrictions, must-dos). NEUTRAL notes are general remarks or lower-priority information. Prioritize IMPORTANT note content in your summary — their key points must appear. NEUTRAL notes may be condensed or omitted if space is tight. Output only the summary.' },
           { role: 'user', content: noteLines.join('\n') }
         ],
         user: null, // context builder does not hold a user document; usage tracking is skipped
@@ -2250,10 +2261,17 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
 
       // Affinity: use pre-loaded cache entry when available; fall back to live
       // computation for cold-cache candidates (avoids per-candidate DB round-trips).
+      // On a cache miss, fire-and-forget computeAndCacheAffinity so subsequent
+      // requests for the same (user, experience) pair hit the cache.
       const cachedAffinity = affinityMap.get(c.experience_id.toString());
-      const affinityScore = cachedAffinity
-        ? cachedAffinity.score
-        : computeAffinityScore(signals, entityBehavior);
+      let affinityScore;
+      if (cachedAffinity) {
+        affinityScore = cachedAffinity.score;
+      } else {
+        affinityScore = computeAffinityScore(signals, entityBehavior);
+        // Warm the cache asynchronously — never awaited, never throws
+        computeAndCacheAffinity(userId, c.experience_id).catch(() => {});
+      }
 
       // Blended formula: formula coefficients from signalsConfig (SIGNALS_CONFIG env var).
       // recencyBoost is always computed fresh — not stored — so it stays accurate between
