@@ -647,23 +647,44 @@ export default function ExperienceWizardModal({ show, onClose, initialValues = {
   ];
 
   const renderStepIndicator = () => (
-    <Steps.Root step={currentStep} count={stepItems.length} size="sm" colorPalette="blue" px="5" pt="4" pb="2">
-      <Steps.List>
-        {stepItems.map((s) => (
-          <Steps.Item key={s.index} index={s.index}>
-            <Steps.Indicator>
-              <Steps.Status
-                complete={<FaCheck size={10} />}
-                incomplete={<Steps.Number />}
-                current={<Steps.Number />}
-              />
-            </Steps.Indicator>
-            <Steps.Title>{s.title}</Steps.Title>
-            <Steps.Separator />
-          </Steps.Item>
-        ))}
-      </Steps.List>
-    </Steps.Root>
+    <>
+      {/* Mobile/Tablet: compact dropdown */}
+      <div className={styles.stepDropdown}>
+        <select
+          className={styles.stepDropdownSelect}
+          value={currentStep}
+          disabled
+          aria-label={`Step ${currentStep + 1} of ${stepItems.length}: ${stepLabels[currentStep] ?? ''}`}
+        >
+          {stepItems.map((s) => (
+            <option key={s.index} value={s.index}>
+              {`Step ${s.index + 1} of ${stepItems.length}: ${s.title}`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop: horizontal stepper */}
+      <div className={styles.stepStepper}>
+        <Steps.Root step={currentStep} count={stepItems.length} size="sm" colorPalette="blue" px="5" pt="4" pb="2">
+          <Steps.List>
+            {stepItems.map((s) => (
+              <Steps.Item key={s.index} index={s.index}>
+                <Steps.Indicator>
+                  <Steps.Status
+                    complete={<FaCheck size={10} />}
+                    incomplete={<Steps.Number />}
+                    current={<Steps.Number />}
+                  />
+                </Steps.Indicator>
+                <Steps.Title>{s.title}</Steps.Title>
+                <Steps.Separator />
+              </Steps.Item>
+            ))}
+          </Steps.List>
+        </Steps.Root>
+      </div>
+    </>
   );
 
   const renderStep1 = () => (

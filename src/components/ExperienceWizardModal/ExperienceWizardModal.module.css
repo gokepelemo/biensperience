@@ -125,6 +125,40 @@
   }
 }
 
+/* Step indicator: dropdown on mobile/tablet, horizontal stepper on desktop */
+.stepDropdown {
+  display: block;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.stepDropdownSelect {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: default;
+  appearance: auto;
+}
+
+.stepStepper {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .stepDropdown {
+    display: none;
+  }
+
+  .stepStepper {
+    display: block;
+  }
+}
+
 .stepDescription {
   color: var(--color-text-secondary);
   font-size: var(--font-size-base);
