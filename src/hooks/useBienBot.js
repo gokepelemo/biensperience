@@ -442,14 +442,23 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         // Build ack message — prefer rich contextDescription over bare label
         const displayText = contextDescription || `"${label}"`;
         const isUserEntity = entity?.toLowerCase() === 'user';
+        const isOwnProfile = isUserEntity && userId && entityId && entityId.toString() === userId.toString();
         let ackContent;
         if (isSwitch) {
-          ackContent = `Context switched to ${displayText}. I'll now focus on this ${entity} unless you tell me otherwise.`;
+          if (isOwnProfile) {
+            ackContent = `Context has changed to your profile. You can take actions on it with BienBot.`;
+          } else {
+            ackContent = `Context switched to ${displayText}. I'll now focus on this ${entity} unless you tell me otherwise.`;
+          }
         } else {
-          const contextSuffix = isUserEntity
-            ? 'You can ask me anything about them or tell me to take actions on their profile.'
-            : 'You can ask me anything about it or tell me to take actions on it.';
-          ackContent = `My context has been enriched with information about ${displayText}. ${contextSuffix}`;
+          if (isOwnProfile) {
+            ackContent = `Context has changed to your profile. You can take actions on it with BienBot.`;
+          } else {
+            const contextSuffix = isUserEntity
+              ? 'You can ask me anything about them or tell me to take actions on their profile.'
+              : 'You can ask me anything about it or tell me to take actions on it.';
+            ackContent = `My context has been enriched with information about ${displayText}. ${contextSuffix}`;
+          }
         }
         const ackMessage = {
           _id: `ctx-${Date.now()}`,

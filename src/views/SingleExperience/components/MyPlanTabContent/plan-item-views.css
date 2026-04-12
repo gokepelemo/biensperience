@@ -2837,6 +2837,27 @@
 }
 
 /* ==========================================================================
+   Newly-added item fade-in (BienBot approve / manual add)
+   ========================================================================== */
+
+@keyframes planItemFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Applied to plan-item-card, compact-plan-item, and timeline-plan-item
+   when an item was just added so it fades in smoothly. */
+.plan-item-new {
+  animation: planItemFadeInUp 0.45s ease-out both;
+}
+
+/* ==========================================================================
    Reduced-motion preference
    ========================================================================== */
 
@@ -2846,7 +2867,8 @@
     transition: none;
   }
 
-  .shake-animation {
+  .shake-animation,
+  .plan-item-new {
     animation: none;
   }
 

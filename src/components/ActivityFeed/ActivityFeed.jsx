@@ -70,6 +70,89 @@ function getTimelineColor(resourceType, actionType) {
 }
 
 /**
+ * Group activities that refer to the same resource and happened close in time.
+ * Activities performed by the same actor on the same resource within GROUP_TIME_WINDOW_MS
+ * are collapsed: the first (newest) becomes the parent, the rest become children rendered
+ * as sub-bullets underneath it.
+ *
+ * @param {Array} activities - Activities sorted newest-first
+ * @returns {Array} Grouped activities where each item has a `children` array
+ */
+const GROUP_TIME_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+// Pairs of action types that are semantic opposites and must never be grouped together.
+// If a parent activity has one of these action types, a candidate with the paired
+// action type will not be treated as a child bullet — even if they share the same resource.
+const OPPOSING_ACTION_PAIRS = new Map([
+  ['plan_item_completed', 'plan_item_uncompleted'],
+  ['plan_item_uncompleted', 'plan_item_completed'],
+  ['favorite_added', 'favorite_removed'],
+  ['favorite_removed', 'favorite_added'],
+  ['follow_created', 'follow_removed'],
+  ['follow_removed', 'follow_created'],
+  ['collaborator_added', 'collaborator_removed'],
+  ['collaborator_removed', 'collaborator_added'],
+  ['permission_added', 'permission_removed'],
+  ['permission_removed', 'permission_added'],
+]);
+
+function groupActivities(activities) {
+  if (!activities || activities.length === 0) return [];
+
+  const groups = [];
+  const assigned = new Set();
+
+  for (let i = 0; i < activities.length; i++) {
+    if (assigned.has(i)) continue;
+
+    const parent = activities[i];
+    const children = [];
+    const parentTime = new Date(parent.timestamp).getTime();
+    // Use resource link as the grouping key; fall back to item name when no link exists
+    const groupKey = parent.link || parent.item;
+
+    for (let j = i + 1; j < activities.length; j++) {
+      if (assigned.has(j)) continue;
+
+      const candidate = activities[j];
+      const candidateKey = candidate.link || candidate.item;
+      const candidateTime = new Date(candidate.timestamp).getTime();
+      const timeDiff = Math.abs(parentTime - candidateTime);
+
+      if (
+        groupKey &&
+        candidateKey === groupKey &&
+        candidate.actorId === parent.actorId &&
+        timeDiff <= GROUP_TIME_WINDOW_MS &&
+        OPPOSING_ACTION_PAIRS.get(parent.actionType) !== candidate.actionType
+      ) {
+        children.push(candidate);
+        assigned.add(j);
+      }
+    }
+
+      // Dedupe children:
+      // 1. Exclude any child whose actionType+resource is identical to the parent —
+      //    the parent entry already represents that action, so the child is redundant.
+      // 2. Keep only one child per unique actionType+resource combination among the
+      //    remaining children (handles the same event logged multiple times).
+      const parentDedupeKey = `${parent.actionType}:${parent.link || parent.item}`;
+      const seenChildKeys = new Set([parentDedupeKey]);
+      const deduplicatedChildren = children.filter(child => {
+        const key = `${child.actionType}:${child.link || child.item}`;
+        if (seenChildKeys.has(key)) return false;
+        seenChildKeys.add(key);
+        return true;
+      });
+
+      assigned.add(i);
+    groups.push({ ...parent, children: deduplicatedChildren });
+  }
+
+  return groups;
+}
+
+/**
  * Filter activities client-side using raw actionType and resourceType fields
  * @param {Array} activities - Activities to filter
  * @param {string} filterKey - Filter key (e.g., 'plans', 'experiences')
@@ -528,7 +611,7 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
         ) : (
           <>
             <Timeline.Root size="md" variant="outline" className={styles.timeline}>
-              {displayedActivities.map((activity) => {
+              {groupActivities(displayedActivities).map((activity) => {
                 // Use actionType (raw) for icon selection, fall back to action text
                 const Icon = getActivityIcon(activity.resourceType, activity.actionType || activity.action);
                 // Determine color palette based on action type
@@ -618,6 +701,52 @@ export default function ActivityFeed({ userId, feedType = 'all', rightControls =
                             loading="lazy"
                           />
                         </button>
+                      )}
+                      {activity.children && activity.children.length > 0 && (
+                        <ul className={styles.activitySubList}>
+                          {activity.children.map((child) => {
+                            const isChildOwnActivity = feedType === 'own' || child.actorId === userId;
+                            const isCollaboratorAction = child.actionType === 'collaborator_added' || child.actionType === 'permission_added';
+                            let childActionVerb;
+                            if (isCollaboratorAction && child.resourceType !== 'BienBotSession') {
+                              childActionVerb = "You're now a collaborator on";
+                            } else if (child.actionType === 'collaborator_added' && child.resourceType === 'BienBotSession') {
+                              childActionVerb = child.action;
+                            } else {
+                              // Personalize: prefix with actor name/"You" so sub-bullets
+                              // read as full sentences, not bare verbs.
+                              const verbLower = child.action.toLowerCase();
+                              if (isChildOwnActivity) {
+                                childActionVerb = `You ${verbLower}`;
+                              } else {
+                                childActionVerb = `${child.actorName || 'Someone'} ${verbLower}`;
+                              }
+                            }
+                            return (
+                              <li key={child.id} className={styles.activitySubItem}>
+                                <span className={styles.activitySubBullet} aria-hidden="true" />
+                                <span>
+                                  {childActionVerb}
+                                  {child.item && (
+                                    <>
+                                      {' '}
+                                      {child.link ? (
+                                        <Link to={child.link} className={styles.activityLink}>
+                                          {child.item}
+                                        </Link>
+                                      ) : (
+                                        <span className={styles.activityItemName}>{child.item}</span>
+                                      )}
+                                    </>
+                                  )}
+                                  {child.targetItem && (
+                                    <span className={styles.activityTarget}> - {child.targetItem}</span>
+                                  )}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       )}
                       <Timeline.Description className={styles.activityTime}>
                         <FaRegClock style={{ fontSize: '1em', marginRight: '0.25em', opacity: 0.7 }} />

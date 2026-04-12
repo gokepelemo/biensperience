@@ -1345,18 +1345,14 @@
 }
 
 .suggestionItems {
-  display: flex;
-  flex-direction: column;
+  display: block;
   max-height: 240px;
   overflow-y: auto;
 }
 
 .suggestionItem {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2, 0.5rem);
+  display: block;
   padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
-  overflow: hidden;
   border: none;
   border-bottom: 1px solid var(--color-border-light, #f1f5f9);
   background: transparent;
@@ -1366,6 +1362,8 @@
   font-size: var(--font-size-sm, 0.875rem);
   transition: background 0.15s ease;
   width: 100%;
+  height: auto !important;
+  min-height: 0 !important;
 
   @mixin dark {
     color: var(--color-text-primary, #e2e8f0);
@@ -1408,8 +1406,7 @@
   border: 2px solid var(--color-border, #cbd5e1);
   border-radius: var(--radius-sm, 4px);
   flex-shrink: 0;
-  /* offset past the source line (xs font ~1rem line-height) to align with item text */
-  margin-top: calc(var(--font-size-xs, 0.75rem) * 1.4);
+  margin-top: 2px;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -1417,6 +1414,13 @@
   background: var(--color-primary, #6c63ff);
   border-color: var(--color-primary, #6c63ff);
   color: #fff;
+}
+
+.suggestionItemRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2, 0.5rem);
+  width: 100%;
 }
 
 .suggestionItemContent {
@@ -1464,6 +1468,30 @@
 
   @mixin dark {
     border-top-color: var(--color-border-dark, #475569);
+  }
+}
+
+/* All suggestions already in the plan */
+.suggestionAllAdded {
+  padding: var(--space-3, 0.75rem);
+  text-align: center;
+}
+
+.suggestionAllAddedText {
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+}
+
+/* "N items already in your plan hidden" note above the list */
+.suggestionFilteredNote {
+  display: block;
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  color: var(--color-text-tertiary, #94a3b8);
+  font-style: italic;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+
+  @mixin dark {
+    border-bottom-color: var(--color-border-dark, #475569);
   }
 }
 
@@ -1611,6 +1639,11 @@
   margin-top: var(--space-2, 0.5rem);
 }
 
+.entityRefWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
 .entityRefCard {
   display: flex;
   align-items: center;
@@ -1623,6 +1656,12 @@
   text-align: left;
   width: 100%;
   transition: background 0.15s, border-color 0.15s;
+}
+
+.entityRefCardExpanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
 }
 
 .entityRefCard:hover:not(:disabled) {
@@ -1678,6 +1717,56 @@
 .entityRefArrow {
   flex-shrink: 0;
   color: var(--color-text-muted, #718096);
+  transition: transform 0.2s ease;
+}
+
+.entityRefArrowUp {
+  transform: rotate(180deg);
+}
+
+.entityRefActions {
+  display: flex;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  background: var(--color-bg-secondary, #f8f9fa);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-top: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.entityRefActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary, #4f46e5);
+  background: var(--color-primary, #4f46e5);
+  color: #fff;
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.entityRefActionBtn:hover {
+  background: var(--color-primary-dark, #4338ca);
+  border-color: var(--color-primary-dark, #4338ca);
+}
+
+.entityRefActionBtnSecondary {
+  background: transparent;
+  color: var(--color-primary, #4f46e5);
+}
+
+.entityRefActionBtnSecondary:hover {
+  background: var(--color-primary-lightest, #ede9fe);
+  border-color: var(--color-primary, #4f46e5);
 }
 
 /* ---------------------------------------------------------------------------

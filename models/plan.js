@@ -53,6 +53,12 @@ const noteSchema = new Schema({
     type: String,
     enum: NOTE_VISIBILITY,
     default: 'contributors' // Default: visible to all plan collaborators
+  },
+  // Relevancy votes: owner and collaborators can mark a note as important.
+  // Each entry is the user ID who voted. Used as a ranking signal in LLM context.
+  relevancy_votes: {
+    type: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    default: []
   }
 }, { timestamps: true }); // createdAt and updatedAt
 

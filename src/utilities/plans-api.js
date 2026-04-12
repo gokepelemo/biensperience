@@ -773,6 +773,44 @@ export async function deletePlanItemNote(planId, itemId, noteId) {
 }
 
 /**
+ * Toggle relevancy vote on a plan item note.
+ * Owners and collaborators can mark a note as important (bullseye indicator).
+ * Calling again removes the vote (toggle).
+ */
+export async function voteNoteRelevancy(planId, itemId, noteId) {
+  try {
+    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}/relevancy`, "PATCH");
+
+    // Emit events via event bus (handles local + cross-tab dispatch)
+    try {
+      const version = Date.now();
+      const eventPayload = {
+        planId,
+        itemId,
+        noteId,
+        data: result,
+        version,
+        action: 'note_relevancy_voted'
+      };
+      broadcastEvent('plan:updated', eventPayload);
+      broadcastEvent('plan:item:note:updated', eventPayload);
+    } catch (e) {
+      logger.warn('[plans-api] Failed to dispatch note relevancy vote events', {}, e);
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('[plans-api] Failed to vote note relevancy', {
+      planId,
+      itemId,
+      noteId,
+      error: error.message
+    }, error);
+    throw error;
+  }
+}
+
+/**
  * Assign a plan item to a collaborator
  */
 export async function assignPlanItem(planId, itemId, assignedTo) {

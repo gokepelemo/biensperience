@@ -881,3 +881,35 @@
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ===== Relevancy Vote Button (bullseye / "Important" indicator) ===== */
+
+.noteRelevancyButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--color-warning, #e07b00);
+    background-color: rgba(var(--color-warning-rgb, 224, 123, 0), 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Active state: user has voted this note as important */
+.noteRelevancyButtonActive {
+  color: var(--color-warning, #e07b00);
+}

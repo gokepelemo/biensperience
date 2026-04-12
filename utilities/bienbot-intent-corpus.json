@@ -37,7 +37,6 @@
         "How is the public transport in Singapore",
         "Must-see attractions in Dubai",
         "Tell me about the culture in Japan",
-        "Popular destinations in Southeast Asia",
         "Best area to stay in Lisbon",
         "Recommend hotels in Cancun",
         "What's the local cuisine in Greece",
@@ -251,12 +250,7 @@
         "Show me my options",
         "I'm confused",
         "Never mind",
-        "Okay",
-        "What are my plans",
-        "Show my trips",
-        "How many experiences do I have",
-        "What's the status of my trip",
-        "When is my next trip"
+        "Okay"
       ]
     },
     {
@@ -999,9 +993,27 @@
         "My starting location is Tokyo",
         "Set my member location",
         "I'll be coming from Sydney",
-        "Update where I'm traveling from",
+        "Update where I'm traveling from"
+      ]
+    },
+    {
+      "intent": "REMOVE_MEMBER_LOCATION",
+      "utterances": [
         "Remove my travel origin",
-        "Clear my departure location"
+        "Clear my departure location",
+        "Delete my travel origin",
+        "Remove my starting location",
+        "Clear where I'm coming from",
+        "Unset my departure city",
+        "Remove my member location",
+        "Clear my origin",
+        "Delete my departure location",
+        "Remove my starting point",
+        "I no longer want a travel origin set",
+        "Clear my travel origin",
+        "Remove where I'm traveling from",
+        "Delete my origin location",
+        "Unset my travel starting point"
       ]
     },
     {
@@ -1113,7 +1125,11 @@
         "What should I pack for my plan",
         "Give me tips for my planned experience",
         "What's next on my plan",
-        "Walk me through my plan items"
+        "Walk me through my plan items",
+        "What are my plans",
+        "Show my trips",
+        "How many experiences do I have",
+        "What's the status of my trip"
       ]
     },
     {
@@ -1193,7 +1209,11 @@
         "Upcoming itineraries",
         "Are there any plans this month",
         "What's the next trip on my list",
-        "Show me plans for the next few weeks"
+        "Show me plans for the next few weeks",
+        "Which plans are coming up this week",
+        "What trips do I have this week",
+        "Show me plans within the next 7 days",
+        "When is my next trip"
       ]
     },
     {
@@ -1223,7 +1243,9 @@
         "Give me today's itinerary",
         "What activities are happening right now",
         "Run me through today's schedule",
-        "What's left to do today"
+        "What's left to do today",
+        "Which plan is today",
+        "Do I have any trips today"
       ]
     },
     {
@@ -1283,7 +1305,15 @@
         "Any recent progress on my trips",
         "What did I last work on",
         "Show recent plan modifications",
-        "What's the latest activity on my account"
+        "What's the latest activity on my account",
+        "What did I do recently",
+        "Show my recent activity",
+        "What have I updated recently",
+        "Which experience did I modify recently",
+        "Show my recent changes",
+        "What actions did I take recently",
+        "What was I working on",
+        "Show me recently updated items"
       ]
     },
     {
@@ -1511,20 +1541,6 @@
         "What plans are unscheduled",
         "Show me plans without a trip date",
         "Which of my trips isn't scheduled yet",
-        "What did I do recently",
-        "Show my recent activity",
-        "What have I updated recently",
-        "Which experience did I modify recently",
-        "Show my recent changes",
-        "What actions did I take recently",
-        "What was I working on",
-        "Show me recently updated items",
-        "Which plans are coming up this week",
-        "What trips do I have this week",
-        "Show me plans within the next 7 days",
-        "What's coming up soon",
-        "Which plan is today",
-        "Do I have any trips today",
         "Show me all my plans",
         "List all my trips",
         "How many plans do I have",
@@ -1836,7 +1852,12 @@
         "Make a join link",
         "Create an invite for someone",
         "Generate a referral link",
-        "I need an invite code"
+        "I need an invite code",
+        "Invite john@example.com to join",
+        "Create an invite and send it to sarah@example.com",
+        "Generate an invite for mike@test.com",
+        "Invite my friend bob@mail.com",
+        "Send an invite code to alice@example.com"
       ]
     },
     {
@@ -1856,7 +1877,12 @@
         "Share an invitation with a friend",
         "Send this person an invite",
         "Email an invite to sarah@test.com",
-        "Send a platform invite to my friend"
+        "Send a platform invite to my friend",
+        "Invite jane@mail.com to Biensperience",
+        "Send a signup link to tom@example.com",
+        "Generate and email an invite to emma@test.com",
+        "Invite user@example.com with an invite code",
+        "Send an email invitation to my colleague"
       ]
     },
     {

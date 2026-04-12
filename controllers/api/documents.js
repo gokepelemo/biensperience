@@ -180,7 +180,8 @@ async function uploadDocument(req, res) {
     // Verify user has access to the entity
     const hasAccess = await verifyEntityAccess(req.user._id, entityType, entityId, planId);
     if (!hasAccess) {
-      return res.status(403).json({ error: 'You do not have access to this entity' });
+      const entityLabel = { plan: 'Plan', plan_item: 'Plan Item', experience: 'Experience', destination: 'Destination' }[entityType] || entityType;
+      return res.status(403).json({ error: `You do not have access to this ${entityLabel} (${entityId})` });
     }
 
     backendLogger.info('[Document] Starting upload', {
@@ -483,9 +484,11 @@ async function getDocumentsByEntity(req, res) {
     }
 
     // Verify access to entity (pass planId for plan_item access checks)
-    const hasAccess = await verifyEntityAccess(req.user._id, safeEntityType, safeEntityId, planId);
+    // Pass entityId as string (not the ObjectId) — verifyEntityAccess calls sanitizeObjectId internally
+    const hasAccess = await verifyEntityAccess(req.user._id, safeEntityType, entityId, planId);
     if (!hasAccess) {
-      return res.status(403).json({ error: 'You do not have access to this entity' });
+      const entityLabel = { plan: 'Plan', plan_item: 'Plan Item', experience: 'Experience', destination: 'Destination' }[safeEntityType] || safeEntityType;
+      return res.status(403).json({ error: `You do not have access to this ${entityLabel} (${entityId})` });
     }
 
     // Parse pagination params

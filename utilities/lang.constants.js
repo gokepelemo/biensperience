@@ -101,7 +101,33 @@ const en = {
     improve_description: `You are a skilled travel writer who creates engaging, vivid descriptions of destinations and experiences.\nEnhance the description to be more compelling, informative, and evocative while keeping it authentic and accurate.\nMaintain a friendly, conversational tone suitable for travel planning.\nOnly output the improved description, no explanations.`,
     summarize: `You are a travel content summarizer.\nCreate a concise, informative summary that captures the essential details.\nFocus on key highlights, practical information, and what makes the destination or experience unique.\nWhen answering about plans, reference notes from plan items where relevant.\nOnly output the summary, no explanations.`,
     generate_tips: `You are an experienced traveler sharing practical tips.\nGenerate helpful, actionable travel tips based on the destination or experience.\nInclude local insights, best practices, and things to be aware of.\nFormat tips as a JSON array of strings. Only output valid JSON.`,
-    translate: `You are a professional translator specializing in travel content.\nTranslate the text while preserving the meaning, tone, and cultural nuances.\nAdapt any culturally-specific references appropriately.\nOnly output the translated text, no explanations.`
+    translate: `You are a professional translator specializing in travel content.\nTranslate the text while preserving the meaning, tone, and cultural nuances.\nAdapt any culturally-specific references appropriately.\nOnly output the translated text, no explanations.`,
+    wikivoyage_reformat: `You are a travel planning assistant. Convert passive WikiVoyage location names and descriptions into concise, active plan item phrases that a traveler would add to their itinerary.
+
+Rules:
+- Start each item with an action verb appropriate to its category:
+  - sightseeing: "Visit", "Explore", "Tour"
+  - adventure: "Try", "Experience", "Take part in"
+  - food: "Eat at", "Dine at", "Try"
+  - nightlife: "Have drinks at", "Visit"
+  - shopping: "Shop at", "Browse"
+  - accommodation: "Stay at", "Book a stay at"
+- Keep the specific place or attraction name intact
+- If the input is already an action phrase (e.g. "Tours of X are available"), rewrite it concisely (e.g. "Book a tour of X")
+- Remove vague qualifiers like "is available" or "are available"
+- Keep each item under 80 characters
+- Return ONLY a JSON array of strings, one reformulated phrase per input item in the same order
+- Only output valid JSON — no markdown fences, no explanation
+
+Example input:
+1. [sightseeing] "Interior of the Great Hall of the Arts Centre"
+2. [sightseeing] "Tours of affected sites are available"
+3. [sightseeing] "Christchurch Art Gallery"
+4. [food] "Riverside Market"
+5. [accommodation] "Heritage Christchurch"
+
+Example output:
+["Visit the Interior of the Great Hall of the Arts Centre","Book a tour of the affected sites","Visit the Christchurch Art Gallery","Eat at the Riverside Market","Stay at Heritage Christchurch"]`
   },
 };
 

@@ -601,7 +601,35 @@ export async function executeActions(sessionId, actionIds) {
             break;
           }
 
-          case 'add_plan_items':
+          case 'add_plan_items': {
+            const addPlanIdStr = entity._id?.toString ? entity._id.toString() : entity._id || actionResult.planId;
+            const addVersion = Date.now();
+            broadcastEvent('plan:updated', {
+              plan: entity,
+              planId: addPlanIdStr,
+              version: addVersion
+            });
+            // Emit granular plan:item:added for each newly added item so the plan UI
+            // can apply a fade-in animation. New items are appended to the end of the
+            // plan array, so we take the last N items (N = payload items count).
+            const requestedCount = Array.isArray(actionResult.payload?.items) ? actionResult.payload.items.length : 1;
+            const allPlanItems = Array.isArray(entity.plan) ? entity.plan : [];
+            const addedItems = allPlanItems.slice(-requestedCount);
+            for (const addedItem of addedItems) {
+              const addedItemId = addedItem._id?.toString ? addedItem._id.toString() : addedItem._id;
+              if (addedItemId) {
+                broadcastEvent('plan:item:added', {
+                  planId: addPlanIdStr,
+                  itemId: addedItemId,
+                  planItemId: addedItemId,
+                  item: addedItem,
+                  version: addVersion
+                });
+              }
+            }
+            break;
+          }
+
           case 'sync_plan':
           case 'update_plan':
           case 'add_plan_cost':
@@ -754,6 +782,39 @@ export async function executeActions(sessionId, actionIds) {
               }
             }
             break;
+
+          // Disambiguation actions: update session context on the frontend so
+          // BienBotPanel and BienBotTrigger can reflect the newly focused entity.
+          // fromDisambiguation=true distinguishes these from reconciliation-sourced
+          // bienbot:context_updated events (which must NOT trigger invokeContext overrides).
+          case 'select_plan': {
+            const selectedPlanId = entity?.plan_id;
+            if (selectedPlanId) {
+              broadcastEvent('bienbot:context_updated', {
+                sessionId,
+                entity: 'plan',
+                entityId: selectedPlanId,
+                experienceId: entity?.experience_id || null,
+                fromDisambiguation: true,
+                version: Date.now()
+              });
+            }
+            break;
+          }
+
+          case 'select_destination': {
+            const selectedDestId = entity?.destination_id || entity?._id?.toString();
+            if (selectedDestId) {
+              broadcastEvent('bienbot:context_updated', {
+                sessionId,
+                entity: 'destination',
+                entityId: selectedDestId,
+                fromDisambiguation: true,
+                version: Date.now()
+              });
+            }
+            break;
+          }
 
           default:
             logger.debug('[bienbot-api] No event mapping for action type', { type: actionResult.type });

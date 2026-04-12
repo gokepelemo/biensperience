@@ -16,6 +16,7 @@ import PropTypes from 'prop-types';
 import { FaBell } from 'react-icons/fa';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useUser } from '../../contexts/UserContext';
+import { useData } from '../../contexts/DataContext';
 import { isSuperAdmin } from '../../utilities/permissions';
 import useRouteContext from '../../hooks/useRouteContext';
 import { useNavigationContext } from '../../contexts/NavigationContext';
@@ -50,6 +51,7 @@ export default function BienBotTrigger({
   onMarkNotificationsSeen
 } = {}) {
   const { user } = useUser();
+  const { getExperience, getPlan, getDestination } = useData();
   const { enabled: hasAI } = useFeatureFlag('ai_features');
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMounted, setPanelMounted] = useState(false);
@@ -81,6 +83,37 @@ export default function BienBotTrigger({
     }
     return routeContext;
   }, [entity, entityId, entityLabel, contextDescription, routeContext]);
+
+  // Subscribe to bienbot:context_updated — emitted when a disambiguation action
+  // (select_plan, select_destination) auto-executes and focuses a new entity.
+  // Only react to events flagged fromDisambiguation=true to avoid reacting to
+  // reconciliation-sourced updates that would cause a spurious ContextSwitchPrompt.
+  useEffect(() => {
+    if (!hasChatAccess) return;
+    const unsub = subscribeToEvent('bienbot:context_updated', (event) => {
+      if (!event.fromDisambiguation) return;
+      const { entity: updatedEntity, entityId: updatedEntityId, experienceId } = event;
+      if (!updatedEntity || !updatedEntityId) return;
+
+      let label = null;
+      if (updatedEntity === 'plan') {
+        // Derive a human-readable label from DataContext if possible
+        const plan = getPlan(updatedEntityId);
+        const expId = experienceId || plan?.experience?._id?.toString() || plan?.experience;
+        const exp = expId ? getExperience(typeof expId === 'string' ? expId : expId.toString()) : null;
+        label = exp?.name ? `your plan for ${exp.name}` : 'your selected plan';
+      } else if (updatedEntity === 'destination') {
+        const dest = getDestination(updatedEntityId);
+        label = dest?.name || 'the selected destination';
+      }
+
+      if (label) {
+        logger.debug('[BienBotTrigger] Context updated by disambiguation action', { entity: updatedEntity, entityId: updatedEntityId, label });
+        setInvokeContextOverride({ entity: updatedEntity, id: updatedEntityId, label });
+      }
+    });
+    return unsub;
+  }, [hasChatAccess, getExperience, getPlan, getDestination]);
 
   // Subscribe to bienbot:open events (e.g. from post-plan toasts)
   useEffect(() => {

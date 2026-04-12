@@ -63,9 +63,11 @@ module.exports = {
       version: '1.0.0',
       env: {
         NODE_ENV: 'development',
+        NODE_OPTIONS: '--max-http-header-size=32768',
       },
       env_production: {
         NODE_ENV: 'production',
+        NODE_OPTIONS: '--max-http-header-size=32768',
       },
     },
   ],

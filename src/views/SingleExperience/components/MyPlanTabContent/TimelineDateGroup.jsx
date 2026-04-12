@@ -9,7 +9,8 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
   group,
   isItemVisibleFn,
   sharedItemHandlers,
-  getItemProps
+  getItemProps,
+  isNew = null
 }) {
   const formatDateHeader = (date) => {
     const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
@@ -78,6 +79,7 @@ const TimelineDateGroup = memo(function TimelineDateGroup({
                       planItem={item}
                       {...sharedItemHandlers}
                       {...itemProps}
+                      isNew={typeof isNew === 'function' ? isNew(item) : false}
                     />
                   );
                 })}

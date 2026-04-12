@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   DndContext,
@@ -12,8 +12,13 @@ import SortablePlanItem from './SortablePlanItem';
 import SortableCompactPlanItem from './SortableCompactPlanItem';
 import TimelinePlanItem from './TimelinePlanItem';
 import TimelineDateGroup from './TimelineDateGroup';
+import { eventBus } from '../../../../utilities/event-bus';
 
 import './plan-item-views.css';
+
+// How long the fade-in animation class stays on a newly added item (ms).
+// Keep in sync with the planItemFadeInUp animation duration in plan-item-views.css.
+const NEW_ITEM_HIGHLIGHT_MS = 2500;
 
 /**
  * Unified renderer for plan items across all view types.
@@ -53,6 +58,43 @@ function PlanItemsRenderer({
   isItemVisible,
   pinnedItemId = null
 }) {
+  // Set of item IDs that were just added and should animate in.
+  const [newlyAddedItemIds, setNewlyAddedItemIds] = useState(() => new Set());
+
+  // Subscribe to plan:item:added events (fired by plans-api.js and bienbot-api.js).
+  useEffect(() => {
+    const handleItemAdded = (event) => {
+      const id = event.itemId || event.planItemId;
+      if (!id) return;
+
+      setNewlyAddedItemIds(prev => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+
+      // Remove after animation completes so the CSS class is stripped cleanly.
+      setTimeout(() => {
+        setNewlyAddedItemIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, NEW_ITEM_HIGHLIGHT_MS);
+    };
+
+    const unsub = eventBus.subscribe('plan:item:added', handleItemAdded);
+    return () => unsub();
+  }, []);
+
+  const isNew = useCallback(
+    (planItem) => {
+      const id = (planItem._id || planItem.plan_item_id)?.toString();
+      return id ? newlyAddedItemIds.has(id) : false;
+    },
+    [newlyAddedItemIds]
+  );
+
   /**
    * Render Card View with drag-and-drop
    */
@@ -81,6 +123,7 @@ function PlanItemsRenderer({
               isExpanded={itemProps.isExpanded}
               {...sharedSortablePlanItemProps}
               isPinned={itemId === pinnedItemId}
+              isNew={isNew(planItem)}
             />
           );
         })}
@@ -113,6 +156,7 @@ function PlanItemsRenderer({
                 planItem={planItem}
                 {...sharedItemHandlers}
                 {...itemProps}
+                isNew={isNew(planItem)}
               />
             );
           })}
@@ -154,6 +198,7 @@ function PlanItemsRenderer({
                         {...sharedItemHandlers}
                         {...itemProps}
                         showActivityBadge={true}
+                        isNew={isNew(planItem)}
                       />
                     );
                   })}
@@ -187,6 +232,7 @@ function PlanItemsRenderer({
                           {...sharedItemHandlers}
                           {...itemProps}
                           showActivityBadge={true}
+                          isNew={isNew(planItem)}
                         />
                       );
                     })}
@@ -220,6 +266,7 @@ function PlanItemsRenderer({
                           planItem={planItem}
                           {...sharedItemHandlers}
                           {...itemProps}
+                          isNew={isNew(planItem)}
                         />
                       );
                     })}
@@ -264,6 +311,7 @@ function PlanItemsRenderer({
                       planItem={planItem}
                       {...sharedItemHandlers}
                       {...itemProps}
+                      isNew={isNew(planItem)}
                     />
                   );
                 })}
@@ -280,6 +328,7 @@ function PlanItemsRenderer({
             isItemVisibleFn={isItemVisible}
             sharedItemHandlers={sharedItemHandlers}
             getItemProps={getItemProps}
+            isNew={isNew}
           />
         ))}
 
@@ -310,6 +359,7 @@ function PlanItemsRenderer({
                               planItem={item}
                               {...sharedItemHandlers}
                               {...itemProps}
+                              isNew={isNew(item)}
                             />
                           );
                         })}
@@ -339,6 +389,7 @@ function PlanItemsRenderer({
                               planItem={item}
                               {...sharedItemHandlers}
                               {...itemProps}
+                              isNew={isNew(item)}
                             />
                           );
                         })}

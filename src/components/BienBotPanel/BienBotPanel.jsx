@@ -17,6 +17,7 @@ import { Button, Text, Heading } from '../design-system';
 import { Tag } from '@chakra-ui/react';
 import useBienBot from '../../hooks/useBienBot';
 import { useUser } from '../../contexts/UserContext';
+import { useData } from '../../contexts/DataContext';
 import {
   getSuggestionsForContext,
   getPlaceholderForContext,
@@ -25,6 +26,7 @@ import {
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
 import { broadcastEvent } from '../../utilities/event-bus';
+import { OperationType } from '../../utilities/plan-operations';
 import WorkflowStepCard from './WorkflowStepCard';
 import PlanSelector from './PlanSelector';
 import SuggestionList from './SuggestionList';
@@ -572,11 +574,7 @@ export default function BienBotPanel({
   // Tracks which (sessionId, entity, entityId) combos have already been reconciled
   // so we don't call updateContext more than once per session+entity pair.
   const sessionContextReconciledRef = useRef(null);
-  // Refs for stable plan-focus subscription (avoids stale closures)
-  const openRef = useRef(open);
   const messagesRef = useRef([]);
-  const updateContextRef = useRef(null);
-  const planFocusRef = useRef({ sentPlans: new Set(), lastSessionId: null });
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -587,8 +585,12 @@ export default function BienBotPanel({
   // Pending context switch: set when the user navigates to a different entity while
   // a conversation is in progress. Cleared when the user picks Stay or Switch.
   const [pendingContextSwitch, setPendingContextSwitch] = useState(null);
+  // Normalised texts of items currently in the active plan — used to filter
+  // suggestion_list blocks so already-added items are not offered again.
+  const [currentPlanItemTexts, setCurrentPlanItemTexts] = useState(new Set());
 
   const { user } = useUser();
+  const { getPlan } = useData();
 
   // ── Auto-resize textarea to fit content ──────────────────────────────────
   const resizeTextarea = useCallback(() => {
@@ -646,7 +648,12 @@ export default function BienBotPanel({
   const handleAddSuggestedItems = useCallback(
     (items) => {
       if (!items?.length || isStreaming || isLoading) return;
-      const itemNames = items.map(i => i.text || i.content).filter(Boolean);
+      const itemNames = items
+        .map(i => (i.text || i.content || '')
+          .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+          .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/&nbsp;/g, ' ').trim())
+        .filter(Boolean);
       if (!itemNames.length) return;
       const msg = `Add these plan items: ${itemNames.join(', ')}`;
       sendMessage(msg);
@@ -726,6 +733,14 @@ export default function BienBotPanel({
     (ref) => {
       if (isStreaming || isLoading || !ref?._id || !ref?.name) return;
       switch (ref.type) {
+        case 'plan_item':
+          if (ref.action === 'mark_complete') {
+            sendMessage(`Mark \`${ref.name}\` as complete`);
+          } else if (ref.action === 'navigate') {
+            // No hash URL available — ask BienBot to navigate contextually
+            sendMessage(`Navigate to \`${ref.name}\``);
+          }
+          break;
         case 'experience':
           // Use a neutral message so the LLM continues from existing context rather than
           // triggering the plan-creation flow (which would ask "which destination?").
@@ -989,33 +1004,39 @@ export default function BienBotPanel({
     updateContext,
   ]);
 
-  // ── Sync refs used by the stable plan-focus subscription ─────────────────
-  useEffect(() => { openRef.current = open; }, [open]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
-  useEffect(() => { updateContextRef.current = updateContext; }, [updateContext]);
 
-  // Reset plan-focus dedup tracking when the session changes
-  useEffect(() => {
-    const sessionId = currentSession?._id || null;
-    if (planFocusRef.current.lastSessionId !== sessionId) {
-      planFocusRef.current = { sentPlans: new Set(), lastSessionId: sessionId };
-    }
-  }, [currentSession?._id]);
+  // ── Track current plan items for suggestion deduplication ────────────────
+  // Seed from DataContext whenever the active plan changes (invoke context or
+  // session context). Kept in sync via plan:updated / plan:created events.
+  const activePlanId = useMemo(() => {
+    if (invokeContext?.entity === 'plan') return invokeContext.id;
+    return currentSession?.context?.plan_id?.toString() || null;
+  }, [invokeContext?.entity, invokeContext?.id, currentSession?.context?.plan_id]);
 
-  // ── Enrich BienBot context when plan tab becomes active mid-conversation ──
   useEffect(() => {
-    const unsub = eventBus.subscribe('bienbot:plan_focused', (event) => {
-      if (!openRef.current) return; // Panel must be open
-      if (!messagesRef.current?.length) return; // Conversation must be in progress
-      const { planId, entity = 'plan', contextDescription } = event;
-      if (!planId) return;
-      const { sentPlans } = planFocusRef.current;
-      if (sentPlans.has(planId)) return; // Already sent for this plan in this session
-      sentPlans.add(planId);
-      updateContextRef.current?.(entity, planId, contextDescription);
-    });
-    return () => unsub();
-  }, []); // Stable — uses refs to access latest values
+    if (!activePlanId) return;
+    const plan = getPlan(activePlanId);
+    if (!Array.isArray(plan?.plan)) return;
+    setCurrentPlanItemTexts(
+      new Set(plan.plan.map(i => (i.text || i.content || '').toLowerCase().trim()).filter(Boolean))
+    );
+  }, [activePlanId, getPlan]);
+
+  // When a plan is updated (item added, synced, etc.) we rebuild the set of
+  // normalised item texts so SuggestionList can filter out already-added items.
+  useEffect(() => {
+    const handlePlanUpdated = (event) => {
+      const plan = event.plan || event.data;
+      if (!Array.isArray(plan?.plan)) return;
+      setCurrentPlanItemTexts(
+        new Set(plan.plan.map(i => (i.text || i.content || '').toLowerCase().trim()).filter(Boolean))
+      );
+    };
+    const unsub1 = eventBus.subscribe('plan:updated', handlePlanUpdated);
+    const unsub2 = eventBus.subscribe('plan:created', handlePlanUpdated);
+    return () => { unsub1(); unsub2(); };
+  }, []);
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
@@ -1207,6 +1228,262 @@ export default function BienBotPanel({
 
       // Show executing state on the action card
       setExecutingActionId(actionId);
+
+      // ─── Optimistic UI updates ──────────────────────────────────────────────
+      // Fire BEFORE the API call so DOM elements already on screen reflect the
+      // change instantly — same pattern as the manual UI interactions.
+      // All events are flagged _optimistic:true. There is no rollback: if the
+      // server call fails the stale optimistic state persists until the next
+      // data refresh (acceptable for the BienBot confirmed-action flow).
+      //
+      // Strategy by action category:
+      //  • Plan item changes  → plan:operation (UPDATE_ITEM / DELETE_ITEM via
+      //    usePlanManagement's CRDT handler) + plan:item:updated for the open modal
+      //  • Plan-level deletes → plan:deleted (direct state removal)
+      //  • Plan-level updates → plan:operation UPDATE_PLAN / REORDER_ITEMS
+      //  • Completion toggles → plan:item:completed / plan:item:uncompleted
+      //    (dedicated direct-patch handler in usePlanManagement)
+      //  • Social follows     → follow:created / follow:deleted / follow:request:accepted
+      //  • Actions that need the full server response to construct a meaningful
+      //    optimistic state (create_*, sync_plan, costs, notes/details) are skipped.
+      if (action) {
+        const p = action.payload || {};
+        const sid = (v) => (v?.toString ? v.toString() : v) ?? null;
+        const now = Date.now();
+        // Build a minimal operation object compatible with usePlanManagement's
+        // plan:operation handler (no sessionId needed — dedup uses operation.id).
+        const makePlanOp = (type, payload) => ({
+          id: `bienbot_op_${now}_${Math.random().toString(36).substring(2, 6)}`,
+          type,
+          payload,
+          vectorClock: {},
+          timestamp: now
+        });
+
+        switch (action.type) {
+          // ── Completion toggle ──────────────────────────────────────────────
+          case 'mark_plan_item_complete':
+          case 'mark_plan_item_incomplete': {
+            const isComplete = action.type === 'mark_plan_item_complete';
+            const planIdStr = sid(p.plan_id);
+            const itemIdStr = sid(p.item_id);
+            if (planIdStr && itemIdStr) {
+              broadcastEvent(isComplete ? 'plan:item:completed' : 'plan:item:uncompleted', {
+                planId: planIdStr,
+                itemId: itemIdStr,
+                planItemId: itemIdStr,
+                action: isComplete ? 'item_completed' : 'item_uncompleted',
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // ── Plan item field update ─────────────────────────────────────────
+          case 'update_plan_item': {
+            const planIdStr = sid(p.plan_id);
+            const itemIdStr = sid(p.item_id);
+            if (planIdStr && itemIdStr) {
+              const changes = {};
+              if (p.text !== undefined) changes.text = p.text;
+              if (p.complete !== undefined) changes.complete = p.complete;
+              if (p.scheduled_date !== undefined) changes.scheduled_date = p.scheduled_date;
+              if (p.scheduled_time !== undefined) changes.scheduled_time = p.scheduled_time;
+              if (p.cost !== undefined) changes.cost_estimate = p.cost;
+              if (p.cost_estimate !== undefined) changes.cost_estimate = p.cost_estimate;
+              if (p.activity_type !== undefined) changes.activity_type = p.activity_type;
+              if (p.location !== undefined) changes.location = p.location;
+              if (p.url !== undefined) changes.url = p.url;
+              if (Object.keys(changes).length > 0) {
+                // Patch the plan items list immediately via CRDT operation
+                broadcastEvent('plan:operation', {
+                  planId: planIdStr,
+                  operation: makePlanOp(OperationType.UPDATE_ITEM, { itemId: itemIdStr, changes })
+                });
+                // Also update the open modal's selected item
+                broadcastEvent('plan:item:updated', {
+                  planId: planIdStr,
+                  itemId: itemIdStr,
+                  planItemId: itemIdStr,
+                  planItem: { _id: itemIdStr, ...changes },
+                  _optimistic: true,
+                  version: now
+                });
+                // Mirror completion state to the dedicated completion events so
+                // the checkbox and progress bar update via the direct-patch handler
+                if (changes.complete !== undefined) {
+                  broadcastEvent(changes.complete ? 'plan:item:completed' : 'plan:item:uncompleted', {
+                    planId: planIdStr,
+                    itemId: itemIdStr,
+                    planItemId: itemIdStr,
+                    action: changes.complete ? 'item_completed' : 'item_uncompleted',
+                    _optimistic: true,
+                    version: now
+                  });
+                }
+              }
+            }
+            break;
+          }
+
+          // ── Plan item deletion ─────────────────────────────────────────────
+          case 'delete_plan_item': {
+            const planIdStr = sid(p.plan_id);
+            const itemIdStr = sid(p.item_id);
+            if (planIdStr && itemIdStr) {
+              broadcastEvent('plan:operation', {
+                planId: planIdStr,
+                operation: makePlanOp(OperationType.DELETE_ITEM, { itemId: itemIdStr })
+              });
+            }
+            break;
+          }
+
+          // ── Plan deletion ──────────────────────────────────────────────────
+          case 'delete_plan': {
+            const planIdStr = sid(p.plan_id);
+            if (planIdStr) {
+              broadcastEvent('plan:deleted', {
+                planId: planIdStr,
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // ── Plan metadata update (date, title, notes) ──────────────────────
+          case 'update_plan': {
+            const planIdStr = sid(p.plan_id);
+            if (planIdStr) {
+              const changes = {};
+              if (p.planned_date !== undefined) changes.planned_date = p.planned_date;
+              if (p.title !== undefined) changes.title = p.title;
+              if (p.notes !== undefined) changes.notes = p.notes;
+              if (Object.keys(changes).length > 0) {
+                broadcastEvent('plan:operation', {
+                  planId: planIdStr,
+                  operation: makePlanOp(OperationType.UPDATE_PLAN, { changes })
+                });
+              }
+            }
+            break;
+          }
+
+          // ── Pin / unpin plan item ──────────────────────────────────────────
+          case 'pin_plan_item':
+          case 'unpin_plan_item': {
+            const planIdStr = sid(p.plan_id);
+            const itemIdStr = sid(p.item_id);
+            if (planIdStr && itemIdStr) {
+              const changes = { pinned: action.type === 'pin_plan_item' };
+              broadcastEvent('plan:operation', {
+                planId: planIdStr,
+                operation: makePlanOp(OperationType.UPDATE_ITEM, { itemId: itemIdStr, changes })
+              });
+              broadcastEvent('plan:item:updated', {
+                planId: planIdStr,
+                itemId: itemIdStr,
+                planItemId: itemIdStr,
+                planItem: { _id: itemIdStr, ...changes },
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // ── Unassign plan item (null assignee is safe without user details) ─
+          case 'unassign_plan_item': {
+            const planIdStr = sid(p.plan_id);
+            const itemIdStr = sid(p.item_id);
+            if (planIdStr && itemIdStr) {
+              const changes = { assignee: null };
+              broadcastEvent('plan:operation', {
+                planId: planIdStr,
+                operation: makePlanOp(OperationType.UPDATE_ITEM, { itemId: itemIdStr, changes })
+              });
+              broadcastEvent('plan:item:updated', {
+                planId: planIdStr,
+                itemId: itemIdStr,
+                planItemId: itemIdStr,
+                planItem: { _id: itemIdStr, ...changes },
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // ── Reorder plan items ─────────────────────────────────────────────
+          case 'reorder_plan_items': {
+            const planIdStr = sid(p.plan_id);
+            const itemIds = p.item_ids || [];
+            if (planIdStr && itemIds.length > 0) {
+              broadcastEvent('plan:operation', {
+                planId: planIdStr,
+                operation: makePlanOp(OperationType.REORDER_ITEMS, { itemIds })
+              });
+            }
+            break;
+          }
+
+          // ── Follow user ────────────────────────────────────────────────────
+          case 'follow_user': {
+            const followingIdStr = sid(p.user_id);
+            const followerIdStr = sid(user?._id);
+            if (followingIdStr && followerIdStr) {
+              broadcastEvent('follow:created', {
+                followingId: followingIdStr,
+                followerId: followerIdStr,
+                userId: followerIdStr,
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // ── Unfollow user ──────────────────────────────────────────────────
+          case 'unfollow_user': {
+            const followingIdStr = sid(p.user_id);
+            const followerIdStr = sid(user?._id);
+            if (followingIdStr && followerIdStr) {
+              broadcastEvent('follow:deleted', {
+                followingId: followingIdStr,
+                followerId: followerIdStr,
+                userId: followerIdStr,
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // ── Accept follow request ──────────────────────────────────────────
+          case 'accept_follow_request': {
+            const followerIdStr = sid(p.follower_id);
+            const followingIdStr = sid(user?._id);
+            if (followerIdStr && followingIdStr) {
+              broadcastEvent('follow:request:accepted', {
+                followerId: followerIdStr,
+                followingId: followingIdStr,
+                _optimistic: true,
+                version: now
+              });
+            }
+            break;
+          }
+
+          // Actions that require the full server response to construct a
+          // meaningful state update (create_*, sync_plan, notes/details,
+          // costs, collaborator adds) are handled post-execution by
+          // bienbot-api.js and need no pre-API optimistic event.
+          default:
+            break;
+        }
+      }
 
       const result = await executeActions([actionId]);
 
@@ -1825,6 +2102,7 @@ export default function BienBotPanel({
                                   data={block.data}
                                   onAddSelected={handleAddSuggestedItems}
                                   disabled={isLoading || isStreaming}
+                                  existingItemTexts={currentPlanItemTexts}
                                 />
                               );
                             }

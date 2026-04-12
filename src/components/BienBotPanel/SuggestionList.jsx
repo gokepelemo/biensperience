@@ -5,10 +5,13 @@
  * content block is present. Users select items they want to add, then click
  * "Add selected" to create an `add_plan_items` action.
  *
+ * Items whose text already appears in the active plan are filtered out via the
+ * `existingItemTexts` prop (a Set of lowercased, trimmed item texts).
+ *
  * @module components/BienBotPanel/SuggestionList
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Button, Text } from '../design-system';
 import styles from './BienBotPanel.module.css';
@@ -27,8 +30,18 @@ function CheckIcon() {
   );
 }
 
-export default function SuggestionList({ data, onAddSelected, disabled }) {
+export default function SuggestionList({ data, onAddSelected, disabled, existingItemTexts }) {
   const { suggestions = [], destination_name, source_count } = data || {};
+
+  // Filter out items already in the plan so we never suggest duplicates.
+  const filteredSuggestions = useMemo(() => {
+    if (!existingItemTexts?.size) return suggestions;
+    return suggestions.filter(item => {
+      const text = (item.text || item.content || '').toLowerCase().trim();
+      return text && !existingItemTexts.has(text);
+    });
+  }, [suggestions, existingItemTexts]);
+
   const [selected, setSelected] = useState(new Set());
 
   const toggleItem = useCallback((index) => {
@@ -44,23 +57,26 @@ export default function SuggestionList({ data, onAddSelected, disabled }) {
   }, []);
 
   const handleSelectAll = useCallback(() => {
-    if (selected.size === suggestions.length) {
+    if (selected.size === filteredSuggestions.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(suggestions.map((_, i) => i)));
+      setSelected(new Set(filteredSuggestions.map((_, i) => i)));
     }
-  }, [selected.size, suggestions]);
+  }, [selected.size, filteredSuggestions]);
 
   const handleAdd = useCallback(() => {
     if (selected.size === 0 || !onAddSelected) return;
-    const items = [...selected].map(i => suggestions[i]).filter(Boolean);
+    const items = [...selected].map(i => filteredSuggestions[i]).filter(Boolean);
     onAddSelected(items);
     setSelected(new Set());
-  }, [selected, suggestions, onAddSelected]);
+  }, [selected, filteredSuggestions, onAddSelected]);
 
+  // Nothing to show at all.
   if (!suggestions.length) return null;
 
-  const allSelected = selected.size === suggestions.length;
+  const allAdded = filteredSuggestions.length === 0;
+  const filteredCount = suggestions.length - filteredSuggestions.length;
+  const allSelected = selected.size === filteredSuggestions.length;
 
   return (
     <div className={styles.suggestionList}>
@@ -77,63 +93,82 @@ export default function SuggestionList({ data, onAddSelected, disabled }) {
         )}
       </div>
 
-      <button
-        type="button"
-        className={styles.suggestionSelectAll}
-        onClick={handleSelectAll}
-        disabled={disabled}
-      >
-        <Text size="xs">{allSelected ? 'Deselect all' : 'Select all'}</Text>
-      </button>
+      {/* All suggestions are already in the plan */}
+      {allAdded ? (
+        <div className={styles.suggestionAllAdded}>
+          <Text size="sm" className={styles.suggestionAllAddedText}>
+            All suggested items are already in your plan.
+          </Text>
+        </div>
+      ) : (
+        <>
+          {filteredCount > 0 && (
+            <Text size="xs" className={styles.suggestionFilteredNote}>
+              {filteredCount} item{filteredCount !== 1 ? 's' : ''} already in your plan hidden
+            </Text>
+          )}
 
-      <div className={styles.suggestionItems}>
-        {suggestions.map((item, idx) => {
-          const isSelected = selected.has(idx);
-          const sources = item.sources?.length
-            ? item.sources.slice(0, 2).join(', ')
-            : null;
-
-          return (
-            <button
-              key={idx}
-              type="button"
-              className={`${styles.suggestionItem} ${isSelected ? styles.suggestionItemSelected : ''}`}
-              onClick={() => toggleItem(idx)}
-              disabled={disabled}
-              aria-pressed={isSelected}
-            >
-              <span className={`${styles.suggestionCheckbox} ${isSelected ? styles.suggestionCheckboxChecked : ''}`}>
-                {isSelected && <CheckIcon />}
-              </span>
-              <span className={styles.suggestionItemContent}>
-                {sources && (
-                  <span className={styles.suggestionItemSource}>
-                    from {sources}
-                  </span>
-                )}
-                <span className={styles.suggestionItemText}>{item.text || item.content}</span>
-              </span>
-              {item.frequency > 1 && (
-                <span className={styles.suggestionItemFrequency}>
-                  {item.frequency}x
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {selected.size > 0 && (
-        <div className={styles.suggestionActions}>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleAdd}
+          <button
+            type="button"
+            className={styles.suggestionSelectAll}
+            onClick={handleSelectAll}
             disabled={disabled}
           >
-            Add {selected.size} item{selected.size !== 1 ? 's' : ''}
-          </Button>
-        </div>
+            <Text size="xs">{allSelected ? 'Deselect all' : 'Select all'}</Text>
+          </button>
+
+          <div className={styles.suggestionItems}>
+            {filteredSuggestions.map((item, idx) => {
+              const isSelected = selected.has(idx);
+              const sources = item.sources?.length
+                ? item.sources.slice(0, 2).join(', ')
+                : null;
+
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`${styles.suggestionItem} ${isSelected ? styles.suggestionItemSelected : ''}`}
+                  onClick={() => toggleItem(idx)}
+                  disabled={disabled}
+                  aria-pressed={isSelected}
+                >
+                  <span className={styles.suggestionItemRow}>
+                    <span className={`${styles.suggestionCheckbox} ${isSelected ? styles.suggestionCheckboxChecked : ''}`}>
+                      {isSelected && <CheckIcon />}
+                    </span>
+                    <span className={styles.suggestionItemContent}>
+                      <span className={styles.suggestionItemText}>{(item.text || item.content || '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ')}</span>
+                      {sources && (
+                        <span className={styles.suggestionItemSource}>
+                          from {sources}
+                        </span>
+                      )}
+                    </span>
+                    {item.frequency > 1 && (
+                      <span className={styles.suggestionItemFrequency}>
+                        {item.frequency}x
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {selected.size > 0 && (
+            <div className={styles.suggestionActions}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAdd}
+                disabled={disabled}
+              >
+                Add {selected.size} item{selected.size !== 1 ? 's' : ''}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -153,5 +188,6 @@ SuggestionList.propTypes = {
     source_count: PropTypes.number
   }),
   onAddSelected: PropTypes.func,
-  disabled: PropTypes.bool
+  disabled: PropTypes.bool,
+  existingItemTexts: PropTypes.instanceOf(Set)
 };

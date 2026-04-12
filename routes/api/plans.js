@@ -43,6 +43,7 @@ router.delete("/:id/permissions/collaborator/:userId", collaboratorLimiter, plan
 router.post("/:id/items/:itemId/notes", modificationLimiter, plansCtrl.addPlanItemNote); // Add note to plan item
 router.patch("/:id/items/:itemId/notes/:noteId", modificationLimiter, plansCtrl.updatePlanItemNote); // Update note
 router.delete("/:id/items/:itemId/notes/:noteId", modificationLimiter, plansCtrl.deletePlanItemNote); // Delete note
+router.patch("/:id/items/:itemId/notes/:noteId/relevancy", modificationLimiter, plansCtrl.voteNoteRelevancy); // Toggle relevancy vote
 
 // Plan item details routes - Generic (transport, parking, discount, documents, photos)
 router.post("/:id/items/:itemId/details", modificationLimiter, plansCtrl.addPlanItemDetail); // Add detail
