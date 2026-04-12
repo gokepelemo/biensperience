@@ -1340,7 +1340,7 @@ async function executeCreateInvite(payload, user) {
   const expiresAt = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000);
 
   // Validate email format when provided
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (email && !/^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(email)) {
     return { statusCode: 400, body: { success: false, error: 'Invalid email address format' } };
   }
 

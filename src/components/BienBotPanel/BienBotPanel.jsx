@@ -650,9 +650,9 @@ export default function BienBotPanel({
       if (!items?.length || isStreaming || isLoading) return;
       const itemNames = items
         .map(i => (i.text || i.content || '')
-          .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+          .replace(/&#39;/g, "'").replace(/&apos;/g, "'")
           .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-          .replace(/&nbsp;/g, ' ').trim())
+          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim())
         .filter(Boolean);
       if (!itemNames.length) return;
       const msg = `Add these plan items: ${itemNames.join(', ')}`;
