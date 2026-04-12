@@ -251,9 +251,19 @@ function loadSignalsConfig() {
   const SCALAR_KEYS = ['SIGNALS_STALENESS_MS', 'AFFINITY_CACHE_TTL_MS'];
   for (const key of SCALAR_KEYS) {
     const overrideVal = override[key];
-    merged[key] = (typeof overrideVal === 'number' && isFinite(overrideVal) && overrideVal > 0)
-      ? overrideVal
-      : DEFAULTS[key];
+    if (overrideVal !== undefined) {
+      if (typeof overrideVal === 'number' && isFinite(overrideVal) && overrideVal > 0) {
+        merged[key] = overrideVal;
+      } else {
+        logger.warn(`[signals-config] ${key} must be a finite positive number; using default`, {
+          received: overrideVal,
+          default: DEFAULTS[key],
+        });
+        merged[key] = DEFAULTS[key];
+      }
+    } else {
+      merged[key] = DEFAULTS[key];
+    }
   }
 
   const config = Object.freeze(merged);

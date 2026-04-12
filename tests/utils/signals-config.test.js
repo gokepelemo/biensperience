@@ -34,4 +34,16 @@ describe('signals-config scalar keys', () => {
     expect(config.SIGNALS_STALENESS_MS).toBeGreaterThan(1000);
     expect(config.AFFINITY_CACHE_TTL_MS).toBeGreaterThan(1000);
   });
+
+  test('invalid scalar override falls back to default', () => {
+    jest.resetModules();
+    process.env.SIGNALS_CONFIG = JSON.stringify({
+      SIGNALS_STALENESS_MS: 0,
+      AFFINITY_CACHE_TTL_MS: -1,
+    });
+    const config = require('../../utilities/signals-config');
+    expect(config.SIGNALS_STALENESS_MS).toBe(15 * 60 * 1000);
+    expect(config.AFFINITY_CACHE_TTL_MS).toBe(6 * 60 * 60 * 1000);
+    delete process.env.SIGNALS_CONFIG;
+  });
 });
