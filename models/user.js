@@ -9,7 +9,7 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 const bcrypt = require("bcrypt");
 const { USER_ROLES } = require("../utilities/user-roles");
-const { hiddenSignalVectorSchema, hiddenSignalEventSchema } = require('./hidden-signals');
+const { hiddenSignalVectorSchema, hiddenSignalEventSchema, affinityCacheEntrySchema } = require('./hidden-signals');
 
 /**
  * Number of salt rounds for password hashing
@@ -627,6 +627,16 @@ const userSchema = new Schema(
      */
     hidden_signal_events: {
       type: [hiddenSignalEventSchema],
+      default: []
+    },
+
+    /**
+     * Per-experience affinity cache. Capped at 50 entries; oldest evicted first.
+     * Updated fire-and-forget on experience/plan page loads.
+     * Used by BienBot context builders to avoid live DB joins.
+     */
+    affinity_cache: {
+      type: [affinityCacheEntrySchema],
       default: []
     }
   },

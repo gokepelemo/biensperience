@@ -146,7 +146,6 @@ function aggregateGroupSignals(userDocuments) {
   const weightedSums = {};
   const sqWeightedSums = {};
   let totalWeight = 0;
-  let totalSqWeight = 0;
 
   for (const dim of DIMENSIONS) {
     weightedSums[dim] = 0;
@@ -159,7 +158,6 @@ function aggregateGroupSignals(userDocuments) {
     // (many signal events) influence the group average more than sparse ones.
     const w = typeof sig.confidence === 'number' && sig.confidence > 0 ? sig.confidence : 0.01;
     totalWeight += w;
-    totalSqWeight += w * w;
     for (const dim of DIMENSIONS) {
       const val = typeof sig[dim] === 'number' ? sig[dim] : NEUTRAL;
       weightedSums[dim] += val * w;
@@ -642,6 +640,128 @@ async function updateExperienceSignals(experienceId) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Affinity cache: compute + store
+// ---------------------------------------------------------------------------
+
+/**
+ * Load hidden_signals for a user and an experience, compute the affinity score
+ * and top aligned dimensions, then persist the result to the affinity cache.
+ *
+ * Returns early (without writing to the cache) when:
+ *  - Either ID is not a valid ObjectId.
+ *  - The user or experience document is not found in the database.
+ *
+ * Never throws — errors are logged and silently absorbed by the caller.
+ *
+ * @param {string|import('mongoose').Types.ObjectId} userId
+ * @param {string|import('mongoose').Types.ObjectId} experienceId
+ * @returns {Promise<void>}
+ */
+async function computeAndCacheAffinity(userId, experienceId) {
+  const mongoose = require('mongoose');
+  const affinityCache = require('./affinity-cache');
+
+  // Validate IDs before hitting the database
+  if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(experienceId)) {
+    backendLogger.warn('[hidden-signals] computeAndCacheAffinity: invalid ObjectId', {
+      userId: userId?.toString(),
+      experienceId: experienceId?.toString()
+    });
+    return;
+  }
+
+  // Load documents (lean, selecting only the field we need)
+  const User       = require('../models/user');
+  const Experience = require('../models/experience');
+
+  const [user, experience] = await Promise.all([
+    User.findById(userId).select('hidden_signals').lean(),
+    Experience.findById(experienceId).select('hidden_signals').lean()
+  ]);
+
+  if (!user) {
+    backendLogger.warn('[hidden-signals] computeAndCacheAffinity: user not found', {
+      userId: userId.toString()
+    });
+    return;
+  }
+
+  if (!experience) {
+    backendLogger.warn('[hidden-signals] computeAndCacheAffinity: experience not found', {
+      experienceId: experienceId.toString()
+    });
+    return;
+  }
+
+  // Apply temporal decay to both vectors
+  const decayedUser   = applySignalDecay(user.hidden_signals   || {});
+  const decayedEntity = applySignalDecay(experience.hidden_signals || {});
+
+  // Compute overall affinity score
+  const score = computeAffinityScore(decayedUser, decayedEntity);
+
+  // Identify top aligned dimensions (delta < 0.3), sorted ascending by delta,
+  // capped at 3.
+  const dimEntries = DIMENSIONS.map((dim) => {
+    const userVal   = typeof decayedUser[dim]   === 'number' ? decayedUser[dim]   : NEUTRAL;
+    const entityVal = typeof decayedEntity[dim] === 'number' ? decayedEntity[dim] : NEUTRAL;
+    const delta     = Math.abs(userVal - entityVal);
+    return { dim, user_val: userVal, entity_val: entityVal, delta };
+  });
+
+  const top_dims = dimEntries
+    .filter((d) => d.delta < 0.3)
+    .sort((a, b) => a.delta - b.delta)
+    .slice(0, 3);
+
+  const entry = {
+    experience_id: experienceId,
+    score,
+    top_dims,
+    computed_at: new Date()
+  };
+
+  await affinityCache.setAffinityEntry(userId, experienceId, entry);
+
+  backendLogger.debug('[hidden-signals] computeAndCacheAffinity: affinity cached', {
+    userId: userId.toString(),
+    experienceId: experienceId.toString(),
+    score,
+    topDimsCount: top_dims.length
+  });
+}
+
+/**
+ * Fire-and-forget: check whether experience content signals are stale; if so,
+ * recompute them, then compute and cache the user ↔ experience affinity score.
+ *
+ * Never throws — errors are logged and silently absorbed.
+ *
+ * @param {string|import('mongoose').Types.ObjectId} experienceId
+ * @param {string|import('mongoose').Types.ObjectId} userId
+ * @param {Date|string|null} computedAt - Timestamp of last signal computation.
+ * @returns {Promise<void>}
+ */
+async function refreshSignalsAndAffinity(experienceId, userId, computedAt) {
+  if (!userId) return; // No-op without a user — avoids log noise from unauthenticated paths
+  try {
+    const config = require('./signals-config');
+    const isStale = !computedAt || (Date.now() - new Date(computedAt).getTime() > config.SIGNALS_STALENESS_MS);
+    if (isStale) {
+      await updateExperienceSignals(experienceId); // awaited so affinity reads fresh signals
+    }
+    await computeAndCacheAffinity(userId, experienceId);
+  } catch (err) {
+    backendLogger.error('[hidden-signals] refreshSignalsAndAffinity failed', {
+      experienceId: experienceId?.toString(),
+      userId,
+      error: err.message
+    });
+    // Never throw — fire-and-forget
+  }
+}
+
 module.exports = {
   // Constants (exported for testing)
   ACTIVITY_TYPE_SIGNAL_MAP,
@@ -661,5 +781,7 @@ module.exports = {
   computeAffinityScore,
   // Side-effectful
   processSignalEvent,
-  updateExperienceSignals
+  updateExperienceSignals,
+  computeAndCacheAffinity,
+  refreshSignalsAndAffinity
 };

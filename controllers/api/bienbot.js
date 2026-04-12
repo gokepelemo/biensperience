@@ -39,6 +39,8 @@ const path = require('path');
 const { GatewayError } = require('../../utilities/ai-gateway');
 const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
 const BienBotSession = require('../../models/bienbot-session');
+const affinityCache = require('../../utilities/affinity-cache');
+const { computeAndCacheAffinity } = require('../../utilities/hidden-signals');
 
 // Lazy-loaded models
 let Destination, Experience, Plan, User;
@@ -101,6 +103,25 @@ const ENTITY_LABEL_MAP = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Resolve the experience ID from an invoke context object.
+ * Returns the experience_id string for 'experience' entities.
+ * Returns null for 'plan' entities (session.context not available at call site)
+ * and for all other entity types.
+ *
+ * @param {Object} invokeContext - session.invoke_context or resolved invoke context
+ * @returns {string|null}
+ */
+function resolveExperienceIdFromInvokeContext(invokeContext) {
+  if (!invokeContext) return null;
+  if (invokeContext.entity === 'experience') {
+    return invokeContext.entity_id?.toString() ?? null;
+  }
+  // For 'plan' entities the session context (which holds experience_id) is not
+  // yet available at the call site — return null to skip the blocking fallback.
+  return null;
+}
 
 /**
  * Strip null bytes from a string to prevent injection.
@@ -261,6 +282,19 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Always name the specific entity you recommend and give ONE concise reason tied to their travel personality.',
     '- Include the recommended entity in entity_refs.',
     '- If [TRAVEL SIGNALS] is absent or confidence is too low, fall back to objective signals (soonest trip date, most overdue item, most items remaining) and explain the reasoning briefly.',
+    '',
+    'AFFINITY SIGNALS — entity-level match:',
+    '- The invoke context may include an [AFFINITY] line for the experience or plan currently open:',
+    '  e.g. "User affinity for this experience: 0.82 (strong alignment — food_focus, cultural_depth)"',
+    '- Affinity score interpretation: < 0.4 = low match, 0.4–0.6 = moderate, > 0.6 = strong.',
+    '- When [AFFINITY] is present and the user asks an open-ended question about the current entity',
+    '  ("is this a good fit for me?", "should I add more items?", "what do you think of this?"),',
+    '  reference the affinity and top aligning dimensions in your answer.',
+    '- Name the specific dimensions driving the match',
+    '  (e.g. "your food_focus and cultural_depth align well with this experience").',
+    '- Do NOT surface the raw numeric score unprompted. Prefer natural language:',
+    '  "this experience is a strong match for your travel style" over "your affinity score is 0.82".',
+    '- When [AFFINITY] is absent or neutral (score 0.45–0.55), do not invent affinity reasoning.',
     '',
     'GREETING CONTEXT SECTIONS — follow-up handling:',
     '- Every entity mentioned in the greeting carries an inline entityJSON ref. Use those IDs for actions and navigation without asking the user.',
@@ -1714,6 +1748,29 @@ exports.chat = async (req, res) => {
       entity_id: invokeContext.id,
       entity_label: invokeLabel
     };
+
+    // Ensure affinity is cached for this entity before building invoke context.
+    // If the background refresh has not yet run, compute now (blocking) so the
+    // invoke context receives enriched affinity data on first open.
+    if (invokeContext.entity === 'experience' || invokeContext.entity === 'plan') {
+      const experienceId = resolveExperienceIdFromInvokeContext(resolvedInvokeContext);
+      if (experienceId) {
+        try {
+          const existing = await affinityCache.getAffinityEntry(userId, experienceId);
+          if (!existing) {
+            // Cache miss — compute now (blocking) so invoke context is enriched
+            await computeAndCacheAffinity(userId, experienceId);
+          }
+        } catch (affinityErr) {
+          // Non-fatal — proceed without affinity enrichment
+          logger.warn('[bienbot] Affinity cache-miss fallback failed, continuing without it', {
+            userId,
+            experienceId,
+            error: affinityErr.message
+          });
+        }
+      }
+    }
 
     // Build context block for invokeContext
     const contextOptions = {};

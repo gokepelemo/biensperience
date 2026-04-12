@@ -31,8 +31,7 @@ const hiddenSignalVectorSchema = new Schema({
   cultural_depth: { type: Number, min: 0, max: 1, default: 0.5 },
   comfort_zone: { type: Number, min: 0, max: 1, default: 0.5 },
   confidence: { type: Number, min: 0, max: 1, default: 0 },
-  last_updated: { type: Date, default: null },
-  weights: { type: Map, of: Number, default: () => new Map() }
+  last_updated: { type: Date, default: null }
 }, { _id: false });
 
 /**
@@ -104,8 +103,34 @@ const contentSignalsSchema = new Schema({
   computed_at: { type: Date, default: null }
 }, { _id: false });
 
+/**
+ * A single cached affinity computation for one (user, experience) pair.
+ * Stored as a bounded array on the User document (max 50, oldest evicted).
+ */
+const affinityCacheEntrySchema = new Schema({
+  /** The experience this affinity was computed against. */
+  experience_id: { type: Schema.Types.ObjectId, required: true },
+  /** Affinity score [0, 1]. 0.5 is neutral. */
+  score: { type: Number, min: 0, max: 1, required: true },
+  /**
+   * Top 2–3 dimensions driving the match (lowest delta = strongest alignment).
+   * Empty when both vectors are below the confidence threshold.
+   */
+  top_dims: {
+    type: [new Schema({
+      dim:        { type: String, default: null },
+      user_val:   { type: Number, default: null },
+      entity_val: { type: Number, default: null },
+      delta:      { type: Number, default: null }
+    }, { _id: false })],
+    default: []
+  },
+  computed_at: { type: Date, default: Date.now }
+}, { _id: false });
+
 module.exports = {
   hiddenSignalVectorSchema,
   hiddenSignalEventSchema,
-  contentSignalsSchema
+  contentSignalsSchema,
+  affinityCacheEntrySchema
 };
