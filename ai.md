@@ -2198,7 +2198,7 @@ top_dims = dimEntries
   .slice(0, 3);                     // at most 3 dimensions
 ```
 
-`top_dims` is stored in the affinity cache entry alongside the score and surfaced to BienBot for narrative generation.
+`top_dims` is stored in the affinity cache entry alongside the score. BienBot translates `top_dims` into qualitative driver descriptions (via `DIM_DRIVER_DESCRIPTIONS` map) so the LLM can compose coherent dialogue without using quantitative terms — see §7.6 for details.
 
 ---
 
@@ -2284,11 +2284,33 @@ Using `setImmediate` ensures the refresh never delays the HTTP response to the c
 
 **Invoke context** (`utilities/bienbot-context-builders.js`):
 
-`buildContextForInvokeContext()` calls `appendAffinityBlock()` for `experience` and `plan` entity types. The affinity block is appended to the LLM context string in the format:
+`buildContextForInvokeContext()` calls `appendAffinityBlock()` for `experience` and `plan` entity types. The affinity block is appended to the LLM context string in a purely qualitative format:
 
 ```
-[AFFINITY] User affinity for this experience: {score} ({label} — {dims})
+[AFFINITY] User affinity for this experience: {label} — driven by {driver_descriptions}
 ```
+
+Example output:
+```
+[AFFINITY] User affinity for this experience: strong alignment — driven by shared interest in food and culinary experiences, mutual appreciation for cultural depth and local immersion
+```
+
+**Dimension driver descriptions** (`DIM_DRIVER_DESCRIPTIONS` map in `bienbot-context-builders.js`):
+
+`top_dims` entries are translated into human-readable driver phrases so the LLM can compose coherent dialogue without using any quantitative terms:
+
+| Dimension | Driver description |
+|-----------|--------------------|
+| `energy` | shared preference for activity level |
+| `novelty` | mutual interest in novel, off-the-beaten-path experiences |
+| `budget_sensitivity` | aligned budget expectations |
+| `social` | similar social orientation for group or solo travel |
+| `structure` | compatible need for planning and structure |
+| `food_focus` | shared interest in food and culinary experiences |
+| `cultural_depth` | mutual appreciation for cultural depth and local immersion |
+| `comfort_zone` | similar comfort zone and willingness to try new things |
+
+The `describeDimDrivers()` helper converts `top_dims` arrays (or bare dimension name strings) into comma-separated descriptions.
 
 The block is suppressed when:
 - The affinity entry is absent (cache miss with no fallback data).
@@ -2297,8 +2319,25 @@ The block is suppressed when:
 
 **Discovery ranking** (`buildDiscoveryContext()`):
 - Calls `affinityCache.getAffinityMap(userId)` once before iterating over experience candidates.
-- For each candidate, looks up `cachedAffinity.score` from the map.
+- For each candidate, looks up `cachedAffinity.score` from the map and extracts `top_dims` driver descriptions.
 - Falls back to a cold `computeAffinityScore()` call (using undecayed signals) when no cache entry exists.
+- Each scored result now includes an `affinity_drivers` field (qualitative string) alongside `affinity_score`.
+
+**Discovery context block format** (`formatDiscoveryContextBlock()`):
+
+Discovery results are formatted using qualitative labels instead of raw numeric counts:
+
+```
+[DISCOVERY RESULTS]
+Discovery results for culinary experiences:
+1. Tokyo Street Food Tour (Tokyo) — very popular among travelers — very high completion — strong match for your travel style — driven by shared interest in food and culinary experiences — Popular among culinary travelers - Planned by 45 similar travelers
+[/DISCOVERY RESULTS]
+```
+
+Quantitative-to-qualitative mappings:
+- Plan count: `new` (0) → `emerging` (1–2) → `popular` (3–10) → `very popular` (11+)
+- Completion rate: `moderate completion` (20–49%) → `solid completion` (50–79%) → `very high completion` (80%+)
+- Affinity: `different from your usual travel style` (<0.4) → `moderate match` (0.4–0.6) → `strong match for your travel style` (>0.6)
 
 **Cache-miss fallback** (`controllers/api/bienbot.js` — `POST /api/bienbot/chat`):
 - Before building the invoke context, the controller checks the affinity cache.
@@ -2306,9 +2345,14 @@ The block is suppressed when:
 - The freshly computed entry is then available to `buildContextForInvokeContext()`.
 
 **System prompt — `AFFINITY SIGNALS` rule block**:
-- Instructs the LLM to reference affinity and name the relevant dimensions when a user asks open-ended fit questions (e.g. "Is this experience right for me?").
-- Directs the LLM to suppress raw numeric scores in responses; use qualitative labels instead.
-- The LLM remains silent about affinity when the score is absent or neutral.
+- Instructs the LLM to reference affinity alignment and the specific driver descriptions when a user asks open-ended fit questions (e.g. "Is this experience right for me?").
+- Directs the LLM to never use numeric scores, percentages, or quantitative terms when discussing affinity or discovery results.
+- The LLM remains silent about affinity when the block is absent.
+
+**System prompt — `DISCOVERY RESULTS` rule block**:
+- Instructs the LLM to present discovery results using the qualitative descriptions naturally.
+- Directs the LLM to never expose raw counts, percentages, or numeric scores from discovery results.
+- Tells the LLM to use affinity driver descriptions to explain WHY an experience is a good fit.
 
 ---
 

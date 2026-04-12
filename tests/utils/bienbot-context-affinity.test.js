@@ -101,16 +101,18 @@ describe('appendAffinityBlock (via buildContextForInvokeContext)', () => {
   test('appends [AFFINITY] line when score is 0.82 with 2 top_dims (strong alignment)', async () => {
     affinityCache.getAffinityEntry.mockResolvedValue({
       score: 0.82,
-      top_dims: [{ dim: 'adventure' }, { dim: 'outdoor' }],
+      top_dims: [{ dim: 'food_focus' }, { dim: 'cultural_depth' }],
     });
 
     const result = await buildContextForInvokeContext(invokeCtx, VALID_USER_ID);
 
     expect(result).toContain('[AFFINITY]');
-    expect(result).toContain('0.82');
     expect(result).toContain('strong alignment');
-    expect(result).toContain('adventure');
-    expect(result).toContain('outdoor');
+    expect(result).toContain('driven by');
+    expect(result).toContain('shared interest in food and culinary experiences');
+    expect(result).toContain('mutual appreciation for cultural depth and local immersion');
+    // Should NOT contain raw numeric score
+    expect(result).not.toContain('0.82');
   });
 
   test('does NOT append [AFFINITY] when score is 0.52 (within ±0.05 of neutral 0.5)', async () => {
@@ -146,37 +148,40 @@ describe('appendAffinityBlock (via buildContextForInvokeContext)', () => {
   test('uses "strong alignment" label for score > 0.6', async () => {
     affinityCache.getAffinityEntry.mockResolvedValue({
       score: 0.75,
-      top_dims: [{ dim: 'cultural' }],
+      top_dims: [{ dim: 'cultural_depth' }],
     });
 
     const result = await buildContextForInvokeContext(invokeCtx, VALID_USER_ID);
 
     expect(result).toContain('strong alignment');
+    expect(result).toContain('driven by');
   });
 
   test('uses "low alignment" label for score < 0.4', async () => {
     affinityCache.getAffinityEntry.mockResolvedValue({
       score: 0.25,
-      top_dims: [{ dim: 'nightlife' }],
+      top_dims: [{ dim: 'energy' }],
     });
 
     const result = await buildContextForInvokeContext(invokeCtx, VALID_USER_ID);
 
     expect(result).toContain('[AFFINITY]');
     expect(result).toContain('low alignment');
+    expect(result).toContain('driven by');
   });
 
   test('uses "moderate alignment" label for score in 0.4–0.6 range (but > ±0.05 from neutral)', async () => {
     // score = 0.42: abs(0.42 - 0.5) = 0.08 > 0.05, and 0.4 <= 0.42 <= 0.6
     affinityCache.getAffinityEntry.mockResolvedValue({
       score: 0.42,
-      top_dims: [{ dim: 'wellness' }],
+      top_dims: [{ dim: 'novelty' }],
     });
 
     const result = await buildContextForInvokeContext(invokeCtx, VALID_USER_ID);
 
     expect(result).toContain('[AFFINITY]');
     expect(result).toContain('moderate alignment');
+    expect(result).toContain('driven by');
   });
 
   test('does not throw and omits [AFFINITY] when affinityCache.getAffinityEntry throws', async () => {

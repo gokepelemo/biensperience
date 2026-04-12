@@ -1798,6 +1798,41 @@ async function buildPlanNextStepsContext(planId, userId, options = {}) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Map dimension names to qualitative natural-language driver descriptions.
+ * Each entry describes what a strong alignment on that dimension means for the
+ * user ↔ entity relationship. Used by both the [AFFINITY] block and discovery
+ * results so the LLM can compose coherent dialogue without numeric terms.
+ */
+const DIM_DRIVER_DESCRIPTIONS = {
+  energy:             'shared preference for activity level',
+  novelty:            'mutual interest in novel, off-the-beaten-path experiences',
+  budget_sensitivity: 'aligned budget expectations',
+  social:             'similar social orientation for group or solo travel',
+  structure:          'compatible need for planning and structure',
+  food_focus:         'shared interest in food and culinary experiences',
+  cultural_depth:     'mutual appreciation for cultural depth and local immersion',
+  comfort_zone:       'similar comfort zone and willingness to try new things'
+};
+
+/**
+ * Convert an array of top_dims entries (or bare dimension names) into a
+ * comma-separated list of human-readable driver descriptions.
+ *
+ * @param {Array<{dim: string}|string>} dims - top_dims entries or dimension name strings.
+ * @returns {string} Comma-separated qualitative descriptions, or '' if empty.
+ */
+function describeDimDrivers(dims) {
+  if (!Array.isArray(dims) || dims.length === 0) return '';
+  return dims
+    .map(d => {
+      const name = typeof d === 'string' ? d : d?.dim;
+      return DIM_DRIVER_DESCRIPTIONS[name] || name;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+/**
  * Append an [AFFINITY] line to contextLines when the user has meaningful affinity data
  * for the given experience. Non-fatal — enrichment is best-effort only.
  *
@@ -1813,9 +1848,9 @@ async function appendAffinityBlock(contextLines, userId, experienceId) {
       const label = entry.score > 0.6 ? 'strong alignment'
                   : entry.score < 0.4 ? 'low alignment'
                   : 'moderate alignment';
-      const dimNames = entry.top_dims.map(d => d.dim).join(', ');
+      const drivers = describeDimDrivers(entry.top_dims);
       contextLines.push(
-        `[AFFINITY] User affinity for this experience: ${entry.score.toFixed(2)} (${label} — ${dimNames})`
+        `[AFFINITY] User affinity for this experience: ${label} — driven by ${drivers}`
       );
     }
   } catch (err) {
@@ -2267,8 +2302,12 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
       // requests for the same (user, experience) pair hit the cache.
       const cachedAffinity = affinityMap.get(c.experience_id.toString());
       let affinityScore;
+      let affinityDrivers = '';
       if (cachedAffinity) {
         affinityScore = cachedAffinity.score;
+        if (cachedAffinity.top_dims?.length) {
+          affinityDrivers = describeDimDrivers(cachedAffinity.top_dims);
+        }
       } else {
         affinityScore = computeAffinityScore(signals, entityBehavior);
         // Warm the cache asynchronously — never awaited, never throws
@@ -2304,6 +2343,7 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
         trust_score: Math.round(trustScore * 1000) / 1000,
         popularity_score: Math.round(popularityNorm * 1000) / 1000,
         affinity_score: Math.round(affinityScore * 1000) / 1000,
+        affinity_drivers: affinityDrivers,
         relevance_score: Math.round(relevanceScore * 1000) / 1000,
         match_reason: matchReason,
         default_photo_url: c.default_photo_url
@@ -2365,11 +2405,43 @@ function formatDiscoveryContextBlock(results, filters) {
     ? `Discovery results for ${filters.activity_types.join(', ')} experiences`
     : 'Discovery results';
 
-  const lines = results.map((r, i) =>
-    `${i + 1}. ${r.experience_name} (${r.destination_name}) - ` +
-    `${r.plan_count} plans, ${Math.round((r.completion_rate || 0) * 100)}% completion, ` +
-    `cost: ${r.cost_estimate || 'N/A'} - ${r.match_reason}`
-  );
+  // Qualitative popularity labels — avoid exposing raw counts to the LLM
+  const popularityLabel = (planCount) => {
+    if (!planCount || planCount <= 0) return 'new';
+    if (planCount <= 2) return 'emerging';
+    if (planCount <= 10) return 'popular';
+    return 'very popular';
+  };
+
+  const completionLabel = (rate) => {
+    if (rate == null || rate <= 0) return null;
+    if (rate >= 0.8) return 'very high completion';
+    if (rate >= 0.5) return 'solid completion';
+    if (rate >= 0.2) return 'moderate completion';
+    return null;
+  };
+
+  const affinityLabel = (score) => {
+    if (score == null) return null;
+    if (score > 0.6) return 'strong match for your travel style';
+    if (score >= 0.4) return 'moderate match for your travel style';
+    if (score < 0.4) return 'different from your usual travel style';
+    return null;
+  };
+
+  const lines = results.map((r, i) => {
+    const parts = [
+      `${i + 1}. ${r.experience_name} (${r.destination_name})`,
+      popularityLabel(r.plan_count) + ' among travelers'
+    ];
+    const compLabel = completionLabel(r.completion_rate);
+    if (compLabel) parts.push(compLabel);
+    const affLabel = affinityLabel(r.affinity_score);
+    if (affLabel) parts.push(affLabel);
+    if (r.affinity_drivers) parts.push(`driven by ${r.affinity_drivers}`);
+    parts.push(r.match_reason);
+    return parts.join(' — ');
+  });
 
   return `[DISCOVERY RESULTS]\n${header}:\n${lines.join('\n')}\n[/DISCOVERY RESULTS]`;
 }
