@@ -3363,6 +3363,81 @@ const deletePlanItemNote = asyncHandler(async (req, res) => {
   res.json(plan);
 });
 
+/**
+ * Toggle relevancy vote on a plan item note.
+ * Owner and collaborators can vote a note as important (bullseye indicator).
+ * Voting again by the same user removes their vote (toggle).
+ */
+const voteNoteRelevancy = asyncHandler(async (req, res) => {
+  const { id, itemId, noteId } = req.params;
+
+  const plan = await Plan.findById(id);
+  if (!plan) {
+    return res.status(404).json({ error: 'Plan not found' });
+  }
+
+  // Only owners and collaborators can vote (not contributors or non-members)
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const permCheck = await enforcer.canEdit({
+    userId: req.user._id,
+    resource: plan
+  });
+  if (!permCheck.allowed) {
+    return res.status(403).json({ error: 'Insufficient permissions', message: permCheck.reason });
+  }
+
+  const planItem = plan.plan.id(itemId);
+  if (!planItem) {
+    return res.status(404).json({ error: 'Plan item not found' });
+  }
+
+  if (!planItem.details?.notes) {
+    return res.status(404).json({ error: 'No notes found' });
+  }
+
+  const note = planItem.details.notes.id(noteId);
+  if (!note) {
+    return res.status(404).json({ error: 'Note not found' });
+  }
+
+  // Visibility check: private notes can only be voted on by their author
+  if (note.visibility === 'private' && note.user.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ error: 'You cannot vote on a private note that is not yours' });
+  }
+
+  // Toggle vote
+  const userId = req.user._id.toString();
+  const existingIndex = (note.relevancy_votes || []).findIndex(v => v.toString() === userId);
+  if (existingIndex !== -1) {
+    note.relevancy_votes.splice(existingIndex, 1); // Remove vote
+  } else {
+    note.relevancy_votes.push(req.user._id); // Add vote
+  }
+
+  await plan.save();
+
+  // Populate user data for response
+  await plan.populate({
+    path: 'plan.details.notes.user',
+    select: 'name email photos oauthProfilePhoto',
+    populate: { path: 'photos', select: 'url caption' }
+  });
+  await plan.populate('experience', 'name');
+
+  backendLogger.info('Note relevancy vote toggled', {
+    planId: id,
+    itemId,
+    noteId,
+    userId,
+    voteCount: note.relevancy_votes.length
+  });
+
+  // Filter notes based on visibility before returning
+  filterNotesByVisibility(plan, req.user._id);
+
+  res.json(plan);
+});
+
 // ============================================================================
 // PLAN ITEM DETAILS (Transport, Parking, Discount, Documents, Photos)
 // ============================================================================
@@ -5663,6 +5738,7 @@ module.exports = {
   addPlanItemNote,
   updatePlanItemNote,
   deletePlanItemNote,
+  voteNoteRelevancy,
   // Plan item details (transport, parking, discount, documents, photos)
   addPlanItemDetail,
   updatePlanItemDetail,

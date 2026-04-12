@@ -213,14 +213,36 @@ export function getEmptyStateForContext(invokeContext, currentView) {
  * Entity creation action types that should trigger auto-navigation.
  * Priority order: experience > plan > destination (highest = navigate to).
  */
+
+/** Build a plan-hash URL from a plan entity, optionally deep-linking to an item. */
+function planHashUrl(entity, itemId) {
+  const expId = entity?.experience?._id || entity?.experience;
+  const planId = entity?._id;
+  if (!expId || !planId) return null;
+  const base = `/experiences/${expId}#plan-${planId}`;
+  return itemId ? `${base}-item-${itemId}` : base;
+}
+
 const CREATION_ACTIONS = {
   create_destination: { priority: 1, getUrl: (entity) => entity?._id ? `/destinations/${entity._id}` : null },
   create_experience: { priority: 3, getUrl: (entity) => entity?._id ? `/experiences/${entity._id}` : null },
-  create_plan: { priority: 2, getUrl: (entity) => {
-    const expId = entity?.experience?._id || entity?.experience;
-    const planId = entity?._id;
-    return expId && planId ? `/experiences/${expId}#plan-${planId}` : null;
+  create_plan: { priority: 2, getUrl: (entity) => planHashUrl(entity) },
+  // Plan item mutations — navigate to the affected item via hash routing
+  add_plan_items: { priority: 2, getUrl: (entity, actionResult) => {
+    const count = Array.isArray(actionResult?.payload?.items) ? actionResult.payload.items.length : 1;
+    const items = Array.isArray(entity?.plan) ? entity.plan : [];
+    const firstNew = items.slice(-count)[0];
+    const itemId = firstNew?._id?.toString ? firstNew._id.toString() : firstNew?._id;
+    return planHashUrl(entity, itemId);
   }},
+  update_plan_item: { priority: 2, getUrl: (entity, actionResult) => {
+    const itemId = actionResult?.payload?.item_id?.toString
+      ? actionResult.payload.item_id.toString()
+      : actionResult?.payload?.item_id;
+    return planHashUrl(entity, itemId);
+  }},
+  sync_plan:   { priority: 2, getUrl: (entity) => planHashUrl(entity) },
+  update_plan: { priority: 2, getUrl: (entity) => planHashUrl(entity) },
 };
 
 /**
@@ -240,7 +262,7 @@ export function getNavigationUrlForResult(actionResult) {
 
   // Standalone creation action
   if (CREATION_ACTIONS[actionResult.type]) {
-    return CREATION_ACTIONS[actionResult.type].getUrl(entity);
+    return CREATION_ACTIONS[actionResult.type].getUrl(entity, actionResult);
   }
 
   // Workflow — find the highest-priority creation step
@@ -257,7 +279,7 @@ export function getNavigationUrlForResult(actionResult) {
       const stepEntity = stepResult.result;
       const config = CREATION_ACTIONS[stepResult.type];
       if (config.priority > bestPriority) {
-        const url = config.getUrl(stepEntity);
+        const url = config.getUrl(stepEntity, stepResult);
         if (url) {
           bestUrl = url;
           bestPriority = config.priority;

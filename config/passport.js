@@ -439,11 +439,46 @@ if (process.env.TWITTER_CONSUMER_KEY && process.env.TWITTER_CONSUMER_SECRET) {
 }
 
 /**
+ * Extract the minimal user fields needed in the JWT payload.
+ * The backend always re-fetches the user from the DB (checkToken.js),
+ * and the frontend UserContext fetches fresh data immediately after mount.
+ * Keeping large fields (hidden_signals, feature_flags, bienbot_memory,
+ * preferences.notifications, etc.) out of the token prevents 431 errors
+ * caused by oversized request headers.
+ */
+function buildJwtPayload(user) {
+  const u = user.toObject ? user.toObject() : user;
+  return {
+    _id: u._id,
+    name: u.name,
+    email: u.email,
+    provider: u.provider,
+    role: u.role,
+    isSuperAdmin: u.isSuperAdmin,
+    emailConfirmed: u.emailConfirmed,
+    visibility: u.visibility,
+    oauthProfilePhoto: u.oauthProfilePhoto || null,
+    photos: (u.photos || []).map(p => ({ photo: p.photo, default: p.default })),
+    // Slim preferences: only the display/UI fields used before the API response
+    preferences: {
+      theme: u.preferences?.theme || 'system-default',
+      currency: u.preferences?.currency || 'USD',
+      language: u.preferences?.language || 'en',
+      timezone: u.preferences?.timezone || 'UTC',
+    },
+    // Slim feature_flags: only flag key and enabled status (no config, timestamps)
+    feature_flags: (u.feature_flags || [])
+      .filter(f => f.enabled)
+      .map(f => ({ flag: f.flag, enabled: true })),
+  };
+}
+
+/**
  * Helper function to create JWT token for OAuth users
  */
 function createToken(user) {
   return jwt.sign(
-    { user },
+    { user: buildJwtPayload(user) },
     process.env.SECRET,
     { expiresIn: '24h' }
   );

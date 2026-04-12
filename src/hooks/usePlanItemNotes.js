@@ -15,7 +15,8 @@ import { broadcastEvent } from '../utilities/event-bus';
 import {
   addPlanItemNote,
   updatePlanItemNote,
-  deletePlanItemNote
+  deletePlanItemNote,
+  voteNoteRelevancy
 } from '../utilities/plans-api';
 
 /**
@@ -371,10 +372,85 @@ export function usePlanItemNotes({
     });
   }, [updatePlanState, undoable, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
 
+  /**
+   * Toggle relevancy vote on a note (bullseye / "Important" indicator).
+   * Owner and collaborators can vote; voting again removes the vote.
+   * @param {string} noteId - Note ID to vote on
+   */
+  const handleVoteNoteRelevancy = useCallback(async (noteId) => {
+    const planId = selectedPlanIdRef.current;
+    const selectedItem = selectedDetailsItemRef.current;
+    const currentUser = userRef.current;
+
+    if (!planId || !selectedItem?._id || !noteId) return;
+
+    const originalNotes = selectedItem.details?.notes || [];
+    const originalNote = originalNotes.find(note => idEquals(note._id, noteId));
+    if (!originalNote) return;
+
+    const userId = currentUser?._id;
+    const alreadyVoted = (originalNote.relevancy_votes || []).some(v =>
+      String(v) === String(userId) || String(v?._id) === String(userId)
+    );
+
+    // Optimistic toggle
+    const optimisticNotes = originalNotes.map(note =>
+      idEquals(note._id, noteId)
+        ? {
+            ...note,
+            relevancy_votes: alreadyVoted
+              ? (note.relevancy_votes || []).filter(v => String(v) !== String(userId) && String(v?._id) !== String(userId))
+              : [...(note.relevancy_votes || []), userId]
+          }
+        : note
+    );
+    const optimisticItem = {
+      ...selectedItem,
+      details: { ...selectedItem.details, notes: optimisticNotes }
+    };
+    setSelectedDetailsItem(optimisticItem);
+
+    const applyOptimistic = (plan) => ({
+      ...plan,
+      plan: plan.plan.map(item =>
+        idEquals(item._id, selectedItem._id) ? optimisticItem : item
+      )
+    });
+    setSharedPlans(prevPlans =>
+      prevPlans.map(p => idEquals(p._id, planId) ? applyOptimistic(p) : p)
+    );
+    if (setUserPlan) {
+      setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? applyOptimistic(prev) : prev);
+    }
+
+    try {
+      const updatedPlan = await voteNoteRelevancy(planId, selectedItem._id, noteId);
+      updatePlanState(updatedPlan);
+    } catch (error) {
+      logger.error('[usePlanItemNotes] Failed to vote note relevancy', { error: error.message });
+      // Revert optimistic update
+      setSelectedDetailsItem(selectedItem);
+      const revert = (plan) => ({
+        ...plan,
+        plan: plan.plan.map(item =>
+          idEquals(item._id, selectedItem._id) ? selectedItem : item
+        )
+      });
+      setSharedPlans(prevPlans =>
+        prevPlans.map(p => idEquals(p._id, planId) ? revert(p) : p)
+      );
+      if (setUserPlan) {
+        setUserPlan(prev => (prev && idEquals(prev._id, planId)) ? revert(prev) : prev);
+      }
+      showError(error.message || 'Failed to update note relevancy');
+    }
+  }, [updatePlanState, showError, setSelectedDetailsItem, setSharedPlans, setUserPlan]);
+
   return {
     handleAddNote,
     handleUpdateNote,
-    handleDeleteNote
+    handleDeleteNote,
+    handleVoteNoteRelevancy
   };
 }
 

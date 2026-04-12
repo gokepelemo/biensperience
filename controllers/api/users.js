@@ -30,8 +30,40 @@ function sanitizeOtpCode(value) {
   return code;
 }
 
+/**
+ * Build the minimal JWT payload — keeps the token small to avoid 431 errors
+ * caused by oversized Authorization headers. The backend re-fetches the full
+ * user from DB in checkToken.js, so only identification fields are needed here.
+ */
+function buildJwtPayload(user) {
+  const u = user.toObject ? user.toObject() : user;
+  return {
+    _id: u._id,
+    name: u.name,
+    email: u.email,
+    provider: u.provider,
+    role: u.role,
+    isSuperAdmin: u.isSuperAdmin,
+    emailConfirmed: u.emailConfirmed,
+    visibility: u.visibility,
+    oauthProfilePhoto: u.oauthProfilePhoto || null,
+    photos: (u.photos || []).map(p => ({ photo: p.photo, default: p.default })),
+    // Slim preferences: only the display/UI fields used before the API response
+    preferences: {
+      theme: u.preferences?.theme || 'system-default',
+      currency: u.preferences?.currency || 'USD',
+      language: u.preferences?.language || 'en',
+      timezone: u.preferences?.timezone || 'UTC',
+    },
+    // Slim feature_flags: only enabled flag keys (no config, timestamps, etc.)
+    feature_flags: (u.feature_flags || [])
+      .filter(f => f.enabled)
+      .map(f => ({ flag: f.flag, enabled: true })),
+  };
+}
+
 function createJWT(user) {
-  return jwt.sign({ user }, process.env.SECRET, { expiresIn: "24h" });
+  return jwt.sign({ user: buildJwtPayload(user) }, process.env.SECRET, { expiresIn: "24h" });
 }
 
 async function create(req, res) {

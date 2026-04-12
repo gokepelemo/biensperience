@@ -680,12 +680,39 @@ userSchema.methods.isSessionValid = function(sessionId) {
 
 /**
  * Generate JWT token for the user
+ * Only the minimal fields needed for initial client render are included.
+ * The backend always re-fetches the user from DB (checkToken.js), and
+ * UserContext refreshes from the API immediately after mount.
  * @returns {string} JWT token for authentication
  */
 userSchema.methods.generateToken = function() {
   const jwt = require('jsonwebtoken');
+  const u = this.toObject ? this.toObject() : this;
+  const payload = {
+    _id: u._id,
+    name: u.name,
+    email: u.email,
+    provider: u.provider,
+    role: u.role,
+    isSuperAdmin: u.isSuperAdmin,
+    emailConfirmed: u.emailConfirmed,
+    visibility: u.visibility,
+    oauthProfilePhoto: u.oauthProfilePhoto || null,
+    photos: (u.photos || []).map(p => ({ photo: p.photo, default: p.default })),
+    // Slim preferences: only the display/UI fields used before the API response
+    preferences: {
+      theme: u.preferences?.theme || 'system-default',
+      currency: u.preferences?.currency || 'USD',
+      language: u.preferences?.language || 'en',
+      timezone: u.preferences?.timezone || 'UTC',
+    },
+    // Slim feature_flags: only enabled flag keys (no config, timestamps)
+    feature_flags: (u.feature_flags || [])
+      .filter(f => f.enabled)
+      .map(f => ({ flag: f.flag, enabled: true })),
+  };
   return jwt.sign(
-    { user: this },
+    { user: payload },
     process.env.SECRET,
     { expiresIn: '24h' }
   );

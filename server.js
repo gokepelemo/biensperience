@@ -78,7 +78,9 @@ cleanOrphanedTempFiles()
   });
 
 // Create HTTP server from Express app
-const server = http.createServer(app);
+// Increase maxHeaderSize to 32KB (default 8KB) to handle large cookies
+// during local development (browser scopes cookies by domain, not port).
+const server = http.createServer({ maxHeaderSize: 32768 }, app);
 
 // Initialize WebSocket server if enabled
 if (wsEnabled) {

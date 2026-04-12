@@ -1148,7 +1148,8 @@ export default function SingleExperience() {
   const {
     handleAddNote: handleAddNoteToItem,
     handleUpdateNote: handleUpdateNoteOnItem,
-    handleDeleteNote: handleDeleteNoteFromItem
+    handleDeleteNote: handleDeleteNoteFromItem,
+    handleVoteNoteRelevancy: handleVoteNoteRelevancyOnItem
   } = usePlanItemNotes({
     selectedPlanId,
     selectedDetailsItem,
@@ -3873,6 +3874,7 @@ export default function SingleExperience() {
         onAddNote={handleAddNoteToItem}
         onUpdateNote={handleUpdateNoteOnItem}
         onDeleteNote={handleDeleteNoteFromItem}
+        onVoteNoteRelevancy={handleVoteNoteRelevancyOnItem}
         initialTab={detailsModalInitialTab}
         onAssign={async (userId) => {
           if (!selectedPlan || !selectedDetailsItem) return;

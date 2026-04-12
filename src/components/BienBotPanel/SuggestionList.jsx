@@ -133,22 +133,24 @@ export default function SuggestionList({ data, onAddSelected, disabled, existing
                   disabled={disabled}
                   aria-pressed={isSelected}
                 >
-                  <span className={`${styles.suggestionCheckbox} ${isSelected ? styles.suggestionCheckboxChecked : ''}`}>
-                    {isSelected && <CheckIcon />}
-                  </span>
-                  <span className={styles.suggestionItemContent}>
-                    <span className={styles.suggestionItemText}>{item.text || item.content}</span>
-                    {sources && (
-                      <span className={styles.suggestionItemSource}>
-                        from {sources}
+                  <span className={styles.suggestionItemRow}>
+                    <span className={`${styles.suggestionCheckbox} ${isSelected ? styles.suggestionCheckboxChecked : ''}`}>
+                      {isSelected && <CheckIcon />}
+                    </span>
+                    <span className={styles.suggestionItemContent}>
+                      <span className={styles.suggestionItemText}>{(item.text || item.content || '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ')}</span>
+                      {sources && (
+                        <span className={styles.suggestionItemSource}>
+                          from {sources}
+                        </span>
+                      )}
+                    </span>
+                    {item.frequency > 1 && (
+                      <span className={styles.suggestionItemFrequency}>
+                        {item.frequency}x
                       </span>
                     )}
                   </span>
-                  {item.frequency > 1 && (
-                    <span className={styles.suggestionItemFrequency}>
-                      {item.frequency}x
-                    </span>
-                  )}
                 </button>
               );
             })}

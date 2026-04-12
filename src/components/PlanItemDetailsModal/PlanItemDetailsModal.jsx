@@ -59,6 +59,7 @@ export default function PlanItemDetailsModal({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
+  onVoteNoteRelevancy,
   onAssign,
   onUnassign,
   onUpdateTitle,
@@ -1813,6 +1814,7 @@ export default function PlanItemDetailsModal({
               onAddNote={onAddNote}
               onUpdateNote={onUpdateNote}
               onDeleteNote={onDeleteNote}
+              onVoteNoteRelevancy={onVoteNoteRelevancy}
               disabled={!canEdit}
               availableEntities={availableEntities}
               entityData={entityData}

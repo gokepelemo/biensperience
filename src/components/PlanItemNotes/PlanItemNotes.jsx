@@ -10,7 +10,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Button, Dropdown, SearchInput } from '../../components/design-system';
 import SplitButton from '../SplitButton/SplitButton';
-import { FaStickyNote, FaPlus, FaTimes, FaBan } from 'react-icons/fa';
+import { FaStickyNote, FaPlus, FaTimes, FaBan, FaCrosshairs } from 'react-icons/fa';
 import InteractiveTextArea from '../InteractiveTextArea/InteractiveTextArea';
 import UserAvatar from '../UserAvatar/UserAvatar';
 import ConfirmModal from '../ConfirmModal/ConfirmModal';
@@ -184,7 +184,7 @@ function NoteForm({
  * NoteMessage Component
  * Individual note message with entity resolution for mentions and URL previews
  */
-function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true, noteUser, presenceConnected, isOnline }) {
+function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, formatDate, onEntityClick, showLinkPreviews = true, noteUser, presenceConnected, isOnline, onVoteRelevancy, currentUserId }) {
   // Resolve any missing entities in this note's content
   const { entityData: mergedEntityData, loadingEntityIds } = useEntityResolver(note.content, entityData);
 
@@ -196,6 +196,11 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
 
   // Check if user data is still loading (no name resolved yet)
   const isUserLoading = !note.user?.name && note.user?._id && note.user._id !== 'unknown';
+
+  // Whether the current user has voted this note as important
+  const hasVoted = (note.relevancy_votes || []).some(
+    v => String(v) === String(currentUserId) || String(v?._id) === String(currentUserId)
+  );
 
   return (
     <div className={styles.noteCard}>
@@ -262,6 +267,20 @@ function NoteMessage({ note, entityData, isAuthor, onStartEdit, onDelete, format
             </button>
           </div>
         )}
+
+        {/* Relevancy vote: single bullseye toggle available to owner/collaborators */}
+        {onVoteRelevancy && (
+          <button
+            type="button"
+            onClick={() => onVoteRelevancy(note._id)}
+            className={`${styles.noteRelevancyButton} ${hasVoted ? styles.noteRelevancyButtonActive : ''}`}
+            title={hasVoted ? 'Remove important mark' : 'Mark as important'}
+            aria-label={hasVoted ? 'Remove important mark' : 'Mark note as important'}
+            aria-pressed={hasVoted}
+          >
+            <FaCrosshairs aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -273,6 +292,7 @@ export default function PlanItemNotes({
   onAddNote,
   onUpdateNote,
   onDeleteNote,
+  onVoteNoteRelevancy,
   disabled = false,
   // For mentions support
   availableEntities = [],
@@ -690,6 +710,8 @@ export default function PlanItemNotes({
                     noteUser={noteUser}
                     presenceConnected={presenceConnected}
                     isOnline={isUserOnline(noteUser)}
+                    onVoteRelevancy={onVoteNoteRelevancy}
+                    currentUserId={currentUser?._id}
                   />
                 )}
               </div>

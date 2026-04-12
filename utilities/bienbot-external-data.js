@@ -1345,7 +1345,17 @@ async function reformulateWikivoyagePlanItems(items, destinationName, user) {
     return items.map((item, idx) => {
       const rewritten = reformulated[idx];
       if (typeof rewritten === 'string' && rewritten.trim().length > 0) {
-        return { ...item, name: rewritten.trim() };
+        // LLMs occasionally output HTML entities (e.g. &#39; for apostrophe).
+        // Decode them so plan item text is stored as plain text.
+        const decoded = rewritten.trim()
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&apos;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&nbsp;/g, ' ');
+        return { ...item, name: decoded };
       }
       return item; // keep original on per-item failure
     });
