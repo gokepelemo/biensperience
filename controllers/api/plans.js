@@ -23,7 +23,7 @@ const {
 const { insufficientPermissionsError } = require('../../utilities/error-responses');
 const crypto = require('crypto');
 const planUnplanQueue = require('../../utilities/plan-unplan-queue');
-const { updateExperienceSignals } = require('../../utilities/hidden-signals');
+const { updateExperienceSignals, refreshSignalsAndAffinity } = require('../../utilities/hidden-signals');
 
 // Sanitize location data for GeoJSON
 function sanitizeLocation(location) {
@@ -645,6 +645,16 @@ const getPlanById = asyncHandler(async (req, res) => {
   filterNotesByVisibility(plan, req.user._id);
 
   res.json(plan);
+  const planExperienceId = plan.experience?._id?.toString();
+  if (planExperienceId) {
+    setImmediate(() =>
+      refreshSignalsAndAffinity(
+        planExperienceId,
+        req.user._id.toString(),
+        null  // experience.signals.computed_at not loaded here; treat as unknown → always refresh
+      )
+    );
+  }
 });
 
 /**

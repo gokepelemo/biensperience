@@ -12,7 +12,7 @@ const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { ARCHIVE_USER, isArchiveUser } = require('../../utilities/system-users');
 const { successResponse, errorResponse, paginatedResponse, validateObjectId } = require('../../utilities/controller-helpers');
-const { aggregateGroupSignals } = require('../../utilities/hidden-signals');
+const { aggregateGroupSignals, refreshSignalsAndAffinity } = require('../../utilities/hidden-signals');
 const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
 
@@ -867,7 +867,17 @@ async function showExperience(req, res) {
       experience.max_planning_days = 0;
     }
 
-    return successResponse(res, experience, 'Experience retrieved successfully');
+    successResponse(res, experience, 'Experience retrieved successfully');
+    if (req.user) {
+      setImmediate(() =>
+        refreshSignalsAndAffinity(
+          experience._id.toString(),
+          req.user._id.toString(),
+          experience.signals?.computed_at ?? null
+        )
+      );
+    }
+    return;
   } catch (err) {
     backendLogger.error('Error fetching experience', { error: err.message, experienceId: req.params.id });
     return errorResponse(res, err, 'Failed to fetch experience', 400);

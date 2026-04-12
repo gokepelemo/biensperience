@@ -12,8 +12,9 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
-const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore } = require('./hidden-signals');
+const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore, computeAndCacheAffinity } = require('./hidden-signals');
 const signalsConfig = require('./signals-config');
+const affinityCache = require('./affinity-cache');
 
 // Lazy-loaded models (resolved on first use)
 let Destination, Experience, Plan, User, Activity;
@@ -1797,6 +1798,33 @@ async function buildPlanNextStepsContext(planId, userId, options = {}) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Append an [AFFINITY] line to contextLines when the user has meaningful affinity data
+ * for the given experience. Non-fatal — enrichment is best-effort only.
+ *
+ * @param {string[]} contextLines - Mutable lines array to push into.
+ * @param {string|null} userId
+ * @param {string|null} experienceId
+ */
+async function appendAffinityBlock(contextLines, userId, experienceId) {
+  if (!userId || !experienceId) return;
+  try {
+    const entry = await affinityCache.getAffinityEntry(userId, experienceId);
+    if (entry && Math.abs(entry.score - 0.5) > 0.05 && entry.top_dims.length > 0) {
+      const label = entry.score > 0.6 ? 'strong alignment'
+                  : entry.score < 0.4 ? 'low alignment'
+                  : 'moderate alignment';
+      const dimNames = entry.top_dims.map(d => d.dim).join(', ');
+      contextLines.push(
+        `[AFFINITY] User affinity for this experience: ${entry.score.toFixed(2)} (${label} — ${dimNames})`
+      );
+    }
+  } catch (err) {
+    // Non-fatal — affinity enrichment is best-effort
+    logger.warn('[bienbot-context] appendAffinityBlock failed', { error: err.message });
+  }
+}
+
+/**
  * Dispatch to the appropriate builder based on invokeContext.entity.
  *
  * @param {object|null} invokeContext - { entity, entity_id, entity_label }
@@ -1820,10 +1848,32 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
   switch (invokeContext.entity) {
     case 'destination':
       return buildDestinationContext(id, userId, options);
-    case 'experience':
-      return buildExperienceContext(id, userId, options);
-    case 'plan':
-      return buildUserPlanContext(id, userId, options);
+    case 'experience': {
+      const contextStr = await buildExperienceContext(id, userId, options);
+      if (!contextStr) return null;
+      const contextLines = [contextStr];
+      await appendAffinityBlock(contextLines, userId, invokeContext.entity_id?.toString());
+      return contextLines.join('\n');
+    }
+    case 'plan': {
+      const contextStr = await buildUserPlanContext(id, userId, options);
+      if (!contextStr) return null;
+      // Resolve the experience_id for affinity enrichment from the plan context.
+      // buildUserPlanContext populates plan.experience._id — re-fetch just the field.
+      let planExperienceId = null;
+      try {
+        loadModels();
+        const planDoc = await Plan.findById(id).select('experience').lean();
+        planExperienceId = planDoc?.experience?.toString() || null;
+      } catch (planExpErr) {
+        logger.warn('[bienbot-context] Could not resolve experience_id for plan affinity block', { planId: id, error: planExpErr.message });
+      }
+      const contextLines = [contextStr];
+      if (planExperienceId) {
+        await appendAffinityBlock(contextLines, userId, planExperienceId);
+      }
+      return contextLines.join('\n');
+    }
     case 'plan_item': {
       // Prefer caller-supplied planId; otherwise auto-resolve from DB.
       if (options.planId) {
@@ -2177,6 +2227,14 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
 
     const formula = signalsConfig.formula;
 
+    // Load affinity map once for all candidates (cache-first; empty Map on failure)
+    let affinityMap = new Map();
+    try {
+      affinityMap = await affinityCache.getAffinityMap(userId);
+    } catch (affinityErr) {
+      logger.warn('[bienbot-context] Failed to load affinity map for discovery ranking', { userId, error: affinityErr.message });
+    }
+
     // Score and rank
     const scored = candidates.map(c => {
       const recencyScore = computeRecencyScore(c.latest_planned_date);
@@ -2201,10 +2259,19 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
         maxPopularity
       );
 
-      // Affinity: similarity between the user's decayed behavioral vector and the
-      // experience's behavioral hidden_signals.  Returns neutralAffinityScore when
-      // either side lacks sufficient confidence (config-driven threshold).
-      const affinityScore = computeAffinityScore(signals, entityBehavior);
+      // Affinity: use pre-loaded cache entry when available; fall back to live
+      // computation for cold-cache candidates (avoids per-candidate DB round-trips).
+      // On a cache miss, fire-and-forget computeAndCacheAffinity so subsequent
+      // requests for the same (user, experience) pair hit the cache.
+      const cachedAffinity = affinityMap.get(c.experience_id.toString());
+      let affinityScore;
+      if (cachedAffinity) {
+        affinityScore = cachedAffinity.score;
+      } else {
+        affinityScore = computeAffinityScore(signals, entityBehavior);
+        // Warm the cache asynchronously — never awaited, never throws
+        computeAndCacheAffinity(userId, c.experience_id).catch(() => {});
+      }
 
       // Blended formula: formula coefficients from signalsConfig (SIGNALS_CONFIG env var).
       // recencyBoost is always computed fresh — not stored — so it stays accurate between
