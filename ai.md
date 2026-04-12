@@ -2048,3 +2048,307 @@ Summary is cached; re-opening the panel within 6 hours skips the LLM call and re
 | 8 | `src/utilities/bienbot-api.js` | Frontend API calls, `broadcastEvent` on mutations |
 | 9 | `src/hooks/useBienBot.js` | Conversation state, streaming, pending action management; `resumeSession` triggers greeting |
 | 10 | `.env.example` | Document `BIENBOT_*` env vars (rate limits, token budgets) |
+
+---
+
+## Hidden Signals & Affinity
+
+### 7.1 Hidden Signals Overview
+
+Hidden signals are an 8-dimensional behavioral vector stored per user, tracking implicit preferences derived from interactions with plan items and experiences.
+
+**Dimensions** (`DIMENSIONS` in `utilities/hidden-signals.js`):
+
+| Dimension | Description |
+|-----------|-------------|
+| `energy` | Activity intensity preference |
+| `novelty` | Preference for new or unfamiliar experiences |
+| `budget_sensitivity` | Cost-consciousness |
+| `social` | Preference for group or social activities |
+| `structure` | Need for scheduled, organised itineraries |
+| `food_focus` | Emphasis on culinary experiences |
+| `cultural_depth` | Interest in museums, history, and local culture |
+| `comfort_zone` | Willingness to try unfamiliar or challenging activities |
+
+**Value range**: All dimensions are clamped to `[0, 1]`. The neutral midpoint is `0.5`.
+
+**EMA update formula**: Each dimension is updated via Exponential Moving Average (α = `0.20`):
+
+```
+target  = clamp01(current_val + influence_strength × combined_weight)
+new_val = clamp01((1 − 0.20) × current_val + 0.20 × target)
+combined_weight = EVENT_WEIGHT_MAP[event.type] × event.value
+```
+
+`influence_strength` comes from `ACTIVITY_TYPE_SIGNAL_MAP[activity_type][dimension]`. If no activity type is associated with the event, the dimension is not nudged.
+
+**Per-event confidence increment**: `+0.05` per event processed, clamped to `[0, 1]`.
+
+**Storage** (`user.hidden_signals`): a flat object with one key per dimension plus:
+- `confidence` — number of contributing events (normalised to `[0, 1]`)
+- `last_updated` — ISO timestamp of the most recent update
+
+**Decay** (`applySignalDecay(signals)`):
+- Applied before affinity computation, not written back to the database.
+- Uses a half-life of **30 days** (`DECAY_HALF_LIFE_DAYS`).
+- For each dimension: `new_val = clamp01(0.5 + (val − 0.5) × exp(−days / 30))`
+- Confidence also decays: `new_confidence = clamp01(confidence × exp(−days / 30))`
+- If elapsed time is less than 1 day, the signal vector is returned unchanged.
+- Skipped entirely if `signals.last_updated` is absent.
+
+**Raw event log**: Up to 200 events are retained in `user.hidden_signal_events` (capped via `$slice: -200` on every write).
+
+---
+
+### 7.2 Content Signals
+
+Content signals are computed metrics stored on each experience in `experience.signals`, reflecting its quality and engagement level.
+
+**Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `signals.trustScore` | Number `[0, 1]` | Weighted quality indicator |
+| `signals.popularity.planCount` | Number | Total distinct plans created |
+| `signals.popularity.planCountWithActivity` | Number | Plans with at least one activity-typed item |
+| `signals.popularity.completedPlanCount` | Number | Plans with at least one completed item |
+| `signals.computed_at` | Date | Timestamp of last signal computation |
+
+**`trustScore` formula** (`computeTrustScore()`):
+
+```
+score = 0
+if isCurator:      score += w.curator         // default 0.30 (normalised)
+if isPublic:       score += w.public          // default 0.20 (normalised)
+score += clamp01(completionRate) × w.completionRate  // default 0.20 (normalised)
+if planCount >= w.minPlanItems: score += w.base       // default 0.10 (normalised)
+trustScore = clamp01(score)
+```
+
+Weights are read from `signals-config.trustScore` (normalised to sum to 1 at startup). `minPlanItems` defaults to `1` and is excluded from normalisation.
+
+**`popularity` score** (`computePopularityScore()`): Weighted sum of three normalised plan-count dimensions. Normalisation is done relative to per-destination maximums so scores are meaningful within context:
+
+```
+score = w.planCount × (planCount / maxPlanCount)
+      + w.planWithActivity × (planCountWithActivity / maxPlanCountWithActivity)
+      + w.completedPlans   × (completedPlanCount   / maxCompletedPlanCount)
+```
+
+Default weights (normalised): `planCount: 0.50`, `planWithActivity: 0.30`, `completedPlans: 0.20`.
+
+**`reviews`**: Schema field present (`avgRating` weight exists in config), not yet populated. Placeholder for future review data.
+
+**`updateExperienceSignals(experienceId)`**: Fire-and-forget function that:
+1. Loads the experience and its creator user.
+2. Runs a single MongoDB aggregation on the Plan collection for the three popularity dimensions.
+3. Calls `computeTrustScore()` with the creator's curator flag and the experience's `public` field.
+4. Atomically writes all fields to `experience.signals` via `$set`.
+
+**Trigger points**:
+- After plan create (`controllers/api/plans.js` → `createPlan`)
+- After plan delete (`controllers/api/plans.js` → `deletePlan`)
+- Async refresh on experience page load (via `refreshSignalsAndAffinity()`)
+
+---
+
+### 7.3 Affinity System
+
+The affinity system computes a scalar similarity score between a user's behavioral vector and an experience's behavioral vector.
+
+**`computeAffinityScore(userSignals, entitySignals, config)`**:
+
+```
+formula: 1 − weighted_mean_absolute_difference
+
+weightedDiff = Σ (config.affinity[dim] × |userSignals[dim] − entitySignals[dim]|)
+               for each dim in DIMENSIONS
+
+score = clamp01(1 − weightedDiff)
+```
+
+Affinity dimension weights (normalised defaults from `signals-config.affinity`):
+
+| Dimension | Default Weight (pre-normalisation) |
+|-----------|-------------------------------------|
+| `energy` | 0.15 |
+| `novelty` | 0.15 |
+| `budget_sensitivity` | 0.10 |
+| `social` | 0.10 |
+| `structure` | 0.10 |
+| `food_focus` | 0.15 |
+| `cultural_depth` | 0.15 |
+| `comfort_zone` | 0.10 |
+
+**Confidence gating**: If either `userSignals.confidence` or `entitySignals.confidence` is below `config.affinity.confidenceThreshold` (default `0.20`), the function returns `config.affinity.neutralAffinityScore` (default `0.50`) immediately without computing the weighted difference.
+
+**`top_dims` extraction** (computed in `computeAndCacheAffinity()`):
+
+```javascript
+dimEntries = DIMENSIONS.map(dim => ({
+  dim,
+  user_val:   decayedUser[dim],
+  entity_val: decayedEntity[dim],
+  delta:      Math.abs(decayedUser[dim] - decayedEntity[dim])
+}));
+
+top_dims = dimEntries
+  .filter(d => d.delta < 0.3)      // only well-aligned dimensions
+  .sort((a, b) => a.delta - b.delta) // ascending by delta (best alignment first)
+  .slice(0, 3);                     // at most 3 dimensions
+```
+
+`top_dims` is stored in the affinity cache entry alongside the score and surfaced to BienBot for narrative generation.
+
+---
+
+### 7.4 Affinity Cache
+
+**File**: `utilities/affinity-cache.js`
+
+Pre-computed affinity entries are cached to avoid recomputing the signal pipeline on every BienBot request.
+
+**Provider selection**: Redis when `REDIS_URL` is set; MongoDB fallback otherwise.
+
+**Redis key schema**: `bien:affinity:{userId}` — stores a JSON array of all affinity entries for that user.
+
+**TTL**: `AFFINITY_CACHE_TTL_MS` (default **6 hours**). Applied via `SETEX` in the Redis provider. The MongoDB provider does not enforce TTL; entries persist until evicted by the 50-entry cap.
+
+**50-entry cap**:
+- Redis: `entries.slice(-MAX_ENTRIES)` before writing back.
+- MongoDB: `$push` with `$slice: -50` after removing the existing entry for the experience.
+
+**Cache entry shape**:
+```javascript
+{
+  experience_id: ObjectId,
+  score: Number,          // [0, 1] affinity score
+  top_dims: [{            // up to 3 best-aligned dimensions
+    dim: String,
+    user_val: Number,
+    entity_val: Number,
+    delta: Number
+  }],
+  computed_at: Date
+}
+```
+
+**MongoDB storage**: `user.affinity_cache` — subdocument array on the User model.
+
+**Public API**:
+
+| Function | Signature | Returns |
+|----------|-----------|---------|
+| `getAffinityEntry` | `(userId, experienceId)` | `Promise<Object\|null>` |
+| `setAffinityEntry` | `(userId, experienceId, entry)` | `Promise<void>` |
+| `getAffinityMap` | `(userId)` | `Promise<Map<experienceIdString, entry>>` |
+| `resetAffinityCache` | `()` | `void` — resets singleton (tests only) |
+
+---
+
+### 7.5 Staleness Refresh
+
+**`SIGNALS_STALENESS_MS`**: Default **15 minutes** (900,000 ms). Configurable via `SIGNALS_CONFIG` env var (see 7.7).
+
+**`refreshSignalsAndAffinity(experienceId, userId, computedAt)`**:
+
+```
+1. isStale = !computedAt || (Date.now() − computedAt > SIGNALS_STALENESS_MS)
+2. if isStale: await updateExperienceSignals(experienceId)
+              // awaited so affinity reads the fresh signals
+3. await computeAndCacheAffinity(userId, experienceId)
+```
+
+Never throws — errors are logged and silently absorbed.
+
+**`computeAndCacheAffinity(userId, experienceId)`**:
+1. Validates both IDs as Mongoose ObjectIds; returns early if invalid.
+2. Loads `user.hidden_signals` and `experience.hidden_signals` in parallel.
+3. Applies `applySignalDecay()` to both vectors.
+4. Calls `computeAffinityScore()` to get the scalar score.
+5. Computes `top_dims` (delta < 0.3, sorted ascending, top 3).
+6. Writes the entry to the affinity cache via `setAffinityEntry()`.
+
+**Trigger sites** (via `setImmediate` after sending the HTTP response):
+
+| Controller | Endpoint | `computedAt` passed |
+|-----------|----------|---------------------|
+| `controllers/api/experiences.js` — `showExperience` | `GET /api/experiences/:id` | Actual `experience.signals.computed_at` |
+| `controllers/api/plans.js` — `getPlanById` | `GET /api/plans/:id` | `null` (always refresh) |
+
+Using `setImmediate` ensures the refresh never delays the HTTP response to the client.
+
+---
+
+### 7.6 BienBot Integration
+
+**Invoke context** (`utilities/bienbot-context-builders.js`):
+
+`buildContextForInvokeContext()` calls `appendAffinityBlock()` for `experience` and `plan` entity types. The affinity block is appended to the LLM context string in the format:
+
+```
+[AFFINITY] User affinity for this experience: {score} ({label} — {dims})
+```
+
+The block is suppressed when:
+- The affinity entry is absent (cache miss with no fallback data).
+- `Math.abs(score − 0.5) <= 0.05` (score is indistinguishable from neutral).
+- `top_dims` is empty.
+
+**Discovery ranking** (`buildDiscoveryContext()`):
+- Calls `affinityCache.getAffinityMap(userId)` once before iterating over experience candidates.
+- For each candidate, looks up `cachedAffinity.score` from the map.
+- Falls back to a cold `computeAffinityScore()` call (using undecked signals) when no cache entry exists.
+
+**Cache-miss fallback** (`controllers/api/bienbot.js` — `POST /api/bienbot/chat`):
+- Before building the invoke context, the controller checks the affinity cache.
+- On a cache miss, it **awaits** `computeAndCacheAffinity(userId, experienceId)` — this is the only blocking call site; all other triggers are fire-and-forget.
+- The freshly computed entry is then available to `buildContextForInvokeContext()`.
+
+**System prompt — `AFFINITY SIGNALS` rule block**:
+- Instructs the LLM to reference affinity and name the relevant dimensions when a user asks open-ended fit questions (e.g. "Is this experience right for me?").
+- Directs the LLM to suppress raw numeric scores in responses; use qualitative labels instead.
+- The LLM remains silent about affinity when the score is absent or neutral.
+
+---
+
+### 7.7 Signals Config
+
+**File**: `utilities/signals-config.js`
+
+All signal weights and formula coefficients are loaded once at startup from the `SIGNALS_CONFIG` environment variable (a JSON string), deep-merged with hardcoded defaults, validated, and frozen.
+
+**Loading flow**:
+1. Parse `SIGNALS_CONFIG` JSON (falls back to defaults on parse error or absence).
+2. Deep-merge with `DEFAULTS` (one level deep per group).
+3. Validate each weight group: weight keys must be finite and `>= 0`; `minPlanItems` must be a non-negative integer; `confidenceThreshold` and `neutralAffinityScore` must be in `[0, 1]`.
+4. Normalise each weight group so its weight keys sum to `1.0`.
+5. Pass through top-level scalar keys unchanged (only range-checked).
+6. `Object.freeze()` the result — single immutable singleton for the process lifetime.
+
+**Weight groups** (each normalised to sum to 1):
+
+| Group | Keys |
+|-------|------|
+| `trustScore` | `curator`, `public`, `completionRate`, `base` (+ non-weight: `minPlanItems`) |
+| `popularity` | `planCount`, `planWithActivity`, `completedPlans` |
+| `reviews` | `avgRating` |
+| `affinity` | `energy`, `novelty`, `budget_sensitivity`, `social`, `structure`, `food_focus`, `cultural_depth`, `comfort_zone` (+ non-weight: `confidenceThreshold`, `neutralAffinityScore`) |
+| `formula` | `adaptiveFactor`, `trustScore`, `popularity`, `recencyBoost`, `affinity` |
+
+**Top-level scalar keys** (not normalised — range-checked only):
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `SIGNALS_STALENESS_MS` | `900000` (15 min) | Max age before content signals are recomputed |
+| `AFFINITY_CACHE_TTL_MS` | `21600000` (6 hr) | Redis TTL for cached affinity entries |
+
+**Override example** (single key):
+```bash
+SIGNALS_CONFIG='{"SIGNALS_STALENESS_MS":300000}'
+```
+
+**Override example** (weight group partial override — remaining weights are renormalised):
+```bash
+SIGNALS_CONFIG='{"affinity":{"energy":0.30,"cultural_depth":0.30}}'
+```
