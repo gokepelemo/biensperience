@@ -138,7 +138,7 @@ export default function SuggestionList({ data, onAddSelected, disabled, existing
                       {isSelected && <CheckIcon />}
                     </span>
                     <span className={styles.suggestionItemContent}>
-                      <span className={styles.suggestionItemText}>{(item.text || item.content || '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ')}</span>
+                      <span className={styles.suggestionItemText}>{(item.text || item.content || '').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')}</span>
                       {sources && (
                         <span className={styles.suggestionItemSource}>
                           from {sources}
