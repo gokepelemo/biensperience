@@ -87,6 +87,12 @@ const DEFAULTS = {
     /** Share going to the user ↔ experience hidden_signals affinity score. */
     affinity: 0.10,
   },
+  /**
+   * Top-level scalar config keys (not weight groups — never normalised).
+   * Stored directly on the config object, not nested inside a weight group.
+   */
+  SIGNALS_STALENESS_MS:   15 * 60 * 1000,  // 15 minutes
+  AFFINITY_CACHE_TTL_MS:   6 * 60 * 60 * 1000, // 6 hours
 };
 
 // Keys whose numeric values are weights and should be normalised to sum to 1.
@@ -239,6 +245,15 @@ function loadSignalsConfig() {
       groupName
     );
     merged[groupName] = normaliseWeights(merged[groupName]);
+  }
+
+  // Pass through top-level scalar keys (not weight groups)
+  const SCALAR_KEYS = ['SIGNALS_STALENESS_MS', 'AFFINITY_CACHE_TTL_MS'];
+  for (const key of SCALAR_KEYS) {
+    const overrideVal = override[key];
+    merged[key] = (typeof overrideVal === 'number' && isFinite(overrideVal) && overrideVal > 0)
+      ? overrideVal
+      : DEFAULTS[key];
   }
 
   const config = Object.freeze(merged);
