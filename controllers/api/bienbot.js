@@ -285,16 +285,21 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '',
     'AFFINITY SIGNALS — entity-level match:',
     '- The invoke context may include an [AFFINITY] line for the experience or plan currently open:',
-    '  e.g. "User affinity for this experience: 0.82 (strong alignment — food_focus, cultural_depth)"',
-    '- Affinity score interpretation: < 0.4 = low match, 0.4–0.6 = moderate, > 0.6 = strong.',
+    '  e.g. "User affinity for this experience: strong alignment — driven by shared interest in food and culinary experiences, mutual appreciation for cultural depth and local immersion"',
     '- When [AFFINITY] is present and the user asks an open-ended question about the current entity',
     '  ("is this a good fit for me?", "should I add more items?", "what do you think of this?"),',
-    '  reference the affinity and top aligning dimensions in your answer.',
-    '- Name the specific dimensions driving the match',
-    '  (e.g. "your food_focus and cultural_depth align well with this experience").',
-    '- Do NOT surface the raw numeric score unprompted. Prefer natural language:',
-    '  "this experience is a strong match for your travel style" over "your affinity score is 0.82".',
-    '- When [AFFINITY] is absent or neutral (score 0.45–0.55), do not invent affinity reasoning.',
+    '  reference the affinity alignment and the specific driver descriptions in your answer.',
+    '- Use the driver descriptions directly in your response — they describe what connects the user to the experience',
+    '  (e.g. "this experience is a strong match because of your shared interest in food and cultural immersion").',
+    '- Never use numeric scores, percentages, or quantitative terms when discussing affinity or discovery results.',
+    '  Prefer "strong match", "moderate match", "popular among travelers", "well-liked" over any numbers.',
+    '- When [AFFINITY] is absent, do not invent affinity reasoning.',
+    '',
+    'DISCOVERY RESULTS — qualitative descriptions:',
+    '- [DISCOVERY RESULTS] blocks describe experiences using qualitative labels (e.g. "popular among travelers", "strong match for your travel style") and dimension drivers (e.g. "driven by shared interest in food").',
+    '- When presenting discovery results to the user, use these qualitative descriptions naturally.',
+    '- Never expose raw counts, percentages, or numeric scores from discovery results. Say "well-liked by travelers" instead of "23 plans" or "85% completion".',
+    '- Use the affinity driver descriptions to explain WHY an experience is a good fit.',
     '',
     'GREETING CONTEXT SECTIONS — follow-up handling:',
     '- Every entity mentioned in the greeting carries an inline entityJSON ref. Use those IDs for actions and navigation without asking the user.',
@@ -846,6 +851,21 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
+    // Plan-related intent without a specific plan in context — load full user
+    // greeting context so the LLM can see all plans (including undated ones) and
+    // make recommendations without asking the user to provide the list.
+    const OVERVIEW_PLAN_INTENTS = new Set([
+      'QUERY_PLAN', 'UPDATE_PLAN', 'DELETE_PLAN', 'SYNC_PLAN', 'PLAN_EXPERIENCE',
+      'ADD_PLAN_ITEMS', 'UPDATE_PLAN_ITEM', 'COMPLETE_PLAN_ITEM',
+      'UNCOMPLETE_PLAN_ITEM', 'SCHEDULE_PLAN_ITEM', 'ADD_PLAN_ITEM_NOTE',
+      'SET_PLAN_ITEM_LOCATION', 'UPDATE_PLAN_ITEM_COST', 'ADD_PLAN_ITEM_DETAIL',
+      'ASSIGN_PLAN_ITEM', 'UPDATE_PLAN_ITEM_TEXT', 'UPDATE_PLAN_ITEM_URL',
+      'DELETE_PLAN_ITEM', 'ADD_PLAN_COST'
+    ]);
+    if (OVERVIEW_PLAN_INTENTS.has(intent) && !ctx.plan_id) {
+      promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
+    }
+
     // Photo queries / add photo — auto-load photo context from the current entity in ctx
     if (intent === 'QUERY_PHOTOS' || intent === 'ADD_PHOTO') {
       if (ctx.experience_id) {
@@ -958,6 +978,13 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     const hasEntityInSession = !!(ctx.destination_id || ctx.experience_id || ctx.plan_id);
     if (message && !entities.experience_name && !entities.destination_name && !hasEntityInSession && intent !== 'NAVIGATE_TO_ENTITY') {
       promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
+    }
+
+    // User-entity session with no specific entity context — load full greeting
+    // context so the LLM has the user's plan overview (including undated plans,
+    // travel signals, attention items) for follow-up questions like "pick the best".
+    if (!hasEntityInSession && session.invoke_context?.entity === 'user') {
+      promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
     // Recover entity context from recent assistant messages when the current message
@@ -1548,6 +1575,15 @@ exports.chat = async (req, res) => {
   // When multipart/form-data is used (file attachment), fields are strings in req.body
   let { message, sessionId, invokeContext } = req.body;
 
+  // hiddenUserMessage — ephemeral override sent to the LLM instead of `message`.
+  // Stored message (session history) always uses `message`; never stored.
+  let hiddenUserMessage = req.body.hiddenUserMessage || null;
+  if (hiddenUserMessage && typeof hiddenUserMessage === 'string') {
+    hiddenUserMessage = stripNullBytes(hiddenUserMessage).trim().slice(0, MAX_MESSAGE_LENGTH) || null;
+  } else {
+    hiddenUserMessage = null;
+  }
+
   // Parse invokeContext from string when sent as multipart form data
   if (typeof invokeContext === 'string') {
     try {
@@ -1932,7 +1968,10 @@ exports.chat = async (req, res) => {
   }
 
   // --- Step 2: Classify intent ---
-  const classification = await classifyIntent(message, {
+  // Use hiddenUserMessage when present so the classifier sees the true intent
+  // ("confirm plan, suggest next steps") rather than the stored visible text.
+  const classifyText = hiddenUserMessage || message;
+  const classification = await classifyIntent(classifyText, {
     userId,
     sessionId: session._id.toString(),
     user: req.user
@@ -2537,7 +2576,7 @@ exports.chat = async (req, res) => {
     classification.entities,
     session,
     userId,
-    message,
+    classifyText,
     navigationSchema
   );
 
@@ -2658,9 +2697,11 @@ exports.chat = async (req, res) => {
     });
   }
 
-  // Add the current user message with delimiter
-  // If there's an attachment, note it in the message so the LLM is aware
-  let userContent = `[USER MESSAGE]\n${message}\n[/USER MESSAGE]`;
+  // Add the current user message with delimiter.
+  // When hiddenUserMessage is present, use it as the LLM prompt while the
+  // visible `message` is stored in session history (already done above).
+  const llmUserContent = hiddenUserMessage || message;
+  let userContent = `[USER MESSAGE]\n${llmUserContent}\n[/USER MESSAGE]`;
   if (attachmentData) {
     // Sanitize filename before embedding in the LLM context to prevent prompt injection.
     // Replace non-word characters with underscores and cap length.
@@ -2696,7 +2737,7 @@ exports.chat = async (req, res) => {
   ]);
   const baseBudget = 1500;
   const needsMoreTokens = BULK_ACTION_INTENTS.has(classification.intent) ||
-    /add\s+(these|all|selected)\s+plan\s+items/i.test(message);
+    /add\s+(these|all|selected)\s+plan\s+items/i.test(classifyText);
   const maxTokens = needsMoreTokens ? 3000 : baseBudget;
 
   let llmResult;

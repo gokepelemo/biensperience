@@ -240,6 +240,8 @@ export default function SingleExperience() {
   const [hoveredPlanItem, setHoveredPlanItem] = useState(null);
   const [activeTab, setActiveTab] = useState("experience"); // "experience" or "myplan"
   const [pendingUnplan, setPendingUnplan] = useState(false); // Hide planned date immediately when user clicks Remove (before confirm)
+  // IDs of plan items recently added by BienBot — passed to PlanItemsRenderer for fade-in animation
+  const [bienbotNewItemIds, setBienbotNewItemIds] = useState(() => new Set());
 
   // Tab loading states for smooth transitions
   const [experienceTabLoading, setExperienceTabLoading] = useState(true);
@@ -1195,6 +1197,35 @@ export default function SingleExperience() {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // Subscribe to plan:item:added at this level (always mounted) so BienBot-added items
+  // can trigger a tab switch and animation even when MyPlanTabContent is not yet open.
+  useEffect(() => {
+    const NEW_ITEM_ANIMATION_MS = 2500;
+    const handleItemAdded = (event) => {
+      const planId = event.planId;
+      const itemId = event.itemId || event.planItemId;
+      if (!itemId || !planId) return;
+
+      // Only handle events for the current plan (userPlan or selectedPlanId)
+      const currentPlanId = userPlan?._id?.toString ? userPlan._id.toString() : String(userPlan?._id || '');
+      const selPlanId = selectedPlanId?.toString ? selectedPlanId.toString() : String(selectedPlanId || '');
+      const eventPlanId = planId?.toString ? planId.toString() : String(planId);
+      if (eventPlanId !== currentPlanId && eventPlanId !== selPlanId) return;
+
+      // Auto-switch to the "myplan" tab so new items are immediately visible
+      setActiveTab('myplan');
+
+      // Track the ID for the fade-in animation; clear after the animation duration
+      setBienbotNewItemIds(prev => { const next = new Set(prev); next.add(itemId); return next; });
+      setTimeout(() => {
+        setBienbotNewItemIds(prev => { const next = new Set(prev); next.delete(itemId); return next; });
+      }, NEW_ITEM_ANIMATION_MS);
+    };
+
+    const unsub = eventBus.subscribe('plan:item:added', handleItemAdded);
+    return () => unsub();
+  }, [userPlan?._id, selectedPlanId]);
 
   // Handle structured error action intent: request access to a plan.
   // Triggered by toast action click (see src/utilities/error-handler.js).
@@ -3572,6 +3603,8 @@ export default function SingleExperience() {
                         presenceConnected={presenceConnected}
                         planMembers={planMembers}
                         setTyping={setTyping}
+                        // BienBot: IDs of items recently added via BienBot (for fade-in animation)
+                        bienbotNewItemIds={bienbotNewItemIds}
                       />
                     )}
 

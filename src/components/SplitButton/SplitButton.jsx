@@ -31,7 +31,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Portal } from '@chakra-ui/react';
+import { Menu } from '@chakra-ui/react';
 import { LuChevronDown } from 'react-icons/lu';
 import { Button } from '../design-system';
 import styles from './SplitButton.module.css';
@@ -99,13 +99,11 @@ const SplitButton = ({
           </Button>
         </Menu.Trigger>
       </div>
-      <Portal>
-        <Menu.Positioner>
-          <Menu.Content className={styles.menuContent}>
-            {children}
-          </Menu.Content>
-        </Menu.Positioner>
-      </Portal>
+      <Menu.Positioner>
+        <Menu.Content className={styles.menuContent}>
+          {children}
+        </Menu.Content>
+      </Menu.Positioner>
     </Menu.Root>
   );
 };

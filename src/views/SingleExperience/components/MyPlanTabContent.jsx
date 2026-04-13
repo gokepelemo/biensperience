@@ -229,7 +229,10 @@ export default function MyPlanTabContent({
   // Real-time presence
   presenceConnected = false,
   planMembers = [],
-  setTyping
+  setTyping,
+
+  // BienBot: IDs of items recently added via BienBot (for fade-in animation)
+  bienbotNewItemIds
 }) {
   const maxPlanItemNestingLevel = useMemo(() => {
     const raw = import.meta.env.VITE_PLAN_ITEM_MAX_NESTING_LEVEL || import.meta.env.PLAN_ITEM_MAX_NESTING_LEVEL;
@@ -937,6 +940,7 @@ export default function MyPlanTabContent({
         getItemProps={getItemProps}
         isItemVisible={isItemVisible}
         pinnedItemId={pinnedItemId}
+        externalNewItemIds={bienbotNewItemIds}
       />
 
       {/* Schedule Date Modal */}

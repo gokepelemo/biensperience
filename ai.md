@@ -15,6 +15,7 @@ This document covers the full AI stack powering the platform: the shared AI Gate
     - [Request Lifecycle](#request-lifecycle)
     - [Policy Resolution Chain](#policy-resolution-chain)
     - [Guardrails](#guardrails)
+    - [Policy Caching](#policy-caching)
     - [Usage Tracking](#usage-tracking)
     - [Using the Gateway from Any Feature](#using-the-gateway-from-any-feature)
   - [AI Provider Registry](#ai-provider-registry)
@@ -31,6 +32,9 @@ This document covers the full AI stack powering the platform: the shared AI Gate
   - [NLP.js — Local Intent Classification](#nlpjs--local-intent-classification)
     - [Why NLP.js](#why-nlpjs)
     - [Architecture](#architecture)
+    - [MongoDB-Backed Corpus](#mongodb-backed-corpus)
+    - [Classification Logging](#classification-logging)
+    - [Classifier Configuration](#classifier-configuration)
     - [Training Corpus](#training-corpus)
     - [Entity Extraction](#entity-extraction)
     - [Extending the Classifier](#extending-the-classifier)
@@ -65,14 +69,14 @@ This document covers the full AI stack powering the platform: the shared AI Gate
       - [Session Creation](#session-creation)
       - [Session Context Accumulation](#session-context-accumulation)
       - [Session Archival (Soft Delete)](#session-archival-soft-delete)
-      - [Session Ownership](#session-ownership)
     - [Conversation Compacting](#conversation-compacting)
       - [Multi-Turn History Window](#multi-turn-history-window)
       - [Session Summarization (Conversation Compressing)](#session-summarization-conversation-compressing)
       - [Token Budget Management](#token-budget-management)
       - [Summary Caching and Staleness](#summary-caching-and-staleness)
     - [Messages Integration](#messages-integration)
-    - [Chat Drawer](#chat-drawer)
+      - [Chat Drawer](#chat-drawer)
+    - [Chat Drawer](#chat-drawer-1)
       - [BienBotTrigger (FAB)](#bienbottrigger-fab)
       - [BienBotPanel (Drawer/Sheet)](#bienbotpanel-drawersheet)
       - [Panel UI Elements](#panel-ui-elements)
@@ -115,6 +119,14 @@ This document covers the full AI stack powering the platform: the shared AI Gate
       - [Scenario C — In-context invocation from a Destination page](#scenario-c--in-context-invocation-from-a-destination-page)
       - [Scenario D — Resuming a past session](#scenario-d--resuming-a-past-session)
     - [Implementation Sequence](#implementation-sequence)
+  - [Hidden Signals \& Affinity](#hidden-signals--affinity)
+    - [7.1 Hidden Signals Overview](#71-hidden-signals-overview)
+    - [7.2 Content Signals](#72-content-signals)
+    - [7.3 Affinity System](#73-affinity-system)
+    - [7.4 Affinity Cache](#74-affinity-cache)
+    - [7.5 Staleness Refresh](#75-staleness-refresh)
+    - [7.6 BienBot Integration](#76-bienbot-integration)
+    - [7.7 Signals Config](#77-signals-config)
 
 ---
 
@@ -693,11 +705,11 @@ The AI Admin dashboard (accessible via Admin > AI in the navigation) provides fi
 
 | Tab | Component | Purpose |
 |-----|-----------|---------|
-| **Providers** | `AIAdminProviders` | View/edit provider configs, toggle enabled state |
-| **Policies** | `AIAdminPolicies` | CRUD for global and user-scoped policies |
-| **Usage** | `AIAdminUsage` | Usage analytics, per-user/per-provider breakdowns |
-| **Routing** | `AIAdminRouting` | Configure task-to-provider routing rules |
-| **Classifier** | `AIAdminClassifier` | Manage intent corpus, review classification logs, retrain model |
+| **Providers** | `AIAdminProviders` | View/edit provider configs, toggle enabled/disabled state |
+| **Policies** | `AIAdminPolicies` | CRUD for global and user-scoped policies (rate limits, token budgets, content filtering) |
+| **Usage** | `AIAdminUsage` | Usage analytics, per-user/per-provider/per-task breakdowns with 90-day history |
+| **Routing** | `AIAdminRouting` | Configure task-to-provider routing rules; invalidates policy cache on save |
+| **Classifier** | `AIAdminClassifier` | Manage intent corpus (add/edit utterances), review low-confidence classification logs, retrain model live |
 
 Requires `super_admin` role + `ai_admin` feature flag.
 
@@ -811,18 +823,22 @@ function MyAIComponent({ destination }) {
 | File | Purpose |
 |------|---------|
 | `utilities/bienbot-intent-classifier.js` | NLP.js neural network for local intent classification |
-| `utilities/bienbot-intent-corpus.json` | Training utterances for each intent |
+| `utilities/bienbot-intent-corpus.json` | Training utterances for each intent (seed data) |
+| `utilities/bienbot-corpus-seeder.js` | Seeds the IntentCorpus model from the JSON file on startup |
+| `models/intent-corpus.js` | MongoDB-backed corpus (runtime source of truth) |
+| `models/intent-classifier-config.js` | Singleton config (confidence thresholds, LLM fallback toggle, log retention) |
+| `models/intent-classification-log.js` | Per-classification log entries with LLM reclassification fields |
 
 ### BienBot
 
 | File | Purpose |
 |------|---------|
-| `models/bienbot-session.js` | Conversation sessions with context, messages, pending actions |
-| `utilities/bienbot-context-builders.js` | Entity-aware context builders for LLM prompts |
-| `utilities/bienbot-action-executor.js` | Action execution via existing controller logic |
-| `utilities/bienbot-session-summarizer.js` | Session compression for resume greeting |
-| `controllers/api/bienbot.js` | BienBot API controller (orchestration, SSE streaming) |
-| `routes/api/bienbot.js` | Route definitions with auth, feature flags, rate limiting |
+| `models/bienbot-session.js` | Conversation sessions with context, messages, pending actions, collaborators |
+| `utilities/bienbot-context-builders.js` | Entity-aware context builders for LLM prompts; includes affinity block injection |
+| `utilities/bienbot-action-executor.js` | Action execution via existing controller logic; exports ALLOWED_ACTION_TYPES and STRUCTURED_CONTENT_TYPES |
+| `utilities/bienbot-session-summarizer.js` | Session compression for resume greeting; never throws |
+| `controllers/api/bienbot.js` | BienBot API controller (orchestration, SSE streaming, all 18 endpoints) |
+| `routes/api/bienbot.js` | Route definitions with auth, feature flags, rate limiting, file upload middleware |
 
 ### Frontend AI
 
@@ -831,8 +847,19 @@ function MyAIComponent({ destination }) {
 | `src/utilities/ai/` | AI functions, adapters, events, and config |
 | `src/utilities/ai-admin-api.js` | Admin API calls for providers, policies, usage, routing |
 | `src/utilities/bienbot-api.js` | BienBot frontend API calls with event emission |
+| `src/utilities/bienbot-suggestions.js` | Context-aware suggestions and auto-navigation after entity creation (`getNavigationUrlForResult()`) |
 | `src/hooks/useBienBot.js` | Conversation state, streaming, pending action management |
-| `src/views/AIAdmin/` | AI Admin dashboard (Providers, Policies, Usage, Routing tabs) |
+| `src/components/BienBotTrigger/BienBotTrigger.jsx` | Floating trigger FAB with portal rendering and event bus integration |
+| `src/components/BienBotPanel/BienBotPanel.jsx` | Chat drawer/sheet UI — messages, pending action cards, input |
+| `src/components/BienBotPanel/WorkflowStepCard.jsx` | Renders workflow action groups with step-level status |
+| `src/components/BienBotPanel/PendingActionCard.jsx` | Individual action confirmation card |
+| `src/components/BienBotPanel/SuggestionList.jsx` | Tappable suggestion chips from `suggestion_list` blocks |
+| `src/components/BienBotPanel/TipSuggestionList.jsx` | Travel tip cards from `tip_suggestion_list` blocks |
+| `src/components/BienBotPanel/DiscoveryResultCard.jsx` | Destination/experience discovery result cards |
+| `src/components/BienBotPanel/BienBotPhotoGallery.jsx` | Photo strip from `photo_gallery` structured content blocks |
+| `src/components/BienBotPanel/SessionHistoryView.jsx` | Past session list with resume affordance |
+| `src/components/BienBotPanel/PlanSelector.jsx` | Disambiguation modal for `select_plan` action |
+| `src/views/AIAdmin/` | AI Admin dashboard (Providers, Policies, Usage, Routing, Classifier tabs) |
 
 ---
 
@@ -853,20 +880,22 @@ BienBot can be opened from anywhere in the application. Each entry point passes 
 
 ### Entry Points
 
-| Surface | `invokeContext` payload | Bot opens knowing… |
+Each entity page passes flat `entity`/`entityId`/`entityLabel` props to `BienBotTrigger`, which assembles them into an `invokeContext` object before forwarding to the backend.
+
+| Surface | Props passed | Bot opens knowing… |
 |---|---|---|
-| **Messages tab** (standalone) | `{}` | Nothing — open-ended |
-| **SingleDestination page** | `{ entity: 'destination', id }` | The destination, its experiences, public plan items |
-| **SingleExperience page** | `{ entity: 'experience', id }` | The experience, its destination, user's existing plan |
-| **My Plan tab** | `{ entity: 'plan', id }` | The full plan, completion status, collaborators |
-| **Plan item modal** | `{ entity: 'plan_item', planId, itemId }` | The specific plan item and its parent plan |
-| **Profile / AppHome** | `{ entity: 'user', id }` | The user's plans, favourites, and recent activity |
+| **Messages tab** (standalone) | *(no entity props)* | Nothing — open-ended |
+| **SingleDestination page** | `entity="destination" entityId={id}` | The destination, its experiences, public plan items |
+| **SingleExperience page** | `entity="experience" entityId={id}` | The experience, its destination, user's existing plan |
+| **My Plan tab** | `entity="plan" entityId={id}` | The full plan, completion status, collaborators |
+| **Plan item modal** | `entity="plan_item" entityId={itemId}` | The specific plan item and its parent plan |
+| **Profile / AppHome** | `entity="user" entityId={userId}` | The user's plans, favourites, and recent activity |
 
 ### How it works
 
-1. The `BienBotTrigger` component (a floating button rendered on every entity view) calls `openBienBot(invokeContext)`.
-2. The frontend hook calls `POST /api/bienbot/chat` with `{ message, sessionId, invokeContext }`.
-3. If a new session is created, the controller immediately calls the appropriate context builder(s) for the `invokeContext` entity and stores the result in `session.context` — so the very first LLM call already has rich entity data.
+1. The `BienBotTrigger` component (a floating button rendered on every entity view) receives `entity`, `entityId`, and `entityLabel` props from the host page and assembles them into an `invokeContext` object.
+2. When the user opens the panel or sends a first message, the frontend hook calls `POST /api/bienbot/chat` with `{ message, sessionId, invokeContext }`.
+3. If a new session is created, the controller validates the `invokeContext.id` (ObjectId check + permission check), resolves the entity label from the database (never trusts the client-supplied label), then calls the appropriate context builder(s) and pre-populates `session.context` — so the very first LLM call already has rich entity data.
 4. For subsequent turns the session's `context` is used; the `invokeContext` is only acted on at session creation time and when the user navigates to a new entity and re-opens the bot without an existing session.
 
 ### Context inheritance across entities
@@ -969,9 +998,10 @@ The chat endpoint streams responses as Server-Sent Events to enable progressive 
 
 | Event | Data Shape | Purpose |
 |---|---|---|
-| `session` | `{ sessionId: string, title: string }` | Sent first — provides session ID for new sessions |
+| `session` | `{ sessionId: string, title: string, attachmentInfo?: object }` | Sent first — provides session ID for new sessions |
 | `token` | `{ text: string }` | Repeated — message text in ~50 char chunks |
 | `actions` | `{ pending_actions: Action[] }` | Sent once if LLM proposes actions |
+| `structured_content` | `{ type: string, data: object }` | Sent for rich blocks (photo galleries, suggestion lists, discovery results, tip cards) |
 | `done` | `{ usage: object, intent: string, confidence: number }` | Signals stream completion |
 
 The frontend uses `fetch` + `ReadableStream` to parse SSE events. An `AbortController` allows the user to cancel in-flight streams.
@@ -1211,6 +1241,10 @@ A fixed-position floating action button (bottom-right) rendered on entity pages.
 
 If any condition fails, the FAB returns `null` (not rendered).
 
+The FAB icon switches between a smiley-face (AI-enabled mode) and a bell (notification-only mode when `ai_features` is absent). A badge shows the count of unseen notifications when `unseenNotificationIds` is non-empty.
+
+The panel is rendered into a `document.body` portal to avoid stacking-context clipping on positioned ancestor elements. The component subscribes to `bienbot:open` and `bienbot:context_updated` events on the event bus so it can be opened and context-updated programmatically from anywhere in the app.
+
 #### BienBotPanel (Drawer/Sheet)
 
 **File:** `src/components/BienBotPanel/BienBotPanel.jsx`
@@ -1332,11 +1366,19 @@ The notification is suppressed if:
 
 | File | Purpose |
 |---|---|
-| `src/utilities/bienbot-api.js` | `postMessage`, `getSessions`, `executeActions`, `deleteSession`, `shareSession`, `unshareSession` — emits events via `broadcastEvent` on mutations |
+| `src/utilities/bienbot-api.js` | `postMessage`, `getSessions`, `executeActions`, `cancelAction`, `resumeSession`, `deleteSession`, `shareSession`, `unshareSession`, `getAttachmentUrl` — emits events via `broadcastEvent` on mutations |
 | `src/utilities/bienbot-suggestions.js` | Context-aware suggestions and auto-navigation after entity creation (`getNavigationUrlForResult()`) |
-| `src/hooks/useBienBot.js` | Manages conversation state, streaming, pending actions, and session lifecycle |
-| `src/components/BienBotTrigger/BienBotTrigger.jsx` | Floating trigger button rendered on every entity view, passes `invokeContext` to `useBienBot` |
+| `src/hooks/useBienBot.js` | Manages conversation state, SSE streaming, pending actions, session lifecycle; exports module-level `openWithPrefilledMessage`, `openWithSession`, `openWithAnalysis` helpers |
+| `src/components/BienBotTrigger/BienBotTrigger.jsx` | Floating trigger FAB; accepts flat `entity`/`entityId`/`entityLabel` props; portal renders to `document.body`; subscribes to `bienbot:open` and `bienbot:context_updated` events |
 | `src/components/BienBotPanel/BienBotPanel.jsx` | Sliding/modal panel rendering the chat UI — mounts on top of any view, receives the hook's state |
+| `src/components/BienBotPanel/WorkflowStepCard.jsx` | Groups and renders workflow step actions with per-step status |
+| `src/components/BienBotPanel/PendingActionCard.jsx` | Individual action card with Confirm / Skip / Edit affordances |
+| `src/components/BienBotPanel/SuggestionList.jsx` | Renders `suggestion_list` structured content blocks |
+| `src/components/BienBotPanel/TipSuggestionList.jsx` | Renders `tip_suggestion_list` structured content blocks |
+| `src/components/BienBotPanel/DiscoveryResultCard.jsx` | Renders `discovery_result_list` structured content blocks |
+| `src/components/BienBotPanel/BienBotPhotoGallery.jsx` | Renders `photo_gallery` structured content blocks |
+| `src/components/BienBotPanel/SessionHistoryView.jsx` | Session list with resume affordance |
+| `src/components/BienBotPanel/PlanSelector.jsx` | Disambiguation modal for `select_plan` and `select_destination` actions |
 
 ---
 
@@ -1392,6 +1434,9 @@ The notification is suppressed if:
     payload: Object,         // structured params ready to execute
     description: String,     // human-readable summary shown to user for confirmation
     executed: Boolean,
+    status: String,          // 'pending' | 'approved' | 'skipped' | 'executing' | 'done' | 'failed'
+    workflow_id: String,     // set for actions that are part of a workflow (matches parent workflow action id)
+    workflow_step: Number,   // 1-based step index within the workflow
     result: Object
   }],
   status: 'active' | 'archived',
@@ -1758,7 +1803,15 @@ Maps `action.type` → existing service logic. **Does not call models directly**
 | `follow_user` | `users` controller follow logic |
 | `unfollow_user` | `users` controller unfollow logic |
 | `accept_follow_request` | `users` controller accept-follow logic |
+| `list_user_followers` | `users` controller followers list — read-only, auto-executes |
 | `update_user_profile` | `users` controller `updateUser` — name, bio, preferences |
+
+**Navigation Actions**
+
+| `action.type` | Calls |
+|---|---|
+| `navigate_to_entity` | Client-side navigation to a given entity URL — auto-executes, no confirmation |
+| `shift_plan_item_dates` | `plans` controller bulk date-shift logic — reschedules multiple items relative to a new start date |
 
 **Read-Only / Data Fetching Actions (auto-execute, no confirmation)**
 
@@ -1821,16 +1874,29 @@ All action handlers enforce strict user scoping:
 All routes require `ensureLoggedIn` + `requireFeatureFlag('ai_features')` + a BienBot-specific rate limiter (30 req/15 min — stricter than general AI to account for chained DB queries per turn).
 
 ```
-POST   /api/bienbot/chat                              # Main chat turn (SSE or JSON)
-GET    /api/bienbot/sessions                          # List user's sessions (paginated)
-GET    /api/bienbot/sessions/:id                      # Get session + message history
-DELETE /api/bienbot/sessions/:id                      # Delete/archive session
-POST   /api/bienbot/sessions/:id/resume               # Summarize history + return greeting
-POST   /api/bienbot/sessions/:id/execute              # Confirm and execute pending actions
-DELETE /api/bienbot/sessions/:id/pending/:actionId    # Cancel a pending action
+POST   /api/bienbot/chat                                          # Main chat turn (SSE streaming)
+GET    /api/bienbot/sessions                                      # List user's sessions (paginated)
+GET    /api/bienbot/sessions/:id                                  # Get session + message history
+DELETE /api/bienbot/sessions/:id                                  # Delete/archive session
+POST   /api/bienbot/sessions/:id/resume                          # Summarize history + return greeting
+POST   /api/bienbot/sessions/:id/execute                         # Confirm and execute pending actions
+DELETE /api/bienbot/sessions/:id/pending/:actionId               # Cancel a pending action
+PATCH  /api/bienbot/sessions/:id/pending/:actionId               # Approve or edit a pending action
+GET    /api/bienbot/sessions/:id/workflow/:workflowId            # Get workflow execution state
+POST   /api/bienbot/sessions/:id/context                         # Update session context mid-conversation
+POST   /api/bienbot/sessions/:id/collaborators                   # Share session with a user
+DELETE /api/bienbot/sessions/:id/collaborators/:userId           # Remove session collaborator
+GET    /api/bienbot/sessions/:id/attachments/:msgIdx/:attIdx     # Get signed S3 URL for an attachment
+GET    /api/bienbot/mutual-followers                              # List mutual followers (for share UI)
+GET    /api/bienbot/memory                                        # Get cross-session user memory
+DELETE /api/bienbot/memory                                        # Clear cross-session memory
+POST   /api/bienbot/analyze                                       # Stateless single-turn entity analysis
+POST   /api/bienbot/sessions/:id/tips                            # Apply travel tip suggestions to plan
 ```
 
 #### `POST /api/bienbot/chat` request body
+
+Accepts `multipart/form-data` (for file attachments) or `application/json`.
 
 ```json
 {
@@ -1843,6 +1909,8 @@ DELETE /api/bienbot/sessions/:id/pending/:actionId    # Cancel a pending action
   }
 }
 ```
+
+File attachments are uploaded as the `attachment` multipart field (max 10 MB; allowed MIME types: images, PDF, plain text, common document formats). The backend uploads the file to the protected S3 bucket under `bienbot/{userId}/{sessionId}/`, extracts text via OCR/vision, and stores the attachment reference in the message.
 
 - `invokeContext` is **only acted on at session creation**. On an existing session it is stored for reference but does not overwrite `session.context`.
 - `invokeContext.id` is validated server-side with `validateObjectId` and the entity is permission-checked before context building begins. Spoofed IDs that fail the permission check are silently ignored and logged.
@@ -1878,28 +1946,42 @@ BienBot reuses the existing `ai_features` flag. No new flag is introduced at thi
 const {
   sessions, currentSession,
   messages, pendingActions,
+  suggestedNextSteps,   // string[] from session resume — rendered as chip buttons above input
   isLoading, isStreaming,
-  sendMessage,        // POST /api/bienbot/chat (accepts optional invokeContext)
-  sendSharedComment,  // POST /api/bienbot/chat with message_type:'shared_comment'
-                      //   used by /message slash command, collaborator messages, and
-                      //   owner replies to collaborator messages
-  executeActions,     // POST /api/bienbot/sessions/:id/execute
-  cancelAction,       // DELETE .../pending/:actionId
-  loadSession,        // GET /api/bienbot/sessions/:id (fetches history; does not greet)
-  resumeSession,      // POST /api/bienbot/sessions/:id/resume — call when user opens a past session;
-                      //   returns { session, greeting } and prepends greeting to messages state
-  clearSession,       // DELETE /api/bienbot/sessions/:id
-  shareSession,       // POST /api/bienbot/sessions/:id/collaborators — share with a user (viewer/editor)
-  unshareSession      // DELETE /api/bienbot/sessions/:id/collaborators/:userId — remove collaborator
+  sendMessage,          // POST /api/bienbot/chat (accepts optional invokeContext)
+  sendSharedComment,    // POST /api/bienbot/chat with message_type:'shared_comment'
+                        //   used by /message slash command, collaborator messages, and
+                        //   owner replies to collaborator messages
+  executeActions,       // POST /api/bienbot/sessions/:id/execute
+  cancelAction,         // DELETE .../pending/:actionId
+  updateActionStatus,   // PATCH .../pending/:actionId — approve or edit an action
+  getWorkflowState,     // GET .../workflow/:workflowId — fetch workflow execution state
+  loadSession,          // GET /api/bienbot/sessions/:id (fetches history; does not greet)
+  resumeSession,        // POST /api/bienbot/sessions/:id/resume — call when user opens a past session;
+                        //   returns { session, greeting } and prepends greeting to messages state
+  clearSession,         // DELETE /api/bienbot/sessions/:id
+  updateSessionContext, // POST /api/bienbot/sessions/:id/context — update active entity context
+  shareSession,         // POST /api/bienbot/sessions/:id/collaborators — share with a user (viewer/editor)
+  unshareSession        // DELETE /api/bienbot/sessions/:id/collaborators/:userId — remove collaborator
 } = useBienBot({ sessionId, invokeContext });
 ```
 
-- `invokeContext` is passed from the component that mounts the hook (e.g. `SingleExperience` passes `{ entity: 'experience', id: experienceId, label: experience.name }`).
+**Module-level helpers** (not part of the hook instance — call directly to open the panel from outside):
+
+```javascript
+import { openWithPrefilledMessage, openWithSession, openWithAnalysis } from '../hooks/useBienBot';
+
+openWithPrefilledMessage('Add accommodation to my plan'); // open panel with text pre-filled
+openWithSession(sessionId);                               // deep-link to a past session
+openWithAnalysis('experience', experienceId, label);      // open with entity analysis
+```
+
+- `invokeContext` is assembled from the `entity`/`entityId`/`entityLabel` props by `BienBotTrigger` and passed into the hook.
 - On the first `sendMessage` call, if `sessionId` is null a new session is created and the `invokeContext` is forwarded to the backend.
 - The hook exposes `invokeContext` downstream so `BienBotPanel` can render a breadcrumb like *"Chatting about: Cherry Blossom Day Trip"*.
-- When `resumeSession(id)` returns a `greeting`, the hook inserts it as the first message in the `messages` array. `BienBotPanel` renders it with a subtle *"Picking up where you left off"* timestamp label. `suggested_next_steps` from the greeting are rendered as tappable chip buttons directly above the input box so the user can resume in one tap.
+- When `resumeSession(id)` returns a `greeting`, the hook inserts it as the first message in the `messages` array and populates `suggestedNextSteps`. `BienBotPanel` renders suggested steps as tappable chip buttons directly above the input box so the user can resume in one tap.
 
-Streaming uses `fetch` with `ReadableStream` parsing (SSE). After mutations, emits relevant entity events (`experience:created`, `plan:created`, etc.) through the existing `broadcastEvent` so all other UI components update automatically.
+Streaming uses `fetch` with `ReadableStream` parsing (SSE). After mutations, emits relevant entity events (`experience:created`, `plan:created`, etc.) through the existing `broadcastEvent` so all other UI components update automatically. Session state is also persisted to encrypted localStorage between panel opens.
 
 ---
 
@@ -1911,23 +1993,42 @@ A small floating action button rendered in the bottom-right corner of every enti
 
 ```jsx
 // Usage in any entity view
-<BienBotTrigger invokeContext={{ entity: 'experience', id: experience._id, label: experience.name }} />
+<BienBotTrigger
+  entity="experience"
+  entityId={experience._id}
+  entityLabel={experience.name}
+/>
+
+// With notification delivery
+<BienBotTrigger
+  entity="plan"
+  entityId={plan._id}
+  entityLabel={plan.name}
+  notifications={activities}
+  unseenNotificationIds={unseenIds}
+  onMarkNotificationsSeen={handleMarkSeen}
+/>
 ```
 
 **Props:**
 
 | Prop | Type | Description |
 |---|---|---|
-| `invokeContext` | `{ entity, id, label }` | Entity context to seed the session |
-| `sessionId` | `string` (optional) | Resume an existing session |
+| `entity` | `string` | Entity type: `'destination'`, `'experience'`, `'plan'`, `'plan_item'`, `'user'` |
+| `entityId` | `string` | ID of the entity on the current page |
+| `entityLabel` | `string` | Human-readable entity label shown in the panel breadcrumb |
+| `contextDescription` | `string` (optional) | Additional context description override |
+| `notifications` | `array` (optional) | Activity notifications to surface in the panel |
+| `unseenNotificationIds` | `array` (optional) | IDs of unseen notifications (drives badge count) |
+| `onMarkNotificationsSeen` | `function` (optional) | Callback to mark notifications as seen |
 
-**BienBotPanel** receives the same `invokeContext` + the full hook state and renders:
+The trigger is conditionally rendered — only shown when the `ai_features` feature flag is active for the current user (checked client-side via `useFeatureFlag`; enforced again server-side on every request). Without the flag, the trigger is not rendered at all.
+
+**BienBotPanel** receives the resolved `invokeContext` (built from `entity`/`entityId`/`entityLabel` props) plus the full hook state and renders:
 - A scrollable message thread
 - Pending action cards with *Confirm* / *Cancel* buttons
-- A *"Chatting about: {label}"* breadcrumb when `invokeContext` is set
+- A *"Chatting about: {label}"* breadcrumb when an entity context is set
 - An input box with send button
-
-The trigger is conditionally rendered — only shown when the `ai_features` feature flag is active for the current user (checked client-side via `useFeatureFlag`; enforced again server-side on every request).
 
 ---
 
@@ -2047,7 +2148,7 @@ Summary is cached; re-opening the panel within 6 hours skips the LLM call and re
 | 7 | `routes/api/bienbot.js` | Routes + auth + rate limiter; register in `app.js` |
 | 8 | `src/utilities/bienbot-api.js` | Frontend API calls, `broadcastEvent` on mutations |
 | 9 | `src/hooks/useBienBot.js` | Conversation state, streaming, pending action management; `resumeSession` triggers greeting |
-| 10 | `.env.example` | Document `BIENBOT_*` env vars (rate limits, token budgets) |
+| 10 | `src/components/BienBotPanel/` | Panel UI sub-components (WorkflowStepCard, PendingActionCard, SuggestionList, TipSuggestionList, DiscoveryResultCard, BienBotPhotoGallery, SessionHistoryView, PlanSelector) |
 
 ---
 
@@ -2198,7 +2299,7 @@ top_dims = dimEntries
   .slice(0, 3);                     // at most 3 dimensions
 ```
 
-`top_dims` is stored in the affinity cache entry alongside the score and surfaced to BienBot for narrative generation.
+`top_dims` is stored in the affinity cache entry alongside the score. BienBot translates `top_dims` into qualitative driver descriptions (via `DIM_DRIVER_DESCRIPTIONS` map) so the LLM can compose coherent dialogue without using quantitative terms — see §7.6 for details.
 
 ---
 
@@ -2284,11 +2385,33 @@ Using `setImmediate` ensures the refresh never delays the HTTP response to the c
 
 **Invoke context** (`utilities/bienbot-context-builders.js`):
 
-`buildContextForInvokeContext()` calls `appendAffinityBlock()` for `experience` and `plan` entity types. The affinity block is appended to the LLM context string in the format:
+`buildContextForInvokeContext()` calls `appendAffinityBlock()` for `experience` and `plan` entity types. The affinity block is appended to the LLM context string in a purely qualitative format:
 
 ```
-[AFFINITY] User affinity for this experience: {score} ({label} — {dims})
+[AFFINITY] User affinity for this experience: {label} — driven by {driver_descriptions}
 ```
+
+Example output:
+```
+[AFFINITY] User affinity for this experience: strong alignment — driven by shared interest in food and culinary experiences, mutual appreciation for cultural depth and local immersion
+```
+
+**Dimension driver descriptions** (`DIM_DRIVER_DESCRIPTIONS` map in `bienbot-context-builders.js`):
+
+`top_dims` entries are translated into human-readable driver phrases so the LLM can compose coherent dialogue without using any quantitative terms:
+
+| Dimension | Driver description |
+|-----------|--------------------|
+| `energy` | shared preference for activity level |
+| `novelty` | mutual interest in novel, off-the-beaten-path experiences |
+| `budget_sensitivity` | aligned budget expectations |
+| `social` | similar social orientation for group or solo travel |
+| `structure` | compatible need for planning and structure |
+| `food_focus` | shared interest in food and culinary experiences |
+| `cultural_depth` | mutual appreciation for cultural depth and local immersion |
+| `comfort_zone` | similar comfort zone and willingness to try new things |
+
+The `describeDimDrivers()` helper converts `top_dims` arrays (or bare dimension name strings) into comma-separated descriptions.
 
 The block is suppressed when:
 - The affinity entry is absent (cache miss with no fallback data).
@@ -2297,8 +2420,25 @@ The block is suppressed when:
 
 **Discovery ranking** (`buildDiscoveryContext()`):
 - Calls `affinityCache.getAffinityMap(userId)` once before iterating over experience candidates.
-- For each candidate, looks up `cachedAffinity.score` from the map.
+- For each candidate, looks up `cachedAffinity.score` from the map and extracts `top_dims` driver descriptions.
 - Falls back to a cold `computeAffinityScore()` call (using undecayed signals) when no cache entry exists.
+- Each scored result now includes an `affinity_drivers` field (qualitative string) alongside `affinity_score`.
+
+**Discovery context block format** (`formatDiscoveryContextBlock()`):
+
+Discovery results are formatted using qualitative labels instead of raw numeric counts:
+
+```
+[DISCOVERY RESULTS]
+Discovery results for culinary experiences:
+1. Tokyo Street Food Tour (Tokyo) — very popular among travelers — very high completion — strong match for your travel style — driven by shared interest in food and culinary experiences — Popular among culinary travelers - Planned by 45 similar travelers
+[/DISCOVERY RESULTS]
+```
+
+Quantitative-to-qualitative mappings:
+- Plan count: `new` (0) → `emerging` (1–2) → `popular` (3–10) → `very popular` (11+)
+- Completion rate: `moderate completion` (20–49%) → `solid completion` (50–79%) → `very high completion` (80%+)
+- Affinity: `different from your usual travel style` (<0.4) → `moderate match` (0.4–0.6) → `strong match for your travel style` (>0.6)
 
 **Cache-miss fallback** (`controllers/api/bienbot.js` — `POST /api/bienbot/chat`):
 - Before building the invoke context, the controller checks the affinity cache.
@@ -2306,9 +2446,14 @@ The block is suppressed when:
 - The freshly computed entry is then available to `buildContextForInvokeContext()`.
 
 **System prompt — `AFFINITY SIGNALS` rule block**:
-- Instructs the LLM to reference affinity and name the relevant dimensions when a user asks open-ended fit questions (e.g. "Is this experience right for me?").
-- Directs the LLM to suppress raw numeric scores in responses; use qualitative labels instead.
-- The LLM remains silent about affinity when the score is absent or neutral.
+- Instructs the LLM to reference affinity alignment and the specific driver descriptions when a user asks open-ended fit questions (e.g. "Is this experience right for me?").
+- Directs the LLM to never use numeric scores, percentages, or quantitative terms when discussing affinity or discovery results.
+- The LLM remains silent about affinity when the block is absent.
+
+**System prompt — `DISCOVERY RESULTS` rule block**:
+- Instructs the LLM to present discovery results using the qualitative descriptions naturally.
+- Directs the LLM to never expose raw counts, percentages, or numeric scores from discovery results.
+- Tells the LLM to use affinity driver descriptions to explain WHY an experience is a good fit.
 
 ---
 

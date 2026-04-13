@@ -435,22 +435,29 @@ export function addPlanItem(planId, planItem) {
         const rawExp = result?.plan?.experience?._id || result?.plan?.experience || result?.experience?._id || result?.experience || null;
         const experienceId = rawExp && rawExp.toString ? rawExp.toString() : rawExp;
         const version = Date.now();
-        const addedItem = result?.item || result;
+
+        // `result` is the full plan object returned by res.json(plan).
+        // The newly added item is the last element in result.plan.
+        const planItems = Array.isArray(result?.plan) ? result.plan : [];
+        const addedItem = planItems.length > 0 ? planItems[planItems.length - 1] : null;
+        const addedItemId = addedItem?._id?.toString ? addedItem._id.toString() : addedItem?._id;
 
         // Standardized event payload
         const eventPayload = {
           planId,
           experienceId,
           version,
-          data: result?.plan || result,
+          data: result,       // result IS the full plan object
           item: addedItem,
+          itemId: addedItemId,
+          planItemId: addedItemId,
           action: 'item_added'
         };
 
         // Standardized event for DataContext, Dashboard, and usePlanManagement
         broadcastEvent('plan:updated', eventPayload);
 
-        // Granular item event for real-time updates
+        // Granular item event for real-time updates and fade-in animation
         broadcastEvent('plan:item:added', eventPayload);
 
         // Operation-based event for CRDT sync

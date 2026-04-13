@@ -40,6 +40,7 @@ const NEW_ITEM_HIGHLIGHT_MS = 2500;
  * @param {Function} props.getItemProps - Function to get per-item props
  * @param {Function} props.isItemVisible - Visibility filter function
  * @param {string|null} props.pinnedItemId - Currently pinned item ID
+ * @param {Set} [props.externalNewItemIds] - Set of item IDs tracked externally (e.g. BienBot adds) for animation
  */
 function PlanItemsRenderer({
   viewType,
@@ -56,9 +57,10 @@ function PlanItemsRenderer({
   sharedSortablePlanItemProps = {},
   getItemProps,
   isItemVisible,
-  pinnedItemId = null
+  pinnedItemId = null,
+  externalNewItemIds
 }) {
-  // Set of item IDs that were just added and should animate in.
+  // Set of item IDs that were just added locally (same-tab manual adds) and should animate in.
   const [newlyAddedItemIds, setNewlyAddedItemIds] = useState(() => new Set());
 
   // Subscribe to plan:item:added events (fired by plans-api.js and bienbot-api.js).
@@ -90,9 +92,11 @@ function PlanItemsRenderer({
   const isNew = useCallback(
     (planItem) => {
       const id = (planItem._id || planItem.plan_item_id)?.toString();
-      return id ? newlyAddedItemIds.has(id) : false;
+      if (!id) return false;
+      // Check both the local set (manual same-tab adds) and the external set (BienBot adds)
+      return newlyAddedItemIds.has(id) || (externalNewItemIds ? externalNewItemIds.has(id) : false);
     },
-    [newlyAddedItemIds]
+    [newlyAddedItemIds, externalNewItemIds]
   );
 
   /**
@@ -452,7 +456,8 @@ PlanItemsRenderer.propTypes = {
   sharedSortablePlanItemProps: PropTypes.object,
   getItemProps: PropTypes.func.isRequired,
   isItemVisible: PropTypes.func.isRequired,
-  pinnedItemId: PropTypes.string
+  pinnedItemId: PropTypes.string,
+  externalNewItemIds: PropTypes.instanceOf(Set)
 };
 
 export default PlanItemsRenderer;
