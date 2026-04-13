@@ -576,6 +576,8 @@ export default function BienBotPanel({
   // so we don't call updateContext more than once per session+entity pair.
   const sessionContextReconciledRef = useRef(null);
   const messagesRef = useRef([]);
+  const historyIndexRef = useRef(-1);  // -1 = not in history mode
+  const savedDraftRef = useRef('');    // draft saved before entering history
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -1167,6 +1169,8 @@ export default function BienBotPanel({
     if (inputRef.current) {
       inputRef.current.value = '';
       inputValueRef.current = '';
+      historyIndexRef.current = -1;
+      savedDraftRef.current = '';
     }
     resetTextareaHeight();
     if (attachmentPreviewUrl) {
@@ -1176,15 +1180,68 @@ export default function BienBotPanel({
     setAttachment(null);
   }, [isStreaming, isLoading, isSessionOwner, replyTo, sendSharedComment, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl]);
 
-  // Keyboard submit (Enter without Shift)
+  // Keyboard submit (Enter without Shift) + input history recall (ArrowUp / ArrowDown)
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
+        return;
+      }
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Build newest-first list of user message texts from the current session.
+        // messagesRef is kept in sync with `messages` via a useEffect.
+        const history = messagesRef.current
+          .filter(m => m.role === 'user' && typeof m.content === 'string' && m.content.trim())
+          .map(m => m.content)
+          .reverse();
+
+        if (history.length === 0) return;
+
+        if (e.key === 'ArrowUp') {
+          const currentValue = inputRef.current?.value ?? '';
+          // Only enter history mode from an empty textarea
+          if (historyIndexRef.current === -1 && currentValue.trim() !== '') return;
+
+          const nextIndex = historyIndexRef.current + 1;
+          if (nextIndex >= history.length) return; // already at oldest entry
+
+          e.preventDefault();
+          if (historyIndexRef.current === -1) {
+            savedDraftRef.current = currentValue; // snapshot draft before first recall
+          }
+          historyIndexRef.current = nextIndex;
+          const text = history[nextIndex];
+          inputRef.current.value = text;
+          inputValueRef.current = text;
+          resizeTextarea();
+          inputRef.current.setSelectionRange(text.length, text.length);
+        } else {
+          // ArrowDown — only active while in history mode
+          if (historyIndexRef.current === -1) return;
+
+          e.preventDefault();
+          const nextIndex = historyIndexRef.current - 1;
+          historyIndexRef.current = nextIndex;
+
+          if (nextIndex === -1) {
+            const draft = savedDraftRef.current;
+            inputRef.current.value = draft;
+            inputValueRef.current = draft;
+            resizeTextarea();
+            inputRef.current.setSelectionRange(draft.length, draft.length);
+          } else {
+            const text = history[nextIndex];
+            inputRef.current.value = text;
+            inputValueRef.current = text;
+            resizeTextarea();
+            inputRef.current.setSelectionRange(text.length, text.length);
+          }
+        }
       }
     },
-    [handleSend]
+    [handleSend, resizeTextarea]
   );
 
   // ── Collaborator reply — pre-fill textarea with /message slash command ──
