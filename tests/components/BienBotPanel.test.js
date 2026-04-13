@@ -588,8 +588,9 @@ describe('BienBotPanel', () => {
       });
       renderPanel();
       const textarea = screen.getByLabelText('Message input');
+      textarea.value = 'current draft';
       fireEvent.keyDown(textarea, { key: 'ArrowDown' });
-      expect(textarea.value).toBe('');
+      expect(textarea.value).toBe('current draft');
     });
 
     it('ArrowUp does nothing when textarea has text and is not in history mode', () => {
@@ -598,6 +599,8 @@ describe('BienBotPanel', () => {
       });
       renderPanel();
       const textarea = screen.getByLabelText('Message input');
+      // Direct DOM assignment works here because BienBotPanel uses an uncontrolled
+      // textarea — the component reads inputRef.current.value (same DOM node).
       textarea.value = 'partial draft';
       fireEvent.keyDown(textarea, { key: 'ArrowUp' });
       expect(textarea.value).toBe('partial draft');
