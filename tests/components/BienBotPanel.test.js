@@ -27,6 +27,38 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+// ─── Mock react-markdown (ESM dependency issue) ───────────────────────────────
+jest.mock('react-markdown', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ children }) => React.createElement('div', null, children),
+  };
+});
+
+jest.mock('remark-gfm', () => {
+  return {
+    __esModule: true,
+    default: () => {},
+  };
+});
+
+// ─── Mock contexts ──────────────────────────────────────────────────────────
+jest.mock('../../src/contexts/UserContext', () => ({
+  useUser: () => ({ user: { _id: 'user-1' }, loading: false }),
+  UserProvider: ({ children }) => children,
+}));
+
+jest.mock('../../src/contexts/DataContext', () => ({
+  useData: () => ({
+    experiences: [],
+    destinations: [],
+    plans: [],
+    loading: false,
+  }),
+  DataProvider: ({ children }) => children,
+}));
+
 // ─── Mock useBienBot ────────────────────────────────────────────────────────
 // Defined inside the jest.mock factory to avoid temporal dead zone issues.
 jest.mock('../../src/hooks/useBienBot', () => {
@@ -84,6 +116,8 @@ const mockExecuteActions = jest.fn();
 const mockCancelAction = jest.fn();
 const mockUpdateContext = jest.fn();
 const mockClearSession = jest.fn();
+const mockFetchSessions = jest.fn();
+const mockGetPersistedSession = jest.fn().mockResolvedValue(null);
 
 const defaultHookState = {
   messages: [],
@@ -91,11 +125,15 @@ const defaultHookState = {
   suggestedNextSteps: [],
   isLoading: false,
   isStreaming: false,
+  sessions: [],
+  currentSession: null,
   sendMessage: mockSendMessage,
   executeActions: mockExecuteActions,
   cancelAction: mockCancelAction,
   updateContext: mockUpdateContext,
   clearSession: mockClearSession,
+  fetchSessions: mockFetchSessions,
+  getPersistedSession: mockGetPersistedSession,
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -488,6 +526,89 @@ describe('BienBotPanel', () => {
         onMarkNotificationsSeen: onMarkSeen,
       });
       expect(onMarkSeen).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Input history recall ────────────────────────────────────────────────
+  describe('input history recall (ArrowUp / ArrowDown)', () => {
+    it('ArrowUp on empty textarea recalls the most recent user message', () => {
+      setHookState({
+        messages: [
+          { _id: 'm1', role: 'user', content: 'First message' },
+          { _id: 'm2', role: 'assistant', content: 'Sure!' },
+          { _id: 'm3', role: 'user', content: 'Second message' },
+        ],
+      });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      expect(textarea.value).toBe('Second message');
+    });
+
+    it('ArrowUp twice recalls an older user message', () => {
+      setHookState({
+        messages: [
+          { _id: 'm1', role: 'user', content: 'First message' },
+          { _id: 'm2', role: 'user', content: 'Second message' },
+        ],
+      });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      expect(textarea.value).toBe('First message');
+    });
+
+    it('ArrowUp does not exceed history bounds', () => {
+      setHookState({
+        messages: [{ _id: 'm1', role: 'user', content: 'Only message' }],
+      });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' }); // no older entry
+      expect(textarea.value).toBe('Only message');
+    });
+
+    it('ArrowDown after ArrowUp restores the saved draft (empty string)', () => {
+      setHookState({
+        messages: [{ _id: 'm1', role: 'user', content: 'Hello' }],
+      });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      expect(textarea.value).toBe('Hello');
+      fireEvent.keyDown(textarea, { key: 'ArrowDown' });
+      expect(textarea.value).toBe('');
+    });
+
+    it('ArrowDown does nothing when not in history mode', () => {
+      setHookState({
+        messages: [{ _id: 'm1', role: 'user', content: 'Hello' }],
+      });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.keyDown(textarea, { key: 'ArrowDown' });
+      expect(textarea.value).toBe('');
+    });
+
+    it('ArrowUp does nothing when textarea has text and is not in history mode', () => {
+      setHookState({
+        messages: [{ _id: 'm1', role: 'user', content: 'Hello' }],
+      });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      textarea.value = 'partial draft';
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      expect(textarea.value).toBe('partial draft');
+    });
+
+    it('ArrowUp does nothing when there are no user messages', () => {
+      setHookState({ messages: [] });
+      renderPanel();
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+      expect(textarea.value).toBe('');
     });
   });
 });
