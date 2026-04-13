@@ -44,3 +44,9 @@
 .menuContent [data-part="item"] {
   cursor: pointer;
 }
+
+.menuContent [data-part="item"][data-value="cancel"]:hover,
+.menuContent [data-part="item"][data-value="cancel"][data-highlighted] {
+  color: var(--color-danger, #dc3545);
+  background-color: rgba(var(--color-danger-rgb, 220, 53, 69), 0.1);
+}

@@ -150,7 +150,7 @@ export default function BienBotTrigger({
       // Non-entity view: trigger greeting analysis so BienBot opens with context
       setGreetingLoading(true);
       try {
-        await openWithAnalysis('user', user._id.toString(), 'your travel plans');
+        await openWithAnalysis('user', user._id.toString(), 'Your Travel Plans');
       } catch (err) {
         logger.error('[BienBotTrigger] Greeting analysis failed', { error: err.message });
         // Fall back to plain open on error

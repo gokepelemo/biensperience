@@ -851,6 +851,21 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
+    // Plan-related intent without a specific plan in context — load full user
+    // greeting context so the LLM can see all plans (including undated ones) and
+    // make recommendations without asking the user to provide the list.
+    const OVERVIEW_PLAN_INTENTS = new Set([
+      'QUERY_PLAN', 'UPDATE_PLAN', 'DELETE_PLAN', 'SYNC_PLAN', 'PLAN_EXPERIENCE',
+      'ADD_PLAN_ITEMS', 'UPDATE_PLAN_ITEM', 'COMPLETE_PLAN_ITEM',
+      'UNCOMPLETE_PLAN_ITEM', 'SCHEDULE_PLAN_ITEM', 'ADD_PLAN_ITEM_NOTE',
+      'SET_PLAN_ITEM_LOCATION', 'UPDATE_PLAN_ITEM_COST', 'ADD_PLAN_ITEM_DETAIL',
+      'ASSIGN_PLAN_ITEM', 'UPDATE_PLAN_ITEM_TEXT', 'UPDATE_PLAN_ITEM_URL',
+      'DELETE_PLAN_ITEM', 'ADD_PLAN_COST'
+    ]);
+    if (OVERVIEW_PLAN_INTENTS.has(intent) && !ctx.plan_id) {
+      promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
+    }
+
     // Photo queries / add photo — auto-load photo context from the current entity in ctx
     if (intent === 'QUERY_PHOTOS' || intent === 'ADD_PHOTO') {
       if (ctx.experience_id) {
@@ -963,6 +978,13 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     const hasEntityInSession = !!(ctx.destination_id || ctx.experience_id || ctx.plan_id);
     if (message && !entities.experience_name && !entities.destination_name && !hasEntityInSession && intent !== 'NAVIGATE_TO_ENTITY') {
       promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
+    }
+
+    // User-entity session with no specific entity context — load full greeting
+    // context so the LLM has the user's plan overview (including undated plans,
+    // travel signals, attention items) for follow-up questions like "pick the best".
+    if (!hasEntityInSession && session.invoke_context?.entity === 'user') {
+      promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
     // Recover entity context from recent assistant messages when the current message
