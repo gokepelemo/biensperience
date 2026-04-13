@@ -1872,13 +1872,15 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
     return null;
   }
 
-  const { valid } = validateObjectId(invokeContext.entity_id, 'invokeContext.entity_id');
+  const { valid, objectId } = validateObjectId(invokeContext.entity_id, 'invokeContext.entity_id');
   if (!valid) {
     logger.warn('[bienbot-context] Invalid entity_id in invokeContext', { invokeContext });
     return null;
   }
 
-  const id = invokeContext.entity_id;
+  // Use the type-safe ObjectId from the validator — never pass the raw user-supplied
+  // string directly to database queries (prevents js/sql-injection CodeQL finding).
+  const id = objectId;
 
   switch (invokeContext.entity) {
     case 'destination':

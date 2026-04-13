@@ -13,7 +13,7 @@
 const EXPERIENCE_SUGGESTIONS = [
   'What should I know before planning this experience?',
   'Add a plan item for {activity, e.g. "a walking tour"}',
-  'Estimate the total cost for this experience',
+  'Estimate the total cost of this experience',
 ];
 
 const DESTINATION_SUGGESTIONS = [
@@ -25,13 +25,13 @@ const DESTINATION_SUGGESTIONS = [
 const PLAN_SUGGESTIONS = [
   'What items still need to be planned?',
   'Add a plan item for {activity, e.g. "lunch at a local restaurant"}',
-  'Estimate total costs for this plan',
+  'Estimate the total costs for this plan',
 ];
 
 const PLAN_ITEM_SUGGESTIONS = [
   'Add a note about {detail, e.g. "reservation time"}',
   'What should I know about this activity?',
-  'Suggest similar alternatives',
+  'Suggest similar alternatives to this item',
 ];
 
 const USER_SUGGESTIONS = [
@@ -45,7 +45,7 @@ const HOME_SUGGESTIONS = [
   'Find an experience in {destination, e.g. "Tokyo"}',
   'Show me a budget-friendly adventure experience',
   'Create a new destination for {place, e.g. "Lisbon, Portugal"}',
-  'What can I plan next?',
+  'What should I plan next?',
 ];
 
 const EXPERIENCES_LIST_SUGGESTIONS = [
@@ -98,12 +98,12 @@ function buildDynamicSuggestions(entityType, entityData) {
       return [
         `Plan ${name}`,
         `What do I need for ${name}?`,
-        'What do people do on similar experiences?'
+        'What do people do for similar experiences?'
       ];
     case 'plan':
       if (!name) return null;
       return [
-        `What are next steps for my ${name} plan?`,
+        `What are the next steps for the ${name} plan?`,
         destinationName
           ? `What experiences in ${destinationName} do people recommend?`
           : 'What experiences do people recommend near here?'
