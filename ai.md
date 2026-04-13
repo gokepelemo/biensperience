@@ -1223,7 +1223,7 @@ The Messages tab (`MessagesModal`) uses Stream Chat for user-to-user and group m
 
 #### Chat Drawer
 
-BienBot is accessed via the floating BienBotTrigger button on entity pages. It opens a slide-out panel with entity-aware context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
+BienBot is accessed via the floating BienBotTrigger button rendered globally across the entire application for all authenticated users. It opens a slide-out panel with auto-detected or user-profile context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
 
 ---
 
@@ -1233,15 +1233,21 @@ BienBot is accessed via the floating BienBotTrigger button on entity pages. It o
 
 **File:** `src/components/BienBotTrigger/BienBotTrigger.jsx`
 
-A fixed-position floating action button (bottom-right) rendered on entity pages. Visibility conditions:
+A fixed-position floating action button (bottom-right) rendered globally in `App.jsx` for all authenticated users. The FAB returns `null` only when the user is not authenticated.
 
-- User is authenticated (`useUser()`)
-- `ai_features` feature flag is enabled (`useFeatureFlag('ai_features')`)
-- Required props are present: `entity`, `entityId`, `entityLabel`
+**Visibility and mode:**
 
-If any condition fails, the FAB returns `null` (not rendered).
+| Condition | Result |
+|---|---|
+| User not authenticated | FAB not rendered |
+| Authenticated, `ai_features` flag enabled (or super admin) | Full AI assistant mode (smiley icon) |
+| Authenticated, no `ai_features` flag | Notification-only mode (bell icon) |
 
-The FAB icon switches between a smiley-face (AI-enabled mode) and a bell (notification-only mode when `ai_features` is absent). A badge shows the count of unseen notifications when `unseenNotificationIds` is non-empty.
+A badge on the FAB shows the count of unseen notifications when `unseenNotificationIds` is non-empty.
+
+**Context detection:** The component uses `useRouteContext` to auto-detect entity context from the current route (experience, destination, plan, plan item, or user profile). Entity props (`entity`, `entityId`, `entityLabel`, `contextDescription`) are **optional overrides** used by sub-entity views such as plan item modals — when provided, they take precedence over the route-detected context.
+
+**Non-entity pages (dashboard, home, experiences list, etc.):** When the FAB is clicked on a page that has no detectable entity context (`isEntityView: false`), BienBot opens with the logged-in user's profile summary. It calls `openWithAnalysis('user', user._id, 'Your Travel Plans')`, which fetches a pre-analysis of the user's travel plans and displays it as a synthetic assistant greeting with suggested prompts.
 
 The panel is rendered into a `document.body` portal to avoid stacking-context clipping on positioned ancestor elements. The component subscribes to `bienbot:open` and `bienbot:context_updated` events on the event bus so it can be opened and context-updated programmatically from anywhere in the app.
 

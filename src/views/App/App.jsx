@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, Suspense } from "react";
 import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { UIProvider } from "../../contexts/UIProvider";
@@ -42,28 +42,29 @@ import {
 import { STORAGE_KEYS } from '../../utilities/storage-keys';
 import { isLegalHash, isBienBotHash } from '../../utilities/hash-navigation';
 import { useNavigationCleanup } from '../../hooks/useNavigationCleanup';
+import lazyWithRetry, { clearChunkReloadFlag } from '../../utilities/lazy-with-retry';
 
-// Lazy load components for better performance
-const AuthPage = lazy(() => import("../AuthPage/AuthPage"));
-const AppHome = lazy(() => import("../AppHome/AppHome"));
-const UpdateProfile = lazy(() => import("../Profile/UpdateProfile"));
-const SingleExperience = lazy(() => import("../SingleExperience/SingleExperience"));
-const SingleDestination = lazy(() => import("../SingleDestination/SingleDestination"));
-const Destinations = lazy(() => import("../Destinations/Destinations"));
-const Experiences = lazy(() => import("../Experiences/Experiences"));
-const ExperiencesByTag = lazy(() => import("../ExperiencesByTag/ExperiencesByTag"));
-const NewExperience = lazy(() => import("../../components/NewExperience/NewExperience"));
-const UpdateExperience = lazy(() => import("../../components/UpdateExperience/UpdateExperience"));
-const NewDestination = lazy(() => import("../../components/NewDestination/NewDestination"));
-const UpdateDestination = lazy(() => import("../../components/UpdateDestination/UpdateDestination"));
-const Profile = lazy(() => import("../Profile/Profile"));
-const AllUsers = lazy(() => import("../AllUsers/AllUsers"));
-const AIAdmin = lazy(() => import("../AIAdmin/AIAdmin"));
-const InviteTracking = lazy(() => import("../InviteTracking/InviteTracking"));
-const ResetPassword = lazy(() => import("../ResetPassword/ResetPassword"));
-const ConfirmEmail = lazy(() => import("../ConfirmEmail/ConfirmEmail"));
-const Dashboard = lazy(() => import("../Dashboard/Dashboard"));
-const Countries = lazy(() => import("../Countries/Countries"));
+// Lazy load components for better performance (with automatic retry on stale chunks)
+const AuthPage = lazyWithRetry(() => import("../AuthPage/AuthPage"));
+const AppHome = lazyWithRetry(() => import("../AppHome/AppHome"));
+const UpdateProfile = lazyWithRetry(() => import("../Profile/UpdateProfile"));
+const SingleExperience = lazyWithRetry(() => import("../SingleExperience/SingleExperience"));
+const SingleDestination = lazyWithRetry(() => import("../SingleDestination/SingleDestination"));
+const Destinations = lazyWithRetry(() => import("../Destinations/Destinations"));
+const Experiences = lazyWithRetry(() => import("../Experiences/Experiences"));
+const ExperiencesByTag = lazyWithRetry(() => import("../ExperiencesByTag/ExperiencesByTag"));
+const NewExperience = lazyWithRetry(() => import("../../components/NewExperience/NewExperience"));
+const UpdateExperience = lazyWithRetry(() => import("../../components/UpdateExperience/UpdateExperience"));
+const NewDestination = lazyWithRetry(() => import("../../components/NewDestination/NewDestination"));
+const UpdateDestination = lazyWithRetry(() => import("../../components/UpdateDestination/UpdateDestination"));
+const Profile = lazyWithRetry(() => import("../Profile/Profile"));
+const AllUsers = lazyWithRetry(() => import("../AllUsers/AllUsers"));
+const AIAdmin = lazyWithRetry(() => import("../AIAdmin/AIAdmin"));
+const InviteTracking = lazyWithRetry(() => import("../InviteTracking/InviteTracking"));
+const ResetPassword = lazyWithRetry(() => import("../ResetPassword/ResetPassword"));
+const ConfirmEmail = lazyWithRetry(() => import("../ConfirmEmail/ConfirmEmail"));
+const Dashboard = lazyWithRetry(() => import("../Dashboard/Dashboard"));
+const Countries = lazyWithRetry(() => import("../Countries/Countries"));
 
 logger.info('App.jsx loaded');
 
@@ -156,6 +157,10 @@ export default function App() {
  */
 function AppContent() {
   logger.debug('AppContent component function called');
+
+  // Clear the stale-chunk reload guard on successful mount so future
+  // deploys can still trigger a fresh reload if needed.
+  useEffect(() => { clearChunkReloadFlag(); }, []);
 
   logger.debug('About to call useUser');
   const { user, updateUser, isAuthenticated } = useUser();

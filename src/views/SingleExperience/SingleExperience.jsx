@@ -3902,6 +3902,7 @@ export default function SingleExperience() {
         }}
         planItem={selectedDetailsItem}
         plan={selectedPlan}
+        costs={costs}
         currentUser={user}
         collaborators={allPlanCollaborators}
         onAddNote={handleAddNoteToItem}
