@@ -76,7 +76,8 @@ jest.mock('../../models/user', () => ({
 
 jest.mock('../../models/experience', () => ({
   findById: (...args) => mockExperienceFindById(...args),
-  findByIdAndUpdate: jest.fn().mockResolvedValue(null)
+  findByIdAndUpdate: jest.fn().mockResolvedValue(null),
+  find: jest.fn()
 }));
 
 // Also mock plan model (required by updateExperienceSignals)
@@ -127,7 +128,8 @@ function setupDefaultMocks() {
 const {
   computeAndCacheAffinity,
   refreshSignalsAndAffinity,
-  updateExperienceSignals: _updateExperienceSignals
+  updateExperienceSignals: _updateExperienceSignals,
+  recomputeSignalsForOwner
 } = require('../../utilities/hidden-signals');
 
 // ---------------------------------------------------------------------------
@@ -303,5 +305,63 @@ describe('refreshSignalsAndAffinity', () => {
 
     // Confirm the failing cache write path was actually exercised
     expect(affinityCache.setAffinityEntry).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('recomputeSignalsForOwner', () => {
+  const OWNER_ID = new mongoose.Types.ObjectId().toString();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setupDefaultMocks();
+  });
+
+  test('1. calls updateExperienceSignals once per owned experience', async () => {
+    const expId1 = new mongoose.Types.ObjectId();
+    const expId2 = new mongoose.Types.ObjectId();
+
+    const Experience = require('../../models/experience');
+    Experience.find.mockReturnValue({
+      select: () => ({
+        lean: async () => [{ _id: expId1 }, { _id: expId2 }]
+      })
+    });
+
+    const experienceFindByIdAndUpdateSpy = jest.spyOn(Experience, 'findByIdAndUpdate');
+
+    await recomputeSignalsForOwner(OWNER_ID);
+
+    // updateExperienceSignals is fire-and-forget; let microtask queue flush
+    await new Promise(resolve => setImmediate(resolve));
+
+    // findByIdAndUpdate is called once per experience by updateExperienceSignals
+    expect(experienceFindByIdAndUpdateSpy).toHaveBeenCalledTimes(2);
+  });
+
+  test('2. does nothing when user owns no experiences', async () => {
+    const Experience = require('../../models/experience');
+    Experience.find.mockReturnValue({
+      select: () => ({
+        lean: async () => []
+      })
+    });
+
+    const experienceFindByIdAndUpdateSpy = jest.spyOn(Experience, 'findByIdAndUpdate');
+
+    await recomputeSignalsForOwner(OWNER_ID);
+    await new Promise(resolve => setImmediate(resolve));
+
+    expect(experienceFindByIdAndUpdateSpy).not.toHaveBeenCalled();
+  });
+
+  test('3. never throws when Experience.find rejects', async () => {
+    const Experience = require('../../models/experience');
+    Experience.find.mockReturnValue({
+      select: () => ({
+        lean: async () => { throw new Error('DB unavailable'); }
+      })
+    });
+
+    await expect(recomputeSignalsForOwner(OWNER_ID)).resolves.toBeUndefined();
   });
 });

@@ -765,6 +765,41 @@ async function refreshSignalsAndAffinity(experienceId, userId, computedAt) {
   }
 }
 
+/**
+ * Recompute content signals for every experience owned by a user.
+ *
+ * Called fire-and-forget after a user's feature flags are updated (e.g. when
+ * the curator flag is granted) so that trustScore reflects the new flag state.
+ * Never throws — errors are logged and silently absorbed.
+ *
+ * @param {string|import('mongoose').Types.ObjectId} userId
+ */
+async function recomputeSignalsForOwner(userId) {
+  try {
+    const Experience = require('../models/experience');
+
+    const experiences = await Experience
+      .find({ permissions: { $elemMatch: { _id: userId, entity: 'user', type: 'owner' } } })
+      .select('_id')
+      .lean();
+
+    backendLogger.debug('[hidden-signals] recomputeSignalsForOwner: queuing recompute', {
+      userId: userId?.toString(),
+      count: experiences.length
+    });
+
+    for (const exp of experiences) {
+      updateExperienceSignals(exp._id); // fire-and-forget; errors absorbed internally
+    }
+  } catch (err) {
+    backendLogger.error('[hidden-signals] recomputeSignalsForOwner failed', {
+      userId: userId?.toString(),
+      error: err.message
+    });
+    // Never throw — fire-and-forget
+  }
+}
+
 module.exports = {
   // Constants (exported for testing)
   ACTIVITY_TYPE_SIGNAL_MAP,
@@ -785,6 +820,7 @@ module.exports = {
   // Side-effectful
   processSignalEvent,
   updateExperienceSignals,
+  recomputeSignalsForOwner,
   computeAndCacheAffinity,
   refreshSignalsAndAffinity
 };
