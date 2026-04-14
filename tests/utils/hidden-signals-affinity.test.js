@@ -112,8 +112,8 @@ function setupDefaultMocks() {
       lean: async () => ({
         _id: new mongoose.Types.ObjectId(VALID_EXPERIENCE_ID),
         hidden_signals: { ...defaultExperienceSignals },
-        user: new mongoose.Types.ObjectId(),
-        public: true,
+        permissions: [{ _id: new mongoose.Types.ObjectId(), entity: 'user', type: 'owner' }],
+        visibility: 'public',
         plan_items: []
       })
     })
