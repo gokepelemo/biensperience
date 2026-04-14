@@ -537,7 +537,7 @@ async function updateExperienceSignals(experienceId) {
     // 1. Load experience and its creator
     const experience = await Experience
       .findById(experienceId)
-      .select('user public plan_items')
+      .select('permissions visibility plan_items')
       .lean();
 
     if (!experience) {
@@ -545,12 +545,15 @@ async function updateExperienceSignals(experienceId) {
       return;
     }
 
-    const creator = experience.user
-      ? await User.findById(experience.user).select('feature_flags').lean()
+    const ownerPerm = Array.isArray(experience.permissions)
+      ? experience.permissions.find(p => p.entity === 'user' && p.type === 'owner')
+      : null;
+    const creator = ownerPerm
+      ? await User.findById(ownerPerm._id).select('feature_flags').lean()
       : null;
 
     const isCurator = creator ? hasFeatureFlag(creator, 'curator') : false;
-    const isPublic  = !!experience.public;
+    const isPublic  = experience.visibility === 'public';
 
     // 2. Aggregate plan metrics for this experience in one query
     const [metrics = {}] = await Plan.aggregate([
