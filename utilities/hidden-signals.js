@@ -775,6 +775,7 @@ async function refreshSignalsAndAffinity(experienceId, userId, computedAt) {
  * @param {string|import('mongoose').Types.ObjectId} userId
  */
 async function recomputeSignalsForOwner(userId) {
+  if (!userId) return;
   try {
     const Experience = require('../models/experience');
 

@@ -364,4 +364,11 @@ describe('recomputeSignalsForOwner', () => {
 
     await expect(recomputeSignalsForOwner(OWNER_ID)).resolves.toBeUndefined();
   });
+
+  test('4. returns immediately when userId is falsy', async () => {
+    const Experience = require('../../models/experience');
+    await recomputeSignalsForOwner(null);
+    await recomputeSignalsForOwner(undefined);
+    expect(Experience.find).not.toHaveBeenCalled();
+  });
 });

@@ -1022,6 +1022,16 @@ async function updateUserAsAdmin(req, res) {
       backendLogger.error('Failed to broadcast user:updated (admin) event', { error: err.message, userId: user._id.toString() });
     }
 
+    // Recompute content signals for all experiences this user owns if curator
+    // flag is now enabled — trustScore has a curator boost that needs refreshing.
+    // Fire-and-forget; never delays the response.
+    const curatorFlagEnabled = Array.isArray(validatedUpdateData.feature_flags) &&
+      validatedUpdateData.feature_flags.some(f => f.flag === 'curator' && f.enabled);
+    if (curatorFlagEnabled) {
+      const { recomputeSignalsForOwner } = require('../../utilities/hidden-signals');
+      recomputeSignalsForOwner(userId);
+    }
+
     return successResponse(res, { user }, 'User updated by admin successfully');
   } catch (err) {
     backendLogger.error('Error updating user as admin', { error: err.message, userId: req.params.id, adminId: req.user._id });
