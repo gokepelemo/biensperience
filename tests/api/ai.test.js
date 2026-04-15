@@ -341,6 +341,11 @@ describe('improve — prompt key naming (dc8d.3)', () => {
     stubSuccess();
   });
 
+  afterEach(() => {
+    const { lang } = require('../../utilities/lang.constants');
+    lang.current = { prompts: {} };
+  });
+
   it('uses snake_case prompt key from options.prompts', async () => {
     const req = mockReq({
       text: 'Hello world',
@@ -614,6 +619,11 @@ describe('generateTips — prompt key naming (dc8d.3)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     stubSuccess();
+  });
+
+  afterEach(() => {
+    const { lang } = require('../../utilities/lang.constants');
+    lang.current = { prompts: {} };
   });
 
   it('uses snake_case prompt key from options.prompts', async () => {
