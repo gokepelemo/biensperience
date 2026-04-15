@@ -149,6 +149,17 @@ function handleGatewayError(error, res, userId) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Validation constants
+// ---------------------------------------------------------------------------
+
+const MAX_TEXT_LENGTH = 50000;
+const MAX_TIPS_CATEGORY_LENGTH = 200;
+const MAX_TIPS_DESTINATION_LENGTH = 200;
+const MIN_TIPS_COUNT = 1;
+const MAX_TIPS_COUNT = 20;
+const DEFAULT_TIPS_COUNT = 5;
+
 // ============================================================================
 // Controller Methods
 // ============================================================================
@@ -217,6 +228,13 @@ exports.autocomplete = async (req, res) => {
       });
     }
 
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
     const systemPrompt = options.prompts?.autocomplete ||
       lang.current.prompts?.autocomplete ||
       'You are a helpful writing assistant. Complete the given text naturally and concisely. Only provide the completion, not the original text.';
@@ -272,6 +290,13 @@ exports.improve = async (req, res) => {
       });
     }
 
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
     const systemPrompt = options.prompts?.improve ||
       options.prompts?.improveDescription ||
       lang.current.prompts?.improve_description ||
@@ -321,6 +346,13 @@ exports.translate = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Text and target language are required'
+      });
+    }
+
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
       });
     }
 
@@ -376,6 +408,13 @@ exports.summarize = async (req, res) => {
       });
     }
 
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
     const systemPrompt = options.prompts?.summarize ||
       lang.current.prompts?.summarize ||
       'You are a skilled summarizer. Create a concise summary of the given text that captures the key points. Be clear and informative.';
@@ -417,7 +456,8 @@ exports.summarize = async (req, res) => {
  */
 exports.generateTips = async (req, res) => {
   try {
-    const { destination, category = 'general', count = 5, options = {} } = req.body;
+    const { destination, options = {} } = req.body;
+    let { category = 'general', count = DEFAULT_TIPS_COUNT } = req.body;
 
     if (!destination) {
       return res.status(400).json({
@@ -425,6 +465,13 @@ exports.generateTips = async (req, res) => {
         error: 'Destination is required'
       });
     }
+
+    // Sanitize count: clamp to integer in [1, 20]
+    const safeCount = Math.min(Math.max(parseInt(count, 10) || DEFAULT_TIPS_COUNT, MIN_TIPS_COUNT), MAX_TIPS_COUNT);
+
+    // Truncate category and destination silently if over max length
+    const safeCategory = String(category).slice(0, MAX_TIPS_CATEGORY_LENGTH);
+    const safeDestination = String(destination).slice(0, MAX_TIPS_DESTINATION_LENGTH);
 
     const systemPrompt = options.prompts?.generateTips ||
       options.prompts?.generate_tips ||
@@ -434,13 +481,13 @@ exports.generateTips = async (req, res) => {
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Generate ${count} ${category} travel tips for ${destination}. Be specific and practical.` }
+      { role: 'user', content: `Generate ${safeCount} ${safeCategory} travel tips for ${safeDestination}. Be specific and practical.` }
     ];
 
     logger.info('AI generate-tips request', {
       userId: req.user._id,
-      destination,
-      category,
+      destination: safeDestination,
+      category: safeCategory,
       customPrompt: !!(options.prompts?.generateTips || options.prompts?.generate_tips)
     });
 
@@ -455,8 +502,8 @@ exports.generateTips = async (req, res) => {
       success: true,
       data: {
         tips: result.content,
-        destination,
-        category,
+        destination: safeDestination,
+        category: safeCategory,
         provider: result.provider,
         usage: result.usage
       }
