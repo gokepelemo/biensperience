@@ -330,3 +330,217 @@ describe('generateTips — destination missing returns 400', () => {
     expect(res._body).toEqual({ success: false, error: 'Destination is required' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Provider/Model forwarding — all handlers
+// ---------------------------------------------------------------------------
+
+describe('improve — forwards provider and model options', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('forwards provider and model when provided', async () => {
+    const req = mockReq({
+      text: 'Hello world',
+      options: {
+        provider: 'anthropic',
+        model: 'claude-3-haiku-20240307',
+        temperature: 0.5
+      }
+    });
+    const res = mockRes();
+    await controller.improve(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBe('anthropic');
+    expect(callArgs.options.model).toBe('claude-3-haiku-20240307');
+  });
+
+  it('forwards undefined provider/model when not provided', async () => {
+    const req = mockReq({ text: 'Hello world' });
+    const res = mockRes();
+    await controller.improve(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBeUndefined();
+    expect(callArgs.options.model).toBeUndefined();
+  });
+
+  it('preserves task-specific parameters alongside provider/model', async () => {
+    const req = mockReq({
+      text: 'Hello world',
+      options: { provider: 'mistral', model: 'mistral-small-latest' }
+    });
+    const res = mockRes();
+    await controller.improve(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.temperature).toBe(0.7);
+    expect(callArgs.options.maxTokens).toBe(500);
+    expect(callArgs.options.provider).toBe('mistral');
+  });
+});
+
+describe('translate — forwards provider and model options', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('forwards provider and model when provided', async () => {
+    const req = mockReq({
+      text: 'Hello',
+      targetLanguage: 'French',
+      options: {
+        provider: 'gemini',
+        model: 'gemini-1.5-flash'
+      }
+    });
+    const res = mockRes();
+    await controller.translate(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBe('gemini');
+    expect(callArgs.options.model).toBe('gemini-1.5-flash');
+  });
+
+  it('forwards undefined provider/model when not provided', async () => {
+    const req = mockReq({
+      text: 'Hello',
+      targetLanguage: 'Spanish'
+    });
+    const res = mockRes();
+    await controller.translate(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBeUndefined();
+    expect(callArgs.options.model).toBeUndefined();
+  });
+
+  it('preserves task-specific parameters alongside provider/model', async () => {
+    const req = mockReq({
+      text: 'Hello',
+      targetLanguage: 'German',
+      options: { provider: 'openai', model: 'gpt-4o-mini' }
+    });
+    const res = mockRes();
+    await controller.translate(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.temperature).toBe(0.3);
+    expect(callArgs.options.maxTokens).toBe(1000);
+    expect(callArgs.options.provider).toBe('openai');
+  });
+});
+
+describe('summarize — forwards provider and model options', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('forwards provider and model when provided', async () => {
+    const req = mockReq({
+      text: 'A long text here',
+      options: {
+        provider: 'anthropic',
+        model: 'claude-3-haiku-20240307'
+      }
+    });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBe('anthropic');
+    expect(callArgs.options.model).toBe('claude-3-haiku-20240307');
+  });
+
+  it('forwards undefined provider/model when not provided', async () => {
+    const req = mockReq({ text: 'A long text here' });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBeUndefined();
+    expect(callArgs.options.model).toBeUndefined();
+  });
+
+  it('preserves task-specific parameters alongside provider/model', async () => {
+    const req = mockReq({
+      text: 'A long text here',
+      maxLength: 150,
+      options: { provider: 'mistral', model: 'mistral-small-latest' }
+    });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.temperature).toBe(0.5);
+    // maxTokens calculated from maxLength: Math.min(150 * 2, 500) = 300
+    expect(callArgs.options.maxTokens).toBe(300);
+    expect(callArgs.options.provider).toBe('mistral');
+  });
+});
+
+describe('generateTips — forwards provider and model options', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('forwards provider and model when provided', async () => {
+    const req = mockReq({
+      destination: 'Paris',
+      options: {
+        provider: 'gemini',
+        model: 'gemini-1.5-flash'
+      }
+    });
+    const res = mockRes();
+    await controller.generateTips(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBe('gemini');
+    expect(callArgs.options.model).toBe('gemini-1.5-flash');
+  });
+
+  it('forwards undefined provider/model when not provided', async () => {
+    const req = mockReq({ destination: 'Tokyo' });
+    const res = mockRes();
+    await controller.generateTips(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.provider).toBeUndefined();
+    expect(callArgs.options.model).toBeUndefined();
+  });
+
+  it('preserves task-specific parameters alongside provider/model', async () => {
+    const req = mockReq({
+      destination: 'Barcelona',
+      category: 'budget travel',
+      count: 8,
+      options: { provider: 'openai', model: 'gpt-4o-mini' }
+    });
+    const res = mockRes();
+    await controller.generateTips(req, res);
+
+    expect(res._status).toBe(200);
+    const callArgs = executeAIRequest.mock.calls[0][0];
+    expect(callArgs.options.temperature).toBe(0.8);
+    expect(callArgs.options.maxTokens).toBe(800);
+    expect(callArgs.options.provider).toBe('openai');
+  });
+});

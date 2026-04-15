@@ -318,7 +318,12 @@ exports.improve = async (req, res) => {
       messages,
       task: AI_TASKS.IMPROVE_DESCRIPTION,
       user: req.user,
-      options: { temperature: 0.7, maxTokens: 500 }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.7,
+        maxTokens: 500
+      }
     });
 
     return res.json({
@@ -376,7 +381,12 @@ exports.translate = async (req, res) => {
       messages,
       task: AI_TASKS.TRANSLATE,
       user: req.user,
-      options: { temperature: 0.3, maxTokens: 1000 }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.3,
+        maxTokens: 1000
+      }
     });
 
     return res.json({
@@ -434,7 +444,12 @@ exports.summarize = async (req, res) => {
       messages,
       task: AI_TASKS.SUMMARIZE,
       user: req.user,
-      options: { temperature: 0.5, maxTokens: Math.min(maxLength * 2, 500) }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.5,
+        maxTokens: Math.min(maxLength * 2, 500)
+      }
     });
 
     return res.json({
@@ -495,7 +510,12 @@ exports.generateTips = async (req, res) => {
       messages,
       task: AI_TASKS.GENERATE_TIPS,
       user: req.user,
-      options: { temperature: 0.8, maxTokens: 800 }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.8,
+        maxTokens: 800
+      }
     });
 
     return res.json({
