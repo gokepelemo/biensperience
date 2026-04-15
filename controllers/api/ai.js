@@ -297,10 +297,8 @@ exports.improve = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.improve ||
-      options.prompts?.improveDescription ||
+    const systemPrompt = options.prompts?.improve_description ||
       lang.current.prompts?.improve_description ||
-      lang.current.prompts?.improveDescription ||
       'You are a professional editor. Improve the given text to be more engaging, clear, and well-written. Maintain the original meaning and tone. Return only the improved text.';
 
     const messages = [
@@ -311,7 +309,7 @@ exports.improve = async (req, res) => {
     logger.info('AI improve request', {
       userId: req.user._id,
       type,
-      customPrompt: !!(options.prompts?.improve || options.prompts?.improveDescription)
+      customPrompt: !!options.prompts?.improve_description
     });
 
     const result = await executeAIRequest({
@@ -425,13 +423,16 @@ exports.summarize = async (req, res) => {
       });
     }
 
+    // Parse and clamp maxLength to prevent NaN in arithmetic
+    const safeMaxLength = Math.min(Math.max(parseInt(maxLength, 10) || 200, 50), 1000);
+
     const systemPrompt = options.prompts?.summarize ||
       lang.current.prompts?.summarize ||
       'You are a skilled summarizer. Create a concise summary of the given text that captures the key points. Be clear and informative.';
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Summarize the following in about ${maxLength} words or less:\n\n${text}` }
+      { role: 'user', content: `Summarize the following in about ${safeMaxLength} words or less:\n\n${text}` }
     ];
 
     logger.info('AI summarize request', {
@@ -448,7 +449,7 @@ exports.summarize = async (req, res) => {
         provider: options.provider,
         model: options.model,
         temperature: 0.5,
-        maxTokens: Math.min(maxLength * 2, 500)
+        maxTokens: Math.min(safeMaxLength * 2, 500)
       }
     });
 
@@ -488,10 +489,8 @@ exports.generateTips = async (req, res) => {
     const safeCategory = String(category).slice(0, MAX_TIPS_CATEGORY_LENGTH);
     const safeDestination = String(destination).slice(0, MAX_TIPS_DESTINATION_LENGTH);
 
-    const systemPrompt = options.prompts?.generateTips ||
-      options.prompts?.generate_tips ||
+    const systemPrompt = options.prompts?.generate_tips ||
       lang.current.prompts?.generate_tips ||
-      lang.current.prompts?.generateTips ||
       'You are a knowledgeable travel expert. Generate practical, specific travel tips for the given destination. Format as a numbered list.';
 
     const messages = [
@@ -503,7 +502,7 @@ exports.generateTips = async (req, res) => {
       userId: req.user._id,
       destination: safeDestination,
       category: safeCategory,
-      customPrompt: !!(options.prompts?.generateTips || options.prompts?.generate_tips)
+      customPrompt: !!options.prompts?.generate_tips
     });
 
     const result = await executeAIRequest({

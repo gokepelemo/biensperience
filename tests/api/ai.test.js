@@ -335,6 +335,56 @@ describe('generateTips — destination missing returns 400', () => {
 // Provider/Model forwarding — all handlers
 // ---------------------------------------------------------------------------
 
+describe('improve — prompt key naming (dc8d.3)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('uses snake_case prompt key from options.prompts', async () => {
+    const req = mockReq({
+      text: 'Hello world',
+      options: {
+        prompts: { improve_description: 'Custom improve prompt' }
+      }
+    });
+    const res = mockRes();
+    await controller.improve(req, res);
+
+    expect(res._status).toBe(200);
+    const systemPrompt = executeAIRequest.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toBe('Custom improve prompt');
+  });
+
+  it('falls back to lang.current.prompts.improve_description when options.prompts not provided', async () => {
+    const { lang } = require('../../utilities/lang.constants');
+    lang.current = {
+      prompts: { improve_description: 'Lang improve prompt' }
+    };
+
+    const req = mockReq({ text: 'Hello world' });
+    const res = mockRes();
+    await controller.improve(req, res);
+
+    expect(res._status).toBe(200);
+    const systemPrompt = executeAIRequest.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toBe('Lang improve prompt');
+  });
+
+  it('uses default prompt when both options.prompts and lang.current are empty', async () => {
+    const { lang } = require('../../utilities/lang.constants');
+    lang.current = { prompts: {} };
+
+    const req = mockReq({ text: 'Hello world' });
+    const res = mockRes();
+    await controller.improve(req, res);
+
+    expect(res._status).toBe(200);
+    const systemPrompt = executeAIRequest.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toContain('professional editor');
+  });
+});
+
 describe('improve — forwards provider and model options', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -441,6 +491,73 @@ describe('translate — forwards provider and model options', () => {
   });
 });
 
+describe('summarize — maxLength sanitization (dc8d.4)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('defaults maxLength to 200 when given a non-numeric string', async () => {
+    const req = mockReq({ text: 'A long text here', maxLength: 'hello' });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const userMsg = executeAIRequest.mock.calls[0][0].messages[1].content;
+    expect(userMsg).toContain('about 200 words or less');
+    const maxTokens = executeAIRequest.mock.calls[0][0].options.maxTokens;
+    expect(maxTokens).toBe(Math.min(200 * 2, 500)); // 400
+  });
+
+  it('clamps negative maxLength to 50 minimum', async () => {
+    const req = mockReq({ text: 'A long text here', maxLength: -1 });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const userMsg = executeAIRequest.mock.calls[0][0].messages[1].content;
+    expect(userMsg).toContain('about 50 words or less');
+    const maxTokens = executeAIRequest.mock.calls[0][0].options.maxTokens;
+    expect(maxTokens).toBe(Math.min(50 * 2, 500)); // 100
+  });
+
+  it('clamps oversized maxLength to 1000 maximum', async () => {
+    const req = mockReq({ text: 'A long text here', maxLength: 9999 });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const userMsg = executeAIRequest.mock.calls[0][0].messages[1].content;
+    expect(userMsg).toContain('about 1000 words or less');
+    const maxTokens = executeAIRequest.mock.calls[0][0].options.maxTokens;
+    expect(maxTokens).toBe(Math.min(1000 * 2, 500)); // 500
+  });
+
+  it('passes through valid maxLength within bounds', async () => {
+    const req = mockReq({ text: 'A long text here', maxLength: 150 });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const userMsg = executeAIRequest.mock.calls[0][0].messages[1].content;
+    expect(userMsg).toContain('about 150 words or less');
+    const maxTokens = executeAIRequest.mock.calls[0][0].options.maxTokens;
+    expect(maxTokens).toBe(Math.min(150 * 2, 500)); // 300
+  });
+
+  it('uses default maxLength 200 when maxLength is 0', async () => {
+    const req = mockReq({ text: 'A long text here', maxLength: 0 });
+    const res = mockRes();
+    await controller.summarize(req, res);
+
+    expect(res._status).toBe(200);
+    const userMsg = executeAIRequest.mock.calls[0][0].messages[1].content;
+    expect(userMsg).toContain('about 200 words or less');
+    const maxTokens = executeAIRequest.mock.calls[0][0].options.maxTokens;
+    expect(maxTokens).toBe(Math.min(200 * 2, 500)); // 400
+  });
+});
+
 describe('summarize — forwards provider and model options', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -490,6 +607,56 @@ describe('summarize — forwards provider and model options', () => {
     // maxTokens calculated from maxLength: Math.min(150 * 2, 500) = 300
     expect(callArgs.options.maxTokens).toBe(300);
     expect(callArgs.options.provider).toBe('mistral');
+  });
+});
+
+describe('generateTips — prompt key naming (dc8d.3)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    stubSuccess();
+  });
+
+  it('uses snake_case prompt key from options.prompts', async () => {
+    const req = mockReq({
+      destination: 'Paris',
+      options: {
+        prompts: { generate_tips: 'Custom tips prompt' }
+      }
+    });
+    const res = mockRes();
+    await controller.generateTips(req, res);
+
+    expect(res._status).toBe(200);
+    const systemPrompt = executeAIRequest.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toBe('Custom tips prompt');
+  });
+
+  it('falls back to lang.current.prompts.generate_tips when options.prompts not provided', async () => {
+    const { lang } = require('../../utilities/lang.constants');
+    lang.current = {
+      prompts: { generate_tips: 'Lang tips prompt' }
+    };
+
+    const req = mockReq({ destination: 'Tokyo' });
+    const res = mockRes();
+    await controller.generateTips(req, res);
+
+    expect(res._status).toBe(200);
+    const systemPrompt = executeAIRequest.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toBe('Lang tips prompt');
+  });
+
+  it('uses default prompt when both options.prompts and lang.current are empty', async () => {
+    const { lang } = require('../../utilities/lang.constants');
+    lang.current = { prompts: {} };
+
+    const req = mockReq({ destination: 'Barcelona' });
+    const res = mockRes();
+    await controller.generateTips(req, res);
+
+    expect(res._status).toBe(200);
+    const systemPrompt = executeAIRequest.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toContain('knowledgeable travel expert');
   });
 });
 
