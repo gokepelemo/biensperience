@@ -721,3 +721,76 @@ describe('generateTips — forwards provider and model options', () => {
     expect(callArgs.options.provider).toBe('openai');
   });
 });
+
+// ---------------------------------------------------------------------------
+// callProvider — GatewayError propagation (dc8d.5)
+// ---------------------------------------------------------------------------
+
+describe('callProvider — GatewayError propagation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('propagates GatewayError unchanged so instanceof checks work', async () => {
+    const { GatewayError } = require('../../utilities/ai-gateway');
+    const gatewayError = new GatewayError('Rate limit exceeded', 'RATE_LIMIT', 429);
+
+    executeAIRequest.mockRejectedValue(gatewayError);
+
+    const { callProvider } = controller;
+
+    let thrownError;
+    try {
+      await callProvider('openai', [{ role: 'user', content: 'test' }], {
+        _user: { _id: 'user123' }
+      });
+    } catch (err) {
+      thrownError = err;
+    }
+
+    // Verify the error is still a GatewayError (not wrapped in a plain Error)
+    expect(thrownError).toBeDefined();
+    expect(thrownError instanceof GatewayError).toBe(true);
+    expect(thrownError.message).toBe('Rate limit exceeded');
+    expect(thrownError.code).toBe('RATE_LIMIT');
+    expect(thrownError.statusCode).toBe(429);
+  });
+
+  it('preserves GatewayError properties for downstream error handling', async () => {
+    const { GatewayError } = require('../../utilities/ai-gateway');
+    const gatewayError = new GatewayError('Quota exceeded', 'QUOTA_EXCEEDED', 403);
+
+    executeAIRequest.mockRejectedValue(gatewayError);
+
+    const { callProvider } = controller;
+
+    let thrownError;
+    try {
+      await callProvider('anthropic', [{ role: 'user', content: 'test' }]);
+    } catch (err) {
+      thrownError = err;
+    }
+
+    // Callers like bienbot.js check err.code and err.statusCode directly
+    expect(thrownError.code).toBe('QUOTA_EXCEEDED');
+    expect(thrownError.statusCode).toBe(403);
+  });
+
+  it('returns success result when executeAIRequest succeeds', async () => {
+    const successResult = {
+      content: 'Success response',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 }
+    };
+    executeAIRequest.mockResolvedValue(successResult);
+
+    const { callProvider } = controller;
+
+    const result = await callProvider('openai', [{ role: 'user', content: 'test' }], {
+      _user: { _id: 'user123' }
+    });
+
+    expect(result).toEqual(successResult);
+  });
+});

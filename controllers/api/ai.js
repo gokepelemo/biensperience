@@ -88,44 +88,36 @@ function getProviderForTask(task) {
  *
  * Used by bienbot controller. Pass _user in options for policy enforcement.
  *
+ * Propagates GatewayError unchanged so callers can use instanceof checks.
+ *
  * @param {string} provider - Provider name
  * @param {Array} messages - Chat messages
  * @param {Object} options - { model, temperature, maxTokens, _user, task, intent }
  * @returns {Promise<{content, usage, model, provider}>}
+ * @throws {GatewayError} When the gateway rejects the request
  */
 async function callProvider(provider, messages, options = {}) {
-  try {
-    const result = await executeAIRequest({
-      messages,
-      task: options.task || AI_TASKS.GENERAL,
-      user: options._user || null,
-      intent: options.intent || null,
-      options: {
-        provider,
-        model: options.model,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens
-      },
-      entityContext: options.entityContext || null
-    });
+  const result = await executeAIRequest({
+    messages,
+    task: options.task || AI_TASKS.GENERAL,
+    user: options._user || null,
+    intent: options.intent || null,
+    options: {
+      provider,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens
+    },
+    entityContext: options.entityContext || null
+  });
 
-    // Return in the legacy format (without policyApplied)
-    return {
-      content: result.content,
-      usage: result.usage,
-      model: result.model,
-      provider: result.provider
-    };
-  } catch (err) {
-    // Convert GatewayError to plain Error for backward-compat callers
-    if (err instanceof GatewayError) {
-      const plainError = new Error(err.message);
-      plainError.code = err.code;
-      plainError.statusCode = err.statusCode;
-      throw plainError;
-    }
-    throw err;
-  }
+  // Return in the legacy format (without policyApplied)
+  return {
+    content: result.content,
+    usage: result.usage,
+    model: result.model,
+    provider: result.provider
+  };
 }
 
 // ---------------------------------------------------------------------------
