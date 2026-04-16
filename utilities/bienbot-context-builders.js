@@ -390,6 +390,55 @@ async function collectPlanNotes(planItems, userId, threshold = 500) {
   return `[PLAN NOTES]\n${noteLines.join('\n')}\n[/PLAN NOTES]`;
 }
 
+/**
+ * Wrap a list of attention signals in [ATTENTION] tags.
+ * Returns null when there are no signals.
+ * @param {string[]} signals
+ * @param {number} [max=5]
+ * @returns {string|null}
+ */
+function renderAttentionBlock(signals, max = 5) {
+  if (!signals || !signals.length) return null;
+  return `\n[ATTENTION]\n${signals.slice(0, max).join('\n')}\n[/ATTENTION]`;
+}
+
+/**
+ * Return a proximity tag string for a plan, e.g. " (+3d)" or " (2d overdue)".
+ * Prefers scheduled item proximity over plan.planned_date.
+ * Returns '' when no date information is available.
+ * @param {object} plan - lean plan document with .plan[] and .planned_date
+ * @returns {string}
+ */
+function computePlanProximityTag(plan) {
+  const scheduled = (plan.plan || []).filter(i => i.scheduled_date && !i.complete);
+  let proximity = null;
+  if (scheduled.length > 0) {
+    proximity = Math.min(...scheduled.map(i => computeDaysUntil(i.scheduled_date)));
+  } else if (plan.planned_date) {
+    proximity = computeDaysUntil(plan.planned_date);
+  }
+  if (proximity === null) return '';
+  return proximity < 0
+    ? ` (${Math.abs(proximity)}d overdue)`
+    : ` (+${proximity}d)`;
+}
+
+/**
+ * Format a [TRAVEL SIGNALS] block from a hidden_signals object.
+ * Returns null when signals are absent or produce no natural-language text.
+ * @param {object|null} hiddenSignals - raw hidden_signals from DB
+ * @param {'traveler'|'group'} role
+ * @param {number} [count=1]
+ * @returns {string|null}
+ */
+function formatSignalBlock(hiddenSignals, role, count = 1) {
+  if (!hiddenSignals) return null;
+  const decayed = applySignalDecay(hiddenSignals);
+  const text = signalsToNaturalLanguage(decayed, { role, count });
+  if (!text) return null;
+  return `[TRAVEL SIGNALS]\n${text}\n[/TRAVEL SIGNALS]`;
+}
+
 // ---------------------------------------------------------------------------
 // Individual builders
 // ---------------------------------------------------------------------------
@@ -483,7 +532,6 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
 
     // Cross-entity: Your other plans for this destination (up to 3)
     try {
-      const today = new Date(); today.setHours(0, 0, 0, 0);
       const relatedPlans = userPlansForDest.filter(p => {
         if (!p.experience?.destination) return false;
         const planDestId = p.experience.destination._id || p.experience.destination;
@@ -496,16 +544,7 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
         for (const p of relatedPlans) {
           const expName = p.experience?.name || '(unnamed)';
           const destName = p.experience?.destination?.name || destination.name;
-          const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
-          let proximity = null;
-          if (scheduled.length > 0) {
-            const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
-            proximity = min;
-          } else if (p.planned_date) {
-            const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
-            proximity = Math.round((t - today) / 86400000);
-          }
-          const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+          const tag = computePlanProximityTag(p);
           lines.push(`  ${expName} (${destName})${tag}`);
         }
       }
@@ -548,9 +587,8 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
         }
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Destination attention signals skipped', { error: sigErr.message });
     }
@@ -635,7 +673,6 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
           .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
           .select('experience planned_date plan')
           .lean();
-        const today = new Date(); today.setHours(0, 0, 0, 0);
         const relatedPlans = userPlans.filter(p => {
           if (!p.experience?._id) return false;
           if (String(p.experience._id) === String(experience._id)) return false;
@@ -647,16 +684,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
           for (const p of relatedPlans) {
             const expName = p.experience?.name || '(unnamed)';
             const destName = p.experience?.destination?.name || experience.destination?.name || '';
-            const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
-            let proximity = null;
-            if (scheduled.length > 0) {
-              const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
-              proximity = min;
-            } else if (p.planned_date) {
-              const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
-              proximity = Math.round((t - today) / 86400000);
-            }
-            const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+            const tag = computePlanProximityTag(p);
             lines.push(`  ${expName} (${destName})${tag}`);
           }
         }
@@ -715,9 +743,8 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
         }
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Experience attention signals skipped', { error: sigErr.message });
     }
@@ -836,13 +863,8 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       const memberDocs = await User.find({ _id: { $in: memberIds } }).select('hidden_signals name').lean();
       if (memberDocs.length > 0) {
         const groupSignals = aggregateGroupSignals(memberDocs);
-        const decayed = applySignalDecay(groupSignals);
-        const signalText = signalsToNaturalLanguage(decayed, { role: memberDocs.length > 1 ? 'group' : 'traveler', count: memberDocs.length });
-        if (signalText) {
-          lines.push(`[TRAVEL SIGNALS]`);
-          lines.push(signalText);
-          lines.push(`[/TRAVEL SIGNALS]`);
-        }
+        const signalBlock = formatSignalBlock(groupSignals, memberDocs.length > 1 ? 'group' : 'traveler', memberDocs.length);
+        if (signalBlock) lines.push(signalBlock);
       }
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan signal injection skipped', { error: sigErr.message });
@@ -877,21 +899,11 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       }).slice(0, remainingSlots) : [];
       const relatedPlans = [...sameExpPlans.slice(0, 2), ...sameDestPlans];
       if (relatedPlans.length > 0) {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
         lines.push('\nYour other plans nearby:');
         for (const p of relatedPlans) {
           const expName = p.experience?.name || '(unnamed)';
           const destName = p.experience?.destination?.name || '';
-          const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
-          let proximity = null;
-          if (scheduled.length > 0) {
-            const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
-            proximity = min;
-          } else if (p.planned_date) {
-            const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
-            proximity = Math.round((t - today) / 86400000);
-          }
-          const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+          const tag = computePlanProximityTag(p);
           lines.push(`  ${expName}${destName ? ` (${destName})` : ''}${tag}`);
         }
       }
@@ -975,9 +987,8 @@ async function buildUserPlanContext(planId, userId, options = {}) {
         signals.push('⚠ All items complete — consider archiving');
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan attention signals skipped', { error: sigErr.message });
     }
@@ -1115,15 +1126,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
     // Hidden signals for the user viewing this item
     try {
       const userDoc = await User.findById(userId).select('hidden_signals').lean();
-      if (userDoc?.hidden_signals) {
-        const decayed = applySignalDecay(userDoc.hidden_signals);
-        const signalText = signalsToNaturalLanguage(decayed, { role: 'traveler', count: 1 });
-        if (signalText) {
-          lines.push(`[TRAVEL SIGNALS]`);
-          lines.push(signalText);
-          lines.push(`[/TRAVEL SIGNALS]`);
-        }
-      }
+      const signalBlock = formatSignalBlock(userDoc?.hidden_signals, 'traveler');
+      if (signalBlock) lines.push(signalBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan item signal injection skipped', { error: sigErr.message });
     }
@@ -1184,9 +1188,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
         signals.push(`⚠ This item is ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''} overdue`);
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan item attention signals skipped', { error: sigErr.message });
     }
@@ -1382,15 +1385,8 @@ async function buildUserGreetingContext(userId, options = {}) {
     // Hidden travel signals
     // ------------------------------------------------------------------
     try {
-      if (userDoc.hidden_signals) {
-        const decayed = applySignalDecay(userDoc.hidden_signals);
-        const signalText = signalsToNaturalLanguage(decayed, { role: 'traveler', count: 1 });
-        if (signalText) {
-          lines.push(`\n[TRAVEL SIGNALS]`);
-          lines.push(signalText);
-          lines.push(`[/TRAVEL SIGNALS]`);
-        }
-      }
+      const signalBlock = formatSignalBlock(userDoc.hidden_signals, 'traveler');
+      if (signalBlock) lines.push('\n' + signalBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Greeting signal injection skipped', { error: sigErr.message });
     }
@@ -1473,9 +1469,8 @@ async function buildUserGreetingContext(userId, options = {}) {
         attentionSignals.push(`⚠ You have ${totalOverdue} overdue item${totalOverdue !== 1 ? 's' : ''} across your plans—worth reviewing first`);
       }
 
-      if (attentionSignals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${attentionSignals.slice(0, 6).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(attentionSignals, 6);
+      if (attentionBlock) lines.push(attentionBlock);
 
       // Detailed overdue items — BienBot can answer "which item is overdue?" and propose navigation
       if (overdueItemDetails.length > 0) {
@@ -2849,6 +2844,9 @@ async function findPopularExperiences(filters, userId) {
 }
 
 module.exports = {
+  renderAttentionBlock,
+  computePlanProximityTag,
+  formatSignalBlock,
   buildDestinationContext,
   buildExperienceContext,
   buildUserPlanContext,
