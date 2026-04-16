@@ -155,7 +155,7 @@ exports.complete = async (req, res) => {
     logger.debug('AI completion success', {
       userId: req.user._id,
       provider: result.provider,
-      tokens: result.usage.totalTokens
+      tokens: result.usage?.totalTokens ?? ((result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0))
     });
 
     return res.json({
@@ -501,12 +501,9 @@ exports.generateTips = async (req, res) => {
  * Check AI service availability
  */
 exports.status = async (req, res) => {
-  const providers = {
-    openai: !!getApiKeyForProvider('openai'),
-    anthropic: !!getApiKeyForProvider('anthropic'),
-    mistral: !!getApiKeyForProvider('mistral'),
-    gemini: !!getApiKeyForProvider('gemini')
-  };
+  const providers = Object.fromEntries(
+    Object.values(AI_PROVIDERS).map(name => [name, !!getApiKeyForProvider(name)])
+  );
 
   const available = Object.values(providers).some(v => v);
 
