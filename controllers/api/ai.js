@@ -153,6 +153,21 @@ const MAX_TIPS_COUNT = 20;
 const DEFAULT_TIPS_COUNT = 5;
 
 // ============================================================================
+// Helper: Prompt Resolution
+// ============================================================================
+
+/**
+ * Resolve prompt for a task: caller override → lang default → hardcoded fallback.
+ * @param {Object} options - Request options (may have .prompts sub-object)
+ * @param {string} key - Prompt key (snake_case, matches lang.constants)
+ * @param {string} defaultPrompt - Hardcoded fallback
+ * @returns {string}
+ */
+function resolvePrompt(options, key, defaultPrompt) {
+  return options?.prompts?.[key] ?? lang.current.prompts?.[key] ?? defaultPrompt;
+}
+
+// ============================================================================
 // Controller Methods
 // ============================================================================
 
@@ -162,7 +177,7 @@ const DEFAULT_TIPS_COUNT = 5;
  */
 exports.complete = async (req, res) => {
   try {
-    const { messages, task = AI_TASKS.GENERAL, options = {} } = req.body;
+    const { messages, task = AI_TASKS.GENERAL, options = {}, entityContext = null } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({
@@ -187,7 +202,7 @@ exports.complete = async (req, res) => {
         temperature: options.temperature,
         maxTokens: options.maxTokens
       },
-      entityContext: req.body.entityContext || null
+      entityContext: entityContext
     });
 
     logger.debug('AI completion success', {
@@ -227,9 +242,11 @@ exports.autocomplete = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.autocomplete ||
-      lang.current.prompts?.autocomplete ||
-      'You are a helpful writing assistant. Complete the given text naturally and concisely. Only provide the completion, not the original text.';
+    const systemPrompt = resolvePrompt(
+      options,
+      'autocomplete',
+      'You are a helpful writing assistant. Complete the given text naturally and concisely. Only provide the completion, not the original text.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -289,9 +306,11 @@ exports.improve = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.improve_description ||
-      lang.current.prompts?.improve_description ||
-      'You are a professional editor. Improve the given text to be more engaging, clear, and well-written. Maintain the original meaning and tone. Return only the improved text.';
+    const systemPrompt = resolvePrompt(
+      options,
+      'improve_description',
+      'You are a professional editor. Improve the given text to be more engaging, clear, and well-written. Maintain the original meaning and tone. Return only the improved text.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -351,9 +370,11 @@ exports.translate = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.translate ||
-      lang.current.prompts?.translate ||
-      'You are a professional translator. Translate the given text accurately while preserving meaning, tone, and style. Return only the translation.';
+    const systemPrompt = resolvePrompt(
+      options,
+      'translate',
+      'You are a professional translator. Translate the given text accurately while preserving meaning, tone, and style. Return only the translation.'
+    );
 
     const sourceInfo = sourceLanguage === 'auto' ? '' : `from ${sourceLanguage} `;
     const messages = [
@@ -418,9 +439,11 @@ exports.summarize = async (req, res) => {
     // Parse and clamp maxLength to prevent NaN in arithmetic
     const safeMaxLength = Math.min(Math.max(parseInt(maxLength, 10) || 200, 50), 1000);
 
-    const systemPrompt = options.prompts?.summarize ||
-      lang.current.prompts?.summarize ||
-      'You are a skilled summarizer. Create a concise summary of the given text that captures the key points. Be clear and informative.';
+    const systemPrompt = resolvePrompt(
+      options,
+      'summarize',
+      'You are a skilled summarizer. Create a concise summary of the given text that captures the key points. Be clear and informative.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -481,9 +504,11 @@ exports.generateTips = async (req, res) => {
     const safeCategory = String(category).slice(0, MAX_TIPS_CATEGORY_LENGTH);
     const safeDestination = String(destination).slice(0, MAX_TIPS_DESTINATION_LENGTH);
 
-    const systemPrompt = options.prompts?.generate_tips ||
-      lang.current.prompts?.generate_tips ||
-      'You are a knowledgeable travel expert. Generate practical, specific travel tips for the given destination. Format as a numbered list.';
+    const systemPrompt = resolvePrompt(
+      options,
+      'generate_tips',
+      'You are a knowledgeable travel expert. Generate practical, specific travel tips for the given destination. Format as a numbered list.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
