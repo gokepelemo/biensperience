@@ -894,5 +894,7 @@ module.exports = {
   callWithRetry,
   isRetryableError,
   calculateRetryDelay,
-  DEFAULT_RETRY_CONFIG
+  DEFAULT_RETRY_CONFIG,
+  // Exported so the AI controller and utilities can use the canonical implementation
+  getProviderForTask: getEnvProviderForTask
 };

@@ -13,39 +13,9 @@
 
 const logger = require('../../utilities/backend-logger');
 const { lang } = require('../../utilities/lang.constants');
-const { executeAIRequest, GatewayError } = require('../../utilities/ai-gateway');
+const { executeAIRequest, GatewayError, getProviderForTask } = require('../../utilities/ai-gateway');
 const { getApiKeyForProvider } = require('../../utilities/ai-provider-registry');
-
-// ---------------------------------------------------------------------------
-// Constants (exported for backward compatibility)
-// ---------------------------------------------------------------------------
-
-const AI_PROVIDERS = {
-  OPENAI: 'openai',
-  ANTHROPIC: 'anthropic',
-  MISTRAL: 'mistral',
-  GEMINI: 'gemini'
-};
-
-const AI_TASKS = {
-  AUTOCOMPLETE: 'autocomplete',
-  EDIT_LANGUAGE: 'edit_language',
-  IMPROVE_DESCRIPTION: 'improve_description',
-  SUMMARIZE: 'summarize',
-  GENERATE_TIPS: 'generate_tips',
-  TRANSLATE: 'translate',
-  GENERAL: 'general',
-  BIENBOT_CHAT: 'bienbot_chat',
-  BIENBOT_SUMMARIZE: 'bienbot_summarize',
-  BIENBOT_ANALYZE: 'bienbot_analyze'
-};
-
-const DEFAULT_MODELS = {
-  [AI_PROVIDERS.OPENAI]: 'gpt-4o-mini',
-  [AI_PROVIDERS.ANTHROPIC]: 'claude-3-haiku-20240307',
-  [AI_PROVIDERS.MISTRAL]: 'mistral-small-latest',
-  [AI_PROVIDERS.GEMINI]: 'gemini-1.5-flash'
-};
+const { AI_PROVIDERS, AI_TASKS, DEFAULT_MODELS } = require('../../utilities/ai-constants');
 
 // ---------------------------------------------------------------------------
 // Backward-compatible helpers (used by bienbot controller and others)
@@ -58,29 +28,6 @@ const DEFAULT_MODELS = {
  */
 function getApiKey(provider) {
   return getApiKeyForProvider(provider);
-}
-
-/**
- * Get provider for a task from env vars (backward-compatible wrapper).
- * @param {string} task
- * @returns {string}
- */
-function getProviderForTask(task) {
-  const envMap = {
-    [AI_TASKS.AUTOCOMPLETE]: 'AI_AUTOCOMPLETE_PROVIDER',
-    [AI_TASKS.EDIT_LANGUAGE]: 'AI_EDIT_PROVIDER',
-    [AI_TASKS.IMPROVE_DESCRIPTION]: 'AI_IMPROVE_PROVIDER',
-    [AI_TASKS.SUMMARIZE]: 'AI_SUMMARIZE_PROVIDER',
-    [AI_TASKS.GENERATE_TIPS]: 'AI_TIPS_PROVIDER',
-    [AI_TASKS.TRANSLATE]: 'AI_TRANSLATE_PROVIDER'
-  };
-
-  const envKey = envMap[task];
-  const taskProvider = envKey ? process.env[envKey] : null;
-  if (taskProvider && Object.values(AI_PROVIDERS).includes(taskProvider)) {
-    return taskProvider;
-  }
-  return process.env.AI_DEFAULT_PROVIDER || AI_PROVIDERS.OPENAI;
 }
 
 /**
