@@ -202,7 +202,7 @@ exports.complete = async (req, res) => {
         temperature: options.temperature,
         maxTokens: options.maxTokens
       },
-      entityContext: entityContext
+      entityContext
     });
 
     logger.debug('AI completion success', {
