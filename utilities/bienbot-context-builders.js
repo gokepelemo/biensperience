@@ -146,20 +146,30 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
       }
       if (!destId) return null;
 
-      // Fetch all user plans and filter to same destination
-      const userPlans = await Plan
-        .find({ user: new Types.ObjectId(userId) })
+      // Push destination filter to DB: find experiences at destId, then query plans.
+      const destExperiences = await Experience
+        .find({ destination: destId })
+        .select('_id')
+        .lean();
+      if (!destExperiences.length) return null;
+
+      const destExpIds = destExperiences.map(e => e._id);
+      const planQuery = {
+        user: new Types.ObjectId(userId),
+        experience: { $in: destExpIds }
+      };
+      if (options.currentId) {
+        const { valid, objectId } = validateObjectId(options.currentId, 'currentId');
+        if (valid) planQuery._id = { $ne: objectId };
+      }
+
+      const otherPlans = await Plan
+        .find(planQuery)
         .populate({ path: 'experience', select: 'name destination' })
         .select('experience planned_date plan')
         .sort({ updatedAt: -1 })
-        .limit(50)
+        .limit(5)
         .lean();
-
-      const otherPlans = userPlans.filter(p => {
-        if (options.currentId && String(p._id) === String(options.currentId)) return false;
-        const planDestId = p.experience?.destination?._id ?? p.experience?.destination;
-        return planDestId && String(planDestId) === String(destId);
-      });
 
       if (otherPlans.length < 2) return null;
 
