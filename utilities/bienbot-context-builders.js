@@ -1538,10 +1538,25 @@ async function buildSearchContext(query, userId, options = {}) {
   try {
     const trimmedQuery = query.trim();
 
-    // Search destinations, experiences, and user plans in parallel
+    // Build a broad name-match regex from query words to push filtering into MongoDB.
+    // findSimilarItems still applies fuzzy scoring on the returned subset.
+    const escapedWords = trimmedQuery
+      .split(/\s+/)
+      .filter(w => w.length >= 2)
+      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const nameRegex = escapedWords.length > 0
+      ? new RegExp(escapedWords.join('|'), 'i')
+      : new RegExp(trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
     const [destinations, experiences, userPlans] = await Promise.all([
-      Destination.find({ visibility: 'public' }).select('name country overview').limit(100).lean(),
-      Experience.find({ visibility: 'public' }).select('name overview destination').populate('destination', 'name').limit(100).lean(),
+      Destination.find({
+        visibility: 'public',
+        $or: [{ name: { $regex: nameRegex } }, { country: { $regex: nameRegex } }]
+      }).select('name country overview').limit(30).lean(),
+      Experience.find({
+        visibility: 'public',
+        name: { $regex: nameRegex }
+      }).select('name overview destination').populate('destination', 'name').limit(30).lean(),
       userId
         ? Plan.find({ user: userId })
             .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
