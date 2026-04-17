@@ -459,7 +459,8 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
   if (!destIdValid) return null;
 
   try {
-    const destination = await Destination.findById(destOid);
+    const destination = await Destination.findById(destOid)
+      .select('name country state overview location travel_tips travel_tips_updated_at visibility hidden_signals permissions');
     if (!destination) return null;
 
     const perm = await enforcer.canView({ userId, resource: destination });
@@ -768,7 +769,8 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planOid)
-      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } });
+      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+      .select('experience planned_date plan costs currency permissions member_locations');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -1046,7 +1048,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planOid)
-      .populate('experience', 'name');
+      .populate('experience', 'name')
+      .select('experience plan costs currency permissions');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -1703,7 +1706,8 @@ async function buildPlanNextStepsContext(planId, userId, options = {}) {
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
   try {
-    const plan = await Plan.findById(planId).populate('experience', 'name');
+    const plan = await Plan.findById(planId).populate('experience', 'name')
+      .select('experience plan costs permissions');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
