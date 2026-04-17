@@ -857,13 +857,18 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       logger.debug('[bienbot-context] Temporal buckets skipped', { error: bucketErr.message });
     }
 
-    // Inject group travel signals from plan collaborators
+    // Run group-signal fetch and notes collection in parallel.
+    const memberIds = (plan.permissions || []).filter(p => p.entity === 'user').map(p => p._id);
+    if (!memberIds.some(id => String(id) === String(userId))) {
+      memberIds.push(userId);
+    }
+    const [memberDocs, notesBlock] = await Promise.all([
+      User.find({ _id: { $in: memberIds } }).select('hidden_signals name').lean().catch(() => []),
+      collectPlanNotes(planItems, userId).catch(() => null)
+    ]);
+
+    // Inject group travel signals
     try {
-      const memberIds = (plan.permissions || []).filter(p => p.entity === 'user').map(p => p._id);
-      if (!memberIds.some(id => String(id) === String(userId))) {
-        memberIds.push(userId);
-      }
-      const memberDocs = await User.find({ _id: { $in: memberIds } }).select('hidden_signals name').lean();
       if (memberDocs.length > 0) {
         const groupSignals = aggregateGroupSignals(memberDocs);
         const signalBlock = formatSignalBlock(groupSignals, memberDocs.length > 1 ? 'group' : 'traveler', memberDocs.length);
@@ -873,28 +878,24 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       logger.debug('[bienbot-context] Plan signal injection skipped', { error: sigErr.message });
     }
 
-    // Inject plan item notes (visibility-filtered)
-    try {
-      const notesBlock = await collectPlanNotes(planItems, userId);
-      if (notesBlock) lines.push(notesBlock);
-    } catch (noteErr) {
-      logger.debug('[bienbot-context] Plan notes injection skipped', { error: noteErr.message });
-    }
+    // Inject plan item notes
+    if (notesBlock) lines.push(notesBlock);
 
     // Cross-entity: Your other plans for the same experience or destination (up to 2)
     // Caller may pass opts.userPlans to avoid a redundant DB query.
     try {
       const expId = plan.experience?._id;
       const planIdStr = plan._id.toString();
-      const baseUserPlans = options.userPlans || await Plan.find({ user: userId, _id: { $ne: plan._id } })
-        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
-        .select('experience planned_date plan')
-        .lean();
-      const userOtherPlans = baseUserPlans.filter(p => String(p._id) !== planIdStr);
+      const baseUserPlans = options.userPlans
+        ? options.userPlans.filter(p => String(p._id) !== planIdStr)
+        : await Plan.find({ user: userId, _id: { $ne: plan._id } })
+            .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+            .select('experience planned_date plan')
+            .lean();
       // Prefer same experience first; otherwise same destination
-      const sameExpPlans = userOtherPlans.filter(p => expId && String(p.experience?._id) === String(expId));
+      const sameExpPlans = baseUserPlans.filter(p => expId && String(p.experience?._id) === String(expId));
       const remainingSlots = 2 - sameExpPlans.length;
-      const sameDestPlans = remainingSlots > 0 ? userOtherPlans.filter(p => {
+      const sameDestPlans = remainingSlots > 0 ? baseUserPlans.filter(p => {
         if (sameExpPlans.find(sp => String(sp._id) === String(p._id))) return false;
         const planDestId = p.experience?.destination?._id || p.experience?.destination;
         const curDestId = plan.experience?.destination || null;
