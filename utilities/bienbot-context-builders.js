@@ -497,12 +497,30 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       destination.visibility ? `Visibility: ${destination.visibility}` : null
     ];
 
+    // Pre-fetch user doc (for signals) and user plans in parallel
+    let _userDocForDest = null;
+    let userPlansForDest = [];
+    try {
+      const [fetchedUser, fetchedPlans] = await Promise.all([
+        User.findById(userId).select('hidden_signals').lean(),
+        options.userPlans
+          ? Promise.resolve(options.userPlans)
+          : Plan.find({ user: userId })
+              .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
+              .select('experience planned_date plan')
+              .lean()
+      ]);
+      _userDocForDest = fetchedUser;
+      userPlansForDest = fetchedPlans;
+    } catch (prefetchErr) {
+      logger.debug('[bienbot-context] Destination pre-fetch partial failure', { error: prefetchErr.message });
+    }
+
     // Inject hidden travel signals for destination and requesting user
     try {
       const destSignals = applySignalDecay(destination.hidden_signals || {});
       const destNL = signalsToNaturalLanguage(destSignals, { role: 'traveler' });
-      const userDoc = await User.findById(userId).select('hidden_signals').lean();
-      const userSignals = userDoc ? applySignalDecay(userDoc.hidden_signals || {}) : null;
+      const userSignals = _userDocForDest ? applySignalDecay(_userDocForDest.hidden_signals || {}) : null;
       const userNL = userSignals ? signalsToNaturalLanguage(userSignals, { role: 'traveler' }) : '';
       if (destNL || userNL) {
         const signalParts = [];
@@ -512,23 +530,6 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       }
     } catch (sigErr) {
       logger.debug('[bienbot-context] Signal injection skipped', { error: sigErr.message });
-    }
-
-    // Fetch user plans once — reused by cross-entity block and attention signals block.
-    // Caller may pass opts.userPlans to avoid a redundant DB query when multiple
-    // context builders run in parallel.
-    let userPlansForDest = [];
-    try {
-      if (options.userPlans) {
-        userPlansForDest = options.userPlans;
-      } else {
-        userPlansForDest = await Plan.find({ user: userId })
-          .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
-          .select('experience planned_date plan')
-          .lean();
-      }
-    } catch (planFetchErr) {
-      logger.debug('[bienbot-context] Destination plan fetch skipped', { error: planFetchErr.message });
     }
 
     // Cross-entity: Your other plans for this destination (up to 3)
@@ -1653,15 +1654,12 @@ async function buildSuggestionContext(destinationId, experienceId, userId, optio
       if (valid) query._id = { $ne: experienceId };
     }
 
-    const publicExpCount = await Experience.countDocuments(query);
+    const [publicExpCount, sampleExps] = await Promise.all([
+      Experience.countDocuments(query),
+      Experience.find(query).select('plan_items.text plan_items.content').limit(5).lean()
+    ]);
 
     if (publicExpCount === 0) return null;
-
-    // Sample a few item names so the LLM knows suggestions are available
-    const sampleExps = await Experience.find(query)
-      .select('plan_items.text plan_items.content')
-      .limit(5)
-      .lean();
 
     const sampleItems = [];
     for (const exp of sampleExps) {
@@ -1892,18 +1890,16 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
       return contextLines.join('\n');
     }
     case 'plan': {
-      const contextStr = await buildUserPlanContext(id, userId, options);
+      loadModels();
+      const [contextStr, planDoc] = await Promise.all([
+        buildUserPlanContext(id, userId, options),
+        Plan.findById(id).select('experience').lean().catch(planExpErr => {
+          logger.warn('[bienbot-context] Could not resolve experience_id for plan affinity block', { planId: id, error: planExpErr.message });
+          return null;
+        })
+      ]);
       if (!contextStr) return null;
-      // Resolve the experience_id for affinity enrichment from the plan context.
-      // buildUserPlanContext populates plan.experience._id — re-fetch just the field.
-      let planExperienceId = null;
-      try {
-        loadModels();
-        const planDoc = await Plan.findById(id).select('experience').lean();
-        planExperienceId = planDoc?.experience?.toString() || null;
-      } catch (planExpErr) {
-        logger.warn('[bienbot-context] Could not resolve experience_id for plan affinity block', { planId: id, error: planExpErr.message });
-      }
+      const planExperienceId = planDoc?.experience?.toString() || null;
       const contextLines = [contextStr];
       if (planExperienceId) {
         await appendAffinityBlock(contextLines, userId, planExperienceId);
