@@ -51,6 +51,31 @@ beforeEach(async () => {
 // Pure-function helpers (unit tests — no DB needed)
 // ---------------------------------------------------------------------------
 
+describe('normalizeCostToPercentile', () => {
+  const { normalizeCostToPercentile } = require('../../utilities/bienbot-context-builders');
+
+  it('returns 0.5 for single-element arrays', () => {
+    expect(normalizeCostToPercentile(100, [100])).toBe(0.5);
+  });
+
+  it('returns 0.5 for empty array', () => {
+    expect(normalizeCostToPercentile(100, [])).toBe(0.5);
+  });
+
+  it('returns 0.0 for the cheapest item', () => {
+    expect(normalizeCostToPercentile(10, [10, 50, 100])).toBe(0);
+  });
+
+  it('returns 1.0 for the most expensive item', () => {
+    expect(normalizeCostToPercentile(100, [10, 50, 100])).toBe(1);
+  });
+
+  it('handles duplicate costs — assigns lower bound rank', () => {
+    const result = normalizeCostToPercentile(50, [50, 50, 100]);
+    expect(result).toBe(0);
+  });
+});
+
 describe('renderAttentionBlock', () => {
   const { renderAttentionBlock } = require('../../utilities/bienbot-context-builders');
 

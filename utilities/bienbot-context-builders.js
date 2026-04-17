@@ -2076,11 +2076,10 @@ function computeAdaptiveWeights(signals) {
  * @returns {number}
  */
 function normalizeCostToPercentile(cost, allCandidateCosts) {
-  if (!allCandidateCosts || !allCandidateCosts.length || allCandidateCosts.length === 1) return 0.5;
+  if (!allCandidateCosts || allCandidateCosts.length <= 1) return 0.5;
   const sorted = [...allCandidateCosts].sort((a, b) => a - b);
-  const rank = sorted.indexOf(cost);
-  if (rank === -1) return 0.5;
-  return rank / (sorted.length - 1);
+  const rank = sorted.findIndex(v => v >= cost);
+  return rank === -1 ? 1.0 : rank / (sorted.length - 1);
 }
 
 /**
@@ -2250,8 +2249,8 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
     const weights = computeAdaptiveWeights(signals);
 
     const allCosts = candidates.map(c => c.cost_estimate).filter(Boolean);
-    const maxCoOccurrence = Math.max(...candidates.map(c => c.co_occurrence_count), 1);
-    const maxCollaborators = Math.max(...candidates.map(c => c.collaborator_count), 1);
+    const maxCoOccurrence = candidates.reduce((m, c) => Math.max(m, c.co_occurrence_count || 0), 1);
+    const maxCollaborators = candidates.reduce((m, c) => Math.max(m, c.collaborator_count || 0), 1);
 
     // Load pre-computed content signals from Experience documents.
     // One secondary query keyed by experience_id — avoids modifying the aggregation pipeline.
@@ -2485,11 +2484,15 @@ async function buildSimilarExperiencesContext(experienceId, destinationId, userI
   try {
     if (!destinationId) return null;
 
+    const { valid: destValid, objectId: destOid } = validateObjectId(String(destinationId), 'destinationId');
+    const { valid: expValid, objectId: expOid } = validateObjectId(String(experienceId), 'experienceId');
+    if (!destValid || !expValid) return null;
+
     // Find other public experiences in the same destination, sorted by plan count
     const pipeline = [
       { $match: {
-        destination: require('mongoose').Types.ObjectId.createFromHexString(String(destinationId)),
-        _id: { $ne: require('mongoose').Types.ObjectId.createFromHexString(String(experienceId)) },
+        destination: destOid,
+        _id: { $ne: expOid },
         visibility: { $ne: 'private' }
       }},
       { $lookup: {
@@ -2529,7 +2532,7 @@ async function findSimilarUsers(filters, userId) {
   const activityTypes = expandActivityTypes(filters.activity_types);
   if (!activityTypes.length) return [];
 
-  const Plan = require('../models/plan');
+  loadModels();
   const { Types } = require('mongoose');
   const matchStage = {
     'plan.activity_type': { $in: activityTypes },
@@ -2613,7 +2616,7 @@ async function findSimilarUsers(filters, userId) {
 async function findCoOccurringExperiences(similarUsers, filters, userId) {
   if (!similarUsers.length) return [];
 
-  const Plan = require('../models/plan');
+  loadModels();
   const userIds = similarUsers.map(u => u.userId);
   const excludeExpIds = [...new Set(similarUsers.flatMap(u => u.experienceIds))];
 
@@ -2742,7 +2745,7 @@ async function findCoOccurringExperiences(similarUsers, filters, userId) {
  * @returns {Promise<Array>}
  */
 async function findPopularExperiences(filters, userId) {
-  const Plan = require('../models/plan');
+  loadModels();
   const { Types } = require('mongoose');
 
   const pipeline = [
