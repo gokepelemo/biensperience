@@ -13,6 +13,7 @@
 
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { SUPPORTED_PROVIDERS } = require('../utilities/ai-providers');
 
 const aiProviderConfigSchema = new Schema({
   provider: {
@@ -21,7 +22,7 @@ const aiProviderConfigSchema = new Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    enum: ['openai', 'anthropic', 'mistral', 'gemini']
+    enum: SUPPORTED_PROVIDERS
   },
   display_name: {
     type: String,

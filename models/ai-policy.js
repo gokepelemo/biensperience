@@ -11,16 +11,41 @@
 
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+const { SUPPORTED_PROVIDERS } = require('../utilities/ai-providers');
+
+// Heuristic ReDoS detector. Flags nested unbounded quantifiers like
+// /(a+)+/, /(a*)*/, /(.+)+/ — the most common catastrophic-backtracking class.
+// Not exhaustive; pair with review for untrusted input.
+const NESTED_QUANTIFIER_RE = /\([^)]*[+*][^)]*\)[+*]/;
+
+function validateRegexPattern(pattern) {
+  if (typeof pattern !== 'string' || pattern.length === 0) return false;
+  try {
+    new RegExp(pattern);
+  } catch (_e) {
+    return false;
+  }
+  return !NESTED_QUANTIFIER_RE.test(pattern);
+}
+
+const regexPatternField = {
+  type: String,
+  validate: {
+    validator: validateRegexPattern,
+    message: 'Invalid or catastrophic regex pattern: {VALUE}'
+  }
+};
 
 const allowedModelSchema = new Schema({
   provider: {
     type: String,
     required: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    enum: SUPPORTED_PROVIDERS
   },
   models: {
-    type: [String],
+    type: [{ type: String, trim: true, lowercase: true }],
     default: []
   }
 }, { _id: false });
@@ -35,13 +60,15 @@ const taskRoutingSchema = new Schema({
   intent: {
     type: String,
     trim: true,
+    lowercase: true,
     default: null
   },
   provider: {
     type: String,
     required: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    enum: SUPPORTED_PROVIDERS
   },
   model: {
     type: String,
@@ -59,15 +86,20 @@ const taskRoutingSchema = new Schema({
     min: 0,
     max: 2
   }
-}, {
-  _id: false,
-  validate: {
-    validator: function () {
-      return this.task || this.intent;
-    },
-    message: 'A routing rule must specify at least a task or an intent'
+}, { _id: false });
+
+// Mongoose ignores `validate` in schema options; enforce via pre-hook instead.
+taskRoutingSchema.pre('validate', function (next) {
+  if (!this.task && !this.intent) {
+    return next(new Error('A routing rule must specify at least a task or an intent'));
   }
+  next();
 });
+
+const providerListField = {
+  type: [{ type: String, lowercase: true, trim: true, enum: SUPPORTED_PROVIDERS }],
+  default: []
+};
 
 const aiPolicySchema = new Schema({
   name: {
@@ -89,21 +121,12 @@ const aiPolicySchema = new Schema({
   },
 
   // Provider restrictions
-  allowed_providers: {
-    type: [String],
-    default: []
-  },
-  blocked_providers: {
-    type: [String],
-    default: []
-  },
+  allowed_providers: providerListField,
+  blocked_providers: providerListField,
 
   // Ordered list of fallback providers to try when the primary provider fails
   // with a transient error (5xx, timeout) after all retries are exhausted.
-  fallback_providers: {
-    type: [String],
-    default: []
-  },
+  fallback_providers: providerListField,
 
   // Model restrictions
   allowed_models: {
@@ -135,8 +158,8 @@ const aiPolicySchema = new Schema({
   // Content filtering
   content_filtering: {
     enabled: { type: Boolean, default: false },
-    block_patterns: { type: [String], default: [] },
-    redact_patterns: { type: [String], default: [] }
+    block_patterns: { type: [regexPatternField], default: [] },
+    redact_patterns: { type: [regexPatternField], default: [] }
   },
 
   // Hard cap on tokens per request
@@ -164,10 +187,65 @@ const aiPolicySchema = new Schema({
   timestamps: true
 });
 
-// Only one global policy and one policy per user
+// Cross-field invariants: scope↔target consistency and provider overlap.
+aiPolicySchema.pre('validate', function (next) {
+  if (this.scope === 'user' && !this.target) {
+    return next(new Error('user-scoped policy requires a target user'));
+  }
+  if (this.scope === 'global' && this.target) {
+    return next(new Error('global-scoped policy must have null target'));
+  }
+
+  const allowed = new Set((this.allowed_providers || []).map((p) => String(p).toLowerCase()));
+  for (const p of (this.blocked_providers || [])) {
+    if (allowed.has(String(p).toLowerCase())) {
+      return next(new Error(`Provider "${p}" cannot appear in both allowed_providers and blocked_providers`));
+    }
+  }
+
+  next();
+});
+
+// Only one global policy and one policy per user.
 aiPolicySchema.index({ scope: 1, target: 1 }, { unique: true });
+// The {active, scope} index was removed: the hot path fetches by (scope, target)
+// via the unique index above and checks `active` in memory.
 
-// Quick lookup of active policies
-aiPolicySchema.index({ active: 1, scope: 1 });
+// Auto-invalidate the gateway's in-process policy cache on writes so callers
+// don't have to remember. Lazy-required to avoid circular deps.
+function invalidateGatewayCache() {
+  try {
+    require('../utilities/ai-gateway').invalidatePolicyCache();
+  } catch (_e) {
+    // Gateway may not be loaded (e.g. in unit tests). Safe to ignore.
+  }
+}
+aiPolicySchema.post('save', invalidateGatewayCache);
+aiPolicySchema.post('findOneAndUpdate', invalidateGatewayCache);
+aiPolicySchema.post('findOneAndDelete', invalidateGatewayCache);
+aiPolicySchema.post('deleteOne', invalidateGatewayCache);
 
-module.exports = mongoose.model('AIPolicy', aiPolicySchema);
+/**
+ * Resolve the effective policy for a user by falling back user → global.
+ * Convenience for non-gateway callers; the gateway has its own bulk cache
+ * in utilities/ai-gateway.js.
+ *
+ * @param {string|mongoose.Types.ObjectId|null} userId
+ * @returns {Promise<Object|null>} Lean policy document or null.
+ */
+aiPolicySchema.statics.findEffective = async function findEffective(userId) {
+  if (userId) {
+    const userPolicy = await this.findOne({
+      scope: 'user',
+      target: userId,
+      active: true
+    }).lean();
+    if (userPolicy) return userPolicy;
+  }
+  return this.findOne({ scope: 'global', active: true }).lean();
+};
+
+const AIPolicy = mongoose.model('AIPolicy', aiPolicySchema);
+AIPolicy.SUPPORTED_PROVIDERS = SUPPORTED_PROVIDERS;
+
+module.exports = AIPolicy;
