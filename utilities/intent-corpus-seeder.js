@@ -1,9 +1,9 @@
 /**
  * Intent Corpus Seeder
  *
- * Seeds the IntentCorpus MongoDB collection from the static JSON
- * corpus file on first boot. Idempotent: does nothing if the
- * collection already has data.
+ * Seeds and migrates the IntentCorpus collection from the static JSON
+ * corpus file. On version mismatch, non-custom entries are overwritten
+ * with the new corpus version. Custom entries are never touched.
  *
  * @module utilities/intent-corpus-seeder
  */
@@ -12,44 +12,51 @@ const IntentCorpus = require('../models/intent-corpus');
 const logger = require('./backend-logger');
 const path = require('path');
 
-/**
- * Seed intent corpus from JSON file if collection is empty.
- * @returns {Promise<{ seeded: number }>} Number of intents seeded.
- */
 async function seedIntentCorpus() {
   const corpus = require(path.join(__dirname, 'bienbot-intent-corpus.json'));
+  const targetVersion = corpus && corpus.version ? corpus.version : 'v1';
 
   if (!corpus || !Array.isArray(corpus.data) || corpus.data.length === 0) {
     logger.warn('[intent-corpus-seeder] Corpus file is empty or invalid');
-    return { seeded: 0, synced: 0 };
+    return { seeded: 0, synced: 0, migrated: 0 };
   }
 
   const count = await IntentCorpus.countDocuments();
   if (count === 0) {
-    // First boot: seed everything
     const docs = corpus.data.map(entry => ({
       intent: entry.intent,
       utterances: entry.utterances || [],
       description: '',
       is_custom: false,
-      enabled: true
+      enabled: true,
+      corpus_version: targetVersion
     }));
 
     await IntentCorpus.insertMany(docs);
 
     logger.info('[intent-corpus-seeder] Corpus seeded from JSON', {
       intents: docs.length,
-      utterances: docs.reduce((sum, d) => sum + d.utterances.length, 0)
+      utterances: docs.reduce((sum, d) => sum + d.utterances.length, 0),
+      version: targetVersion
     });
 
-    return { seeded: docs.length, synced: 0 };
+    return { seeded: docs.length, synced: 0, migrated: 0 };
   }
 
-  // Sync: merge new JSON utterances into existing non-custom DB entries
   let synced = 0;
+  let migrated = 0;
   for (const entry of corpus.data) {
     const dbDoc = await IntentCorpus.findOne({ intent: entry.intent, is_custom: { $ne: true } });
     if (!dbDoc) continue;
+
+    if (dbDoc.corpus_version !== targetVersion) {
+      dbDoc.utterances = entry.utterances || [];
+      dbDoc.corpus_version = targetVersion;
+      await dbDoc.save();
+      migrated++;
+      continue;
+    }
+
     const existing = new Set(dbDoc.utterances);
     const newUtterances = (entry.utterances || []).filter(u => !existing.has(u));
     if (newUtterances.length > 0) {
@@ -63,11 +70,14 @@ async function seedIntentCorpus() {
     }
   }
 
+  if (migrated > 0) {
+    logger.info('[intent-corpus-seeder] Corpus migrated to new version', { migrated, version: targetVersion });
+  }
   if (synced > 0) {
     logger.info('[intent-corpus-seeder] Corpus sync complete', { synced });
   }
 
-  return { seeded: 0, synced };
+  return { seeded: 0, synced, migrated };
 }
 
 module.exports = { seedIntentCorpus };

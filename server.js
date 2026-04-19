@@ -38,9 +38,14 @@ seedAIProviders()
 
 // Seed intent corpus from JSON on first boot and sync new utterances (async, non-blocking)
 seedIntentCorpus()
-  .then(({ seeded, synced }) => {
+  .then(({ seeded, synced, migrated }) => {
     if (seeded > 0) {
       backendLogger.info('Intent corpus seeded', { intents: seeded });
+    }
+    if (migrated > 0) {
+      const { resetManager } = require('./utilities/bienbot-intent-classifier');
+      resetManager();
+      backendLogger.info('Intent corpus migrated', { migrated });
     }
     if (synced > 0) {
       // New utterances synced — force NLP model retrain so they take effect
