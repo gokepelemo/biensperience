@@ -38,6 +38,10 @@ const intentClassifierConfigSchema = new mongoose.Schema(
       min: 1,
       max: 365
     },
+    nlp_slot_fill_enabled: {
+      type: Boolean,
+      default: false
+    },
     updated_by: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
