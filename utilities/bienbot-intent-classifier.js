@@ -26,6 +26,28 @@ const fs = require('fs');
 const os = require('os');
 
 /**
+ * Resolve deployment-scoped slot-fill toggle state.
+ * Reads from env first (`NLP_SLOT_FILL_V2=true`/`false`), then from the
+ * IntentClassifierConfig singleton (`nlp_slot_fill_enabled`). Defaults to false.
+ *
+ * This is process-wide — not a per-user feature flag. Per-user gating of
+ * bienbot access is already enforced upstream by the `ai_features` flag.
+ *
+ * @returns {Promise<boolean>}
+ */
+async function isSlotFillEnabled() {
+  if (process.env.NLP_SLOT_FILL_V2 === 'true') return true;
+  if (process.env.NLP_SLOT_FILL_V2 === 'false') return false;
+  try {
+    const IntentClassifierConfig = require('../models/intent-classifier-config');
+    const config = await IntentClassifierConfig.getConfig();
+    return Boolean(config.nlp_slot_fill_enabled);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * All recognised BienBot intents.
  */
 const INTENTS = {
@@ -871,3 +893,5 @@ module.exports = {
   detectMultiAction,
   extractMultiActionEntities
 };
+
+module.exports.__test__ = { isSlotFillEnabled };
