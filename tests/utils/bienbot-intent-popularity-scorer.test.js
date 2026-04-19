@@ -66,3 +66,25 @@ describe('bienbot-intent-popularity-scorer', () => {
     expect(experiences[0]._id).toBe('exp0'); // highest score
   });
 });
+
+describe('getCompositionFingerprint', () => {
+  const { getCompositionFingerprint } = require('../../utilities/bienbot-intent-popularity-scorer');
+
+  test('stable across key order', () => {
+    const a = getCompositionFingerprint({
+      destinations: [{ _id: 'a' }, { _id: 'b' }],
+      experiences:  [{ _id: 'x' }]
+    });
+    const b = getCompositionFingerprint({
+      destinations: [{ _id: 'b' }, { _id: 'a' }],
+      experiences:  [{ _id: 'x' }]
+    });
+    expect(a).toBe(b);
+  });
+
+  test('differs when composition differs', () => {
+    const a = getCompositionFingerprint({ destinations: [{ _id: 'a' }], experiences: [] });
+    const b = getCompositionFingerprint({ destinations: [{ _id: 'b' }], experiences: [] });
+    expect(a).not.toBe(b);
+  });
+});
