@@ -153,6 +153,45 @@ const INTENTS = {
 
 let manager = null;
 let trainingPromise = null;
+let lastTrainedFingerprint = '';
+
+// Sample entity values used to expand %destination_name% / %experience_name%
+// placeholders when slot-fill is OFF. Expansion preserves the pre-v2 training
+// behavior so NLP.js learns the surface forms rather than the literal tokens.
+const SAMPLE_DESTINATIONS = [
+  'Tokyo', 'Paris', 'Rome', 'Barcelona', 'Thailand',
+  'Japan', 'Mexico', 'Iceland', 'Kyoto', 'Brazil',
+  'Bali', 'London', 'New York', 'Morocco', 'Peru'
+];
+const SAMPLE_EXPERIENCES = [
+  'Cherry Blossom Tour', 'Food Crawl', 'Wine Tasting',
+  'Walking Tour', 'Desert Safari', 'Street Food Adventure'
+];
+
+/**
+ * Expand a slot-fillable utterance into concrete utterances by substituting
+ * `%destination_name%` and `%experience_name%` with sample values. Used when
+ * slot-fill is OFF so NLP.js trains on the expanded surface forms.
+ */
+function expandPlaceholders(utterance) {
+  const hasDest = utterance.includes('%destination_name%');
+  const hasExp = utterance.includes('%experience_name%');
+  if (!hasDest && !hasExp) return [utterance];
+
+  const dests = hasDest ? SAMPLE_DESTINATIONS : [null];
+  const exps = hasExp ? SAMPLE_EXPERIENCES : [null];
+
+  const out = [];
+  for (const d of dests) {
+    for (const e of exps) {
+      let u = utterance;
+      if (d !== null) u = u.replace(/%destination_name%/g, d);
+      if (e !== null) u = u.replace(/%experience_name%/g, e);
+      out.push(u);
+    }
+  }
+  return out;
+}
 
 // Cached classifier config (refreshed on demand)
 let configCache = null;
@@ -228,12 +267,21 @@ async function loadCorpusData() {
 }
 
 /**
- * Compute a short MD5 hash of the corpus data for cache invalidation.
- * @param {Array} corpusData
- * @returns {string}
+ * Compute a short MD5 hash capturing corpus content, slot-fill state,
+ * NLP.js version, and the entity registry composition fingerprint.
+ * Any change to these invalidates the disk cache and forces retraining.
  */
-function computeCorpusHash(corpusData) {
-  return crypto.createHash('md5').update(JSON.stringify(corpusData)).digest('hex').slice(0, 12);
+function computeCacheKey({ corpusData, slotFillEnabled, registryFingerprint }) {
+  const nlpVersion = (() => {
+    try { return require('node-nlp-rn/package.json').version; } catch { return '0'; }
+  })();
+  const payload = {
+    corpus: corpusData,
+    slotFillEnabled,
+    nlpVersion,
+    registryFingerprint: registryFingerprint || ''
+  };
+  return crypto.createHash('md5').update(JSON.stringify(payload)).digest('hex').slice(0, 12);
 }
 
 /**
@@ -256,17 +304,34 @@ async function getManager() {
 
   trainingPromise = (async () => {
     const corpusData = await loadCorpusData();
-    const hash = computeCorpusHash(corpusData);
+    const slotFillEnabled = await isSlotFillEnabled();
+
+    // Pre-compute registry fingerprint so it becomes part of the cache key.
+    let registryFingerprint = '';
+    if (slotFillEnabled) {
+      const {
+        getTopEntities,
+        getCompositionFingerprint
+      } = require('./bienbot-intent-popularity-scorer');
+      try {
+        const topKPayload = await getTopEntities({ kDestinations: 500, kExperiences: 500 });
+        registryFingerprint = getCompositionFingerprint(topKPayload);
+      } catch (err) {
+        logger.error('[bienbot-intent-classifier] Top-K fetch failed, continuing without NER', { error: err.message });
+      }
+    }
+
+    const hash = computeCacheKey({ corpusData, slotFillEnabled, registryFingerprint });
     const cacheFile = getCacheFilePath(hash);
 
-    // Load from disk cache if available — skips training entirely
     if (fs.existsSync(cacheFile)) {
       try {
         const cached = fs.readFileSync(cacheFile, 'utf8');
         const nlp = new NlpManager({ languages: ['en'], forceNER: true, nlu: { useNoneFeature: true, log: false }, autoSave: false });
         nlp.import(cached);
-        logger.info('[bienbot-intent-classifier] NLP model loaded from cache', { hash });
+        logger.info('[bienbot-intent-classifier] NLP model loaded from cache', { hash, slotFillEnabled });
         manager = nlp;
+        lastTrainedFingerprint = registryFingerprint;
         return nlp;
       } catch (cacheErr) {
         logger.warn('[bienbot-intent-classifier] Cache load failed, retraining', { error: cacheErr.message });
@@ -280,39 +345,53 @@ async function getManager() {
       autoSave: false
     });
 
-    // Add named entity for email detection
-    nlp.addRegexEntity('user_email', 'en', /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+    if (slotFillEnabled) {
+      const { registerEntities } = require('./bienbot-intent-entity-registry');
+      await registerEntities(nlp, { kDestinations: 500, kExperiences: 500 });
+    } else {
+      nlp.addRegexEntity('user_email', 'en', /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+    }
 
-    // Add utterances from corpus
     let totalUtterances = 0;
     for (const intentData of corpusData) {
       for (const utterance of intentData.utterances) {
-        nlp.addDocument('en', utterance, intentData.intent);
-        totalUtterances++;
+        // When slot-fill is ON, keep templates literal so NLP.js learns slots.
+        // When OFF, expand placeholders into concrete utterances so training
+        // covers the surface forms users actually type.
+        const toTrain = slotFillEnabled ? [utterance] : expandPlaceholders(utterance);
+        for (const u of toTrain) {
+          nlp.addDocument('en', u, intentData.intent);
+          totalUtterances++;
+        }
       }
     }
 
-    // Train the model
     await nlp.train();
 
-    logger.info('[bienbot-intent-classifier] NLP model trained', {
-      intents: corpusData.length,
-      utterances: totalUtterances
-    });
-
-    // Persist to disk for subsequent runs
     try {
       fs.writeFileSync(cacheFile, nlp.export(false), 'utf8');
       logger.info('[bienbot-intent-classifier] NLP model cached to disk', { hash, path: cacheFile });
     } catch (writeErr) {
-      logger.warn('[bienbot-intent-classifier] Could not write model cache', { error: writeErr.message });
+      logger.warn('[bienbot-intent-classifier] Failed to write cache', { error: writeErr.message });
     }
 
+    logger.info('[bienbot-intent-classifier] NLP model trained', {
+      intents: corpusData.length,
+      utterances: totalUtterances,
+      slotFillEnabled,
+      registryFingerprint
+    });
+
     manager = nlp;
+    lastTrainedFingerprint = registryFingerprint;
     return nlp;
   })();
 
-  return trainingPromise;
+  try {
+    return await trainingPromise;
+  } finally {
+    trainingPromise = null;
+  }
 }
 
 /**
@@ -881,6 +960,7 @@ function fallbackResult() {
 function resetManager() {
   manager = null;
   trainingPromise = null;
+  lastTrainedFingerprint = '';
 }
 
 module.exports = {
@@ -893,5 +973,7 @@ module.exports = {
   detectMultiAction,
   extractMultiActionEntities
 };
+
+module.exports.getLastTrainedFingerprint = () => lastTrainedFingerprint;
 
 module.exports.__test__ = { isSlotFillEnabled };
