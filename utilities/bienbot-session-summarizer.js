@@ -24,19 +24,12 @@ const CHARS_PER_TOKEN = 4;
 const MAX_MESSAGE_CHARS = MESSAGE_TOKEN_BUDGET * CHARS_PER_TOKEN;
 
 /**
- * System prompt instructing the model to return a JSON summary.
+ * System prompt. The provider-native schema option enforces the response
+ * shape, so the prompt focuses on substance and tone rather than JSON syntax.
  */
 const SYSTEM_PROMPT = `You are a summarizer for BienBot, a travel planning assistant.
 Given a conversation history and optional context about the travel entities involved,
 produce a concise summary and 2-3 suggested next steps.
-
-Respond ONLY with valid JSON — no markdown, no explanation.
-
-Schema:
-{
-  "summary": "A 1-3 sentence prose summary of what was discussed and accomplished.",
-  "next_steps": ["Step 1", "Step 2", "Step 3"]
-}
 
 Guidelines:
 - Write the summary in second person, addressing the user directly (e.g. "You were planning a trip to Tokyo" not "The user was planning a trip to Tokyo").
@@ -47,6 +40,27 @@ Guidelines:
 
 IMPORTANT — Proposed but unexecuted actions:
 If the context includes a section titled "--- Proposed Actions (Not Executed) ---", those entities were ONLY proposed and were NEVER actually created. Do NOT describe these proposed entities as existing or as something the user created. Instead, describe them as things the user was considering or had started to create.`;
+
+/**
+ * Schema passed to the gateway so the provider returns structured output.
+ */
+const SUMMARY_SCHEMA = {
+  name: 'summarize_session',
+  description: 'Summarize a BienBot session for resume',
+  json_schema: {
+    type: 'object',
+    properties: {
+      text: { type: 'string' },
+      suggested_next_steps: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: 5
+      }
+    },
+    required: ['text', 'suggested_next_steps'],
+    additionalProperties: false
+  }
+};
 
 /**
  * Summarize a BienBot session.
@@ -97,25 +111,25 @@ async function summarizeSession({ messages, context, session, user } = {}, optio
         temperature: 0.2,
         maxTokens: 300
       },
+      schema: SUMMARY_SCHEMA,
       entityContext: session?.invoke_context?.entity ? {
         entityType: session.invoke_context.entity,
         entityId: session.invoke_context.entity_id?.toString()
       } : null
     });
 
-    const text = (result.content || '').trim();
-    const parsed = parseJSON(text);
+    const parsed = result && typeof result.content === 'object' ? result.content : null;
 
-    if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.next_steps)) {
-      logger.warn('[bienbot-summarizer] Malformed LLM response, using fallback', {
-        raw: text.substring(0, 200)
+    if (!parsed || typeof parsed.text !== 'string' || !Array.isArray(parsed.suggested_next_steps)) {
+      logger.warn('[bienbot-summarizer] Malformed schema response, using fallback', {
+        shape: parsed ? Object.keys(parsed).join(',') : 'null'
       });
       return buildFallback(session, context);
     }
 
     return {
-      summary: parsed.summary,
-      next_steps: parsed.next_steps.filter(s => typeof s === 'string').slice(0, 3)
+      summary: parsed.text,
+      next_steps: parsed.suggested_next_steps.filter(s => typeof s === 'string').slice(0, 3)
     };
   } catch (err) {
     // Let security-related gateway errors (rate limit, token budget, AI disabled)
@@ -222,18 +236,6 @@ function buildFallback(session, context) {
       'Ask BienBot a new question'
     ]
   };
-}
-
-/**
- * Parse JSON from an LLM response, stripping markdown fences if present.
- */
-function parseJSON(text) {
-  try {
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-    return JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
 }
 
 module.exports = {

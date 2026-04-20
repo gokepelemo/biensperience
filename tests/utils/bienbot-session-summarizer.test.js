@@ -54,19 +54,24 @@ function makeMessages(count) {
 }
 
 /**
- * Mock a successful LLM response with the given JSON payload.
+ * Mock a successful schema-shaped LLM response.
+ * Accepts the new summarizer shape { text, suggested_next_steps } and also
+ * remaps legacy test payloads { summary, next_steps } so older test bodies
+ * stay meaningful after the schema migration.
  */
 function mockLLMSuccess(payload) {
-  executeAIRequest.mockResolvedValueOnce({
-    content: JSON.stringify(payload)
-  });
+  const content = ('text' in payload || 'suggested_next_steps' in payload)
+    ? { text: payload.text, suggested_next_steps: payload.suggested_next_steps }
+    : { text: payload.summary, suggested_next_steps: payload.next_steps };
+  executeAIRequest.mockResolvedValueOnce({ content });
 }
 
 /**
- * Mock a successful LLM response with raw string content (for malformed tests).
+ * Mock a successful LLM response with arbitrary content (used for malformed
+ * / edge-shape cases where we want to assert fallback behavior).
  */
-function mockLLMRaw(raw) {
-  executeAIRequest.mockResolvedValueOnce({ content: raw });
+function mockLLMContent(content) {
+  executeAIRequest.mockResolvedValueOnce({ content });
 }
 
 /**
@@ -103,7 +108,7 @@ describe('summarizeSession – happy path', () => {
     expect(result.next_steps).toEqual(['Book flights', 'Reserve a hotel', 'Plan day trips']);
   });
 
-  test('passes messages, provider, and task to executeAIRequest', async () => {
+  test('passes messages, provider, task, and schema to executeAIRequest', async () => {
     mockLLMSuccess({
       summary: 'Test summary',
       next_steps: ['Step A', 'Step B']
@@ -120,6 +125,13 @@ describe('summarizeSession – happy path', () => {
         expect.objectContaining({ role: 'user' })
       ])
     );
+    expect(callArg.schema).toMatchObject({
+      name: 'summarize_session',
+      json_schema: expect.objectContaining({
+        type: 'object',
+        required: expect.arrayContaining(['text', 'suggested_next_steps'])
+      })
+    });
   });
 
   test('includes context and session info in the user prompt', async () => {
@@ -294,8 +306,8 @@ describe('summarizeSession – non-GatewayError failures return fallback', () =>
 // ---------------------------------------------------------------------------
 
 describe('summarizeSession – malformed LLM responses', () => {
-  test('returns fallback when LLM returns non-JSON string', async () => {
-    mockLLMRaw('Sorry, I cannot summarize this conversation.');
+  test('returns fallback when content is a plain string (pre-schema shape)', async () => {
+    mockLLMContent('Sorry, I cannot summarize this conversation.');
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
@@ -303,8 +315,16 @@ describe('summarizeSession – malformed LLM responses', () => {
     expect(Array.isArray(result.next_steps)).toBe(true);
   });
 
-  test('returns fallback when LLM returns empty string', async () => {
-    mockLLMRaw('');
+  test('returns fallback when object is missing text field', async () => {
+    mockLLMContent({ suggested_next_steps: ['Step 1', 'Step 2'] });
+
+    const result = await summarizeSession({ messages: makeMessages(4) });
+
+    expect(result.summary).toBeDefined();
+  });
+
+  test('returns fallback when object is missing suggested_next_steps field', async () => {
+    mockLLMContent({ text: 'A valid summary.' });
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
@@ -312,33 +332,16 @@ describe('summarizeSession – malformed LLM responses', () => {
     expect(Array.isArray(result.next_steps)).toBe(true);
   });
 
-  test('returns fallback when LLM returns JSON with missing summary field', async () => {
-    mockLLMRaw(JSON.stringify({ next_steps: ['Step 1', 'Step 2'] }));
+  test('returns fallback when suggested_next_steps is not an array', async () => {
+    mockLLMContent({ text: 'Valid summary', suggested_next_steps: 'Should be an array' });
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
     expect(result.summary).toBeDefined();
   });
 
-  test('returns fallback when LLM returns JSON with missing next_steps field', async () => {
-    mockLLMRaw(JSON.stringify({ summary: 'A valid summary.' }));
-
-    const result = await summarizeSession({ messages: makeMessages(4) });
-
-    expect(result.summary).toBeDefined();
-    expect(Array.isArray(result.next_steps)).toBe(true);
-  });
-
-  test('returns fallback when LLM returns JSON where next_steps is not an array', async () => {
-    mockLLMRaw(JSON.stringify({ summary: 'Valid summary', next_steps: 'Should be an array' }));
-
-    const result = await summarizeSession({ messages: makeMessages(4) });
-
-    expect(result.summary).toBeDefined();
-  });
-
-  test('returns fallback when LLM returns JSON where summary is not a string', async () => {
-    mockLLMRaw(JSON.stringify({ summary: 42, next_steps: ['Step 1'] }));
+  test('returns fallback when text is not a string', async () => {
+    mockLLMContent({ text: 42, suggested_next_steps: ['Step 1'] });
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
@@ -352,21 +355,6 @@ describe('summarizeSession – malformed LLM responses', () => {
     const result = await summarizeSession({ messages: makeMessages(4) });
 
     expect(result.summary).toBeDefined();
-  });
-
-  test('strips markdown fences from LLM response before parsing', async () => {
-    // Some LLMs wrap JSON in markdown code blocks despite instructions
-    const json = JSON.stringify({
-      summary: 'Summary with markdown wrapper.',
-      next_steps: ['Step 1', 'Step 2']
-    });
-    mockLLMRaw('```json\n' + json + '\n```');
-
-    // This will either succeed (if the code strips fences) or fall back gracefully
-    const result = await summarizeSession({ messages: makeMessages(4) });
-
-    expect(result.summary).toBeDefined();
-    expect(Array.isArray(result.next_steps)).toBe(true);
   });
 });
 
