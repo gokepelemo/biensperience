@@ -456,6 +456,7 @@ async function classifyIntent(message, opts = {}) {
 
     let source = 'nlp';
     let llmIntent = null;
+    let llmEntities = null;
 
     // Check thresholds and potentially call LLM fallback
     const config = await getClassifierConfig();
@@ -468,11 +469,20 @@ async function classifyIntent(message, opts = {}) {
           llmIntent = llmResult.intent;
           intent = llmResult.intent;
           source = 'llm';
+          llmEntities = llmResult.entities || null;
         }
       } catch (err) {
         logger.warn('[bienbot-intent-classifier] LLM fallback failed, using NLP result', {
           error: err.message
         });
+      }
+    }
+
+    if (llmEntities) {
+      for (const [key, value] of Object.entries(llmEntities)) {
+        if (value != null && value !== '') {
+          entities[key] = value;
+        }
       }
     }
 
@@ -523,9 +533,30 @@ async function classifyWithLLM(message, user) {
   const { executeAIRequest } = require('./ai-gateway');
 
   const allIntents = Object.values(INTENTS);
-  const intentList = allIntents.map(i => `- ${i}`).join('\n');
+  const systemPrompt = `You are an intent classifier for a travel planning assistant called BienBot. Classify the user message into exactly one of these intents:\n\n${allIntents.map(i => `- ${i}`).join('\n')}\n\nAlso extract named entities when present: destination_name (cities, countries), experience_name (named tours/experiences), user_email.`;
 
-  const systemPrompt = `You are an intent classifier for a travel planning assistant called BienBot. Given a user message, classify it into exactly one of the following intents:\n\n${intentList}\n\nRespond with ONLY a JSON object: {"intent": "INTENT_NAME", "confidence": 0.0-1.0}\nDo not include any other text.`;
+  const schema = {
+    name: 'classify_intent',
+    description: 'Classify a BienBot user message into an intent with optional entities',
+    json_schema: {
+      type: 'object',
+      properties: {
+        intent: { type: 'string', enum: allIntents },
+        confidence: { type: 'number', minimum: 0, maximum: 1 },
+        entities: {
+          type: 'object',
+          properties: {
+            destination_name: { type: ['string', 'null'] },
+            experience_name: { type: ['string', 'null'] },
+            user_email: { type: ['string', 'null'] }
+          },
+          additionalProperties: false
+        }
+      },
+      required: ['intent', 'confidence'],
+      additionalProperties: false
+    }
+  };
 
   const result = await executeAIRequest({
     messages: [
@@ -534,25 +565,20 @@ async function classifyWithLLM(message, user) {
     ],
     task: 'intent_classification',
     user,
-    options: { maxTokens: 100, temperature: 0 }
+    options: { maxTokens: 200, temperature: 0 },
+    schema
   });
 
-  if (!result || !result.content) return null;
+  if (!result || !result.content || typeof result.content !== 'object') return null;
 
-  try {
-    const parsed = JSON.parse(result.content.trim());
-    if (parsed.intent && typeof parsed.confidence === 'number') {
-      return { intent: parsed.intent, confidence: Math.min(1, Math.max(0, parsed.confidence)) };
-    }
-  } catch {
-    // Try to extract intent from non-JSON response
-    const match = result.content.match(/"intent"\s*:\s*"([A-Z_]+)"/);
-    if (match && allIntents.includes(match[1])) {
-      return { intent: match[1], confidence: 0.5 };
-    }
-  }
+  const parsed = result.content;
+  if (!parsed.intent || typeof parsed.confidence !== 'number') return null;
 
-  return null;
+  return {
+    intent: parsed.intent,
+    confidence: Math.min(1, Math.max(0, parsed.confidence)),
+    entities: parsed.entities || {}
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -976,4 +1002,4 @@ module.exports = {
 
 module.exports.getLastTrainedFingerprint = () => lastTrainedFingerprint;
 
-module.exports.__test__ = { isSlotFillEnabled };
+module.exports.__test__ = { isSlotFillEnabled, classifyWithLLM };
