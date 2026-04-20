@@ -231,12 +231,25 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   };
   // o-series models do not support temperature (gpt-5+ still does)
   if (!isOSeries) requestBody.temperature = temperature;
-  // Enable JSON object mode for tasks that always return JSON (BienBot chat/analyze).
-  // Requires the system or user prompt to mention "JSON" — which BienBot's prompts do.
-  // Skipped for o-series models and o1/o1-mini which do not support response_format.
-  const isJsonTask = options.jsonMode === true || (typeof options.task === 'string' && options.task.startsWith('bienbot'));
-  if (isJsonTask && !isOSeries) {
-    requestBody.response_format = { type: 'json_object' };
+  // Structured output via OpenAI json_schema. Overrides the json_object mode
+  // below since a schema is stricter and we need the server to validate.
+  if (options.schema) {
+    requestBody.response_format = {
+      type: 'json_schema',
+      json_schema: {
+        name: options.schema.name,
+        strict: true,
+        schema: options.schema.json_schema
+      }
+    };
+  } else {
+    // Enable JSON object mode for tasks that always return JSON (BienBot chat/analyze).
+    // Requires the system or user prompt to mention "JSON" — which BienBot's prompts do.
+    // Skipped for o-series models and o1/o1-mini which do not support response_format.
+    const isJsonTask = options.jsonMode === true || (typeof options.task === 'string' && options.task.startsWith('bienbot'));
+    if (isJsonTask && !isOSeries) {
+      requestBody.response_format = { type: 'json_object' };
+    }
   }
 
   const response = await fetch(endpoint, {
@@ -255,8 +268,29 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   }
 
   const data = await response.json();
+  const rawContent = data.choices[0]?.message?.content || '';
+
+  if (options.schema) {
+    let parsed;
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch (err) {
+      throw new Error(`OpenAI schema response not valid JSON: ${err.message}`);
+    }
+    return {
+      content: parsed,
+      usage: {
+        inputTokens: data.usage?.prompt_tokens || 0,
+        outputTokens: data.usage?.completion_tokens || 0,
+        totalTokens: data.usage?.total_tokens || 0
+      },
+      model: data.model,
+      provider: 'openai'
+    };
+  }
+
   return {
-    content: data.choices[0]?.message?.content || '',
+    content: rawContent,
     usage: {
       inputTokens: data.usage?.prompt_tokens || 0,
       outputTokens: data.usage?.completion_tokens || 0,
