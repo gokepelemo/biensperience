@@ -525,7 +525,7 @@ function getEnvProviderForTask(task) {
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string, policyApplied: Object}>}
  */
 async function executeAIRequest(params) {
-  const { messages, task, user, options = {}, entityContext, intent } = params;
+  const { messages, task, user, options = {}, entityContext, intent, schema } = params;
   // Merge intent into options for routeRequest
   if (intent && !options.intent) {
     options.intent = intent;
@@ -586,7 +586,8 @@ async function executeAIRequest(params) {
   const callOptions = {
     model: route.model || undefined,
     temperature: validatedTemp,
-    maxTokens: validatedMaxTokens
+    maxTokens: validatedMaxTokens,
+    schema: schema || null
   };
 
   // Apply task-specific overrides from policy routing
