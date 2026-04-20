@@ -292,6 +292,25 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
     }
   }
 
+  const requestBody = {
+    model,
+    system: systemMessage || undefined,
+    messages: userMessages,
+    max_tokens: maxTokens,
+    temperature
+  };
+
+  // Structured output via Anthropic tool-use: force the model to emit a single
+  // tool call whose input matches the requested JSON schema.
+  if (options.schema) {
+    requestBody.tools = [{
+      name: options.schema.name,
+      description: options.schema.description || '',
+      input_schema: options.schema.json_schema
+    }];
+    requestBody.tool_choice = { type: 'tool', name: options.schema.name };
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -299,13 +318,7 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
       'x-api-key': apiKey,
       'anthropic-version': apiVersion
     },
-    body: JSON.stringify({
-      model,
-      system: systemMessage || undefined,
-      messages: userMessages,
-      max_tokens: maxTokens,
-      temperature
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
@@ -315,6 +328,26 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
   }
 
   const data = await response.json();
+
+  if (options.schema) {
+    const toolUse = Array.isArray(data.content)
+      ? data.content.find(c => c && c.type === 'tool_use' && c.name === options.schema.name)
+      : null;
+    if (!toolUse) {
+      throw new Error(`Anthropic schema response missing tool_use for ${options.schema.name}`);
+    }
+    return {
+      content: toolUse.input,
+      usage: {
+        inputTokens: data.usage?.input_tokens || 0,
+        outputTokens: data.usage?.output_tokens || 0,
+        totalTokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+      },
+      model: data.model,
+      provider: 'anthropic'
+    };
+  }
+
   return {
     content: data.content[0]?.text || '',
     usage: {
