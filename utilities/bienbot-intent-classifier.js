@@ -1,19 +1,31 @@
 /**
  * BienBot Intent Classifier
  *
- * Uses NLP.js (node-nlp-rn) for fast, local intent classification
- * without requiring an LLM API call. The classifier is trained on
- * startup from the MongoDB corpus (seeded from JSON on first boot)
- * and uses a neural network to classify user messages into intents.
+ * Uses NLP.js (node-nlp-rn) for fast, local intent classification. The
+ * classifier is trained on startup from the MongoDB corpus (seeded from
+ * JSON on first boot) and uses a neural network for intent selection.
+ *
+ * Two entity-extraction modes controlled by a deployment-scoped toggle
+ * (`IntentClassifierConfig.nlp_slot_fill_enabled` or `NLP_SLOT_FILL_V2`
+ * env override):
+ *
+ *   OFF (baseline): corpus utterances are expanded against a static list
+ *   of sample entity values. Entity extraction uses NLP.js built-in
+ *   regex entities (email) plus local regex heuristics for destination
+ *   and experience names.
+ *
+ *   ON (slot-fill v2): corpus utterances stay as slot templates
+ *   (`%destination_name%`, `%experience_name%`). A hybrid NER pipeline
+ *   combines addNamedEntityText entries for the top-K popular entities
+ *   (from the popularity scorer) with regex long-tail fallbacks so
+ *   lowercase and multi-word names extract correctly.
  *
  * Supports:
- * - DB-backed corpus with admin management
+ * - DB-backed corpus with admin management and corpus_version migration
  * - Configurable confidence thresholds
- * - LLM fallback for low-confidence classifications
+ * - LLM fallback for low-confidence classifications (schema-gated JSON)
  * - Classification logging for admin review
- *
- * Entity extraction uses NLP.js built-in NER for emails and
- * regex-based heuristics for destination/experience names.
+ * - Event-driven retrain via bienbot-intent-retrain-scheduler
  *
  * @module utilities/bienbot-intent-classifier
  */
@@ -608,14 +620,19 @@ async function logClassification({ message, intent, confidence, userId, sessionI
 // ---------------------------------------------------------------------------
 
 /**
- * Extract entities from the NLP.js result combined with regex heuristics.
+ * Extract entities from an NLP.js classification result and regex fallbacks.
  *
- * NLP.js handles:
- * - user_email via regex entity
- * - Slot filling for %destination_name% and %experience_name% from corpus
+ * When the slot-fill toggle is ON (`IntentClassifierConfig.nlp_slot_fill_enabled`
+ * or `NLP_SLOT_FILL_V2=true`), NLP.js handles:
+ *   - destination_name: top-K via addNamedEntityText + regex for long tail
+ *   - experience_name:  top-K via addNamedEntityText + regex for long tail
+ *   - user_email:       regex entity
  *
- * Heuristic fallbacks parse the raw message for patterns like quoted strings
- * or common preposition + noun phrase patterns.
+ * When the toggle is OFF, NLP.js handles only user_email; destination_name
+ * and experience_name come entirely from the regex heuristics below.
+ *
+ * Regex heuristics below handle all structural entities (cost, date,
+ * location, note content, etc.) regardless of toggle state.
  */
 function extractEntities(nlpResult, message) {
   const entities = {
