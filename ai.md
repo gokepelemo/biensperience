@@ -453,10 +453,40 @@ All admin endpoints require `super_admin` role + `ai_admin` feature flag.
 
 ## NLP.js — Local Intent Classification
 
-**File:** `utilities/bienbot-intent-classifier.js`
+**Orchestrator:** `utilities/bienbot-intent-classifier.js`
+**Popularity scorer:** `utilities/bienbot-intent-popularity-scorer.js`
+**Entity registry:** `utilities/bienbot-intent-entity-registry.js`
+**Retrain scheduler:** `utilities/bienbot-intent-retrain-scheduler.js`
 **Corpus (seed):** `utilities/bienbot-intent-corpus.json`
 **Corpus (runtime):** `IntentCorpus` model (MongoDB)
 **Package:** `node-nlp-rn` (NLP.js for React Native / Node.js runtime)
+
+### Deployment Toggle: `nlp_slot_fill_enabled`
+
+Process-wide (evaluated once at classifier boot). Not a per-user feature flag — all `/api/bienbot/*` endpoints are already gated by the existing `ai_features` user flag. Resolution order:
+
+1. `NLP_SLOT_FILL_V2=true` / `NLP_SLOT_FILL_V2=false` env var (highest priority)
+2. `IntentClassifierConfig.nlp_slot_fill_enabled` boolean (singleton, admin-editable)
+3. Default: `false`
+
+- **OFF (default):** literal corpus; regex-only `destination_name` / `experience_name` extraction.
+- **ON:** slot-filled corpus (`%destination_name%`, `%experience_name%`); top-K NER via `addNamedEntityText` registered from DB; regex fallback for long tail.
+
+Both model states coexist on disk because the toggle value is baked into the cache key along with the corpus hash and entity-registry composition fingerprint.
+
+### Retrain Triggers
+
+The scheduler subscribes to entity churn events (`plan:created`, `plan:deleted`, `destination:*`, `experience:*`, `user:favorite_*`) and retrains when all three thresholds are met:
+
+- `retrain_min_churn_events` (default 25)
+- `retrain_min_interval_seconds` (default 3600)
+- `retrain_delta_threshold` (default 0.10 — Jaccard overlap of top-K IDs)
+
+All three live on `IntentClassifierConfig`. The scheduler is wired in `server.js` and stays dormant when slot-fill is OFF.
+
+### Corpus Versioning
+
+The JSON corpus file declares a `version` field (currently `v2`). When the seeder sees non-custom DB entries with an older `corpus_version`, it overwrites them with the new utterances and bumps the version. Custom entries (`is_custom: true`, admin-edited) are never overwritten.
 
 ### Why NLP.js
 
@@ -595,11 +625,11 @@ NLP.js generalises from training examples — the model learns word patterns and
 
 ### Entity Extraction
 
-| Entity | Method | Notes |
-|--------|--------|-------|
-| `user_email` | NLP.js regex entity + fallback regex | Matches standard email patterns |
-| `destination_name` | Heuristic regex patterns | Extracts capitalised nouns after prepositions (`about`, `in`, `to`, `for`) |
-| `experience_name` | NLP.js slot filling + quoted string fallback | Looks for quoted strings |
+| Entity | Method (slot-fill OFF) | Method (slot-fill ON) | Notes |
+|--------|------------------------|-----------------------|-------|
+| `user_email` | NLP.js regex entity | NLP.js regex entity | Matches standard email patterns |
+| `destination_name` | Heuristic regex (capitalised-after-preposition) | Top-K `addNamedEntityText` + regex long tail | ON handles lowercase and multi-word names via DB-derived top-K |
+| `experience_name` | Quoted-string regex + heuristic | Top-K `addNamedEntityText` + quoted-string regex long tail | ON adds registry-backed matches alongside regex |
 | `plan_item_texts` | Comma/and-separated list parsing | Only for `ADD_PLAN_ITEMS` intent |
 | `tip_content` | Content after "tip:"/"tip about" extraction | Only for `ADD_DESTINATION_TIP` intent |
 | `cost_category` | Keyword + synonym mapping | Maps hotel→accommodation, flight→transport, dinner→food, tour→activities, gear→equipment |
@@ -638,6 +668,42 @@ To add a new intent:
 4. **Restart the server** — the model retrains automatically on startup.
 
 Add at least 5–10 diverse utterances per intent for reliable classification.
+
+---
+
+## LLM Structured Output
+
+`executeAIRequest` in `utilities/ai-gateway.js` accepts a `schema` option that routes to provider-native structured output:
+
+- **Anthropic:** synthesises a tool from the schema and forces `tool_choice: { type: 'tool', name: schema.name }`. Returns the tool `input` as `result.content` (already an object — no JSON.parse needed).
+- **OpenAI:** passes `response_format: { type: 'json_schema', strict: true, json_schema: {...} }`. Parses the JSON string into an object and returns as `result.content`.
+- **Other providers / schema omitted:** falls back to the ad-hoc JSON-parse path (unchanged).
+
+```javascript
+const result = await executeAIRequest({
+  messages: [...],
+  task: 'intent_classification',
+  user,
+  options: { maxTokens: 200, temperature: 0 },
+  schema: {
+    name: 'classify_intent',
+    description: 'Classify a user message into an intent',
+    json_schema: {
+      type: 'object',
+      properties: {
+        intent: { type: 'string', enum: [...] },
+        confidence: { type: 'number', minimum: 0, maximum: 1 }
+      },
+      required: ['intent', 'confidence'],
+      additionalProperties: false
+    }
+  }
+});
+
+// result.content is already the parsed object — no JSON.parse needed.
+```
+
+In-tree consumers: `bienbot-intent-classifier.js` (LLM fallback), `bienbot-session-summarizer.js`.
 
 ---
 
