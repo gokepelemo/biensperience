@@ -264,11 +264,15 @@ async function getRecentActivity(userId, options = {}) {
 
     // Build query: user is either actor or target
     // Hide child activities (multi-step flows) from feed.
+    // Exclude experience_feed activities (intended for public experience feeds, not personal dashboard).
+    // Exclude curator_activity from actor-side matches (these are notifications for the curator/target,
+    // not for the person who performed the action).
     const query = {
       parentActivityId: null,
+      tags: { $nin: ['experience_feed'] },
       $or: [
-        { 'actor._id': userId },    // Activities performed by the user
-        { 'target.id': userId }      // Activities performed on the user
+        { 'actor._id': userId, tags: { $nin: ['curator_activity'] } },    // Activities performed by the user (exclude curator notifications)
+        { 'target.id': userId }      // Activities performed on the user (curator sees their notifications here)
       ]
     };
 
@@ -782,10 +786,13 @@ async function getActivityFeed(req, res) {
 
     // Build count query: user is actor OR target
     // Hide child activities (multi-step flows) from feed.
+    // Exclude experience_feed activities (for public experience feeds) and
+    // curator_activity from actor-side matches (notifications for the curator/target only).
     const countQuery = {
       parentActivityId: null,
+      tags: { $nin: ['experience_feed'] },
       $or: [
-        { 'actor._id': userId },
+        { 'actor._id': userId, tags: { $nin: ['curator_activity'] } },
         { 'target.id': userId }
       ]
     };

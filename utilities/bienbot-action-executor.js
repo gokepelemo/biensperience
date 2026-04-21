@@ -853,11 +853,70 @@ async function executeShiftPlanItemDates(payload, user) {
 
 /**
  * delete_plan
- * payload: { plan_id }
+ * payload: { plan_id?, experience_id? }
+ *
+ * Resolves the plan to delete in this order:
+ *   1. payload.plan_id if provided.
+ *   2. The logged-in user's plan for payload.experience_id (from payload or
+ *      session context). This ensures that "Unplan this experience" from an
+ *      experience page always targets the correct user's plan even when the
+ *      LLM omits plan_id.
+ *
+ * The deletePlan controller enforces canDelete (owner-only), so even if
+ * resolution produces a plan the user doesn't own, the call will 403 safely.
  */
-async function executeDeletePlan(payload, user) {
+async function executeDeletePlan(payload, user, session = null) {
   loadControllers();
-  const req = buildMockReq(user, {}, { id: payload.plan_id });
+  loadModels();
+
+  let planId = payload.plan_id;
+
+  // Fallback: resolve from experience_id when plan_id is absent.
+  // Check payload, session context, and session invoke_context (where BienBot was opened).
+  if (!planId) {
+    const invokeContextExpId =
+      session?.invoke_context?.entity === 'experience'
+        ? session?.invoke_context?.entity_id
+        : null;
+    const experienceId =
+      payload.experience_id ||
+      session?.context?.experience_id ||
+      invokeContextExpId;
+
+    if (experienceId) {
+      try {
+        const plan = await _Plan.findOne({ user: user._id, experience: experienceId })
+          .select('_id')
+          .lean();
+        if (plan) {
+          planId = plan._id.toString();
+          logger.info('[bienbot-action-executor] delete_plan: resolved plan_id from experience context', {
+            userId: user._id.toString(),
+            experienceId: experienceId.toString(),
+            resolvedFrom: payload.experience_id
+              ? 'payload'
+              : session?.context?.experience_id
+                ? 'session_context'
+                : 'invoke_context',
+            planId
+          });
+        }
+      } catch (lookupErr) {
+        logger.warn('[bienbot-action-executor] delete_plan: plan lookup from experience failed', {
+          error: lookupErr.message
+        });
+      }
+    }
+  }
+
+  if (!planId) {
+    return {
+      statusCode: 400,
+      body: { success: false, error: 'delete_plan requires plan_id or an experience in context' }
+    };
+  }
+
+  const req = buildMockReq(user, {}, { id: planId });
   const { res, getResult } = buildMockRes();
   await plansController.deletePlan(req, res);
   return getResult();

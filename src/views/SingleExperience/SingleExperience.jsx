@@ -1379,30 +1379,29 @@ export default function SingleExperience() {
     setSelectedPlanId(tid);
     setActiveTab('myplan');
 
+    // Prevent fallback handler from also processing this hash
+    initialHashHandledRef.current = true;
+
     // Scroll to item and open modal after tab switch (give React time to render)
     if (targetItemId) {
       debug.log('[NavigationIntent] Scheduling scroll to item:', { targetItemId, shouldAnimate });
 
-      // Find the plan item to open in the modal
-      const planItem = findById(targetPlan.plan, targetItemId);
+      // Find the plan item to open in the modal (try _id first, then plan_item_id)
+      const planItem = findById(targetPlan.plan, targetItemId)
+        || findById(targetPlan.plan, targetItemId, 'plan_item_id');
 
-      // Use requestAnimationFrame + setTimeout to ensure DOM is ready after React renders
+      // Open the details modal immediately if we found the plan item
+      if (planItem) {
+        setSelectedDetailsItem(planItem);
+        setDetailsModalInitialTab('notes');
+        openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
+      }
+
+      // Scroll to the item after React renders (does not block modal)
       requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const result = await scrollToItem(targetItemId, { shouldHighlight: shouldAnimate });
-            debug.log('[NavigationIntent] scrollToItem result:', result ? 'found' : 'not found');
-
-            // Open the details modal if we found the plan item
-            if (planItem) {
-              setSelectedDetailsItem(planItem);
-              setDetailsModalInitialTab('notes');
-              openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
-            }
-          } catch (err) {
-            debug.log('[NavigationIntent] scrollToItem error:', err);
-          }
-        }, 100);
+        scrollToItem(targetItemId, { shouldHighlight: shouldAnimate })
+          .then(result => debug.log('[NavigationIntent] scrollToItem result:', result ? 'found' : 'not found'))
+          .catch(err => debug.log('[NavigationIntent] scrollToItem error:', err));
       });
     } else {
       debug.log('[NavigationIntent] No targetItemId, skipping scroll');
@@ -1570,30 +1569,27 @@ export default function SingleExperience() {
     }
 
     // For direct URL navigation, scroll to item and open details modal if present
-    // If we switched tabs, wait for React to render the new content first
     if (itemId) {
-      // Find the plan item to open in the modal
-      const planItem = findById(targetPlan.plan, itemId);
+      // Find the plan item to open in the modal (try _id first, then plan_item_id)
+      const planItem = findById(targetPlan.plan, itemId)
+        || findById(targetPlan.plan, itemId, 'plan_item_id');
 
-      const openModalForItem = () => {
-        scrollToItem(itemId, { shouldHighlight: true });
-        // Open the details modal if we found the plan item
-        if (planItem) {
-          setSelectedDetailsItem(planItem);
-          setDetailsModalInitialTab('notes');
-          openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
-        }
-      };
+      // Open the details modal immediately if we found the plan item
+      if (planItem) {
+        setSelectedDetailsItem(planItem);
+        setDetailsModalInitialTab('notes');
+        openModal(MODAL_NAMES.PLAN_ITEM_DETAILS);
+      }
 
+      // Scroll to the item (after tab switch if needed)
       if (needsTabSwitch) {
-        // Wait for React to render the plan items after tab switch
-        // Using requestAnimationFrame + setTimeout ensures DOM is ready
         requestAnimationFrame(() => {
-          setTimeout(openModalForItem, 100);
+          setTimeout(() => {
+            scrollToItem(itemId, { shouldHighlight: true });
+          }, 100);
         });
       } else {
-        // Already on correct tab, scroll immediately
-        openModalForItem();
+        scrollToItem(itemId, { shouldHighlight: true });
       }
     }
   }, [plansLoading, allAccessiblePlans, selectedPlanId, intent, scrollToItem]);

@@ -530,6 +530,7 @@ ImageAttachment.propTypes = {
  * @param {boolean} props.open - Whether the panel is visible
  * @param {Function} props.onClose - Callback to close the panel
  * @param {Object|null} props.invokeContext - Entity context ({ entity, id, label }) or null for non-entity views
+ * @param {Object|null} props.baseInvokeContext - Route-only context (no override). Used solely to detect page navigations for the ContextSwitchPrompt.
  * @param {string|null} props.currentView - View identifier for non-entity pages
  * @param {boolean} props.isEntityView - Whether current page is an entity detail page
  * @param {boolean} props.notificationOnly - Whether to show notification-only mode (no chat)
@@ -555,6 +556,7 @@ export default function BienBotPanel({
   open,
   onClose,
   invokeContext,
+  baseInvokeContext = null,
   navigationSchema = null,
   currentView,
   isEntityView,
@@ -958,17 +960,24 @@ export default function BienBotPanel({
   }, [isLoading, isStreaming, open]);
 
   // ── Detect invokeContext changes when panel opens on a different entity ──
+  // IMPORTANT: we track baseInvokeContext (route-only, no override) to detect
+  // real page navigations. Disambiguation actions (select_plan, select_destination)
+  // change invokeContextOverride in BienBotTrigger, which flows into invokeContext
+  // but NOT into baseInvokeContext. This prevents a spurious ContextSwitchPrompt
+  // when the user clicks a plan card from a resumed session while still on the
+  // same experience page (e.g. Nashville Glamping).
+  const navContext = baseInvokeContext || invokeContext;
   useEffect(() => {
-    if (!open || !invokeContext?.id) return;
+    if (!open || !navContext?.id) return;
 
     const prev = prevContextRef.current;
-    const changed = prev && (prev.id !== invokeContext.id || prev.entity !== invokeContext.entity);
+    const changed = prev && (prev.id !== navContext.id || prev.entity !== navContext.entity);
 
     // Store current as previous for next comparison (include label for ContextSwitchPrompt)
     prevContextRef.current = {
-      entity: invokeContext.entity,
-      id: invokeContext.id,
-      label: invokeContext.contextDescription || invokeContext.label || invokeContext.entity,
+      entity: navContext.entity,
+      id: navContext.id,
+      label: navContext.contextDescription || navContext.label || navContext.entity,
     };
 
     if (!changed) return;
@@ -980,11 +989,11 @@ export default function BienBotPanel({
       // context. The user can choose to continue their current conversation or switch
       // BienBot's focus to the newly navigated entity.
       const prevLabel = prev.label || prev.entity;
-      const newLabel = invokeContext.contextDescription || invokeContext.label || invokeContext.entity;
+      const newLabel = navContext.contextDescription || navContext.label || navContext.entity;
       setPendingContextSwitch({
-        entity: invokeContext.entity,
-        entityId: invokeContext.id,
-        contextDescription: invokeContext.contextDescription,
+        entity: navContext.entity,
+        entityId: navContext.id,
+        contextDescription: navContext.contextDescription,
         prevEntityLabel: prevLabel,
         newEntityLabel: newLabel,
       });
@@ -995,7 +1004,7 @@ export default function BienBotPanel({
       // replaced/injected the new entity's greeting.
       resetSession();
     }
-  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, resetSession]);
+  }, [open, navContext?.entity, navContext?.id, updateContext, resetSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reconcile a resumed session's context with the current page entity ──────
   // When the user resumes an old session while viewing a different entity, the

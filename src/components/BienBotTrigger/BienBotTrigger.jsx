@@ -244,6 +244,7 @@ export default function BienBotTrigger({
           onClose={handleClose}
           onLoaded={() => setPanelLoading(false)}
           invokeContext={invokeContextOverride || invokeContext}
+          baseInvokeContext={invokeContext}
           navigationSchema={navigationSchema}
           currentView={currentView}
           isEntityView={isEntityView}

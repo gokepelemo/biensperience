@@ -166,7 +166,7 @@ async function resolveEntityLabel(entity, entityId) {
     // For plans, compose label from experience name
     if (entity === 'plan' && doc[mapping.populate]) {
       const experienceName = doc[mapping.populate]?.[mapping.populateField] || 'Unknown';
-      return doc[mapping.field] || `Plan for "${experienceName}"`;
+      return doc[mapping.field] || `Plan for ${experienceName}`;
     }
 
     return doc[mapping.field] || null;
@@ -391,6 +391,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- UPDATE_PROFILE: Use update_user_profile with only the fields the user explicitly asked to change (name, bio, or preferences). Never update fields the user did not mention.',
     '- REORDER_PLAN_ITEMS: Use reorder_plan_items with plan_id and item_ids ordered as the user described. Read all current item IDs from the plan context block — do not omit any items.',
     '- INVITE_COLLABORATOR: The user wants to add someone to their plan or experience. Use invite_collaborator with plan_id (from plan context) or experience_id. To resolve the user_id: first check the COLLABORATORS section in context for an existing member; if not found, propose list_user_followers with type "following" as an immediate read-only step so the user can pick from a list — never guess a user_id. Confirm the person and role (default: "collaborator") before proposing the invite action.',
+    '- DELETE_PLAN: When the experience context block shows "User\'s plan for this experience: exists (plan_id: <id>, ...)", include that plan_id in the payload. You may also pass experience_id instead — the executor will resolve the logged-in user\'s plan for that experience automatically. Always confirm with the user before proposing.',
     '- REMOVE_COLLABORATOR: Use remove_collaborator with plan_id and user_id from the COLLABORATORS section in context. List current collaborators for the user to choose if it is ambiguous. Always confirm before proposing — this revokes their access.',
     '- SET_MEMBER_LOCATION: The user wants to set their travel origin for the plan. Use set_member_location with plan_id from context. Ask for city and country if not mentioned. Accept an optional travel_cost_estimate and currency if the user provides one. This action always applies to the logged-in user — never set location for someone else.',
     '- REMOVE_MEMBER_LOCATION: Use remove_member_location with plan_id from context. Confirm with the user before proposing.',
@@ -416,6 +417,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     if (contextDescription) {
       lines.push(`Page context: ${contextDescription}`);
     }
+    lines.push('IMPORTANT: When the user says "this experience", "this plan", "this destination", or any other self-referential phrase, they are referring to the entity shown in the "Viewing" line above — NOT any entity from prior conversation history or session context. Always use the entity and its IDs from the context block that corresponds to the "Viewing" entity for any action the user requests on this page.');
     lines.push('');
   }
 
@@ -537,7 +539,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- create_plan: { experience_id, planned_date?, currency? }',
     '- update_plan: { plan_id, planned_date?, currency?, notes? }',
     '- shift_plan_item_dates: { plan_id, diff_days } — Shifts all scheduled plan item dates by the given number of days. Propose this automatically after an update_plan that changes planned_date when the user confirms they want item dates shifted too.',
-    '- delete_plan: { plan_id }  (⚠️ confirm with user first)',
+    '- delete_plan: { plan_id?, experience_id? }  (⚠️ confirm with user first) — when viewing an experience page, prefer passing experience_id; the executor will resolve the logged-in user\'s plan automatically.',
     '- sync_plan: { plan_id }',
     '',
     '--- Plan Items ---',
@@ -753,7 +755,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
 /**
  * Build context blocks based on intent classification and session state.
  */
-async function buildContextBlocks(intent, entities, session, userId, message, navigationSchema) {
+async function buildContextBlocks(intent, entities, session, userId, message, navigationSchema, resolvedInvokeContext = null) {
   loadModels();
   const blocks = [];
 
@@ -761,13 +763,48 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
   // Supplement with navigationSchema IDs for turn 1: before the LLM has had a chance
   // to return entity_refs, the schema already carries the full ancestor chain so every
   // applicable builder (destination, experience, plan) fires in parallel immediately.
+  //
+  // IMPORTANT: resolvedInvokeContext (the entity page the user is currently viewing)
+  // ALWAYS overrides stale session.context IDs for its own entity type. This prevents
+  // resumed sessions from using IDs from a previous conversation when the user has
+  // navigated to a different entity page (e.g. "Unplan this experience" on Nashville
+  // should never reference a stale Anchorage plan_id from a prior session turn).
   const sessionCtx = session.context || {};
   const schemaIds = navigationSchema ? extractContextIds(navigationSchema) : {};
+
+  // Build invoke-context overrides — only override the specific entity type being viewed.
+  const invokeOverrides = {};
+  if (resolvedInvokeContext?.entity && resolvedInvokeContext?.entity_id) {
+    switch (resolvedInvokeContext.entity) {
+      case 'destination':
+        invokeOverrides.destination_id = resolvedInvokeContext.entity_id;
+        break;
+      case 'experience':
+        invokeOverrides.experience_id = resolvedInvokeContext.entity_id;
+        // Clear stale plan_id that belongs to a different experience
+        if (sessionCtx.plan_id && sessionCtx.experience_id &&
+            String(sessionCtx.experience_id) !== String(resolvedInvokeContext.entity_id)) {
+          invokeOverrides.plan_id = null;
+        }
+        break;
+      case 'plan':
+        invokeOverrides.plan_id = resolvedInvokeContext.entity_id;
+        break;
+      case 'plan_item':
+        invokeOverrides.plan_item_id = resolvedInvokeContext.entity_id;
+        break;
+    }
+  }
+
   const ctx = {
-    destination_id: sessionCtx.destination_id || schemaIds.destination_id || null,
-    experience_id:  sessionCtx.experience_id  || schemaIds.experience_id  || null,
-    plan_id:        sessionCtx.plan_id         || schemaIds.plan_id        || null,
-    plan_item_id:   sessionCtx.plan_item_id    || schemaIds.plan_item_id   || null,
+    destination_id: invokeOverrides.destination_id ?? sessionCtx.destination_id ?? schemaIds.destination_id ?? null,
+    experience_id:  invokeOverrides.experience_id  ?? sessionCtx.experience_id  ?? schemaIds.experience_id  ?? null,
+    // plan_id: if invokeOverrides explicitly sets it to null (stale plan cleared), honour null.
+    // Otherwise fall through session → schema.
+    plan_id: 'plan_id' in invokeOverrides
+      ? invokeOverrides.plan_id
+      : (sessionCtx.plan_id ?? schemaIds.plan_id ?? null),
+    plan_item_id: invokeOverrides.plan_item_id ?? sessionCtx.plan_item_id ?? schemaIds.plan_item_id ?? null,
   };
 
   // Pre-fetch all user plans once when entity context is present.
@@ -854,6 +891,10 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     // Plan-related intent without a specific plan in context — load full user
     // greeting context so the LLM can see all plans (including undated ones) and
     // make recommendations without asking the user to provide the list.
+    // Exception: when an experience is already in session context, the experience
+    // context block already includes the user's plan for that experience (with plan_id),
+    // so loading all plans would only confuse the LLM on entity-scoped actions like
+    // unplan/delete that should target the current experience's plan.
     const OVERVIEW_PLAN_INTENTS = new Set([
       'QUERY_PLAN', 'UPDATE_PLAN', 'DELETE_PLAN', 'SYNC_PLAN', 'PLAN_EXPERIENCE',
       'ADD_PLAN_ITEMS', 'UPDATE_PLAN_ITEM', 'COMPLETE_PLAN_ITEM',
@@ -862,7 +903,7 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       'ASSIGN_PLAN_ITEM', 'UPDATE_PLAN_ITEM_TEXT', 'UPDATE_PLAN_ITEM_URL',
       'DELETE_PLAN_ITEM', 'ADD_PLAN_COST'
     ]);
-    if (OVERVIEW_PLAN_INTENTS.has(intent) && !ctx.plan_id) {
+    if (OVERVIEW_PLAN_INTENTS.has(intent) && !ctx.plan_id && !ctx.experience_id) {
       promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
@@ -2446,6 +2487,77 @@ exports.chat = async (req, res) => {
 
   const ctx = session.context || {};
   if (PLAN_RELATED_INTENTS.has(classification.intent) && !ctx.plan_id) {
+    // When the user is on a specific entity page (resolvedInvokeContext or session.invoke_context),
+    // they are clearly referring to THAT entity. Skip disambiguation entirely —
+    // the LLM/executor will resolve the correct plan from the invoke context.
+    // This prevents "Unplan this experience" on Nashville from showing a picker
+    // of all 42 user plans across all destinations.
+    //
+    // resolvedInvokeContext comes from the current request's invokeContext param;
+    // session.invoke_context is the stored context from when BienBot was opened.
+    // For resumed sessions that don't re-send invokeContext, we fall back to session.invoke_context.
+    const effectiveInvokeContext = resolvedInvokeContext || (
+      session.invoke_context?.entity && session.invoke_context?.entity_id
+        ? { entity: session.invoke_context.entity, entity_id: session.invoke_context.entity_id.toString() }
+        : null
+    );
+    const hasEntityPageContext =
+      (effectiveInvokeContext?.entity === 'experience' && effectiveInvokeContext?.entity_id) ||
+      (effectiveInvokeContext?.entity === 'plan' && effectiveInvokeContext?.entity_id);
+
+    logger.info('[bienbot] Step 2c plan disambiguation gate', {
+      hasEntityPageContext,
+      resolvedInvokeContext: resolvedInvokeContext ? { entity: resolvedInvokeContext.entity, entity_id: resolvedInvokeContext.entity_id } : null,
+      sessionInvokeContext: session.invoke_context ? { entity: session.invoke_context.entity, entity_id: session.invoke_context.entity_id?.toString() } : null,
+      effectiveInvokeContext: effectiveInvokeContext ? { entity: effectiveInvokeContext.entity, entity_id: effectiveInvokeContext.entity_id } : null,
+      intent: classification.intent,
+      ctxPlanId: ctx.plan_id || null,
+      userId
+    });
+
+    if (hasEntityPageContext) {
+      // Only auto-inject if we can find the exact plan — if not found (user may not
+      // have planned this experience), skip silently and let the LLM handle it.
+      try {
+        loadModels();
+        const userPlans = await Plan.find({ user: userId })
+          .populate('experience', 'name destination')
+          .populate({ path: 'experience', populate: { path: 'destination', select: 'name' } })
+          .select('experience planned_date plan')
+          .lean();
+
+        let pinned = [];
+        if (effectiveInvokeContext.entity === 'experience') {
+          pinned = userPlans.filter(p =>
+            String(p.experience?._id) === String(effectiveInvokeContext.entity_id)
+          );
+        } else if (effectiveInvokeContext.entity === 'plan') {
+          pinned = userPlans.filter(p =>
+            String(p._id) === String(effectiveInvokeContext.entity_id)
+          );
+        }
+
+        if (pinned.length === 1) {
+          const plan = pinned[0];
+          await session.updateContext({
+            plan_id: plan._id.toString(),
+            experience_id: plan.experience?._id?.toString() || null,
+            destination_id: plan.experience?.destination?._id?.toString()
+              || plan.experience?.destination?.toString() || null
+          });
+          logger.info('[bienbot] Auto-injected plan from entity page context', {
+            planId: plan._id.toString(),
+            userId,
+            invokeEntity: effectiveInvokeContext.entity,
+            invokeEntityId: effectiveInvokeContext.entity_id,
+            source: resolvedInvokeContext ? 'request' : 'session'
+          });
+        }
+        // If 0 or 2+ found: skip silently — LLM will handle with invoke context info
+      } catch (err) {
+        logger.warn('[bienbot] Plan auto-inject from entity page failed, continuing', { error: err.message });
+      }
+    } else {
     try {
       loadModels();
       const userPlans = await Plan.find({ user: userId })
@@ -2455,21 +2567,21 @@ exports.chat = async (req, res) => {
         .lean();
 
       if (userPlans.length > 0) {
+        let matchedPlans = userPlans;
+
         // Fuzzy-filter by destination/experience name if user mentioned one
         const nameHint = classification.entities?.destination_name
           || classification.entities?.experience_name
           || null;
-        let matchedPlans = userPlans;
-
         if (nameHint) {
           const hint = nameHint.toLowerCase();
-          matchedPlans = userPlans.filter(p => {
+          const filtered = userPlans.filter(p => {
             const expName = (p.experience?.name || '').toLowerCase();
             const destName = (p.experience?.destination?.name || '').toLowerCase();
             return expName.includes(hint) || destName.includes(hint)
               || hint.includes(expName) || hint.includes(destName);
           });
-          if (matchedPlans.length === 0) matchedPlans = userPlans;
+          if (filtered.length > 0) matchedPlans = filtered;
         }
 
         if (matchedPlans.length === 1) {
@@ -2566,6 +2678,7 @@ exports.chat = async (req, res) => {
     } catch (err) {
       logger.warn('[bienbot] Plan disambiguation failed, continuing normally', { error: err.message });
     }
+    } // end else (no entity page context)
   }
 
 
@@ -2577,7 +2690,8 @@ exports.chat = async (req, res) => {
     session,
     userId,
     classifyText,
-    navigationSchema
+    navigationSchema,
+    resolvedInvokeContext
   );
 
   // Merge invokeContext block with intent-based blocks, enforcing hard token cap
@@ -3090,12 +3204,11 @@ exports.chat = async (req, res) => {
     });
   }
 
-  // Stream pending actions if any (only confirmable actions)
-  if (parsed.pending_actions.length > 0) {
-    sendSSE(res, 'actions', {
-      pending_actions: parsed.pending_actions
-    });
-  }
+  // Always stream pending actions — even when empty — so the frontend replaces
+  // any stale actions (e.g. select_plan from a prior turn or resumed session).
+  sendSSE(res, 'actions', {
+    pending_actions: parsed.pending_actions
+  });
 
   // Signal completion
   sendSSE(res, 'done', {
@@ -3557,7 +3670,12 @@ exports.resume = async (req, res) => {
     };
 
     return successResponse(res, {
-      session: session.toObject(),
+      session: {
+        ...session.toObject(),
+        pending_actions: (session.pending_actions || []).filter(a =>
+          !a.executed && a.type !== 'select_plan' && a.type !== 'select_destination'
+        )
+      },
       greeting: staticGreeting
     });
   }
@@ -3609,7 +3727,16 @@ exports.resume = async (req, res) => {
   }
 
   return successResponse(res, {
-    session: session.toObject(),
+    session: {
+      ...session.toObject(),
+      // Disambiguation actions (select_plan, select_destination) are contextual to
+      // the moment they were shown. On resume the user is on a fresh page; stale
+      // pickers should not reappear. Clear them so only true pending actions (create,
+      // update, delete, etc.) are restored.
+      pending_actions: (session.pending_actions || []).filter(a =>
+        !a.executed && a.type !== 'select_plan' && a.type !== 'select_destination'
+      )
+    },
     greeting: {
       role: 'assistant',
       content: greetingContent,

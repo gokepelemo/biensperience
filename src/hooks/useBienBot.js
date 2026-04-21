@@ -204,24 +204,27 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // Determine whether to send invokeContext (only when present and not yet sent)
+    // Always send invokeContext when available so the backend knows which entity
+    // page the user is currently viewing. This is critical for plan disambiguation
+    // on resumed sessions (otherwise the backend can't anchor actions to the page).
     const sid = sessionIdRef.current;
-    const shouldSendContext = !sid && invokeContext?.entity && invokeContext?.id && !invokeContextSentRef.current;
+    const hasInvokeContext = invokeContext?.entity && invokeContext?.id;
+    const isFirstMessage = !sid && !invokeContextSentRef.current;
     const priorGreeting = !sid ? priorGreetingRef.current : null;
     // Clear after capture so it is only ever sent once
     if (priorGreeting) priorGreetingRef.current = null;
 
     try {
       await postMessage(sid, text, {
-        invokeContext: shouldSendContext ? invokeContext : undefined,
-        navigationSchema: (!sid && !invokeContextSentRef.current && navigationSchema) ? navigationSchema : undefined,
+        invokeContext: hasInvokeContext ? invokeContext : undefined,
+        navigationSchema: (isFirstMessage && navigationSchema) ? navigationSchema : undefined,
         priorGreeting: priorGreeting || undefined,
         attachment: attachment || undefined,
         signal: controller.signal,
 
         onSession: ({ sessionId: newSessionId, title, attachment: attachmentInfo }) => {
           sessionIdRef.current = newSessionId;
-          if (shouldSendContext) {
+          if (isFirstMessage) {
             invokeContextSentRef.current = true;
           }
           setCurrentSession(prev => ({
@@ -231,7 +234,17 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             // Mark the current user as owner so isSessionOwner evaluates correctly
             // for follow-up messages. The onSession event fires only when this client
             // creates the session, so the sender is always the owner.
-            user: userId
+            user: userId,
+            // Populate invoke_context on new sessions so the reconciliation effect
+            // recognises the entity as already tracked and does not inject a
+            // spurious "context has changed" ack message.
+            ...(isFirstMessage && hasInvokeContext ? {
+              invoke_context: {
+                entity: invokeContext.entity,
+                entity_id: invokeContext.id,
+                entity_label: invokeContext.label,
+              }
+            } : {})
           }));
           persistSessionId(newSessionId);
           // Update optimistic user message with S3 attachment info from server
@@ -410,7 +423,17 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             ...(prev || {}),
             _id: newSessionId,
             title: title || prev?.title,
-            user: userId
+            user: userId,
+            // Populate invoke_context on new sessions so the reconciliation effect
+            // recognises the entity as already tracked and does not inject a
+            // spurious "context has changed" ack message.
+            ...(shouldSendContext ? {
+              invoke_context: {
+                entity: invokeContext.entity,
+                entity_id: invokeContext.id,
+                entity_label: invokeContext.label,
+              }
+            } : {})
           }));
           persistSessionId(newSessionId);
         },
