@@ -14,7 +14,8 @@
 
 const logger = require('./backend-logger');
 const { executeAIRequest, GatewayError } = require('./ai-gateway');
-const { getApiKey, getProviderForTask, AI_TASKS } = require('../controllers/api/ai');
+const { getApiKey, getProviderForTask } = require('../controllers/api/ai');
+const { AI_TASKS } = require('./ai-constants');
 
 /**
  * Rough token budget for the compressed message history sent to the model.

@@ -505,7 +505,9 @@ function getEnvProviderForTask(task) {
     translate: 'AI_TRANSLATE_PROVIDER'
   };
   const envKey = envMap[task];
-  return envKey ? (process.env[envKey] || null) : null;
+  if (envKey) return process.env[envKey] || null;
+  // Unmapped tasks fall back to the default provider (matches pre-refactor behavior)
+  return process.env.AI_DEFAULT_PROVIDER || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -895,5 +897,7 @@ module.exports = {
   callWithRetry,
   isRetryableError,
   calculateRetryDelay,
-  DEFAULT_RETRY_CONFIG
+  DEFAULT_RETRY_CONFIG,
+  // Exported so the AI controller and utilities can use the canonical implementation
+  getProviderForTask: getEnvProviderForTask
 };

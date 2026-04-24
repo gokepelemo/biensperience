@@ -1288,7 +1288,8 @@ async function reformulateWikivoyagePlanItems(items, destinationName, user) {
     return items;
   }
 
-  const { getApiKey, getProviderForTask, AI_TASKS } = require('../controllers/api/ai');
+  const { getApiKey, getProviderForTask } = require('../controllers/api/ai');
+  const { AI_TASKS } = require('./ai-constants');
   const { lang } = require('./lang.constants');
 
   const provider = getProviderForTask(AI_TASKS.GENERATE_TIPS);
