@@ -10,6 +10,7 @@
  * @module utilities/bienbot-discovery
  */
 
+const { Types } = require('mongoose');
 const logger = require('./backend-logger');
 const { validateObjectId } = require('./controller-helpers');
 const {
@@ -17,11 +18,13 @@ const {
   signalsToNaturalLanguage,
   computePopularityScore,
   computeAffinityScore,
-  computeAndCacheAffinity,
-  processSignalEvent
+  processSignalEvent,
+  DIMENSIONS,
+  NEUTRAL
 } = require('./hidden-signals');
 const signalsConfig = require('./signals-config');
 const affinityCache = require('./affinity-cache');
+const { getCacheKey, createDiscoveryCache } = require('./discovery-cache');
 
 // Token budget helpers (local copies — avoids circular dep with context-builders)
 const CHARS_PER_TOKEN = 4;
@@ -33,13 +36,61 @@ function trimToTokenBudget(text, tokenBudget = DEFAULT_TOKEN_BUDGET) {
   return text.substring(0, maxChars - 3) + '...';
 }
 
-// Lazy-loaded models (resolved on first use)
-let Experience, Plan, User;
+// Lazy-loaded models (resolved on first use — avoids requiring mongoose models
+// at import time, which matters for test isolation and tree-shaking).
+let Experience, Plan, Destination, Photo;
 function loadModels() {
   if (!Experience) {
     Experience = require('../models/experience');
     Plan = require('../models/plan');
-    User = require('../models/user');
+    Destination = require('../models/destination');
+    Photo = require('../models/photo');
+  }
+}
+
+/**
+ * Resolve filters.destination_name to a destination ObjectId via a single
+ * case-insensitive lookup on the (small) destinations collection, so the
+ * downstream Plans aggregation can use an indexed $match on exp.destination
+ * instead of an anchorless regex $lookup against destinations.
+ *
+ * If filters already carries destination_id, that wins. Otherwise we do one
+ * Destination lookup; if it misses, callers fall back to the (still-safe)
+ * regex $lookup path so name substring matches keep working.
+ *
+ * Returns null when nothing resolves or resolution is not needed.
+ *
+ * Note on indexes: the `name` index on Destination (see models/destination.js)
+ * is declared without a collation, so this collation query scans destinations
+ * rather than using the index. That is still a net win vs. the previous
+ * anchorless regex inside the Plans aggregation (small collection, one-time
+ * per discovery call). If destination count grows, add a matching-collation
+ * index to make this lookup index-backed.
+ *
+ * @param {Object} filters
+ * @returns {Promise<import('mongoose').Types.ObjectId|null>}
+ */
+async function resolveFilterDestinationId(filters) {
+  if (filters.destination_id) {
+    try {
+      return new Types.ObjectId(String(filters.destination_id));
+    } catch {
+      return null;
+    }
+  }
+  if (!filters.destination_name) return null;
+  loadModels();
+  try {
+    // strength 2 = case + diacritic insensitive
+    const dest = await Destination
+      .findOne({ name: filters.destination_name })
+      .collation({ locale: 'en', strength: 2 })
+      .select('_id')
+      .lean();
+    return dest ? dest._id : null;
+  } catch (err) {
+    logger.debug('[bienbot-context] resolveFilterDestinationId failed', { error: err.message });
+    return null;
   }
 }
 
@@ -83,9 +134,117 @@ const DEFAULT_DISCOVERY_WEIGHTS = {
 };
 
 const WEIGHT_FLOOR = 0.05;
+const WEIGHT_SWAP_DELTA = 0.10; // Symmetric +delta/-delta applied per dimension in computeAdaptiveWeights
 const SIGNAL_THRESHOLD = 0.7;
 const MIN_CONFIDENCE = 0.2;
 const RECENCY_HALF_LIFE_DAYS = 174; // e^(-ln2 * 90/174) ≈ 0.70 at 90 days, per spec
+
+// Aggregation limits: keep separate so it's clear why each cap exists.
+const MAX_SIMILAR_USERS = 50;           // Stage-1 pool: top-K users with matching activity types
+const MAX_CANDIDATES_PER_STAGE = 20;    // Stage-2 + popularity: raw candidates per aggregation
+const DEFAULT_DISCOVERY_LIMIT = 8;      // Scored results returned to caller
+const SIMILAR_EXPERIENCES_LIMIT = 5;    // buildSimilarExperiencesContext post-plan suggestions
+
+// Max delta between user and entity on a dimension to count as "top aligned".
+// Mirrors the threshold used by computeAndCacheAffinity in hidden-signals.js.
+const AFFINITY_TOP_DIM_DELTA = 0.3;
+const AFFINITY_TOP_DIM_LIMIT = 3;
+
+/**
+ * Given an array of aggregated candidate rows that each carry a `photos` array
+ * ([{ photo: ObjectId, default: Boolean }]), resolve the default-photo URL for
+ * each row in one batch query. Mutates each row's `default_photo_url` field in
+ * place to the resolved URL (or null).
+ *
+ * Replaces an in-pipeline nested $lookup + $let + $arrayElemAt + $filter,
+ * which is the most expensive aggregation lookup pattern MongoDB supports.
+ *
+ * @param {Array<Object>} rows - Aggregation rows; each has a `photos` array.
+ * @returns {Promise<void>}
+ */
+async function hydrateDefaultPhotoUrls(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+
+  const photoIds = [];
+  const rowPhotoId = new Map(); // row -> photoId to resolve
+  for (const row of rows) {
+    const photos = row.photos;
+    if (!Array.isArray(photos) || photos.length === 0) continue;
+    const defaultEntry = photos.find(p => p?.default) || photos[0];
+    const photoId = defaultEntry?.photo;
+    if (!photoId) continue;
+    rowPhotoId.set(row, photoId);
+    photoIds.push(photoId);
+  }
+
+  if (photoIds.length === 0) return;
+
+  // One round-trip for all rows. $in is index-backed on _id.
+  loadModels();
+  const photos = await Photo.find({ _id: { $in: photoIds } }).select('url').lean();
+  const urlById = new Map(photos.map(p => [p._id.toString(), p.url]));
+
+  for (const row of rows) {
+    const photoId = rowPhotoId.get(row);
+    row.default_photo_url = photoId ? (urlById.get(photoId.toString()) || null) : null;
+  }
+}
+
+/**
+ * Build an affinity cache entry from pre-decayed user + entity signal vectors.
+ * Mirrors the output shape of hidden-signals.computeAndCacheAffinity so batch
+ * writes and single writes produce identical stored entries.
+ *
+ * @param {string|ObjectId} experienceId
+ * @param {Object} decayedUser
+ * @param {Object} decayedEntity
+ * @returns {Object}
+ */
+function buildAffinityEntry(experienceId, decayedUser, decayedEntity) {
+  const score = computeAffinityScore(decayedUser, decayedEntity);
+  const dimEntries = DIMENSIONS.map((dim) => {
+    const userVal   = typeof decayedUser[dim]   === 'number' ? decayedUser[dim]   : NEUTRAL;
+    const entityVal = typeof decayedEntity[dim] === 'number' ? decayedEntity[dim] : NEUTRAL;
+    const delta     = Math.abs(userVal - entityVal);
+    return { dim, user_val: userVal, entity_val: entityVal, delta };
+  });
+  const top_dims = dimEntries
+    .filter(d => d.delta < AFFINITY_TOP_DIM_DELTA)
+    .sort((a, b) => a.delta - b.delta)
+    .slice(0, AFFINITY_TOP_DIM_LIMIT);
+  return {
+    experience_id: experienceId,
+    score,
+    top_dims,
+    computed_at: new Date()
+  };
+}
+
+// Match-reason phrase tables hoisted to module scope — previously re-allocated per candidate.
+const CATEGORY_PHRASES = {
+  culinary: 'culinary travelers',
+  adventure: 'adventure seekers',
+  cultural: 'culture enthusiasts',
+  wellness: 'wellness travelers',
+  nightlife: 'nightlife enthusiasts',
+  'family-friendly': 'families',
+  budget: 'budget travelers',
+  romantic: 'couples',
+  solo: 'solo travelers',
+  photography: 'photographers',
+  historical: 'history buffs',
+  beach: 'beach lovers',
+  mountain: 'mountain explorers',
+  urban: 'city explorers'
+};
+
+const MATCH_REASON_TEMPLATES = {
+  plan_count:      (c) => `Planned by ${c.co_occurrence_count} similar travelers`,
+  completion_rate: (c) => `${Math.round((c.avg_completion_rate || 0) * 100)}% plan completion rate`,
+  recency:         () => 'Recently trending among travelers',
+  collaborators:   (c) => `Popular group activity - ${c.collaborator_count} collaborators`,
+  cost_alignment:  () => 'Good budget fit for your travel style'
+};
 
 // ---------------------------------------------------------------------------
 // Ranking helpers
@@ -122,22 +281,23 @@ function computeAdaptiveWeights(signals) {
 
   if (!signals || (signals.confidence || 0) < MIN_CONFIDENCE) return weights;
 
-  // Symmetric +0.10/-0.10 swaps
+  // Symmetric swaps: strong signal on dimension X boosts one weight and
+  // decrements another by WEIGHT_SWAP_DELTA so the sum is preserved pre-floor.
   if ((signals.budget_sensitivity || 0) > SIGNAL_THRESHOLD) {
-    weights.cost_alignment += 0.10;
-    weights.plan_count -= 0.10;
+    weights.cost_alignment += WEIGHT_SWAP_DELTA;
+    weights.plan_count     -= WEIGHT_SWAP_DELTA;
   }
   if ((signals.social || 0) > SIGNAL_THRESHOLD) {
-    weights.collaborators += 0.10;
-    weights.recency -= 0.10;
+    weights.collaborators  += WEIGHT_SWAP_DELTA;
+    weights.recency        -= WEIGHT_SWAP_DELTA;
   }
   if ((signals.structure || 0) > SIGNAL_THRESHOLD) {
-    weights.completion_rate += 0.10;
-    weights.plan_count -= 0.10;
+    weights.completion_rate += WEIGHT_SWAP_DELTA;
+    weights.plan_count      -= WEIGHT_SWAP_DELTA;
   }
   if ((signals.novelty || 0) > SIGNAL_THRESHOLD) {
-    weights.recency += 0.10;
-    weights.completion_rate -= 0.10;
+    weights.recency         += WEIGHT_SWAP_DELTA;
+    weights.completion_rate -= WEIGHT_SWAP_DELTA;
   }
 
   // Enforce minimum floor
@@ -155,15 +315,30 @@ function computeAdaptiveWeights(signals) {
 /**
  * Map a cost value to its percentile within a candidate set.
  * Returns 0.0 (cheapest) to 1.0 (most expensive). Neutral 0.5 for edge cases.
+ *
+ * Accepts either a raw or a pre-sorted candidate-cost array. If the array is
+ * not pre-sorted, this call sorts a copy. Callers that invoke this in a hot
+ * loop (once per candidate) should sort once and pass the sorted array to
+ * avoid O(n^2 log n) behavior.
+ *
  * @param {number} cost
- * @param {number[]} allCandidateCosts
+ * @param {number[]} allCandidateCosts - Raw or pre-sorted ascending.
+ * @param {boolean} [isSorted=false] - True if the input is already ascending.
  * @returns {number}
  */
-function normalizeCostToPercentile(cost, allCandidateCosts) {
+function normalizeCostToPercentile(cost, allCandidateCosts, isSorted = false) {
   if (!allCandidateCosts || allCandidateCosts.length <= 1) return 0.5;
-  const sorted = [...allCandidateCosts].sort((a, b) => a - b);
-  const rank = sorted.findIndex(v => v >= cost);
-  return rank === -1 ? 1.0 : rank / (sorted.length - 1);
+  const sorted = isSorted ? allCandidateCosts : [...allCandidateCosts].sort((a, b) => a - b);
+
+  // Binary search for the first index where sorted[i] >= cost.
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid] >= cost) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo === sorted.length ? 1.0 : lo / (sorted.length - 1);
 }
 
 /**
@@ -171,13 +346,14 @@ function normalizeCostToPercentile(cost, allCandidateCosts) {
  * 1.0 = perfect fit, 0.0 = worst mismatch, 0.5 = neutral.
  * @param {number|null} experienceCost
  * @param {Object|null} signals
- * @param {number[]} allCandidateCosts
+ * @param {number[]} allCandidateCosts - Raw or pre-sorted ascending.
+ * @param {boolean} [isSorted=false] - True if the input is already ascending.
  * @returns {number}
  */
-function computeCostAlignment(experienceCost, signals, allCandidateCosts) {
+function computeCostAlignment(experienceCost, signals, allCandidateCosts, isSorted = false) {
   if (!experienceCost || !signals) return 0.5;
   const userBudgetLevel = 1 - (signals.budget_sensitivity || 0.5);
-  const costPercentile = normalizeCostToPercentile(experienceCost, allCandidateCosts || []);
+  const costPercentile = normalizeCostToPercentile(experienceCost, allCandidateCosts || [], isSorted);
   return 1 - Math.abs(userBudgetLevel - costPercentile);
 }
 
@@ -191,8 +367,10 @@ function computeCostAlignment(experienceCost, signals, allCandidateCosts) {
 function computeRecencyScore(date) {
   if (!date) return 0;
   const daysSince = (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24);
+  // Future-dated activity (planned upcoming trip) is treated as maximally "recent".
+  // This is intentional: planned_date is the trip date, not the creation date.
   if (daysSince < 0) return 1;
-  return Math.exp(-0.693 * daysSince / RECENCY_HALF_LIFE_DAYS); // ln(2) ~= 0.693
+  return Math.exp(-Math.LN2 * daysSince / RECENCY_HALF_LIFE_DAYS);
 }
 
 /**
@@ -216,31 +394,6 @@ function normalizeCount(value, maxValue) {
  * @returns {string}
  */
 function generateMatchReason(candidate, weights, categories) {
-  const categoryPhrases = {
-    culinary: 'culinary travelers',
-    adventure: 'adventure seekers',
-    cultural: 'culture enthusiasts',
-    wellness: 'wellness travelers',
-    nightlife: 'nightlife enthusiasts',
-    'family-friendly': 'families',
-    budget: 'budget travelers',
-    romantic: 'couples',
-    solo: 'solo travelers',
-    photography: 'photographers',
-    historical: 'history buffs',
-    beach: 'beach lovers',
-    mountain: 'mountain explorers',
-    urban: 'city explorers'
-  };
-
-  const templates = {
-    plan_count:      (c) => `Planned by ${c.co_occurrence_count} similar travelers`,
-    completion_rate: (c) => `${Math.round((c.avg_completion_rate || 0) * 100)}% plan completion rate`,
-    recency:         () => 'Recently trending among travelers',
-    collaborators:   (c) => `Popular group activity - ${c.collaborator_count} collaborators`,
-    cost_alignment:  () => 'Good budget fit for your travel style'
-  };
-
   // Find dominant signal (highest weighted contribution)
   const contributions = {
     plan_count:      (weights.plan_count || 0) * (candidate.co_occurrence_count ? 1 : 0),
@@ -253,12 +406,11 @@ function generateMatchReason(candidate, weights, categories) {
   const dominant = Object.entries(contributions)
     .sort(([, a], [, b]) => b - a)[0][0];
 
-  // Build phrase
   const catPhrase = (categories || [])
-    .map(c => categoryPhrases[c] || c)
+    .map(c => CATEGORY_PHRASES[c] || c)
     .filter(Boolean)[0];
 
-  const signalPhrase = templates[dominant](candidate);
+  const signalPhrase = MATCH_REASON_TEMPLATES[dominant](candidate);
   return catPhrase
     ? `Popular among ${catPhrase} - ${signalPhrase}`
     : signalPhrase;
@@ -311,14 +463,27 @@ function describeDimDrivers(dims) {
  * @returns {Promise<Object|null>} { contextBlock, results, query_metadata } or null if no results
  */
 async function buildDiscoveryContext(filters = {}, userId, options = {}) {
-  const { getCacheKey, createDiscoveryCache } = require('./discovery-cache');
   const UserModel = require('../models/user');
+  const ExperienceModel = require('../models/experience');
 
-  const limit = options.limit || 8;
+  const limit = options.limit || DEFAULT_DISCOVERY_LIMIT;
   const cacheKey = getCacheKey(filters);
   const cache = createDiscoveryCache();
 
   try {
+    // User signals fetch does not depend on candidates — kick it off immediately
+    // so it runs in parallel with cache.get + candidate discovery. `.catch` here
+    // neutralises rejections so the promise is safe to await later without
+    // producing an unhandled-rejection warning on the early-bail paths.
+    const userSignalsPromise = userId
+      ? UserModel.findById(userId).select('hidden_signals').lean()
+          .then(u => (u?.hidden_signals ? applySignalDecay(u.hidden_signals) : null))
+          .catch(err => {
+            logger.warn('[bienbot-context] Failed to fetch user signals for ranking', { userId, error: err.message });
+            return null;
+          })
+      : Promise.resolve(null);
+
     // Check cache
     let candidates = await cache.get(cacheKey);
     let cacheHit = !!candidates;
@@ -343,75 +508,92 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
       // (happens when activity_types are omitted or data is sparse)
       if (!candidates || !candidates.length) {
         candidates = await findPopularExperiences(filters, userId);
+        // Graceful degradation: findPopularExperiences applies the activity_type
+        // filter so relevant intent isn't drowned by unrelated popularity. But if
+        // the caller supplied types that don't match anything in the catalogue,
+        // we'd otherwise return empty — breaking the "fallback always finds
+        // something" contract. Retry once without activity_types in that case.
+        if (!candidates.length && filters.activity_types?.length) {
+          candidates = await findPopularExperiences(
+            { ...filters, activity_types: [] },
+            userId
+          );
+        }
       }
 
       if (!candidates.length) {
         logger.debug('[bienbot-context] No experiences found for filters', { filters, userId });
+        // Drain the in-flight user signals promise so it cannot log as unhandled.
+        await userSignalsPromise;
         return null;
       }
 
       await cache.set(cacheKey, candidates);
     }
 
-    // Fetch user's hidden signals for personalized ranking
-    let signals = null;
-    try {
-      const user = await UserModel.findById(userId).select('hidden_signals').lean();
-      if (user?.hidden_signals) {
-        signals = applySignalDecay(user.hidden_signals);
-      }
-    } catch (err) {
-      logger.warn('[bienbot-context] Failed to fetch user signals for ranking', { userId, error: err.message });
-    }
+    // Pre-sort candidate costs once — consumed via binary search per candidate in
+    // computeCostAlignment. Previously this was sorted inside the per-candidate
+    // loop (O(n^2 log n)).
+    const allCostsSorted = candidates.map(c => c.cost_estimate).filter(Boolean).sort((a, b) => a - b);
+    const maxCoOccurrence = candidates.reduce((m, c) => Math.max(m, c.co_occurrence_count || 0), 1);
+    const maxCollaborators = candidates.reduce((m, c) => Math.max(m, c.collaborator_count || 0), 1);
+    const candidateIds = candidates.map(c => c.experience_id).filter(Boolean);
+
+    // Three independent reads — user signals (already in-flight), stored content
+    // signals (keyed by candidate IDs), and the affinity map (keyed by userId).
+    // Run them concurrently; each has its own failure handler that degrades to a
+    // neutral default so one slow/failing read does not block the others.
+    const storedSignalsPromise = ExperienceModel
+      .find({ _id: { $in: candidateIds } })
+      .select('signals hidden_signals')
+      .lean()
+      .catch(err => {
+        logger.warn('[bienbot-context] Failed to load stored content signals; falling back to neutral', { error: err.message });
+        return [];
+      });
+
+    const affinityMapPromise = userId
+      ? affinityCache.getAffinityMap(userId).catch(affinityErr => {
+          logger.warn('[bienbot-context] Failed to load affinity map for discovery ranking', { userId, error: affinityErr.message });
+          return new Map();
+        })
+      : Promise.resolve(new Map());
+
+    const [signals, storedSignalDocs, affinityMap] = await Promise.all([
+      userSignalsPromise,
+      storedSignalsPromise,
+      affinityMapPromise
+    ]);
 
     // Compute adaptive weights (personalized by user behavioral signals)
     const weights = computeAdaptiveWeights(signals);
 
-    const allCosts = candidates.map(c => c.cost_estimate).filter(Boolean);
-    const maxCoOccurrence = candidates.reduce((m, c) => Math.max(m, c.co_occurrence_count || 0), 1);
-    const maxCollaborators = candidates.reduce((m, c) => Math.max(m, c.collaborator_count || 0), 1);
-
-    // Load pre-computed content signals from Experience documents.
-    // One secondary query keyed by experience_id — avoids modifying the aggregation pipeline.
-    // Experiences whose signals haven't been computed yet fall back to neutral defaults.
-    let experienceSignalsMap = new Map();
-    try {
-      const ExperienceModel = require('../models/experience');
-      const candidateIds = candidates.map(c => c.experience_id).filter(Boolean);
-      const storedSignalDocs = await ExperienceModel
-        .find({ _id: { $in: candidateIds } })
-        .select('signals hidden_signals')
-        .lean();
-      for (const doc of storedSignalDocs) {
-        if (doc._id) experienceSignalsMap.set(doc._id.toString(), {
-          signals: doc.signals || null,
-          hidden_signals: doc.hidden_signals || null
-        });
-      }
-    } catch (err) {
-      logger.warn('[bienbot-context] Failed to load stored content signals; falling back to neutral', { error: err.message });
+    const experienceSignalsMap = new Map();
+    for (const doc of storedSignalDocs) {
+      if (doc._id) experienceSignalsMap.set(doc._id.toString(), {
+        signals: doc.signals || null,
+        hidden_signals: doc.hidden_signals || null
+      });
     }
 
-    // Compute per-candidate-set maximums for popularity normalisation.
-    // This makes each candidate's popularity score relative to the destination
-    // context rather than a global absolute value.
-    const maxPopularity = {
-      planCount:             Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.planCount             || 0), 1),
-      planCountWithActivity: Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.planCountWithActivity || 0), 1),
-      completedPlanCount:    Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.completedPlanCount    || 0), 1)
-    };
+    // Compute per-candidate-set maximums for popularity normalisation in a
+    // single pass. Floor at 1 so the ratio in computePopularityScore never
+    // divides by zero. Makes popularity relative to the destination context
+    // rather than a global absolute.
+    const maxPopularity = { planCount: 1, planCountWithActivity: 1, completedPlanCount: 1 };
+    for (const entry of experienceSignalsMap.values()) {
+      const p = entry?.signals?.popularity;
+      if (!p) continue;
+      if (p.planCount > maxPopularity.planCount) maxPopularity.planCount = p.planCount;
+      if (p.planCountWithActivity > maxPopularity.planCountWithActivity) maxPopularity.planCountWithActivity = p.planCountWithActivity;
+      if (p.completedPlanCount > maxPopularity.completedPlanCount) maxPopularity.completedPlanCount = p.completedPlanCount;
+    }
 
     const formula = signalsConfig.formula;
 
-    // Load affinity map once for all candidates (cache-first; empty Map on failure or missing userId)
-    let affinityMap = new Map();
-    if (userId) {
-      try {
-        affinityMap = await affinityCache.getAffinityMap(userId);
-      } catch (affinityErr) {
-        logger.warn('[bienbot-context] Failed to load affinity map for discovery ranking', { userId, error: affinityErr.message });
-      }
-    }
+    // affinityMap is already loaded above via Promise.all (empty Map on failure).
+    // Cache misses collected during scoring, flushed in one round-trip after.
+    const affinityMisses = [];
 
     // Score and rank
     const scored = candidates.map(c => {
@@ -424,7 +606,7 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
         weights.completion_rate * (c.avg_completion_rate || 0) +
         weights.recency         * recencyScore +
         weights.collaborators   * normalizeCount(c.collaborator_count, maxCollaborators) +
-        weights.cost_alignment  * computeCostAlignment(c.cost_estimate, signals, allCosts);
+        weights.cost_alignment  * computeCostAlignment(c.cost_estimate, signals, allCostsSorted, true);
 
       // Stored content signals — neutral defaults for experiences not yet computed.
       // trustScore null → 0.5 (unknown, not penalised); popularity absent → 0.
@@ -439,8 +621,9 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
 
       // Affinity: use pre-loaded cache entry when available; fall back to live
       // computation for cold-cache candidates (avoids per-candidate DB round-trips).
-      // On a cache miss, fire-and-forget computeAndCacheAffinity so subsequent
-      // requests for the same (user, experience) pair hit the cache.
+      // Cache misses are collected into affinityMisses and flushed as a single
+      // batch write after the scoring loop completes (see below) so we do not
+      // fan out N async writes — one per candidate — for every cold request.
       const cachedAffinity = affinityMap.get(c.experience_id.toString());
       let affinityScore;
       let affinityDrivers = '';
@@ -450,9 +633,17 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
           affinityDrivers = describeDimDrivers(cachedAffinity.top_dims);
         }
       } else {
+        // Live score uses the signals we already have, matching historical
+        // behavior. The batch-written cache entry applies decay to the entity
+        // signals to match computeAndCacheAffinity's canonical shape — so a
+        // subsequent read sees the same score that hidden-signals would cache.
         affinityScore = computeAffinityScore(signals, entityBehavior);
-        // Warm the cache asynchronously — never awaited, never throws
-        computeAndCacheAffinity(userId, c.experience_id).catch(() => {});
+        if (userId && entityBehavior) {
+          affinityMisses.push({
+            experienceId: c.experience_id,
+            decayedEntity: applySignalDecay(entityBehavior)
+          });
+        }
       }
 
       // Blended formula: formula coefficients from signalsConfig (SIGNALS_CONFIG env var).
@@ -496,12 +687,26 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
 
     if (!results.length) return null;
 
+    // Flush affinity cache misses in one batch update (fire-and-forget).
+    // Replaces the previous per-candidate computeAndCacheAffinity fan-out.
+    if (userId && affinityMisses.length) {
+      const decayedUser = signals || applySignalDecay({});
+      const entries = affinityMisses.map(m =>
+        buildAffinityEntry(m.experienceId, decayedUser, m.decayedEntity)
+      );
+      affinityCache.setAffinityEntries(userId, entries).catch(err => {
+        logger.debug('[bienbot-context] affinity batch write failed', { error: err.message });
+      });
+    }
+
     const contextBlock = formatDiscoveryContextBlock(results, filters);
 
-    // Signal feedback (fire-and-forget)
+    // Signal feedback (fire-and-forget). Swallowing is intentional — signal
+    // ingest failing should not break discovery — but we at least log at debug
+    // level so a systemic signal outage is observable in structured logs.
     try {
       const expandedTypes = expandActivityTypes(filters.activity_types);
-      processSignalEvent(userId, {
+      const maybePromise = processSignalEvent(userId, {
         type: 'search',
         metadata: {
           source: 'discovery',
@@ -510,8 +715,13 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
           result_count: results.length
         }
       });
+      if (maybePromise && typeof maybePromise.catch === 'function') {
+        maybePromise.catch(e => {
+          logger.debug('[bienbot-context] signal feedback failed (async)', { error: e.message });
+        });
+      }
     } catch (e) {
-      // Silently ignore signal event errors
+      logger.debug('[bienbot-context] signal feedback failed (sync)', { error: e.message });
     }
 
     logger.info('[bienbot-context] buildDiscoveryContext completed', {
@@ -532,7 +742,7 @@ async function buildDiscoveryContext(filters = {}, userId, options = {}) {
       }
     };
   } catch (err) {
-    logger.error('[bienbot-context] buildDiscoveryContext failed', { error: err.message });
+    logger.error('[bienbot-context] buildDiscoveryContext failed', { error: err.message, stack: err.stack }, err);
     return null;
   }
 }
@@ -565,8 +775,7 @@ function formatDiscoveryContextBlock(results, filters) {
     if (score == null) return null;
     if (score > 0.6) return 'strong match for your travel style';
     if (score >= 0.4) return 'moderate match for your travel style';
-    if (score < 0.4) return 'different from your usual travel style';
-    return null;
+    return 'different from your usual travel style';
   };
 
   const lines = results.map((r, i) => {
@@ -621,7 +830,7 @@ async function buildSimilarExperiencesContext(experienceId, destinationId, userI
       }},
       { $addFields: { plan_count: { $size: '$plans' } } },
       { $sort: { plan_count: -1 } },
-      { $limit: 5 },
+      { $limit: SIMILAR_EXPERIENCES_LIMIT },
       { $project: { name: 1, overview: 1, plan_count: 1, experience_type: 1 } }
     ];
 
@@ -637,9 +846,185 @@ async function buildSimilarExperiencesContext(experienceId, destinationId, userI
 
     return trimToTokenBudget(lines.join('\n'), options.tokenBudget || 800);
   } catch (err) {
-    logger.error('[bienbot-context] buildSimilarExperiencesContext failed', { error: err.message });
+    logger.error('[bienbot-context] buildSimilarExperiencesContext failed', { error: err.message, stack: err.stack }, err);
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared aggregation stage builders
+// ---------------------------------------------------------------------------
+// Both findCoOccurringExperiences and findPopularExperiences build the same
+// core pipeline: lookup experience → filter visibility → compute cost +
+// completion fields → group by experience → lookup destination → sort + limit.
+// The builders below factor that shell out so each function only has to
+// declare the parts that genuinely differ (the initial $match and a couple of
+// group fields).
+
+/**
+ * Experience lookup + unwind + visibility filter.
+ * Produces `$exp` on each doc and drops private experiences.
+ * @returns {Array<Object>}
+ */
+function buildExperienceLookupStages() {
+  return [
+    { $lookup: {
+      from: 'experiences',
+      localField: 'experience',
+      foreignField: '_id',
+      as: 'exp'
+    }},
+    { $unwind: '$exp' },
+    { $match: { 'exp.visibility': { $ne: 'private' } } }
+  ];
+}
+
+/**
+ * Destination filter stages. Resolves `filters.destination_name` to an
+ * ObjectId when possible so we can use an indexed $match on `exp.destination`;
+ * falls back to the old name-regex $lookup when resolution misses to preserve
+ * substring-match behavior.
+ *
+ * @param {Object} filters - Discovery filters
+ * @param {string} [regexLookupAs='dest_filter'] - $lookup output field when falling back to regex.
+ *   Pass a distinct name when the caller appends another `$lookup as: 'dest'` later.
+ * @returns {Promise<Array<Object>>}
+ */
+async function buildDestinationFilterStages(filters, regexLookupAs = 'dest_filter') {
+  const shouldFilter = !filters.cross_destination &&
+    (filters.destination_id || filters.destination_name);
+  if (!shouldFilter) return [];
+
+  const destId = await resolveFilterDestinationId(filters);
+  if (destId) return [{ $match: { 'exp.destination': destId } }];
+
+  if (filters.destination_name) {
+    const nameRegex = new RegExp(
+      filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+      'i'
+    );
+    return [
+      { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: regexLookupAs } },
+      { $unwind: `$${regexLookupAs}` },
+      { $match: { [`${regexLookupAs}.name`]: nameRegex } }
+    ];
+  }
+  return [];
+}
+
+/**
+ * Compute `_planCost`, `_completedCount`, `_totalCount`, `_completionRate` fields
+ * on each plan. Optionally captures user-type permissions as `_userCollaborators`
+ * so a downstream $group can count unique collaborators.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.withCollaborators=false]
+ * @returns {Array<Object>}
+ */
+function buildCostAndCompletionStages(options = {}) {
+  const addFields = {
+    _planCost: { $reduce: {
+      input: '$plan',
+      initialValue: 0,
+      in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+    }},
+    _completedCount: { $size: { $filter: {
+      input: '$plan',
+      cond: { $eq: ['$$this.complete', true] }
+    }}},
+    _totalCount: { $size: '$plan' }
+  };
+  if (options.withCollaborators) {
+    addFields._userCollaborators = { $filter: {
+      input: '$permissions',
+      cond: { $eq: ['$$this.entity', 'user'] }
+    }};
+  }
+  return [
+    { $addFields: addFields },
+    { $addFields: {
+      _completionRate: { $cond: {
+        if: { $gt: ['$_totalCount', 0] },
+        then: { $divide: ['$_completedCount', '$_totalCount'] },
+        else: 0
+      }}
+    }}
+  ];
+}
+
+/**
+ * Pre-group cost-filter stages. Writes `_planCostFilter` and matches it against
+ * `filters.max_cost`. Split out from buildCostAndCompletionStages so max_cost
+ * can filter plans *before* expensive fields + grouping run.
+ *
+ * @param {number} maxCost
+ * @returns {Array<Object>}
+ */
+function buildPlanCostFilterStages(maxCost) {
+  return [
+    { $addFields: {
+      _planCostFilter: { $reduce: {
+        input: '$plan',
+        initialValue: 0,
+        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
+      }}
+    }},
+    { $match: { _planCostFilter: { $lte: maxCost } } }
+  ];
+}
+
+/**
+ * $group stage that aggregates per-experience candidate metrics. Options toggle
+ * the optional `collaborator_ids` and `plan_item_types` fields specific to
+ * co-occurrence ranking.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.withCollaborators=false]
+ * @param {boolean} [options.withPlanItemTypes=false]
+ * @returns {Object}
+ */
+function buildExperienceGroupStage(options = {}) {
+  const group = {
+    _id: '$experience',
+    co_occurrence_count: { $sum: 1 },
+    avg_completion_rate: { $avg: '$_completionRate' },
+    latest_planned_date: { $max: '$planned_date' },
+    avg_cost: { $avg: '$_planCost' },
+    experience_name: { $first: '$exp.name' },
+    destination_id: { $first: '$exp.destination' },
+    activity_types: { $first: '$exp.experience_type' },
+    photos: { $first: '$exp.photos' }
+  };
+  if (options.withCollaborators) {
+    group.collaborator_ids = { $addToSet: '$_userCollaborators._id' };
+  }
+  if (options.withPlanItemTypes) {
+    group.plan_item_types = { $first: '$exp.plan_items.activity_type' };
+  }
+  return { $group: group };
+}
+
+/**
+ * Destination lookup + sort + limit stages. Uses `preserveNullAndEmptyArrays`
+ * so experiences with missing destinations still appear. Sort is by
+ * co_occurrence_count descending (works for both collaborative and popularity
+ * paths since popularity reuses the same field name).
+ *
+ * @param {number} [limit=MAX_CANDIDATES_PER_STAGE]
+ * @returns {Array<Object>}
+ */
+function buildDestinationLookupStages(limit = MAX_CANDIDATES_PER_STAGE) {
+  return [
+    { $lookup: {
+      from: 'destinations',
+      localField: 'destination_id',
+      foreignField: '_id',
+      as: 'dest'
+    }},
+    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
+    { $sort: { co_occurrence_count: -1 } },
+    { $limit: limit }
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -651,7 +1036,6 @@ async function findSimilarUsers(filters, userId) {
   if (!activityTypes.length) return [];
 
   loadModels();
-  const { Types } = require('mongoose');
   const matchStage = {
     'plan.activity_type': { $in: activityTypes },
     user: { $ne: new Types.ObjectId(userId) }
@@ -659,33 +1043,9 @@ async function findSimilarUsers(filters, userId) {
 
   const pipeline = [
     { $match: matchStage },
-    // Lookup experience for destination filter + visibility
-    { $lookup: {
-      from: 'experiences',
-      localField: 'experience',
-      foreignField: '_id',
-      as: 'exp'
-    }},
-    { $unwind: '$exp' },
-    { $match: { 'exp.visibility': { $ne: 'private' } } }
+    ...buildExperienceLookupStages(),
+    ...(await buildDestinationFilterStages(filters, 'dest'))
   ];
-
-  // Destination filter
-  const shouldFilterDestination = !filters.cross_destination &&
-    (filters.destination_id || filters.destination_name);
-
-  if (shouldFilterDestination) {
-    if (filters.destination_id) {
-      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
-    } else if (filters.destination_name) {
-      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      pipeline.push(
-        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest' } },
-        { $unwind: '$dest' },
-        { $match: { 'dest.name': nameRegex } }
-      );
-    }
-  }
 
   // Cost filter via $reduce on plan[].cost
   if (filters.max_cost) {
@@ -709,7 +1069,7 @@ async function findSimilarUsers(filters, userId) {
       experienceIds: { $addToSet: '$experience' }
     }},
     { $sort: { matchingPlanCount: -1 } },
-    { $limit: 50 }
+    { $limit: MAX_SIMILAR_USERS }
   );
 
   const results = await Plan.aggregate(pipeline);
@@ -743,80 +1103,17 @@ async function findCoOccurringExperiences(similarUsers, filters, userId) {
       user: { $in: userIds },
       experience: { $nin: excludeExpIds }
     }},
-    { $lookup: {
-      from: 'experiences',
-      localField: 'experience',
-      foreignField: '_id',
-      as: 'exp'
-    }},
-    { $unwind: '$exp' },
-    { $match: { 'exp.visibility': { $ne: 'private' } } },
-    { $addFields: {
-      _planCost: { $reduce: {
-        input: '$plan',
-        initialValue: 0,
-        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-      }},
-      _completedCount: { $size: { $filter: {
-        input: '$plan',
-        cond: { $eq: ['$$this.complete', true] }
-      }}},
-      _totalCount: { $size: '$plan' },
-      _userCollaborators: { $filter: {
-        input: '$permissions',
-        cond: { $eq: ['$$this.entity', 'user'] }
-      }}
-    }},
-    { $addFields: {
-      _completionRate: { $cond: {
-        if: { $gt: ['$_totalCount', 0] },
-        then: { $divide: ['$_completedCount', '$_totalCount'] },
-        else: 0
-      }}
-    }},
-    { $group: {
-      _id: '$experience',
-      co_occurrence_count: { $sum: 1 },
-      avg_completion_rate: { $avg: '$_completionRate' },
-      collaborator_ids: { $addToSet: '$_userCollaborators._id' },
-      latest_planned_date: { $max: '$planned_date' },
-      avg_cost: { $avg: '$_planCost' },
-      experience_name: { $first: '$exp.name' },
-      destination_id: { $first: '$exp.destination' },
-      activity_types: { $first: '$exp.experience_type' },
-      plan_item_types: { $first: '$exp.plan_items.activity_type' },
-      photos: { $first: '$exp.photos' }
-    }},
-    { $lookup: {
-      from: 'destinations',
-      localField: 'destination_id',
-      foreignField: '_id',
-      as: 'dest'
-    }},
-    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
-    { $lookup: {
-      from: 'photos',
-      let: {
-        photoId: { $let: {
-          vars: {
-            defaultEntry: { $arrayElemAt: [{ $filter: { input: '$photos', as: 'p', cond: { $eq: ['$$p.default', true] } } }, 0] },
-            firstEntry: { $arrayElemAt: ['$photos', 0] }
-          },
-          in: { $ifNull: ['$$defaultEntry.photo', '$$firstEntry.photo'] }
-        }}
-      },
-      pipeline: [
-        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
-        { $project: { url: 1 } }
-      ],
-      as: 'photo'
-    }},
-    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
-    { $sort: { co_occurrence_count: -1 } },
-    { $limit: 20 }
+    ...buildExperienceLookupStages(),
+    ...buildCostAndCompletionStages({ withCollaborators: true }),
+    buildExperienceGroupStage({ withCollaborators: true, withPlanItemTypes: true }),
+    ...buildDestinationLookupStages()
   ];
 
   const results = await Plan.aggregate(pipeline);
+
+  // Resolve default photo URLs in a single batch query post-aggregation —
+  // replaces an in-pipeline nested $lookup + $let + $arrayElemAt + $filter.
+  await hydrateDefaultPhotoUrls(results);
 
   logger.debug('[bienbot-context] findCoOccurringExperiences', {
     similarUserCount: similarUsers.length,
@@ -843,7 +1140,7 @@ async function findCoOccurringExperiences(similarUsers, filters, userId) {
       avg_completion_rate: r.avg_completion_rate || 0,
       collaborator_count: uniqueCollabs.length,
       latest_planned_date: r.latest_planned_date,
-      default_photo_url: r.photo?.url || null
+      default_photo_url: r.default_photo_url || null
     };
   });
 }
@@ -864,110 +1161,43 @@ async function findCoOccurringExperiences(similarUsers, filters, userId) {
  */
 async function findPopularExperiences(filters, userId) {
   loadModels();
-  const { Types } = require('mongoose');
 
+  const activityTypes = expandActivityTypes(filters.activity_types);
   const pipeline = [
     { $match: { user: { $ne: new Types.ObjectId(userId) } } },
-    { $lookup: {
-      from: 'experiences',
-      localField: 'experience',
-      foreignField: '_id',
-      as: 'exp'
-    }},
-    { $unwind: '$exp' },
-    { $match: { 'exp.visibility': { $ne: 'private' } } }
+    ...buildExperienceLookupStages(),
+    ...(await buildDestinationFilterStages(filters, 'dest_filter'))
   ];
 
-  // Optional destination filter
-  const shouldFilterDestination = !filters.cross_destination &&
-    (filters.destination_id || filters.destination_name);
-
-  if (shouldFilterDestination) {
-    if (filters.destination_id) {
-      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
-    } else if (filters.destination_name) {
-      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      pipeline.push(
-        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest_filter' } },
-        { $unwind: '$dest_filter' },
-        { $match: { 'dest_filter.name': nameRegex } }
-      );
-    }
+  // Activity-type filter: when falling back to popularity but intent was supplied
+  // (e.g. "culinary"), keep results relevant. Matches experience top-level type
+  // or any plan_item's activity_type.
+  if (activityTypes.length) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { 'exp.experience_type':           { $in: activityTypes } },
+          { 'exp.plan_items.activity_type':  { $in: activityTypes } }
+        ]
+      }
+    });
   }
 
-  // Optional cost filter
+  // Pre-group cost filter: prune expensive plans before cost/completion fields run.
   if (filters.max_cost) {
-    pipeline.push(
-      { $addFields: {
-        _planCostFilter: { $reduce: {
-          input: '$plan',
-          initialValue: 0,
-          in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-        }}
-      }},
-      { $match: { _planCostFilter: { $lte: filters.max_cost } } }
-    );
+    pipeline.push(...buildPlanCostFilterStages(filters.max_cost));
   }
 
   pipeline.push(
-    { $addFields: {
-      _planCost: { $reduce: {
-        input: '$plan',
-        initialValue: 0,
-        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-      }},
-      _completedCount: { $size: { $filter: {
-        input: '$plan',
-        cond: { $eq: ['$$this.complete', true] }
-      }}},
-      _totalCount: { $size: '$plan' }
-    }},
-    { $addFields: {
-      _completionRate: { $cond: {
-        if: { $gt: ['$_totalCount', 0] },
-        then: { $divide: ['$_completedCount', '$_totalCount'] },
-        else: 0
-      }}
-    }},
-    { $group: {
-      _id: '$experience',
-      co_occurrence_count: { $sum: 1 },
-      avg_completion_rate: { $avg: '$_completionRate' },
-      latest_planned_date: { $max: '$planned_date' },
-      avg_cost: { $avg: '$_planCost' },
-      experience_name: { $first: '$exp.name' },
-      destination_id: { $first: '$exp.destination' },
-      activity_types: { $first: '$exp.experience_type' },
-      photos: { $first: '$exp.photos' }
-    }},
-    { $lookup: {
-      from: 'destinations',
-      localField: 'destination_id',
-      foreignField: '_id',
-      as: 'dest'
-    }},
-    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
-    { $lookup: {
-      from: 'photos',
-      let: { photoId: { $let: {
-        vars: {
-          defaultEntry: { $arrayElemAt: [{ $filter: { input: '$photos', as: 'p', cond: { $eq: ['$$p.default', true] } } }, 0] },
-          firstEntry: { $arrayElemAt: ['$photos', 0] }
-        },
-        in: { $ifNull: ['$$defaultEntry.photo', '$$firstEntry.photo'] }
-      }} },
-      pipeline: [
-        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
-        { $project: { url: 1 } }
-      ],
-      as: 'photo'
-    }},
-    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
-    { $sort: { co_occurrence_count: -1 } },
-    { $limit: 20 }
+    ...buildCostAndCompletionStages(),
+    buildExperienceGroupStage(),
+    ...buildDestinationLookupStages()
   );
 
   const results = await Plan.aggregate(pipeline);
+
+  // One batch Photo query instead of an in-pipeline nested $lookup.
+  await hydrateDefaultPhotoUrls(results);
 
   logger.debug('[bienbot-context] findPopularExperiences', {
     userId,
@@ -986,7 +1216,7 @@ async function findPopularExperiences(filters, userId) {
     avg_completion_rate: r.avg_completion_rate || 0,
     collaborator_count: 0,
     latest_planned_date: r.latest_planned_date,
-    default_photo_url: r.photo?.url || null
+    default_photo_url: r.default_photo_url || null
   }));
 }
 
