@@ -143,6 +143,55 @@ class MongoAffinityCache {
       });
     }
   }
+
+  /**
+   * Replace or append many affinity entries in a single atomic update.
+   * Used by discovery to warm the cache for N candidates without N round-trips.
+   *
+   * Each entry must already carry experience_id. Dedup happens by experience_id:
+   * any existing entries with a matching experience_id are filtered out first,
+   * then all new entries are appended, then the array is capped at MAX_ENTRIES.
+   *
+   * @param {string|ObjectId} userId
+   * @param {Array<Object>} entries
+   * @returns {Promise<void>}
+   */
+  async setAffinityEntries(userId, entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return;
+    try {
+      const User = this._getUser();
+      const mongoose = require('mongoose');
+      const incomingIds = entries.map(e => new mongoose.Types.ObjectId(e.experience_id.toString()));
+      await User.findByIdAndUpdate(userId, [
+        {
+          $set: {
+            affinity_cache: {
+              $slice: [
+                {
+                  $concatArrays: [
+                    {
+                      $filter: {
+                        input: { $ifNull: ['$affinity_cache', []] },
+                        cond: { $not: [{ $in: ['$$this.experience_id', incomingIds] }] }
+                      }
+                    },
+                    entries
+                  ]
+                },
+                -MAX_ENTRIES
+              ]
+            }
+          }
+        }
+      ]);
+    } catch (err) {
+      logger.warn('[affinity-cache] MongoDB setAffinityEntries failed', {
+        userId: String(userId),
+        count: entries.length,
+        error: err.message
+      });
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -309,6 +358,45 @@ class RedisAffinityCache {
       return this._fallback.setAffinityEntry(userId, experienceId, entry);
     }
   }
+
+  /**
+   * Batch upsert — see MongoAffinityCache#setAffinityEntries.
+   * Single Redis GET + SETEX rather than N round-trips.
+   *
+   * @param {string|ObjectId} userId
+   * @param {Array<Object>} entries
+   * @returns {Promise<void>}
+   */
+  async setAffinityEntries(userId, entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return;
+    const client = await this._getClient();
+    if (!client) return this._fallback.setAffinityEntries(userId, entries);
+    try {
+      const key = this._key(userId);
+      const raw = await client.get(key);
+      let existing = raw ? JSON.parse(raw) : [];
+
+      const incomingIds = new Set(entries.map(e => e.experience_id.toString()));
+      existing = existing.filter(e => !incomingIds.has(e.experience_id.toString()));
+      let merged = existing.concat(entries);
+
+      if (merged.length > MAX_ENTRIES) {
+        merged = merged.slice(-MAX_ENTRIES);
+      }
+
+      const ttlSeconds = Number.isFinite(AFFINITY_CACHE_TTL_MS) && AFFINITY_CACHE_TTL_MS > 0
+        ? Math.ceil(AFFINITY_CACHE_TTL_MS / 1000)
+        : 6 * 60 * 60;
+      await client.setex(key, ttlSeconds, JSON.stringify(merged));
+    } catch (err) {
+      logger.warn('[affinity-cache] Redis setAffinityEntries failed, falling back to MongoDB', {
+        userId: String(userId),
+        count: entries.length,
+        error: err.message
+      });
+      return this._fallback.setAffinityEntries(userId, entries);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -377,9 +465,21 @@ async function getAffinityMap(userId) {
   return createAffinityCache().getAffinityMap(userId);
 }
 
+/**
+ * Batch upsert — store many affinity entries for a user in a single round-trip.
+ *
+ * @param {string|ObjectId} userId
+ * @param {Array<Object>} entries - Each must carry experience_id.
+ * @returns {Promise<void>}
+ */
+async function setAffinityEntries(userId, entries) {
+  return createAffinityCache().setAffinityEntries(userId, entries);
+}
+
 module.exports = {
   getAffinityEntry,
   setAffinityEntry,
+  setAffinityEntries,
   getAffinityMap,
   resetAffinityCache,
   createAffinityCache,
