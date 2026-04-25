@@ -573,6 +573,7 @@ export default function BienBotPanel({
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
   // Tracks which (sessionId, entity, entityId) combos have already been reconciled
@@ -1097,10 +1098,19 @@ export default function BienBotPanel({
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container || !messagesEndRef.current) return;
+
+    // Only auto-scroll if user is within ~80px of the bottom
+    const scrollFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const nearBottom = scrollFromBottom < 80;
+
+    if (nearBottom) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: isStreaming ? 'auto' : 'smooth'
+      });
     }
-  }, [messages]);
+  }, [messages, isStreaming]);
 
   // ── Close on Escape key ───────────────────────────────────────────────────
   useEffect(() => {
@@ -2060,7 +2070,7 @@ export default function BienBotPanel({
 
         {notificationOnly ? (
           /* ── Notification-only mode ──────────────────────────── */
-          <div className={styles.messages} aria-live="off" aria-atomic="false">
+          <div ref={messagesContainerRef} className={styles.messages} aria-live="off" aria-atomic="false">
             {notifications.length === 0 ? (
               <div className={styles.emptyState}>
                 <Text size="sm">No notifications yet</Text>
@@ -2127,7 +2137,7 @@ export default function BienBotPanel({
             )}
 
             {/* ── Messages ───────────────────────────────────────── */}
-            <div className={styles.messages} aria-live="off" aria-atomic="false">
+            <div ref={messagesContainerRef} className={styles.messages} aria-live="off" aria-atomic="false">
               {savedSession && !currentSession && messages.length === 0 && !isLoading ? (
                 <div className={styles.resumePrompt}>
                   <Text size="sm">You have an unfinished conversation.</Text>
