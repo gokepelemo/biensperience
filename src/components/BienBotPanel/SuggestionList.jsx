@@ -13,6 +13,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
+import { decodeHtmlEntities } from '../../utilities/html-entities';
 import { Button, Text } from '../design-system';
 import styles from './BienBotPanel.module.css';
 
@@ -138,7 +139,7 @@ export default function SuggestionList({ data, onAddSelected, disabled, existing
                       {isSelected && <CheckIcon />}
                     </span>
                     <span className={styles.suggestionItemContent}>
-                      <span className={styles.suggestionItemText}>{(item.text || item.content || '').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')}</span>
+                      <span className={styles.suggestionItemText}>{decodeHtmlEntities(item.text || item.content || '')}</span>
                       {sources && (
                         <span className={styles.suggestionItemSource}>
                           from {sources}
