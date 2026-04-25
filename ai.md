@@ -545,7 +545,7 @@ The runtime corpus is stored in the `IntentCorpus` model, enabling admins to add
 }
 ```
 
-On startup, if the DB corpus is empty, `utilities/bienbot-corpus-seeder.js` populates it from the JSON seed file. The JSON file serves as the canonical seed; the DB is the runtime source of truth.
+On startup, if the DB corpus is empty, `utilities/intent-corpus-seeder.js` populates it from the JSON seed file. On a `corpus_version` bump, non-custom entries are overwritten with the new utterances; same-version boots merge in any new utterances. Custom entries are never modified. The JSON file serves as the canonical seed; the DB is the runtime source of truth.
 
 ### Classification Logging
 
@@ -890,7 +890,7 @@ function MyAIComponent({ destination }) {
 |------|---------|
 | `utilities/bienbot-intent-classifier.js` | NLP.js neural network for local intent classification |
 | `utilities/bienbot-intent-corpus.json` | Training utterances for each intent (seed data) |
-| `utilities/bienbot-corpus-seeder.js` | Seeds the IntentCorpus model from the JSON file on startup |
+| `utilities/intent-corpus-seeder.js` | Seeds the IntentCorpus model from the JSON file on startup; migrates non-custom entries on `corpus_version` bumps |
 | `models/intent-corpus.js` | MongoDB-backed corpus (runtime source of truth) |
 | `models/intent-classifier-config.js` | Singleton config (confidence thresholds, LLM fallback toggle, log retention) |
 | `models/intent-classification-log.js` | Per-classification log entries with LLM reclassification fields |

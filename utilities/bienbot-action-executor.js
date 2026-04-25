@@ -42,6 +42,18 @@ function loadModels() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Limits
+// ---------------------------------------------------------------------------
+
+const MAX_WORKFLOW_STEPS = 10;
+const MAX_PLAN_ITEMS_PER_BATCH = 50;
+const MAX_DATE_SHIFT_DAYS = 3650; // ±~10 years
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const INVITE_CODE_BYTES = 4;
+const DEFAULT_INVITE_EXPIRY_DAYS = 7;
+const DEFAULT_LIST_LIMIT = 20;
+
 /**
  * Strict allowlist of action types that can be executed.
  * Unknown types are dropped and logged — never executed.
@@ -120,6 +132,45 @@ const ALLOWED_ACTION_TYPES = [
   'create_invite',
   'request_plan_access'
 ];
+
+// O(1) membership lookup; the array form is preserved as the public export.
+const ALLOWED_ACTION_TYPES_SET = new Set(ALLOWED_ACTION_TYPES);
+
+/**
+ * `$step_N.<path>` reference allowlist.
+ *
+ * When a workflow step's payload references the result of an earlier step,
+ * only the leading path segment is consulted. This prevents an LLM-supplied
+ * workflow (potentially attacker-influenced via prompt injection) from
+ * exfiltrating sensitive fields like `user.password`, `user.email`, or
+ * `oauth.*` from a previous step's result.
+ */
+const STEP_REF_ALLOWED_FIELDS = new Set([
+  '_id',
+  'id',
+  'destination',
+  'destination_id',
+  'experience',
+  'experience_id',
+  'plan',
+  'plan_id',
+  'plan_item_id',
+  'name',
+  'planned_date',
+  'currency'
+]);
+
+/**
+ * `navigate_to_entity` URL allowlist. Only same-origin relative paths are
+ * acceptable — prevents `javascript:`/external-host XSS via attacker-influenced
+ * action payloads.
+ */
+function isSafeNavigationUrl(url) {
+  if (typeof url !== 'string' || url.length === 0) return false;
+  if (!url.startsWith('/')) return false;
+  if (url.startsWith('//')) return false; // protocol-relative
+  return true;
+}
 
 /**
  * Read-only action types that execute immediately without user confirmation.
@@ -306,6 +357,17 @@ async function executeCreatePlan(payload, user) {
 async function executeAddPlanItems(payload, user) {
   loadControllers();
   const items = Array.isArray(payload.items) ? payload.items : [payload.items].filter(Boolean);
+
+  if (items.length > MAX_PLAN_ITEMS_PER_BATCH) {
+    return {
+      statusCode: 400,
+      body: {
+        success: false,
+        error: `add_plan_items: cannot add more than ${MAX_PLAN_ITEMS_PER_BATCH} items in a single action (got ${items.length})`
+      }
+    };
+  }
+
   const results = [];
 
   for (const item of items) {
@@ -826,7 +888,7 @@ async function executeUpdatePlan(payload, user, session) {
     const { scheduled_items_count, date_diff_days } = result.body._shift_meta;
     session.pending_actions = session.pending_actions || [];
     session.pending_actions.push({
-      id: `action_${crypto.randomBytes(4).toString('hex')}`,
+      id: `action_${crypto.randomBytes(INVITE_CODE_BYTES).toString('hex')}`,
       type: 'shift_plan_item_dates',
       payload: { plan_id: payload.plan_id, diff_days: date_diff_days },
       description: `Shift ${scheduled_items_count} plan item date(s) by ${date_diff_days > 0 ? '+' : ''}${date_diff_days} day(s) to match your updated plan date`,
@@ -844,7 +906,16 @@ async function executeUpdatePlan(payload, user, session) {
 async function executeShiftPlanItemDates(payload, user) {
   loadControllers();
   const { plan_id, diff_days } = payload;
-  const diffMs = diff_days * 86_400_000;
+  if (!Number.isFinite(diff_days)) {
+    return { statusCode: 400, body: { success: false, error: 'diff_days must be a finite number' } };
+  }
+  if (Math.abs(diff_days) > MAX_DATE_SHIFT_DAYS) {
+    return {
+      statusCode: 400,
+      body: { success: false, error: `diff_days exceeds the ±${MAX_DATE_SHIFT_DAYS} day limit` }
+    };
+  }
+  const diffMs = diff_days * MS_PER_DAY;
   const req = buildMockReq(user, { diff_ms: diffMs }, { id: plan_id });
   const { res, getResult } = buildMockRes();
   await plansController.shiftPlanItemDates(req, res);
@@ -1120,7 +1191,7 @@ async function executeDiscoverContent(payload, user) {
  * Returns experiences where the target user is an owner.
  */
 async function executeListUserExperiences(payload, user) {
-  const { user_id, limit = 20 } = payload || {};
+  const { user_id, limit = DEFAULT_LIST_LIMIT } = payload || {};
 
   if (!user_id) {
     return { statusCode: 400, body: { success: false, error: 'user_id is required' } };
@@ -1130,16 +1201,18 @@ async function executeListUserExperiences(payload, user) {
 
   try {
     const { Types } = require('mongoose');
-    let userOid;
-    try {
-      userOid = new Types.ObjectId(user_id);
-    } catch {
+    if (!Types.ObjectId.isValid(user_id)) {
       return { statusCode: 400, body: { success: false, error: 'Invalid user_id format' } };
     }
+    const userOid = new Types.ObjectId(user_id);
 
-    // No permission check on the requesting user — public profiles expose
-    // their owned experiences to any authenticated caller.
+    // Public-profile listing: only return experiences the target user owns
+    // *and* that are publicly visible. Without the `public: true` filter,
+    // any authenticated caller could enumerate another user's private work.
+    // Callers that need their own private list can hit a permission-checked
+    // endpoint directly.
     const rawExperiences = await Experience.find({
+      public: true,
       permissions: { $elemMatch: { _id: userOid, entity: 'user', type: 'owner' } }
     })
       .populate('destination', 'name country')
@@ -1395,11 +1468,12 @@ async function executeListEntityDocuments(payload, user) {
  */
 async function executeCreateInvite(payload, user) {
   const InviteCode = require('../models/inviteCode');
-  const { max_uses = 1, expires_in_days = 7, email, invitee_name, send_email = false } = payload || {};
-  const expiresAt = new Date(Date.now() + expires_in_days * 24 * 60 * 60 * 1000);
+  const { max_uses = 1, expires_in_days = DEFAULT_INVITE_EXPIRY_DAYS, email, invitee_name, send_email = false } = payload || {};
+  const expiresAt = new Date(Date.now() + expires_in_days * MS_PER_DAY);
 
-  // Validate email format when provided
-  if (email && !/^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(email)) {
+  // Validate email format when provided. Mirrors the controller's stricter
+  // RFC-ish check; rejects empty TLDs / missing dot in domain.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
     return { statusCode: 400, body: { success: false, error: 'Invalid email address format' } };
   }
 
@@ -1430,12 +1504,16 @@ async function executeCreateInvite(payload, user) {
       };
       await invite.save();
     } catch (emailError) {
+      // Mask the local-part of the recipient email so logs only retain the
+      // domain — useful for triage without storing PII in plaintext.
+      const maskedEmail = typeof email === 'string'
+        ? email.replace(/^[^@]+/, '***')
+        : null;
       logger.error('[bienbot] executeCreateInvite: failed to send invite email', {
         userId: user._id,
         inviteId: invite._id,
-        email,
-        error: emailError.message
-      });
+        emailDomain: maskedEmail
+      }, emailError);
       // Don't fail the action — invite code was created successfully
     }
   }
@@ -1466,9 +1544,20 @@ async function executeRequestPlanAccess(payload, user) {
  * navigate_to_entity — no-op on the backend, executes without confirmation.
  * The frontend handles navigation; the backend just marks it as successful.
  * payload: { entity, entityId, url }
+ *
+ * The URL is validated against `isSafeNavigationUrl` to refuse `javascript:`,
+ * external hosts, and protocol-relative URLs that an LLM-supplied payload
+ * could otherwise route a user to.
  */
 async function executeNavigateToEntity(payload) {
-  return { statusCode: 200, body: { data: { url: payload.url, entity: payload.entity, entityId: payload.entityId } } };
+  const { entity, entityId, url } = payload || {};
+  if (!isSafeNavigationUrl(url)) {
+    return {
+      statusCode: 400,
+      body: { success: false, error: 'navigate_to_entity: url must be a same-origin path starting with "/"' }
+    };
+  }
+  return { statusCode: 200, body: { data: { url, entity, entityId } } };
 }
 
 // ---------------------------------------------------------------------------
@@ -1482,6 +1571,15 @@ async function executeNavigateToEntity(payload) {
  * step index and path is a dot-delimited property path into that step's result.
  * For example, `$step_1._id` resolves to the `_id` of step 1's result.
  *
+ * Security: the leading path segment must appear in `STEP_REF_ALLOWED_FIELDS`.
+ * This prevents LLM-influenced workflow payloads from reading sensitive fields
+ * (e.g. `user.email`, `user.password`, `oauth.*`) from a previous step.
+ * Unknown leading segments throw `WorkflowRefError` so the failure surfaces
+ * clearly rather than producing a confusing downstream CastError.
+ *
+ * Unresolvable refs (missing step, missing field, denied field) throw — the
+ * surrounding workflow loop catches and turns them into a structured error.
+ *
  * @param {*} value - Payload value to resolve (may be string, array, or nested object).
  * @param {Map<number, object>} stepResults - Map of step index → result data.
  * @returns {*} Resolved value.
@@ -1492,9 +1590,23 @@ function resolveRefs(value, stepResults) {
     if (refMatch) {
       const stepIdx = parseInt(refMatch[1], 10);
       const path = refMatch[2];
+      const segments = path.split('.');
+      const leading = segments[0];
+
+      if (!STEP_REF_ALLOWED_FIELDS.has(leading)) {
+        throw new WorkflowRefError(`Workflow ref "$step_${stepIdx}.${path}" denied: field "${leading}" is not in the step-result allowlist`);
+      }
+
       const stepResult = stepResults.get(stepIdx);
-      if (!stepResult) return value; // unresolvable — leave as-is
-      return path.split('.').reduce((obj, key) => obj?.[key], stepResult) ?? value;
+      if (stepResult === undefined) {
+        throw new WorkflowRefError(`Workflow ref "$step_${stepIdx}.${path}" unresolvable: no result recorded for step ${stepIdx}`);
+      }
+
+      const resolved = segments.reduce((obj, key) => (obj == null ? obj : obj[key]), stepResult);
+      if (resolved === undefined || resolved === null) {
+        throw new WorkflowRefError(`Workflow ref "$step_${stepIdx}.${path}" unresolvable: field is null/undefined on step ${stepIdx} result`);
+      }
+      return resolved;
     }
     return value;
   }
@@ -1509,6 +1621,13 @@ function resolveRefs(value, stepResults) {
     return resolved;
   }
   return value;
+}
+
+class WorkflowRefError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'WorkflowRefError';
+  }
 }
 
 /**
@@ -1529,19 +1648,35 @@ function resolveRefs(value, stepResults) {
  *
  * If any step fails, execution halts and partial results are returned.
  */
-async function executeWorkflow(payload, user) {
+async function executeWorkflow(payload, user, session = null) {
   const steps = Array.isArray(payload.steps) ? payload.steps : [];
 
   if (steps.length === 0) {
     return { statusCode: 400, body: { success: false, error: 'Workflow has no steps' } };
   }
 
-  if (steps.length > 10) {
-    return { statusCode: 400, body: { success: false, error: 'Workflow exceeds maximum of 10 steps' } };
+  if (steps.length > MAX_WORKFLOW_STEPS) {
+    return {
+      statusCode: 400,
+      body: { success: false, error: `Workflow exceeds maximum of ${MAX_WORKFLOW_STEPS} steps` }
+    };
+  }
+
+  // Reject duplicate step numbers — last-write-wins on stepResults would
+  // silently break $step_N refs from the duplicated index.
+  const seenSteps = new Set();
+  for (const step of steps) {
+    if (!Number.isInteger(step.step) || step.step < 1) {
+      return { statusCode: 400, body: { success: false, error: 'Each workflow step must have an integer "step" >= 1' } };
+    }
+    if (seenSteps.has(step.step)) {
+      return { statusCode: 400, body: { success: false, error: `Duplicate workflow step number: ${step.step}` } };
+    }
+    seenSteps.add(step.step);
   }
 
   // Sort by step number (ascending)
-  const sorted = [...steps].sort((a, b) => (a.step || 0) - (b.step || 0));
+  const sorted = [...steps].sort((a, b) => a.step - b.step);
 
   const stepResults = new Map(); // step index → result data
   const results = [];
@@ -1554,13 +1689,24 @@ async function executeWorkflow(payload, user) {
       break;
     }
 
-    if (!ALLOWED_ACTION_TYPES.includes(stepType)) {
+    if (!ALLOWED_ACTION_TYPES_SET.has(stepType)) {
       results.push({ step: step.step, type: stepType, success: false, errors: [`Unknown action type: ${stepType}`] });
       break;
     }
 
     // Resolve $ref placeholders in the step's payload
-    const resolvedPayload = resolveRefs(step.payload || {}, stepResults);
+    let resolvedPayload;
+    try {
+      resolvedPayload = resolveRefs(step.payload || {}, stepResults);
+    } catch (refErr) {
+      logger.warn('[bienbot-action-executor] Workflow ref resolution failed', {
+        step: step.step,
+        type: stepType,
+        error: refErr.message
+      });
+      results.push({ step: step.step, type: stepType, success: false, errors: [refErr.message] });
+      break;
+    }
 
     const handler = ACTION_HANDLERS[stepType];
     if (!handler) {
@@ -1572,10 +1718,11 @@ async function executeWorkflow(payload, user) {
       logger.info('[bienbot-action-executor] Workflow step executing', {
         step: step.step,
         type: stepType,
+        payload_keys: Object.keys(resolvedPayload || {}),
         userId: user._id.toString()
       });
 
-      const response = await handler(resolvedPayload, user);
+      const response = await handler(resolvedPayload, user, session);
       const isSuccess = response.statusCode >= 200 && response.statusCode < 300;
       const resultData = response.body?.data || response.body || null;
 
@@ -1590,7 +1737,9 @@ async function executeWorkflow(payload, user) {
       if (isSuccess && resultData) {
         stepResults.set(step.step, resultData);
       } else {
-        // Stop on failure
+        // Stop on failure. Side-effects from earlier steps remain in place;
+        // include `partial_state_warning` so callers can surface this to
+        // the user / consider compensating actions.
         logger.warn('[bienbot-action-executor] Workflow step failed, halting', {
           step: step.step,
           type: stepType,
@@ -1603,13 +1752,14 @@ async function executeWorkflow(payload, user) {
         step: step.step,
         type: stepType,
         error: err.message
-      });
+      }, err);
       results.push({ step: step.step, type: stepType, success: false, errors: [err.message] });
       break;
     }
   }
 
   const allSucceeded = results.length === sorted.length && results.every(r => r.success);
+  const partialStateWarning = !allSucceeded && results.some(r => r.success);
 
   return {
     statusCode: allSucceeded ? 200 : 207,
@@ -1618,6 +1768,7 @@ async function executeWorkflow(payload, user) {
       data: {
         steps_completed: results.filter(r => r.success).length,
         steps_total: sorted.length,
+        partial_state_warning: partialStateWarning,
         results
       }
     }
@@ -1820,13 +1971,30 @@ async function executeAction(action, user, session = null) {
     return { success: false, result: null, errors: ['Missing action or action type'] };
   }
 
-  if (!ALLOWED_ACTION_TYPES.includes(action.type)) {
+  if (!user || !user._id) {
+    return { success: false, result: null, errors: ['Missing user'] };
+  }
+
+  if (!ALLOWED_ACTION_TYPES_SET.has(action.type)) {
     logger.warn('[bienbot-action-executor] Unknown action type rejected', {
       type: action.type,
       actionId: action.id,
-      userId: user?._id?.toString()
+      userId: user._id.toString()
     });
     return { success: false, result: null, errors: [`Unknown action type: ${action.type}`] };
+  }
+
+  // Idempotency: a pending_action carrying `executed: true` has already been
+  // run. Re-executing would re-create entities or re-send invites — refuse.
+  // The atomic guard against parallel double-clicks lives in the controller
+  // (BienBotSession.markActionExecuted is the single source of truth).
+  if (action.executed === true) {
+    logger.warn('[bienbot-action-executor] Refusing to re-execute already-executed action', {
+      type: action.type,
+      actionId: action.id,
+      userId: user._id.toString()
+    });
+    return { success: false, result: null, errors: ['Action already executed'] };
   }
 
   const handler = ACTION_HANDLERS[action.type];
@@ -1852,7 +2020,8 @@ async function executeAction(action, user, session = null) {
         type: action.type,
         actionId: action.id,
         statusCode: response.statusCode,
-        error: response.body?.error
+        error: response.body?.error,
+        details: response.body?.details
       });
     }
 
@@ -1866,9 +2035,8 @@ async function executeAction(action, user, session = null) {
   } catch (err) {
     logger.error('[bienbot-action-executor] Action threw exception', {
       type: action.type,
-      actionId: action.id,
-      error: err.message
-    });
+      actionId: action.id
+    }, err);
     return { success: false, result: null, errors: [err.message] };
   }
 }
@@ -2014,7 +2182,18 @@ async function executeSingleWorkflowStep(action, workflowActions, user) {
   }
 
   // Resolve $step_N references in the payload
-  const resolvedPayload = resolveRefs(action.payload || {}, stepResults);
+  let resolvedPayload;
+  try {
+    resolvedPayload = resolveRefs(action.payload || {}, stepResults);
+  } catch (refErr) {
+    logger.warn('[bienbot-action-executor] Workflow step ref resolution failed', {
+      type: action.type,
+      actionId: action.id,
+      workflowId: action.workflow_id,
+      error: refErr.message
+    });
+    return { success: false, result: null, errors: [refErr.message] };
+  }
 
   // Execute using the standard handler
   const handler = ACTION_HANDLERS[action.type];
@@ -2028,6 +2207,7 @@ async function executeSingleWorkflowStep(action, workflowActions, user) {
       actionId: action.id,
       workflowId: action.workflow_id,
       step: action.workflow_step,
+      payload_keys: Object.keys(resolvedPayload || {}),
       userId: user._id.toString()
     });
 
@@ -2042,9 +2222,8 @@ async function executeSingleWorkflowStep(action, workflowActions, user) {
   } catch (err) {
     logger.error('[bienbot-action-executor] Workflow step threw exception', {
       type: action.type,
-      actionId: action.id,
-      error: err.message
-    });
+      actionId: action.id
+    }, err);
     return { success: false, result: null, errors: [err.message] };
   }
 }

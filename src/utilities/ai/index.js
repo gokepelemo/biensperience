@@ -1,8 +1,8 @@
 /**
  * AI Utilities for Biensperience
  *
- * SECURITY: All AI API calls now go through the backend proxy.
- * API keys are stored server-side only - never exposed to the frontend.
+ * SECURITY: All AI API calls go through the backend proxy. API keys are
+ * stored server-side only — never exposed to the frontend.
  *
  * Requires the 'ai_features' feature flag to be enabled for the user.
  *
@@ -46,12 +46,8 @@ export {
   SYSTEM_PROMPTS
 } from './constants';
 
-// Configuration
-export {
-  getAIConfig,
-  getApiKey,
-  getProviderForTask
-} from './config';
+// Configuration (provider-routing hint only; backend is authoritative)
+export { getProviderForTask } from './config';
 
 // Core completion
 export { complete } from './complete';
@@ -95,19 +91,8 @@ export {
 // React hook
 export { useAI } from './useAI';
 
-// Adapters (for advanced usage)
-export {
-  adapters,
-  getAdapter,
-  openaiAdapter,
-  anthropicAdapter,
-  mistralAdapter,
-  geminiAdapter
-} from './adapters';
-
 // Default export for convenience
 import { AI_PROVIDERS, AI_TASKS } from './constants';
-import { getAIConfig } from './config';
 import { complete } from './complete';
 import {
   autocomplete,

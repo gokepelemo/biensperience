@@ -1307,6 +1307,7 @@ export default function BienBotPanel({
         if (url && !/<[^>]+>/.test(url)) {
           navigate(url);
           cancelAction(actionId);
+          onClose();
           executingActionRef.current = null;
           return;
         }
@@ -1739,7 +1740,7 @@ export default function BienBotPanel({
         });
       }
     },
-    [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent, appendMessage]
+    [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent, appendMessage, onClose]
   );
 
   const handleCancelAction = useCallback(

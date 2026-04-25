@@ -28,8 +28,8 @@ function synonymsFor(name) {
   return Array.from(variants);
 }
 
-async function registerEntities(nlp, { kDestinations = 500, kExperiences = 500 } = {}) {
-  const topK = await getTopEntities({ kDestinations, kExperiences });
+async function registerEntities(nlp, { kDestinations = 500, kExperiences = 500, topK: providedTopK } = {}) {
+  const topK = providedTopK || await getTopEntities({ kDestinations, kExperiences });
   const fingerprint = getCompositionFingerprint(topK);
 
   for (const dest of topK.destinations) {

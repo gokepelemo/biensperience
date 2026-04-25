@@ -12,15 +12,26 @@
 import { useState, useEffect, useCallback, useMemo, useId } from 'react';
 import { Box, Flex, Badge, Stack, Input, Separator, NativeSelect } from '@chakra-ui/react';
 import { FaPlus, FaTrash, FaSave, FaRoute, FaRobot, FaBrain } from 'react-icons/fa';
-import { Button, Pill, Alert } from '../../components/design-system';
-import { Text, Heading } from '../../components/design-system';
-import { FormGroup, FormLabel } from '../../components/design-system';
+import {
+  Button,
+  Pill,
+  Alert,
+  Card,
+  CardBody,
+  Text,
+  Heading,
+  FormGroup,
+  FormLabel,
+  EmptyState
+} from '../../components/design-system';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
+import Pagination from '../../components/Pagination/Pagination';
 import { getRouting, updateRouting } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 
 const CUSTOM_VALUE = '__custom__';
+const RULES_PER_PAGE = 50;
 
 const AVAILABLE_TASKS = [
   'autocomplete',
@@ -290,7 +301,7 @@ export default function AIAdminRouting() {
       {/* Header */}
       <Flex justify="space-between" align="center" wrap="wrap" gap="var(--space-3)">
         <Box>
-          <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
+          <Heading as="h2" size="heading-3">
             <FaRoute style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
             Task &amp; Intent Routing
           </Heading>
@@ -311,9 +322,16 @@ export default function AIAdminRouting() {
       </Flex>
 
       {rules.length === 0 && (
-        <Alert variant="info">
-          No routing rules configured. All tasks will use the highest-priority enabled provider.
-        </Alert>
+        <EmptyState
+          variant="generic"
+          icon="🛣️"
+          title="No routing rules"
+          description="All tasks will use the highest-priority enabled provider. Add a rule to override this for specific tasks or intents."
+          primaryAction="Add Rule"
+          onPrimaryAction={handleAddRule}
+          size="md"
+          compact
+        />
       )}
 
       {/* Priority overview badges */}
@@ -373,9 +391,21 @@ export default function AIAdminRouting() {
 }
 
 /**
- * Section container for a group of routing rules
+ * Section container for a group of routing rules.
+ * Conditionally paginates when the group has more than RULES_PER_PAGE entries
+ * (the shared Pagination component renders nothing when totalPages <= 1).
  */
 function RuleSection({ title, subtitle, icon, colorPalette, items, intentsForDropdown, onUpdateRule, onRemoveRule }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(items.length / RULES_PER_PAGE));
+  const start = (page - 1) * RULES_PER_PAGE;
+  const visibleItems = items.slice(start, start + RULES_PER_PAGE);
+
+  // Clamp page when items shrink (e.g. user deletes rules)
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   return (
     <Box>
       <Flex align="center" gap="var(--space-2)" mb="var(--space-2)">
@@ -387,7 +417,7 @@ function RuleSection({ title, subtitle, icon, colorPalette, items, intentsForDro
         </Text>
       </Flex>
       <Stack gap="var(--space-3)">
-        {items.map(({ rule, index }) => (
+        {visibleItems.map(({ rule, index }) => (
           <RoutingRuleCard
             key={index}
             rule={rule}
@@ -399,6 +429,14 @@ function RuleSection({ title, subtitle, icon, colorPalette, items, intentsForDro
           />
         ))}
       </Stack>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalResults={items.length}
+        resultsPerPage={RULES_PER_PAGE}
+        onPageChange={setPage}
+        variant="compact"
+      />
     </Box>
   );
 }
@@ -508,15 +546,11 @@ function RoutingRuleCard({ rule, index, colorPalette, intentsForDropdown, onUpda
   const showIntent = rule.task === 'bienbot';
 
   return (
-    <Box
-      p="var(--space-4)"
-      borderRadius="var(--space-3)"
-      border="1px solid"
-      borderColor="var(--color-border)"
-      bg="var(--color-bg-primary)"
+    <Card
       _hover={{ borderColor: `var(--chakra-colors-${colorPalette}-300, var(--color-border))` }}
       transition="border-color 0.2s"
     >
+      <CardBody>
       {/* Row 1: Matching criteria and Provider */}
       <Flex gap="var(--space-3)" wrap="wrap" align="flex-end">
         <Box flex="1" minW="150px">
@@ -648,6 +682,7 @@ function RoutingRuleCard({ rule, index, colorPalette, intentsForDropdown, onUpda
           </Badge>
         </Flex>
       )}
-    </Box>
+      </CardBody>
+    </Card>
   );
 }

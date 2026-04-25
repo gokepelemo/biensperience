@@ -4,8 +4,9 @@
  * @module ai/functions/improve-description
  */
 
-import { AI_TASKS, SYSTEM_PROMPTS } from '../constants';
+import { AI_TASKS } from '../constants';
 import { complete } from '../complete';
+import { resolveSystemPrompt } from './_shared';
 
 /**
  * Improve a destination or experience description
@@ -27,7 +28,7 @@ export async function improveDescription(description, options = {}) {
   if (location) contextInfo += `Location: ${location}\n`;
   if (type) contextInfo += `Type: ${type}\n`;
 
-  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.IMPROVE_DESCRIPTION]) || SYSTEM_PROMPTS[AI_TASKS.IMPROVE_DESCRIPTION];
+  const systemPrompt = resolveSystemPrompt(AI_TASKS.IMPROVE_DESCRIPTION, options);
 
   const messages = [
     { role: 'system', content: systemPrompt },

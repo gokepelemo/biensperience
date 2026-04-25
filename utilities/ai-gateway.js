@@ -27,15 +27,35 @@ function loadModels() {
 }
 
 // ---------------------------------------------------------------------------
-// Policy cache (5-minute TTL)
+// Constants
+// ---------------------------------------------------------------------------
+
+const POLICY_CACHE_TTL_MS = 5 * 60 * 1000;
+const RATE_LIMIT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+const MAX_RATE_ENTRIES_PER_USER = 10000;
+const RATE_ENTRIES_TRIM_TARGET = 5000;
+const DEFAULT_HEADROOM_TOKENS = 100;
+const DEFAULT_MAX_TOKENS = 1000;
+const DEFAULT_MAX_TOKENS_PER_REQUEST = 4000;
+const DEFAULT_TEMPERATURE = 0.7;
+const TEMPERATURE_MIN = 0;
+const TEMPERATURE_MAX = 2;
+const MS_PER_MINUTE = 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// ---------------------------------------------------------------------------
+// Policy cache
 // ---------------------------------------------------------------------------
 
 let policyCacheMap = null;
 let policyCacheTimestamp = 0;
-const POLICY_CACHE_TTL_MS = 5 * 60 * 1000;
+let policyLoadPromise = null;
 
 /**
  * Load all active policies into a cached map.
+ * Concurrent first-callers share a single in-flight DB query.
  * @param {boolean} [forceRefresh]
  * @returns {Promise<{global: Object|null, users: Map<string, Object>}>}
  */
@@ -44,29 +64,36 @@ async function loadPolicies(forceRefresh = false) {
   if (!forceRefresh && policyCacheMap && (now - policyCacheTimestamp) < POLICY_CACHE_TTL_MS) {
     return policyCacheMap;
   }
+  if (policyLoadPromise) return policyLoadPromise;
 
-  try {
-    loadModels();
-    const docs = await AIPolicy.find({ active: true }).lean();
+  policyLoadPromise = (async () => {
+    try {
+      loadModels();
+      const docs = await AIPolicy.find({ active: true }).lean();
 
-    let globalPolicy = null;
-    const userPolicies = new Map();
+      let globalPolicy = null;
+      const userPolicies = new Map();
 
-    for (const doc of docs) {
-      if (doc.scope === 'global') {
-        globalPolicy = doc;
-      } else if (doc.scope === 'user' && doc.target) {
-        userPolicies.set(doc.target.toString(), doc);
+      for (const doc of docs) {
+        if (doc.scope === 'global') {
+          globalPolicy = doc;
+        } else if (doc.scope === 'user' && doc.target) {
+          userPolicies.set(doc.target.toString(), doc);
+        }
       }
-    }
 
-    policyCacheMap = { global: globalPolicy, users: userPolicies };
-    policyCacheTimestamp = now;
-    return policyCacheMap;
-  } catch (err) {
-    logger.warn('[ai-gateway] Failed to load policies from DB', { error: err.message });
-    return policyCacheMap || { global: null, users: new Map() };
-  }
+      policyCacheMap = { global: globalPolicy, users: userPolicies };
+      policyCacheTimestamp = Date.now();
+      return policyCacheMap;
+    } catch (err) {
+      logger.warn('[ai-gateway] Failed to load policies from DB', { error: err.message });
+      return policyCacheMap || { global: null, users: new Map() };
+    } finally {
+      policyLoadPromise = null;
+    }
+  })();
+
+  return policyLoadPromise;
 }
 
 /**
@@ -111,7 +138,7 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     },
     task_routing: [],
     content_filtering: { enabled: false, block_patterns: [], redact_patterns: [] },
-    max_tokens_per_request: 4000,
+    max_tokens_per_request: DEFAULT_MAX_TOKENS_PER_REQUEST,
     // Provider/model overrides from entity config
     preferred_provider: null,
     preferred_model: null,
@@ -119,12 +146,20 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     max_tokens: null,
     system_prompt_override: null,
     language: null,
-    ai_disabled: false
+    ai_disabled: false,
+    // Snapshot of which layers contributed — captured at resolution time
+    // so we don't have to re-inspect the cache later (avoids races).
+    _meta: {
+      hasGlobalPolicy: false,
+      hasUserPolicy: false,
+      hasEntityConfig: false
+    }
   };
 
   // Layer 3: Global policy
   if (policies.global) {
     mergePolicy(effective, policies.global);
+    effective._meta.hasGlobalPolicy = true;
   }
 
   // Layer 2: User-scoped policy
@@ -133,6 +168,7 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     const userPolicy = policies.users.get(userId);
     if (userPolicy) {
       mergePolicy(effective, userPolicy);
+      effective._meta.hasUserPolicy = true;
     }
   }
 
@@ -145,6 +181,7 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     if (entityAIConfig.system_prompt_override) effective.system_prompt_override = entityAIConfig.system_prompt_override;
     if (entityAIConfig.language) effective.language = entityAIConfig.language;
     if (entityAIConfig.disabled) effective.ai_disabled = true;
+    effective._meta.hasEntityConfig = true;
   }
 
   return effective;
@@ -210,18 +247,24 @@ function mergePolicy(target, source) {
 
 const rateLimitStore = new Map();
 
-// Periodic cleanup every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entries] of rateLimitStore) {
-    const filtered = entries.filter(ts => now - ts < 24 * 60 * 60 * 1000);
-    if (filtered.length === 0) {
-      rateLimitStore.delete(key);
-    } else {
-      rateLimitStore.set(key, filtered);
+// Periodic cleanup. Skipped under Jest so test runs aren't held open by
+// a background timer; `unref()` is a belt-and-suspenders fallback when
+// running outside Jest (Bun, Node test runners) since unref'd handles
+// don't keep the event loop alive.
+if (process.env.NODE_ENV !== 'test') {
+  const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entries] of rateLimitStore) {
+      const filtered = entries.filter(ts => now - ts < RATE_LIMIT_RETENTION_MS);
+      if (filtered.length === 0) {
+        rateLimitStore.delete(key);
+      } else {
+        rateLimitStore.set(key, filtered);
+      }
     }
-  }
-}, 5 * 60 * 1000);
+  }, RATE_LIMIT_CLEANUP_INTERVAL_MS);
+  if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref();
+}
 
 /**
  * Check rate limits for a user.
@@ -237,23 +280,23 @@ function checkRateLimit(userId, rateLimits) {
   const entries = rateLimitStore.get(key) || [];
 
   if (rateLimits.requests_per_minute != null) {
-    const minuteCount = entries.filter(ts => now - ts < 60 * 1000).length;
+    const minuteCount = entries.filter(ts => now - ts < MS_PER_MINUTE).length;
     if (minuteCount >= rateLimits.requests_per_minute) {
-      return { allowed: false, reason: 'Rate limit exceeded (per minute)', retryAfterMs: 60 * 1000 };
+      return { allowed: false, reason: 'Rate limit exceeded (per minute)', retryAfterMs: MS_PER_MINUTE };
     }
   }
 
   if (rateLimits.requests_per_hour != null) {
-    const hourCount = entries.filter(ts => now - ts < 60 * 60 * 1000).length;
+    const hourCount = entries.filter(ts => now - ts < MS_PER_HOUR).length;
     if (hourCount >= rateLimits.requests_per_hour) {
-      return { allowed: false, reason: 'Rate limit exceeded (per hour)', retryAfterMs: 60 * 60 * 1000 };
+      return { allowed: false, reason: 'Rate limit exceeded (per hour)', retryAfterMs: MS_PER_HOUR };
     }
   }
 
   if (rateLimits.requests_per_day != null) {
-    const dayCount = entries.filter(ts => now - ts < 24 * 60 * 60 * 1000).length;
+    const dayCount = entries.filter(ts => now - ts < MS_PER_DAY).length;
     if (dayCount >= rateLimits.requests_per_day) {
-      return { allowed: false, reason: 'Rate limit exceeded (per day)', retryAfterMs: 24 * 60 * 60 * 1000 };
+      return { allowed: false, reason: 'Rate limit exceeded (per day)', retryAfterMs: MS_PER_DAY };
     }
   }
 
@@ -262,14 +305,13 @@ function checkRateLimit(userId, rateLimits) {
 
 /**
  * Record a request timestamp for rate limiting.
- * Caps entries at 10,000 per user to prevent unbounded memory growth.
  */
 function recordRateEntry(userId) {
   const key = `rate:${userId}`;
   let entries = rateLimitStore.get(key) || [];
   entries.push(Date.now());
-  if (entries.length > 10000) {
-    entries = entries.slice(-5000);
+  if (entries.length > MAX_RATE_ENTRIES_PER_USER) {
+    entries = entries.slice(-RATE_ENTRIES_TRIM_TARGET);
   }
   rateLimitStore.set(key, entries);
 }
@@ -291,7 +333,7 @@ function recordRateEntry(userId) {
  * @param {number} [estimatedMaxTokens=1000] - Expected max output tokens for the upcoming request
  * @returns {Promise<{ allowed: boolean, reason: string|null }>}
  */
-async function checkTokenBudget(userId, tokenBudget, estimatedMaxTokens = 1000) {
+async function checkTokenBudget(userId, tokenBudget, estimatedMaxTokens = DEFAULT_MAX_TOKENS) {
   if (!userId || !tokenBudget) return { allowed: true, reason: null };
 
   const hasDailyLimit = tokenBudget.daily_input_tokens != null || tokenBudget.daily_output_tokens != null;
@@ -299,8 +341,10 @@ async function checkTokenBudget(userId, tokenBudget, estimatedMaxTokens = 1000) 
 
   if (!hasDailyLimit && !hasMonthlyLimit) return { allowed: true, reason: null };
 
-  // Conservative headroom: assume the request will use up to this many tokens
-  const headroom = Math.max(estimatedMaxTokens, 100);
+  // Conservative headroom: assume the request will use up to this many tokens.
+  // The `>=` comparison below blocks one token early on purpose — this is a
+  // pre-flight guard, not an exact accounting.
+  const headroom = Math.max(estimatedMaxTokens, DEFAULT_HEADROOM_TOKENS);
 
   try {
     loadModels();
@@ -339,7 +383,28 @@ async function checkTokenBudget(userId, tokenBudget, estimatedMaxTokens = 1000) 
 // ---------------------------------------------------------------------------
 
 /**
+ * Compile a list of regex pattern strings, dropping (and logging) any that
+ * fail to compile. Returns an array of { pattern, regex } pairs.
+ */
+function compilePatterns(patterns, flags, kind) {
+  if (!patterns || patterns.length === 0) return [];
+  const compiled = [];
+  for (const pattern of patterns) {
+    try {
+      compiled.push({ pattern, regex: new RegExp(pattern, flags) });
+    } catch (err) {
+      logger.warn('[ai-gateway] Invalid content filter regex pattern, skipping', { pattern, kind, error: err.message });
+    }
+  }
+  return compiled;
+}
+
+/**
  * Apply content filtering to input messages.
+ *
+ * Compiles each pattern once (not per message × per pattern) and only walks
+ * user messages — system/assistant messages are passed through unmodified.
+ *
  * @param {Array} messages
  * @param {Object} filtering - { enabled, block_patterns, redact_patterns }
  * @returns {{ blocked: boolean, reason: string|null, messages: Array }}
@@ -349,43 +414,38 @@ function applyContentFiltering(messages, filtering) {
     return { blocked: false, reason: null, messages };
   }
 
-  // Check block patterns on user messages
-  if (filtering.block_patterns && filtering.block_patterns.length > 0) {
+  const blockRegexes = compilePatterns(filtering.block_patterns, 'i', 'block');
+  const redactRegexes = compilePatterns(filtering.redact_patterns, 'gi', 'redact');
+
+  if (blockRegexes.length === 0 && redactRegexes.length === 0) {
+    return { blocked: false, reason: null, messages };
+  }
+
+  // Check block patterns first; bail out early on first match.
+  if (blockRegexes.length > 0) {
     for (const msg of messages) {
-      if (msg.role === 'user') {
-        for (const pattern of filtering.block_patterns) {
-          try {
-            const regex = new RegExp(pattern, 'i');
-            if (regex.test(msg.content)) {
-              return { blocked: true, reason: `Content blocked by policy filter`, messages };
-            }
-          } catch (regexErr) {
-            logger.warn('[ai-gateway] Invalid content filter regex pattern, skipping', { pattern, error: regexErr.message });
-          }
+      if (msg.role !== 'user') continue;
+      for (const { regex } of blockRegexes) {
+        if (regex.test(msg.content)) {
+          return { blocked: true, reason: 'Content blocked by policy filter', messages };
         }
       }
     }
   }
 
-  // Apply redact patterns
-  if (filtering.redact_patterns && filtering.redact_patterns.length > 0) {
-    const redacted = messages.map(msg => {
-      if (msg.role !== 'user') return msg;
-      let content = msg.content;
-      for (const pattern of filtering.redact_patterns) {
-        try {
-          const regex = new RegExp(pattern, 'gi');
-          content = content.replace(regex, '[REDACTED]');
-        } catch {
-          // Invalid regex pattern, skip
-        }
-      }
-      return { ...msg, content };
-    });
-    return { blocked: false, reason: null, messages: redacted };
+  if (redactRegexes.length === 0) {
+    return { blocked: false, reason: null, messages };
   }
 
-  return { blocked: false, reason: null, messages };
+  const redacted = messages.map(msg => {
+    if (msg.role !== 'user') return msg;
+    let content = msg.content;
+    for (const { regex } of redactRegexes) {
+      content = content.replace(regex, '[REDACTED]');
+    }
+    return content === msg.content ? msg : { ...msg, content };
+  });
+  return { blocked: false, reason: null, messages: redacted };
 }
 
 // ---------------------------------------------------------------------------
@@ -393,12 +453,29 @@ function applyContentFiltering(messages, filtering) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Find the most-specific task_routing entry that matches a (task, intent) pair.
+ * Specificity order: task+intent > task-only > intent-only. Returns null if
+ * task_routing is empty or no match is found.
+ */
+function findTaskRoute(taskRouting, task, intent) {
+  if (!taskRouting || taskRouting.length === 0) return null;
+  if (task && intent) {
+    const match = taskRouting.find(r => r.task === task && r.intent === intent);
+    if (match) return match;
+  }
+  if (task) {
+    const match = taskRouting.find(r => r.task === task && !r.intent);
+    if (match) return match;
+  }
+  if (intent) {
+    const match = taskRouting.find(r => r.intent === intent && !r.task);
+    if (match) return match;
+  }
+  return null;
+}
+
+/**
  * Determine the provider and model for a request.
- *
- * Routing rules are matched in specificity order:
- * 1. task + intent (most specific)
- * 2. task only
- * 3. intent only
  *
  * @param {string} task - AI task type
  * @param {Object} policy - Effective policy
@@ -424,23 +501,9 @@ async function routeRequest(task, policy, options = {}) {
     model = options.model;
   }
 
-  // Priority 3: Task/intent routing from policy (specificity order)
-  if (!provider && policy.task_routing && policy.task_routing.length > 0) {
-    let route = null;
-
-    // 3a: Match task + intent (most specific)
-    if (task && intent) {
-      route = policy.task_routing.find(r => r.task === task && r.intent === intent);
-    }
-    // 3b: Match task only
-    if (!route && task) {
-      route = policy.task_routing.find(r => r.task === task && !r.intent);
-    }
-    // 3c: Match intent only
-    if (!route && intent) {
-      route = policy.task_routing.find(r => r.intent === intent && !r.task);
-    }
-
+  // Priority 3: Task/intent routing from policy
+  if (!provider) {
+    const route = findTaskRoute(policy.task_routing, task, intent);
     if (route) {
       provider = route.provider;
       model = route.model || null;
@@ -527,11 +590,10 @@ function getEnvProviderForTask(task) {
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string, policyApplied: Object}>}
  */
 async function executeAIRequest(params) {
-  const { messages, task, user, options = {}, entityContext, intent, schema } = params;
-  // Merge intent into options for routeRequest
-  if (intent && !options.intent) {
-    options.intent = intent;
-  }
+  const { messages, task, user, options: callerOptions = {}, entityContext, intent, schema } = params;
+  // Don't mutate the caller's object — callers commonly pass a shared options
+  // bag and a stray `intent` write would leak across requests.
+  const options = { ...callerOptions, intent: callerOptions.intent || intent || null };
   const startTime = Date.now();
   const userId = user ? (user._id || user.id || '').toString() : null;
   const isSuperAdmin = user && (user.role === 'super_admin' || user.isSuperAdmin);
@@ -576,14 +638,26 @@ async function executeAIRequest(params) {
   // Step 5: Route to provider/model
   const route = await routeRequest(task, policy, options);
 
-  // Step 6: Build call options (with validated temperature and maxTokens)
-  const rawTemp = policy.temperature ?? options.temperature ?? 0.7;
-  const validatedTemp = Math.min(Math.max(Number(rawTemp) || 0.7, 0), 2);
-  const rawMaxTokens = policy.max_tokens || options.maxTokens || 1000;
-  const validatedMaxTokens = Math.max(Math.min(
-    Math.abs(parseInt(rawMaxTokens, 10)) || 1000,
+  // Step 6: Build call options. Task-specific routing entries (if matched)
+  // override the policy/caller temperature so admins can tune per-task —
+  // matched route, then policy, then caller, then default.
+  const taskRoute = findTaskRoute(policy.task_routing, task, options.intent);
+
+  const rawTemp = taskRoute?.temperature ?? policy.temperature ?? options.temperature ?? DEFAULT_TEMPERATURE;
+  const tempNumber = Number(rawTemp);
+  const validatedTemp = Math.min(
+    Math.max(Number.isFinite(tempNumber) ? tempNumber : DEFAULT_TEMPERATURE, TEMPERATURE_MIN),
+    TEMPERATURE_MAX
+  );
+
+  const rawMaxTokens = policy.max_tokens || options.maxTokens || DEFAULT_MAX_TOKENS;
+  let validatedMaxTokens = Math.max(Math.min(
+    Math.abs(parseInt(rawMaxTokens, 10)) || DEFAULT_MAX_TOKENS,
     policy.max_tokens_per_request
   ), 1);
+  if (taskRoute?.max_tokens != null) {
+    validatedMaxTokens = Math.min(validatedMaxTokens, taskRoute.max_tokens);
+  }
 
   const callOptions = {
     model: route.model || undefined,
@@ -591,26 +665,6 @@ async function executeAIRequest(params) {
     maxTokens: validatedMaxTokens,
     schema: schema || null
   };
-
-  // Apply task-specific overrides from policy routing
-  // Use same specificity order as routeRequest
-  let taskRoute = null;
-  const routingIntent = options.intent || null;
-  if (policy.task_routing && policy.task_routing.length > 0) {
-    if (task && routingIntent) {
-      taskRoute = policy.task_routing.find(r => r.task === task && r.intent === routingIntent);
-    }
-    if (!taskRoute && task) {
-      taskRoute = policy.task_routing.find(r => r.task === task && !r.intent);
-    }
-    if (!taskRoute && routingIntent) {
-      taskRoute = policy.task_routing.find(r => r.intent === routingIntent && !r.task);
-    }
-  }
-  if (taskRoute) {
-    if (taskRoute.temperature != null) callOptions.temperature = callOptions.temperature ?? taskRoute.temperature;
-    if (taskRoute.max_tokens != null) callOptions.maxTokens = Math.min(callOptions.maxTokens, taskRoute.max_tokens);
-  }
 
   // Step 7: Call the provider with retry logic and failover
   // Use explicit policy fallbacks when set, otherwise default to enabled providers sorted by priority
@@ -629,6 +683,8 @@ async function executeAIRequest(params) {
 
   let result;
   let lastError;
+  let lastAttemptedProvider = route.provider;
+  let lastAttemptedModel = callOptions.model;
   for (let i = 0; i < providerChain.length; i++) {
     const currentProvider = providerChain[i];
     const currentApiKey = getApiKeyForProvider(currentProvider);
@@ -642,6 +698,9 @@ async function executeAIRequest(params) {
     const currentCallOptions = i === 0
       ? callOptions
       : { ...callOptions, model: undefined };
+
+    lastAttemptedProvider = currentProvider;
+    lastAttemptedModel = currentCallOptions.model;
 
     try {
       result = await callWithRetry(
@@ -685,7 +744,7 @@ async function executeAIRequest(params) {
       'PROVIDER_NOT_CONFIGURED',
       503
     );
-    await trackUsage(userId, task, route.provider, callOptions.model, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
+    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
     throw finalError;
   }
 
@@ -703,9 +762,9 @@ async function executeAIRequest(params) {
     model: result.model,
     provider: result.provider,
     policyApplied: {
-      hasUserPolicy: !!(user && user._id && policyCacheMap?.users?.has(user._id.toString())),
-      hasGlobalPolicy: !!policyCacheMap?.global,
-      hasEntityConfig: !!entityContext?.aiConfig,
+      hasUserPolicy: policy._meta.hasUserPolicy,
+      hasGlobalPolicy: policy._meta.hasGlobalPolicy,
+      hasEntityConfig: policy._meta.hasEntityConfig,
       maxTokensCap: policy.max_tokens_per_request
     }
   };
@@ -815,6 +874,23 @@ function calculateRetryDelay(attempt, baseDelayMs, maxDelayMs) {
 }
 
 /**
+ * Extract a server-suggested retry delay (in ms) from a provider error, if any.
+ * Recognises numeric `retryAfterMs`, header-style `retry-after` in seconds, or
+ * `retryAfter` (seconds). Returns null when no signal is present.
+ */
+function extractRetryAfterMs(err) {
+  if (!err) return null;
+  if (typeof err.retryAfterMs === 'number' && err.retryAfterMs > 0) return err.retryAfterMs;
+  if (typeof err.retryAfter === 'number' && err.retryAfter > 0) return err.retryAfter * 1000;
+  const header = err.headers?.['retry-after'] || err.headers?.['Retry-After'];
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
+  }
+  return null;
+}
+
+/**
  * Sleep for a given number of milliseconds.
  * @param {number} ms
  * @returns {Promise<void>}
@@ -854,11 +930,18 @@ async function callWithRetry(callFn, retryConfig = {}, context = '') {
         break;
       }
 
-      const delayMs = calculateRetryDelay(attempt, config.baseDelayMs, config.maxDelayMs);
+      // Honor a server-supplied Retry-After if present (capped at maxDelayMs);
+      // otherwise fall back to exponential backoff with full jitter.
+      const serverRetryMs = extractRetryAfterMs(err);
+      const delayMs = serverRetryMs != null
+        ? Math.min(serverRetryMs, config.maxDelayMs)
+        : calculateRetryDelay(attempt, config.baseDelayMs, config.maxDelayMs);
+
       logger.warn('[ai-gateway] Retrying LLM call after transient error', {
         attempt: attempt + 1,
         maxRetries: config.maxRetries,
         delayMs,
+        retryAfterFromServer: serverRetryMs != null,
         error: err.message,
         context
       });
@@ -897,7 +980,14 @@ module.exports = {
   callWithRetry,
   isRetryableError,
   calculateRetryDelay,
+  extractRetryAfterMs,
+  applyContentFiltering,
+  checkRateLimit,
+  routeRequest,
+  findTaskRoute,
   DEFAULT_RETRY_CONFIG,
-  // Exported so the AI controller and utilities can use the canonical implementation
+  // Exported so the AI controller and utilities can use the canonical
+  // implementation. NOTE: this is the env-only resolver, not the policy-aware
+  // routing path used inside executeAIRequest.
   getProviderForTask: getEnvProviderForTask
 };

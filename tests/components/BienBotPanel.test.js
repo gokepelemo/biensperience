@@ -413,10 +413,12 @@ describe('BienBotPanel', () => {
       const navActions = [
         { _id: 'nav-1', type: 'navigate_to_entity', payload: { url: '/experiences/exp-1' }, description: 'View experience' }
       ];
+      const onClose = jest.fn();
       setHookState({ pendingActions: navActions });
-      renderPanel();
+      renderPanel({ onClose });
       fireEvent.click(screen.getByText('Yes'));
       expect(mockNavigate).toHaveBeenCalledWith('/experiences/exp-1');
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -4,8 +4,9 @@
  * @module ai/functions/summarize
  */
 
-import { AI_TASKS, SYSTEM_PROMPTS } from '../constants';
+import { AI_TASKS } from '../constants';
 import { complete } from '../complete';
+import { resolveSystemPrompt } from './_shared';
 
 /**
  * Generate a summary of travel content
@@ -33,7 +34,7 @@ export async function summarize(content, options = {}) {
       styleInstruction = 'Provide a concise summary capturing the essential points.';
   }
 
-  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.SUMMARIZE]) || SYSTEM_PROMPTS[AI_TASKS.SUMMARIZE];
+  const systemPrompt = resolveSystemPrompt(AI_TASKS.SUMMARIZE, options);
 
   const messages = [
     { role: 'system', content: systemPrompt },

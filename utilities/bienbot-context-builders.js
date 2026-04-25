@@ -12,8 +12,7 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
-const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore, computeAndCacheAffinity } = require('./hidden-signals');
-const signalsConfig = require('./signals-config');
+const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage } = require('./hidden-signals');
 const affinityCache = require('./affinity-cache');
 const {
   buildDiscoveryContext,

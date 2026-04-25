@@ -172,31 +172,11 @@ function isValidModel(providerName, model, dbConfig = null) {
     return dbConfig.valid_models.includes(model);
   }
 
-  // Hardcoded fallback (from original controllers/api/ai.js)
-  const FALLBACK_VALID_MODELS = {
-    openai: [
-      'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4-turbo-preview', 'gpt-4',
-      'gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'o1-preview', 'o1-mini'
-    ],
-    anthropic: [
-      'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307',
-      'claude-3-5-sonnet-20240620', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022',
-      'claude-sonnet-4-20250514', 'claude-opus-4-5-20251101'
-    ],
-    mistral: [
-      'mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest',
-      'open-mistral-7b', 'open-mixtral-8x7b', 'open-mixtral-8x22b',
-      'codestral-latest', 'mistral-embed'
-    ],
-    gemini: [
-      'gemini-1.5-pro', 'gemini-1.5-pro-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest',
-      'gemini-1.0-pro', 'gemini-1.0-pro-latest', 'gemini-pro', 'gemini-pro-vision',
-      'gemini-2.0-flash-exp', 'gemini-exp-1206'
-    ]
-  };
-
-  const allowlist = FALLBACK_VALID_MODELS[providerName.toLowerCase()];
-  return allowlist ? allowlist.includes(model) : false;
+  // Fallback: derive from the seed defaults so the allowlist stays in sync
+  // with what gets seeded into the DB. Avoids drift from a duplicate hardcoded list.
+  const { DEFAULT_PROVIDERS } = require('./ai-seed-providers');
+  const seed = DEFAULT_PROVIDERS.find(p => p.provider === providerName.toLowerCase());
+  return !!(seed && seed.valid_models?.includes(model));
 }
 
 // ---------------------------------------------------------------------------

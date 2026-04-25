@@ -116,17 +116,19 @@ async function seedAIProviders() {
   let policyCreated = false;
 
   try {
-    // Seed providers (upsert by provider name)
+    // Seed providers (upsert by provider name).
+    // `rawResult` exposes the underlying MongoDB write result so we can
+    // reliably detect inserts vs updates without comparing timestamps.
     for (const providerData of DEFAULT_PROVIDERS) {
-      const result = await AIProviderConfig.findOneAndUpdate(
+      const rawResult = await AIProviderConfig.findOneAndUpdate(
         { provider: providerData.provider },
         { $setOnInsert: providerData },
-        { upsert: true, new: true }
+        { upsert: true, new: true, rawResult: true }
       );
 
-      // Check if this was a new document
-      if (result && result.createdAt && result.updatedAt &&
-          result.createdAt.getTime() === result.updatedAt.getTime()) {
+      const lastError = rawResult?.lastErrorObject;
+      const wasInsert = lastError && lastError.updatedExisting === false;
+      if (wasInsert) {
         providersSeeded++;
       }
     }

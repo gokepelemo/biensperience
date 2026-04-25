@@ -35,7 +35,30 @@ const logger = require('./backend-logger');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const fsp = require('fs').promises;
 const os = require('os');
+
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+const EMAIL_REGEX_GLOBAL = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+const DEFAULT_CLASSIFIER_CONFIG = Object.freeze({
+  low_confidence_threshold: 0.65,
+  llm_fallback_enabled: false,
+  llm_fallback_threshold: 0.4,
+  log_all_classifications: false,
+  log_retention_days: 90
+});
+
+const MESSAGE_LOG_MAX_LEN = 500;
+const NAME_MIN_LEN = 2;
+const NAME_MAX_LEN = 80;
+const NEW_NAME_MAX_LEN = 200;
+const LOCATION_MIN_LEN = 3;
+const LOCATION_MAX_LEN = 200;
+const NOTE_MIN_LEN = 2;
+const TIP_MIN_LEN = 3;
+const PLAN_ITEM_MIN_LEN = 3;
+const CACHE_FILES_TO_KEEP = 3;
 
 /**
  * Resolve deployment-scoped slot-fill toggle state.
@@ -159,6 +182,49 @@ const INTENTS = {
   QUERY_PHOTOS: 'QUERY_PHOTOS'
 };
 
+const VALID_INTENTS = new Set(Object.values(INTENTS));
+const CUSTOM_INTENT_REGEX = /^[A-Z][A-Z0-9_]+$/;
+
+const DESTINATION_NAME_PATTERNS = [
+  /(?:about|visit|to|in|for|like in|like at)\s+([A-Z][a-zA-Z\s]+?)(?:\s*[?.!,]|$)/,
+  /(?:weather|food|culture|nightlife|transport)\s+(?:in|of|at)\s+([A-Z][a-zA-Z\s]+?)(?:\s*[?.!,]|$)/,
+  /([A-Z][a-zA-Z\s]+?)\s+(?:safe|expensive|cheap|worth)/
+];
+const QUOTED_STRING_REGEX = /["']([^"']+)["']/;
+const COST_REGEX = /\$\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:dollars?|euros?|usd|eur|gbp)/i;
+const PLAIN_COST_REGEX = /(?:to|at|about|around|for)\s+(\d+(?:\.\d{1,2})?)/i;
+const ISO_DATE_REGEX = /\b(\d{4}-\d{2}-\d{2})\b/;
+const NATURAL_DATE_REGEX = /(?:for|on|to)\s+((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|(?:next\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|tomorrow|today|day\s+\d+)/i;
+const TIME_REGEX = /\b(\d{1,2}:\d{2}(?:\s*(?:am|pm))?|\d{1,2}\s*(?:am|pm))\b/i;
+const TIME_PERIOD_REGEX = /(?:in the|for the)\s+(morning|afternoon|evening|night)/i;
+const URL_REGEX = /(https?:\/\/[^\s,]+)/i;
+const LOCATION_REGEX = /(?:to|at|is)\s+(.+?)(?:\s*[.!?])?$/i;
+const NOTE_REGEX = /(?:note[:\s]+|saying\s+|that\s+)(.+?)(?:\s*[.!?])?$/i;
+const ASSIGNEE_REGEX = /(?:to|assign)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)/;
+const TIP_REGEX = /(?:tip[:\s]+|advice[:\s]+|add\s+(?:a\s+)?tip[:\s]+)(.+?)(?:\s*[.!?])?$/i;
+const COST_TITLE_REGEX = /(?:for\s+(?:the\s+)?|on\s+(?:the\s+)?|spent\s+.*?(?:on|for)\s+)([a-zA-Z][a-zA-Z\s]{2,30}?)(?:\s*$|\s*[.!?,])/i;
+const VISIBILITY_REGEX = /\b(public|private)\b/i;
+const EXPERIENCE_TYPE_REGEX = /(?:type\s+(?:to|as)\s+|category\s+(?:to|as)\s+)([a-zA-Z]+)/i;
+const CURRENCY_REGEX = /\b(USD|EUR|GBP|JPY|AUD|CAD|CHF|CNY|INR|BRL|MXN|KRW|NZD|SEK|NOK|DKK|SGD|HKD|THB|ZAR)\b/i;
+const RENAME_REGEX = /(?:rename\s+(?:to|it\s+to|this\s+to)\s+|change\s+(?:the\s+)?name\s+to\s+|name\s+to\s+)(.+?)(?:\s*[.!?])?$/i;
+const PROPER_NOUN_AFTER_PREP_REGEX = /(?:to|in|for|from|about)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/g;
+const NAME_AFTER_VERB_REGEX = /(?:invite|add|remove|with)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b/g;
+const QUOTED_STRING_REGEX_GLOBAL = /["']([^"']+)["']/g;
+const PLAN_ITEM_VERB_PREFIX_REGEX = /^(?:add|include|put|schedule|insert)\s+/i;
+const PLAN_ITEM_TARGET_SUFFIX_REGEX = /\s+(?:to|in|on|into)\s+(?:my\s+)?(?:plan|itinerary|schedule)\s*$/i;
+const PLAN_ITEM_SPLIT_REGEX = /\s*(?:,\s*(?:and\s+)?|(?:\s+and\s+))\s*/i;
+const MULTI_ACTION_RESERVED_NAMES = new Set(['Plan', 'Experience', 'Destination', 'Items', 'Cost']);
+
+const DETAIL_TYPES = ['transport', 'flight', 'train', 'bus', 'cruise', 'ferry', 'accommodation', 'hotel', 'parking', 'discount'];
+const COST_CATEGORIES = ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other'];
+const COST_SYNONYM_MAP = Object.freeze({
+  hotel: 'accommodation', hostel: 'accommodation', airbnb: 'accommodation', lodging: 'accommodation',
+  flight: 'transport', taxi: 'transport', uber: 'transport', bus: 'transport', train: 'transport', car: 'transport',
+  dinner: 'food', lunch: 'food', breakfast: 'food', meal: 'food', restaurant: 'food', dining: 'food',
+  tour: 'activities', ticket: 'activities', excursion: 'activities', admission: 'activities', entrance: 'activities',
+  gear: 'equipment', rental: 'equipment'
+});
+
 // ---------------------------------------------------------------------------
 // NLP Manager singleton
 // ---------------------------------------------------------------------------
@@ -166,6 +232,43 @@ const INTENTS = {
 let manager = null;
 let trainingPromise = null;
 let lastTrainedFingerprint = '';
+let lastTrainStats = { intents: 0, utterances: 0 };
+let cacheCleanupDone = false;
+
+/**
+ * Delete old cached NLP model files in tmpdir, keeping only the most recent N.
+ * Runs once per process, fire-and-forget. Without this, every corpus or
+ * registry change writes a new bienbot-nlp-<hash>.json that is never reaped.
+ */
+async function cleanupOldCacheFiles(currentHash) {
+  if (cacheCleanupDone) return;
+  cacheCleanupDone = true;
+  try {
+    const tmpdir = os.tmpdir();
+    const entries = await fsp.readdir(tmpdir);
+    const ours = entries
+      .filter(name => name.startsWith('bienbot-nlp-') && name.endsWith('.json'))
+      .filter(name => !name.includes(currentHash));
+    if (ours.length === 0) return;
+    const stats = await Promise.all(ours.map(async name => {
+      const full = path.join(tmpdir, name);
+      try {
+        const stat = await fsp.stat(full);
+        return { full, mtime: stat.mtimeMs };
+      } catch {
+        return null;
+      }
+    }));
+    const ranked = stats.filter(Boolean).sort((a, b) => b.mtime - a.mtime);
+    const toDelete = ranked.slice(CACHE_FILES_TO_KEEP - 1); // keep N-1 olds plus the current one
+    await Promise.all(toDelete.map(({ full }) => fsp.unlink(full).catch(() => {})));
+    if (toDelete.length > 0) {
+      logger.info('[bienbot-intent-classifier] Cache cleanup removed stale model files', { removed: toDelete.length });
+    }
+  } catch {
+    // best-effort cleanup; silent failure is fine
+  }
+}
 
 // Sample entity values used to expand %destination_name% / %experience_name%
 // placeholders when slot-fill is OFF. Expansion preserves the pre-v2 training
@@ -215,15 +318,8 @@ const CONFIG_CACHE_TTL = 60_000; // 1 minute
  * @returns {Promise<object>}
  */
 async function getClassifierConfig() {
-  // In test environments skip the DB to avoid connection timeouts
   if (process.env.NODE_ENV === 'test') {
-    return {
-      low_confidence_threshold: 0.65,
-      llm_fallback_enabled: false,
-      llm_fallback_threshold: 0.4,
-      log_all_classifications: false,
-      log_retention_days: 90
-    };
+    return DEFAULT_CLASSIFIER_CONFIG;
   }
   const now = Date.now();
   if (configCache && (now - configCacheTime) < CONFIG_CACHE_TTL) {
@@ -235,13 +331,7 @@ async function getClassifierConfig() {
     configCacheTime = now;
     return configCache;
   } catch {
-    return {
-      low_confidence_threshold: 0.65,
-      llm_fallback_enabled: false,
-      llm_fallback_threshold: 0.4,
-      log_all_classifications: false,
-      log_retention_days: 90
-    };
+    return DEFAULT_CLASSIFIER_CONFIG;
   }
 }
 
@@ -318,15 +408,15 @@ async function getManager() {
     const corpusData = await loadCorpusData();
     const slotFillEnabled = await isSlotFillEnabled();
 
-    // Pre-compute registry fingerprint so it becomes part of the cache key.
     let registryFingerprint = '';
+    let topKPayload = null;
     if (slotFillEnabled) {
       const {
         getTopEntities,
         getCompositionFingerprint
       } = require('./bienbot-intent-popularity-scorer');
       try {
-        const topKPayload = await getTopEntities({ kDestinations: 500, kExperiences: 500 });
+        topKPayload = await getTopEntities({ kDestinations: 500, kExperiences: 500 });
         registryFingerprint = getCompositionFingerprint(topKPayload);
       } catch (err) {
         logger.error('[bienbot-intent-classifier] Top-K fetch failed, continuing without NER', { error: err.message });
@@ -335,15 +425,21 @@ async function getManager() {
 
     const hash = computeCacheKey({ corpusData, slotFillEnabled, registryFingerprint });
     const cacheFile = getCacheFilePath(hash);
+    const corpusStats = {
+      intents: corpusData.length,
+      utterances: corpusData.reduce((sum, d) => sum + d.utterances.length, 0)
+    };
 
     if (fs.existsSync(cacheFile)) {
       try {
-        const cached = fs.readFileSync(cacheFile, 'utf8');
+        const cached = await fsp.readFile(cacheFile, 'utf8');
         const nlp = new NlpManager({ languages: ['en'], forceNER: true, nlu: { useNoneFeature: true, log: false }, autoSave: false });
         nlp.import(cached);
         logger.info('[bienbot-intent-classifier] NLP model loaded from cache', { hash, slotFillEnabled });
         manager = nlp;
         lastTrainedFingerprint = registryFingerprint;
+        lastTrainStats = corpusStats;
+        cleanupOldCacheFiles(hash);
         return nlp;
       } catch (cacheErr) {
         logger.warn('[bienbot-intent-classifier] Cache load failed, retraining', { error: cacheErr.message });
@@ -359,17 +455,14 @@ async function getManager() {
 
     if (slotFillEnabled) {
       const { registerEntities } = require('./bienbot-intent-entity-registry');
-      await registerEntities(nlp, { kDestinations: 500, kExperiences: 500 });
+      await registerEntities(nlp, { topK: topKPayload, kDestinations: 500, kExperiences: 500 });
     } else {
-      nlp.addRegexEntity('user_email', 'en', /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+      nlp.addRegexEntity('user_email', 'en', EMAIL_REGEX_GLOBAL);
     }
 
     let totalUtterances = 0;
     for (const intentData of corpusData) {
       for (const utterance of intentData.utterances) {
-        // When slot-fill is ON, keep templates literal so NLP.js learns slots.
-        // When OFF, expand placeholders into concrete utterances so training
-        // covers the surface forms users actually type.
         const toTrain = slotFillEnabled ? [utterance] : expandPlaceholders(utterance);
         for (const u of toTrain) {
           nlp.addDocument('en', u, intentData.intent);
@@ -380,12 +473,9 @@ async function getManager() {
 
     await nlp.train();
 
-    try {
-      fs.writeFileSync(cacheFile, nlp.export(false), 'utf8');
-      logger.info('[bienbot-intent-classifier] NLP model cached to disk', { hash, path: cacheFile });
-    } catch (writeErr) {
-      logger.warn('[bienbot-intent-classifier] Failed to write cache', { error: writeErr.message });
-    }
+    fsp.writeFile(cacheFile, nlp.export(false), 'utf8')
+      .then(() => logger.info('[bienbot-intent-classifier] NLP model cached to disk', { hash, path: cacheFile }))
+      .catch(writeErr => logger.warn('[bienbot-intent-classifier] Failed to write cache', { error: writeErr.message }));
 
     logger.info('[bienbot-intent-classifier] NLP model trained', {
       intents: corpusData.length,
@@ -396,6 +486,8 @@ async function getManager() {
 
     manager = nlp;
     lastTrainedFingerprint = registryFingerprint;
+    lastTrainStats = { intents: corpusData.length, utterances: totalUtterances };
+    cleanupOldCacheFiles(hash);
     return nlp;
   })();
 
@@ -414,13 +506,8 @@ async function getManager() {
 async function retrainManager() {
   manager = null;
   trainingPromise = null;
-  const nlp = await getManager();
-  const IntentCorpus = require('../models/intent-corpus');
-  const docs = await IntentCorpus.find({ enabled: true }).lean();
-  return {
-    intents: docs.length,
-    utterances: docs.reduce((sum, d) => sum + d.utterances.length, 0)
-  };
+  await getManager();
+  return { ...lastTrainStats };
 }
 
 /**
@@ -445,9 +532,11 @@ async function classifyIntent(message, opts = {}) {
     return { ...fallbackResult(), source: 'nlp' };
   }
 
+  const trimmed = message.trim();
+
   try {
     const nlp = await getManager();
-    const result = await nlp.process('en', message.trim());
+    const result = await nlp.process('en', trimmed);
 
     let intent = result.intent && result.intent !== 'None'
       ? result.intent
@@ -460,9 +549,9 @@ async function classifyIntent(message, opts = {}) {
       return { ...fallbackResult(), source: 'nlp' };
     }
 
-    const entities = extractEntities(result, message.trim());
+    const entities = extractEntities(result, trimmed);
 
-    const confidence = typeof result.score === 'number'
+    let confidence = typeof result.score === 'number'
       ? Math.min(1, Math.max(0, result.score))
       : 0;
 
@@ -470,18 +559,20 @@ async function classifyIntent(message, opts = {}) {
     let llmIntent = null;
     let llmEntities = null;
 
-    // Check thresholds and potentially call LLM fallback
     const config = await getClassifierConfig();
     const isLowConfidence = confidence < config.low_confidence_threshold;
 
     if (isLowConfidence && config.llm_fallback_enabled && confidence < config.llm_fallback_threshold && opts.user) {
       try {
-        const llmResult = await classifyWithLLM(message.trim(), opts.user);
+        const llmResult = await classifyWithLLM(trimmed, opts.user);
         if (llmResult && llmResult.intent && isValidIntent(llmResult.intent)) {
           llmIntent = llmResult.intent;
           intent = llmResult.intent;
           source = 'llm';
           llmEntities = llmResult.entities || null;
+          if (typeof llmResult.confidence === 'number') {
+            confidence = llmResult.confidence;
+          }
         }
       } catch (err) {
         logger.warn('[bienbot-intent-classifier] LLM fallback failed, using NLP result', {
@@ -498,10 +589,9 @@ async function classifyIntent(message, opts = {}) {
       }
     }
 
-    // Log classification async (fire-and-forget)
     if (config.log_all_classifications || isLowConfidence) {
       logClassification({
-        message: message.trim().slice(0, 500),
+        message: trimmed.slice(0, MESSAGE_LOG_MAX_LEN),
         intent: source === 'llm' ? llmIntent : intent,
         confidence,
         userId: opts.userId,
@@ -512,14 +602,13 @@ async function classifyIntent(message, opts = {}) {
       }).catch(() => {});
     }
 
-    // Detect multi-action messages
-    const multiAction = detectMultiAction(message.trim());
+    const multiAction = detectMultiAction(trimmed);
     const result_obj = { intent, entities, confidence, source };
 
     if (multiAction.isMultiAction) {
       result_obj.isMultiAction = true;
       result_obj.multiActionVerbs = multiAction.verbs;
-      result_obj.multiActionEntities = extractMultiActionEntities(message.trim());
+      result_obj.multiActionEntities = extractMultiActionEntities(trimmed);
     }
 
     return result_obj;
@@ -634,8 +723,8 @@ async function logClassification({ message, intent, confidence, userId, sessionI
  * Regex heuristics below handle all structural entities (cost, date,
  * location, note content, etc.) regardless of toggle state.
  */
-function extractEntities(nlpResult, message) {
-  const entities = {
+function createEmptyEntities() {
+  return {
     destination_name: null,
     experience_name: null,
     user_email: null,
@@ -656,8 +745,11 @@ function extractEntities(nlpResult, message) {
     currency_value: null,
     new_name: null
   };
+}
 
-  // Process NLP.js entities
+function extractEntities(nlpResult, message) {
+  const entities = createEmptyEntities();
+
   if (Array.isArray(nlpResult.entities)) {
     for (const ent of nlpResult.entities) {
       if (ent.entity === 'user_email' && typeof ent.utteranceText === 'string') {
@@ -672,102 +764,84 @@ function extractEntities(nlpResult, message) {
     }
   }
 
-  // Heuristic: email extraction fallback
   if (!entities.user_email) {
-    const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const emailMatch = message.match(EMAIL_REGEX);
     if (emailMatch) {
       entities.user_email = emailMatch[0];
     }
   }
 
-  // Heuristic: extract destination name from common patterns
   if (!entities.destination_name) {
-    entities.destination_name = extractNameFromPatterns(message, [
-      /(?:about|visit|to|in|for|like in|like at)\s+([A-Z][a-zA-Z\s]+?)(?:\s*[?.!,]|$)/,
-      /(?:weather|food|culture|nightlife|transport)\s+(?:in|of|at)\s+([A-Z][a-zA-Z\s]+?)(?:\s*[?.!,]|$)/,
-      /([A-Z][a-zA-Z\s]+?)\s+(?:safe|expensive|cheap|worth)/
-    ]);
+    entities.destination_name = extractNameFromPatterns(message, DESTINATION_NAME_PATTERNS);
   }
 
-  // Heuristic: extract experience name from quoted strings
   if (!entities.experience_name) {
-    const quotedMatch = message.match(/["']([^"']+)["']/);
+    const quotedMatch = message.match(QUOTED_STRING_REGEX);
     if (quotedMatch) {
       entities.experience_name = quotedMatch[1];
     }
   }
 
-  // Heuristic: extract plan item texts from comma/and-separated lists
   if (nlpResult.intent === INTENTS.ADD_PLAN_ITEMS || nlpResult.intent === INTENTS.MULTI_ACTION) {
     entities.plan_item_texts = extractPlanItems(message);
   }
 
-  // Heuristic: extract cost/price value
-  const costMatch = message.match(/\$\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*(?:dollars?|euros?|usd|eur|gbp)/i);
+  const costMatch = message.match(COST_REGEX);
   if (costMatch) {
     entities.cost_value = parseFloat((costMatch[1] || costMatch[2]).replace(',', '.'));
   }
-  // Also match plain numbers in cost-related intents
-  if (!entities.cost_value && (nlpResult.intent === INTENTS.UPDATE_PLAN_ITEM_COST)) {
-    const plainCost = message.match(/(?:to|at|about|around|for)\s+(\d+(?:\.\d{1,2})?)/i);
+  if (!entities.cost_value && nlpResult.intent === INTENTS.UPDATE_PLAN_ITEM_COST) {
+    const plainCost = message.match(PLAIN_COST_REGEX);
     if (plainCost) entities.cost_value = parseFloat(plainCost[1]);
   }
 
-  // Heuristic: extract date values (ISO dates, relative, natural)
-  const isoDateMatch = message.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  const isoDateMatch = message.match(ISO_DATE_REGEX);
   if (isoDateMatch) {
     entities.date_value = isoDateMatch[1];
   } else {
-    const naturalDateMatch = message.match(/(?:for|on|to)\s+((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|(?:next\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|tomorrow|today|day\s+\d+)/i);
+    const naturalDateMatch = message.match(NATURAL_DATE_REGEX);
     if (naturalDateMatch) {
       entities.date_value = naturalDateMatch[1].trim();
     }
   }
 
-  // Heuristic: extract time values
-  const timeMatch = message.match(/\b(\d{1,2}:\d{2}(?:\s*(?:am|pm))?|\d{1,2}\s*(?:am|pm))\b/i);
+  const timeMatch = message.match(TIME_REGEX);
   if (timeMatch) {
     entities.time_value = timeMatch[1].trim();
   } else {
-    const periodMatch = message.match(/(?:in the|for the)\s+(morning|afternoon|evening|night)/i);
+    const periodMatch = message.match(TIME_PERIOD_REGEX);
     if (periodMatch) entities.time_value = periodMatch[1];
   }
 
-  // Heuristic: extract URL
-  const urlMatch = message.match(/(https?:\/\/[^\s,]+)/i);
+  const urlMatch = message.match(URL_REGEX);
   if (urlMatch) {
     entities.url_value = urlMatch[1];
   }
 
-  // Heuristic: extract location from SET_PLAN_ITEM_LOCATION messages
   if (nlpResult.intent === INTENTS.SET_PLAN_ITEM_LOCATION) {
-    const locMatch = message.match(/(?:to|at|is)\s+(.+?)(?:\s*[.!?])?$/i);
-    if (locMatch && locMatch[1].length >= 3 && locMatch[1].length <= 200) {
+    const locMatch = message.match(LOCATION_REGEX);
+    if (locMatch && locMatch[1].length >= LOCATION_MIN_LEN && locMatch[1].length <= LOCATION_MAX_LEN) {
       entities.location_value = locMatch[1].trim();
     }
   }
 
-  // Heuristic: extract note content from ADD_PLAN_ITEM_NOTE messages
   if (nlpResult.intent === INTENTS.ADD_PLAN_ITEM_NOTE) {
-    const noteMatch = message.match(/(?:note[:\s]+|saying\s+|that\s+)(.+?)(?:\s*[.!?])?$/i);
-    if (noteMatch && noteMatch[1].length >= 2) {
+    const noteMatch = message.match(NOTE_REGEX);
+    if (noteMatch && noteMatch[1].length >= NOTE_MIN_LEN) {
       entities.note_content = noteMatch[1].trim();
     }
   }
 
-  // Heuristic: extract assignee name
   if (nlpResult.intent === INTENTS.ASSIGN_PLAN_ITEM) {
-    const assignMatch = message.match(/(?:to|assign)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)/);
+    const assignMatch = message.match(ASSIGNEE_REGEX);
     if (assignMatch) {
       entities.assignee_name = assignMatch[1].trim();
     }
   }
 
-  // Heuristic: extract detail type from ADD_PLAN_ITEM_DETAIL messages
   if (nlpResult.intent === INTENTS.ADD_PLAN_ITEM_DETAIL) {
-    const detailTypes = ['transport', 'flight', 'train', 'bus', 'cruise', 'ferry', 'accommodation', 'hotel', 'parking', 'discount'];
     const lowerMsg = message.toLowerCase();
-    for (const dt of detailTypes) {
+    for (const dt of DETAIL_TYPES) {
       if (lowerMsg.includes(dt)) {
         entities.detail_type = dt;
         break;
@@ -775,84 +849,64 @@ function extractEntities(nlpResult, message) {
     }
   }
 
-  // Heuristic: extract travel tip content from ADD_DESTINATION_TIP
   if (nlpResult.intent === INTENTS.ADD_DESTINATION_TIP) {
-    const tipMatch = message.match(/(?:tip[:\s]+|advice[:\s]+|add\s+(?:a\s+)?tip[:\s]+)(.+?)(?:\s*[.!?])?$/i);
-    if (tipMatch && tipMatch[1].length >= 3) {
+    const tipMatch = message.match(TIP_REGEX);
+    if (tipMatch && tipMatch[1].length >= TIP_MIN_LEN) {
       entities.tip_content = tipMatch[1].trim();
     }
   }
 
-  // Heuristic: extract cost category from ADD_PLAN_COST
   if (nlpResult.intent === INTENTS.ADD_PLAN_COST) {
-    const categories = ['accommodation', 'transport', 'food', 'activities', 'equipment', 'other'];
     const lowerMsg = message.toLowerCase();
-    // Map common synonyms to canonical categories
-    const synonymMap = {
-      hotel: 'accommodation', hostel: 'accommodation', airbnb: 'accommodation', lodging: 'accommodation',
-      flight: 'transport', taxi: 'transport', uber: 'transport', bus: 'transport', train: 'transport', car: 'transport',
-      dinner: 'food', lunch: 'food', breakfast: 'food', meal: 'food', restaurant: 'food', dining: 'food',
-      tour: 'activities', ticket: 'activities', excursion: 'activities', admission: 'activities', entrance: 'activities',
-      gear: 'equipment', rental: 'equipment'
-    };
-    for (const [synonym, category] of Object.entries(synonymMap)) {
+    for (const synonym of Object.keys(COST_SYNONYM_MAP)) {
       if (lowerMsg.includes(synonym)) {
-        entities.cost_category = category;
+        entities.cost_category = COST_SYNONYM_MAP[synonym];
         break;
       }
     }
     if (!entities.cost_category) {
-      for (const cat of categories) {
+      for (const cat of COST_CATEGORIES) {
         if (lowerMsg.includes(cat)) {
           entities.cost_category = cat;
           break;
         }
       }
     }
-    // Extract cost title from natural patterns
-    const costTitleMatch = message.match(/(?:for\s+(?:the\s+)?|on\s+(?:the\s+)?|spent\s+.*?(?:on|for)\s+)([a-zA-Z][a-zA-Z\s]{2,30}?)(?:\s*$|\s*[.!?,])/i);
+    const costTitleMatch = message.match(COST_TITLE_REGEX);
     if (costTitleMatch) {
       entities.cost_title = costTitleMatch[1].trim();
     }
   }
 
-  // Heuristic: extract visibility value (public/private)
-  const visMatch = message.match(/\b(public|private)\b/i);
+  const visMatch = message.match(VISIBILITY_REGEX);
   if (visMatch) {
     entities.visibility_value = visMatch[1].toLowerCase();
   }
 
-  // Heuristic: extract experience type
-  const expTypeMatch = message.match(/(?:type\s+(?:to|as)\s+|category\s+(?:to|as)\s+)([a-zA-Z]+)/i);
+  const expTypeMatch = message.match(EXPERIENCE_TYPE_REGEX);
   if (expTypeMatch) {
     entities.experience_type = expTypeMatch[1].toLowerCase();
   }
 
-  // Heuristic: extract currency code (3-letter uppercase)
-  const currMatch = message.match(/\b(USD|EUR|GBP|JPY|AUD|CAD|CHF|CNY|INR|BRL|MXN|KRW|NZD|SEK|NOK|DKK|SGD|HKD|THB|ZAR)\b/i);
+  const currMatch = message.match(CURRENCY_REGEX);
   if (currMatch) {
     entities.currency_value = currMatch[1].toUpperCase();
   }
 
-  // Heuristic: extract new name from rename patterns
-  const renameMatch = message.match(/(?:rename\s+(?:to|it\s+to|this\s+to)\s+|change\s+(?:the\s+)?name\s+to\s+|name\s+to\s+)(.+?)(?:\s*[.!?])?$/i);
-  if (renameMatch && renameMatch[1].length >= 2 && renameMatch[1].length <= 200) {
+  const renameMatch = message.match(RENAME_REGEX);
+  if (renameMatch && renameMatch[1].length >= NAME_MIN_LEN && renameMatch[1].length <= NEW_NAME_MAX_LEN) {
     entities.new_name = renameMatch[1].trim();
   }
 
   return entities;
 }
 
-/**
- * Try multiple regex patterns and return the first capture group match.
- */
 function extractNameFromPatterns(message, patterns) {
   for (const pattern of patterns) {
     const match = message.match(pattern);
     if (match && match[1]) {
       const name = match[1].trim();
-      // Skip very short or very long matches (likely noise)
-      if (name.length >= 2 && name.length <= 80) {
+      if (name.length >= NAME_MIN_LEN && name.length <= NAME_MAX_LEN) {
         return name;
       }
     }
@@ -860,24 +914,18 @@ function extractNameFromPatterns(message, patterns) {
   return null;
 }
 
-/**
- * Extract plan item texts from a message.
- * Looks for comma-separated or "and"-separated phrases after action verbs.
- */
 function extractPlanItems(message) {
-  // Remove the action verb prefix
   const cleaned = message
-    .replace(/^(?:add|include|put|schedule|insert)\s+/i, '')
-    .replace(/\s+(?:to|in|on|into)\s+(?:my\s+)?(?:plan|itinerary|schedule)\s*$/i, '')
+    .replace(PLAN_ITEM_VERB_PREFIX_REGEX, '')
+    .replace(PLAN_ITEM_TARGET_SUFFIX_REGEX, '')
     .trim();
 
-  if (!cleaned || cleaned.length < 3) return null;
+  if (!cleaned || cleaned.length < PLAN_ITEM_MIN_LEN) return null;
 
-  // Split by "and" or commas
   const items = cleaned
-    .split(/\s*(?:,\s*(?:and\s+)?|(?:\s+and\s+))\s*/i)
+    .split(PLAN_ITEM_SPLIT_REGEX)
     .map(s => s.trim())
-    .filter(s => s.length >= 3);
+    .filter(s => s.length >= PLAN_ITEM_MIN_LEN);
 
   return items.length > 0 ? items : [cleaned];
 }
@@ -901,6 +949,7 @@ const ACTION_VERBS = [
 const ACTION_VERB_PATTERN = new RegExp(
   `\\b(?:${ACTION_VERBS.join('|')})\\b`, 'gi'
 );
+const CONNECTOR_PATTERN = /\b(?:and\s+then|then\s+also|also|plus|as\s+well\s+as|after\s+that)\b/i;
 
 /**
  * Detect whether a message implies multiple distinct actions.
@@ -916,16 +965,10 @@ const ACTION_VERB_PATTERN = new RegExp(
 function detectMultiAction(message) {
   const lower = message.toLowerCase();
   const matches = lower.match(ACTION_VERB_PATTERN) || [];
-
-  // Deduplicate verbs
   const uniqueVerbs = [...new Set(matches)];
-
-  // Also boost confidence if connector words join action clauses
-  const hasConnectors = /\b(?:and\s+then|then\s+also|also|plus|as\s+well\s+as|after\s+that)\b/i.test(message);
-
+  const hasConnectors = CONNECTOR_PATTERN.test(message);
   const verbCount = uniqueVerbs.length;
   const isMultiAction = verbCount >= 2 || (verbCount >= 1 && hasConnectors);
-
   return { isMultiAction, verbCount, verbs: uniqueVerbs };
 }
 
@@ -941,33 +984,24 @@ function extractMultiActionEntities(message) {
   const experience_names = [];
   const user_refs = [];
 
-  // Extract all quoted strings as potential entity names
-  const quotedMatches = message.matchAll(/["']([^"']+)["']/g);
-  for (const m of quotedMatches) {
+  for (const m of message.matchAll(QUOTED_STRING_REGEX_GLOBAL)) {
     experience_names.push(m[1]);
   }
 
-  // Extract all emails
-  const emailMatches = message.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
-  for (const m of emailMatches) {
+  for (const m of message.matchAll(EMAIL_REGEX_GLOBAL)) {
     user_refs.push(m[0]);
   }
 
-  // Extract capitalized proper nouns after prepositions (likely destination/entity names)
-  const propNounMatches = message.matchAll(/(?:to|in|for|from|about)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)/g);
-  for (const m of propNounMatches) {
+  for (const m of message.matchAll(PROPER_NOUN_AFTER_PREP_REGEX)) {
     const name = m[1].trim();
-    if (name.length >= 2 && name.length <= 80) {
+    if (name.length >= NAME_MIN_LEN && name.length <= NAME_MAX_LEN) {
       destination_names.push(name);
     }
   }
 
-  // Extract names after "invite" or "add" + capitalized name (likely user references)
-  const nameMatches = message.matchAll(/(?:invite|add|remove|with)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b/g);
-  for (const m of nameMatches) {
+  for (const m of message.matchAll(NAME_AFTER_VERB_REGEX)) {
     const name = m[1].trim();
-    // Skip if it looks like an entity type keyword
-    if (!['Plan', 'Experience', 'Destination', 'Items', 'Cost'].includes(name)) {
+    if (!MULTI_ACTION_RESERVED_NAMES.has(name)) {
       user_refs.push(name);
     }
   }
@@ -984,15 +1018,14 @@ function extractMultiActionEntities(message) {
 // ---------------------------------------------------------------------------
 
 function isValidIntent(intent) {
-  // Check built-in intents first, then allow any uppercase intent
-  // (custom intents from DB are uppercase by schema constraint)
-  return Object.values(INTENTS).includes(intent) || /^[A-Z][A-Z0-9_]+$/.test(intent);
+  // Custom intents from DB are uppercase by schema constraint, hence the regex fallback.
+  return VALID_INTENTS.has(intent) || CUSTOM_INTENT_REGEX.test(intent);
 }
 
 function fallbackResult() {
   return {
     intent: INTENTS.ANSWER_QUESTION,
-    entities: { destination_name: null, experience_name: null, user_email: null, plan_item_texts: null },
+    entities: createEmptyEntities(),
     confidence: 0
   };
 }

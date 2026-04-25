@@ -2,10 +2,17 @@
  * AI Admin Providers Tab
  *
  * Manage AI provider configurations - enable/disable, update models, endpoints.
+ *
+ * Pagination exception: this list intentionally has no pagination because
+ * drag-to-reorder requires every provider to be on screen at once. The dataset
+ * is bounded by the hardcoded PROVIDER_BRANDS map below, so exceeding the
+ * 50-record threshold (see CLAUDE.md) is not a realistic risk. If providers
+ * ever exceed 50, replace drag-to-reorder with an explicit position input
+ * before adding pagination.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Flex, Badge, Switch, Stack, Input, Textarea } from '@chakra-ui/react';
+import { Box, Flex, Badge, Stack, Input, Textarea } from '@chakra-ui/react';
 import { FaEdit, FaSave, FaGripVertical } from 'react-icons/fa';
 import {
   DndContext,
@@ -23,8 +30,19 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, Card, CardHeader, CardBody, Alert } from '../../components/design-system';
-import { Text, Heading } from '../../components/design-system';
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardBody,
+  Alert,
+  Text,
+  Heading,
+  Toggle,
+  FormGroup,
+  FormLabel,
+  Pill
+} from '../../components/design-system';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
 import { getProviders, updateProvider, reorderProviders } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
@@ -99,6 +117,38 @@ const getProviderBrand = (key) => PROVIDER_BRANDS[key] || { color: '#666', bg: '
 /* ------------------------------------------------------------------ */
 /* Sortable card wrapper                                                */
 /* ------------------------------------------------------------------ */
+
+function FieldLabel({ children }) {
+  return (
+    <Text
+      as="span"
+      fontSize="var(--font-size-xs)"
+      fontWeight="var(--font-weight-bold)"
+      letterSpacing="0.04em"
+      textTransform="uppercase"
+      color="var(--color-text-muted)"
+    >
+      {children}
+    </Text>
+  );
+}
+
+function KeyValue({ label, value, mono }) {
+  return (
+    <Box>
+      <FieldLabel>{label}</FieldLabel>
+      <Text
+        fontSize="var(--font-size-sm)"
+        fontWeight="var(--font-weight-medium)"
+        color="var(--color-text-primary)"
+        fontFamily={mono ? 'mono' : undefined}
+        mt="var(--space-1)"
+      >
+        {value}
+      </Text>
+    </Box>
+  );
+}
 
 function SortableProviderCard({ id, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -271,7 +321,7 @@ export default function AIAdminProviders() {
   return (
     <Stack gap="var(--space-4)">
       <Box>
-        <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
+        <Heading as="h2" size="heading-3">
           Provider Configurations
         </Heading>
         <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
@@ -313,7 +363,7 @@ export default function AIAdminProviders() {
                               <FaGripVertical />
                             </Box>
                             <Box color={brand.color} flexShrink={0}>{brand.logo}</Box>
-                            <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
+                            <Heading as="h3" size="heading-5">
                               {provider.display_name}
                             </Heading>
                             {!provider.configured ? (
@@ -337,15 +387,12 @@ export default function AIAdminProviders() {
                           <Flex align="center" gap="var(--space-3)">
                             {provider.configured && provider._id && (
                               <>
-                                <Switch.Root
+                                <Toggle
                                   checked={provider.enabled}
-                                  onCheckedChange={() => handleToggleEnabled(provider)}
-                                >
-                                  <Switch.HiddenInput />
-                                  <Switch.Control>
-                                    <Switch.Thumb />
-                                  </Switch.Control>
-                                </Switch.Root>
+                                  onChange={() => handleToggleEnabled(provider)}
+                                  variant="success"
+                                  aria-label={`${provider.enabled ? 'Disable' : 'Enable'} ${provider.display_name}`}
+                                />
                                 {editingId !== provider._id && (
                                   <Button variant="outline" size="sm" onClick={() => handleEdit(provider)}>
                                     <FaEdit /> Edit
@@ -364,37 +411,31 @@ export default function AIAdminProviders() {
                           </Text>
                         ) : editingId === provider._id ? (
                           <Stack gap="var(--space-3)">
-                            <Box>
-                              <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                                Endpoint
-                              </Text>
+                            <FormGroup>
+                              <FormLabel>Endpoint</FormLabel>
                               <Input
                                 value={editForm.endpoint}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, endpoint: e.target.value }))}
                                 size="sm"
                               />
-                            </Box>
-                            <Box>
-                              <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                                Default Model
-                              </Text>
+                            </FormGroup>
+                            <FormGroup>
+                              <FormLabel>Default Model</FormLabel>
                               <Input
                                 value={editForm.default_model}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, default_model: e.target.value }))}
                                 size="sm"
                               />
-                            </Box>
-                            <Box>
-                              <Text fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-medium)" mb="var(--space-1)">
-                                Valid Models (comma-separated)
-                              </Text>
+                            </FormGroup>
+                            <FormGroup>
+                              <FormLabel>Valid Models (comma-separated)</FormLabel>
                               <Textarea
                                 value={editForm.valid_models}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, valid_models: e.target.value }))}
                                 size="sm"
                                 rows={3}
                               />
-                            </Box>
+                            </FormGroup>
                             <Flex gap="var(--space-2)" pt="var(--space-2)">
                               <Button
                                 variant="gradient"
@@ -410,30 +451,21 @@ export default function AIAdminProviders() {
                             </Flex>
                           </Stack>
                         ) : (
-                          <Stack gap="var(--space-2)">
+                          <Stack gap="var(--space-3)">
                             <Flex gap="var(--space-6)" wrap="wrap">
-                              <Box>
-                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Provider Key</Text>
-                                <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.provider}</Text>
-                              </Box>
-                              <Box>
-                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Default Model</Text>
-                                <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.default_model}</Text>
-                              </Box>
-                              <Box>
-                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">API Key Env Var</Text>
-                                <Text fontSize="var(--font-size-sm)" fontFamily="mono">{provider.env_key_name}</Text>
-                              </Box>
-                              <Box>
-                                <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Fallback Order</Text>
-                                <Text fontSize="var(--font-size-sm)">#{index + 1}</Text>
-                              </Box>
+                              <KeyValue label="Provider Key" value={provider.provider} mono />
+                              <KeyValue label="Default Model" value={provider.default_model} mono />
+                              <KeyValue label="API Key Env Var" value={provider.env_key_name} mono />
+                              <KeyValue label="Fallback Order" value={`#${index + 1}`} />
                             </Flex>
                             <Box>
-                              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)" mb="var(--space-1)">
-                                Valid Models ({(provider.valid_models || []).length})
-                              </Text>
-                              <Flex gap="var(--space-1)" wrap="wrap">
+                              <Flex align="center" gap="var(--space-2)">
+                                <FieldLabel>Valid Models</FieldLabel>
+                                <Pill variant="secondary" outline>
+                                  {(provider.valid_models || []).length}
+                                </Pill>
+                              </Flex>
+                              <Flex gap="var(--space-1)" wrap="wrap" mt="var(--space-2)">
                                 {(provider.valid_models || []).map(model => (
                                   <Badge key={model} variant="outline" fontSize="var(--font-size-xs)">
                                     {model}

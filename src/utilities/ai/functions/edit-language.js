@@ -4,8 +4,9 @@
  * @module ai/functions/edit-language
  */
 
-import { AI_TASKS, SYSTEM_PROMPTS } from '../constants';
+import { AI_TASKS } from '../constants';
 import { complete } from '../complete';
+import { resolveSystemPrompt } from './_shared';
 
 /**
  * Edit and improve the language of text
@@ -20,7 +21,7 @@ import { complete } from '../complete';
 export async function editLanguage(text, options = {}) {
   const { tone = 'friendly' } = options;
 
-  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.EDIT_LANGUAGE]) || SYSTEM_PROMPTS[AI_TASKS.EDIT_LANGUAGE];
+  const systemPrompt = resolveSystemPrompt(AI_TASKS.EDIT_LANGUAGE, options);
 
   const messages = [
     { role: 'system', content: systemPrompt },

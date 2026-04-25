@@ -3576,11 +3576,20 @@ exports.execute = async (req, res) => {
             nextStepsBlock
           ].join('\n');
 
-          const { provider } = await getProviderForTask(AI_TASKS.CHAT);
-          const llmResult = await callProvider(provider, [
+          const followUpProvider = getProviderForTask(AI_TASKS.BIENBOT_CHAT);
+          if (!getApiKey(followUpProvider)) {
+            throw new Error('AI provider not configured for follow-up');
+          }
+          const llmResult = await callProvider(followUpProvider, [
             { role: 'system', content: followUpSystemPrompt },
             { role: 'user', content: '[USER MESSAGE]\nWhat should I do next?\n[/USER MESSAGE]' }
-          ], { stream: false });
+          ], {
+            stream: false,
+            _user: req.user,
+            task: AI_TASKS.BIENBOT_CHAT,
+            maxTokens: 300,
+            temperature: 0.4
+          });
 
           const raw = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
           try {
