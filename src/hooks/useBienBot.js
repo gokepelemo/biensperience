@@ -152,37 +152,18 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   }, [userId]);
 
   // ---------------------------------------------------------------------------
-  // sendMessage
+  // streamMessage — internal SSE streaming helper shared by sendMessage and
+  // sendHiddenMessage. Manages the assistant placeholder, abort controller,
+  // session bootstrap, and all SSE event handlers.
+  //
+  // @param {Object} opts
+  // @param {string}  opts.text        - Wire text (stored in session history)
+  // @param {string}  [opts.hiddenText] - When set, sent to LLM via hiddenUserMessage;
+  //                                      text is stored as the visible turn
+  // @param {File}    [opts.attachment] - File attachment (sendMessage flow only)
   // ---------------------------------------------------------------------------
 
-  /**
-   * Send a user message. Auto-creates a session on first send if sessionId is null.
-   * invokeContext is forwarded only on the very first send.
-   *
-   * @param {string} text - User message text
-   * @param {File} [attachment] - Optional file attachment to extract text from
-   */
-  const sendMessage = useCallback(async (text, attachment) => {
-    if (!text?.trim()) return;
-
-    // Clear suggested next steps when user sends a new message
-    setSuggestedNextSteps([]);
-
-    // Dismiss any pending action prompts — the new message supersedes them
-    setPendingActions([]);
-
-    // Optimistic: append user message immediately
-    const userMessage = {
-      _id: `temp-${Date.now()}`,
-      role: 'user',
-      content: text,
-      createdAt: new Date().toISOString(),
-      attachments: attachment ? [{ filename: attachment.name, mimeType: attachment.type, fileSize: attachment.size }] : []
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-
-    // Prepare streaming state
+  async function streamMessage({ text, hiddenText, attachment }) {
     const assistantMessageId = `temp-${Date.now()}-assistant`;
     let streamedContent = '';
 
@@ -220,6 +201,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         navigationSchema: (isFirstMessage && navigationSchema) ? navigationSchema : undefined,
         priorGreeting: priorGreeting || undefined,
         attachment: attachment || undefined,
+        hiddenUserMessage: hiddenText || undefined,
         signal: controller.signal,
 
         onSession: ({ sessionId: newSessionId, title, attachment: attachmentInfo }) => {
@@ -247,21 +229,23 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             } : {})
           }));
           persistSessionId(newSessionId);
-          // Update optimistic user message with S3 attachment info from server
+          // Update optimistic user message with S3 attachment info from server.
+          // Find the most recent user message that has a pending attachment without s3Key.
           if (attachmentInfo?.s3Key) {
             setMessages(prev =>
-              prev.map(m =>
-                m._id === userMessage._id && m.attachments?.length > 0
-                  ? {
-                      ...m,
-                      attachments: m.attachments.map((att, idx) =>
-                        idx === 0
-                          ? { ...att, s3Key: attachmentInfo.s3Key, s3Bucket: attachmentInfo.s3Bucket, isProtected: attachmentInfo.isProtected }
-                          : att
-                      )
-                    }
-                  : m
-              )
+              prev.map(m => {
+                if (m.role === 'user' && m.attachments?.length > 0 && !m.attachments[0].s3Key) {
+                  return {
+                    ...m,
+                    attachments: m.attachments.map((att, idx) =>
+                      idx === 0
+                        ? { ...att, s3Key: attachmentInfo.s3Key, s3Bucket: attachmentInfo.s3Bucket, isProtected: attachmentInfo.isProtected }
+                        : att
+                    )
+                  };
+                }
+                return m;
+              })
             );
           }
         },
@@ -341,9 +325,9 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       });
     } catch (err) {
       if (err.name === 'AbortError') {
-        logger.debug('[useBienBot] Message send aborted');
+        logger.debug('[useBienBot] Stream aborted');
       } else {
-        logger.error('[useBienBot] Failed to send message', { error: err.message });
+        logger.error('[useBienBot] Failed to stream message', { error: err.message });
         // Never expose raw exception messages in the chat UI.
         setMessages(prev =>
           prev.map(m =>
@@ -359,6 +343,40 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       });
       abortControllerRef.current = null;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // sendMessage
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send a user message. Auto-creates a session on first send if sessionId is null.
+   * invokeContext is forwarded only on the very first send.
+   *
+   * @param {string} text - User message text
+   * @param {File} [attachment] - Optional file attachment to extract text from
+   */
+  const sendMessage = useCallback(async (text, attachment) => {
+    if (!text?.trim()) return;
+
+    // Clear suggested next steps when user sends a new message
+    setSuggestedNextSteps([]);
+
+    // Dismiss any pending action prompts — the new message supersedes them
+    setPendingActions([]);
+
+    // Optimistic: append user message immediately
+    const userMessage = {
+      _id: `temp-${Date.now()}`,
+      role: 'user',
+      content: text,
+      createdAt: new Date().toISOString(),
+      attachments: attachment ? [{ filename: attachment.name, mimeType: attachment.type, fileSize: attachment.size }] : []
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    await streamMessage({ text, attachment });
   }, [invokeContext, navigationSchema, userId, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
@@ -380,151 +398,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     if (!storedText?.trim() || !hiddenText?.trim()) return;
     if (isStreaming || isLoading) return;
 
-    const assistantMessageId = `temp-${Date.now()}-assistant`;
-    let streamedContent = '';
-
-    batchedUpdates(() => {
-      setIsLoading(true);
-      setIsStreaming(true);
-    });
-
-    setMessages(prev => [...prev, {
-      _id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      createdAt: new Date().toISOString()
-    }]);
-
-    cancelStream();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    const sid = sessionIdRef.current;
-    // Replicate first-send bootstrap so invokeContext, navigationSchema, and the
-    // prior greeting are forwarded even when sendHiddenMessage creates the session.
-    const shouldSendContext = !sid && invokeContext?.entity && invokeContext?.id && !invokeContextSentRef.current;
-    const capturedPriorGreeting = !sid ? priorGreetingRef.current : null;
-    if (capturedPriorGreeting) priorGreetingRef.current = null;
-
-    try {
-      await postMessage(sid, storedText, {
-        hiddenUserMessage: hiddenText,
-        invokeContext: shouldSendContext ? invokeContext : undefined,
-        navigationSchema: (!sid && !invokeContextSentRef.current && navigationSchema) ? navigationSchema : undefined,
-        priorGreeting: capturedPriorGreeting || undefined,
-        signal: controller.signal,
-
-        onSession: ({ sessionId: newSessionId, title }) => {
-          sessionIdRef.current = newSessionId;
-          if (shouldSendContext) {
-            invokeContextSentRef.current = true;
-          }
-          setCurrentSession(prev => ({
-            ...(prev || {}),
-            _id: newSessionId,
-            title: title || prev?.title,
-            user: userId,
-            // Populate invoke_context on new sessions so the reconciliation effect
-            // recognises the entity as already tracked and does not inject a
-            // spurious "context has changed" ack message.
-            ...(shouldSendContext ? {
-              invoke_context: {
-                entity: invokeContext.entity,
-                entity_id: invokeContext.id,
-                entity_label: invokeContext.label,
-              }
-            } : {})
-          }));
-          persistSessionId(newSessionId);
-        },
-
-        onToken: (tokenText) => {
-          streamedContent += tokenText;
-          const captured = streamedContent;
-          setMessages(prev =>
-            prev.map(m =>
-              m._id === assistantMessageId
-                ? { ...m, content: captured }
-                : m
-            )
-          );
-        },
-
-        onActions: (actions) => {
-          setPendingActions(actions || []);
-        },
-
-        onStructuredContent: (blocks) => {
-          if (blocks && blocks.length > 0) {
-            setMessages(prev =>
-              prev.map(m => {
-                if (m._id !== assistantMessageId) return m;
-                let existing = m.structured_content || [];
-                let updated = [...existing];
-                for (const block of blocks) {
-                  if (block.type === 'discovery_result_list') {
-                    const sentinelIdx = updated.findIndex(
-                      b => b.type === 'discovery_result_list' && b.data === null
-                    );
-                    if (sentinelIdx !== -1) {
-                      updated = [...updated];
-                      updated[sentinelIdx] = block;
-                    } else {
-                      updated = [...updated, block];
-                    }
-                  } else {
-                    updated = [...updated, block];
-                  }
-                }
-                return { ...m, structured_content: updated };
-              })
-            );
-          }
-        },
-
-        onDone: () => {
-          batchedUpdates(() => {
-            setIsStreaming(false);
-            setIsLoading(false);
-          });
-          abortControllerRef.current = null;
-        },
-
-        onError: (error) => {
-          logger.error('[useBienBot] sendHiddenMessage stream error', { error: error.message });
-          batchedUpdates(() => {
-            setIsStreaming(false);
-            setIsLoading(false);
-          });
-          setMessages(prev =>
-            prev.map(m =>
-              m._id === assistantMessageId
-                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true }
-                : m
-            )
-          );
-          abortControllerRef.current = null;
-        }
-      });
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        logger.debug('[useBienBot] sendHiddenMessage aborted');
-      } else {
-        logger.error('[useBienBot] sendHiddenMessage failed', { error: err.message });
-        setMessages(prev =>
-          prev.map(m =>
-            m._id === assistantMessageId
-              ? { ...m, content: 'Something went wrong. Please try again.', error: true }
-              : m
-          )
-        );
-      }
-      batchedUpdates(() => {
-        setIsStreaming(false);
-        setIsLoading(false);
-      });
-      abortControllerRef.current = null;
-    }
+    await streamMessage({ text: storedText, hiddenText });
   }, [isStreaming, isLoading, invokeContext, navigationSchema, userId, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
