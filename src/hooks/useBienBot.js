@@ -359,7 +359,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       });
       abortControllerRef.current = null;
     }
-  }, [invokeContext, cancelStream, persistSessionId]);
+  }, [invokeContext, navigationSchema, userId, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
   // sendHiddenMessage — programmatic follow-up that stores visibleText in the
@@ -525,7 +525,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       });
       abortControllerRef.current = null;
     }
-  }, [isStreaming, isLoading, invokeContext, navigationSchema, cancelStream, persistSessionId]);
+  }, [isStreaming, isLoading, invokeContext, navigationSchema, userId, cancelStream, persistSessionId]);
 
   // ---------------------------------------------------------------------------
   // executeActions
@@ -664,7 +664,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       logger.error('[useBienBot] Failed to update context', { error: err.message, entity, entityId });
       return null;
     }
-  }, []);
+  }, [userId]);
 
   /**
    * Explicitly switch BienBot's context to a new entity. Unlike updateContext (passive
@@ -696,7 +696,10 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
 
     setIsLoading(true);
     try {
-      const result = await resumeSessionAPI(sid);
+      const currentPageContext = invokeContext?.entity && invokeContext?.id
+        ? { entity: invokeContext.entity, id: invokeContext.id, label: invokeContext.label }
+        : null;
+      const result = await resumeSessionAPI(sid, currentPageContext);
       const { session, greeting } = result || {};
 
       if (!session) {
@@ -748,7 +751,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     } finally {
       setIsLoading(false);
     }
-  }, [persistSessionId]);
+  }, [persistSessionId, invokeContext]);
 
   /**
    * Clear the current session state. Does NOT delete the session server-side.
@@ -983,7 +986,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         )
       );
     }
-  }, []);
+  }, [userId]);
 
   /**
    * Search mutual followers for sharing the current session.

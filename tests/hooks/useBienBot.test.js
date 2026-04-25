@@ -141,7 +141,7 @@ describe('useBienBot', () => {
 
       await waitForNextUpdate();
 
-      expect(bienbotApi.resumeSession).toHaveBeenCalledWith('sess-1');
+      expect(bienbotApi.resumeSession).toHaveBeenCalledWith('sess-1', null);
       expect(result.current.currentSession).toEqual(session);
     });
 
@@ -782,6 +782,76 @@ describe('useBienBot', () => {
 
       global.AbortController = OriginalAbortController;
     });
+  });
+});
+
+// ─── stale closure dep tests ──────────────────────────────────────────────────
+describe('stale closure deps', () => {
+  it('sendMessage uses the current userId after a re-render with a new userId', async () => {
+    bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+      { type: 'session', data: { sessionId: 'new-session-id', title: 'Test' } },
+      { type: 'done', data: {} },
+    ]));
+
+    const { result, rerender } = renderHook(({ userId }) => useBienBot({ userId }), {
+      initialProps: { userId: 'user-A' },
+    });
+
+    await act(async () => { await result.current.sendMessage('hi'); });
+    expect(result.current.currentSession?.user).toBe('user-A');
+
+    // Rerender with a different userId then clear to let the next send create a session
+    rerender({ userId: 'user-B' });
+    act(() => { result.current.clearSession(); });
+
+    bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+      { type: 'session', data: { sessionId: 'new-session-id-2', title: 'Test 2' } },
+      { type: 'done', data: {} },
+    ]));
+
+    await act(async () => { await result.current.sendMessage('hello'); });
+    // sendMessage must capture the current userId via its dep on persistSessionId(userId)
+    expect(result.current.currentSession?.user).toBe('user-B');
+  });
+
+  it('updateContext uses the current userId after a re-render with a new userId', async () => {
+    // Set up a session first
+    bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+      { type: 'session', data: { sessionId: 'ctx-sess', title: 'Test' } },
+      { type: 'done', data: {} },
+    ]));
+    // updateContext checks isOwnProfile: entityId.toString() === userId.toString()
+    // Return a label so the ack message is appended
+    bienbotApi.updateSessionContext.mockResolvedValue({ entityLabel: 'Test Entity' });
+
+    const { result, rerender } = renderHook(({ userId }) => useBienBot({ userId }), {
+      initialProps: { userId: 'user-A' },
+    });
+
+    await act(async () => { await result.current.sendMessage('hi'); });
+
+    // Rerender with userId = 'user-C' (the entityId we will pass to updateContext)
+    rerender({ userId: 'user-C' });
+
+    let label;
+    await act(async () => {
+      // Pass userId 'user-C' as the entityId — isOwnProfile should be true
+      // only if updateContext captures the updated userId from the current render
+      label = await result.current.updateContext('user', 'user-C');
+    });
+
+    // If updateContext is stale (userId still 'user-A'), isOwnProfile = false
+    // and ackContent will contain "Context has changed to" vs "Context switched to"
+    // We test the label return value — that should always be the server response
+    expect(label).toBe('Test Entity');
+
+    // Verify the ack message content reflects isOwnProfile correctly
+    const msgs = result.current.messages;
+    const ackMsg = msgs[msgs.length - 1];
+    expect(ackMsg?.isContextAck).toBe(true);
+    // isOwnProfile: entityId === userId. After fix, userId is 'user-C' and entityId is 'user-C'
+    // so ack should say "your profile"
+    expect(ackMsg?.content).toContain('your profile');
   });
 });
 
