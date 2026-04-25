@@ -300,7 +300,7 @@ const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{
 // Placeholder token used to survive markdown parsing: \uE000entity{n}\uE001 (Private Use Area - safe through remark)
 const PLACEHOLDER_RE = /\uE000entity(\d+)\uE001/g;
 
-function buildEntityChip(ref, idx, _navigate, chipStyles) {
+function buildEntityChip(ref, idx, chipStyles) {
   const { _id, name, type } = ref;
   let url = null;
   if (_id && name && type) {
@@ -333,7 +333,7 @@ function substituteChips(text, entityRefs, navigate, chipStyles) {
   while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     const ref = entityRefs[parseInt(m[1], 10)];
-    if (ref) parts.push(buildEntityChip(ref, m.index, navigate, chipStyles));
+    if (ref) parts.push(buildEntityChip(ref, m.index, chipStyles));
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
@@ -1745,7 +1745,7 @@ export default function BienBotPanel({
     (actionId) => {
       logger.debug('[BienBotPanel] Cancelling action', { actionId });
       cancelAction(actionId);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      inputRef.current?.focus();
     },
     [cancelAction]
   );

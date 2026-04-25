@@ -366,4 +366,11 @@ BienBotPanelLazy.propTypes = {
     })),
   }),
   clearAnalysisSuggestions: PropTypes.func,
+  baseInvokeContext: PropTypes.shape({
+    entity: PropTypes.string,
+    id: PropTypes.string,
+    label: PropTypes.string,
+    contextDescription: PropTypes.string
+  }),
+  navigationSchema: PropTypes.object,
 };
