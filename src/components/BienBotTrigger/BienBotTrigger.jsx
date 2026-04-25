@@ -23,6 +23,7 @@ import { useNavigationContext } from '../../contexts/NavigationContext';
 import { subscribeToEvent } from '../../utilities/event-bus';
 import { openWithAnalysis } from '../../hooks/useBienBot';
 import { logger } from '../../utilities/logger';
+import { BienBotIcon } from '../BienBotPanel/icons';
 import styles from './BienBotTrigger.module.css';
 
 /**
@@ -177,6 +178,26 @@ export default function BienBotTrigger({
     setInvokeContextOverride(null);
   }, []);
 
+  const handleReset = useCallback(() => {
+    logger.debug('[BienBotTrigger] BienBot reset by user click during loading');
+    setPanelMounted(false);
+    setPanelOpen(false);
+    setPanelLoading(false);
+    setGreetingLoading(false);
+    setInitialMessage(null);
+    setInitialSessionId(null);
+    setAnalysisSuggestions(null);
+    setInvokeContextOverride(null);
+  }, []);
+
+  const handleFabClick = useCallback(() => {
+    if (greetingLoading || panelLoading) {
+      handleReset();
+    } else {
+      handleOpen();
+    }
+  }, [greetingLoading, panelLoading, handleReset, handleOpen]);
+
   const clearAnalysisSuggestions = useCallback(() => {
     setAnalysisSuggestions(null);
   }, []);
@@ -210,20 +231,16 @@ export default function BienBotTrigger({
         <button
           type="button"
           className={`${styles.fab} ${!hasChatAccess ? styles.fabNotification : ''}`}
-          onClick={handleOpen}
-          disabled={greetingLoading || panelLoading}
+          onClick={handleFabClick}
           aria-busy={greetingLoading || panelLoading}
-          aria-label={greetingLoading || panelLoading ? 'Loading BienBot…' : ariaLabel}
+          aria-label={greetingLoading || panelLoading ? 'BienBot is loading. Click to restart.' : ariaLabel}
+          title={greetingLoading || panelLoading ? 'Click to restart BienBot' : undefined}
         >
           <span className={styles.fabIcon} aria-hidden="true">
             {greetingLoading || panelLoading ? (
               <span className={styles.spinner} />
             ) : hasChatAccess ? (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor" />
-                <path d="M9 9.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5zM15 9.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z" fill="currentColor" />
-                <path d="M12 17.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" fill="currentColor" />
-              </svg>
+              <BienBotIcon size={24} />
             ) : (
               <FaBell size={20} />
             )}
