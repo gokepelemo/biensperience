@@ -28,21 +28,15 @@ import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import { OperationType } from '../../utilities/plan-operations';
 import WorkflowStepCard from './WorkflowStepCard';
 import PlanSelector from './PlanSelector';
-import SuggestionList from './SuggestionList';
-import TipSuggestionList from './TipSuggestionList';
-import BienBotPhotoGallery from './BienBotPhotoGallery';
-import DiscoveryResultCard from './DiscoveryResultCard';
 import PendingActionCard from './PendingActionCard';
 import SessionHistoryView from './SessionHistoryView';
-import EntityRefList from './EntityRefList';
 import { applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { createPlan } from '../../utilities/plans-api';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import NotificationItem from './NotificationItem';
-import ImageAttachment from './ImageAttachment';
-import MessageContent from './MessageContent';
 import BienBotHeader from './BienBotHeader';
+import MessageList from './MessageList';
 import styles from './BienBotPanel.module.css';
 import { CloseIcon, BienBotIcon, SendIcon, AttachIcon } from './icons';
 
@@ -1457,6 +1451,21 @@ export default function BienBotPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only re-run on `open` flip; `currentSession` and `fetchSessions` would re-trigger the fetch on every session change
   }, [open]);
 
+  // ── Resume / dismiss saved session callbacks (passed to MessageList) ────────
+  const handleResume = useCallback(() => {
+    if (!savedSession) return;
+    const sid = savedSession.sessionId;
+    setSavedSession(null);
+    loadSession(sid).catch(() => {
+      clearPersistedSession();
+    });
+  }, [savedSession, loadSession, clearPersistedSession]);
+
+  const handleDismissResume = useCallback(() => {
+    setSavedSession(null);
+    clearPersistedSession();
+  }, [clearPersistedSession]);
+
   // Panel label from invokeContext
   const panelLabel = notificationOnly
     ? 'Notifications'
@@ -1573,191 +1582,28 @@ export default function BienBotPanel({
             )}
 
             {/* ── Messages ───────────────────────────────────────── */}
-            <div ref={messagesContainerRef} className={styles.messages} aria-live="off" aria-atomic="false">
-              {savedSession && !currentSession && messages.length === 0 && !isLoading ? (
-                <div className={styles.resumePrompt}>
-                  <Text size="sm">You have an unfinished conversation.</Text>
-                  <div className={styles.resumeButtons}>
-                    <Button
-                      variant="gradient"
-                      size="sm"
-                      onClick={() => {
-                        const sid = savedSession.sessionId;
-                        setSavedSession(null);
-                        loadSession(sid).catch(() => {
-                          clearPersistedSession();
-                        });
-                      }}
-                    >
-                      Continue
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSavedSession(null);
-                        clearPersistedSession();
-                      }}
-                    >
-                      New Chat
-                    </Button>
-                  </div>
-                </div>
-              ) : messages.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>
-                  <Text size="sm">{emptyStateText}</Text>
-                </div>
-              ) : (
-                messages.map((msg, msgIdx) => {
-                  const isUser = msg.role === 'user';
-                  const isAssistant = msg.role === 'assistant';
-                  const isSharedComment = msg.message_type === 'shared_comment';
-                  // A collaborator message is a shared_comment from someone other than the
-                  // current user. We use sent_by (ObjectId) for the comparison.
-                  const isCollaboratorMessage = isSharedComment && msg.sender_name &&
-                    msg.sent_by?.toString() !== user?._id?.toString();
-                  const isCurrentlyStreaming =
-                    isAssistant && isStreaming && msg === messages[messages.length - 1];
-
-                  // Skip rendering empty bubbles (no text, no structured content, no attachments)
-                  const hasContent = msg.content ||
-                    msg.structured_content?.length > 0 ||
-                    (isUser && msg.attachments?.length > 0) ||
-                    isCurrentlyStreaming;
-                  if (!hasContent) return null;
-
-                  return (
-                    <div
-                      key={msg.msg_id || msg._id || msgIdx}
-                      className={[
-                        styles.message,
-                        isSharedComment ? styles.messageSharedComment : (isUser ? styles.messageUser : styles.messageAssistant),
-                        msg.error ? styles.messageError : '',
-                        msg.isContextAck ? styles.messageContextAck : '',
-                        msg.isActionResult ? styles.messageActionResult : '',
-                        isCurrentlyStreaming ? styles.streaming : ''
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {isSharedComment && msg.sender_name && (
-                        <span className={styles.messageSenderName}>{msg.sender_name}</span>
-                      )}
-                      {msg.reply_to_preview && (
-                        <span className={styles.replyPreviewInMessage}>{msg.reply_to_preview}</span>
-                      )}
-                      {isUser && msg.attachments?.length > 0 && (
-                        <div className={styles.messageAttachments}>
-                          {msg.attachments.map((att, i) => {
-                            const isImage = att.mimeType?.startsWith('image/');
-                            if (isImage && att.s3Key) {
-                              return (
-                                <ImageAttachment
-                                  key={i}
-                                  attachment={att}
-                                  sessionId={currentSession?._id}
-                                  messageIndex={msgIdx}
-                                  attachmentIndex={i}
-                                />
-                              );
-                            }
-                            return (
-                              <span key={i} className={styles.attachmentBadge}>
-                                <AttachIcon />
-                                <span className={styles.attachmentFilename}>{att.filename}</span>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-                      <MessageContent text={msg.content} role={msg.role} />
-                      {msg.structured_content?.length > 0 && (
-                        <div className={styles.structuredContent}>
-                          {msg.structured_content.map((block, blockIdx) => {
-                            if (block.type === 'suggestion_list') {
-                              return (
-                                <SuggestionList
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onAddSelected={handleAddSuggestedItems}
-                                  disabled={isLoading || isStreaming}
-                                  existingItemTexts={currentPlanItemTexts}
-                                />
-                              );
-                            }
-                            if (block.type === 'photo_gallery') {
-                              return (
-                                <BienBotPhotoGallery
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onAddPhotos={handleAddPhotos}
-                                  disabled={isLoading || isStreaming}
-                                />
-                              );
-                            }
-                            if (block.type === 'tip_suggestion_list') {
-                              return (
-                                <TipSuggestionList
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onAddSelected={handleAddTips}
-                                  disabled={isLoading || isStreaming}
-                                />
-                              );
-                            }
-                            if (block.type === 'discovery_result_list') {
-                              return (
-                                <DiscoveryResultCard
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onView={handleViewDiscoveryResult}
-                                  onPlan={handlePlanDiscoveryResult}
-                                  onEmpty={handleDiscoveryEmpty}
-                                  disabled={isLoading || isStreaming}
-                                />
-                              );
-                            }
-                            if (block.type === 'entity_ref_list') {
-                              return (
-                                <EntityRefList
-                                  key={blockIdx}
-                                  refs={block.data?.refs || []}
-                                  onSelect={handleEntityRefSelect}
-                                />
-                              );
-                            }
-                            return null;
-                          })}
-                        </div>
-                      )}
-                      {isCollaboratorMessage && msg.msg_id && (
-                        <div className={styles.collaboratorReplyRow}>
-                          <button
-                            type="button"
-                            className={styles.collaboratorReplyButton}
-                            onClick={() => handleReplyToCollaborator(msg)}
-                            aria-label={`Reply to ${msg.sender_name}`}
-                          >
-                            ↩ Reply
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-
-              {/* Loading dots (between last user message and first assistant token) */}
-              {isLoading && !isStreaming && (
-                <div className={styles.loadingDots} aria-label="BienBot is thinking">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
+            <MessageList
+              messages={messages}
+              isLoading={isLoading}
+              isStreaming={isStreaming}
+              currentSession={currentSession}
+              emptyStateText={emptyStateText}
+              savedSession={savedSession}
+              onResume={handleResume}
+              onDismissResume={handleDismissResume}
+              onAddSuggestedItems={handleAddSuggestedItems}
+              onAddPhotos={handleAddPhotos}
+              onAddTips={handleAddTips}
+              onViewDiscoveryResult={handleViewDiscoveryResult}
+              onPlanDiscoveryResult={handlePlanDiscoveryResult}
+              onDiscoveryEmpty={handleDiscoveryEmpty}
+              onEntityRefSelect={handleEntityRefSelect}
+              onReplyToCollaborator={handleReplyToCollaborator}
+              currentPlanItemTexts={currentPlanItemTexts}
+              currentUserId={user?._id?.toString()}
+              messagesContainerRef={messagesContainerRef}
+              messagesEndRef={messagesEndRef}
+            />
 
             {/* ── Screen-reader status: announce only the final assistant message ── */}
             {!isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
