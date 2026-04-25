@@ -1939,9 +1939,21 @@ export default function BienBotPanel({
       >
         {/* ── Header ─────────────────────────────────────────── */}
         <div className={styles.header}>
-          <span className={styles.botIcon} aria-hidden="true">
-            {notificationOnly ? <FaBell size={22} /> : <BienBotIcon />}
-          </span>
+          {!notificationOnly && (isLoading || isStreaming) ? (
+            <button
+              type="button"
+              className={styles.botIconReload}
+              onClick={clearSession}
+              aria-label="BienBot is loading — click to reload"
+              title="Stuck? Click to reload BienBot"
+            >
+              <BienBotIcon />
+            </button>
+          ) : (
+            <span className={styles.botIcon} aria-hidden="true">
+              {notificationOnly ? <FaBell size={22} /> : <BienBotIcon />}
+            </span>
+          )}
 
           <div className={styles.headerTitle}>
             <Heading level={5} style={{ margin: 0, lineHeight: 1.3 }}>
