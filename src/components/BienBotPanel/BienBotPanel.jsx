@@ -946,7 +946,7 @@ export default function BienBotPanel({
     if (clearAnalysisSuggestions) {
       clearAnalysisSuggestions();
     }
-  }, [open, analysisSuggestions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, analysisSuggestions, replaceInitialGreeting, setPriorGreeting, setSuggestedNextSteps, clearAnalysisSuggestions]);
 
   // ── Re-focus input after BienBot finishes responding ─────────────────────
   useEffect(() => {
@@ -1000,7 +1000,7 @@ export default function BienBotPanel({
       // replaced/injected the new entity's greeting.
       resetSession();
     }
-  }, [open, navContext?.entity, navContext?.id, updateContext, resetSession]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, navContext?.entity, navContext?.id, updateContext, resetSession]);
 
   // ── Reconcile a resumed session's context with the current page entity ──────
   // When the user resumes an old session while viewing a different entity, the
@@ -1923,7 +1923,7 @@ export default function BienBotPanel({
   useEffect(() => {
     if (!open || currentSession) return;
     fetchSessions({ status: 'active' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only re-run on `open` flip; `currentSession` and `fetchSessions` would re-trigger the fetch on every session change
   }, [open]);
 
   // Panel label from invokeContext
