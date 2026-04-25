@@ -169,7 +169,7 @@ PayloadEditor.propTypes = {
  * WorkflowStepCard renders each exploded workflow step with approve / skip / edit
  * controls, payload details, and a progress bar.
  */
-export default function WorkflowStepCard({
+function WorkflowStepCard({
   workflowId,
   steps,
   onApprove,
@@ -372,3 +372,5 @@ WorkflowStepCard.propTypes = {
   onCancelWorkflow: PropTypes.func.isRequired,
   disabled: PropTypes.bool
 };
+
+export default React.memo(WorkflowStepCard);

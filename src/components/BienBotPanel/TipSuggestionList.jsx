@@ -51,7 +51,7 @@ const CATEGORY_COLORS = {
   Overview: 'info'
 };
 
-export default function TipSuggestionList({ data, onAddSelected, disabled }) {
+function TipSuggestionList({ data, onAddSelected, disabled }) {
   const { tips = [], destination_name, provider_count } = data || {};
   const [selected, setSelected] = useState(new Set());
 
@@ -186,3 +186,5 @@ TipSuggestionList.propTypes = {
   onAddSelected: PropTypes.func,
   disabled: PropTypes.bool
 };
+
+export default React.memo(TipSuggestionList);

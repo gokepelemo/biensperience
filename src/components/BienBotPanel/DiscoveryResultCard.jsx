@@ -244,7 +244,7 @@ function DiscoveryCard({ result, onView, onPlan, disabled }) {
 // Main export
 // ---------------------------------------------------------------------------
 
-export default function DiscoveryResultCard({ data, onView, onPlan, onEmpty, disabled }) {
+function DiscoveryResultCard({ data, onView, onPlan, onEmpty, disabled }) {
   const [expanded, setExpanded] = useState(false);
   const handleToggle = useCallback(() => setExpanded(prev => !prev), []);
 
@@ -328,3 +328,5 @@ DiscoveryResultCard.propTypes = {
   onEmpty: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
 };
+
+export default React.memo(DiscoveryResultCard);

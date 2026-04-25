@@ -47,7 +47,7 @@ const TYPE_LABELS = {
 };
 
 
-export default function EntityRefList({ refs, onSelect }) {
+function EntityRefList({ refs, onSelect }) {
   const navigate = useNavigate();
   // Tracks which plan_item card (by index) has its action row expanded.
   const [expandedIdx, setExpandedIdx] = useState(null);
@@ -156,3 +156,5 @@ EntityRefList.propTypes = {
   })).isRequired,
   onSelect: PropTypes.func,
 };
+
+export default React.memo(EntityRefList);

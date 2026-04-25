@@ -31,7 +31,7 @@ function CheckIcon() {
   );
 }
 
-export default function SuggestionList({ data, onAddSelected, disabled, existingItemTexts }) {
+function SuggestionList({ data, onAddSelected, disabled, existingItemTexts }) {
   const { suggestions = [], destination_name, source_count } = data || {};
 
   // Filter out items already in the plan so we never suggest duplicates.
@@ -192,3 +192,5 @@ SuggestionList.propTypes = {
   disabled: PropTypes.bool,
   existingItemTexts: PropTypes.instanceOf(Set)
 };
+
+export default React.memo(SuggestionList);

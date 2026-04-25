@@ -186,7 +186,7 @@ function renderBody(type, payload) {
 
 // ─── PendingActionCard ──────────────────────────────────────────────────────
 
-export default function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, executing }) {
+function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, executing }) {
   const actionId = action._id || action.id;
   const actionType = action.type || action.action_type || 'Action';
   const description = action.description || action.summary || actionType;
@@ -279,3 +279,5 @@ PendingActionCard.propTypes = {
   disabled: PropTypes.bool,
   executing: PropTypes.string
 };
+
+export default React.memo(PendingActionCard);
