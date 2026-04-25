@@ -26,6 +26,7 @@ import {
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
 import { decodeHtmlEntities } from '../../utilities/html-entities';
+import { getEntityUrl } from '../../utilities/bienbot-entity-urls';
 import { broadcastEvent } from '../../utilities/event-bus';
 import { OperationType } from '../../utilities/plan-operations';
 import WorkflowStepCard from './WorkflowStepCard';
@@ -303,12 +304,7 @@ const PLACEHOLDER_RE = /\uE000entity(\d+)\uE001/g;
 
 function buildEntityChip(ref, idx, chipStyles) {
   const { _id, name, type } = ref;
-  let url = null;
-  if (_id && name && type) {
-    if (type === 'destination') url = `/destinations/${_id}`;
-    else if (type === 'experience') url = `/experiences/${_id}`;
-    else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
-  }
+  const url = getEntityUrl(ref);
   const label = name || type || 'entity';
   if (url) {
     return (

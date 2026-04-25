@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import styles from './BienBotPanel.module.css';
+import { getEntityUrl } from '../../utilities/bienbot-entity-urls';
 
 const TYPE_ICONS = {
   destination: (
@@ -45,24 +46,6 @@ const TYPE_LABELS = {
   plan_item: 'Plan item',
 };
 
-function getEntityUrl(ref) {
-  switch (ref.type) {
-    case 'destination':
-      return `/destinations/${ref._id}`;
-    case 'experience':
-      return `/experiences/${ref._id}`;
-    case 'plan':
-      return ref.experience_id
-        ? `/experiences/${ref.experience_id}#plan-${ref._id}`
-        : null;
-    case 'plan_item':
-      return ref.experience_id && ref.plan_id
-        ? `/experiences/${ref.experience_id}#plan-${ref.plan_id}-item-${ref._id}`
-        : null;
-    default:
-      return null;
-  }
-}
 
 export default function EntityRefList({ refs, onSelect }) {
   const navigate = useNavigate();

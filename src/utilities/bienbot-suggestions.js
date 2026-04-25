@@ -8,6 +8,8 @@
  * @module utilities/bienbot-suggestions
  */
 
+import { planHashUrl } from './bienbot-entity-urls';
+
 // ── Entity-page suggestions ─────────────────────────────────────────────────
 
 const EXPERIENCE_SUGGESTIONS = [
@@ -214,14 +216,6 @@ export function getEmptyStateForContext(invokeContext, currentView) {
  * Priority order: experience > plan > destination (highest = navigate to).
  */
 
-/** Build a plan-hash URL from a plan entity, optionally deep-linking to an item. */
-function planHashUrl(entity, itemId) {
-  const expId = entity?.experience?._id || entity?.experience;
-  const planId = entity?._id;
-  if (!expId || !planId) return null;
-  const base = `/experiences/${expId}#plan-${planId}`;
-  return itemId ? `${base}-item-${itemId}` : base;
-}
 
 const CREATION_ACTIONS = {
   create_destination: { priority: 1, getUrl: (entity) => entity?._id ? `/destinations/${entity._id}` : null },
