@@ -38,7 +38,7 @@ const ACTION_CONFIG = {
   add_plan_item_detail:         { label: 'Add Detail',              icon: '📎', confirm_label: 'Add Detail',           dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   assign_plan_item:             { label: 'Assign Item',             icon: '👤', confirm_label: 'Assign',               dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   unassign_plan_item:           { label: 'Unassign Item',           icon: '👤', confirm_label: 'Unassign',             dismiss_label: 'Cancel',          card_intent: 'confirmation' },
-  toggle_favorite_destination:  { label: 'Toggle Favourite',        icon: '❤️', confirm_label: 'Add to Favourites',   dismiss_label: 'Cancel',          card_intent: 'confirmation' },
+  toggle_favorite_destination:  { label: 'Toggle Favorite',         icon: '❤️', confirm_label: 'Add to Favorites',    dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   add_entity_photos:            { label: 'Add Photos',              icon: '📷', confirm_label: 'Add Photos',           dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   set_member_location:          { label: 'Set Location',            icon: '📍', confirm_label: 'Set Location',         dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   remove_member_location:       { label: 'Remove Location',         icon: '📍', confirm_label: 'Remove Location',      dismiss_label: 'Cancel',          card_intent: 'confirmation' },
