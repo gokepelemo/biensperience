@@ -720,4 +720,42 @@ describe('BienBotPanel', () => {
       expect(sentMessage).toContain('Alice');
     });
   });
+
+  // ─── handleBackdropClick with unsaved draft ──────────────────────────────
+  describe('backdrop click with unsaved draft', () => {
+    it('confirms before closing via backdrop when input is non-empty', () => {
+      const onClose = jest.fn();
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+      renderPanel({ open: true, onClose });
+
+      const textarea = screen.getByRole('textbox', { name: /Message input/i });
+      // BienBotPanel uses an uncontrolled textarea; write directly to the DOM node
+      textarea.value = 'half-written message';
+      fireEvent.input(textarea, { target: { value: 'half-written message' } });
+
+      // The backdrop is the outermost div with aria-hidden="true" and onClick
+      const backdrop = document.querySelector('[aria-hidden="true"][class*="backdrop"]');
+      expect(backdrop).not.toBeNull();
+      fireEvent.click(backdrop);
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it('closes via backdrop when input is empty (no confirm needed)', () => {
+      const onClose = jest.fn();
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+      renderPanel({ open: true, onClose });
+
+      const backdrop = document.querySelector('[aria-hidden="true"][class*="backdrop"]');
+      expect(backdrop).not.toBeNull();
+      // Simulate a direct click on the backdrop itself (target === currentTarget)
+      fireEvent.click(backdrop, { bubbles: true });
+
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledTimes(1);
+      confirmSpy.mockRestore();
+    });
+  });
 });

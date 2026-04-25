@@ -1822,11 +1822,16 @@ export default function BienBotPanel({
   // ── Backdrop click closes panel ───────────────────────────────────────────
   const handleBackdropClick = useCallback(
     (e) => {
-      if (e.target === e.currentTarget) {
-        onClose();
+      if (e.target !== e.currentTarget) return;
+      const draft = inputRef.current?.value?.trim();
+      const hasUnsaved = !!draft || !!attachment;
+      if (hasUnsaved) {
+        const ok = window.confirm('You have an unsent message. Close anyway?');
+        if (!ok) return;
       }
+      onClose();
     },
-    [onClose]
+    [onClose, attachment]
   );
 
   // ── Notification view handler ────────────────────────────────────────────
