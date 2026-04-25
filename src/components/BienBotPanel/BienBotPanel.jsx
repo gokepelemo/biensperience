@@ -1754,10 +1754,12 @@ export default function BienBotPanel({
     (actionId, description) => {
       // Cancel the action so BienBot can propose a revised one
       cancelAction(actionId);
-      // Pre-fill the input with a correction prompt
+      // Pre-fill the input with a correction prompt including the original description
       if (inputRef.current) {
-        inputRef.current.value = `Update this action: `;
+        const prefix = description ? `Update this action: ${description}` : 'Update this action: ';
+        inputRef.current.value = prefix;
         inputRef.current.focus();
+        inputRef.current.setSelectionRange(prefix.length, prefix.length);
         resizeTextarea();
       }
     },

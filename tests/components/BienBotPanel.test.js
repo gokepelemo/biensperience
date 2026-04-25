@@ -617,6 +617,25 @@ describe('BienBotPanel', () => {
     });
   });
 
+  // ─── handleUpdateAction ──────────────────────────────────────────────────
+  describe('handleUpdateAction', () => {
+    it('prefills the input with the original action description', async () => {
+      setHookState({
+        pendingActions: [
+          { _id: 'a1', type: 'add_plan_items', description: 'Plan a Tokyo trip', payload: {} }
+        ],
+      });
+
+      renderPanel();
+
+      const editButton = screen.getByRole('button', { name: /Edit/i });
+      fireEvent.click(editButton);
+
+      const textarea = screen.getByRole('textbox', { name: /Message input/i });
+      expect(textarea.value).toContain('Plan a Tokyo trip');
+    });
+  });
+
   // ─── handleAddPhotos ──────────────────────────────────────────────────────
   describe('handleAddPhotos', () => {
     it('includes photo URLs and photographer credits in the message sent to BienBot', async () => {
