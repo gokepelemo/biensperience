@@ -636,6 +636,18 @@ describe('BienBotPanel', () => {
     });
   });
 
+  // ─── Focus trap ──────────────────────────────────────────────────────────
+  describe('focus trap', () => {
+    it('traps Tab focus inside the dialog when open', () => {
+      renderPanel({ open: true });
+      const buttons = screen.getAllByRole('button');
+      const lastButton = buttons[buttons.length - 1];
+      lastButton.focus();
+      fireEvent.keyDown(lastButton, { key: 'Tab' });
+      expect(document.activeElement).not.toBe(document.body);
+    });
+  });
+
   // ─── handleAddPhotos ──────────────────────────────────────────────────────
   describe('handleAddPhotos', () => {
     it('includes photo URLs and photographer credits in the message sent to BienBot', async () => {

@@ -16,6 +16,7 @@ import { FaBell } from 'react-icons/fa';
 import { Button, Text, Heading } from '../design-system';
 import { Tag } from '@chakra-ui/react';
 import useBienBot from '../../hooks/useBienBot';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useUser } from '../../contexts/UserContext';
 import { useData } from '../../contexts/DataContext';
 import {
@@ -569,6 +570,7 @@ export default function BienBotPanel({
   analysisSuggestions = null,
   clearAnalysisSuggestions = null,
 }) {
+  const panelRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -652,6 +654,9 @@ export default function BienBotPanel({
     clearPersistedSession,
     fetchSessions
   } = useBienBot({ invokeContext, navigationSchema, userId: user?._id });
+
+  // ── Focus trap: keep focus inside the dialog while open ────────────────
+  useFocusTrap(panelRef, open);
 
   // ── Handle adding suggested plan items ─────────────────────────────────
   const handleAddSuggestedItems = useCallback(
@@ -1932,6 +1937,7 @@ export default function BienBotPanel({
 
       {/* Drawer / bottom sheet */}
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={panelLabel}
