@@ -26,9 +26,7 @@ import { logger } from '../../utilities/logger';
 import { decodeHtmlEntities } from '../../utilities/html-entities';
 import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import { OperationType } from '../../utilities/plan-operations';
-import WorkflowStepCard from './WorkflowStepCard';
-import PlanSelector from './PlanSelector';
-import PendingActionCard from './PendingActionCard';
+import PendingActionsArea from './PendingActionsArea';
 import SessionHistoryView from './SessionHistoryView';
 import { applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { createPlan } from '../../utilities/plans-api';
@@ -39,8 +37,6 @@ import BienBotHeader from './BienBotHeader';
 import MessageList from './MessageList';
 import styles from './BienBotPanel.module.css';
 import { CloseIcon, BienBotIcon, SendIcon, AttachIcon } from './icons';
-
-// PlanCard removed — plan disambiguation now handled by PlanSelector component
 
 // ─── Main BienBotPanel component ──────────────────────────────────────────────
 
@@ -1613,78 +1609,19 @@ export default function BienBotPanel({
             )}
 
             {/* ── Pending action cards ────────────────────────────── */}
-            {pendingActions.length > 0 && (() => {
-              // Separate regular actions from workflow steps and plan/destination pickers
-              const regularActions = [];
-              const planPickerActions = [];
-              const destinationPickerActions = [];
-              const workflowGroups = new Map();
-
-              for (const action of pendingActions) {
-                if (action.workflow_id) {
-                  const group = workflowGroups.get(action.workflow_id) || [];
-                  group.push(action);
-                  workflowGroups.set(action.workflow_id, group);
-                } else if (action.type === 'select_plan') {
-                  planPickerActions.push(action);
-                } else if (action.type === 'select_destination') {
-                  destinationPickerActions.push(action);
-                } else {
-                  regularActions.push(action);
-                }
-              }
-
-              return (
-                <div className={styles.actionsContainer}>
-                  {/* Destination picker (select_destination disambiguation) */}
-                  {destinationPickerActions.length > 0 && (
-                    <PlanSelector
-                      actions={destinationPickerActions}
-                      onExecute={handleExecuteAction}
-                      onCancel={handleCancelAction}
-                      disabled={isLoading || isStreaming}
-                    />
-                  )}
-
-                  {/* Plan picker (select_plan disambiguation) */}
-                  {planPickerActions.length > 0 && (
-                    <PlanSelector
-                      actions={planPickerActions}
-                      onExecute={handleExecuteAction}
-                      onCancel={handleCancelAction}
-                      disabled={isLoading || isStreaming}
-                    />
-                  )}
-
-                  {/* Workflow step cards */}
-                  {[...workflowGroups.entries()].map(([wfId, steps]) => (
-                    <WorkflowStepCard
-                      key={wfId}
-                      workflowId={wfId}
-                      steps={steps}
-                      onApprove={handleApproveStep}
-                      onSkip={handleSkipStep}
-                      onEdit={handleEditStep}
-                      onCancelWorkflow={handleCancelWorkflow}
-                      disabled={isLoading || isStreaming}
-                    />
-                  ))}
-
-                  {/* Regular (non-workflow) action cards */}
-                  {regularActions.map((action) => (
-                    <PendingActionCard
-                      key={action._id || action.id}
-                      action={action}
-                      onExecute={handleExecuteAction}
-                      onUpdate={handleUpdateAction}
-                      onCancel={handleCancelAction}
-                      disabled={isLoading || isStreaming}
-                      executing={executingActionId}
-                    />
-                  ))}
-                </div>
-              );
-            })()}
+            <PendingActionsArea
+              pendingActions={pendingActions}
+              isLoading={isLoading}
+              isStreaming={isStreaming}
+              executingActionId={executingActionId}
+              onExecute={handleExecuteAction}
+              onCancel={handleCancelAction}
+              onUpdate={handleUpdateAction}
+              onApproveStep={handleApproveStep}
+              onSkipStep={handleSkipStep}
+              onEditStep={handleEditStep}
+              onCancelWorkflow={handleCancelWorkflow}
+            />
 
             {/* ── Suggested action chips ───────────────────────────── */}
             {visibleChips.length > 0 && (
