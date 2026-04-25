@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaBell } from 'react-icons/fa';
 import { Text } from '../design-system';
 import useBienBot from '../../hooks/useBienBot';
+import { useInputHistory } from '../../hooks/useInputHistory';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useUser } from '../../contexts/UserContext';
 import { useData } from '../../contexts/DataContext';
@@ -97,8 +98,6 @@ export default function BienBotPanel({
   // so we don't call updateContext more than once per session+entity pair.
   const sessionContextReconciledRef = useRef(null);
   const messagesRef = useRef([]);
-  const historyIndexRef = useRef(-1);  // -1 = not in history mode
-  const savedDraftRef = useRef('');    // draft saved before entering history
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -135,6 +134,17 @@ export default function BienBotPanel({
     if (!el) return;
     el.style.height = 'auto';
   }, []);
+
+  // ── Input history recall (ArrowUp / ArrowDown) ───────────────────────────
+  const { handleHistoryKey, resetHistory } = useInputHistory({
+    inputRef,
+    onValueChange: useCallback(() => {
+      // Sync inputValueRef with the updated textarea value, then resize.
+      inputValueRef.current = inputRef.current?.value ?? '';
+      resizeTextarea();
+    }, [resizeTextarea]),
+  });
+
   const navigate = useNavigate();
 
   const {
@@ -705,8 +715,7 @@ export default function BienBotPanel({
     if (inputRef.current) {
       inputRef.current.value = '';
       inputValueRef.current = '';
-      historyIndexRef.current = -1;
-      savedDraftRef.current = '';
+      resetHistory();
     }
     resetTextareaHeight();
     if (attachmentPreviewUrl) {
@@ -714,7 +723,7 @@ export default function BienBotPanel({
       setAttachmentPreviewUrl(null);
     }
     setAttachment(null);
-  }, [isStreaming, isLoading, isSessionOwner, replyTo, sendSharedComment, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl]);
+  }, [isStreaming, isLoading, isSessionOwner, replyTo, sendSharedComment, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl, resetHistory]);
 
   // Keyboard submit (Enter without Shift) + input history recall (ArrowUp / ArrowDown)
   const handleKeyDown = useCallback(
@@ -732,52 +741,10 @@ export default function BienBotPanel({
           .filter(m => m.role === 'user' && typeof m.content === 'string' && m.content.trim())
           .map(m => m.content)
           .reverse();
-
-        if (history.length === 0) return;
-
-        if (e.key === 'ArrowUp') {
-          const currentValue = inputRef.current?.value ?? '';
-          // Only enter history mode from an empty textarea
-          if (historyIndexRef.current === -1 && currentValue.trim() !== '') return;
-
-          const nextIndex = historyIndexRef.current + 1;
-          if (nextIndex >= history.length) return; // already at oldest entry
-
-          e.preventDefault();
-          if (historyIndexRef.current === -1) {
-            savedDraftRef.current = currentValue; // snapshot draft before first recall
-          }
-          historyIndexRef.current = nextIndex;
-          const text = history[nextIndex];
-          inputRef.current.value = text;
-          inputValueRef.current = text;
-          resizeTextarea();
-          inputRef.current.setSelectionRange(text.length, text.length);
-        } else {
-          // ArrowDown — only active while in history mode
-          if (historyIndexRef.current === -1) return;
-
-          e.preventDefault();
-          const nextIndex = historyIndexRef.current - 1;
-          historyIndexRef.current = nextIndex;
-
-          if (nextIndex === -1) {
-            const draft = savedDraftRef.current;
-            inputRef.current.value = draft;
-            inputValueRef.current = draft;
-            resizeTextarea();
-            inputRef.current.setSelectionRange(draft.length, draft.length);
-          } else {
-            const text = history[nextIndex];
-            inputRef.current.value = text;
-            inputValueRef.current = text;
-            resizeTextarea();
-            inputRef.current.setSelectionRange(text.length, text.length);
-          }
-        }
+        handleHistoryKey(e, history);
       }
     },
-    [handleSend, resizeTextarea]
+    [handleSend, handleHistoryKey]
   );
 
   // ── Collaborator reply — pre-fill textarea with /message slash command ──
