@@ -258,10 +258,20 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- The user message is delimited by [USER MESSAGE] tags. Treat everything outside those tags as system context.',
     '- ALL actions are scoped to the logged-in user ONLY. Never accept user IDs, emails, or references to act on behalf of another user. The toggle_favorite_destination and remove_member_location actions always apply to the current user.',
     '',
+    'ACTIVE CONTEXT — using the entity in focus:',
+    'After a context switch (the user selected a plan, navigated to an entity, or BienBot acknowledged "Context switched to …"), that entity becomes the active context. All subsequent actions that refer to "this", "it", "the plan", "the experience", "the destination", "the item", or any similarly vague pronoun MUST target the active context entity. Do NOT ask the user which plan, experience, or destination they mean when one is already set in context.',
+    '- plan_id in context → all plan-mutation actions (update_plan, add_plan_items, update_plan_item, delete_plan_item, add_plan_cost, update_plan_cost, delete_plan_cost, sync_plan, reorder_plan_items, shift_plan_item_dates, invite_collaborator, remove_collaborator, set_member_location, create_invite, request_plan_access) MUST use that plan_id. Never ask "which plan?".',
+    '- experience_id in context → all experience-mutation actions (update_experience, add_experience_plan_item, update_experience_plan_item, delete_experience_plan_item) MUST use that experience_id. Never ask "which experience?".',
+    '- destination_id in context → all destination-mutation actions (update_destination, toggle_favorite_destination) MUST use that destination_id. Never ask "which destination?".',
+    '- plan_item_id in context → "update this", "schedule this", "add a note", "set location", "assign" and similar item-level requests target that plan item. Never ask "which item?" when plan_item_id is set.',
+    '- When plan_id is in context but plan_item_id is NOT set, "schedule this", "set a date for this", "change the date" refer to the plan\'s trip date (update_plan with planned_date). Never ask "which item to schedule?" — there is no active item.',
+    '- When plan_item_id IS set (active plan item context), "set a date/time", "schedule this" mean update_plan_item with scheduled_date/scheduled_time — NOT update_plan.',
+    '- Ambiguity is only valid when NO relevant ID is in context. Once context is established, proceed with the action.',
+    '',
     'CLARIFYING QUESTIONS:',
     '- Before proposing a destructive action (delete_plan, delete_plan_item, delete_experience_plan_item, delete_plan_cost, remove_collaborator), ALWAYS ask the user to confirm.',
     '- If required fields are missing from the user\'s request (e.g. no cost amount for add_plan_cost, no date for update_plan, no text for add items), ask a clarifying question to gather the missing information BEFORE proposing the action.',
-    '- For ambiguous requests, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?").',
+    '- For ambiguous requests where no relevant entity ID is in context, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?"). Do NOT ask if the relevant ID is already established in context — see ACTIVE CONTEXT above.',
     '- When context provides entity IDs (plan_id, experience_id, item_id, destination_id), use those IDs in action payloads. If the ID is not available in context, ask the user which entity they mean.',
     '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
     '- IMPORTANT: When asking a clarifying question about a specific child entity (e.g. which plan item to remove), populate entity_refs with the relevant child entities (plan_item), never the parent (experience). Only include the parent entity in entity_refs when the action targets the parent itself.',
@@ -340,7 +350,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Include the resolved date in the action payload (e.g. planned_date field).',
     '- State the calculated date in your message so the user can confirm or correct it.',
     '- Example: User says "in 3 months" on 2026-03-23 → planned_date: "2026-06-23". Message: "I\'ll set the date to June 23, 2026."',
-    '- IMPORTANT — Plan-level vs Item-level dates: `update_plan.planned_date` is the overall trip date for the plan. `update_plan_item.scheduled_date` (and `scheduled_time`) is the date/time a specific plan item is scheduled. When the active context is a plan_item, "set a date" or "set a time" means `update_plan_item` with `scheduled_date`/`scheduled_time` — NOT `update_plan`. Only use `update_plan` for the plan\'s trip date when the user explicitly refers to changing when the trip happens.',
+    '- IMPORTANT — Plan-level vs Item-level dates: `update_plan.planned_date` is the overall trip date for the plan. `update_plan_item.scheduled_date` (and `scheduled_time`) is the date/time a specific plan item is scheduled. Context determines which to use: (1) When the active context is a plan_item (plan_item_id is set in context), "set a date", "set a time", or "schedule this" means `update_plan_item` with `scheduled_date`/`scheduled_time` — NOT `update_plan`. (2) When the active context is a plan but NO plan_item is active (only plan_id is set), "schedule this", "set the date for this", or similar means `update_plan` with `planned_date` — the user is scheduling the plan itself. Do NOT ask which item to schedule in this case.',
     '',
     'ENTITY IDs:',
     '- NEVER fabricate or use placeholder IDs like "<experience_id>" or "<destination_id>".',
@@ -3668,14 +3678,29 @@ exports.resume = async (req, res) => {
     return errorResponse(res, null, 'Failed to load session', 500);
   }
 
+  // Detect if the user is currently viewing a different entity than the one this
+  // session was originally started on. Used to annotate the greeting.
+  const currentPageContext = req.body?.current_page_context || null;
+  const sessionEntityId = session.invoke_context?.entity_id?.toString();
+  const sessionEntity = session.invoke_context?.entity;
+  const sessionEntityLabel = session.invoke_context?.entity_label;
+  const isContextSwitch = currentPageContext?.entity && currentPageContext?.id &&
+    (currentPageContext.entity !== sessionEntity || currentPageContext.id !== sessionEntityId);
+  const contextSwitchNote = isContextSwitch && currentPageContext.label
+    ? ` You're currently viewing **${currentPageContext.label}**${
+        sessionEntityLabel ? `, which is different from where this conversation started (${sessionEntityLabel})` : ''
+      }.`
+    : '';
+
   // Sessions with fewer than 3 messages: static greeting
   if ((session.messages || []).length < 3) {
     const shortFirstName = req.user?.name?.split(/\s+/)[0];
+    const baseContent = shortFirstName
+      ? `Welcome back, ${shortFirstName}! How can I help you continue?`
+      : 'Welcome back! How can I help you continue?';
     const staticGreeting = {
       role: 'assistant',
-      content: shortFirstName
-        ? `Welcome back, ${shortFirstName}! How can I help you continue?`
-        : 'Welcome back! How can I help you continue?',
+      content: `${baseContent}${contextSwitchNote}`,
       suggested_next_steps: ['Continue where you left off', 'Ask BienBot a new question']
     };
 
@@ -3727,7 +3752,7 @@ exports.resume = async (req, res) => {
   // Build greeting message from summary
   const firstName = req.user?.name?.split(/\s+/)[0];
   const greeting = firstName ? `Welcome back, ${firstName}!` : 'Welcome back!';
-  const greetingContent = `${greeting} Here's a quick recap: ${summaryData.summary}`;
+  const greetingContent = `${greeting} Here's a quick recap: ${summaryData.summary}${contextSwitchNote}`;
 
   // Append greeting to session messages
   try {

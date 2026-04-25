@@ -392,10 +392,12 @@ export async function getSession(sessionId) {
 /**
  * Resume a past BienBot session.
  * @param {string} sessionId - Session ID
+ * @param {Object} [currentPageContext] - The entity the user is currently viewing ({ entity, id, label })
  * @returns {Promise<Object>} { session, greeting }
  */
-export async function resumeSession(sessionId) {
-  const result = await sendRequest(`${BASE_URL}/sessions/${sessionId}/resume`, "POST");
+export async function resumeSession(sessionId, currentPageContext = null) {
+  const body = currentPageContext ? { current_page_context: currentPageContext } : undefined;
+  const result = await sendRequest(`${BASE_URL}/sessions/${sessionId}/resume`, "POST", body);
 
   try {
     broadcastEvent('bienbot:session_resumed', {
