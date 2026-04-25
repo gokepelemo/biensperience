@@ -27,7 +27,7 @@ import {
 import { logger } from '../../utilities/logger';
 import { decodeHtmlEntities } from '../../utilities/html-entities';
 import { getEntityUrl } from '../../utilities/bienbot-entity-urls';
-import { broadcastEvent } from '../../utilities/event-bus';
+import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import { OperationType } from '../../utilities/plan-operations';
 import WorkflowStepCard from './WorkflowStepCard';
 import PlanSelector from './PlanSelector';
@@ -40,7 +40,6 @@ import SessionHistoryView from './SessionHistoryView';
 import EntityRefList from './EntityRefList';
 import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { createPlan } from '../../utilities/plans-api';
-import { eventBus } from '../../utilities/event-bus';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import styles from './BienBotPanel.module.css';
