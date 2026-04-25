@@ -2188,7 +2188,7 @@ export default function BienBotPanel({
                                   key={i}
                                   attachment={att}
                                   sessionId={currentSession?._id}
-                                  messageIndex={messages.indexOf(msg)}
+                                  messageIndex={msgIdx}
                                   attachmentIndex={i}
                                 />
                               );
