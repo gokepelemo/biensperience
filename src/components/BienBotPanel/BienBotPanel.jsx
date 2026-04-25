@@ -1719,7 +1719,7 @@ export default function BienBotPanel({
                 }
               }
             } catch (e) { /* silently ignore */ }
-          }, 300);
+          }, 0);
         }
       }
 
