@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import styles from './PlanSelector.module.css';
 
@@ -9,16 +9,17 @@ import styles from './PlanSelector.module.css';
  */
 function PlanSelector({ actions, onExecute, onCancel, disabled }) {
   const [selectedId, setSelectedId] = useState(() => {
-    // If only one action, preselect it
     return actions.length === 1 ? (actions[0]._id || actions[0].id) : null;
   });
-  // Auto-execute if only one action
+  const autoExecutedRef = useRef(false);
+
+  // Auto-execute if only one action — latched via ref so it fires exactly once
   useEffect(() => {
-    if (actions.length === 1 && selectedId && !disabled) {
+    if (actions.length === 1 && selectedId && !disabled && !autoExecutedRef.current) {
+      autoExecutedRef.current = true;
       onExecute(selectedId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions.length, selectedId, disabled]);
+  }, [actions.length, selectedId, disabled, onExecute]);
 
   // Group plans by destination_name (empty string → "Other")
   const groups = useMemo(() => {
