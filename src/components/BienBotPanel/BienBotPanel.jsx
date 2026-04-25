@@ -2056,7 +2056,7 @@ export default function BienBotPanel({
 
         {notificationOnly ? (
           /* ── Notification-only mode ──────────────────────────── */
-          <div className={styles.messages} aria-live="polite" aria-atomic="false">
+          <div className={styles.messages} aria-live="off" aria-atomic="false">
             {notifications.length === 0 ? (
               <div className={styles.emptyState}>
                 <Text size="sm">No notifications yet</Text>
@@ -2123,7 +2123,7 @@ export default function BienBotPanel({
             )}
 
             {/* ── Messages ───────────────────────────────────────── */}
-            <div className={styles.messages} aria-live="polite" aria-atomic="false">
+            <div className={styles.messages} aria-live="off" aria-atomic="false">
               {savedSession && !currentSession && messages.length === 0 && !isLoading ? (
                 <div className={styles.resumePrompt}>
                   <Text size="sm">You have an unfinished conversation.</Text>
@@ -2308,6 +2308,13 @@ export default function BienBotPanel({
 
               <div ref={messagesEndRef} />
             </div>
+
+            {/* ── Screen-reader status: announce only the final assistant message ── */}
+            {!isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+              <div role="status" aria-live="polite" className={styles.srOnly}>
+                {messages[messages.length - 1].content}
+              </div>
+            )}
 
             {/* ── Pending action cards ────────────────────────────── */}
             {pendingActions.length > 0 && (() => {

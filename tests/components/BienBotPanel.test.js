@@ -246,7 +246,9 @@ describe('BienBotPanel', () => {
         ]
       });
       renderPanel();
-      expect(screen.getByText('How can I help you?')).toBeInTheDocument();
+      // Content appears in both the message bubble and the sr-only status region
+      const matches = screen.getAllByText('How can I help you?');
+      expect(matches.length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders multiple messages in order', () => {
@@ -258,7 +260,9 @@ describe('BienBotPanel', () => {
       });
       renderPanel();
       expect(screen.getByText('Plan Paris trip')).toBeInTheDocument();
-      expect(screen.getByText('Sure! Here is the plan.')).toBeInTheDocument();
+      // Assistant message appears in message bubble and sr-only status region
+      const assistantMatches = screen.getAllByText('Sure! Here is the plan.');
+      expect(assistantMatches.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -499,10 +503,23 @@ describe('BienBotPanel', () => {
       expect(dialog).toHaveAttribute('aria-label', 'Notifications');
     });
 
-    it('messages area has aria-live="polite"', () => {
+    it('messages container has aria-live="off" and status region announces finalized assistant message', () => {
+      // The messages container should be silent during streaming
+      setHookState({
+        messages: [
+          { _id: 'm1', role: 'assistant', content: 'Final reply.' }
+        ],
+        isStreaming: false,
+      });
       renderPanel();
-      const liveRegion = screen.getByRole('dialog').querySelector('[aria-live="polite"]');
-      expect(liveRegion).toBeInTheDocument();
+      const dialog = screen.getByRole('dialog');
+      // Messages container must be off to avoid spam during streaming
+      const messagesDiv = dialog.querySelector('.messages');
+      expect(messagesDiv).toHaveAttribute('aria-live', 'off');
+      // A status region with aria-live="polite" announces only the finalized message
+      const statusNode = dialog.querySelector('[role="status"][aria-live="polite"]');
+      expect(statusNode).toBeInTheDocument();
+      expect(statusNode).toHaveTextContent('Final reply.');
     });
   });
 
