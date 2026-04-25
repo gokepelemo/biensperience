@@ -692,6 +692,9 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '    Destination: /destinations/<destinationId>',
     '    Experience: /experiences/<experienceId>',
     '    Plan: /experiences/<experienceId>#plan-<planId>',
+    '  CRITICAL: Only propose navigate_to_entity when you have the ACTUAL entity ID from the context',
+    '  provided above (session context, listed plans, entity refs, etc.). NEVER invent, guess, or',
+    '  fabricate an ID. If you do not have a real ID for the entity, do NOT propose this action.',
     '  When the user\'s intent is explicitly to view an entity (e.g. "show me", "take me to", "I\'m feeling lucky"),',
     '  propose a navigate_to_entity action alongside your response.',
     '',
@@ -1311,6 +1314,484 @@ function explodeWorkflows(actions) {
   }
 
   return result;
+}
+
+/**
+ * Action-type → entity-ID verification rules.
+ *
+ *   refs:  array of { field, model, required } — each independently checked.
+ *   oneOf: array of { field, model } — at least one must resolve to a real entity.
+ *   typed: { idField, typeField, typeToModel, required } — entity_type
+ *          dispatches which model entity_id is checked against.
+ *
+ * navigate_to_entity is verified separately by parsing IDs out of payload.url.
+ *
+ * Coverage gap: workflow steps are exploded before this verification runs,
+ * so each step is checked individually. Step references like $step_N.field
+ * are not resolvable here and are passed through to the executor.
+ */
+const ACTION_ENTITY_VERIFY = {
+  // plan_id required
+  update_plan:                 { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  delete_plan:                 { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  add_plan_items:              { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  // itemRef validates the embedded plan item within the verified parent plan.
+  // Plan items live in plan.plan[] (the embedded snapshot array).
+  update_plan_item:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  delete_plan_item:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  mark_plan_item_complete:     { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  mark_plan_item_incomplete:   { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  add_plan_item_note:          { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  update_plan_item_note:       { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  delete_plan_item_note:       { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  add_plan_item_detail:        { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  update_plan_item_detail:     { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  delete_plan_item_detail:     { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  assign_plan_item:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  unassign_plan_item:          { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  add_plan_cost:               { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  // costRef validates plan.costs[] subdocument IDs to drop hallucinated
+  // cost_ids before they reach the user as a confirmation prompt.
+  update_plan_cost:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 costRef: { parentField: 'plan_id', itemField: 'cost_id', required: true } },
+  delete_plan_cost:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 costRef: { parentField: 'plan_id', itemField: 'cost_id', required: true } },
+  set_member_location:         { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  remove_member_location:      { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  pin_plan_item:               { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  unpin_plan_item:             { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  // arrayItemRef validates every entry in payload.item_ids[] against plan.plan[].
+  // Without this, the executor silently drops hallucinated IDs from the reorder
+  // list, producing a "successful" reorder that quietly omitted items.
+  reorder_plan_items:          { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 arrayItemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_ids', required: true } },
+  shift_plan_item_dates:       { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  sync_plan:                   { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  request_plan_access:         { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  // Disambiguation actions auto-execute and write to session context — must verify.
+  select_plan:                 { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  select_destination:          { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  // Read-only fetches with required entity refs.
+  suggest_plan_items:          { refs: [
+                                  { field: 'destination_id', model: 'destination', required: true },
+                                  { field: 'experience_id', model: 'experience', required: false }
+                                ] },
+  fetch_destination_tips:      { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  // Optional plan_id only.
+  create_invite:               { refs: [{ field: 'plan_id', model: 'plan', required: false }] },
+  // experience_id required.
+  create_plan:                 { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  update_experience:           { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  add_experience_plan_item:    { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  // itemRef validates the embedded plan item in experience.plan_items[].
+  update_experience_plan_item: { refs: [{ field: 'experience_id', model: 'experience', required: true }],
+                                 itemRef: { parentField: 'experience_id', parentModel: 'experience', arrayField: 'plan_items', itemField: 'plan_item_id', required: true } },
+  delete_experience_plan_item: { refs: [{ field: 'experience_id', model: 'experience', required: true }],
+                                 itemRef: { parentField: 'experience_id', parentModel: 'experience', arrayField: 'plan_items', itemField: 'plan_item_id', required: true } },
+  // destination_id.
+  create_experience:           { refs: [{ field: 'destination_id', model: 'destination', required: false }] },
+  update_destination:          { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  toggle_favorite_destination: { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  // user_id required (social actions).
+  follow_user:                 { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  unfollow_user:               { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  list_user_followers:         { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  list_user_experiences:       { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  accept_follow_request:       { refs: [{ field: 'follower_id', model: 'user', required: true }] },
+  // At-least-one semantics — executor accepts plan_id OR experience_id.
+  invite_collaborator:         { oneOf: [
+                                  { field: 'plan_id', model: 'plan' },
+                                  { field: 'experience_id', model: 'experience' }
+                                ] },
+  remove_collaborator:         { oneOf: [
+                                  { field: 'plan_id', model: 'plan' },
+                                  { field: 'experience_id', model: 'experience' }
+                                ] },
+  // Typed-entity dispatcher — entity_type selects which model entity_id is checked.
+  add_entity_photos:           { typed: {
+                                  idField: 'entity_id',
+                                  typeField: 'entity_type',
+                                  typeToModel: { destination: 'destination', experience: 'experience' },
+                                  required: true
+                                } },
+  fetch_entity_photos:         { typed: {
+                                  idField: 'entity_id',
+                                  typeField: 'entity_type',
+                                  typeToModel: { destination: 'destination', experience: 'experience' },
+                                  required: true
+                                } },
+  list_entity_documents:       { typed: {
+                                  idField: 'entity_id',
+                                  typeField: 'entity_type',
+                                  typeToModel: { destination: 'destination', experience: 'experience', plan: 'plan' },
+                                  required: true
+                                },
+                                refs: [{ field: 'plan_id', model: 'plan', required: false }] }
+};
+
+// Case-insensitive ObjectId parsers for navigate_to_entity URLs. Mongoose
+// accepts uppercase hex IDs, so a lowercase-only regex would mis-classify
+// valid URLs as "unrecognised" in the dropped-action telemetry.
+const NAV_DEST_RE = /^\/destinations\/([a-f0-9]{24})/i;
+const NAV_EXP_RE  = /^\/experiences\/([a-f0-9]{24})/i;
+const NAV_PLAN_RE = /#plan-([a-f0-9]{24})/i;
+function extractNavIds(url) {
+  if (typeof url !== 'string' || !url) return { error: 'missing url' };
+  const dest = url.match(NAV_DEST_RE);
+  if (dest) return { ids: [{ model: 'destination', id: dest[1].toLowerCase() }] };
+  const exp = url.match(NAV_EXP_RE);
+  if (exp) {
+    const out = [{ model: 'experience', id: exp[1].toLowerCase() }];
+    const plan = url.match(NAV_PLAN_RE);
+    if (plan) out.push({ model: 'plan', id: plan[1].toLowerCase() });
+    return { ids: out };
+  }
+  return { error: 'unrecognised URL pattern' };
+}
+
+/**
+ * Drop any action whose entity references can't be resolved in the DB.
+ *
+ * Defends against LLM-hallucinated ObjectIds that pass string-format checks.
+ * Batches existence queries — one query per model regardless of action count.
+ * Logs every dropped action with structured fields so regressions are visible
+ * in production telemetry.
+ *
+ * @param {Array} actions exploded pending_actions (post-workflow expansion)
+ * @returns {Promise<Array>} surviving actions
+ */
+async function verifyPendingActionEntityIds(actions) {
+  if (!Array.isArray(actions) || actions.length === 0) return actions || [];
+
+  // Phase 1 — collect every referenced ID per model + itemRef parent IDs.
+  const toVerify = {
+    plan: new Set(), experience: new Set(),
+    destination: new Set(), user: new Set()
+  };
+  // Track which parent IDs we'll need to load embedded item arrays for.
+  // planItemParents: plan_id -> Set<item_id>;  expItemParents: exp_id -> Set<item_id>
+  const planItemParents = new Map();
+  const expItemParents = new Map();
+  let needVerification = false;
+  const collect = (id, model) => {
+    if (id && model && toVerify[model] && mongoose.Types.ObjectId.isValid(id)) {
+      toVerify[model].add(id);
+    }
+  };
+  for (const action of actions) {
+    const rule = ACTION_ENTITY_VERIFY[action.type];
+    if (rule) {
+      needVerification = true;
+      if (rule.refs) for (const r of rule.refs) collect(action.payload?.[r.field], r.model);
+      if (rule.oneOf) for (const r of rule.oneOf) collect(action.payload?.[r.field], r.model);
+      if (rule.typed) {
+        const t = rule.typed;
+        const type = action.payload?.[t.typeField];
+        collect(action.payload?.[t.idField], type ? t.typeToModel[type] : null);
+      }
+      if (rule.itemRef) {
+        const { parentField, parentModel, itemField } = rule.itemRef;
+        const parentId = action.payload?.[parentField];
+        const itemId   = action.payload?.[itemField];
+        if (parentId && itemId &&
+            mongoose.Types.ObjectId.isValid(parentId) &&
+            mongoose.Types.ObjectId.isValid(itemId)) {
+          const map = parentModel === 'plan' ? planItemParents : expItemParents;
+          if (!map.has(parentId)) map.set(parentId, new Set());
+          map.get(parentId).add(itemId);
+        }
+      }
+      if (rule.arrayItemRef) {
+        // For array variants (e.g. reorder_plan_items.item_ids[]), the parent
+        // load already happens via refs/itemRef parent collection — we only
+        // need to ensure the parent is fetched in Phase 2.5 so that Phase 3
+        // can iterate the array. Add the parent with an empty itemId set; the
+        // membership check happens against planItemMap which contains all of
+        // the parent's items regardless of which were referenced.
+        const { parentField, parentModel } = rule.arrayItemRef;
+        const parentId = action.payload?.[parentField];
+        if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
+          const map = parentModel === 'plan' ? planItemParents : expItemParents;
+          if (!map.has(parentId)) map.set(parentId, new Set());
+        }
+      }
+      if (rule.costRef) {
+        // cost_id check: ensure the parent plan is fetched in Phase 2.5 so
+        // Phase 3 can verify cost membership. costRef is plan-only.
+        const { parentField } = rule.costRef;
+        const parentId = action.payload?.[parentField];
+        if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
+          if (!planItemParents.has(parentId)) planItemParents.set(parentId, new Set());
+        }
+      }
+    }
+    if (action.type === 'navigate_to_entity') {
+      needVerification = true;
+      const parsedNav = extractNavIds(action.payload?.url);
+      if (parsedNav.ids) for (const { model, id } of parsedNav.ids) toVerify[model].add(id);
+    }
+  }
+
+  if (!needVerification) return actions;
+
+  // Phase 2 — batched existence query per model in parallel.
+  loadModels();
+  const existing = {
+    plan: new Set(), experience: new Set(),
+    destination: new Set(), user: new Set()
+  };
+  const queries = [
+    [Plan, 'plan'],
+    [Experience, 'experience'],
+    [Destination, 'destination'],
+    [User, 'user']
+  ];
+  await Promise.all(queries.map(([Model, key]) =>
+    toVerify[key].size === 0
+      ? Promise.resolve()
+      : Model.find({ _id: { $in: [...toVerify[key]] } })
+          .select('_id').lean()
+          .then(docs => docs.forEach(d => existing[key].add(d._id.toString())))
+          .catch(err => logger.warn('[bienbot] entity ID batch verification query failed',
+            { model: key, error: err.message }))
+  ));
+
+  // Phase 2.5 — subdocument item existence maps.
+  // Only query parents that were confirmed to exist in Phase 2.
+  // plan.plan[] holds plan item snapshots — each snapshot has both its own
+  // subdocument _id AND a plan_item_id referencing the original experience
+  // plan item. The plansController.updatePlanItem handler accepts EITHER form,
+  // so the verification set must include both to stay symmetric with the
+  // executor.
+  // experience.plan_items[] holds experience items keyed by _id only.
+  // Trade-off: the projection over-fetches all item IDs in each parent. For
+  // a plan with 100 items where only 1 is referenced, we transfer 99 unused
+  // IDs. Acceptable vs. building per-parent $elemMatch filters; if this ever
+  // becomes hot, switch to elemMatch.
+  const planItemMap = new Map();  // planId -> Set<itemId> (covers _id + plan_item_id)
+  const planCostMap = new Map();  // planId -> Set<costId>
+  const expItemMap  = new Map();  // expId   -> Set<itemId>
+  await Promise.all([
+    planItemParents.size > 0
+      ? Plan.find({ _id: { $in: [...planItemParents.keys()].filter(id => existing.plan.has(id)) } })
+          .select('_id plan._id plan.plan_item_id costs._id').lean()
+          .then(docs => docs.forEach(doc => {
+            const itemIds = new Set();
+            for (const i of (doc.plan || [])) {
+              if (i._id) itemIds.add(i._id.toString());
+              if (i.plan_item_id) itemIds.add(i.plan_item_id.toString());
+            }
+            planItemMap.set(doc._id.toString(), itemIds);
+            planCostMap.set(
+              doc._id.toString(),
+              new Set((doc.costs || []).map(c => c._id?.toString()).filter(Boolean))
+            );
+          }))
+          .catch(err => logger.warn('[bienbot] plan item subdoc verification query failed',
+            { error: err.message }))
+      : Promise.resolve(),
+    expItemParents.size > 0
+      ? Experience.find({ _id: { $in: [...expItemParents.keys()].filter(id => existing.experience.has(id)) } })
+          .select('_id plan_items._id').lean()
+          .then(docs => docs.forEach(doc => {
+            expItemMap.set(
+              doc._id.toString(),
+              new Set((doc.plan_items || []).map(i => i._id?.toString()).filter(Boolean))
+            );
+          }))
+          .catch(err => logger.warn('[bienbot] experience plan_item subdoc verification query failed',
+            { error: err.message }))
+      : Promise.resolve()
+  ]);
+
+  // Phase 3 — drop any action whose IDs can't be resolved.
+  return actions.filter(action => {
+    if (action.type === 'navigate_to_entity') {
+      const result = extractNavIds(action.payload?.url);
+      if (result.error) {
+        logger.warn('[bienbot] navigate_to_entity dropped: ' + result.error,
+          { actionId: action.id, url: action.payload?.url });
+        return false;
+      }
+      for (const { model, id } of result.ids) {
+        if (!existing[model].has(id)) {
+          logger.warn('[bienbot] navigate_to_entity dropped: entity not found',
+            { actionId: action.id, model, id, url: action.payload?.url });
+          return false;
+        }
+      }
+      return true;
+    }
+
+    const rule = ACTION_ENTITY_VERIFY[action.type];
+    if (!rule) return true;
+
+    if (rule.refs) {
+      for (const { field, model, required } of rule.refs) {
+        const id = action.payload?.[field];
+        if (!id) {
+          if (required) {
+            logger.warn('[bienbot] pending_action dropped: required entity ID missing',
+              { type: action.type, field });
+            return false;
+          }
+          continue;
+        }
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          logger.warn('[bienbot] pending_action dropped: invalid ObjectId format',
+            { type: action.type, field, id });
+          return false;
+        }
+        if (!existing[model].has(id)) {
+          logger.warn('[bienbot] pending_action dropped: entity not found in DB',
+            { type: action.type, field, model, id });
+          return false;
+        }
+      }
+    }
+
+    if (rule.oneOf) {
+      const matched = rule.oneOf.some(({ field, model }) => {
+        const id = action.payload?.[field];
+        return id && mongoose.Types.ObjectId.isValid(id) && existing[model].has(id);
+      });
+      if (!matched) {
+        logger.warn('[bienbot] pending_action dropped: none of the one_of entity IDs resolved',
+          { type: action.type, fields: rule.oneOf.map(r => r.field) });
+        return false;
+      }
+    }
+
+    if (rule.typed) {
+      const t = rule.typed;
+      const id = action.payload?.[t.idField];
+      const type = action.payload?.[t.typeField];
+      if (!id || !type) {
+        if (t.required) {
+          logger.warn('[bienbot] pending_action dropped: typed entity id/type missing',
+            { type: action.type, idField: t.idField, typeField: t.typeField });
+          return false;
+        }
+      } else {
+        const model = t.typeToModel[type];
+        if (!model) {
+          logger.warn('[bienbot] pending_action dropped: unknown entity_type',
+            { type: action.type, [t.typeField]: type });
+          return false;
+        }
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          logger.warn('[bienbot] pending_action dropped: invalid typed entity ObjectId',
+            { type: action.type, idField: t.idField, id });
+          return false;
+        }
+        if (!existing[model].has(id)) {
+          logger.warn('[bienbot] pending_action dropped: typed entity not found',
+            { type: action.type, idField: t.idField, model, id });
+          return false;
+        }
+      }
+    }
+
+    if (rule.itemRef) {
+      const { parentField, parentModel, itemField, required } = rule.itemRef;
+      const parentId = action.payload?.[parentField];
+      const itemId   = action.payload?.[itemField];
+      if (!itemId) {
+        if (required) {
+          logger.warn('[bienbot] pending_action dropped: required item_id missing',
+            { type: action.type, itemField });
+          return false;
+        }
+      } else if (!mongoose.Types.ObjectId.isValid(itemId)) {
+        logger.warn('[bienbot] pending_action dropped: invalid item_id ObjectId format',
+          { type: action.type, itemField, itemId });
+        return false;
+      } else if (parentId) {
+        // Only check subdocument existence when the parent was itself confirmed
+        // to exist in Phase 2 (i.e. it's in the itemMap). If the parent wasn't
+        // fetched at all (e.g. it failed Phase 2), the refs check above already
+        // dropped the action — so we skip silently here.
+        const itemMap = parentModel === 'plan' ? planItemMap : expItemMap;
+        if (itemMap.has(parentId) && !itemMap.get(parentId).has(itemId)) {
+          logger.warn('[bienbot] pending_action dropped: item_id not found in parent',
+            { type: action.type, itemField, itemId, parentField, parentId, parentModel });
+          return false;
+        }
+      }
+    }
+
+    if (rule.arrayItemRef) {
+      const { parentField, parentModel, itemField, required } = rule.arrayItemRef;
+      const parentId = action.payload?.[parentField];
+      const itemIds  = action.payload?.[itemField];
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        if (required) {
+          logger.warn('[bienbot] pending_action dropped: required item_ids array missing or empty',
+            { type: action.type, itemField });
+          return false;
+        }
+      } else if (parentId) {
+        const itemMap = parentModel === 'plan' ? planItemMap : expItemMap;
+        if (itemMap.has(parentId)) {
+          const knownIds = itemMap.get(parentId);
+          for (const id of itemIds) {
+            if (!id || !mongoose.Types.ObjectId.isValid(id) || !knownIds.has(id)) {
+              logger.warn('[bienbot] pending_action dropped: item_ids entry not found in parent',
+                { type: action.type, itemField, badId: id, parentField, parentId, parentModel });
+              return false;
+            }
+          }
+        }
+      }
+    }
+
+    if (rule.costRef) {
+      const { parentField, itemField, required } = rule.costRef;
+      const parentId = action.payload?.[parentField];
+      const costId   = action.payload?.[itemField];
+      if (!costId) {
+        if (required) {
+          logger.warn('[bienbot] pending_action dropped: required cost_id missing',
+            { type: action.type, itemField });
+          return false;
+        }
+      } else if (!mongoose.Types.ObjectId.isValid(costId)) {
+        logger.warn('[bienbot] pending_action dropped: invalid cost_id ObjectId format',
+          { type: action.type, itemField, costId });
+        return false;
+      } else if (parentId && planCostMap.has(parentId) && !planCostMap.get(parentId).has(costId)) {
+        logger.warn('[bienbot] pending_action dropped: cost_id not found in parent plan',
+          { type: action.type, itemField, costId, parentField, parentId });
+        return false;
+      }
+    }
+
+    // Intentional gaps (not verified at this layer):
+    //   - note_id (*_plan_item_note): nested two levels deep
+    //     (plan.plan[].details.notes[]); projection cost outweighs the benefit
+    //     while controller 404s remain observable.
+    //   - detail_id (*_plan_item_detail): polymorphic — detail_type is the
+    //     real discriminator, and detail_id is optional. Skip rather than
+    //     replicate that logic here.
+    //   - add_plan_items items[].parent: the parent is descriptive, not
+    //     enforced; a dangling reference produces a flat list, not a 500.
+
+    return true;
+  });
 }
 
 /**
@@ -2890,7 +3371,13 @@ exports.chat = async (req, res) => {
   const rawParsed = parseLLMResponse(llmResult.content || '');
 
   // Explode workflow actions into individual step-by-step pending actions
-  const explodedActions = explodeWorkflows(rawParsed.pending_actions);
+  let explodedActions = explodeWorkflows(rawParsed.pending_actions);
+
+  // Drop actions whose entity IDs the LLM hallucinated. Runs before the
+  // read-only/confirmable split so disambiguation actions (select_plan,
+  // select_destination) and read-only fetches that take entity refs are
+  // covered too — not just confirmable mutations.
+  explodedActions = await verifyPendingActionEntityIds(explodedActions);
 
   // --- Step 5b: Auto-execute read-only actions ---
   // Read-only actions (suggest_plan_items, fetch_entity_photos) execute
@@ -2947,84 +3434,65 @@ exports.chat = async (req, res) => {
 
   // --- Verify entity_refs against the database ---
   // The LLM may fabricate MongoDB ObjectIds that pass string-format checks.
-  // We do a lightweight existence query for each ref and strip any that don't
-  // resolve, preventing 404 links from being surfaced to the user.
-  // For plan refs we also derive experience_id from the DB so it is never wrong.
+  // Drop any ref whose entity isn't in the DB to prevent 404 links from
+  // reaching the user. For plan refs, derive experience_id from the DB so
+  // the ID is never trusted from the LLM.
   if (parsed.entity_refs.length > 0) {
     loadModels();
-    const verifiedRefs = [];
-    await Promise.all(parsed.entity_refs.map(async (ref) => {
-      try {
-        if (!mongoose.Types.ObjectId.isValid(ref._id)) {
-          logger.warn('[bienbot] entity_ref dropped: invalid ObjectId format', { id: ref._id, type: ref.type });
-          return;
+    const refsToVerify = { experience: new Set(), destination: new Set(), plan: new Set() };
+    for (const ref of parsed.entity_refs) {
+      if (refsToVerify[ref.type] && mongoose.Types.ObjectId.isValid(ref._id)) {
+        refsToVerify[ref.type].add(ref._id);
+      }
+    }
+    const existingRefs = { experience: new Set(), destination: new Set() };
+    const planExpMap = new Map();   // plan _id -> experience _id (string|undefined)
+    await Promise.all([
+      refsToVerify.experience.size > 0
+        ? Experience.find({ _id: { $in: [...refsToVerify.experience] } }).select('_id').lean()
+            .then(docs => docs.forEach(d => existingRefs.experience.add(d._id.toString())))
+            .catch(err => logger.warn('[bienbot] entity_ref experience batch query failed', { error: err.message }))
+        : Promise.resolve(),
+      refsToVerify.destination.size > 0
+        ? Destination.find({ _id: { $in: [...refsToVerify.destination] } }).select('_id').lean()
+            .then(docs => docs.forEach(d => existingRefs.destination.add(d._id.toString())))
+            .catch(err => logger.warn('[bienbot] entity_ref destination batch query failed', { error: err.message }))
+        : Promise.resolve(),
+      refsToVerify.plan.size > 0
+        ? Plan.find({ _id: { $in: [...refsToVerify.plan] } }).select('_id experience').lean()
+            .then(docs => docs.forEach(d =>
+              planExpMap.set(d._id.toString(), d.experience?.toString() || undefined)))
+            .catch(err => logger.warn('[bienbot] entity_ref plan batch query failed', { error: err.message }))
+        : Promise.resolve()
+    ]);
+    parsed.entity_refs = parsed.entity_refs.flatMap(ref => {
+      if (!mongoose.Types.ObjectId.isValid(ref._id)) {
+        logger.warn('[bienbot] entity_ref dropped: invalid ObjectId format', { id: ref._id, type: ref.type });
+        return [];
+      }
+      if (ref.type === 'experience') {
+        if (existingRefs.experience.has(ref._id)) return [ref];
+        logger.warn('[bienbot] entity_ref experience not found in DB, dropping', { id: ref._id });
+        return [];
+      }
+      if (ref.type === 'destination') {
+        if (existingRefs.destination.has(ref._id)) return [ref];
+        logger.warn('[bienbot] entity_ref destination not found in DB, dropping', { id: ref._id });
+        return [];
+      }
+      if (ref.type === 'plan') {
+        if (planExpMap.has(ref._id)) {
+          // Always source experience_id from the DB — never trust the LLM value
+          return [{ ...ref, experience_id: planExpMap.get(ref._id) }];
         }
-        if (ref.type === 'experience') {
-          const exists = await Experience.findById(ref._id).select('_id').lean();
-          if (exists) {
-            verifiedRefs.push(ref);
-          } else {
-            logger.warn('[bienbot] entity_ref experience not found in DB, dropping', { id: ref._id });
-          }
-        } else if (ref.type === 'destination') {
-          const exists = await Destination.findById(ref._id).select('_id').lean();
-          if (exists) {
-            verifiedRefs.push(ref);
-          } else {
-            logger.warn('[bienbot] entity_ref destination not found in DB, dropping', { id: ref._id });
-          }
-        } else if (ref.type === 'plan') {
-          const plan = await Plan.findById(ref._id).select('_id experience').lean();
-          if (plan) {
-            // Always source experience_id from the DB — never trust the LLM value
-            verifiedRefs.push({ ...ref, experience_id: plan.experience?.toString() || undefined });
-          } else {
-            logger.warn('[bienbot] entity_ref plan not found in DB, dropping', { id: ref._id });
-          }
-        } else {
-          // plan_item and other types pass through (embedded in experience; costly to verify separately)
-          verifiedRefs.push(ref);
-        }
-      } catch (verifyErr) {
-        logger.warn('[bienbot] entity_ref verification failed, dropping', { id: ref._id, error: verifyErr.message });
+        logger.warn('[bienbot] entity_ref plan not found in DB, dropping', { id: ref._id });
+        return [];
       }
-    }));
-    parsed.entity_refs = verifiedRefs;
-  }
-
-  // --- Verify plan_id in pending plan-mutation actions ---
-  // The LLM may carry a fabricated plan_id from LAST SHOWN ENTITY context or
-  // session history. Strip any action whose plan_id doesn't resolve in the DB.
-  const PLAN_MUTATION_ACTION_TYPES = new Set([
-    'update_plan', 'add_plan_items', 'update_plan_item', 'delete_plan_item',
-    'update_plan_item_note', 'update_plan_item_detail', 'shift_plan_item_dates',
-    'update_plan_cost', 'delete_plan_cost', 'sync_plan'
-  ]);
-  if (parsed.pending_actions.some(a => PLAN_MUTATION_ACTION_TYPES.has(a.type) && a.payload?.plan_id)) {
-    loadModels();
-    const verifiedActions = [];
-    await Promise.all(parsed.pending_actions.map(async (action) => {
-      if (!PLAN_MUTATION_ACTION_TYPES.has(action.type) || !action.payload?.plan_id) {
-        verifiedActions.push(action);
-        return;
-      }
-      const planId = action.payload.plan_id;
-      if (!mongoose.Types.ObjectId.isValid(planId)) {
-        logger.warn('[bienbot] pending_action dropped: invalid plan_id format', { type: action.type, planId });
-        return;
-      }
-      try {
-        const plan = await Plan.findById(planId).select('_id').lean();
-        if (plan) {
-          verifiedActions.push(action);
-        } else {
-          logger.warn('[bienbot] pending_action dropped: plan_id not found in DB', { type: action.type, planId });
-        }
-      } catch (e) {
-        logger.warn('[bienbot] pending_action plan_id verification error, dropping', { type: action.type, planId, error: e.message });
-      }
-    }));
-    parsed.pending_actions = verifiedActions;
+      // plan_item and other types pass through — embedded subdocs are
+      // expensive to verify independently of their parent (the parent is
+      // verified in this same block when present).
+      return [ref];
+    });
   }
 
   // Hydrate session context from entity_refs returned by the LLM.
@@ -5255,3 +5723,4 @@ exports.getAttachmentUrl = async (req, res) => {
 
 // Exported for testing
 exports.parseLLMResponse = parseLLMResponse;
+exports.verifyPendingActionEntityIds = verifyPendingActionEntityIds;

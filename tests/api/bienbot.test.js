@@ -567,8 +567,8 @@ describe('BienBot API', () => {
         content: JSON.stringify({
           message: 'Here are photos and tips for your destination.',
           pending_actions: [
-            { id: 'action_ph001', type: 'fetch_entity_photos', payload: { entity_type: 'destination', entity_id: 'dest123' }, description: 'Fetch photos' },
-            { id: 'action_tp001', type: 'fetch_destination_tips', payload: { destination_id: 'dest123' }, description: 'Fetch tips' }
+            { id: 'action_ph001', type: 'fetch_entity_photos', payload: { entity_type: 'destination', entity_id: destination._id.toString() }, description: 'Fetch photos' },
+            { id: 'action_tp001', type: 'fetch_destination_tips', payload: { destination_id: destination._id.toString() }, description: 'Fetch tips' }
           ]
         }),
         usage: { prompt_tokens: 50, completion_tokens: 40 }
@@ -2110,6 +2110,284 @@ describe('BienBot API', () => {
       });
       const result = parseLLMResponse(input);
       expect(result.entity_refs).toHaveLength(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // verifyPendingActionEntityIds — entity ID hallucination defense
+  // -------------------------------------------------------------------------
+
+  describe('verifyPendingActionEntityIds', () => {
+    const { verifyPendingActionEntityIds } = require('../../controllers/api/bienbot');
+    const mongoose = require('mongoose');
+    const Plan = require('../../models/plan');
+    const BOGUS = 'd'.repeat(24); // valid ObjectId format, not in any collection
+
+    // Adds a plan item snapshot with both _id (auto) and plan_item_id (set
+    // explicitly) plus one cost entry. Returns the refreshed plan.
+    async function seedPlanWithItemAndCost(planDoc) {
+      const externalPlanItemId = new mongoose.Types.ObjectId();
+      planDoc.plan.push({
+        plan_item_id: externalPlanItemId,
+        text: 'Visit shrine',
+        complete: false
+      });
+      planDoc.costs.push({ title: 'Hotel night', cost: 200, currency: 'USD' });
+      await planDoc.save();
+      const refreshed = await Plan.findById(planDoc._id);
+      return {
+        plan: refreshed,
+        snapshotId: refreshed.plan[0]._id.toString(),
+        externalPlanItemId: externalPlanItemId.toString(),
+        costId: refreshed.costs[0]._id.toString()
+      };
+    }
+
+    describe('refs', () => {
+      it('keeps action when plan_id resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'a1', type: 'sync_plan',
+          payload: { plan_id: plan._id.toString() }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when plan_id is fabricated', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'a2', type: 'sync_plan',
+          payload: { plan_id: BOGUS }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when required ref is missing', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'a3', type: 'sync_plan', payload: {}
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action with malformed ObjectId', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'a4', type: 'sync_plan',
+          payload: { plan_id: 'not-an-object-id' }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('itemRef (plan item subdoc)', () => {
+      it('keeps action when item_id matches snapshot _id', async () => {
+        const { plan: p, snapshotId } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'i1', type: 'mark_plan_item_complete',
+          payload: { plan_id: p._id.toString(), item_id: snapshotId }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('keeps action when item_id matches plan_item_id (executor symmetry)', async () => {
+        const { plan: p, externalPlanItemId } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'i2', type: 'update_plan_item',
+          payload: { plan_id: p._id.toString(), item_id: externalPlanItemId, complete: true }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when item_id is fabricated', async () => {
+        const { plan: p } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'i3', type: 'mark_plan_item_complete',
+          payload: { plan_id: p._id.toString(), item_id: BOGUS }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when item_id has invalid format', async () => {
+        const { plan: p } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'i4', type: 'pin_plan_item',
+          payload: { plan_id: p._id.toString(), item_id: 'bad-id' }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('arrayItemRef (reorder_plan_items)', () => {
+      it('keeps action when all item_ids[] resolve', async () => {
+        const { plan: p, snapshotId, externalPlanItemId } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'r1', type: 'reorder_plan_items',
+          payload: { plan_id: p._id.toString(), item_ids: [snapshotId, externalPlanItemId] }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when any item_ids[] entry is fabricated', async () => {
+        const { plan: p, snapshotId } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'r2', type: 'reorder_plan_items',
+          payload: { plan_id: p._id.toString(), item_ids: [snapshotId, BOGUS] }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when item_ids[] is missing/empty', async () => {
+        const { plan: p } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'r3', type: 'reorder_plan_items',
+          payload: { plan_id: p._id.toString(), item_ids: [] }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('costRef (plan cost subdoc)', () => {
+      it('keeps action when cost_id resolves', async () => {
+        const { plan: p, costId } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'c1', type: 'update_plan_cost',
+          payload: { plan_id: p._id.toString(), cost_id: costId, cost: 250 }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when cost_id is fabricated', async () => {
+        const { plan: p } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'c2', type: 'delete_plan_cost',
+          payload: { plan_id: p._id.toString(), cost_id: BOGUS }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when cost_id is missing', async () => {
+        const { plan: p } = await seedPlanWithItemAndCost(plan);
+        const result = await verifyPendingActionEntityIds([{
+          id: 'c3', type: 'delete_plan_cost',
+          payload: { plan_id: p._id.toString() }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('oneOf (invite_collaborator)', () => {
+      it('keeps action when plan_id resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'o1', type: 'invite_collaborator',
+          payload: { plan_id: plan._id.toString(), user_id: user._id.toString() }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('keeps action when experience_id resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'o2', type: 'invite_collaborator',
+          payload: { experience_id: experience._id.toString(), user_id: user._id.toString() }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when neither plan_id nor experience_id resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'o3', type: 'invite_collaborator',
+          payload: { plan_id: BOGUS, experience_id: BOGUS, user_id: user._id.toString() }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when both ID fields are absent', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'o4', type: 'invite_collaborator',
+          payload: { user_id: user._id.toString() }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('typed (add_entity_photos)', () => {
+      it('keeps action when entity_type=destination and entity_id resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 't1', type: 'add_entity_photos',
+          payload: { entity_type: 'destination', entity_id: destination._id.toString(), photos: [] }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when entity_id is fabricated', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 't2', type: 'add_entity_photos',
+          payload: { entity_type: 'destination', entity_id: BOGUS, photos: [] }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when entity_type is unknown', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 't3', type: 'add_entity_photos',
+          payload: { entity_type: 'fake_type', entity_id: destination._id.toString(), photos: [] }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    describe('navigate_to_entity', () => {
+      it('keeps action when destination URL resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'n1', type: 'navigate_to_entity',
+          payload: { url: `/destinations/${destination._id.toString()}` }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('keeps action when experience+plan URL resolves', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'n2', type: 'navigate_to_entity',
+          payload: { url: `/experiences/${experience._id.toString()}#plan-${plan._id.toString()}` }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('normalizes uppercase ObjectId hex in URL to lowercase for matching', async () => {
+        const upper = destination._id.toString().toUpperCase();
+        const result = await verifyPendingActionEntityIds([{
+          id: 'n3', type: 'navigate_to_entity',
+          payload: { url: `/destinations/${upper}` }
+        }]);
+        expect(result).toHaveLength(1);
+      });
+
+      it('drops action when experience ID is fabricated', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'n4', type: 'navigate_to_entity',
+          payload: { url: `/experiences/${BOGUS}` }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+
+      it('drops action when URL pattern is unrecognised', async () => {
+        const result = await verifyPendingActionEntityIds([{
+          id: 'n5', type: 'navigate_to_entity',
+          payload: { url: '/somewhere-else' }
+        }]);
+        expect(result).toHaveLength(0);
+      });
+    });
+
+    it('passes through actions with no entity refs declared', async () => {
+      // create_destination has no required IDs in its payload
+      const result = await verifyPendingActionEntityIds([{
+        id: 'p1', type: 'create_destination',
+        payload: { name: 'New Place', country: 'NP' }
+      }]);
+      expect(result).toHaveLength(1);
+    });
+
+    it('handles empty input', async () => {
+      expect(await verifyPendingActionEntityIds([])).toEqual([]);
+      expect(await verifyPendingActionEntityIds(null)).toEqual([]);
+      expect(await verifyPendingActionEntityIds(undefined)).toEqual([]);
     });
   });
 });
