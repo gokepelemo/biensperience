@@ -9,9 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useNavigate, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useNavigate } from 'react-router-dom';
 import { FaBell } from 'react-icons/fa';
 import { Button, Text, Heading } from '../design-system';
 import useBienBot from '../../hooks/useBienBot';
@@ -26,7 +24,6 @@ import {
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
 import { decodeHtmlEntities } from '../../utilities/html-entities';
-import { getEntityUrl } from '../../utilities/bienbot-entity-urls';
 import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import { OperationType } from '../../utilities/plan-operations';
 import WorkflowStepCard from './WorkflowStepCard';
@@ -45,112 +42,11 @@ import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import SessionSharePopover from './SessionSharePopover';
 import NotificationItem from './NotificationItem';
 import ImageAttachment from './ImageAttachment';
+import MessageContent from './MessageContent';
 import styles from './BienBotPanel.module.css';
 import { CloseIcon, BienBotIcon, NewChatIcon, HistoryIcon, SendIcon, ShareIcon, AttachIcon } from './icons';
 
 // PlanCard removed — plan disambiguation now handled by PlanSelector component
-
-// ─── Inline entity chip renderer ─────────────────────────────────────────────
-
-/**
- * Parse message text and replace inline JSON entity refs with clickable chips.
- * Pattern: {"_id":"...","name":"...","type":"..."} (keys in any order)
- *
- * @param {string} text - Raw message text from the LLM
- * @param {Function} navigate - React Router navigate function
- * @param {object} chipStyles - CSS module styles object
- * @returns {React.ReactNode}
- */
-// Match compact JSON entity refs embedded in LLM output
-const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
-// Placeholder token used to survive markdown parsing: \uE000entity{n}\uE001 (Private Use Area - safe through remark)
-const PLACEHOLDER_RE = /\uE000entity(\d+)\uE001/g;
-
-function buildEntityChip(ref, idx, chipStyles) {
-  const { _id, name, type } = ref;
-  const url = getEntityUrl(ref);
-  const label = name || type || 'entity';
-  if (url) {
-    return (
-      <Link
-        key={`chip-${_id}-${idx}`}
-        to={url}
-        className={chipStyles.inlineEntityChip}
-        aria-label={`View ${type}: ${label}`}
-      >
-        {label}
-      </Link>
-    );
-  }
-  return <span key={`chip-nolink-${idx}`} className={chipStyles.inlineEntityChipNoLink}>{label}</span>;
-}
-
-function substituteChips(text, entityRefs, navigate, chipStyles) {
-  if (typeof text !== 'string') return text;
-  const parts = [];
-  let last = 0;
-  let m;
-  PLACEHOLDER_RE.lastIndex = 0;
-  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    const ref = entityRefs[parseInt(m[1], 10)];
-    if (ref) parts.push(buildEntityChip(ref, m.index, chipStyles));
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  if (parts.length === 0) return text;
-  if (parts.length === 1) return parts[0];
-  return parts.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
-}
-
-function processChildren(children, entityRefs, navigate, chipStyles) {
-  return React.Children.map(children, (child) => {
-    if (typeof child === 'string') return substituteChips(child, entityRefs, navigate, chipStyles);
-    return child;
-  });
-}
-
-function renderMessageContent(text, navigate, chipStyles, role) {
-  if (!text) return null;
-
-  // Extract entity JSON refs and replace with placeholder tokens
-  const entityRefs = [];
-  ENTITY_JSON_RE.lastIndex = 0;
-  const processedText = text.replace(ENTITY_JSON_RE, (match) => {
-    try {
-      entityRefs.push(JSON.parse(match));
-      return `\uE000entity${entityRefs.length - 1}\uE001`;
-    } catch {
-      return match;
-    }
-  });
-
-  // User messages: plain text with entity chips (no markdown parsing)
-  if (role !== 'assistant') {
-    const result = substituteChips(processedText, entityRefs, navigate, chipStyles);
-    if (!Array.isArray(result)) return result;
-    return result.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
-  }
-
-  // Assistant messages: full markdown rendering with entity chip substitution
-  const bindChip = (children) => processChildren(children, entityRefs, navigate, chipStyles);
-
-  const mdComponents = {
-    p: ({ children }) => <p>{bindChip(children)}</p>,
-    li: ({ children }) => <li>{bindChip(children)}</li>,
-    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-    pre: ({ children }) => <pre className={chipStyles.codeBlock}>{children}</pre>,
-    code: ({ children, className }) => <code className={className}>{children}</code>,
-  };
-
-  return (
-    <div className={chipStyles.markdownContent}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-        {processedText}
-      </ReactMarkdown>
-    </div>
-  );
-}
 
 // ─── Main BienBotPanel component ──────────────────────────────────────────────
 
@@ -1862,7 +1758,7 @@ export default function BienBotPanel({
                           })}
                         </div>
                       )}
-                      {renderMessageContent(msg.content, navigate, styles, msg.role)}
+                      <MessageContent text={msg.content} role={msg.role} />
                       {msg.structured_content?.length > 0 && (
                         <div className={styles.structuredContent}>
                           {msg.structured_content.map((block, blockIdx) => {
