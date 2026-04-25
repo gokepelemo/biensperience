@@ -14,7 +14,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FaBell } from 'react-icons/fa';
 import { Button, Text, Heading } from '../design-system';
-import { Tag } from '@chakra-ui/react';
 import useBienBot from '../../hooks/useBienBot';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useUser } from '../../contexts/UserContext';
@@ -2399,24 +2398,15 @@ export default function BienBotPanel({
                       ? step
                       : step.label || step.text || '';
                   return (
-                    <Tag.Root
+                    <button
                       key={idx}
-                      variant="outline"
-                      colorPalette="purple"
-                      size="lg"
+                      type="button"
                       className={styles.chip}
+                      data-chip="true"
                       onClick={() => handleChipClick(step)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleChipClick(step);
-                        }
-                      }}
                     >
-                      <Tag.Label>{label}</Tag.Label>
-                    </Tag.Root>
+                      {label}
+                    </button>
                   );
                 })}
               </div>

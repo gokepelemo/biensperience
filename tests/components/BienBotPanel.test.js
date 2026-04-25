@@ -548,6 +548,23 @@ describe('BienBotPanel', () => {
     });
   });
 
+  // ─── Suggestion chips — real button elements ────────────────────────────
+  describe('suggestion chips — a11y', () => {
+    it('renders suggestion chips as real button elements', () => {
+      suggestions.getSuggestionsForContext.mockReturnValue([
+        'What should I know?',
+        'Estimate costs',
+      ]);
+      setHookState({ messages: [], suggestedNextSteps: [] });
+      renderPanel({ open: true, onClose: jest.fn(), invokeContext: null });
+      const chips = screen.getAllByRole('button').filter(el => el.className?.includes('chip') || el.dataset.chip === 'true');
+      expect(chips.length).toBeGreaterThan(0);
+      for (const chip of chips) {
+        expect(chip.tagName).toBe('BUTTON');
+      }
+    });
+  });
+
   // ─── Input history recall ────────────────────────────────────────────────
   describe('input history recall (ArrowUp / ArrowDown)', () => {
     it('ArrowUp on empty textarea recalls the most recent user message', () => {
