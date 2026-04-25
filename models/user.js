@@ -282,6 +282,21 @@ const userSchema = new Schema(
             dismissedChannels: { type: [String], default: [] }
           }, { _id: false }),
           default: {}
+        },
+        // Default travel origin: the user's preferred departure point for transport queries
+        // and future transport booking flows. Stored as a geocoded location object.
+        defaultTravelOrigin: {
+          type: new Schema({
+            displayName: { type: String },
+            city: { type: String },
+            state: { type: String },
+            country: { type: String },
+            countryCode: { type: String, uppercase: true, maxLength: 2 },
+            postalCode: { type: String },
+            lat: { type: Number },
+            lng: { type: Number }
+          }, { _id: false }),
+          default: null
         }
       }, { _id: false }),
       default: {}

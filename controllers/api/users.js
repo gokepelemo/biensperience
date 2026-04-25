@@ -508,6 +508,36 @@ async function updateUser(req, res, next) {
         prefs.messages = m;
       }
 
+      // defaultTravelOrigin: geocode a new string value, or clear when null/empty
+      if (Object.prototype.hasOwnProperty.call(p, 'defaultTravelOrigin')) {
+        if (p.defaultTravelOrigin === null || p.defaultTravelOrigin === '') {
+          prefs.defaultTravelOrigin = null;
+        } else if (typeof p.defaultTravelOrigin === 'string' && p.defaultTravelOrigin.trim().length >= 2) {
+          const originQuery = p.defaultTravelOrigin.trim().substring(0, 200);
+          try {
+            const geocodedOrigin = await geocodeAddress(originQuery);
+            if (geocodedOrigin) {
+              prefs.defaultTravelOrigin = {
+                displayName: geocodedOrigin.displayName,
+                city: geocodedOrigin.city,
+                state: geocodedOrigin.state,
+                country: geocodedOrigin.country,
+                countryCode: geocodedOrigin.countryCode,
+                postalCode: geocodedOrigin.postalCode,
+                lat: geocodedOrigin.latitude,
+                lng: geocodedOrigin.longitude
+              };
+            } else {
+              backendLogger.warn('defaultTravelOrigin geocoding returned no results', {
+                userId: userId.toString(), query: originQuery
+              });
+            }
+          } catch (e) {
+            backendLogger.warn('Failed to geocode defaultTravelOrigin', { error: e?.message });
+          }
+        }
+      }
+
       // Only set preferences if at least one valid value present
       if (Object.keys(prefs).length > 0) {
         validatedUpdateData.preferences = prefs;
@@ -976,6 +1006,36 @@ async function updateUserAsAdmin(req, res) {
           m.dismissedChannels = p.messages.dismissedChannels.filter(id => typeof id === 'string' && id.trim().length > 0);
         }
         prefs.messages = m;
+      }
+
+      // defaultTravelOrigin: geocode a new string value, or clear when null/empty
+      if (Object.prototype.hasOwnProperty.call(p, 'defaultTravelOrigin')) {
+        if (p.defaultTravelOrigin === null || p.defaultTravelOrigin === '') {
+          prefs.defaultTravelOrigin = null;
+        } else if (typeof p.defaultTravelOrigin === 'string' && p.defaultTravelOrigin.trim().length >= 2) {
+          const originQuery = p.defaultTravelOrigin.trim().substring(0, 200);
+          try {
+            const geocodedOrigin = await geocodeAddress(originQuery);
+            if (geocodedOrigin) {
+              prefs.defaultTravelOrigin = {
+                displayName: geocodedOrigin.displayName,
+                city: geocodedOrigin.city,
+                state: geocodedOrigin.state,
+                country: geocodedOrigin.country,
+                countryCode: geocodedOrigin.countryCode,
+                postalCode: geocodedOrigin.postalCode,
+                lat: geocodedOrigin.latitude,
+                lng: geocodedOrigin.longitude
+              };
+            } else {
+              backendLogger.warn('defaultTravelOrigin geocoding returned no results', {
+                userId: userId.toString(), query: originQuery
+              });
+            }
+          } catch (e) {
+            backendLogger.warn('Failed to geocode defaultTravelOrigin', { error: e?.message });
+          }
+        }
       }
 
       // Only set preferences if at least one valid value present

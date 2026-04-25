@@ -14,6 +14,7 @@ const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
 const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage } = require('./hidden-signals');
 const affinityCache = require('./affinity-cache');
+const { getTravelOriginContext } = require('./travel-origin');
 const {
   buildDiscoveryContext,
   buildSimilarExperiencesContext,
@@ -1265,6 +1266,7 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
       user.bio ? `Bio: ${user.bio}` : null,
       user.preferences?.currency ? `Currency: ${user.preferences.currency}` : null,
       user.preferences?.timezone ? `Timezone: ${user.preferences.timezone}` : null,
+      getTravelOriginContext(user),
       user.links?.length ? `Links: ${user.links.map(l => l.title || l.url).join(', ')}` : null,
       experienceCount > 0
         ? `Experiences created: ${experienceCount}  (use list_user_experiences to fetch them)`
@@ -1532,6 +1534,10 @@ async function buildUserGreetingContext(userId, options = {}) {
       `[User Greeting] Hello, ${userDoc.name || 'traveler'}`,
       `Entity: ${entityJSON(userId, userDoc.name || 'traveler', 'user')}`
     ];
+
+    // Default travel origin (departure point for transport / route queries)
+    const originCtx = getTravelOriginContext(userDoc);
+    if (originCtx) lines.push(originCtx);
 
     // Active plans
     lines.push(..._buildActivePlansSection(plans));
