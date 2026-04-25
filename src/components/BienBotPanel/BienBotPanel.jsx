@@ -38,11 +38,13 @@ import DiscoveryResultCard from './DiscoveryResultCard';
 import PendingActionCard from './PendingActionCard';
 import SessionHistoryView from './SessionHistoryView';
 import EntityRefList from './EntityRefList';
-import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
+import { applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { createPlan } from '../../utilities/plans-api';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import SessionSharePopover from './SessionSharePopover';
+import NotificationItem from './NotificationItem';
+import ImageAttachment from './ImageAttachment';
 import styles from './BienBotPanel.module.css';
 import { CloseIcon, BienBotIcon, NewChatIcon, HistoryIcon, SendIcon, ShareIcon, AttachIcon } from './icons';
 
@@ -149,136 +151,6 @@ function renderMessageContent(text, navigate, chipStyles, role) {
     </div>
   );
 }
-
-// ─── Notification item ───────────────────────────────────────────────────────
-
-function NotificationItem({ notification, onView, onViewSession }) {
-  const message = notification.reason ||
-    `${notification.actor?.name || 'Someone'} added you as a collaborator to ${notification.resource?.name || 'an experience'}`;
-  const resourceId = notification.resource?.id || notification.resource?._id;
-  const isBienBotSession = notification.resource?.type === 'BienBotSession';
-
-  return (
-    <div className={styles.notificationItem}>
-      <span className={styles.notificationIcon} aria-hidden="true">
-        <FaBell size={14} />
-      </span>
-      <div className={styles.notificationContent}>
-        <Text size="sm">{message}</Text>
-        {resourceId && !isBienBotSession && (
-          <button
-            type="button"
-            className={styles.notificationViewButton}
-            onClick={() => onView(resourceId, notification._id)}
-          >
-            View
-          </button>
-        )}
-        {isBienBotSession && resourceId && (
-          <button
-            type="button"
-            className={styles.notificationViewButton}
-            onClick={() => onViewSession?.(resourceId, notification._id)}
-          >
-            View session
-          </button>
-        )}
-        {isBienBotSession && !resourceId && (
-          <button
-            type="button"
-            className={styles.notificationViewButton}
-            onClick={() => onView(null, notification._id)}
-          >
-            Dismiss
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-NotificationItem.propTypes = {
-  notification: PropTypes.shape({
-    _id: PropTypes.string,
-    reason: PropTypes.string,
-    actor: PropTypes.shape({ name: PropTypes.string }),
-    resource: PropTypes.shape({
-      id: PropTypes.string,
-      _id: PropTypes.string,
-      name: PropTypes.string
-    })
-  }).isRequired,
-  onView: PropTypes.func.isRequired,
-  onViewSession: PropTypes.func
-};
-
-// ─── Image attachment with signed URL ─────────────────────────────────────────
-
-function ImageAttachment({ attachment, sessionId, messageIndex, attachmentIndex }) {
-  const [imageUrl, setImageUrl] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!sessionId || messageIndex < 0 || attachmentIndex < 0) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await getAttachmentUrl(sessionId, messageIndex, attachmentIndex);
-        if (!cancelled && result?.url) {
-          setImageUrl(result.url);
-        }
-      } catch (err) {
-        logger.debug('[BienBotPanel] Failed to load attachment URL', { error: err.message });
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [sessionId, messageIndex, attachmentIndex]);
-
-  if (loading) {
-    return (
-      <span className={styles.attachmentBadge}>
-        <span className={styles.attachmentFilename}>{attachment.filename}</span>
-      </span>
-    );
-  }
-
-  if (imageUrl) {
-    return (
-      <div className={styles.imageAttachment}>
-        <img
-          src={imageUrl}
-          alt={attachment.filename}
-          className={styles.imageAttachmentThumb}
-          loading="lazy"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <span className={styles.attachmentBadge}>
-      <span className={styles.attachmentFilename}>{attachment.filename}</span>
-    </span>
-  );
-}
-
-ImageAttachment.propTypes = {
-  attachment: PropTypes.shape({
-    filename: PropTypes.string.isRequired,
-    mimeType: PropTypes.string,
-    s3Key: PropTypes.string
-  }).isRequired,
-  sessionId: PropTypes.string,
-  messageIndex: PropTypes.number.isRequired,
-  attachmentIndex: PropTypes.number.isRequired
-};
 
 // ─── Main BienBotPanel component ──────────────────────────────────────────────
 
