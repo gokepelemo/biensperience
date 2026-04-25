@@ -11,7 +11,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { FaBell } from 'react-icons/fa';
-import { Button, Text } from '../design-system';
+import { Text } from '../design-system';
 import useBienBot from '../../hooks/useBienBot';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useUser } from '../../contexts/UserContext';
@@ -27,16 +27,16 @@ import { decodeHtmlEntities } from '../../utilities/html-entities';
 import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import { OperationType } from '../../utilities/plan-operations';
 import PendingActionsArea from './PendingActionsArea';
+import ChatInputArea from './ChatInputArea';
 import SessionHistoryView from './SessionHistoryView';
 import { applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { createPlan } from '../../utilities/plans-api';
 import Autocomplete from '../Autocomplete/Autocomplete';
-import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
 import NotificationItem from './NotificationItem';
 import BienBotHeader from './BienBotHeader';
 import MessageList from './MessageList';
 import styles from './BienBotPanel.module.css';
-import { CloseIcon, BienBotIcon, SendIcon, AttachIcon } from './icons';
+import { CloseIcon, BienBotIcon } from './icons';
 
 // ─── Main BienBotPanel component ──────────────────────────────────────────────
 
@@ -1623,125 +1623,36 @@ export default function BienBotPanel({
               onCancelWorkflow={handleCancelWorkflow}
             />
 
-            {/* ── Suggested action chips ───────────────────────────── */}
-            {visibleChips.length > 0 && (
-              <div className={styles.chipsContainer}>
-                {visibleChips.map((step, idx) => {
-                  const label =
-                    typeof step === 'string'
-                      ? step
-                      : step.label || step.text || '';
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={styles.chip}
-                      data-chip="true"
-                      onClick={() => handleChipClick(step)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* ── Input area ──────────────────────────────────────── */}
-            {attachment && (
-              <div className={styles.attachmentPreview}>
-                {attachmentPreviewUrl && (
-                  <img
-                    src={attachmentPreviewUrl}
-                    alt={attachment.name}
-                    className={styles.attachmentPreviewThumb}
-                  />
-                )}
-                <span className={styles.attachmentPreviewName}>
-                  {!attachmentPreviewUrl && <AttachIcon />}
-                  {attachment.name}
-                </span>
-                <button
-                  type="button"
-                  className={styles.attachmentRemove}
-                  onClick={handleRemoveAttachment}
-                  aria-label="Remove attachment"
-                >
-                  <CloseIcon />
-                </button>
-              </div>
-            )}
-            {replyTo && (
-              <div className={styles.replyStrip}>
-                <span className={styles.replyStripContent}>
-                  Replying to <strong>{replyTo.senderName}</strong>: {replyTo.preview}
-                </span>
-                <button
-                  type="button"
-                  className={styles.replyStripClose}
-                  onClick={() => setReplyTo(null)}
-                  aria-label="Cancel reply"
-                >
-                  <CloseIcon />
-                </button>
-              </div>
-            )}
-            {pendingContextSwitch && (
-              <ContextSwitchPrompt
-                prevEntityLabel={pendingContextSwitch.prevEntityLabel}
-                newEntityLabel={pendingContextSwitch.newEntityLabel}
-                newEntityType={pendingContextSwitch.entity}
-                onStay={() => setPendingContextSwitch(null)}
-                onSwitch={() => {
-                  switchContext(
-                    pendingContextSwitch.entity,
-                    pendingContextSwitch.entityId,
-                    pendingContextSwitch.contextDescription
-                  );
-                  setPendingContextSwitch(null);
-                }}
-              />
-            )}
-            <div className={styles.inputArea}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ALLOWED_ATTACH_TYPES}
-                className={styles.hiddenFileInput}
-                onChange={handleFileChange}
-                aria-hidden="true"
-                tabIndex={-1}
-              />
-              <button
-                type="button"
-                className={styles.attachButton}
-                onClick={handleAttachClick}
-                disabled={isStreaming || !!attachment}
-                aria-label="Attach a file"
-                title="Attach image or document"
-              >
-                <AttachIcon />
-              </button>
-              <textarea
-                ref={inputRef}
-                className={styles.textInput}
-                placeholder={placeholderText}
-                rows={1}
-                disabled={isStreaming}
-                onInput={resizeTextarea}
-                onKeyDown={handleKeyDown}
-                aria-label="Message input"
-              />
-              <Button
-                variant="primary"
-                size="md"
-                className={styles.sendButton}
-                onClick={handleSend}
-                disabled={isLoading || isStreaming}
-                aria-label="Send message"
-              >
-                <SendIcon />
-              </Button>
-            </div>
+            <ChatInputArea
+              inputRef={inputRef}
+              fileInputRef={fileInputRef}
+              visibleChips={visibleChips}
+              onChipClick={handleChipClick}
+              attachment={attachment}
+              attachmentPreviewUrl={attachmentPreviewUrl}
+              onAttachClick={handleAttachClick}
+              onFileChange={handleFileChange}
+              onRemoveAttachment={handleRemoveAttachment}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+              pendingContextSwitch={pendingContextSwitch}
+              onStaySwitch={() => setPendingContextSwitch(null)}
+              onAcceptSwitch={() => {
+                switchContext(
+                  pendingContextSwitch.entity,
+                  pendingContextSwitch.entityId,
+                  pendingContextSwitch.contextDescription
+                );
+                setPendingContextSwitch(null);
+              }}
+              placeholderText={placeholderText}
+              isStreaming={isStreaming}
+              isLoading={isLoading}
+              resizeTextarea={resizeTextarea}
+              onKeyDown={handleKeyDown}
+              onSend={handleSend}
+              allowedAttachTypes={ALLOWED_ATTACH_TYPES}
+            />
           </>
         )}
       </div>
