@@ -674,13 +674,11 @@ export default function BienBotPanel({
   const handleAddPhotos = useCallback(
     (photos, entityType, entityId) => {
       if (!photos?.length || isStreaming || isLoading) return;
-      const photoPayload = photos.map(p => ({
-        url: p.url,
-        photographer: p.photographer,
-        photographer_url: p.photographer_url,
-        unsplash_url: p.unsplash_url
-      }));
-      const msg = `Add ${photos.length} selected photo${photos.length !== 1 ? 's' : ''} to the ${entityType}`;
+      const photoLines = photos.map(p => {
+        const credit = p.photographer ? ` (by ${p.photographer}${p.photographer_url ? ` — ${p.photographer_url}` : ''})` : '';
+        return `- ${p.url}${credit}`;
+      }).join('\n');
+      const msg = `Add these ${photos.length} selected photo${photos.length !== 1 ? 's' : ''} to the ${entityType}:\n${photoLines}`;
       sendMessage(msg);
     },
     [sendMessage, isStreaming, isLoading]

@@ -616,4 +616,43 @@ describe('BienBotPanel', () => {
       expect(textarea.value).toBe('');
     });
   });
+
+  // ─── handleAddPhotos ──────────────────────────────────────────────────────
+  describe('handleAddPhotos', () => {
+    it('includes photo URLs and photographer credits in the message sent to BienBot', async () => {
+      const photos = [
+        { url: 'https://images.unsplash.com/photo-1', photographer: 'Alice', photographer_url: 'https://unsplash.com/@alice' },
+        { url: 'https://images.unsplash.com/photo-2', photographer: 'Bob' }
+      ];
+
+      setHookState({
+        messages: [{
+          _id: 'm1',
+          role: 'assistant',
+          content: '',
+          structured_content: [{
+            type: 'photo_gallery',
+            data: { photos, entity_type: 'destination', entity_id: 'd1', entity_name: 'Paris', selectable: true }
+          }]
+        }],
+      });
+
+      renderPanel({ invokeContext: { entity: 'destination', id: 'd1', label: 'Paris' } });
+
+      // Select both photos using their aria-labels (Photo N by Photographer)
+      const thumb1 = screen.getByRole('button', { name: /Photo 1 by Alice/i });
+      const thumb2 = screen.getByRole('button', { name: /Photo 2 by Bob/i });
+      fireEvent.click(thumb1);
+      fireEvent.click(thumb2);
+
+      // Click the "Add 2 photos" button
+      fireEvent.click(screen.getByRole('button', { name: /Add 2 photos/i }));
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
+      const sentMessage = mockSendMessage.mock.calls[0][0];
+      expect(sentMessage).toContain('https://images.unsplash.com/photo-1');
+      expect(sentMessage).toContain('https://images.unsplash.com/photo-2');
+      expect(sentMessage).toContain('Alice');
+    });
+  });
 });
