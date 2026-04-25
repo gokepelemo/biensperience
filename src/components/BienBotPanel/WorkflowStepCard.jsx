@@ -7,7 +7,7 @@
  * @module components/BienBotPanel/WorkflowStepCard
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Button } from '../design-system';
 import styles from './WorkflowStepCard.module.css';
@@ -180,8 +180,9 @@ export default function WorkflowStepCard({
 }) {
   const [editingStepId, setEditingStepId] = useState(null);
 
-  const sortedSteps = [...steps].sort(
-    (a, b) => (a.workflow_step ?? 0) - (b.workflow_step ?? 0)
+  const sortedSteps = useMemo(
+    () => [...steps].sort((a, b) => (a.workflow_step ?? 0) - (b.workflow_step ?? 0)),
+    [steps]
   );
 
   const total = sortedSteps.length;
