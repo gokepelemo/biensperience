@@ -11,7 +11,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { FaBell } from 'react-icons/fa';
-import { Button, Text, Heading } from '../design-system';
+import { Button, Text } from '../design-system';
 import useBienBot from '../../hooks/useBienBot';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useUser } from '../../contexts/UserContext';
@@ -39,12 +39,12 @@ import { applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
 import { createPlan } from '../../utilities/plans-api';
 import Autocomplete from '../Autocomplete/Autocomplete';
 import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
-import SessionSharePopover from './SessionSharePopover';
 import NotificationItem from './NotificationItem';
 import ImageAttachment from './ImageAttachment';
 import MessageContent from './MessageContent';
+import BienBotHeader from './BienBotHeader';
 import styles from './BienBotPanel.module.css';
-import { CloseIcon, BienBotIcon, NewChatIcon, HistoryIcon, SendIcon, ShareIcon, AttachIcon } from './icons';
+import { CloseIcon, BienBotIcon, SendIcon, AttachIcon } from './icons';
 
 // PlanCard removed — plan disambiguation now handled by PlanSelector component
 
@@ -1482,115 +1482,27 @@ export default function BienBotPanel({
         className={`${styles.panel} ${open ? styles.open : ''}`}
       >
         {/* ── Header ─────────────────────────────────────────── */}
-        <div className={styles.header}>
-          {!notificationOnly && (isLoading || isStreaming) ? (
-            <button
-              type="button"
-              className={styles.botIconReload}
-              onClick={clearSession}
-              aria-label="BienBot is loading — click to reload"
-              title="Stuck? Click to reload BienBot"
-            >
-              <BienBotIcon />
-            </button>
-          ) : (
-            <span className={styles.botIcon} aria-hidden="true">
-              {notificationOnly ? <FaBell size={22} /> : <BienBotIcon />}
-            </span>
-          )}
-
-          <div className={styles.headerTitle}>
-            <Heading level={5} style={{ margin: 0, lineHeight: 1.3 }}>
-              {notificationOnly ? 'Notifications' : 'BienBot'}
-            </Heading>
-            {!notificationOnly && invokeContext?.label && (
-              <Text
-                size="sm"
-                className={styles.headerLabel}
-                title={invokeContext.label}
-              >
-                {invokeContext.label}
-              </Text>
-            )}
-          </div>
-
-          {!notificationOnly && (currentSession || hasSharedSessions) && (
-            <div className={styles.shareWrapper}>
-              <button
-                type="button"
-                className={styles.newChatButton}
-                onClick={() => {
-                  if (!currentSession) {
-                    // No active session — open history so the user can select a shared session
-                    fetchSessions({ status: 'active' });
-                    setViewMode('history');
-                  } else {
-                    setShareOpen(prev => !prev);
-                  }
-                }}
-                aria-label={currentSession ? 'Share session' : 'View shared sessions'}
-                title={currentSession ? 'Share session' : 'View shared sessions'}
-              >
-                <ShareIcon />
-                {currentSession && (currentSession.shared_with || []).length > 0 && (
-                  <span className={styles.shareBadge}>{currentSession.shared_with.length}</span>
-                )}
-              </button>
-              {currentSession && (
-                <SessionSharePopover
-                  open={shareOpen}
-                  onClose={() => setShareOpen(false)}
-                  sharedWith={currentSession.shared_with}
-                  onShare={shareSession}
-                  onUnshare={unshareSession}
-                  isOwner={isSessionOwner}
-                  onSearchUsers={searchMutualFollowers}
-                />
-              )}
-            </div>
-          )}
-
-          {!notificationOnly && messages.length > 0 && (
-            <button
-              type="button"
-              className={styles.newChatButton}
-              onClick={handleNewChat}
-              aria-label="Start new chat"
-              title="New chat"
-              disabled={isStreaming}
-            >
-              <NewChatIcon />
-            </button>
-          )}
-
-          {!notificationOnly && (
-            <button
-              type="button"
-              className={styles.newChatButton}
-              onClick={() => {
-                if (viewMode === 'history') {
-                  setViewMode('chat');
-                } else {
-                  fetchSessions({ status: 'active' });
-                  setViewMode('history');
-                }
-              }}
-              aria-label={viewMode === 'history' ? 'Back to chat' : 'Chat history'}
-              title={viewMode === 'history' ? 'Back to chat' : 'Chat history'}
-            >
-              <HistoryIcon />
-            </button>
-          )}
-
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label={notificationOnly ? 'Close notifications' : 'Close BienBot'}
-          >
-            <CloseIcon />
-          </button>
-        </div>
+        <BienBotHeader
+          notificationOnly={notificationOnly}
+          invokeContext={invokeContext}
+          currentSession={currentSession}
+          hasSharedSessions={hasSharedSessions}
+          isSessionOwner={isSessionOwner}
+          shareOpen={shareOpen}
+          setShareOpen={setShareOpen}
+          shareSession={shareSession}
+          unshareSession={unshareSession}
+          searchMutualFollowers={searchMutualFollowers}
+          fetchSessions={fetchSessions}
+          setViewMode={setViewMode}
+          viewMode={viewMode}
+          messagesCount={messages.length}
+          handleNewChat={handleNewChat}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          clearSession={clearSession}
+          onClose={onClose}
+        />
 
         {notificationOnly ? (
           /* ── Notification-only mode ──────────────────────────── */
