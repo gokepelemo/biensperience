@@ -222,3 +222,59 @@ describe('fetch_plan_costs handler', () => {
     expect(outcome.body.error).toBe('not_authorized');
   });
 });
+
+describe('fetch_plan_collaborators handler', () => {
+  let owner, collab, dest, exp, plan;
+
+  beforeAll(async () => { await dbSetup.connect(); });
+  afterAll(async () => { await dbSetup.closeDatabase(); });
+
+  beforeEach(async () => {
+    await Promise.all([Plan.deleteMany({}), Experience.deleteMany({}), Destination.deleteMany({}), User.deleteMany({})]);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    owner = await User.create({ name: 'O', email: `o-${suffix}@x.test`, password: 'pw12345!' });
+    collab = await User.create({ name: 'Collab', email: `c-${suffix}@x.test`, password: 'pw12345!' });
+    dest = await Destination.create({ name: 'D', country: 'X', user: owner._id });
+    exp = await Experience.create({
+      name: 'E', destination: dest._id, user: owner._id,
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }]
+    });
+    plan = await Plan.create({
+      experience: exp._id, user: owner._id,
+      permissions: [
+        { _id: owner._id, entity: 'user', type: 'owner', granted_at: new Date() },
+        { _id: collab._id, entity: 'user', type: 'collaborator', granted_at: new Date() }
+      ],
+      member_locations: [
+        { user: collab._id, location: { city: 'Berlin', country: 'DE' }, travel_cost_estimate: 300, currency: 'EUR' }
+      ]
+    });
+  });
+
+  it('returns collaborators with names, roles, and locations', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_plan_collaborators', payload: { plan_id: plan._id.toString() } }, owner
+    );
+    expect(outcome.body.collaborators).toHaveLength(2);
+    const collabEntry = outcome.body.collaborators.find(c => c.role === 'collaborator');
+    expect(collabEntry.name).toBe('Collab');
+    expect(collabEntry.location.city).toBe('Berlin');
+    expect(collabEntry.travel_cost_estimate).toBe(300);
+  });
+
+  it('returns not_authorized when user cannot view plan', async () => {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stranger = await User.create({ name: 'S', email: `s-${suffix}@x.test`, password: 'pw12345!' });
+    const outcome = await executeAction(
+      { type: 'fetch_plan_collaborators', payload: { plan_id: plan._id.toString() } }, stranger
+    );
+    expect(outcome.body.error).toBe('not_authorized');
+  });
+
+  it('returns invalid_id for malformed plan_id', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_plan_collaborators', payload: { plan_id: 'not-a-real-id' } }, owner
+    );
+    expect(outcome.body.error).toBe('invalid_id');
+  });
+});

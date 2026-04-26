@@ -1436,6 +1436,7 @@ const ACTION_ENTITY_VERIFY = {
   fetch_destination_tips:      { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
   fetch_plan_items:            { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
   fetch_plan_costs:            { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_plan_collaborators:    { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
   // Optional plan_id only.
   create_invite:               { refs: [{ field: 'plan_id', model: 'plan', required: false }] },
   // experience_id required.

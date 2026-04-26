@@ -106,6 +106,7 @@ const ALLOWED_ACTION_TYPES = [
   'fetch_destination_tips',
   'fetch_plan_items',
   'fetch_plan_costs',
+  'fetch_plan_collaborators',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -184,6 +185,7 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'fetch_destination_tips',
   'fetch_plan_items',
   'fetch_plan_costs',
+  'fetch_plan_collaborators',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -204,7 +206,8 @@ const READ_ONLY_ACTION_TYPES = new Set([
  */
 const TOOL_CALL_ACTION_TYPES = new Set([
   'fetch_plan_items',
-  'fetch_plan_costs'
+  'fetch_plan_costs',
+  'fetch_plan_collaborators'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1285,6 +1288,58 @@ async function executeFetchPlanCosts(payload, user) {
 }
 
 /**
+ * fetch_plan_collaborators — read-only, no confirmation.
+ * Returns the plan's user permissions joined with member_locations entries.
+ * payload: { plan_id }
+ */
+async function executeFetchPlanCollaborators(payload, user) {
+  const Plan = require('../models/plan');
+  const User = require('../models/user');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const { getEnforcer } = require('./permission-enforcer');
+  const mongoose = require('mongoose');
+
+  const planIdStr = String(payload?.plan_id || '');
+  if (!mongoose.Types.ObjectId.isValid(planIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // No .lean() — enforcer needs Mongoose class info
+  const plan = await Plan.findById(planIdStr).select('permissions member_locations experience user');
+  if (!plan) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const userPerms = (plan.permissions || []).filter(p => p.entity === 'user');
+  const userIds = userPerms.map(p => p._id);
+  const userDocs = await User.find({ _id: { $in: userIds } }).select('name').lean();
+  const nameMap = Object.fromEntries(userDocs.map(u => [String(u._id), u.name]));
+  const locMap = Object.fromEntries((plan.member_locations || []).map(ml => [String(ml.user), ml]));
+
+  const collaborators = userPerms.map(p => {
+    const uid = String(p._id);
+    const ml = locMap[uid];
+    return {
+      user_id: uid,
+      name: nameMap[uid] || 'Unknown',
+      role: p.type || 'collaborator',
+      granted_at: p.granted_at || null,
+      location: ml?.location ? {
+        city: ml.location.city || null,
+        state: ml.location.state || null,
+        country: ml.location.country || null
+      } : null,
+      travel_cost_estimate: ml?.travel_cost_estimate ?? null
+    };
+  });
+
+  return { statusCode: 200, body: { collaborators } };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -2062,6 +2117,7 @@ const ACTION_HANDLERS = {
   fetch_destination_tips: executeFetchDestinationTips,
   fetch_plan_items: executeFetchPlanItems,
   fetch_plan_costs: executeFetchPlanCosts,
+  fetch_plan_collaborators: executeFetchPlanCollaborators,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,
