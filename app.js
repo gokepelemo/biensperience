@@ -368,11 +368,8 @@ app.use('/api', (req, res, next) => {
     return next();
   }
 
-  // Skip CSRF for super admins
-  if (req.user && (req.user.isSuperAdmin || req.user.role === 'super_admin')) {
-    backendLogger.debug('Skipping CSRF for super admin', { userId: req.user._id, isSuperAdmin: req.user.isSuperAdmin, role: req.user.role });
-    return next();
-  }
+  // NOTE: super admins are intentionally NOT bypassed — a hijacked super-admin session
+  // would otherwise face zero CSRF protection, which is the worst-case attacker target.
 
   backendLogger.debug('Applying CSRF protection', {
     sessionId: req.session?.id ? req.session.id.substring(0, 8) + '...' : 'none'
