@@ -123,3 +123,29 @@ describe('Holidays provider', () => {
     expect(getTool('fetch_public_holidays')).toBeTruthy();
   });
 });
+
+describe('Webhook provider', () => {
+  beforeEach(() => {
+    _resetRegistryForTest();
+    _resetForTest();
+    process.env.TRIP_ALERT_WEBHOOK_URL = 'https://hooks.test/abc';
+    bootstrap();
+  });
+  afterEach(() => { delete process.env.TRIP_ALERT_WEBHOOK_URL; });
+
+  it('registers send_trip_alert as a write tool', () => {
+    const entry = getTool('send_trip_alert');
+    expect(entry).toBeTruthy();
+    expect(entry.tool.mutating).toBe(true);
+    expect(entry.tool.irreversible).toBe(true);
+    expect(entry.tool.confirmDescription).toMatch(/{alert_type}/);
+  });
+
+  it('is disabled when TRIP_ALERT_WEBHOOK_URL is absent', () => {
+    delete process.env.TRIP_ALERT_WEBHOOK_URL;
+    _resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+    expect(getTool('send_trip_alert')).toBeNull();
+  });
+});

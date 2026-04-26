@@ -12,6 +12,23 @@ import PropTypes from 'prop-types';
 import { Button, Text } from '../design-system';
 import styles from './BienBotPanel.module.css';
 
+/**
+ * Replace `{field}` placeholders in a template string with values from the
+ * payload object. Unresolvable keys are left in place (kept as `{key}`) so
+ * developers can spot missing payload fields rather than silently shipping
+ * empty descriptions.
+ *
+ * Used to render registry tool_metadata.confirmDescription strings, which
+ * are authored in the provider manifest (deterministic) rather than written
+ * by the LLM (free-form).
+ */
+export function interpolateTemplate(tmpl, payload) {
+  if (typeof tmpl !== 'string' || !payload) return tmpl;
+  return tmpl.replace(/\{(\w+)\}/g, (_, key) =>
+    payload[key] != null ? String(payload[key]) : `{${key}}`
+  );
+}
+
 // ─── Action type display config ──────────────────────────────────────────────
 
 const ACTION_CONFIG = {
@@ -213,6 +230,17 @@ function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, ex
     ? action.dismiss_label
     : config.dismiss_label;
 
+  // Registry-defined write tools enrich the action with tool_metadata so we
+  // can swap LLM-authored prose for manifest-authored copy and apply danger
+  // styling for irreversible operations.
+  const toolMeta = action.tool_metadata || null;
+  const isIrreversibleTool = toolMeta?.irreversible === true;
+  const cardConfirmDescription = toolMeta?.confirmDescription
+    ? interpolateTemplate(toolMeta.confirmDescription, payload)
+    : null;
+  const renderedDescription = cardConfirmDescription || description;
+  const confirmVariant = isIrreversibleTool ? 'danger' : 'gradient';
+
   return (
     <div className={`${styles.pendingActionCard} ${isExecuting ? styles.actionCardExecuting : ''}`}>
       {/* Header */}
@@ -223,7 +251,9 @@ function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, ex
 
       {/* Body — type-specific preview or fallback description */}
       <div className={styles.pendingCardBody}>
-        {body || <Text size="sm">{description}</Text>}
+        {cardConfirmDescription
+          ? <Text size="sm">{cardConfirmDescription}</Text>
+          : (body || <Text size="sm">{renderedDescription}</Text>)}
       </div>
 
       {/* Footer — buttons vary by card_intent */}
@@ -237,7 +267,13 @@ function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, ex
             {/* confirmation: primary confirm + secondary update/dismiss + cancel */}
             {cardIntent === 'confirmation' && (
               <>
-                <Button variant="gradient" size="sm" onClick={() => onExecute(actionId)} disabled={disabled || isExecuting}>
+                <Button
+                  variant={confirmVariant}
+                  size="sm"
+                  onClick={() => onExecute(actionId)}
+                  disabled={disabled || isExecuting}
+                  data-irreversible={isIrreversibleTool ? 'true' : undefined}
+                >
                   {confirmLabel}
                 </Button>
                 {dismissLabel && dismissLabel !== 'Cancel' && (
@@ -279,7 +315,11 @@ PendingActionCard.propTypes = {
     action_type: PropTypes.string,
     description: PropTypes.string,
     summary: PropTypes.string,
-    payload: PropTypes.object
+    payload: PropTypes.object,
+    tool_metadata: PropTypes.shape({
+      irreversible: PropTypes.bool,
+      confirmDescription: PropTypes.string
+    })
   }).isRequired,
   onExecute: PropTypes.func.isRequired,
   onUpdate: PropTypes.func.isRequired,

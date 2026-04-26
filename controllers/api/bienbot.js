@@ -3758,6 +3758,19 @@ exports.chat = async (req, res) => {
     }
   }
 
+  // Annotate registry-defined write tools with tool_metadata so the
+  // frontend PendingActionCard can render irreversible styling and
+  // interpolate confirmDescription from the manifest.
+  for (const action of confirmableActions) {
+    const entry = toolRegistry.getTool(action.type);
+    if (entry && entry.tool.mutating) {
+      action.tool_metadata = {
+        irreversible: !!entry.tool.irreversible,
+        confirmDescription: entry.tool.confirmDescription || null
+      };
+    }
+  }
+
   const parsed = {
     message: parsedFinal.message,
     pending_actions: confirmableActions,
