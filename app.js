@@ -178,7 +178,6 @@ app.use(express.json());
 
 // NOTE: Global rate limiter moved below (after auth) to allow super admin skip logic
 
-app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Root endpoint - API info for API clients (must be BEFORE static file serving)
