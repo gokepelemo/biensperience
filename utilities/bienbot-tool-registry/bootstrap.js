@@ -1,11 +1,12 @@
 const { registerProvider } = require('./index');
+const wikivoyage = require('./providers/wikivoyage');
 
 let bootstrapped = false;
 
 function bootstrap() {
   if (bootstrapped) return;
   bootstrapped = true;
-  // Provider registrations are added in subsequent tasks (T7+).
+  registerProvider(wikivoyage);
 }
 
 function _resetForTest() {

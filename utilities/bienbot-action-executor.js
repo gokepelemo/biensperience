@@ -1171,10 +1171,17 @@ async function executeFetchEntityPhotos(payload, user, session) {
 
 /**
  * fetch_destination_tips — read-only, no confirmation.
- * Fetches travel tips from external sources (Wikivoyage, Google Maps) for user selection.
+ * Now a thin shim over the tool registry (T7). The Wikivoyage provider's
+ * handler currently delegates back to fetchDestinationTips internally to
+ * preserve the existing { body: { success, data: { tips, ... } } } shape that
+ * card-producing callers in controllers/api/bienbot.js depend on.
  */
 async function executeFetchDestinationTips(payload, user) {
-  return fetchDestinationTips(payload, user);
+  const registry = require('./bienbot-tool-registry');
+  const { bootstrap } = require('./bienbot-tool-registry/bootstrap');
+  bootstrap();
+  const out = await registry.executeRegisteredTool('fetch_destination_tips', payload, user, {});
+  return { statusCode: out.statusCode, body: out.body };
 }
 
 /**
