@@ -93,6 +93,9 @@ export default function BienBotPanel({
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  // Set to true when the user explicitly sends a message so the scroll
+  // effect always jumps to the bottom, regardless of current scroll position.
+  const userSentRef = useRef(false);
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
   // Tracks which (sessionId, entity, entityId) combos have already been reconciled
@@ -465,6 +468,9 @@ export default function BienBotPanel({
 
     analysisGreetingInjectedRef.current = true;
     const content = formatAnalysisSuggestions(analysisSuggestions);
+    // Force-scroll so the greeting is always visible, even if the user had
+    // previously scrolled up in a prior conversation.
+    userSentRef.current = true;
     // replaceInitialGreeting removes any existing greeting-only messages before
     // inserting the new one, so the user never sees stale or duplicate greetings
     // when they reopen BienBot without having sent anything.
@@ -637,11 +643,17 @@ export default function BienBotPanel({
     const container = messagesContainerRef.current;
     if (!container || !messagesEndRef.current) return;
 
-    // Only auto-scroll if user is within ~80px of the bottom
+    // Always scroll when the user explicitly sent a message
+    const forcedByUser = userSentRef.current;
+    if (forcedByUser) {
+      userSentRef.current = false;
+    }
+
+    // Otherwise only auto-scroll if user is within ~80px of the bottom
     const scrollFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     const nearBottom = scrollFromBottom < 80;
 
-    if (nearBottom) {
+    if (forcedByUser || nearBottom) {
       messagesEndRef.current.scrollIntoView({
         behavior: isStreaming ? 'auto' : 'smooth'
       });
@@ -707,6 +719,7 @@ export default function BienBotPanel({
     if (!text || isStreaming || isLoading) return;
 
     logger.debug('[BienBotPanel] Sending message', { length: text.length, hasAttachment: !!attachment });
+    userSentRef.current = true;
 
     // Detect /message slash command — routes to peer exchange (no LLM)
     const isMessageCommand = /^\/message\s/.test(text);
@@ -908,6 +921,7 @@ export default function BienBotPanel({
         onMarkNotificationsSeen([notificationId]);
       }
       try {
+        userSentRef.current = true;
         await loadSession(sessionId);
         setViewMode('chat');
       } catch (e) {
@@ -957,6 +971,7 @@ export default function BienBotPanel({
     // No session requested, or this exact session was already loaded.
     if (!initialSessionId || initialSessionLoadedRef.current === initialSessionId) return;
     initialSessionLoadedRef.current = initialSessionId;
+    userSentRef.current = true;
     loadSession(initialSessionId).catch(() => {});
 
     // Reset on cleanup so StrictMode's double-invocation and dep-change
@@ -979,6 +994,7 @@ export default function BienBotPanel({
     if (!savedSession) return;
     const sid = savedSession.sessionId;
     setSavedSession(null);
+    userSentRef.current = true;
     loadSession(sid).catch(() => {
       clearPersistedSession();
     });
@@ -1064,6 +1080,7 @@ export default function BienBotPanel({
             userId={user?._id?.toString()}
             onSelectSession={async (sid) => {
               try {
+                userSentRef.current = true;
                 await loadSession(sid);
                 setViewMode('chat');
               } catch {

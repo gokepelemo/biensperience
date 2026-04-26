@@ -197,10 +197,18 @@ function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, ex
 
   const cardIntent = config.card_intent || 'confirmation';
 
-  // Label resolution: LLM override → ACTION_CONFIG default → hardcoded fallback
+  // For toggle_favorite_destination, derive the label from the description so
+  // "Remove X from favorites" shows "Remove from Favorites" instead of "Add to Favorites".
+  let derivedConfirmLabel = config.confirm_label || 'Approve';
+  if (actionType === 'toggle_favorite_destination') {
+    const isRemove = /\bremove\b/i.test(description) || /\bunfavorite\b/i.test(description);
+    derivedConfirmLabel = isRemove ? 'Remove from Favorites' : 'Add to Favorites';
+  }
+
+  // Label resolution: LLM override → derived label → ACTION_CONFIG default → hardcoded fallback
   const confirmLabel = (typeof action.confirm_label === 'string' && action.confirm_label.trim())
     ? action.confirm_label
-    : (config.confirm_label || 'Approve');
+    : derivedConfirmLabel;
   const dismissLabel = (typeof action.dismiss_label === 'string' && action.dismiss_label.trim())
     ? action.dismiss_label
     : config.dismiss_label;
