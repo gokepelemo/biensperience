@@ -1092,6 +1092,15 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
   return blocks.length > 0 ? blocks.join('\n\n') : null;
 }
 
+const TOOL_CALL_LABELS = {
+  fetch_plan_items: 'Fetching plan items…',
+  fetch_plan_costs: 'Fetching costs…',
+  fetch_plan_collaborators: 'Fetching collaborators…',
+  fetch_experience_items: 'Fetching experience items…',
+  fetch_destination_experiences: 'Fetching experiences…',
+  fetch_user_plans: 'Fetching plans…'
+};
+
 /**
  * Parse structured JSON response from LLM.
  * Returns { message, pending_actions } or a fallback.
@@ -2093,6 +2102,75 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
       return null;
   }
 }
+
+/**
+ * Execute a batch of LLM-proposed tool calls (read-only fetches) in parallel.
+ * Returns a formatted tool-results block ready to inject into the second LLM
+ * prompt, plus per-call metadata for telemetry.
+ *
+ * @param {Object} opts
+ * @param {Array}  opts.toolCalls    - Parsed tool_calls array from first LLM response
+ * @param {Object} opts.user         - req.user
+ * @param {Object} opts.session      - BienBotSession (passed through to handlers)
+ * @param {Function} [opts.executeAction] - Injected for tests; defaults to real executor
+ * @param {Function} [opts.onCallStart] - Called per-call with { call_id, type, label }
+ * @param {Function} [opts.onCallEnd]   - Called per-call with { call_id, ok }
+ * @returns {Promise<{ toolResultsBlock: string, calls: Array }>}
+ */
+async function executeToolCallLoop({
+  toolCalls,
+  user,
+  session,
+  executeAction = require('../../utilities/bienbot-action-executor').executeAction,
+  onCallStart = () => {},
+  onCallEnd = () => {}
+}) {
+  const calls = await Promise.all(toolCalls.map(async (tc, idx) => {
+    const callId = `tc_${Date.now()}_${idx}`;
+    const label = TOOL_CALL_LABELS[tc.type] || `Fetching ${tc.type.replace(/_/g, ' ')}…`;
+    onCallStart({ call_id: callId, type: tc.type, label });
+    const startedAt = Date.now();
+
+    let body;
+    let ok;
+    try {
+      const action = { id: callId, type: tc.type, payload: tc.payload, description: label };
+      const outcome = await executeAction(action, user, session);
+      body = outcome?.result?.body ?? outcome?.body ?? { ok: false, error: 'no_body' };
+      ok = !!outcome?.success && !(body && body.ok === false);
+    } catch (err) {
+      logger.error('[bienbot:tool-loop] handler threw', { type: tc.type, error: err.message });
+      body = { ok: false, error: 'fetch_failed' };
+      ok = false;
+    }
+
+    onCallEnd({ call_id: callId, ok });
+    return {
+      call_id: callId,
+      type: tc.type,
+      payload: tc.payload,
+      body,
+      ok,
+      duration_ms: Date.now() - startedAt
+    };
+  }));
+
+  const toolResultsBlock = [
+    '[TOOL RESULTS — for use in your reply, do not echo verbatim]',
+    ...calls.map(c => {
+      const payloadDigest = Object.entries(c.payload || {})
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ');
+      return `${c.type}(${payloadDigest}): ${JSON.stringify(c.body)}`;
+    }),
+    '[/TOOL RESULTS]'
+  ].join('\n');
+
+  return { toolResultsBlock, calls };
+}
+
+// Export under a `_for-test` alias so tests can drive the function with a mock
+// executeAction. The production callers use the closure-bound default.
+exports._executeToolCallLoopForTest = executeToolCallLoop;
 
 // ---------------------------------------------------------------------------
 // Controller methods
