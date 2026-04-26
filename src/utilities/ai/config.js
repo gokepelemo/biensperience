@@ -1,8 +1,13 @@
 /**
- * AI Configuration
+ * AI Configuration (frontend)
  *
- * Environment-based configuration and provider routing.
- * Uses simplified env var names (without VITE_ or REACT_APP_ prefix).
+ * SECURITY: API keys live server-side only. The frontend never reads them
+ * from `import.meta.env` and never selects providers based on key presence —
+ * routing decisions happen in `utilities/ai-gateway.js` on the backend.
+ *
+ * This module retains only `getProviderForTask`, which lets a caller suggest
+ * a preferred provider via env var. The backend remains the source of truth
+ * and may override the suggestion.
  *
  * @module ai/config
  */
@@ -10,70 +15,40 @@
 import { AI_PROVIDERS, AI_TASKS } from './constants';
 
 /**
- * Get AI configuration from environment variables
- * @returns {Object} AI configuration
- */
-export function getAIConfig() {
-  return {
-    defaultProvider: import.meta.env.AI_DEFAULT_PROVIDER || AI_PROVIDERS.OPENAI,
-    openaiApiKey: import.meta.env.OPENAI_API_KEY || '',
-    anthropicApiKey: import.meta.env.ANTHROPIC_API_KEY || '',
-    mistralApiKey: import.meta.env.MISTRAL_API_KEY || '',
-    geminiApiKey: import.meta.env.GEMINI_API_KEY || '',
-    // Task-specific provider routing
-    taskRouting: {
-      [AI_TASKS.AUTOCOMPLETE]: import.meta.env.AI_AUTOCOMPLETE_PROVIDER || null,
-      [AI_TASKS.EDIT_LANGUAGE]: import.meta.env.AI_EDIT_PROVIDER || null,
-      [AI_TASKS.IMPROVE_DESCRIPTION]: import.meta.env.AI_IMPROVE_PROVIDER || null,
-      [AI_TASKS.SUMMARIZE]: import.meta.env.AI_SUMMARIZE_PROVIDER || null,
-      [AI_TASKS.GENERATE_TIPS]: import.meta.env.AI_TIPS_PROVIDER || null,
-      [AI_TASKS.TRANSLATE]: import.meta.env.AI_TRANSLATE_PROVIDER || null
-    }
-  };
-}
-
-/**
- * Get the API key for a specific provider
- * @param {string} provider - Provider name
- * @param {Object} config - Optional config override
- * @returns {string} API key
- */
-export function getApiKey(provider, config = null) {
-  const cfg = config || getAIConfig();
-  switch (provider) {
-    case AI_PROVIDERS.OPENAI:
-      return cfg.openaiApiKey;
-    case AI_PROVIDERS.ANTHROPIC:
-      return cfg.anthropicApiKey;
-    case AI_PROVIDERS.MISTRAL:
-      return cfg.mistralApiKey;
-    case AI_PROVIDERS.GEMINI:
-      return cfg.geminiApiKey;
-    default:
-      return '';
-  }
-}
-
-/**
- * Get the provider for a specific task
+ * Get the suggested provider for a specific task. Returns the caller's
+ * explicit override if it names a known provider, then a per-task hint from
+ * env vars, then the default-provider hint, then null.
+ *
+ * The backend gateway is authoritative; this is just a routing hint.
+ *
  * @param {string} task - Task type from AI_TASKS
  * @param {Object} options - Options with optional provider override
- * @returns {string} Provider name
+ * @returns {string|null} Provider name or null
  */
 export function getProviderForTask(task, options = {}) {
-  // Explicit provider override takes precedence
   if (options.provider && Object.values(AI_PROVIDERS).includes(options.provider)) {
     return options.provider;
   }
 
-  const config = getAIConfig();
+  const envMap = {
+    [AI_TASKS.AUTOCOMPLETE]: 'AI_AUTOCOMPLETE_PROVIDER',
+    [AI_TASKS.EDIT_LANGUAGE]: 'AI_EDIT_PROVIDER',
+    [AI_TASKS.IMPROVE_DESCRIPTION]: 'AI_IMPROVE_PROVIDER',
+    [AI_TASKS.SUMMARIZE]: 'AI_SUMMARIZE_PROVIDER',
+    [AI_TASKS.GENERATE_TIPS]: 'AI_TIPS_PROVIDER',
+    [AI_TASKS.TRANSLATE]: 'AI_TRANSLATE_PROVIDER'
+  };
 
-  // Check task-specific routing
-  const taskProvider = config.taskRouting[task];
+  const envKey = envMap[task];
+  const taskProvider = envKey ? import.meta.env[envKey] : null;
   if (taskProvider && Object.values(AI_PROVIDERS).includes(taskProvider)) {
     return taskProvider;
   }
 
-  // Fall back to default provider
-  return config.defaultProvider;
+  const defaultProvider = import.meta.env.AI_DEFAULT_PROVIDER;
+  if (defaultProvider && Object.values(AI_PROVIDERS).includes(defaultProvider)) {
+    return defaultProvider;
+  }
+
+  return null;
 }

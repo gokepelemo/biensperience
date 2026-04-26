@@ -78,6 +78,8 @@ export default function PlanItemDetailsModal({
   onAddDetail,
   // Display currency - if different from plan currency, amounts will be converted for display
   displayCurrency,
+  // Live costs array from usePlanCosts hook (overrides plan.costs for real-time updates)
+  costs: costsProp,
   // Callback for sharing a plan item - called with planItem
   onShare,
   // Real-time presence for online indicators
@@ -703,11 +705,13 @@ export default function PlanItemDetailsModal({
     return ids;
   }, [presenceConnected, planMembers, currentUser?._id]);
 
-  // Calculate actual costs assigned to this plan item from plan.costs
+  // Calculate actual costs assigned to this plan item
+  // Prefer live costs prop (from usePlanCosts hook) over plan.costs for real-time updates
   // NOTE: These useMemo hooks MUST be before any early returns to maintain hooks order
+  const costsSource = costsProp || plan?.costs;
   const actualCosts = useMemo(() => {
-    if (!plan?.costs || !planItem?._id) return [];
-    const filtered = plan.costs.filter(cost => {
+    if (!costsSource || !planItem?._id) return [];
+    const filtered = costsSource.filter(cost => {
       const costPlanItemId = cost.plan_item?._id || cost.plan_item;
       const planItemId = planItem._id;
       return costPlanItemId && String(costPlanItemId) === String(planItemId);
@@ -720,7 +724,7 @@ export default function PlanItemDetailsModal({
       seen.add(id);
       return true;
     });
-  }, [plan?.costs, planItem?._id]);
+  }, [costsSource, planItem?._id]);
 
   // Get plan currency for conversion
   const planCurrency = plan?.currency || 'USD';

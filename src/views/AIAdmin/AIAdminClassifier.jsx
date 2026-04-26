@@ -17,10 +17,8 @@ import {
   Stack,
   Input,
   Separator,
-  Switch,
   Textarea,
   HStack,
-  VStack,
   Tag
 } from '@chakra-ui/react';
 import {
@@ -30,16 +28,37 @@ import {
   FaCheck,
   FaChevronDown,
   FaChevronRight,
-  FaTimes,
-  FaEdit,
-  FaSave
+  FaCog,
+  FaListAlt,
+  FaClipboardList,
+  FaChartPie,
+  FaExclamationTriangle,
+  FaInbox,
+  FaRobot,
+  FaPercentage
 } from 'react-icons/fa';
-import { Button, Card, CardHeader, CardBody, Alert, Checkbox } from '../../components/design-system';
-import { Text, Heading } from '../../components/design-system';
-import { Table, TableHead, TableBody, TableRow, TableCell } from '../../components/design-system';
-import { FormGroup, FormLabel } from '../../components/design-system';
+import {
+  Button,
+  Card,
+  CardBody,
+  Checkbox,
+  Text,
+  Heading,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  FormGroup,
+  FormLabel,
+  Toggle,
+  SearchInput,
+  EmptyState,
+  Pill
+} from '../../components/design-system';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
+import Pagination from '../../components/Pagination/Pagination';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
 import { createSimpleFilter } from '../../utilities/trie';
@@ -63,9 +82,9 @@ import {
 // ---------------------------------------------------------------------------
 
 const SECTIONS = [
-  { value: 'config', label: 'Configuration' },
-  { value: 'corpus', label: 'Corpus' },
-  { value: 'logs', label: 'Classification Logs' }
+  { value: 'config', label: 'Configuration', icon: <FaCog /> },
+  { value: 'corpus', label: 'Corpus', icon: <FaListAlt /> },
+  { value: 'logs', label: 'Classification Logs', icon: <FaClipboardList /> }
 ];
 
 export default function AIAdminClassifier() {
@@ -81,7 +100,10 @@ export default function AIAdminClassifier() {
             variant={activeSection === s.value ? 'gradient' : 'outline'}
             onClick={() => setActiveSection(s.value)}
           >
-            {s.label}
+            <Flex align="center" gap="var(--space-2)">
+              {s.icon}
+              <span>{s.label}</span>
+            </Flex>
           </Button>
         ))}
       </Flex>
@@ -185,7 +207,15 @@ function ConfigSection() {
 
   return (
     <Stack gap="var(--space-4)">
-      <Heading as="h3" size="heading-3">Classifier Configuration</Heading>
+      <Box>
+        <Heading as="h3" size="heading-3">
+          <FaCog style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+          Classifier Configuration
+        </Heading>
+        <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
+          Confidence thresholds, LLM fallback, and logging behavior for the intent classifier.
+        </Text>
+      </Box>
 
       <Card>
         <CardBody>
@@ -201,7 +231,10 @@ function ConfigSection() {
                 max={1}
                 step={0.05}
                 value={form.low_confidence_threshold}
-                onChange={e => setForm(f => ({ ...f, low_confidence_threshold: parseFloat(e.target.value) || 0 }))}
+                onChange={e => {
+                  const v = parseFloat(e.target.value);
+                  setForm(f => ({ ...f, low_confidence_threshold: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0 }));
+                }}
                 maxW="200px"
               />
             </FormGroup>
@@ -210,15 +243,10 @@ function ConfigSection() {
 
             <FormGroup>
               <Flex align="center" gap="var(--space-3)">
-                <Switch.Root
+                <Toggle
                   checked={form.llm_fallback_enabled}
-                  onCheckedChange={(e) => setForm(f => ({ ...f, llm_fallback_enabled: e.checked }))}
-                >
-                  <Switch.HiddenInput />
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Root>
+                  onChange={(checked) => setForm(f => ({ ...f, llm_fallback_enabled: checked }))}
+                />
                 <FormLabel mb="0">LLM Fallback Enabled</FormLabel>
               </Flex>
               <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)" mt="var(--space-1)">
@@ -238,7 +266,10 @@ function ConfigSection() {
                   max={1}
                   step={0.05}
                   value={form.llm_fallback_threshold}
-                  onChange={e => setForm(f => ({ ...f, llm_fallback_threshold: parseFloat(e.target.value) || 0 }))}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value);
+                    setForm(f => ({ ...f, llm_fallback_threshold: Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0 }));
+                  }}
                   maxW="200px"
                 />
               </FormGroup>
@@ -248,15 +279,10 @@ function ConfigSection() {
 
             <FormGroup>
               <Flex align="center" gap="var(--space-3)">
-                <Switch.Root
+                <Toggle
                   checked={form.log_all_classifications}
-                  onCheckedChange={(e) => setForm(f => ({ ...f, log_all_classifications: e.checked }))}
-                >
-                  <Switch.HiddenInput />
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Root>
+                  onChange={(checked) => setForm(f => ({ ...f, log_all_classifications: checked }))}
+                />
                 <FormLabel mb="0">Log All Classifications</FormLabel>
               </Flex>
               <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)" mt="var(--space-1)">
@@ -307,7 +333,7 @@ function CorpusSection() {
   const trieRef = useRef(null);
   const { success, error: showError } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 50;
 
   const fetchCorpus = useCallback(async () => {
     try {
@@ -340,6 +366,11 @@ function CorpusSection() {
     const start = (page - 1) * PAGE_SIZE;
     return filteredIntents.slice(start, start + PAGE_SIZE);
   }, [filteredIntents, page]);
+
+  // Clamp page if filtered list shrinks below current page
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handleExpand = useCallback(async (intentKey) => {
     if (expandedIntent === intentKey) {
@@ -501,7 +532,22 @@ function CorpusSection() {
     <Stack gap="var(--space-4)">
       {ConfirmDialog}
       <Flex justify="space-between" align="center" flexWrap="wrap" gap="var(--space-2)">
-        <Heading as="h3" size="heading-3">Intent Corpus ({filteredIntents.length}{search.trim() ? ` of ${allIntents.length}` : ''} intents)</Heading>
+        <Box>
+          <Flex align="center" gap="var(--space-2)" wrap="wrap">
+            <Heading as="h3" size="heading-3">
+              <FaListAlt style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+              Intent Corpus
+            </Heading>
+            <Pill variant="info">
+              {search.trim()
+                ? `${filteredIntents.length} of ${allIntents.length}`
+                : filteredIntents.length}
+            </Pill>
+          </Flex>
+          <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
+            Manage intents, utterances, and retrain the NLP classifier from this corpus.
+          </Text>
+        </Box>
         <HStack gap="var(--space-2)">
           <Button size="sm" variant="outline" onClick={() => setShowNewIntent(true)} disabled={showNewIntent}>
             <FaPlus style={{ marginRight: 'var(--space-1)' }} /> New Intent
@@ -513,18 +559,20 @@ function CorpusSection() {
       </Flex>
 
       {/* Search */}
-      <Input
-        size="sm"
-        placeholder="Filter intents..."
+      <SearchInput
         value={search}
         onChange={e => { setSearch(e.target.value); setPage(1); }}
+        onClear={() => { setSearch(''); setPage(1); }}
+        placeholder="Search intents by name or description..."
+        size="sm"
+        ariaLabel="Filter intents"
       />
 
       {showNewIntent && (
         <Card>
           <CardBody>
             <Stack gap="var(--space-3)">
-              <Heading as="h4" size="heading-4">Create New Intent</Heading>
+              <Heading as="h4" size="heading-5">Create New Intent</Heading>
               <FormGroup>
                 <FormLabel>Intent Name</FormLabel>
                 <Input
@@ -584,20 +632,16 @@ function CorpusSection() {
                   )}
                 </Flex>
                 <Flex align="center" gap="var(--space-3)">
-                  <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">
-                    {item.utterance_count} utterances
-                  </Text>
-                  <Switch.Root
+                  <Pill variant="secondary" outline title={`${item.utterance_count} utterance${item.utterance_count === 1 ? '' : 's'}`}>
+                    {item.utterance_count}
+                  </Pill>
+                  <Toggle
                     size="sm"
                     checked={item.enabled}
-                    onCheckedChange={() => handleToggleEnabled(item.intent, item.enabled)}
+                    onChange={() => handleToggleEnabled(item.intent, item.enabled)}
                     onClick={e => e.stopPropagation()}
-                  >
-                    <Switch.HiddenInput />
-                    <Switch.Control>
-                      <Switch.Thumb />
-                    </Switch.Control>
-                  </Switch.Root>
+                    aria-label={`${item.enabled ? 'Disable' : 'Enable'} intent ${item.intent}`}
+                  />
                   {item.is_custom && (
                     <Box
                       as="button"
@@ -649,20 +693,15 @@ function CorpusSection() {
           </Card>
         ))}
       </Stack>
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Flex justify="center" gap="var(--space-2)">
-          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-            Previous
-          </Button>
-          <Text fontSize="var(--font-size-sm)" lineHeight="var(--btn-height-sm)" px="var(--space-2)">
-            Page {page} of {totalPages}
-          </Text>
-          <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-            Next
-          </Button>
-        </Flex>
-      )}    </Stack>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalResults={filteredIntents.length}
+        resultsPerPage={PAGE_SIZE}
+        onPageChange={setPage}
+        variant="compact"
+      />
+    </Stack>
   );
 }
 
@@ -688,7 +727,7 @@ function LogsSection() {
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { page, limit: 25 };
+      const params = { page, limit: 50 };
       if (filters.low_confidence) params.low_confidence = true;
       if (filters.reviewed !== undefined) params.reviewed = filters.reviewed;
       if (filters.intent) params.intent = filters.intent;
@@ -714,6 +753,11 @@ function LogsSection() {
   }, [page, filters, showError]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  // Clear selection when filters change so the batch banner doesn't reference rows the user can't see
+  useEffect(() => {
+    setSelectedLogs(new Set());
+  }, [filters]);
 
   const handleReview = async (logId, correctedIntent) => {
     try {
@@ -806,7 +850,7 @@ function LogsSection() {
             <TableHead>
               <TableRow>
                 {['', 'Message', 'Intent', 'Confidence', 'LLM', 'Date', 'Status', 'Actions'].map(h => (
-                  <TableCell key={h} as="th">
+                  <TableCell key={h} header>
                     {h && <SkeletonLoader width={h === 'Message' ? '60px' : `${Math.max(h.length * 8, 40)}px`} height="14px" />}
                   </TableCell>
                 ))}
@@ -839,85 +883,101 @@ function LogsSection() {
 
   return (
     <Stack gap="var(--space-4)">
-      <Heading as="h3" size="heading-3">Classification Logs</Heading>
+      <Box>
+        <Heading as="h3" size="heading-3">
+          <FaClipboardList style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+          Classification Logs
+        </Heading>
+        <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
+          Review low-confidence classifications and add corrected utterances back to the corpus.
+        </Text>
+      </Box>
 
       {summary && (
-        <Flex gap="var(--space-3)" flexWrap="wrap">
-          <Card flex="1" minW="140px">
-            <CardBody p="var(--space-3)" textAlign="center">
-              <Text fontSize="var(--font-size-2xl)" fontWeight="700">{summary.total || 0}</Text>
-              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Total (30d)</Text>
-            </CardBody>
-          </Card>
-          <Card flex="1" minW="140px">
-            <CardBody p="var(--space-3)" textAlign="center">
-              <Text fontSize="var(--font-size-2xl)" fontWeight="700" color="var(--color-danger)">
-                {summary.low_confidence || 0}
-              </Text>
-              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Low Confidence</Text>
-            </CardBody>
-          </Card>
-          <Card flex="1" minW="140px">
-            <CardBody p="var(--space-3)" textAlign="center">
-              <Text fontSize="var(--font-size-2xl)" fontWeight="700">
-                {summary.unreviewed || 0}
-              </Text>
-              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Unreviewed</Text>
-            </CardBody>
-          </Card>
-          <Card flex="1" minW="140px">
-            <CardBody p="var(--space-3)" textAlign="center">
-              <Text fontSize="var(--font-size-2xl)" fontWeight="700">
-                {summary.llm_reclassified || 0}
-              </Text>
-              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">LLM Reclassified</Text>
-            </CardBody>
-          </Card>
-          <Card flex="1" minW="140px">
-            <CardBody p="var(--space-3)" textAlign="center">
-              <Text fontSize="var(--font-size-2xl)" fontWeight="700">
-                {formatConfidence(summary.avg_confidence)}
-              </Text>
-              <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">Avg Confidence</Text>
-            </CardBody>
-          </Card>
+        <Flex gap="var(--space-3)" wrap="wrap">
+          <LogStatCard
+            icon={<FaChartPie />}
+            value={summary.total || 0}
+            label="Total (30d)"
+            colorScheme="primary"
+          />
+          <LogStatCard
+            icon={<FaExclamationTriangle />}
+            value={summary.low_confidence || 0}
+            label="Low Confidence"
+            colorScheme="warning"
+          />
+          <LogStatCard
+            icon={<FaInbox />}
+            value={summary.unreviewed || 0}
+            label="Unreviewed"
+            colorScheme="info"
+          />
+          <LogStatCard
+            icon={<FaRobot />}
+            value={summary.llm_reclassified || 0}
+            label="LLM Reclassified"
+            colorScheme="primary"
+          />
+          <LogStatCard
+            icon={<FaPercentage />}
+            value={formatConfidence(summary.avg_confidence)}
+            label="Avg Confidence"
+            colorScheme="success"
+          />
         </Flex>
       )}
 
       {/* Filters */}
-      <Flex gap="var(--space-2)" flexWrap="wrap" align="center">
-        <Button
-          size="sm"
-          variant={filters.low_confidence ? 'gradient' : 'outline'}
-          onClick={() => { setPage(1); setFilters(f => ({ ...f, low_confidence: !f.low_confidence })); }}
+      <Card>
+        <Flex
+          align={{ base: 'stretch', md: 'center' }}
+          direction={{ base: 'column', md: 'row' }}
+          gap={{ base: 'var(--space-2)', md: 'var(--space-3)' }}
+          p="var(--space-3)"
+          bg="var(--color-bg-secondary)"
+          borderBottom="1px solid var(--color-border-light)"
+          wrap="wrap"
         >
-          Low Confidence Only
-        </Button>
-        <Button
-          size="sm"
-          variant={filters.reviewed === false ? 'gradient' : 'outline'}
-          onClick={() => { setPage(1); setFilters(f => ({
-            ...f,
-            reviewed: f.reviewed === false ? undefined : false
-          })); }}
-        >
-          Unreviewed
-        </Button>
-        <Input
-          size="sm"
-          placeholder="Filter by intent..."
-          value={filters.intent}
-          onChange={e => { setPage(1); setFilters(f => ({ ...f, intent: e.target.value })); }}
-          maxW="200px"
-        />
-        <Button size="sm" variant="outline" onClick={() => { setPage(1); fetchLogs(); }}>
-          <FaSync />
-        </Button>
-      </Flex>
+          <Box flex="1" minW={{ base: '100%', md: '200px' }}>
+            <SearchInput
+              value={filters.intent}
+              onChange={e => { setPage(1); setFilters(f => ({ ...f, intent: e.target.value })); }}
+              onClear={() => { setPage(1); setFilters(f => ({ ...f, intent: '' })); }}
+              placeholder="Filter by intent..."
+              size="sm"
+              ariaLabel="Filter logs by intent"
+            />
+          </Box>
+          <Flex gap="var(--space-2)" wrap="wrap">
+            <Button
+              size="sm"
+              variant={filters.low_confidence ? 'gradient' : 'outline'}
+              onClick={() => { setPage(1); setFilters(f => ({ ...f, low_confidence: !f.low_confidence })); }}
+            >
+              Low Confidence Only
+            </Button>
+            <Button
+              size="sm"
+              variant={filters.reviewed === false ? 'gradient' : 'outline'}
+              onClick={() => { setPage(1); setFilters(f => ({
+                ...f,
+                reviewed: f.reviewed === false ? undefined : false
+              })); }}
+            >
+              Unreviewed
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setPage(1); fetchLogs(); }} aria-label="Refresh logs">
+              <FaSync />
+            </Button>
+          </Flex>
+        </Flex>
+      </Card>
 
       {selectedLogs.size > 0 && (
         <Flex align="center" gap="var(--space-2)">
-          <Text fontSize="var(--font-size-sm)">{selectedLogs.size} selected</Text>
+          <Pill variant="info">{selectedLogs.size}</Pill>
+          <Text fontSize="var(--font-size-sm)" color="var(--color-text-secondary)">selected</Text>
           <Button size="sm" variant="gradient" onClick={handleBatchAdd}>
             <FaPlus style={{ marginRight: 'var(--space-1)' }} /> Add to Corpus
           </Button>
@@ -932,14 +992,14 @@ function LogsSection() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell as="th" width="30px"></TableCell>
-              <TableCell as="th">Message</TableCell>
-              <TableCell as="th">Intent</TableCell>
-              <TableCell as="th">Confidence</TableCell>
-              <TableCell as="th">LLM</TableCell>
-              <TableCell as="th">Date</TableCell>
-              <TableCell as="th">Status</TableCell>
-              <TableCell as="th">Actions</TableCell>
+              <TableCell header width="30px"></TableCell>
+              <TableCell header>Message</TableCell>
+              <TableCell header>Intent</TableCell>
+              <TableCell header>Confidence</TableCell>
+              <TableCell header>LLM</TableCell>
+              <TableCell header>Date</TableCell>
+              <TableCell header>Status</TableCell>
+              <TableCell header>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1013,23 +1073,86 @@ function LogsSection() {
       </Box>
 
       {logs.length === 0 && !loading && (
-        <Alert variant="info">No classification logs found matching the current filters.</Alert>
+        <EmptyState
+          variant="search"
+          title="No classification logs"
+          description="Adjust your filters or wait for new low-confidence classifications to appear here."
+          size="md"
+          compact
+        />
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Flex justify="center" gap="var(--space-2)">
-          <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-            Previous
-          </Button>
-          <Text fontSize="var(--font-size-sm)" lineHeight="var(--btn-height-sm)" px="var(--space-2)">
-            Page {page} of {totalPages}
-          </Text>
-          <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-            Next
-          </Button>
-        </Flex>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        resultsPerPage={50}
+        onPageChange={setPage}
+        variant="compact"
+        showResultsInfo={false}
+      />
     </Stack>
+  );
+}
+
+// ============================================================================
+// Shared sub-components
+// ============================================================================
+
+const STAT_COLORS = {
+  primary: 'var(--color-primary)',
+  info: 'var(--color-info)',
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)',
+  danger: 'var(--color-danger)'
+};
+
+function LogStatCard({ icon, value, label, colorScheme = 'primary' }) {
+  return (
+    <Flex
+      align="center"
+      gap={{ base: '3', md: '4' }}
+      bg="var(--color-bg-primary)"
+      borderRadius="var(--radius-lg)"
+      p={{ base: '3', md: '4' }}
+      boxShadow="var(--shadow-sm)"
+      transition="var(--transition-normal)"
+      _hover={{ transform: 'translateY(-2px)', boxShadow: 'var(--shadow-md)' }}
+      flex="1"
+      minW="160px"
+    >
+      <Flex
+        align="center"
+        justify="center"
+        flexShrink={0}
+        w={{ base: '40px', md: '48px' }}
+        h={{ base: '40px', md: '48px' }}
+        borderRadius="full"
+        bg={STAT_COLORS[colorScheme] || STAT_COLORS.primary}
+        color="white"
+        fontSize="var(--font-size-lg)"
+      >
+        {icon}
+      </Flex>
+      <Box flex="1" minW="0">
+        <Box
+          fontSize={{ base: 'var(--font-size-lg)', md: 'var(--font-size-xl)' }}
+          fontWeight="700"
+          color="var(--color-text-primary)"
+          lineHeight="1.1"
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace="nowrap"
+        >
+          {value}
+        </Box>
+        <Box
+          fontSize="var(--font-size-sm)"
+          color="var(--color-text-muted)"
+          mt="1"
+        >
+          {label}
+        </Box>
+      </Box>
+    </Flex>
   );
 }

@@ -14,7 +14,8 @@
 
 const logger = require('./backend-logger');
 const { executeAIRequest, GatewayError } = require('./ai-gateway');
-const { getApiKey, getProviderForTask, AI_TASKS } = require('../controllers/api/ai');
+const { getApiKey, getProviderForTask } = require('../controllers/api/ai');
+const { AI_TASKS } = require('./ai-constants');
 
 /**
  * Rough token budget for the compressed message history sent to the model.
@@ -24,19 +25,12 @@ const CHARS_PER_TOKEN = 4;
 const MAX_MESSAGE_CHARS = MESSAGE_TOKEN_BUDGET * CHARS_PER_TOKEN;
 
 /**
- * System prompt instructing the model to return a JSON summary.
+ * System prompt. The provider-native schema option enforces the response
+ * shape, so the prompt focuses on substance and tone rather than JSON syntax.
  */
 const SYSTEM_PROMPT = `You are a summarizer for BienBot, a travel planning assistant.
 Given a conversation history and optional context about the travel entities involved,
 produce a concise summary and 2-3 suggested next steps.
-
-Respond ONLY with valid JSON — no markdown, no explanation.
-
-Schema:
-{
-  "summary": "A 1-3 sentence prose summary of what was discussed and accomplished.",
-  "next_steps": ["Step 1", "Step 2", "Step 3"]
-}
 
 Guidelines:
 - Write the summary in second person, addressing the user directly (e.g. "You were planning a trip to Tokyo" not "The user was planning a trip to Tokyo").
@@ -45,8 +39,32 @@ Guidelines:
 - Keep the summary under 100 words.
 - Return exactly 2-3 next steps.
 
+IMPORTANT — Plan items added in this session:
+If the context includes a section titled "--- Plan Items Added (Successfully Created) ---", those plan items WERE successfully created in the prior session. Confirm them in the summary by naming the items so the user sees what was added (e.g. "You added Tapas tour and Visit Sagrada Familia to your plan."). If many items were added, name a few representative ones and reference the total count.
+
 IMPORTANT — Proposed but unexecuted actions:
 If the context includes a section titled "--- Proposed Actions (Not Executed) ---", those entities were ONLY proposed and were NEVER actually created. Do NOT describe these proposed entities as existing or as something the user created. Instead, describe them as things the user was considering or had started to create.`;
+
+/**
+ * Schema passed to the gateway so the provider returns structured output.
+ */
+const SUMMARY_SCHEMA = {
+  name: 'summarize_session',
+  description: 'Summarize a BienBot session for resume',
+  json_schema: {
+    type: 'object',
+    properties: {
+      text: { type: 'string' },
+      suggested_next_steps: {
+        type: 'array',
+        items: { type: 'string' },
+        maxItems: 5
+      }
+    },
+    required: ['text', 'suggested_next_steps'],
+    additionalProperties: false
+  }
+};
 
 /**
  * Summarize a BienBot session.
@@ -97,25 +115,25 @@ async function summarizeSession({ messages, context, session, user } = {}, optio
         temperature: 0.2,
         maxTokens: 300
       },
+      schema: SUMMARY_SCHEMA,
       entityContext: session?.invoke_context?.entity ? {
         entityType: session.invoke_context.entity,
         entityId: session.invoke_context.entity_id?.toString()
       } : null
     });
 
-    const text = (result.content || '').trim();
-    const parsed = parseJSON(text);
+    const parsed = result && typeof result.content === 'object' ? result.content : null;
 
-    if (!parsed || typeof parsed.summary !== 'string' || !Array.isArray(parsed.next_steps)) {
-      logger.warn('[bienbot-summarizer] Malformed LLM response, using fallback', {
-        raw: text.substring(0, 200)
+    if (!parsed || typeof parsed.text !== 'string' || !Array.isArray(parsed.suggested_next_steps)) {
+      logger.warn('[bienbot-summarizer] Malformed schema response, using fallback', {
+        shape: parsed ? Object.keys(parsed).join(',') : 'null'
       });
       return buildFallback(session, context);
     }
 
     return {
-      summary: parsed.summary,
-      next_steps: parsed.next_steps.filter(s => typeof s === 'string').slice(0, 3)
+      summary: parsed.text,
+      next_steps: parsed.suggested_next_steps.filter(s => typeof s === 'string').slice(0, 3)
     };
   } catch (err) {
     // Let security-related gateway errors (rate limit, token budget, AI disabled)
@@ -159,6 +177,56 @@ function truncateMessages(messages) {
 }
 
 /**
+ * Maximum number of added-item names to surface in the prompt context block.
+ * Larger sessions reference a count tail ("...and N more") instead of the full list.
+ */
+const MAX_ADDED_ITEMS_IN_CONTEXT = 15;
+
+/**
+ * Extract names of plan items that were successfully added in the session.
+ *
+ * Inspects executed pending_actions of type `add_plan_items`, plus successful
+ * `add_plan_items` steps inside an executed `workflow` action. Skips any
+ * action whose `result.success` is explicitly false.
+ *
+ * @param {object} session - Session object (typically session.toObject()).
+ * @returns {string[]} Array of plan item text names (deduplicated, in order added).
+ */
+function extractAddedPlanItems(session) {
+  const pendingActions = session?.pending_actions;
+  if (!Array.isArray(pendingActions) || pendingActions.length === 0) return [];
+
+  const seen = new Set();
+  const names = [];
+
+  const collectFromItems = (items) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      const text = typeof item?.text === 'string' ? item.text.trim() : '';
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      names.push(text);
+    }
+  };
+
+  for (const action of pendingActions) {
+    if (action.executed !== true) continue;
+    if (action.result && action.result.success === false) continue;
+
+    if (action.type === 'add_plan_items') {
+      collectFromItems(action.payload?.items);
+    } else if (action.type === 'workflow') {
+      const steps = Array.isArray(action.payload?.steps) ? action.payload.steps : [];
+      for (const step of steps) {
+        if (step?.type === 'add_plan_items') collectFromItems(step.payload?.items);
+      }
+    }
+  }
+
+  return names;
+}
+
+/**
  * Build a context block describing the entities involved in the session.
  */
 function buildContextBlock(context, session) {
@@ -180,26 +248,42 @@ function buildContextBlock(context, session) {
 
   const contextBlock = parts.length > 0 ? `--- Context ---\n${parts.join('\n')}` : null;
 
+  // Surface successfully added plan items so the LLM can confirm them by name
+  // in the resume greeting.
+  const addedItems = extractAddedPlanItems(session);
+  let addedBlock = null;
+  if (addedItems.length > 0) {
+    const shown = addedItems.slice(0, MAX_ADDED_ITEMS_IN_CONTEXT);
+    const remaining = addedItems.length - shown.length;
+    const lines = [
+      '--- Plan Items Added (Successfully Created) ---',
+      'These plan items WERE successfully added to the user\'s plan in this session — confirm them by name in the summary:'
+    ];
+    for (const name of shown) lines.push(`- ${name}`);
+    if (remaining > 0) lines.push(`...and ${remaining} more`);
+    addedBlock = lines.join('\n');
+  }
+
   // Append unexecuted pending actions so the LLM doesn't treat proposed
   // entities as facts in the summary.
   const pendingActions = session?.pending_actions;
-  if (!Array.isArray(pendingActions) || pendingActions.length === 0) {
-    return contextBlock;
+  const unexecuted = Array.isArray(pendingActions)
+    ? pendingActions.filter(a => a.executed !== true)
+    : [];
+
+  let unexecutedBlock = null;
+  if (unexecuted.length > 0) {
+    const unexecutedLines = [
+      '--- Proposed Actions (Not Executed) ---',
+      'These were proposed but NEVER actually created — do NOT summarise them as existing:'
+    ];
+    for (const action of unexecuted) {
+      unexecutedLines.push(`- ${action.type}: ${action.description || '(no description)'}`);
+    }
+    unexecutedBlock = unexecutedLines.join('\n');
   }
 
-  const unexecuted = pendingActions.filter(a => a.executed !== true);
-  if (unexecuted.length === 0) return contextBlock;
-
-  const unexecutedLines = [
-    '--- Proposed Actions (Not Executed) ---',
-    'These were proposed but NEVER actually created — do NOT summarise them as existing:'
-  ];
-  for (const action of unexecuted) {
-    unexecutedLines.push(`- ${action.type}: ${action.description || '(no description)'}`);
-  }
-
-  const unexecutedBlock = unexecutedLines.join('\n');
-  return [contextBlock, unexecutedBlock].filter(Boolean).join('\n\n');
+  return [contextBlock, addedBlock, unexecutedBlock].filter(Boolean).join('\n\n') || null;
 }
 
 /**
@@ -215,6 +299,20 @@ function buildFallback(session, context) {
     summary += ` Related to ${session.invoke_context.entity} "${entityLabel}".`;
   }
 
+  // Confirm added plan items by name so the user sees what changed even when
+  // the LLM is unavailable.
+  const addedItems = extractAddedPlanItems(session);
+  if (addedItems.length > 0) {
+    const shown = addedItems.slice(0, 3);
+    const remaining = addedItems.length - shown.length;
+    const list = shown.map(n => `"${n}"`).join(', ');
+    summary += addedItems.length === 1
+      ? ` Added ${list} to your plan.`
+      : remaining > 0
+        ? ` Added ${list}, and ${remaining} more item${remaining === 1 ? '' : 's'} to your plan.`
+        : ` Added ${list} to your plan.`;
+  }
+
   return {
     summary,
     next_steps: [
@@ -224,18 +322,8 @@ function buildFallback(session, context) {
   };
 }
 
-/**
- * Parse JSON from an LLM response, stripping markdown fences if present.
- */
-function parseJSON(text) {
-  try {
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-    return JSON.parse(cleaned);
-  } catch {
-    return null;
-  }
-}
-
 module.exports = {
-  summarizeSession
+  summarizeSession,
+  // Exported for unit testing.
+  extractAddedPlanItems
 };

@@ -14,6 +14,7 @@ const bienbotCtrl = require('../../controllers/api/bienbot');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware');
 const { createUploadMiddleware } = require('../../utilities/upload-middleware');
+const { skipIfSuperAdmin } = require('../../config/rateLimiters');
 
 const { upload: bienbotUpload, handleError: bienbotHandleError } = createUploadMiddleware({
   dest: 'uploads/temp',
@@ -25,20 +26,11 @@ const { upload: bienbotUpload, handleError: bienbotHandleError } = createUploadM
   ]
 });
 
-// Helper: skip rate limiting for super admins
-function skipIfSuperAdmin(req) {
-  try {
-    const user = req.user;
-    return !!(user && (user.isSuperAdmin || user.role === 'super_admin'));
-  } catch (_) {
-    return false;
-  }
-}
-
-// BienBot-specific rate limiter: 30 requests per 15 minutes
+// BienBot-specific rate limiter: default 30 requests per 15 minutes
+// Configurable via env: BIENBOT_RATE_WINDOW_MS, BIENBOT_RATE_MAX
 const bienbotRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30,
+  windowMs: parseInt(process.env.BIENBOT_RATE_WINDOW_MS || '', 10) || (15 * 60 * 1000),
+  max: parseInt(process.env.BIENBOT_RATE_MAX || '', 10) || 30,
   message: {
     success: false,
     error: 'Too many BienBot requests. Please try again later.',

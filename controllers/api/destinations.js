@@ -1078,10 +1078,10 @@ async function getDestinationPermissions(req, res) {
  */
 async function enrich(req, res) {
   try {
-    const { enrichDestination } = require('../../utilities/bienbot-external-data');
+    const { enrichDestinationViaRegistry } = require('../../utilities/destination-enrichment');
     const force = req.query.force === 'true';
 
-    const result = await enrichDestination(req.params.id, req.user, { force });
+    const result = await enrichDestinationViaRegistry(req.params.id, req.user, { force });
 
     if (result.statusCode !== 200) {
       return errorResponse(res, null, result.body.error, result.statusCode);

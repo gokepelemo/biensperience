@@ -108,5 +108,6 @@ module.exports = {
   collaboratorLimiter,
   modificationLimiter,
   externalApiLimiter,
-  staticAssetsLimiter
+  staticAssetsLimiter,
+  skipIfSuperAdmin,
 };

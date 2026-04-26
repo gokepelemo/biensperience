@@ -85,6 +85,20 @@
   pointer-events: none;
 }
 
+/* Loading spinner */
+@keyframes fabSpin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: fabSpin 0.7s linear infinite;
+}
+
 /* Desktop: slightly larger FAB */
 @media (min-width: 768px) {
   .fab {
@@ -92,6 +106,11 @@
     height: 56px;
     bottom: var(--space-8, 2rem);
     right: var(--space-8, 2rem);
+  }
+
+  .spinner {
+    width: 24px;
+    height: 24px;
   }
 
   .badge {

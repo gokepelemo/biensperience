@@ -38,6 +38,26 @@ const intentClassifierConfigSchema = new mongoose.Schema(
       min: 1,
       max: 365
     },
+    retrain_min_interval_seconds: {
+      type: Number,
+      default: 3600,
+      min: 60
+    },
+    retrain_min_churn_events: {
+      type: Number,
+      default: 25,
+      min: 1
+    },
+    retrain_delta_threshold: {
+      type: Number,
+      default: 0.1,
+      min: 0,
+      max: 1
+    },
+    nlp_slot_fill_enabled: {
+      type: Boolean,
+      default: false
+    },
     updated_by: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'

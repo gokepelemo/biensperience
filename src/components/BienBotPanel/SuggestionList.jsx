@@ -13,6 +13,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
+import { decodeHtmlEntities } from '../../utilities/html-entities';
 import { Button, Text } from '../design-system';
 import styles from './BienBotPanel.module.css';
 
@@ -30,7 +31,7 @@ function CheckIcon() {
   );
 }
 
-export default function SuggestionList({ data, onAddSelected, disabled, existingItemTexts }) {
+function SuggestionList({ data, onAddSelected, disabled, existingItemTexts }) {
   const { suggestions = [], destination_name, source_count } = data || {};
 
   // Filter out items already in the plan so we never suggest duplicates.
@@ -138,7 +139,7 @@ export default function SuggestionList({ data, onAddSelected, disabled, existing
                       {isSelected && <CheckIcon />}
                     </span>
                     <span className={styles.suggestionItemContent}>
-                      <span className={styles.suggestionItemText}>{(item.text || item.content || '').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')}</span>
+                      <span className={styles.suggestionItemText}>{decodeHtmlEntities(item.text || item.content || '')}</span>
                       {sources && (
                         <span className={styles.suggestionItemSource}>
                           from {sources}
@@ -191,3 +192,5 @@ SuggestionList.propTypes = {
   disabled: PropTypes.bool,
   existingItemTexts: PropTypes.instanceOf(Set)
 };
+
+export default React.memo(SuggestionList);

@@ -12,6 +12,23 @@ import PropTypes from 'prop-types';
 import { Button, Text } from '../design-system';
 import styles from './BienBotPanel.module.css';
 
+/**
+ * Replace `{field}` placeholders in a template string with values from the
+ * payload object. Unresolvable keys are left in place (kept as `{key}`) so
+ * developers can spot missing payload fields rather than silently shipping
+ * empty descriptions.
+ *
+ * Used to render registry tool_metadata.confirmDescription strings, which
+ * are authored in the provider manifest (deterministic) rather than written
+ * by the LLM (free-form).
+ */
+export function interpolateTemplate(tmpl, payload) {
+  if (typeof tmpl !== 'string' || !payload) return tmpl;
+  return tmpl.replace(/\{(\w+)\}/g, (_, key) =>
+    payload[key] != null ? String(payload[key]) : `{${key}}`
+  );
+}
+
 // ─── Action type display config ──────────────────────────────────────────────
 
 const ACTION_CONFIG = {
@@ -38,7 +55,7 @@ const ACTION_CONFIG = {
   add_plan_item_detail:         { label: 'Add Detail',              icon: '📎', confirm_label: 'Add Detail',           dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   assign_plan_item:             { label: 'Assign Item',             icon: '👤', confirm_label: 'Assign',               dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   unassign_plan_item:           { label: 'Unassign Item',           icon: '👤', confirm_label: 'Unassign',             dismiss_label: 'Cancel',          card_intent: 'confirmation' },
-  toggle_favorite_destination:  { label: 'Toggle Favourite',        icon: '❤️', confirm_label: 'Add to Favourites',   dismiss_label: 'Cancel',          card_intent: 'confirmation' },
+  toggle_favorite_destination:  { label: 'Toggle Favorite',         icon: '❤️', confirm_label: 'Add to Favorites',    dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   add_entity_photos:            { label: 'Add Photos',              icon: '📷', confirm_label: 'Add Photos',           dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   set_member_location:          { label: 'Set Location',            icon: '📍', confirm_label: 'Set Location',         dismiss_label: 'Cancel',          card_intent: 'confirmation' },
   remove_member_location:       { label: 'Remove Location',         icon: '📍', confirm_label: 'Remove Location',      dismiss_label: 'Cancel',          card_intent: 'confirmation' },
@@ -186,7 +203,7 @@ function renderBody(type, payload) {
 
 // ─── PendingActionCard ──────────────────────────────────────────────────────
 
-export default function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, executing }) {
+function PendingActionCard({ action, onExecute, onUpdate, onCancel, disabled, executing }) {
   const actionId = action._id || action.id;
   const actionType = action.type || action.action_type || 'Action';
   const description = action.description || action.summary || actionType;
@@ -197,13 +214,32 @@ export default function PendingActionCard({ action, onExecute, onUpdate, onCance
 
   const cardIntent = config.card_intent || 'confirmation';
 
-  // Label resolution: LLM override → ACTION_CONFIG default → hardcoded fallback
+  // For toggle_favorite_destination, derive the label from the description so
+  // "Remove X from favorites" shows "Remove from Favorites" instead of "Add to Favorites".
+  let derivedConfirmLabel = config.confirm_label || 'Approve';
+  if (actionType === 'toggle_favorite_destination') {
+    const isRemove = /\bremove\b/i.test(description) || /\bunfavorite\b/i.test(description);
+    derivedConfirmLabel = isRemove ? 'Remove from Favorites' : 'Add to Favorites';
+  }
+
+  // Label resolution: LLM override → derived label → ACTION_CONFIG default → hardcoded fallback
   const confirmLabel = (typeof action.confirm_label === 'string' && action.confirm_label.trim())
     ? action.confirm_label
-    : (config.confirm_label || 'Approve');
+    : derivedConfirmLabel;
   const dismissLabel = (typeof action.dismiss_label === 'string' && action.dismiss_label.trim())
     ? action.dismiss_label
     : config.dismiss_label;
+
+  // Registry-defined write tools enrich the action with tool_metadata so we
+  // can swap LLM-authored prose for manifest-authored copy and apply danger
+  // styling for irreversible operations.
+  const toolMeta = action.tool_metadata || null;
+  const isIrreversibleTool = toolMeta?.irreversible === true;
+  const cardConfirmDescription = toolMeta?.confirmDescription
+    ? interpolateTemplate(toolMeta.confirmDescription, payload)
+    : null;
+  const renderedDescription = cardConfirmDescription || description;
+  const confirmVariant = isIrreversibleTool ? 'danger' : 'gradient';
 
   return (
     <div className={`${styles.pendingActionCard} ${isExecuting ? styles.actionCardExecuting : ''}`}>
@@ -215,7 +251,9 @@ export default function PendingActionCard({ action, onExecute, onUpdate, onCance
 
       {/* Body — type-specific preview or fallback description */}
       <div className={styles.pendingCardBody}>
-        {body || <Text size="sm">{description}</Text>}
+        {cardConfirmDescription
+          ? <Text size="sm">{cardConfirmDescription}</Text>
+          : (body || <Text size="sm">{renderedDescription}</Text>)}
       </div>
 
       {/* Footer — buttons vary by card_intent */}
@@ -229,7 +267,13 @@ export default function PendingActionCard({ action, onExecute, onUpdate, onCance
             {/* confirmation: primary confirm + secondary update/dismiss + cancel */}
             {cardIntent === 'confirmation' && (
               <>
-                <Button variant="gradient" size="sm" onClick={() => onExecute(actionId)} disabled={disabled || isExecuting}>
+                <Button
+                  variant={confirmVariant}
+                  size="sm"
+                  onClick={() => onExecute(actionId)}
+                  disabled={disabled || isExecuting}
+                  data-irreversible={isIrreversibleTool ? 'true' : undefined}
+                >
                   {confirmLabel}
                 </Button>
                 {dismissLabel && dismissLabel !== 'Cancel' && (
@@ -271,7 +315,11 @@ PendingActionCard.propTypes = {
     action_type: PropTypes.string,
     description: PropTypes.string,
     summary: PropTypes.string,
-    payload: PropTypes.object
+    payload: PropTypes.object,
+    tool_metadata: PropTypes.shape({
+      irreversible: PropTypes.bool,
+      confirmDescription: PropTypes.string
+    })
   }).isRequired,
   onExecute: PropTypes.func.isRequired,
   onUpdate: PropTypes.func.isRequired,
@@ -279,3 +327,5 @@ PendingActionCard.propTypes = {
   disabled: PropTypes.bool,
   executing: PropTypes.string
 };
+
+export default React.memo(PendingActionCard);

@@ -48,6 +48,101 @@ beforeEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Pure-function helpers (unit tests — no DB needed)
+// ---------------------------------------------------------------------------
+
+describe('normalizeCostToPercentile', () => {
+  const { normalizeCostToPercentile } = require('../../utilities/bienbot-context-builders');
+
+  it('returns 0.5 for single-element arrays', () => {
+    expect(normalizeCostToPercentile(100, [100])).toBe(0.5);
+  });
+
+  it('returns 0.5 for empty array', () => {
+    expect(normalizeCostToPercentile(100, [])).toBe(0.5);
+  });
+
+  it('returns 0.0 for the cheapest item', () => {
+    expect(normalizeCostToPercentile(10, [10, 50, 100])).toBe(0);
+  });
+
+  it('returns 1.0 for the most expensive item', () => {
+    expect(normalizeCostToPercentile(100, [10, 50, 100])).toBe(1);
+  });
+
+  it('handles duplicate costs — assigns lower bound rank', () => {
+    const result = normalizeCostToPercentile(50, [50, 50, 100]);
+    expect(result).toBe(0);
+  });
+});
+
+describe('renderAttentionBlock', () => {
+  const { renderAttentionBlock } = require('../../utilities/bienbot-context-builders');
+
+  it('returns null for empty signals', () => {
+    expect(renderAttentionBlock([])).toBeNull();
+    expect(renderAttentionBlock(null)).toBeNull();
+  });
+
+  it('wraps signals in ATTENTION tags', () => {
+    const result = renderAttentionBlock(['⚠ one', '⚠ two']);
+    expect(result).toContain('[ATTENTION]');
+    expect(result).toContain('[/ATTENTION]');
+    expect(result).toContain('⚠ one');
+    expect(result).toContain('⚠ two');
+  });
+
+  it('caps output at max (default 5)', () => {
+    const signals = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const result = renderAttentionBlock(signals);
+    expect(result).not.toContain('f');
+  });
+});
+
+describe('computePlanProximityTag', () => {
+  const { computePlanProximityTag } = require('../../utilities/bienbot-context-builders');
+
+  it('returns empty string for plans with no date and no scheduled items', () => {
+    expect(computePlanProximityTag({ plan: [], planned_date: null })).toBe('');
+  });
+
+  it('returns overdue tag for past planned_date', () => {
+    const pastDate = new Date(Date.now() - 3 * 86400000);
+    const tag = computePlanProximityTag({ plan: [], planned_date: pastDate });
+    expect(tag).toMatch(/overdue/);
+  });
+
+  it('returns +Nd tag for future planned_date', () => {
+    const futureDate = new Date(Date.now() + 5 * 86400000);
+    const tag = computePlanProximityTag({ plan: [], planned_date: futureDate });
+    expect(tag).toMatch(/\+\d+d/);
+  });
+
+  it('prefers scheduled items over planned_date', () => {
+    const futureScheduled = new Date(Date.now() + 2 * 86400000);
+    const farFuturePlanned = new Date(Date.now() + 30 * 86400000);
+    const tag = computePlanProximityTag({
+      plan: [{ scheduled_date: futureScheduled, complete: false }],
+      planned_date: farFuturePlanned
+    });
+    expect(tag).toMatch(/\+2d/);
+  });
+});
+
+describe('formatSignalBlock', () => {
+  const { formatSignalBlock } = require('../../utilities/bienbot-context-builders');
+
+  it('returns null when hiddenSignals is null', () => {
+    expect(formatSignalBlock(null, 'traveler')).toBeNull();
+  });
+
+  it('returns null when signals produce no text (empty object)', () => {
+    // Empty hidden_signals object → applySignalDecay → nothing → null
+    expect(formatSignalBlock({}, 'traveler')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

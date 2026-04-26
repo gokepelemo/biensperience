@@ -19,3 +19,13 @@
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+
+.actions :global(button),
+.actions :global(a) {
+  white-space: normal;
+  overflow: visible;
+  height: auto;
+  min-height: var(--btn-height-sm);
+  text-align: center;
+  word-break: break-word;
+}

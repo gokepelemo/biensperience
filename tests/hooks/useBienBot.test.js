@@ -63,7 +63,7 @@ import { eventBus } from '../../src/utilities/event-bus';
  */
 function buildMockPostMessage(events = []) {
   return jest.fn(async (_sid, _text, options = {}) => {
-    const { onSession, onToken, onActions, onDone, onError } = options;
+    const { onSession, onToken, onActions, onDone, onError, onToolCallStart, onToolCallEnd } = options;
 
     for (const ev of events) {
       switch (ev.type) {
@@ -75,6 +75,12 @@ function buildMockPostMessage(events = []) {
           break;
         case 'actions':
           if (onActions) onActions(ev.data);
+          break;
+        case 'tool_call_start':
+          if (onToolCallStart) onToolCallStart(ev.data);
+          break;
+        case 'tool_call_end':
+          if (onToolCallEnd) onToolCallEnd(ev.data);
           break;
         case 'done':
           if (onDone) onDone(ev.data || {});
@@ -141,7 +147,7 @@ describe('useBienBot', () => {
 
       await waitForNextUpdate();
 
-      expect(bienbotApi.resumeSession).toHaveBeenCalledWith('sess-1');
+      expect(bienbotApi.resumeSession).toHaveBeenCalledWith('sess-1', null);
       expect(result.current.currentSession).toEqual(session);
     });
 
@@ -299,6 +305,50 @@ describe('useBienBot', () => {
       expect(assistantMsg?.error).toBe(true);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isStreaming).toBe(false);
+    });
+
+    it('tracks tool-call pills on the assistant message and clears them when tokens stream', async () => {
+      bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+        { type: 'tool_call_start', data: { call_id: 'c1', type: 'fetch_plan_items', label: 'Reading plan items' } },
+        { type: 'tool_call_start', data: { call_id: 'c2', type: 'fetch_plan_costs', label: 'Reading costs' } },
+        { type: 'tool_call_end', data: { call_id: 'c1', ok: true } },
+        { type: 'tool_call_end', data: { call_id: 'c2', ok: false } },
+        // After the second LLM response begins, the first token should clear the pills.
+        { type: 'token', data: 'Here are' },
+        { type: 'done', data: {} }
+      ]));
+
+      const { result } = renderHook(() => useBienBot());
+
+      await act(async () => {
+        await result.current.sendMessage('Show plan');
+      });
+
+      const assistantMsg = result.current.messages.find(m => m.role === 'assistant');
+      expect(assistantMsg).toBeDefined();
+      expect(assistantMsg.content).toBe('Here are');
+      // Pills should be cleared after tokens started streaming
+      expect(assistantMsg.tool_call_pills).toEqual([]);
+    });
+
+    it('exposes pending pill state to the assistant message during fetches', async () => {
+      // No token event — pills should remain on the assistant message.
+      bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+        { type: 'tool_call_start', data: { call_id: 'c1', type: 'fetch_plan_items', label: 'Reading plan items' } },
+        { type: 'tool_call_end', data: { call_id: 'c1', ok: true } },
+        { type: 'done', data: {} }
+      ]));
+
+      const { result } = renderHook(() => useBienBot());
+
+      await act(async () => {
+        await result.current.sendMessage('Show plan');
+      });
+
+      const assistantMsg = result.current.messages.find(m => m.role === 'assistant');
+      expect(assistantMsg.tool_call_pills).toEqual([
+        { call_id: 'c1', type: 'fetch_plan_items', label: 'Reading plan items', status: 'success' }
+      ]);
     });
 
     it('clears suggestedNextSteps when a new message is sent', async () => {
@@ -782,6 +832,76 @@ describe('useBienBot', () => {
 
       global.AbortController = OriginalAbortController;
     });
+  });
+});
+
+// ─── stale closure dep tests ──────────────────────────────────────────────────
+describe('stale closure deps', () => {
+  it('sendMessage uses the current userId after a re-render with a new userId', async () => {
+    bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+      { type: 'session', data: { sessionId: 'new-session-id', title: 'Test' } },
+      { type: 'done', data: {} },
+    ]));
+
+    const { result, rerender } = renderHook(({ userId }) => useBienBot({ userId }), {
+      initialProps: { userId: 'user-A' },
+    });
+
+    await act(async () => { await result.current.sendMessage('hi'); });
+    expect(result.current.currentSession?.user).toBe('user-A');
+
+    // Rerender with a different userId then clear to let the next send create a session
+    rerender({ userId: 'user-B' });
+    act(() => { result.current.clearSession(); });
+
+    bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+      { type: 'session', data: { sessionId: 'new-session-id-2', title: 'Test 2' } },
+      { type: 'done', data: {} },
+    ]));
+
+    await act(async () => { await result.current.sendMessage('hello'); });
+    // sendMessage must capture the current userId via its dep on persistSessionId(userId)
+    expect(result.current.currentSession?.user).toBe('user-B');
+  });
+
+  it('updateContext uses the current userId after a re-render with a new userId', async () => {
+    // Set up a session first
+    bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+      { type: 'session', data: { sessionId: 'ctx-sess', title: 'Test' } },
+      { type: 'done', data: {} },
+    ]));
+    // updateContext checks isOwnProfile: entityId.toString() === userId.toString()
+    // Return a label so the ack message is appended
+    bienbotApi.updateSessionContext.mockResolvedValue({ entityLabel: 'Test Entity' });
+
+    const { result, rerender } = renderHook(({ userId }) => useBienBot({ userId }), {
+      initialProps: { userId: 'user-A' },
+    });
+
+    await act(async () => { await result.current.sendMessage('hi'); });
+
+    // Rerender with userId = 'user-C' (the entityId we will pass to updateContext)
+    rerender({ userId: 'user-C' });
+
+    let label;
+    await act(async () => {
+      // Pass userId 'user-C' as the entityId — isOwnProfile should be true
+      // only if updateContext captures the updated userId from the current render
+      label = await result.current.updateContext('user', 'user-C');
+    });
+
+    // If updateContext is stale (userId still 'user-A'), isOwnProfile = false
+    // and ackContent will contain "Context has changed to" vs "Context switched to"
+    // We test the label return value — that should always be the server response
+    expect(label).toBe('Test Entity');
+
+    // Verify the ack message content reflects isOwnProfile correctly
+    const msgs = result.current.messages;
+    const ackMsg = msgs[msgs.length - 1];
+    expect(ackMsg?.isContextAck).toBe(true);
+    // isOwnProfile: entityId === userId. After fix, userId is 'user-C' and entityId is 'user-C'
+    // so ack should say "your profile"
+    expect(ackMsg?.content).toContain('your profile');
   });
 });
 

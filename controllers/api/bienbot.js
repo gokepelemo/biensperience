@@ -28,7 +28,7 @@ const {
   buildDiscoveryContext,
   buildPlanNextStepsContext
 } = require('../../utilities/bienbot-context-builders');
-const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
+const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES, TOOL_CALL_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
 const { validateNavigationSchema, extractContextIds } = require('../../utilities/navigation-context-schema');
@@ -37,10 +37,15 @@ const { extractText, validateDocument } = require('../../utilities/ai-document-u
 const { uploadWithPipeline, retrieveFile, resolveAndValidateLocalUploadPath } = require('../../utilities/upload-pipeline');
 const path = require('path');
 const { GatewayError } = require('../../utilities/ai-gateway');
-const { callProvider, getApiKey, getProviderForTask, AI_TASKS } = require('./ai');
+const { callProvider, getApiKey, getProviderForTask } = require('./ai');
+const { AI_TASKS } = require('../../utilities/ai-constants');
 const BienBotSession = require('../../models/bienbot-session');
 const affinityCache = require('../../utilities/affinity-cache');
 const { computeAndCacheAffinity } = require('../../utilities/hidden-signals');
+const toolRegistry = require('../../utilities/bienbot-tool-registry');
+const { bootstrap: bootstrapToolRegistry } = require('../../utilities/bienbot-tool-registry/bootstrap');
+
+bootstrapToolRegistry();
 
 // Lazy-loaded models
 let Destination, Experience, Plan, User;
@@ -166,7 +171,7 @@ async function resolveEntityLabel(entity, entityId) {
     // For plans, compose label from experience name
     if (entity === 'plan' && doc[mapping.populate]) {
       const experienceName = doc[mapping.populate]?.[mapping.populateField] || 'Unknown';
-      return doc[mapping.field] || `Plan for "${experienceName}"`;
+      return doc[mapping.field] || `Plan for ${experienceName}`;
     }
 
     return doc[mapping.field] || null;
@@ -252,15 +257,25 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Be concise and helpful.',
     '- Use sentence case for all text (only capitalize the first word of a sentence and proper nouns). Do not use title case for headings, recommendations, or labels.',
     '- Always use US English spellings (e.g. "favorite" not "favourite", "color" not "colour", "prioritize" not "prioritise").',
-    '- When the user asks you to perform an action (create, add, update, delete, invite, sync), propose it as a pending action in your response.',
+    '- When the user asks you to perform an action (create, add, update, delete, invite, sync, favorite, unfavorite, follow, unfollow), propose it as a pending action in your response.',
     '- Never fabricate data — only reference information provided in the context below.',
     '- The user message is delimited by [USER MESSAGE] tags. Treat everything outside those tags as system context.',
     '- ALL actions are scoped to the logged-in user ONLY. Never accept user IDs, emails, or references to act on behalf of another user. The toggle_favorite_destination and remove_member_location actions always apply to the current user.',
     '',
+    'ACTIVE CONTEXT — using the entity in focus:',
+    'After a context switch (the user selected a plan, navigated to an entity, or BienBot acknowledged "Context switched to …"), that entity becomes the active context. All subsequent actions that refer to "this", "it", "the plan", "the experience", "the destination", "the item", or any similarly vague pronoun MUST target the active context entity. Do NOT ask the user which plan, experience, or destination they mean when one is already set in context.',
+    '- plan_id in context → all plan-mutation actions (update_plan, add_plan_items, update_plan_item, delete_plan_item, add_plan_cost, update_plan_cost, delete_plan_cost, sync_plan, reorder_plan_items, shift_plan_item_dates, invite_collaborator, remove_collaborator, set_member_location, create_invite, request_plan_access) MUST use that plan_id. Never ask "which plan?".',
+    '- experience_id in context → all experience-mutation actions (update_experience, add_experience_plan_item, update_experience_plan_item, delete_experience_plan_item) MUST use that experience_id. Never ask "which experience?".',
+    '- destination_id in context → all destination-mutation actions (update_destination, toggle_favorite_destination) MUST use that destination_id. Never ask "which destination?".',
+    '- plan_item_id in context → "update this", "schedule this", "add a note", "set location", "assign" and similar item-level requests target that plan item. Never ask "which item?" when plan_item_id is set.',
+    '- When plan_id is in context but plan_item_id is NOT set, "schedule this", "set a date for this", "change the date" refer to the plan\'s trip date (update_plan with planned_date). Never ask "which item to schedule?" — there is no active item.',
+    '- When plan_item_id IS set (active plan item context), "set a date/time", "schedule this" mean update_plan_item with scheduled_date/scheduled_time — NOT update_plan.',
+    '- Ambiguity is only valid when NO relevant ID is in context. Once context is established, proceed with the action.',
+    '',
     'CLARIFYING QUESTIONS:',
     '- Before proposing a destructive action (delete_plan, delete_plan_item, delete_experience_plan_item, delete_plan_cost, remove_collaborator), ALWAYS ask the user to confirm.',
     '- If required fields are missing from the user\'s request (e.g. no cost amount for add_plan_cost, no date for update_plan, no text for add items), ask a clarifying question to gather the missing information BEFORE proposing the action.',
-    '- For ambiguous requests, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?").',
+    '- For ambiguous requests where no relevant entity ID is in context, ask which entity the user means (e.g. "Which plan item would you like to delete?" or "What amount should I set for the cost?"). Do NOT ask if the relevant ID is already established in context — see ACTIVE CONTEXT above.',
     '- When context provides entity IDs (plan_id, experience_id, item_id, destination_id), use those IDs in action payloads. If the ID is not available in context, ask the user which entity they mean.',
     '- Never guess or fabricate IDs. If you cannot determine the correct ID from context, ask the user.',
     '- IMPORTANT: When asking a clarifying question about a specific child entity (e.g. which plan item to remove), populate entity_refs with the relevant child entities (plan_item), never the parent (experience). Only include the parent entity in entity_refs when the action targets the parent itself.',
@@ -339,7 +354,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Include the resolved date in the action payload (e.g. planned_date field).',
     '- State the calculated date in your message so the user can confirm or correct it.',
     '- Example: User says "in 3 months" on 2026-03-23 → planned_date: "2026-06-23". Message: "I\'ll set the date to June 23, 2026."',
-    '- IMPORTANT — Plan-level vs Item-level dates: `update_plan.planned_date` is the overall trip date for the plan. `update_plan_item.scheduled_date` (and `scheduled_time`) is the date/time a specific plan item is scheduled. When the active context is a plan_item, "set a date" or "set a time" means `update_plan_item` with `scheduled_date`/`scheduled_time` — NOT `update_plan`. Only use `update_plan` for the plan\'s trip date when the user explicitly refers to changing when the trip happens.',
+    '- IMPORTANT — Plan-level vs Item-level dates: `update_plan.planned_date` is the overall trip date for the plan. `update_plan_item.scheduled_date` (and `scheduled_time`) is the date/time a specific plan item is scheduled. Context determines which to use: (1) When the active context is a plan_item (plan_item_id is set in context), "set a date", "set a time", or "schedule this" means `update_plan_item` with `scheduled_date`/`scheduled_time` — NOT `update_plan`. (2) When the active context is a plan but NO plan_item is active (only plan_id is set), "schedule this", "set the date for this", or similar means `update_plan` with `planned_date` — the user is scheduling the plan itself. Do NOT ask which item to schedule in this case.',
     '',
     'ENTITY IDs:',
     '- NEVER fabricate or use placeholder IDs like "<experience_id>" or "<destination_id>".',
@@ -391,6 +406,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- UPDATE_PROFILE: Use update_user_profile with only the fields the user explicitly asked to change (name, bio, or preferences). Never update fields the user did not mention.',
     '- REORDER_PLAN_ITEMS: Use reorder_plan_items with plan_id and item_ids ordered as the user described. Read all current item IDs from the plan context block — do not omit any items.',
     '- INVITE_COLLABORATOR: The user wants to add someone to their plan or experience. Use invite_collaborator with plan_id (from plan context) or experience_id. To resolve the user_id: first check the COLLABORATORS section in context for an existing member; if not found, propose list_user_followers with type "following" as an immediate read-only step so the user can pick from a list — never guess a user_id. Confirm the person and role (default: "collaborator") before proposing the invite action.',
+    '- DELETE_PLAN: When the experience context block shows "User\'s plan for this experience: exists (plan_id: <id>, ...)", include that plan_id in the payload. You may also pass experience_id instead — the executor will resolve the logged-in user\'s plan for that experience automatically. Always confirm with the user before proposing.',
     '- REMOVE_COLLABORATOR: Use remove_collaborator with plan_id and user_id from the COLLABORATORS section in context. List current collaborators for the user to choose if it is ambiguous. Always confirm before proposing — this revokes their access.',
     '- SET_MEMBER_LOCATION: The user wants to set their travel origin for the plan. Use set_member_location with plan_id from context. Ask for city and country if not mentioned. Accept an optional travel_cost_estimate and currency if the user provides one. This action always applies to the logged-in user — never set location for someone else.',
     '- REMOVE_MEMBER_LOCATION: Use remove_member_location with plan_id from context. Confirm with the user before proposing.',
@@ -416,6 +432,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     if (contextDescription) {
       lines.push(`Page context: ${contextDescription}`);
     }
+    lines.push('IMPORTANT: When the user says "this experience", "this plan", "this destination", or any other self-referential phrase, they are referring to the entity shown in the "Viewing" line above — NOT any entity from prior conversation history or session context. Always use the entity and its IDs from the context block that corresponds to the "Viewing" entity for any action the user requests on this page.');
     lines.push('');
   }
 
@@ -486,6 +503,21 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '  ]',
     '}',
     '',
+    'TOOL CALLS (silent fetches):',
+    '- Your JSON response MAY include a top-level `tool_calls` array when you need data not present in the context above.',
+    '- Each tool call has the same shape as a pending_action: { type, payload }. Tool calls are EXECUTED IMMEDIATELY by the system without user confirmation.',
+    '- After tool calls execute, you will receive a follow-up turn containing a [TOOL RESULTS] block. In that follow-up, produce your real answer using the data — do NOT include `tool_calls` again. The fetch budget is exhausted for the turn.',
+    '- Available tool calls (use only when the user request actually needs the data):',
+    require('../../utilities/bienbot-internal-tools').renderInternalSchemaLines(),
+    toolRegistry.getPromptSchemaSection(),
+    '- NEVER invent IDs in a fetch payload. Use only IDs from the provided context, listed entities, or earlier entity_refs.',
+    '- If a fetch result includes `{ ok: false, error }`, briefly acknowledge the failure in your response. Do not invent the data.',
+    '- If a fetch result has `returned < total`, tell the user how many were not returned and offer to narrow the filter.',
+    '',
+    'WHEN TO USE TOOL CALLS:',
+    require('../../utilities/bienbot-internal-tools').renderInternalPromptHints(),
+    toolRegistry.getPromptDecisionRulesSection(),
+    '',
     'PENDING ACTION BUTTON OVERRIDES (optional):',
     'Each action in pending_actions may include these optional fields to customise button labels:',
     '  "confirm_label": "Yes, create it"   // overrides primary button (max 40 chars)',
@@ -537,7 +569,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- create_plan: { experience_id, planned_date?, currency? }',
     '- update_plan: { plan_id, planned_date?, currency?, notes? }',
     '- shift_plan_item_dates: { plan_id, diff_days } — Shifts all scheduled plan item dates by the given number of days. Propose this automatically after an update_plan that changes planned_date when the user confirms they want item dates shifted too.',
-    '- delete_plan: { plan_id }  (⚠️ confirm with user first)',
+    '- delete_plan: { plan_id?, experience_id? }  (⚠️ confirm with user first) — when viewing an experience page, prefer passing experience_id; the executor will resolve the logged-in user\'s plan automatically.',
     '- sync_plan: { plan_id }',
     '',
     '--- Plan Items ---',
@@ -613,6 +645,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '  Fetches popular plan items from other travelers\' public experiences in the same destination.',
     '  Returns suggestions ranked by frequency. The user can then pick which items to add.',
     '  Use when the user asks for ideas, suggestions, or what others have done in a destination.',
+    '  When the user asks to suggest plan items for a plan, ALSO call `fetch_destination_tips` in the same turn (parallel tool calls) so the response combines local frequency-ranked items with curated Wikivoyage see/do/eat/drink ideas.',
     '- fetch_entity_photos: { entity_type ("destination"|"experience"), entity_id, limit?: 6 }',
     '  Fetches photos for a destination or experience. Returns photo URLs for inline display.',
     '  Use when the user asks to see photos of a destination or experience.',
@@ -679,6 +712,9 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '    Destination: /destinations/<destinationId>',
     '    Experience: /experiences/<experienceId>',
     '    Plan: /experiences/<experienceId>#plan-<planId>',
+    '  CRITICAL: Only propose navigate_to_entity when you have the ACTUAL entity ID from the context',
+    '  provided above (session context, listed plans, entity refs, etc.). NEVER invent, guess, or',
+    '  fabricate an ID. If you do not have a real ID for the entity, do NOT propose this action.',
     '  When the user\'s intent is explicitly to view an entity (e.g. "show me", "take me to", "I\'m feeling lucky"),',
     '  propose a navigate_to_entity action alongside your response.',
     '',
@@ -751,9 +787,30 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
 }
 
 /**
+ * When a message is a disambiguation reply (e.g. "The destination", "that one")
+ * that contains no entity name itself, look back through session history for the
+ * most recent user message that does — so we can build a useful search context.
+ *
+ * Returns the prior user message text, or null if not applicable.
+ */
+function extractSearchTermFromHistory(currentMessage, sessionMessages) {
+  const DISAMBIGUATION_RE = /^(?:the\s+)?(?:destination|experience|plan|that(?:\s+one)?|it|this(?:\s+one)?|the\s+place|that\s+place)\s*[.!?]?$/i;
+  if (!DISAMBIGUATION_RE.test((currentMessage || '').trim())) return null;
+  if (!Array.isArray(sessionMessages) || sessionMessages.length === 0) return null;
+
+  for (let i = sessionMessages.length - 1; i >= 0; i--) {
+    const msg = sessionMessages[i];
+    if (msg.role === 'user' && msg.content && msg.content.trim() !== currentMessage.trim()) {
+      return msg.content.trim();
+    }
+  }
+  return null;
+}
+
+/**
  * Build context blocks based on intent classification and session state.
  */
-async function buildContextBlocks(intent, entities, session, userId, message, navigationSchema) {
+async function buildContextBlocks(intent, entities, session, userId, message, navigationSchema, resolvedInvokeContext = null) {
   loadModels();
   const blocks = [];
 
@@ -761,13 +818,48 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
   // Supplement with navigationSchema IDs for turn 1: before the LLM has had a chance
   // to return entity_refs, the schema already carries the full ancestor chain so every
   // applicable builder (destination, experience, plan) fires in parallel immediately.
+  //
+  // IMPORTANT: resolvedInvokeContext (the entity page the user is currently viewing)
+  // ALWAYS overrides stale session.context IDs for its own entity type. This prevents
+  // resumed sessions from using IDs from a previous conversation when the user has
+  // navigated to a different entity page (e.g. "Unplan this experience" on Nashville
+  // should never reference a stale Anchorage plan_id from a prior session turn).
   const sessionCtx = session.context || {};
   const schemaIds = navigationSchema ? extractContextIds(navigationSchema) : {};
+
+  // Build invoke-context overrides — only override the specific entity type being viewed.
+  const invokeOverrides = {};
+  if (resolvedInvokeContext?.entity && resolvedInvokeContext?.entity_id) {
+    switch (resolvedInvokeContext.entity) {
+      case 'destination':
+        invokeOverrides.destination_id = resolvedInvokeContext.entity_id;
+        break;
+      case 'experience':
+        invokeOverrides.experience_id = resolvedInvokeContext.entity_id;
+        // Clear stale plan_id that belongs to a different experience
+        if (sessionCtx.plan_id && sessionCtx.experience_id &&
+            String(sessionCtx.experience_id) !== String(resolvedInvokeContext.entity_id)) {
+          invokeOverrides.plan_id = null;
+        }
+        break;
+      case 'plan':
+        invokeOverrides.plan_id = resolvedInvokeContext.entity_id;
+        break;
+      case 'plan_item':
+        invokeOverrides.plan_item_id = resolvedInvokeContext.entity_id;
+        break;
+    }
+  }
+
   const ctx = {
-    destination_id: sessionCtx.destination_id || schemaIds.destination_id || null,
-    experience_id:  sessionCtx.experience_id  || schemaIds.experience_id  || null,
-    plan_id:        sessionCtx.plan_id         || schemaIds.plan_id        || null,
-    plan_item_id:   sessionCtx.plan_item_id    || schemaIds.plan_item_id   || null,
+    destination_id: invokeOverrides.destination_id ?? sessionCtx.destination_id ?? schemaIds.destination_id ?? null,
+    experience_id:  invokeOverrides.experience_id  ?? sessionCtx.experience_id  ?? schemaIds.experience_id  ?? null,
+    // plan_id: if invokeOverrides explicitly sets it to null (stale plan cleared), honour null.
+    // Otherwise fall through session → schema.
+    plan_id: 'plan_id' in invokeOverrides
+      ? invokeOverrides.plan_id
+      : (sessionCtx.plan_id ?? schemaIds.plan_id ?? null),
+    plan_item_id: invokeOverrides.plan_item_id ?? sessionCtx.plan_item_id ?? schemaIds.plan_item_id ?? null,
   };
 
   // Pre-fetch all user plans once when entity context is present.
@@ -804,8 +896,12 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     const promises = [];
 
     // Intent-specific context
-    if (intent === 'QUERY_DESTINATION' && entities.destination_name) {
-      promises.push(buildSearchContext(entities.destination_name, userId).then(b => b && blocks.push(b)));
+    if (intent === 'QUERY_DESTINATION') {
+      const destSearchTerm = entities.destination_name
+        || extractSearchTermFromHistory(message, session?.messages);
+      if (destSearchTerm) {
+        promises.push(buildSearchContext(destSearchTerm, userId).then(b => b && blocks.push(b)));
+      }
     }
 
     // Discovery intents — build aggregation-based discovery context showing
@@ -817,7 +913,8 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       if (entities.destination_name) discoveryFilters.destination_name = entities.destination_name;
       if (ctx.destination_id) discoveryFilters.destination_id = ctx.destination_id.toString();
       if (entities.activity_type) discoveryFilters.activity_types = [entities.activity_type];
-      promises.push(buildDiscoveryContext(discoveryFilters, userId).then(b => b && blocks.push(b)));
+      // Extract only the contextBlock string so blocks.join('\n\n') produces valid text for the LLM.
+      promises.push(buildDiscoveryContext(discoveryFilters, userId).then(b => b && blocks.push(b.contextBlock)));
     }
 
     // Navigation intent — resolve entity search so LLM can propose navigate_to_entity action with correct IDs/URLs
@@ -828,9 +925,14 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       if (entities.experience_name) {
         promises.push(buildSearchContext(entities.experience_name, userId).then(b => b && blocks.push(b)));
       }
-      // Fallback: if no specific entity names extracted, search with the raw user message
+      // Fallback: if no specific entity names extracted, search with the raw user message.
+      // If the message is a disambiguation reply (e.g. "The destination"), use the prior
+      // user message from session history so we search for the actual place name instead
+      // of generic words like "destination" that would match irrelevant DB records.
       if (!entities.destination_name && !entities.experience_name && message) {
-        promises.push(buildSearchContext(message, userId).then(b => b && blocks.push(b)));
+        const historyTerm = extractSearchTermFromHistory(message, session?.messages);
+        const searchTerm = historyTerm || message;
+        promises.push(buildSearchContext(searchTerm, userId).then(b => b && blocks.push(b)));
       }
     }
 
@@ -843,7 +945,7 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     if (intent === 'QUERY_COUNTRY') {
       const countryFilters = {};
       if (entities.destination_name) countryFilters.destination_name = entities.destination_name;
-      promises.push(buildDiscoveryContext(countryFilters, userId).then(b => b && blocks.push(b)));
+      promises.push(buildDiscoveryContext(countryFilters, userId).then(b => b && blocks.push(b.contextBlock)));
     }
 
     // Dashboard / overview — build user greeting context with stats and summaries
@@ -854,6 +956,10 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     // Plan-related intent without a specific plan in context — load full user
     // greeting context so the LLM can see all plans (including undated ones) and
     // make recommendations without asking the user to provide the list.
+    // Exception: when an experience is already in session context, the experience
+    // context block already includes the user's plan for that experience (with plan_id),
+    // so loading all plans would only confuse the LLM on entity-scoped actions like
+    // unplan/delete that should target the current experience's plan.
     const OVERVIEW_PLAN_INTENTS = new Set([
       'QUERY_PLAN', 'UPDATE_PLAN', 'DELETE_PLAN', 'SYNC_PLAN', 'PLAN_EXPERIENCE',
       'ADD_PLAN_ITEMS', 'UPDATE_PLAN_ITEM', 'COMPLETE_PLAN_ITEM',
@@ -862,7 +968,7 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
       'ASSIGN_PLAN_ITEM', 'UPDATE_PLAN_ITEM_TEXT', 'UPDATE_PLAN_ITEM_URL',
       'DELETE_PLAN_ITEM', 'ADD_PLAN_COST'
     ]);
-    if (OVERVIEW_PLAN_INTENTS.has(intent) && !ctx.plan_id) {
+    if (OVERVIEW_PLAN_INTENTS.has(intent) && !ctx.plan_id && !ctx.experience_id) {
       promises.push(buildUserGreetingContext(userId).then(b => b && blocks.push(b)));
     }
 
@@ -911,6 +1017,18 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
     // Member location removal — build plan context so the assistant has the plan_id
     if (intent === 'REMOVE_MEMBER_LOCATION' && ctx.plan_id) {
       promises.push(buildUserPlanContext(ctx.plan_id.toString(), userId).then(b => b && blocks.push(b)));
+    }
+
+    // Favorite/unfavorite destination — ensure destination context is available so the
+    // LLM can resolve destination_id even when it isn't already in session context.
+    if (intent === 'FAVORITE_DESTINATION') {
+      const destId = ctx.destination_id?.toString();
+      const destName = entities.destination_name;
+      if (destId && !blocks.some(b => b?.destination_id === destId)) {
+        promises.push(buildDestinationContext(destId, userId).then(b => b && blocks.push(b)));
+      } else if (!destId && destName) {
+        promises.push(buildSearchContext(destName, userId).then(b => b && blocks.push(b)));
+      }
     }
 
     // Plan costs — build plan context which includes cost data
@@ -1037,6 +1155,18 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
   return blocks.length > 0 ? blocks.join('\n\n') : null;
 }
 
+const TOOL_CALL_LABELS = {
+  fetch_plan_items: 'Fetching plan items…',
+  fetch_plan_costs: 'Fetching costs…',
+  fetch_plan_collaborators: 'Fetching collaborators…',
+  fetch_experience_items: 'Fetching experience items…',
+  fetch_destination_experiences: 'Fetching experiences…',
+  fetch_user_plans: 'Fetching plans…'
+};
+
+// Merge registry tool labels into the literal map
+Object.assign(TOOL_CALL_LABELS, toolRegistry.getToolLabels());
+
 /**
  * Parse structured JSON response from LLM.
  * Returns { message, pending_actions } or a fallback.
@@ -1047,12 +1177,15 @@ function parseLLMResponse(text) {
       const parsed = JSON.parse(raw);
       if (typeof parsed.message !== 'string') return null;
 
+      const registryWriteTools = toolRegistry.getWriteToolNames();
+      const isAllowedAction = (type) => ALLOWED_ACTION_TYPES.includes(type) || registryWriteTools.has(type);
+
       const actions = Array.isArray(parsed.pending_actions)
         ? parsed.pending_actions
           .filter(a =>
             a && typeof a.id === 'string' &&
               typeof a.type === 'string' &&
-              ALLOWED_ACTION_TYPES.includes(a.type) &&
+              isAllowedAction(a.type) &&
               a.payload && typeof a.description === 'string'
           )
           .map(a => {
@@ -1071,6 +1204,19 @@ function parseLLMResponse(text) {
             }
             return action;
           })
+        : [];
+
+      const registryReadTools = toolRegistry.getReadToolNames();
+      const isAllowedToolCall = (type) => TOOL_CALL_ACTION_TYPES.has(type) || registryReadTools.has(type);
+
+      const toolCalls = Array.isArray(parsed.tool_calls)
+        ? parsed.tool_calls
+          .filter(tc =>
+            tc && typeof tc.type === 'string' &&
+            isAllowedToolCall(tc.type) &&
+            tc.payload && typeof tc.payload === 'object'
+          )
+          .map(tc => ({ type: tc.type, payload: tc.payload }))
         : [];
 
       const isValidEntityRef = (r) =>
@@ -1097,7 +1243,7 @@ function parseLLMResponse(text) {
         } catch { /* ignore malformed inline objects */ }
       }
 
-      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs };
+      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs, tool_calls: toolCalls };
     } catch {
       return null;
     }
@@ -1168,13 +1314,13 @@ function parseLLMResponse(text) {
         }
       } catch { /* ignore — return message without actions */ }
 
-      return { message, pending_actions: actions, entity_refs: [] };
+      return { message, pending_actions: actions, entity_refs: [], tool_calls: [] };
     }
     logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
       length: text.length,
       preview: text.slice(0, 120)
     });
-    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
+    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [], tool_calls: [] };
   }
 
   // 4. Plain text (no JSON structure) — return the text as the message
@@ -1185,14 +1331,14 @@ function parseLLMResponse(text) {
       length: trimmed.length,
       preview: trimmed.slice(0, 120)
     });
-    return { message: trimmed, pending_actions: [], entity_refs: [] };
+    return { message: trimmed, pending_actions: [], entity_refs: [], tool_calls: [] };
   }
 
   logger.warn('[bienbot] parseLLMResponse: no message field in response', {
     length: text.length,
     preview: text.slice(0, 120)
   });
-  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
+  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [], tool_calls: [] };
 }
 
 /**
@@ -1259,6 +1405,493 @@ function explodeWorkflows(actions) {
   }
 
   return result;
+}
+
+/**
+ * Action-type → entity-ID verification rules.
+ *
+ *   refs:  array of { field, model, required } — each independently checked.
+ *   oneOf: array of { field, model } — at least one must resolve to a real entity.
+ *   typed: { idField, typeField, typeToModel, required } — entity_type
+ *          dispatches which model entity_id is checked against.
+ *
+ * navigate_to_entity is verified separately by parsing IDs out of payload.url.
+ *
+ * Coverage gap: workflow steps are exploded before this verification runs,
+ * so each step is checked individually. Step references like $step_N.field
+ * are not resolvable here and are passed through to the executor.
+ */
+const ACTION_ENTITY_VERIFY = {
+  // plan_id required
+  update_plan:                 { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  delete_plan:                 { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  add_plan_items:              { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  // itemRef validates the embedded plan item within the verified parent plan.
+  // Plan items live in plan.plan[] (the embedded snapshot array).
+  update_plan_item:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  delete_plan_item:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  mark_plan_item_complete:     { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  mark_plan_item_incomplete:   { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  add_plan_item_note:          { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  update_plan_item_note:       { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  delete_plan_item_note:       { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  add_plan_item_detail:        { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  update_plan_item_detail:     { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  delete_plan_item_detail:     { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  assign_plan_item:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  unassign_plan_item:          { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  add_plan_cost:               { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  // costRef validates plan.costs[] subdocument IDs to drop hallucinated
+  // cost_ids before they reach the user as a confirmation prompt.
+  update_plan_cost:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 costRef: { parentField: 'plan_id', itemField: 'cost_id', required: true } },
+  delete_plan_cost:            { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 costRef: { parentField: 'plan_id', itemField: 'cost_id', required: true } },
+  set_member_location:         { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  remove_member_location:      { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  pin_plan_item:               { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  unpin_plan_item:             { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 itemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_id', required: true } },
+  // arrayItemRef validates every entry in payload.item_ids[] against plan.plan[].
+  // Without this, the executor silently drops hallucinated IDs from the reorder
+  // list, producing a "successful" reorder that quietly omitted items.
+  reorder_plan_items:          { refs: [{ field: 'plan_id', model: 'plan', required: true }],
+                                 arrayItemRef: { parentField: 'plan_id', parentModel: 'plan', arrayField: 'plan', itemField: 'item_ids', required: true } },
+  shift_plan_item_dates:       { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  sync_plan:                   { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  request_plan_access:         { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  // Disambiguation actions auto-execute and write to session context — must verify.
+  select_plan:                 { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  select_destination:          { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  // Read-only fetches with required entity refs.
+  suggest_plan_items:          { refs: [
+                                  { field: 'destination_id', model: 'destination', required: true },
+                                  { field: 'experience_id', model: 'experience', required: false }
+                                ] },
+  fetch_destination_tips:      { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  fetch_plan_items:            { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_plan_costs:            { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_plan_collaborators:    { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_experience_items:      { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  fetch_destination_experiences: { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  fetch_user_plans:            { refs: [{ field: 'user_id', model: 'user', required: false }] },
+  // Optional plan_id only.
+  create_invite:               { refs: [{ field: 'plan_id', model: 'plan', required: false }] },
+  // experience_id required.
+  create_plan:                 { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  update_experience:           { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  add_experience_plan_item:    { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  // itemRef validates the embedded plan item in experience.plan_items[].
+  update_experience_plan_item: { refs: [{ field: 'experience_id', model: 'experience', required: true }],
+                                 itemRef: { parentField: 'experience_id', parentModel: 'experience', arrayField: 'plan_items', itemField: 'plan_item_id', required: true } },
+  delete_experience_plan_item: { refs: [{ field: 'experience_id', model: 'experience', required: true }],
+                                 itemRef: { parentField: 'experience_id', parentModel: 'experience', arrayField: 'plan_items', itemField: 'plan_item_id', required: true } },
+  // destination_id.
+  create_experience:           { refs: [{ field: 'destination_id', model: 'destination', required: false }] },
+  update_destination:          { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  toggle_favorite_destination: { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  // user_id required (social actions).
+  follow_user:                 { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  unfollow_user:               { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  list_user_followers:         { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  list_user_experiences:       { refs: [{ field: 'user_id', model: 'user', required: true }] },
+  accept_follow_request:       { refs: [{ field: 'follower_id', model: 'user', required: true }] },
+  // At-least-one semantics — executor accepts plan_id OR experience_id.
+  invite_collaborator:         { oneOf: [
+                                  { field: 'plan_id', model: 'plan' },
+                                  { field: 'experience_id', model: 'experience' }
+                                ] },
+  remove_collaborator:         { oneOf: [
+                                  { field: 'plan_id', model: 'plan' },
+                                  { field: 'experience_id', model: 'experience' }
+                                ] },
+  // Typed-entity dispatcher — entity_type selects which model entity_id is checked.
+  add_entity_photos:           { typed: {
+                                  idField: 'entity_id',
+                                  typeField: 'entity_type',
+                                  typeToModel: { destination: 'destination', experience: 'experience' },
+                                  required: true
+                                } },
+  fetch_entity_photos:         { typed: {
+                                  idField: 'entity_id',
+                                  typeField: 'entity_type',
+                                  typeToModel: { destination: 'destination', experience: 'experience' },
+                                  required: true
+                                } },
+  list_entity_documents:       { typed: {
+                                  idField: 'entity_id',
+                                  typeField: 'entity_type',
+                                  typeToModel: { destination: 'destination', experience: 'experience', plan: 'plan' },
+                                  required: true
+                                },
+                                refs: [{ field: 'plan_id', model: 'plan', required: false }] }
+};
+
+// Merge registry tool verifier entries into the literal map
+Object.assign(ACTION_ENTITY_VERIFY, toolRegistry.getVerifierEntries());
+
+// Case-insensitive ObjectId parsers for navigate_to_entity URLs. Mongoose
+// accepts uppercase hex IDs, so a lowercase-only regex would mis-classify
+// valid URLs as "unrecognised" in the dropped-action telemetry.
+const NAV_DEST_RE = /^\/destinations\/([a-f0-9]{24})/i;
+const NAV_EXP_RE  = /^\/experiences\/([a-f0-9]{24})/i;
+const NAV_PLAN_RE = /#plan-([a-f0-9]{24})/i;
+function extractNavIds(url) {
+  if (typeof url !== 'string' || !url) return { error: 'missing url' };
+  const dest = url.match(NAV_DEST_RE);
+  if (dest) return { ids: [{ model: 'destination', id: dest[1].toLowerCase() }] };
+  const exp = url.match(NAV_EXP_RE);
+  if (exp) {
+    const out = [{ model: 'experience', id: exp[1].toLowerCase() }];
+    const plan = url.match(NAV_PLAN_RE);
+    if (plan) out.push({ model: 'plan', id: plan[1].toLowerCase() });
+    return { ids: out };
+  }
+  return { error: 'unrecognised URL pattern' };
+}
+
+/**
+ * Drop any action whose entity references can't be resolved in the DB.
+ *
+ * Defends against LLM-hallucinated ObjectIds that pass string-format checks.
+ * Batches existence queries — one query per model regardless of action count.
+ * Logs every dropped action with structured fields so regressions are visible
+ * in production telemetry.
+ *
+ * @param {Array} actions exploded pending_actions (post-workflow expansion)
+ * @returns {Promise<Array>} surviving actions
+ */
+async function verifyPendingActionEntityIds(actions) {
+  if (!Array.isArray(actions) || actions.length === 0) return actions || [];
+
+  // Phase 1 — collect every referenced ID per model + itemRef parent IDs.
+  const toVerify = {
+    plan: new Set(), experience: new Set(),
+    destination: new Set(), user: new Set()
+  };
+  // Track which parent IDs we'll need to load embedded item arrays for.
+  // planItemParents: plan_id -> Set<item_id>;  expItemParents: exp_id -> Set<item_id>
+  const planItemParents = new Map();
+  const expItemParents = new Map();
+  let needVerification = false;
+  const collect = (id, model) => {
+    if (id && model && toVerify[model] && mongoose.Types.ObjectId.isValid(id)) {
+      toVerify[model].add(id);
+    }
+  };
+  for (const action of actions) {
+    const rule = ACTION_ENTITY_VERIFY[action.type];
+    if (rule) {
+      needVerification = true;
+      if (rule.refs) for (const r of rule.refs) collect(action.payload?.[r.field], r.model);
+      if (rule.oneOf) for (const r of rule.oneOf) collect(action.payload?.[r.field], r.model);
+      if (rule.typed) {
+        const t = rule.typed;
+        const type = action.payload?.[t.typeField];
+        collect(action.payload?.[t.idField], type ? t.typeToModel[type] : null);
+      }
+      if (rule.itemRef) {
+        const { parentField, parentModel, itemField } = rule.itemRef;
+        const parentId = action.payload?.[parentField];
+        const itemId   = action.payload?.[itemField];
+        if (parentId && itemId &&
+            mongoose.Types.ObjectId.isValid(parentId) &&
+            mongoose.Types.ObjectId.isValid(itemId)) {
+          const map = parentModel === 'plan' ? planItemParents : expItemParents;
+          if (!map.has(parentId)) map.set(parentId, new Set());
+          map.get(parentId).add(itemId);
+        }
+      }
+      if (rule.arrayItemRef) {
+        // For array variants (e.g. reorder_plan_items.item_ids[]), the parent
+        // load already happens via refs/itemRef parent collection — we only
+        // need to ensure the parent is fetched in Phase 2.5 so that Phase 3
+        // can iterate the array. Add the parent with an empty itemId set; the
+        // membership check happens against planItemMap which contains all of
+        // the parent's items regardless of which were referenced.
+        const { parentField, parentModel } = rule.arrayItemRef;
+        const parentId = action.payload?.[parentField];
+        if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
+          const map = parentModel === 'plan' ? planItemParents : expItemParents;
+          if (!map.has(parentId)) map.set(parentId, new Set());
+        }
+      }
+      if (rule.costRef) {
+        // cost_id check: ensure the parent plan is fetched in Phase 2.5 so
+        // Phase 3 can verify cost membership. costRef is plan-only.
+        const { parentField } = rule.costRef;
+        const parentId = action.payload?.[parentField];
+        if (parentId && mongoose.Types.ObjectId.isValid(parentId)) {
+          if (!planItemParents.has(parentId)) planItemParents.set(parentId, new Set());
+        }
+      }
+    }
+    if (action.type === 'navigate_to_entity') {
+      needVerification = true;
+      const parsedNav = extractNavIds(action.payload?.url);
+      if (parsedNav.ids) for (const { model, id } of parsedNav.ids) toVerify[model].add(id);
+    }
+  }
+
+  if (!needVerification) return actions;
+
+  // Phase 2 — batched existence query per model in parallel.
+  loadModels();
+  const existing = {
+    plan: new Set(), experience: new Set(),
+    destination: new Set(), user: new Set()
+  };
+  const queries = [
+    [Plan, 'plan'],
+    [Experience, 'experience'],
+    [Destination, 'destination'],
+    [User, 'user']
+  ];
+  await Promise.all(queries.map(([Model, key]) =>
+    toVerify[key].size === 0
+      ? Promise.resolve()
+      : Model.find({ _id: { $in: [...toVerify[key]] } })
+          .select('_id').lean()
+          .then(docs => docs.forEach(d => existing[key].add(d._id.toString())))
+          .catch(err => logger.warn('[bienbot] entity ID batch verification query failed',
+            { model: key, error: err.message }))
+  ));
+
+  // Phase 2.5 — subdocument item existence maps.
+  // Only query parents that were confirmed to exist in Phase 2.
+  // plan.plan[] holds plan item snapshots — each snapshot has both its own
+  // subdocument _id AND a plan_item_id referencing the original experience
+  // plan item. The plansController.updatePlanItem handler accepts EITHER form,
+  // so the verification set must include both to stay symmetric with the
+  // executor.
+  // experience.plan_items[] holds experience items keyed by _id only.
+  // Trade-off: the projection over-fetches all item IDs in each parent. For
+  // a plan with 100 items where only 1 is referenced, we transfer 99 unused
+  // IDs. Acceptable vs. building per-parent $elemMatch filters; if this ever
+  // becomes hot, switch to elemMatch.
+  const planItemMap = new Map();  // planId -> Set<itemId> (covers _id + plan_item_id)
+  const planCostMap = new Map();  // planId -> Set<costId>
+  const expItemMap  = new Map();  // expId   -> Set<itemId>
+  await Promise.all([
+    planItemParents.size > 0
+      ? Plan.find({ _id: { $in: [...planItemParents.keys()].filter(id => existing.plan.has(id)) } })
+          .select('_id plan._id plan.plan_item_id costs._id').lean()
+          .then(docs => docs.forEach(doc => {
+            const itemIds = new Set();
+            for (const i of (doc.plan || [])) {
+              if (i._id) itemIds.add(i._id.toString());
+              if (i.plan_item_id) itemIds.add(i.plan_item_id.toString());
+            }
+            planItemMap.set(doc._id.toString(), itemIds);
+            planCostMap.set(
+              doc._id.toString(),
+              new Set((doc.costs || []).map(c => c._id?.toString()).filter(Boolean))
+            );
+          }))
+          .catch(err => logger.warn('[bienbot] plan item subdoc verification query failed',
+            { error: err.message }))
+      : Promise.resolve(),
+    expItemParents.size > 0
+      ? Experience.find({ _id: { $in: [...expItemParents.keys()].filter(id => existing.experience.has(id)) } })
+          .select('_id plan_items._id').lean()
+          .then(docs => docs.forEach(doc => {
+            expItemMap.set(
+              doc._id.toString(),
+              new Set((doc.plan_items || []).map(i => i._id?.toString()).filter(Boolean))
+            );
+          }))
+          .catch(err => logger.warn('[bienbot] experience plan_item subdoc verification query failed',
+            { error: err.message }))
+      : Promise.resolve()
+  ]);
+
+  // Phase 3 — drop any action whose IDs can't be resolved.
+  return actions.filter(action => {
+    if (action.type === 'navigate_to_entity') {
+      const result = extractNavIds(action.payload?.url);
+      if (result.error) {
+        logger.warn('[bienbot] navigate_to_entity dropped: ' + result.error,
+          { actionId: action.id, url: action.payload?.url });
+        return false;
+      }
+      for (const { model, id } of result.ids) {
+        if (!existing[model].has(id)) {
+          logger.warn('[bienbot] navigate_to_entity dropped: entity not found',
+            { actionId: action.id, model, id, url: action.payload?.url });
+          return false;
+        }
+      }
+      return true;
+    }
+
+    const rule = ACTION_ENTITY_VERIFY[action.type];
+    if (!rule) return true;
+
+    if (rule.refs) {
+      for (const { field, model, required } of rule.refs) {
+        const id = action.payload?.[field];
+        if (!id) {
+          if (required) {
+            logger.warn('[bienbot] pending_action dropped: required entity ID missing',
+              { type: action.type, field });
+            return false;
+          }
+          continue;
+        }
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          logger.warn('[bienbot] pending_action dropped: invalid ObjectId format',
+            { type: action.type, field, id });
+          return false;
+        }
+        if (!existing[model].has(id)) {
+          logger.warn('[bienbot] pending_action dropped: entity not found in DB',
+            { type: action.type, field, model, id });
+          return false;
+        }
+      }
+    }
+
+    if (rule.oneOf) {
+      const matched = rule.oneOf.some(({ field, model }) => {
+        const id = action.payload?.[field];
+        return id && mongoose.Types.ObjectId.isValid(id) && existing[model].has(id);
+      });
+      if (!matched) {
+        logger.warn('[bienbot] pending_action dropped: none of the one_of entity IDs resolved',
+          { type: action.type, fields: rule.oneOf.map(r => r.field) });
+        return false;
+      }
+    }
+
+    if (rule.typed) {
+      const t = rule.typed;
+      const id = action.payload?.[t.idField];
+      const type = action.payload?.[t.typeField];
+      if (!id || !type) {
+        if (t.required) {
+          logger.warn('[bienbot] pending_action dropped: typed entity id/type missing',
+            { type: action.type, idField: t.idField, typeField: t.typeField });
+          return false;
+        }
+      } else {
+        const model = t.typeToModel[type];
+        if (!model) {
+          logger.warn('[bienbot] pending_action dropped: unknown entity_type',
+            { type: action.type, [t.typeField]: type });
+          return false;
+        }
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          logger.warn('[bienbot] pending_action dropped: invalid typed entity ObjectId',
+            { type: action.type, idField: t.idField, id });
+          return false;
+        }
+        if (!existing[model].has(id)) {
+          logger.warn('[bienbot] pending_action dropped: typed entity not found',
+            { type: action.type, idField: t.idField, model, id });
+          return false;
+        }
+      }
+    }
+
+    if (rule.itemRef) {
+      const { parentField, parentModel, itemField, required } = rule.itemRef;
+      const parentId = action.payload?.[parentField];
+      const itemId   = action.payload?.[itemField];
+      if (!itemId) {
+        if (required) {
+          logger.warn('[bienbot] pending_action dropped: required item_id missing',
+            { type: action.type, itemField });
+          return false;
+        }
+      } else if (!mongoose.Types.ObjectId.isValid(itemId)) {
+        logger.warn('[bienbot] pending_action dropped: invalid item_id ObjectId format',
+          { type: action.type, itemField, itemId });
+        return false;
+      } else if (parentId) {
+        // Only check subdocument existence when the parent was itself confirmed
+        // to exist in Phase 2 (i.e. it's in the itemMap). If the parent wasn't
+        // fetched at all (e.g. it failed Phase 2), the refs check above already
+        // dropped the action — so we skip silently here.
+        const itemMap = parentModel === 'plan' ? planItemMap : expItemMap;
+        if (itemMap.has(parentId) && !itemMap.get(parentId).has(itemId)) {
+          logger.warn('[bienbot] pending_action dropped: item_id not found in parent',
+            { type: action.type, itemField, itemId, parentField, parentId, parentModel });
+          return false;
+        }
+      }
+    }
+
+    if (rule.arrayItemRef) {
+      const { parentField, parentModel, itemField, required } = rule.arrayItemRef;
+      const parentId = action.payload?.[parentField];
+      const itemIds  = action.payload?.[itemField];
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        if (required) {
+          logger.warn('[bienbot] pending_action dropped: required item_ids array missing or empty',
+            { type: action.type, itemField });
+          return false;
+        }
+      } else if (parentId) {
+        const itemMap = parentModel === 'plan' ? planItemMap : expItemMap;
+        if (itemMap.has(parentId)) {
+          const knownIds = itemMap.get(parentId);
+          for (const id of itemIds) {
+            if (!id || !mongoose.Types.ObjectId.isValid(id) || !knownIds.has(id)) {
+              logger.warn('[bienbot] pending_action dropped: item_ids entry not found in parent',
+                { type: action.type, itemField, badId: id, parentField, parentId, parentModel });
+              return false;
+            }
+          }
+        }
+      }
+    }
+
+    if (rule.costRef) {
+      const { parentField, itemField, required } = rule.costRef;
+      const parentId = action.payload?.[parentField];
+      const costId   = action.payload?.[itemField];
+      if (!costId) {
+        if (required) {
+          logger.warn('[bienbot] pending_action dropped: required cost_id missing',
+            { type: action.type, itemField });
+          return false;
+        }
+      } else if (!mongoose.Types.ObjectId.isValid(costId)) {
+        logger.warn('[bienbot] pending_action dropped: invalid cost_id ObjectId format',
+          { type: action.type, itemField, costId });
+        return false;
+      } else if (parentId && planCostMap.has(parentId) && !planCostMap.get(parentId).has(costId)) {
+        logger.warn('[bienbot] pending_action dropped: cost_id not found in parent plan',
+          { type: action.type, itemField, costId, parentField, parentId });
+        return false;
+      }
+    }
+
+    // Intentional gaps (not verified at this layer):
+    //   - note_id (*_plan_item_note): nested two levels deep
+    //     (plan.plan[].details.notes[]); projection cost outweighs the benefit
+    //     while controller 404s remain observable.
+    //   - detail_id (*_plan_item_detail): polymorphic — detail_type is the
+    //     real discriminator, and detail_id is optional. Skip rather than
+    //     replicate that logic here.
+    //   - add_plan_items items[].parent: the parent is descriptive, not
+    //     enforced; a dangling reference produces a flat list, not a 500.
+
+    return true;
+  });
 }
 
 /**
@@ -1362,6 +1995,14 @@ function buildTokenAwareHistory(messages, sessionSummary) {
  */
 function sendSSE(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+function sendToolCallStart(res, payload) {
+  sendSSE(res, 'tool_call_start', payload);
+}
+
+function sendToolCallEnd(res, payload) {
+  sendSSE(res, 'tool_call_end', payload);
 }
 
 /**
@@ -1472,8 +2113,7 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
           data: {
             tips: result.tips,
             destination_id: result.destination_id || null,
-            destination_name: result.destination_name || null,
-            provider_count: result.provider_count || 0
+            destination_name: result.destination_name || null
           }
         };
       }
@@ -1549,6 +2189,96 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
       return null;
   }
 }
+
+/**
+ * Execute a batch of LLM-proposed tool calls (read-only fetches) in parallel.
+ * Returns a formatted tool-results block ready to inject into the second LLM
+ * prompt, plus per-call metadata for telemetry.
+ *
+ * @param {Object} opts
+ * @param {Array}  opts.toolCalls    - Parsed tool_calls array from first LLM response
+ * @param {Object} opts.user         - req.user
+ * @param {Object} opts.session      - BienBotSession (passed through to handlers)
+ * @param {Function} [opts.executeAction] - Injected for tests; defaults to real executor
+ * @param {Function} [opts.onCallStart] - Called per-call with { call_id, type, label }
+ * @param {Function} [opts.onCallEnd]   - Called per-call with { call_id, ok }
+ * @returns {Promise<{ toolResultsBlock: string, calls: Array }>}
+ */
+async function executeToolCallLoop({
+  toolCalls,
+  user,
+  session,
+  executeAction = require('../../utilities/bienbot-action-executor').executeAction,
+  onCallStart = () => {},
+  onCallEnd = () => {},
+  signal = undefined
+}) {
+  if (signal?.aborted) throw new Error('AbortError');
+
+  const calls = await Promise.all(toolCalls.map(async (tc, idx) => {
+    if (signal?.aborted) throw new Error('AbortError');
+    const callId = `tc_${Date.now()}_${idx}`;
+    const label = TOOL_CALL_LABELS[tc.type] || `Fetching ${tc.type.replace(/_/g, ' ')}…`;
+    onCallStart({ call_id: callId, type: tc.type, label });
+    const startedAt = Date.now();
+
+    let body;
+    let ok;
+    let toolSource;
+    try {
+      let outcome;
+      const registryEntry = toolRegistry.getTool(tc.type);
+      if (registryEntry) {
+        toolSource = 'registry';
+        outcome = await toolRegistry.executeRegisteredTool(tc.type, tc.payload, user, {
+          abortSignal: signal,
+          session
+        });
+      } else {
+        toolSource = 'internal';
+        const action = { id: callId, type: tc.type, payload: tc.payload, description: label };
+        outcome = await executeAction(action, user, session);
+      }
+      if (signal?.aborted) throw new Error('AbortError');
+      body = outcome?.result?.body ?? outcome?.body ?? { ok: false, error: 'no_body' };
+      ok = !!outcome?.success && !(body && body.ok === false);
+    } catch (err) {
+      if (err.message === 'AbortError') throw err;
+      logger.error('[bienbot:tool-loop] handler threw', { type: tc.type, error: err.message });
+      body = { ok: false, error: 'fetch_failed' };
+      ok = false;
+    }
+
+    onCallEnd({ call_id: callId, ok });
+    return {
+      call_id: callId,
+      type: tc.type,
+      payload: tc.payload,
+      body,
+      ok,
+      duration_ms: Date.now() - startedAt,
+      tool_source: toolSource
+    };
+  }));
+
+  if (signal?.aborted) throw new Error('AbortError');
+
+  const toolResultsBlock = [
+    '[TOOL RESULTS — for use in your reply, do not echo verbatim]',
+    ...calls.map(c => {
+      const payloadDigest = Object.entries(c.payload || {})
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ');
+      return `${c.type}(${payloadDigest}): ${JSON.stringify(c.body)}`;
+    }),
+    '[/TOOL RESULTS]'
+  ].join('\n');
+
+  return { toolResultsBlock, calls };
+}
+
+// Export under a `_for-test` alias so tests can drive the function with a mock
+// executeAction. The production callers use the closure-bound default.
+exports._executeToolCallLoopForTest = executeToolCallLoop;
 
 // ---------------------------------------------------------------------------
 // Controller methods
@@ -2446,6 +3176,77 @@ exports.chat = async (req, res) => {
 
   const ctx = session.context || {};
   if (PLAN_RELATED_INTENTS.has(classification.intent) && !ctx.plan_id) {
+    // When the user is on a specific entity page (resolvedInvokeContext or session.invoke_context),
+    // they are clearly referring to THAT entity. Skip disambiguation entirely —
+    // the LLM/executor will resolve the correct plan from the invoke context.
+    // This prevents "Unplan this experience" on Nashville from showing a picker
+    // of all 42 user plans across all destinations.
+    //
+    // resolvedInvokeContext comes from the current request's invokeContext param;
+    // session.invoke_context is the stored context from when BienBot was opened.
+    // For resumed sessions that don't re-send invokeContext, we fall back to session.invoke_context.
+    const effectiveInvokeContext = resolvedInvokeContext || (
+      session.invoke_context?.entity && session.invoke_context?.entity_id
+        ? { entity: session.invoke_context.entity, entity_id: session.invoke_context.entity_id.toString() }
+        : null
+    );
+    const hasEntityPageContext =
+      (effectiveInvokeContext?.entity === 'experience' && effectiveInvokeContext?.entity_id) ||
+      (effectiveInvokeContext?.entity === 'plan' && effectiveInvokeContext?.entity_id);
+
+    logger.info('[bienbot] Step 2c plan disambiguation gate', {
+      hasEntityPageContext,
+      resolvedInvokeContext: resolvedInvokeContext ? { entity: resolvedInvokeContext.entity, entity_id: resolvedInvokeContext.entity_id } : null,
+      sessionInvokeContext: session.invoke_context ? { entity: session.invoke_context.entity, entity_id: session.invoke_context.entity_id?.toString() } : null,
+      effectiveInvokeContext: effectiveInvokeContext ? { entity: effectiveInvokeContext.entity, entity_id: effectiveInvokeContext.entity_id } : null,
+      intent: classification.intent,
+      ctxPlanId: ctx.plan_id || null,
+      userId
+    });
+
+    if (hasEntityPageContext) {
+      // Only auto-inject if we can find the exact plan — if not found (user may not
+      // have planned this experience), skip silently and let the LLM handle it.
+      try {
+        loadModels();
+        const userPlans = await Plan.find({ user: userId })
+          .populate('experience', 'name destination')
+          .populate({ path: 'experience', populate: { path: 'destination', select: 'name' } })
+          .select('experience planned_date plan')
+          .lean();
+
+        let pinned = [];
+        if (effectiveInvokeContext.entity === 'experience') {
+          pinned = userPlans.filter(p =>
+            String(p.experience?._id) === String(effectiveInvokeContext.entity_id)
+          );
+        } else if (effectiveInvokeContext.entity === 'plan') {
+          pinned = userPlans.filter(p =>
+            String(p._id) === String(effectiveInvokeContext.entity_id)
+          );
+        }
+
+        if (pinned.length === 1) {
+          const plan = pinned[0];
+          await session.updateContext({
+            plan_id: plan._id.toString(),
+            experience_id: plan.experience?._id?.toString() || null,
+            destination_id: plan.experience?.destination?._id?.toString()
+              || plan.experience?.destination?.toString() || null
+          });
+          logger.info('[bienbot] Auto-injected plan from entity page context', {
+            planId: plan._id.toString(),
+            userId,
+            invokeEntity: effectiveInvokeContext.entity,
+            invokeEntityId: effectiveInvokeContext.entity_id,
+            source: resolvedInvokeContext ? 'request' : 'session'
+          });
+        }
+        // If 0 or 2+ found: skip silently — LLM will handle with invoke context info
+      } catch (err) {
+        logger.warn('[bienbot] Plan auto-inject from entity page failed, continuing', { error: err.message });
+      }
+    } else {
     try {
       loadModels();
       const userPlans = await Plan.find({ user: userId })
@@ -2455,21 +3256,21 @@ exports.chat = async (req, res) => {
         .lean();
 
       if (userPlans.length > 0) {
+        let matchedPlans = userPlans;
+
         // Fuzzy-filter by destination/experience name if user mentioned one
         const nameHint = classification.entities?.destination_name
           || classification.entities?.experience_name
           || null;
-        let matchedPlans = userPlans;
-
         if (nameHint) {
           const hint = nameHint.toLowerCase();
-          matchedPlans = userPlans.filter(p => {
+          const filtered = userPlans.filter(p => {
             const expName = (p.experience?.name || '').toLowerCase();
             const destName = (p.experience?.destination?.name || '').toLowerCase();
             return expName.includes(hint) || destName.includes(hint)
               || hint.includes(expName) || hint.includes(destName);
           });
-          if (matchedPlans.length === 0) matchedPlans = userPlans;
+          if (filtered.length > 0) matchedPlans = filtered;
         }
 
         if (matchedPlans.length === 1) {
@@ -2566,6 +3367,7 @@ exports.chat = async (req, res) => {
     } catch (err) {
       logger.warn('[bienbot] Plan disambiguation failed, continuing normally', { error: err.message });
     }
+    } // end else (no entity page context)
   }
 
 
@@ -2577,7 +3379,8 @@ exports.chat = async (req, res) => {
     session,
     userId,
     classifyText,
-    navigationSchema
+    navigationSchema,
+    resolvedInvokeContext
   );
 
   // Merge invokeContext block with intent-based blocks, enforcing hard token cap
@@ -2764,14 +3567,125 @@ exports.chat = async (req, res) => {
   // --- Step 5: Parse structured response ---
   const rawParsed = parseLLMResponse(llmResult.content || '');
 
+  // --- Step 5a: Tool-use loop (silent fetch + re-prompt) ---
+  // If the first response carries tool_calls, run them in parallel, open the
+  // SSE stream so pill events stream during the wait, then re-prompt the LLM
+  // with the tool results and use the second response as the final answer.
+  // Recursion budget = 1 — any tool_calls in the second response are dropped.
+  const toolLoopAbort = new AbortController();
+  // Fire the abort only when the client actually disconnects before the
+  // response finishes. `res.on('close')` always fires (even on normal end),
+  // so guard with `!res.writableEnded` to distinguish disconnect from completion.
+  res.on('close', () => {
+    if (!res.writableEnded) toolLoopAbort.abort();
+  });
+
+  let parsedFinal = rawParsed;
+  if (Array.isArray(rawParsed.tool_calls) && rawParsed.tool_calls.length > 0) {
+    const startedAtLoop = Date.now();
+    // Verify tool-call entity IDs (reuse the verifier — drops hallucinated IDs).
+    const verifiedToolCalls = await verifyPendingActionEntityIds(
+      rawParsed.tool_calls.map(tc => ({ ...tc, id: `tc_${tc.type}` }))
+    );
+
+    // Open the SSE stream NOW so we can emit pill events while fetching.
+    if (!res.headersSent) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+    }
+
+    let toolResultsBlock;
+    let calls;
+    try {
+      ({ toolResultsBlock, calls } = await executeToolCallLoop({
+        toolCalls: verifiedToolCalls,
+        user: req.user,
+        session,
+        onCallStart: (p) => sendToolCallStart(res, p),
+        onCallEnd: (p) => sendToolCallEnd(res, p),
+        signal: toolLoopAbort.signal
+      }));
+    } catch (err) {
+      if (err.message === 'AbortError' || toolLoopAbort.signal.aborted) {
+        return res.end();
+      }
+      logger.error('[bienbot:tool-loop] tool loop threw', { error: err.message });
+      sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
+      sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
+      return res.end();
+    }
+
+    // Build re-prompt: same conversation + an extra user-role message
+    // containing the tool-results block. The LLM treats it as fresh context.
+    const repromptMessages = [
+      ...conversationMessages,
+      { role: 'assistant', content: JSON.stringify({ message: '', tool_calls: rawParsed.tool_calls }) },
+      { role: 'user', content: toolResultsBlock }
+    ];
+
+    let secondLlm;
+    try {
+      secondLlm = await callProvider(provider, repromptMessages, {
+        temperature: 0.7,
+        maxTokens,
+        _user: req.user,
+        task: AI_TASKS.BIENBOT_CHAT,
+        intent: classification.intent || null
+      });
+    } catch (err) {
+      if (toolLoopAbort.signal.aborted) {
+        return res.end();
+      }
+      logger.error('[bienbot:tool-loop] second LLM call failed', { error: err.message });
+      sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
+      sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
+      return res.end();
+    }
+
+    parsedFinal = parseLLMResponse(secondLlm.content || '');
+
+    // Recursion-budget enforcement: drop tool_calls in the second response.
+    if (parsedFinal.tool_calls && parsedFinal.tool_calls.length > 0) {
+      logger.warn('[bienbot:tool-loop] second response proposed more tool_calls — ignoring', {
+        count: parsedFinal.tool_calls.length,
+        types: parsedFinal.tool_calls.map(t => t.type)
+      });
+      parsedFinal.tool_calls = [];
+    }
+
+    logger.info('[bienbot:tool-loop] turn complete', {
+      sessionId: session._id.toString(),
+      tool_calls_count: calls.length,
+      tool_call_types: calls.map(c => c.type),
+      re_prompt_duration_ms: Date.now() - startedAtLoop,
+      per_call: calls.map(c => ({ type: c.type, ok: c.ok, duration_ms: c.duration_ms, tool_source: c.tool_source }))
+    });
+  }
+
   // Explode workflow actions into individual step-by-step pending actions
-  const explodedActions = explodeWorkflows(rawParsed.pending_actions);
+  let explodedActions = explodeWorkflows(parsedFinal.pending_actions);
+
+  // Drop actions whose entity IDs the LLM hallucinated. Runs before the
+  // read-only/confirmable split so disambiguation actions (select_plan,
+  // select_destination) and read-only fetches that take entity refs are
+  // covered too — not just confirmable mutations.
+  explodedActions = await verifyPendingActionEntityIds(explodedActions);
 
   // --- Step 5b: Auto-execute read-only actions ---
   // Read-only actions (suggest_plan_items, fetch_entity_photos) execute
   // immediately without confirmation and produce structured_content blocks.
-  const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
-  const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
+  // Registry-owned non-mutating tools (e.g. fetch_destination_tips,
+  // fetch_destination_places) are also auto-executed here.
+  const registryReadToolsForExec = toolRegistry.getReadToolNames();
+  const isReadOnlyAction = (type) =>
+    READ_ONLY_ACTION_TYPES.has(type) || registryReadToolsForExec.has(type);
+  const readOnlyActions = explodedActions.filter(a => isReadOnlyAction(a.type));
+  const confirmableActions = explodedActions.filter(a => !isReadOnlyAction(a.type));
   const READ_ONLY_CONTENT_TYPES = {
     discover_content: 'discovery_result_list',
     fetch_entity_photos: 'photo_gallery',
@@ -2814,92 +3728,117 @@ exports.chat = async (req, res) => {
     }
   }
 
+  // --- Step 5c: Auto-inject discovery results as structured content ---
+  // When the LLM lists experiences as text instead of emitting a discover_content
+  // action, inject the discovery results as discovery_result_list cards so users
+  // can navigate directly to each experience.
+  const DISCOVERY_INTENTS_LLM = new Set(['DISCOVER_EXPERIENCES', 'DISCOVER_DESTINATIONS', 'PLAN_EXPERIENCE', 'CREATE_EXPERIENCE']);
+  const hasDiscoverAction = readOnlyActions.some(a => a.type === 'discover_content');
+  if (DISCOVERY_INTENTS_LLM.has(classification.intent) && !hasDiscoverAction) {
+    try {
+      const autoDiscoveryFilters = {};
+      if (classification.entities?.destination_name) autoDiscoveryFilters.destination_name = classification.entities.destination_name;
+      if (session.context?.destination_id) autoDiscoveryFilters.destination_id = session.context.destination_id.toString();
+      if (classification.entities?.activity_type) autoDiscoveryFilters.activity_types = [classification.entities.activity_type];
+      const autoDiscovery = await buildDiscoveryContext(autoDiscoveryFilters, userId);
+      if (autoDiscovery?.results?.length > 0) {
+        structuredContent.push({
+          type: 'discovery_result_list',
+          data: {
+            results: autoDiscovery.results,
+            query_metadata: autoDiscovery.query_metadata || {}
+          }
+        });
+        logger.debug('[bienbot] Auto-injected discovery_result_list for planning intent', {
+          intent: classification.intent,
+          resultCount: autoDiscovery.results.length
+        });
+      }
+    } catch (autoDiscErr) {
+      logger.warn('[bienbot] Auto-discovery injection failed, continuing without cards', { error: autoDiscErr.message });
+    }
+  }
+
+  // Annotate registry-defined write tools with tool_metadata so the
+  // frontend PendingActionCard can render irreversible styling and
+  // interpolate confirmDescription from the manifest.
+  for (const action of confirmableActions) {
+    const entry = toolRegistry.getTool(action.type);
+    if (entry && entry.tool.mutating) {
+      action.tool_metadata = {
+        irreversible: !!entry.tool.irreversible,
+        confirmDescription: entry.tool.confirmDescription || null
+      };
+    }
+  }
+
   const parsed = {
-    message: rawParsed.message,
+    message: parsedFinal.message,
     pending_actions: confirmableActions,
-    entity_refs: rawParsed.entity_refs || []
+    entity_refs: parsedFinal.entity_refs || []
   };
 
   // --- Verify entity_refs against the database ---
   // The LLM may fabricate MongoDB ObjectIds that pass string-format checks.
-  // We do a lightweight existence query for each ref and strip any that don't
-  // resolve, preventing 404 links from being surfaced to the user.
-  // For plan refs we also derive experience_id from the DB so it is never wrong.
+  // Drop any ref whose entity isn't in the DB to prevent 404 links from
+  // reaching the user. For plan refs, derive experience_id from the DB so
+  // the ID is never trusted from the LLM.
   if (parsed.entity_refs.length > 0) {
     loadModels();
-    const verifiedRefs = [];
-    await Promise.all(parsed.entity_refs.map(async (ref) => {
-      try {
-        if (!mongoose.Types.ObjectId.isValid(ref._id)) {
-          logger.warn('[bienbot] entity_ref dropped: invalid ObjectId format', { id: ref._id, type: ref.type });
-          return;
+    const refsToVerify = { experience: new Set(), destination: new Set(), plan: new Set() };
+    for (const ref of parsed.entity_refs) {
+      if (refsToVerify[ref.type] && mongoose.Types.ObjectId.isValid(ref._id)) {
+        refsToVerify[ref.type].add(ref._id);
+      }
+    }
+    const existingRefs = { experience: new Set(), destination: new Set() };
+    const planExpMap = new Map();   // plan _id -> experience _id (string|undefined)
+    await Promise.all([
+      refsToVerify.experience.size > 0
+        ? Experience.find({ _id: { $in: [...refsToVerify.experience] } }).select('_id').lean()
+            .then(docs => docs.forEach(d => existingRefs.experience.add(d._id.toString())))
+            .catch(err => logger.warn('[bienbot] entity_ref experience batch query failed', { error: err.message }))
+        : Promise.resolve(),
+      refsToVerify.destination.size > 0
+        ? Destination.find({ _id: { $in: [...refsToVerify.destination] } }).select('_id').lean()
+            .then(docs => docs.forEach(d => existingRefs.destination.add(d._id.toString())))
+            .catch(err => logger.warn('[bienbot] entity_ref destination batch query failed', { error: err.message }))
+        : Promise.resolve(),
+      refsToVerify.plan.size > 0
+        ? Plan.find({ _id: { $in: [...refsToVerify.plan] } }).select('_id experience').lean()
+            .then(docs => docs.forEach(d =>
+              planExpMap.set(d._id.toString(), d.experience?.toString() || undefined)))
+            .catch(err => logger.warn('[bienbot] entity_ref plan batch query failed', { error: err.message }))
+        : Promise.resolve()
+    ]);
+    parsed.entity_refs = parsed.entity_refs.flatMap(ref => {
+      if (!mongoose.Types.ObjectId.isValid(ref._id)) {
+        logger.warn('[bienbot] entity_ref dropped: invalid ObjectId format', { id: ref._id, type: ref.type });
+        return [];
+      }
+      if (ref.type === 'experience') {
+        if (existingRefs.experience.has(ref._id)) return [ref];
+        logger.warn('[bienbot] entity_ref experience not found in DB, dropping', { id: ref._id });
+        return [];
+      }
+      if (ref.type === 'destination') {
+        if (existingRefs.destination.has(ref._id)) return [ref];
+        logger.warn('[bienbot] entity_ref destination not found in DB, dropping', { id: ref._id });
+        return [];
+      }
+      if (ref.type === 'plan') {
+        if (planExpMap.has(ref._id)) {
+          // Always source experience_id from the DB — never trust the LLM value
+          return [{ ...ref, experience_id: planExpMap.get(ref._id) }];
         }
-        if (ref.type === 'experience') {
-          const exists = await Experience.findById(ref._id).select('_id').lean();
-          if (exists) {
-            verifiedRefs.push(ref);
-          } else {
-            logger.warn('[bienbot] entity_ref experience not found in DB, dropping', { id: ref._id });
-          }
-        } else if (ref.type === 'destination') {
-          const exists = await Destination.findById(ref._id).select('_id').lean();
-          if (exists) {
-            verifiedRefs.push(ref);
-          } else {
-            logger.warn('[bienbot] entity_ref destination not found in DB, dropping', { id: ref._id });
-          }
-        } else if (ref.type === 'plan') {
-          const plan = await Plan.findById(ref._id).select('_id experience').lean();
-          if (plan) {
-            // Always source experience_id from the DB — never trust the LLM value
-            verifiedRefs.push({ ...ref, experience_id: plan.experience?.toString() || undefined });
-          } else {
-            logger.warn('[bienbot] entity_ref plan not found in DB, dropping', { id: ref._id });
-          }
-        } else {
-          // plan_item and other types pass through (embedded in experience; costly to verify separately)
-          verifiedRefs.push(ref);
-        }
-      } catch (verifyErr) {
-        logger.warn('[bienbot] entity_ref verification failed, dropping', { id: ref._id, error: verifyErr.message });
+        logger.warn('[bienbot] entity_ref plan not found in DB, dropping', { id: ref._id });
+        return [];
       }
-    }));
-    parsed.entity_refs = verifiedRefs;
-  }
-
-  // --- Verify plan_id in pending plan-mutation actions ---
-  // The LLM may carry a fabricated plan_id from LAST SHOWN ENTITY context or
-  // session history. Strip any action whose plan_id doesn't resolve in the DB.
-  const PLAN_MUTATION_ACTION_TYPES = new Set([
-    'update_plan', 'add_plan_items', 'update_plan_item', 'delete_plan_item',
-    'update_plan_item_note', 'update_plan_item_detail', 'shift_plan_item_dates',
-    'update_plan_cost', 'delete_plan_cost', 'sync_plan'
-  ]);
-  if (parsed.pending_actions.some(a => PLAN_MUTATION_ACTION_TYPES.has(a.type) && a.payload?.plan_id)) {
-    loadModels();
-    const verifiedActions = [];
-    await Promise.all(parsed.pending_actions.map(async (action) => {
-      if (!PLAN_MUTATION_ACTION_TYPES.has(action.type) || !action.payload?.plan_id) {
-        verifiedActions.push(action);
-        return;
-      }
-      const planId = action.payload.plan_id;
-      if (!mongoose.Types.ObjectId.isValid(planId)) {
-        logger.warn('[bienbot] pending_action dropped: invalid plan_id format', { type: action.type, planId });
-        return;
-      }
-      try {
-        const plan = await Plan.findById(planId).select('_id').lean();
-        if (plan) {
-          verifiedActions.push(action);
-        } else {
-          logger.warn('[bienbot] pending_action dropped: plan_id not found in DB', { type: action.type, planId });
-        }
-      } catch (e) {
-        logger.warn('[bienbot] pending_action plan_id verification error, dropping', { type: action.type, planId, error: e.message });
-      }
-    }));
-    parsed.pending_actions = verifiedActions;
+      // plan_item and other types pass through — embedded subdocs are
+      // expensive to verify independently of their parent (the parent is
+      // verified in this same block when present).
+      return [ref];
+    });
   }
 
   // Hydrate session context from entity_refs returned by the LLM.
@@ -3037,12 +3976,16 @@ exports.chat = async (req, res) => {
   });
 
   // --- Step 7: SSE-stream the response ---
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  });
+  // Headers may have already been sent by the tool-use loop above (Step 5a),
+  // which opens the stream early so pill events can flow during fetches.
+  if (!res.headersSent) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+  }
 
   // Stream session info (include attachment data for frontend rendering)
   const sessionEvent = {
@@ -3060,9 +4003,15 @@ exports.chat = async (req, res) => {
 
   // Emit skeleton sentinels for all read-only content types before token chunks
   // so the frontend can show placeholder cards while the assistant message streams in.
+  // Also include a skeleton for auto-injected discovery results (step 5c).
   const skeletonBlocks = readOnlyActions
     .filter(a => READ_ONLY_CONTENT_TYPES[a.type])
     .map(a => ({ type: READ_ONLY_CONTENT_TYPES[a.type], data: null }));
+  const hasAutoDiscovery = structuredContent.some(b => b.type === 'discovery_result_list') &&
+    !readOnlyActions.some(a => a.type === 'discover_content');
+  if (hasAutoDiscovery) {
+    skeletonBlocks.push({ type: 'discovery_result_list', data: null });
+  }
   if (skeletonBlocks.length > 0) {
     sendSSE(res, 'structured_content', { blocks: skeletonBlocks });
   }
@@ -3090,12 +4039,11 @@ exports.chat = async (req, res) => {
     });
   }
 
-  // Stream pending actions if any (only confirmable actions)
-  if (parsed.pending_actions.length > 0) {
-    sendSSE(res, 'actions', {
-      pending_actions: parsed.pending_actions
-    });
-  }
+  // Always stream pending actions — even when empty — so the frontend replaces
+  // any stale actions (e.g. select_plan from a prior turn or resumed session).
+  sendSSE(res, 'actions', {
+    pending_actions: parsed.pending_actions
+  });
 
   // Signal completion
   sendSSE(res, 'done', {
@@ -3326,13 +4274,17 @@ exports.execute = async (req, res) => {
 
     if (createdDest?._id) {
       try {
-        const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
-        const tipResult = await fetchDestinationTips(
+        // fetch_destination_tips is now owned by the BienBot tool registry
+        // (Wikivoyage provider). Execute it directly via the registry to
+        // mirror the chat-loop dispatch path.
+        const tipResult = await toolRegistry.executeRegisteredTool(
+          'fetch_destination_tips',
           { destination_id: createdDest._id.toString(), destination_name: createdDest.name },
-          req.user
+          req.user,
+          { session }
         );
-        if (tipResult.statusCode === 200 && tipResult.body?.success) {
-          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+        if (tipResult.success && tipResult.body) {
+          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body);
           if (block) {
             enrichmentContent = block;
           }
@@ -3462,11 +4414,20 @@ exports.execute = async (req, res) => {
             nextStepsBlock
           ].join('\n');
 
-          const { provider } = await getProviderForTask(AI_TASKS.CHAT);
-          const llmResult = await callProvider(provider, [
+          const followUpProvider = getProviderForTask(AI_TASKS.BIENBOT_CHAT);
+          if (!getApiKey(followUpProvider)) {
+            throw new Error('AI provider not configured for follow-up');
+          }
+          const llmResult = await callProvider(followUpProvider, [
             { role: 'system', content: followUpSystemPrompt },
             { role: 'user', content: '[USER MESSAGE]\nWhat should I do next?\n[/USER MESSAGE]' }
-          ], { stream: false });
+          ], {
+            stream: false,
+            _user: req.user,
+            task: AI_TASKS.BIENBOT_CHAT,
+            maxTokens: 300,
+            temperature: 0.4
+          });
 
           const raw = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
           try {
@@ -3545,19 +4506,67 @@ exports.resume = async (req, res) => {
     return errorResponse(res, null, 'Failed to load session', 500);
   }
 
+  // Detect if the user is currently viewing a different entity than the last
+  // entity discussed in this session. Used to annotate the greeting.
+  const currentPageContext = req.body?.current_page_context || null;
+
+  // Determine the last entity from accumulated session context (most specific first).
+  // Falls back to invoke_context if no entities have been resolved yet.
+  const ctx = session.context;
+  let lastContextEntity = null;
+  let lastContextEntityId = null;
+  if (ctx?.plan_item_id) {
+    lastContextEntity = 'plan_item';
+    lastContextEntityId = ctx.plan_item_id.toString();
+  } else if (ctx?.plan_id) {
+    lastContextEntity = 'plan';
+    lastContextEntityId = ctx.plan_id.toString();
+  } else if (ctx?.experience_id) {
+    lastContextEntity = 'experience';
+    lastContextEntityId = ctx.experience_id.toString();
+  } else if (ctx?.destination_id) {
+    lastContextEntity = 'destination';
+    lastContextEntityId = ctx.destination_id.toString();
+  } else {
+    lastContextEntity = session.invoke_context?.entity;
+    lastContextEntityId = session.invoke_context?.entity_id?.toString() ?? null;
+  }
+
+  let lastContextEntityLabel = session.invoke_context?.entity_label ?? null;
+  if (lastContextEntity && lastContextEntityId) {
+    try {
+      lastContextEntityLabel = (await resolveEntityLabel(lastContextEntity, lastContextEntityId))
+        || lastContextEntityLabel;
+    } catch (_) { /* keep fallback label */ }
+  }
+
+  const isContextSwitch = currentPageContext?.entity && currentPageContext?.id &&
+    (currentPageContext.entity !== lastContextEntity || currentPageContext.id !== lastContextEntityId);
+  const contextSwitchNote = isContextSwitch && currentPageContext.label
+    ? ` You're currently viewing **${currentPageContext.label}**${
+        lastContextEntityLabel ? `, which is different from the ${lastContextEntity || 'destination'} we last talked about` : ''
+      }.`
+    : '';
+
   // Sessions with fewer than 3 messages: static greeting
   if ((session.messages || []).length < 3) {
     const shortFirstName = req.user?.name?.split(/\s+/)[0];
+    const baseContent = shortFirstName
+      ? `Welcome back, ${shortFirstName}! How can I help you continue?`
+      : 'Welcome back! How can I help you continue?';
     const staticGreeting = {
       role: 'assistant',
-      content: shortFirstName
-        ? `Welcome back, ${shortFirstName}! How can I help you continue?`
-        : 'Welcome back! How can I help you continue?',
+      content: `${baseContent}${contextSwitchNote}`,
       suggested_next_steps: ['Continue where you left off', 'Ask BienBot a new question']
     };
 
     return successResponse(res, {
-      session: session.toObject(),
+      session: {
+        ...session.toObject(),
+        pending_actions: (session.pending_actions || []).filter(a =>
+          !a.executed && a.type !== 'select_plan' && a.type !== 'select_destination'
+        )
+      },
       greeting: staticGreeting
     });
   }
@@ -3599,7 +4608,7 @@ exports.resume = async (req, res) => {
   // Build greeting message from summary
   const firstName = req.user?.name?.split(/\s+/)[0];
   const greeting = firstName ? `Welcome back, ${firstName}!` : 'Welcome back!';
-  const greetingContent = `${greeting} Here's a quick recap: ${summaryData.summary}`;
+  const greetingContent = `${greeting} Here's a quick recap: ${summaryData.summary}${contextSwitchNote}`;
 
   // Append greeting to session messages
   try {
@@ -3609,7 +4618,16 @@ exports.resume = async (req, res) => {
   }
 
   return successResponse(res, {
-    session: session.toObject(),
+    session: {
+      ...session.toObject(),
+      // Disambiguation actions (select_plan, select_destination) are contextual to
+      // the moment they were shown. On resume the user is on a fresh page; stale
+      // pickers should not reappear. Clear them so only true pending actions (create,
+      // update, delete, etc.) are restored.
+      pending_actions: (session.pending_actions || []).filter(a =>
+        !a.executed && a.type !== 'select_plan' && a.type !== 'select_destination'
+      )
+    },
     greeting: {
       role: 'assistant',
       content: greetingContent,
@@ -4286,7 +5304,10 @@ exports.clearMemory = async (req, res) => {
  * Directly appends selected travel tips to a destination, bypassing the LLM.
  * Called from the TipSuggestionList UI when the user confirms their selection.
  *
- * Body: { destination_id: string, tips: Array<{ type, value, category, source, ... }> }
+ * Body: { destination_id: string, tips: Array<{ section?, type?, category?, content }> }
+ *
+ * Tips arrive in the registry's spec shape (`content`); persisted tips on the
+ * destination model use `value` for backwards-compat with existing data.
  */
 exports.applyTips = async (req, res) => {
   const userId = req.user._id.toString();
@@ -4301,16 +5322,23 @@ exports.applyTips = async (req, res) => {
     return errorResponse(res, null, 'Invalid destination_id format', 400);
   }
 
-  // Sanitise: only keep allowed fields per tip
+  // Sanitise: only keep allowed fields per tip. Map registry shape (content)
+  // to the persisted shape (value).
   const sanitised = tips
-    .filter(t => t && typeof t.value === 'string' && t.value.trim())
+    .map(t => ({
+      ...t,
+      _content: typeof t?.content === 'string' && t.content.trim()
+        ? t.content.trim()
+        : (typeof t?.value === 'string' ? t.value.trim() : '')
+    }))
+    .filter(t => t._content)
     .map(t => ({
       type: t.type || 'Custom',
-      value: t.value.trim(),
+      value: t._content,
       ...(t.category ? { category: t.category } : {}),
-      ...(t.source ? { source: t.source } : {}),
+      ...(t.section ? { section: t.section } : {}),
       ...(t.icon ? { icon: t.icon } : {}),
-      ...(t.url ? { url: t.url } : {})
+      source: 'Wikivoyage'
     }));
 
   if (sanitised.length === 0) {
@@ -4896,13 +5924,14 @@ exports.updatePendingAction = async (req, res) => {
     executionResult?.result?._id
   ) {
     try {
-      const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
-      const tipResult = await fetchDestinationTips(
+      const tipResult = await toolRegistry.executeRegisteredTool(
+        'fetch_destination_tips',
         { destination_id: executionResult.result._id.toString(), destination_name: executionResult.result.name },
-        req.user
+        req.user,
+        { session }
       );
-      if (tipResult.statusCode === 200 && tipResult.body?.success) {
-        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+      if (tipResult.success && tipResult.body) {
+        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body);
         if (block) {
           enrichmentContent = block;
         }
@@ -5093,3 +6122,6 @@ exports.getAttachmentUrl = async (req, res) => {
 
 // Exported for testing
 exports.parseLLMResponse = parseLLMResponse;
+exports.verifyPendingActionEntityIds = verifyPendingActionEntityIds;
+exports.buildSystemPrompt = buildSystemPrompt;
+exports._ACTION_ENTITY_VERIFY_FOR_TEST = ACTION_ENTITY_VERIFY;

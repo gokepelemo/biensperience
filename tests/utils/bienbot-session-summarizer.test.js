@@ -22,6 +22,10 @@ jest.mock('../../utilities/ai-gateway', () => {
   const { GatewayError: ActualGatewayError } = jest.requireActual('../../utilities/ai-gateway');
   return {
     executeAIRequest: jest.fn(),
+    // controllers/api/ai re-exports getProviderForTask from ai-gateway, so the
+    // gateway mock must provide it for the auto-mock of controllers/api/ai
+    // to expose a callable getProviderForTask.
+    getProviderForTask: jest.fn(),
     GatewayError: ActualGatewayError
   };
 });
@@ -36,7 +40,7 @@ getProviderForTask.mockReturnValue('openai');
 AI_TASKS.BIENBOT_SUMMARIZE = 'bienbot_summarize';
 AI_TASKS.GENERAL = 'general';
 
-const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
+const { summarizeSession, extractAddedPlanItems } = require('../../utilities/bienbot-session-summarizer');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -54,19 +58,24 @@ function makeMessages(count) {
 }
 
 /**
- * Mock a successful LLM response with the given JSON payload.
+ * Mock a successful schema-shaped LLM response.
+ * Accepts the new summarizer shape { text, suggested_next_steps } and also
+ * remaps legacy test payloads { summary, next_steps } so older test bodies
+ * stay meaningful after the schema migration.
  */
 function mockLLMSuccess(payload) {
-  executeAIRequest.mockResolvedValueOnce({
-    content: JSON.stringify(payload)
-  });
+  const content = ('text' in payload || 'suggested_next_steps' in payload)
+    ? { text: payload.text, suggested_next_steps: payload.suggested_next_steps }
+    : { text: payload.summary, suggested_next_steps: payload.next_steps };
+  executeAIRequest.mockResolvedValueOnce({ content });
 }
 
 /**
- * Mock a successful LLM response with raw string content (for malformed tests).
+ * Mock a successful LLM response with arbitrary content (used for malformed
+ * / edge-shape cases where we want to assert fallback behavior).
  */
-function mockLLMRaw(raw) {
-  executeAIRequest.mockResolvedValueOnce({ content: raw });
+function mockLLMContent(content) {
+  executeAIRequest.mockResolvedValueOnce({ content });
 }
 
 /**
@@ -103,7 +112,7 @@ describe('summarizeSession – happy path', () => {
     expect(result.next_steps).toEqual(['Book flights', 'Reserve a hotel', 'Plan day trips']);
   });
 
-  test('passes messages, provider, and task to executeAIRequest', async () => {
+  test('passes messages, provider, task, and schema to executeAIRequest', async () => {
     mockLLMSuccess({
       summary: 'Test summary',
       next_steps: ['Step A', 'Step B']
@@ -120,6 +129,13 @@ describe('summarizeSession – happy path', () => {
         expect.objectContaining({ role: 'user' })
       ])
     );
+    expect(callArg.schema).toMatchObject({
+      name: 'summarize_session',
+      json_schema: expect.objectContaining({
+        type: 'object',
+        required: expect.arrayContaining(['text', 'suggested_next_steps'])
+      })
+    });
   });
 
   test('includes context and session info in the user prompt', async () => {
@@ -294,8 +310,8 @@ describe('summarizeSession – non-GatewayError failures return fallback', () =>
 // ---------------------------------------------------------------------------
 
 describe('summarizeSession – malformed LLM responses', () => {
-  test('returns fallback when LLM returns non-JSON string', async () => {
-    mockLLMRaw('Sorry, I cannot summarize this conversation.');
+  test('returns fallback when content is a plain string (pre-schema shape)', async () => {
+    mockLLMContent('Sorry, I cannot summarize this conversation.');
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
@@ -303,8 +319,16 @@ describe('summarizeSession – malformed LLM responses', () => {
     expect(Array.isArray(result.next_steps)).toBe(true);
   });
 
-  test('returns fallback when LLM returns empty string', async () => {
-    mockLLMRaw('');
+  test('returns fallback when object is missing text field', async () => {
+    mockLLMContent({ suggested_next_steps: ['Step 1', 'Step 2'] });
+
+    const result = await summarizeSession({ messages: makeMessages(4) });
+
+    expect(result.summary).toBeDefined();
+  });
+
+  test('returns fallback when object is missing suggested_next_steps field', async () => {
+    mockLLMContent({ text: 'A valid summary.' });
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
@@ -312,33 +336,16 @@ describe('summarizeSession – malformed LLM responses', () => {
     expect(Array.isArray(result.next_steps)).toBe(true);
   });
 
-  test('returns fallback when LLM returns JSON with missing summary field', async () => {
-    mockLLMRaw(JSON.stringify({ next_steps: ['Step 1', 'Step 2'] }));
+  test('returns fallback when suggested_next_steps is not an array', async () => {
+    mockLLMContent({ text: 'Valid summary', suggested_next_steps: 'Should be an array' });
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
     expect(result.summary).toBeDefined();
   });
 
-  test('returns fallback when LLM returns JSON with missing next_steps field', async () => {
-    mockLLMRaw(JSON.stringify({ summary: 'A valid summary.' }));
-
-    const result = await summarizeSession({ messages: makeMessages(4) });
-
-    expect(result.summary).toBeDefined();
-    expect(Array.isArray(result.next_steps)).toBe(true);
-  });
-
-  test('returns fallback when LLM returns JSON where next_steps is not an array', async () => {
-    mockLLMRaw(JSON.stringify({ summary: 'Valid summary', next_steps: 'Should be an array' }));
-
-    const result = await summarizeSession({ messages: makeMessages(4) });
-
-    expect(result.summary).toBeDefined();
-  });
-
-  test('returns fallback when LLM returns JSON where summary is not a string', async () => {
-    mockLLMRaw(JSON.stringify({ summary: 42, next_steps: ['Step 1'] }));
+  test('returns fallback when text is not a string', async () => {
+    mockLLMContent({ text: 42, suggested_next_steps: ['Step 1'] });
 
     const result = await summarizeSession({ messages: makeMessages(4) });
 
@@ -352,21 +359,6 @@ describe('summarizeSession – malformed LLM responses', () => {
     const result = await summarizeSession({ messages: makeMessages(4) });
 
     expect(result.summary).toBeDefined();
-  });
-
-  test('strips markdown fences from LLM response before parsing', async () => {
-    // Some LLMs wrap JSON in markdown code blocks despite instructions
-    const json = JSON.stringify({
-      summary: 'Summary with markdown wrapper.',
-      next_steps: ['Step 1', 'Step 2']
-    });
-    mockLLMRaw('```json\n' + json + '\n```');
-
-    // This will either succeed (if the code strips fences) or fall back gracefully
-    const result = await summarizeSession({ messages: makeMessages(4) });
-
-    expect(result.summary).toBeDefined();
-    expect(Array.isArray(result.next_steps)).toBe(true);
   });
 });
 
@@ -539,5 +531,240 @@ describe('Summary caching logic (BienBotSession model)', () => {
 
     expect(session.isSummaryStale(fifteenMinutesTTL)).toBe(true);
     expect(session.isSummaryStale(oneHourTTL)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. extractAddedPlanItems — pulls successfully-added items from session
+// ---------------------------------------------------------------------------
+
+describe('extractAddedPlanItems', () => {
+  test('returns empty array when session has no pending_actions', () => {
+    expect(extractAddedPlanItems({})).toEqual([]);
+    expect(extractAddedPlanItems({ pending_actions: [] })).toEqual([]);
+    expect(extractAddedPlanItems(null)).toEqual([]);
+  });
+
+  test('extracts item text from executed add_plan_items actions', () => {
+    const session = {
+      pending_actions: [{
+        id: 'a1',
+        type: 'add_plan_items',
+        executed: true,
+        result: { success: true },
+        payload: { plan_id: 'p1', items: [{ text: 'Tapas tour' }, { text: 'Visit Sagrada Familia' }] },
+        description: 'Add 2 items'
+      }]
+    };
+    expect(extractAddedPlanItems(session)).toEqual(['Tapas tour', 'Visit Sagrada Familia']);
+  });
+
+  test('skips unexecuted add_plan_items actions', () => {
+    const session = {
+      pending_actions: [{
+        id: 'a1',
+        type: 'add_plan_items',
+        executed: false,
+        payload: { items: [{ text: 'Should not appear' }] },
+        description: 'pending'
+      }]
+    };
+    expect(extractAddedPlanItems(session)).toEqual([]);
+  });
+
+  test('skips executed but failed add_plan_items actions', () => {
+    const session = {
+      pending_actions: [{
+        id: 'a1',
+        type: 'add_plan_items',
+        executed: true,
+        result: { success: false, errors: ['boom'] },
+        payload: { items: [{ text: 'Failed item' }] },
+        description: 'failed'
+      }]
+    };
+    expect(extractAddedPlanItems(session)).toEqual([]);
+  });
+
+  test('extracts items from add_plan_items steps inside an executed workflow', () => {
+    const session = {
+      pending_actions: [{
+        id: 'wf1',
+        type: 'workflow',
+        executed: true,
+        result: { success: true },
+        payload: {
+          steps: [
+            { step: 1, type: 'create_plan', payload: { experience_id: 'e1' }, description: 'Create plan' },
+            { step: 2, type: 'add_plan_items', payload: { plan_id: '$step_1._id', items: [{ text: 'Day 1: Arrive' }, { text: 'Day 2: Tour' }] }, description: 'Add items' }
+          ]
+        },
+        description: 'Plan + items'
+      }]
+    };
+    expect(extractAddedPlanItems(session)).toEqual(['Day 1: Arrive', 'Day 2: Tour']);
+  });
+
+  test('deduplicates item names across multiple actions', () => {
+    const session = {
+      pending_actions: [
+        { id: 'a1', type: 'add_plan_items', executed: true, payload: { items: [{ text: 'Same item' }] }, description: 'a1' },
+        { id: 'a2', type: 'add_plan_items', executed: true, payload: { items: [{ text: 'Same item' }, { text: 'New item' }] }, description: 'a2' }
+      ]
+    };
+    expect(extractAddedPlanItems(session)).toEqual(['Same item', 'New item']);
+  });
+
+  test('ignores non-add_plan_items action types', () => {
+    const session = {
+      pending_actions: [
+        { id: 'a1', type: 'create_plan', executed: true, payload: { items: [{ text: 'not a plan item' }] }, description: 'create_plan' },
+        { id: 'a2', type: 'update_plan_item', executed: true, payload: { text: 'updated' }, description: 'update' }
+      ]
+    };
+    expect(extractAddedPlanItems(session)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Added plan items appear in LLM context block
+// ---------------------------------------------------------------------------
+
+describe('summarizeSession – plan items added context block', () => {
+  test('includes "Plan Items Added" block in user prompt when items were added', async () => {
+    mockLLMSuccess({ summary: 'You added items.', next_steps: ['Continue'] });
+
+    const session = {
+      title: 'Barcelona Trip',
+      pending_actions: [{
+        id: 'a1',
+        type: 'add_plan_items',
+        executed: true,
+        result: { success: true },
+        payload: { items: [{ text: 'Tapas tour' }, { text: 'Visit Sagrada Familia' }] },
+        description: 'Added 2 items'
+      }]
+    };
+
+    await summarizeSession({ messages: makeMessages(4), session });
+
+    const userMessage = executeAIRequest.mock.calls[0][0].messages.find(m => m.role === 'user');
+    expect(userMessage.content).toContain('--- Plan Items Added (Successfully Created) ---');
+    expect(userMessage.content).toContain('Tapas tour');
+    expect(userMessage.content).toContain('Visit Sagrada Familia');
+  });
+
+  test('omits "Plan Items Added" block when there are no successful add_plan_items', async () => {
+    mockLLMSuccess({ summary: 'Nothing added.', next_steps: ['Continue'] });
+
+    const session = {
+      title: 'Empty session',
+      pending_actions: [{
+        id: 'a1', type: 'add_plan_items', executed: false,
+        payload: { items: [{ text: 'Proposed only' }] }, description: 'p'
+      }]
+    };
+
+    await summarizeSession({ messages: makeMessages(4), session });
+
+    const userMessage = executeAIRequest.mock.calls[0][0].messages.find(m => m.role === 'user');
+    expect(userMessage.content).not.toContain('Plan Items Added');
+  });
+
+  test('truncates the listed items at MAX and adds "...and N more" tail', async () => {
+    mockLLMSuccess({ summary: 'Many items.', next_steps: ['Continue'] });
+
+    const items = Array.from({ length: 20 }, (_, i) => ({ text: `Item ${i + 1}` }));
+    const session = {
+      pending_actions: [{
+        id: 'a1', type: 'add_plan_items', executed: true,
+        result: { success: true },
+        payload: { items }, description: '20 items'
+      }]
+    };
+
+    await summarizeSession({ messages: makeMessages(4), session });
+
+    const userMessage = executeAIRequest.mock.calls[0][0].messages.find(m => m.role === 'user');
+    // 20 added, MAX=15, expect 5 more in the tail.
+    expect(userMessage.content).toContain('...and 5 more');
+    expect(userMessage.content).toContain('Item 1');
+    expect(userMessage.content).toContain('Item 15');
+    expect(userMessage.content).not.toContain('Item 16');
+  });
+
+  test('keeps both "Plan Items Added" and "Proposed Actions" blocks when both apply', async () => {
+    mockLLMSuccess({ summary: 'Mixed session.', next_steps: ['Continue'] });
+
+    const session = {
+      pending_actions: [
+        { id: 'a1', type: 'add_plan_items', executed: true, result: { success: true },
+          payload: { items: [{ text: 'Confirmed item' }] }, description: 'done' },
+        { id: 'a2', type: 'create_destination', executed: false,
+          payload: { name: 'Future Destination' }, description: 'Create destination "Future Destination"' }
+      ]
+    };
+
+    await summarizeSession({ messages: makeMessages(4), session });
+
+    const userMessage = executeAIRequest.mock.calls[0][0].messages.find(m => m.role === 'user');
+    expect(userMessage.content).toContain('--- Plan Items Added (Successfully Created) ---');
+    expect(userMessage.content).toContain('Confirmed item');
+    expect(userMessage.content).toContain('--- Proposed Actions (Not Executed) ---');
+    expect(userMessage.content).toContain('Create destination "Future Destination"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. Fallback summary names added items
+// ---------------------------------------------------------------------------
+
+describe('summarizeSession – fallback summary names added items', () => {
+  test('fallback (no API key) names a single added item', async () => {
+    getApiKey.mockReturnValue(null);
+
+    const session = {
+      title: 'Tokyo Trip',
+      pending_actions: [{
+        id: 'a1', type: 'add_plan_items', executed: true, result: { success: true },
+        payload: { items: [{ text: 'Visit Shibuya' }] }, description: 'add'
+      }]
+    };
+
+    const result = await summarizeSession({ messages: makeMessages(4), session });
+    expect(result.summary).toContain('"Visit Shibuya"');
+    expect(result.summary).toMatch(/added/i);
+  });
+
+  test('fallback names multiple added items and adds a tail when there are more', async () => {
+    getApiKey.mockReturnValue(null);
+
+    const session = {
+      title: 'Big Trip',
+      pending_actions: [{
+        id: 'a1', type: 'add_plan_items', executed: true, result: { success: true },
+        payload: {
+          items: [
+            { text: 'A' }, { text: 'B' }, { text: 'C' }, { text: 'D' }, { text: 'E' }
+          ]
+        },
+        description: 'add 5'
+      }]
+    };
+
+    const result = await summarizeSession({ messages: makeMessages(4), session });
+    expect(result.summary).toContain('"A"');
+    expect(result.summary).toContain('"B"');
+    expect(result.summary).toContain('"C"');
+    // 5 total, top 3 named, expect "and 2 more items"
+    expect(result.summary).toMatch(/2 more items/);
+  });
+
+  test('fallback (no API key) without added items does not mention items', async () => {
+    getApiKey.mockReturnValue(null);
+
+    const session = { title: 'No items session' };
+    const result = await summarizeSession({ messages: makeMessages(4), session });
+    expect(result.summary).not.toMatch(/added/i);
   });
 });

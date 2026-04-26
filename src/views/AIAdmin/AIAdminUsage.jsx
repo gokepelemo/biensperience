@@ -7,13 +7,26 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Flex, Badge, Stack, Input, NativeSelect } from '@chakra-ui/react';
-import { FaSync } from 'react-icons/fa';
-import { Button, Card, CardHeader, CardBody, Alert } from '../../components/design-system';
-import { Text, Heading } from '../../components/design-system';
-import { Table, TableHead, TableBody, TableRow, TableCell } from '../../components/design-system';
-import { FormGroup, FormLabel } from '../../components/design-system';
+import { Box, Flex, Badge, Stack, NativeSelect } from '@chakra-ui/react';
+import { FaSync, FaChartBar, FaArrowDown, FaArrowUp, FaDollarSign, FaUsers } from 'react-icons/fa';
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardBody,
+  Alert,
+  Text,
+  Heading,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  SearchInput,
+  Pill
+} from '../../components/design-system';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
+import Pagination from '../../components/Pagination/Pagination';
 import { getUsageSummary, getUsage } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
 import { logger } from '../../utilities/logger';
@@ -33,15 +46,20 @@ const PROVIDER_LABELS = {
 };
 
 const ALL_PROVIDERS = '__all__';
+const RECORDS_PER_PAGE = 50;
+const DAILY_PER_PAGE = 50;
 
 export default function AIAdminUsage() {
   const [summary, setSummary] = useState(null);
   const [records, setRecords] = useState([]);
+  const [recordsTotal, setRecordsTotal] = useState(0);
+  const [recordsPage, setRecordsPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [days, setDays] = useState(30);
   const [filterUserId, setFilterUserId] = useState('');
   const [selectedProvider, setSelectedProvider] = useState(ALL_PROVIDERS);
+  const [dailyPage, setDailyPage] = useState(1);
   const { error: showError } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -49,7 +67,10 @@ export default function AIAdminUsage() {
       setLoading(true);
       setError(null);
 
-      const params = { limit: 50 };
+      const params = {
+        limit: RECORDS_PER_PAGE,
+        offset: (recordsPage - 1) * RECORDS_PER_PAGE
+      };
       if (filterUserId.trim()) params.userId = filterUserId.trim();
 
       const [summaryResult, usageResult] = await Promise.all([
@@ -59,15 +80,21 @@ export default function AIAdminUsage() {
 
       setSummary(summaryResult?.data || null);
       setRecords(usageResult?.data?.usage || []);
+      setRecordsTotal(usageResult?.data?.total || 0);
     } catch (err) {
       logger.error('[AIAdminUsage] Failed to load usage data', { error: err.message });
       setError('Failed to load usage data');
     } finally {
       setLoading(false);
     }
-  }, [days, filterUserId]);
+  }, [days, filterUserId, recordsPage]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Reset to page 1 whenever the filter changes so users don't land on an empty page
+  useEffect(() => { setRecordsPage(1); }, [filterUserId, days]);
+
+  const recordsTotalPages = Math.max(1, Math.ceil(recordsTotal / RECORDS_PER_PAGE));
 
   /** List of providers that have usage data */
   const availableProviders = useMemo(() => {
@@ -106,6 +133,18 @@ export default function AIAdminUsage() {
         output_tokens: d.output_tokens
       }));
   }, [summary, selectedProvider]);
+
+  const dailyTotalPages = Math.max(1, Math.ceil(dailyBreakdown.length / DAILY_PER_PAGE));
+  const paginatedDaily = useMemo(() => {
+    const start = (dailyPage - 1) * DAILY_PER_PAGE;
+    return dailyBreakdown.slice(start, start + DAILY_PER_PAGE);
+  }, [dailyBreakdown, dailyPage]);
+
+  // Reset and clamp daily page on data/filter change
+  useEffect(() => { setDailyPage(1); }, [days, selectedProvider]);
+  useEffect(() => {
+    if (dailyPage > dailyTotalPages) setDailyPage(dailyTotalPages);
+  }, [dailyPage, dailyTotalPages]);
 
   // Reset provider selection when data reloads and selected provider no longer present
   useEffect(() => {
@@ -179,10 +218,10 @@ export default function AIAdminUsage() {
     <Stack gap="var(--space-4)">
       <Flex justify="space-between" align="center" wrap="wrap" gap="var(--space-3)">
         <Box>
-          <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
+          <Heading as="h2" size="heading-3">
             Usage Analytics
           </Heading>
-          <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)">
+          <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
             AI request volume, token usage, and cost estimates.
           </Text>
         </Box>
@@ -253,18 +292,47 @@ export default function AIAdminUsage() {
 
       {/* Summary Cards */}
       <Flex gap="var(--space-4)" wrap="wrap">
-        <StatCard label="Total Requests" value={totals.total_requests?.toLocaleString() || '0'} />
-        <StatCard label="Input Tokens" value={formatTokens(totals.total_input_tokens)} />
-        <StatCard label="Output Tokens" value={formatTokens(totals.total_output_tokens)} />
-        {showCost && <StatCard label="Est. Cost" value={formatCost(totals.total_cost_estimate)} />}
-        {showCost && <StatCard label="Unique Users" value={totals.unique_users?.toLocaleString() || '0'} />}
+        <StatCard
+          label="Total Requests"
+          value={totals.total_requests?.toLocaleString() || '0'}
+          icon={<FaChartBar />}
+          colorScheme="primary"
+        />
+        <StatCard
+          label="Input Tokens"
+          value={formatTokens(totals.total_input_tokens)}
+          icon={<FaArrowDown />}
+          colorScheme="info"
+        />
+        <StatCard
+          label="Output Tokens"
+          value={formatTokens(totals.total_output_tokens)}
+          icon={<FaArrowUp />}
+          colorScheme="info"
+        />
+        {showCost && (
+          <StatCard
+            label="Est. Cost"
+            value={formatCost(totals.total_cost_estimate)}
+            icon={<FaDollarSign />}
+            colorScheme="warning"
+          />
+        )}
+        {showCost && (
+          <StatCard
+            label="Unique Users"
+            value={totals.unique_users?.toLocaleString() || '0'}
+            icon={<FaUsers />}
+            colorScheme="success"
+          />
+        )}
       </Flex>
 
       {/* Daily Breakdown */}
       {dailyBreakdown.length > 0 && (
         <Card>
           <CardHeader>
-            <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
+            <Heading as="h3" size="heading-5">
               Daily Breakdown
               {selectedProvider !== ALL_PROVIDERS && (
                 <Badge variant="subtle" colorPalette="blue" ml="var(--space-2)" fontSize="var(--font-size-xs)">
@@ -274,30 +342,40 @@ export default function AIAdminUsage() {
             </Heading>
           </CardHeader>
           <CardBody>
-            <Box overflowX="auto">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell as="th">Date</TableCell>
-                    <TableCell as="th">Requests</TableCell>
-                    <TableCell as="th">Input Tokens</TableCell>
-                    <TableCell as="th">Output Tokens</TableCell>
-                    {showCost && <TableCell as="th">Est. Cost</TableCell>}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {dailyBreakdown.map(day => (
-                    <TableRow key={day.date || day._id}>
-                      <TableCell>{formatDate(day.date || day._id)}</TableCell>
-                      <TableCell>{day.requests?.toLocaleString() || 0}</TableCell>
-                      <TableCell>{formatTokens(day.input_tokens)}</TableCell>
-                      <TableCell>{formatTokens(day.output_tokens)}</TableCell>
-                      {showCost && <TableCell>{formatCost(day.cost_estimate)}</TableCell>}
+            <Stack gap="var(--space-3)">
+              <Box overflowX="auto">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell header>Date</TableCell>
+                      <TableCell header>Requests</TableCell>
+                      <TableCell header>Input Tokens</TableCell>
+                      <TableCell header>Output Tokens</TableCell>
+                      {showCost && <TableCell header>Est. Cost</TableCell>}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
+                  </TableHead>
+                  <TableBody>
+                    {paginatedDaily.map(day => (
+                      <TableRow key={day.date || day._id}>
+                        <TableCell>{formatDate(day.date || day._id)}</TableCell>
+                        <TableCell>{day.requests?.toLocaleString() || 0}</TableCell>
+                        <TableCell>{formatTokens(day.input_tokens)}</TableCell>
+                        <TableCell>{formatTokens(day.output_tokens)}</TableCell>
+                        {showCost && <TableCell>{formatCost(day.cost_estimate)}</TableCell>}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+              <Pagination
+                page={dailyPage}
+                totalPages={dailyTotalPages}
+                totalResults={dailyBreakdown.length}
+                resultsPerPage={DAILY_PER_PAGE}
+                onPageChange={setDailyPage}
+                variant="compact"
+              />
+            </Stack>
           </CardBody>
         </Card>
       )}
@@ -306,18 +384,26 @@ export default function AIAdminUsage() {
       <Card>
         <CardHeader>
           <Flex justify="space-between" align="center" width="100%" wrap="wrap" gap="var(--space-3)">
-            <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
-              Usage Records
-            </Heading>
-            <FormGroup>
-              <Input
+            <Flex align="center" gap="var(--space-2)" wrap="wrap">
+              <Heading as="h3" size="heading-5">
+                Usage Records
+              </Heading>
+              {recordsTotal > 0 && (
+                <Pill variant="info">
+                  {recordsTotal.toLocaleString()}
+                </Pill>
+              )}
+            </Flex>
+            <Box maxW="240px" w="100%">
+              <SearchInput
                 value={filterUserId}
                 onChange={(e) => setFilterUserId(e.target.value)}
+                onClear={() => setFilterUserId('')}
                 placeholder="Filter by User ID"
                 size="sm"
-                maxW="240px"
+                ariaLabel="Filter usage records by user ID"
               />
-            </FormGroup>
+            </Box>
           </Flex>
         </CardHeader>
         <CardBody>
@@ -326,44 +412,54 @@ export default function AIAdminUsage() {
               No usage records found for the selected period.
             </Text>
           ) : (
-            <Box overflowX="auto">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell as="th">User</TableCell>
-                    <TableCell as="th">Date</TableCell>
-                    <TableCell as="th">Requests</TableCell>
-                    <TableCell as="th">Input Tokens</TableCell>
-                    <TableCell as="th">Output Tokens</TableCell>
-                    <TableCell as="th">Providers</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {records.map(record => (
-                    <TableRow key={record._id}>
-                      <TableCell>
-                        <Text fontSize="var(--font-size-sm)">
-                          {record.user?.name || record.user?.email || record.user || 'Unknown'}
-                        </Text>
-                      </TableCell>
-                      <TableCell>{formatDate(record.date)}</TableCell>
-                      <TableCell>{record.total_requests?.toLocaleString() || 0}</TableCell>
-                      <TableCell>{formatTokens(record.total_input_tokens)}</TableCell>
-                      <TableCell>{formatTokens(record.total_output_tokens)}</TableCell>
-                      <TableCell>
-                        <Flex gap="var(--space-1)" wrap="wrap">
-                          {(record.providers || []).map(p => (
-                            <Badge key={p.provider} variant="outline" fontSize="var(--font-size-xs)">
-                              {PROVIDER_LABELS[p.provider] || p.provider} ({p.requests})
-                            </Badge>
-                          ))}
-                        </Flex>
-                      </TableCell>
+            <Stack gap="var(--space-3)">
+              <Box overflowX="auto">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell header>User</TableCell>
+                      <TableCell header>Date</TableCell>
+                      <TableCell header>Requests</TableCell>
+                      <TableCell header>Input Tokens</TableCell>
+                      <TableCell header>Output Tokens</TableCell>
+                      <TableCell header>Providers</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
+                  </TableHead>
+                  <TableBody>
+                    {records.map(record => (
+                      <TableRow key={record._id}>
+                        <TableCell>
+                          <Text fontSize="var(--font-size-sm)">
+                            {record.user?.name || record.user?.email || record.user || 'Unknown'}
+                          </Text>
+                        </TableCell>
+                        <TableCell>{formatDate(record.date)}</TableCell>
+                        <TableCell>{record.total_requests?.toLocaleString() || 0}</TableCell>
+                        <TableCell>{formatTokens(record.total_input_tokens)}</TableCell>
+                        <TableCell>{formatTokens(record.total_output_tokens)}</TableCell>
+                        <TableCell>
+                          <Flex gap="var(--space-1)" wrap="wrap">
+                            {(record.providers || []).map(p => (
+                              <Badge key={p.provider} variant="outline" fontSize="var(--font-size-xs)">
+                                {PROVIDER_LABELS[p.provider] || p.provider} ({p.requests})
+                              </Badge>
+                            ))}
+                          </Flex>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+              <Pagination
+                page={recordsPage}
+                totalPages={recordsTotalPages}
+                totalResults={recordsTotal}
+                resultsPerPage={RECORDS_PER_PAGE}
+                onPageChange={setRecordsPage}
+                variant="compact"
+              />
+            </Stack>
           )}
         </CardBody>
       </Card>
@@ -371,14 +467,63 @@ export default function AIAdminUsage() {
   );
 }
 
-function StatCard({ label, value }) {
+const STAT_COLORS = {
+  primary: 'var(--color-primary)',
+  info: 'var(--color-info)',
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)'
+};
+
+function StatCard({ label, value, icon, colorScheme = 'primary' }) {
   return (
-    <Card flex="1" minW="150px">
-      <CardBody>
-        <Text fontSize="var(--font-size-xs)" color="var(--color-text-secondary)">{label}</Text>
-        <Text fontSize="var(--font-size-xl)" fontWeight="var(--font-weight-bold)">{value}</Text>
-      </CardBody>
-    </Card>
+    <Flex
+      align="center"
+      gap={{ base: '3', md: '4' }}
+      bg="var(--color-bg-primary)"
+      borderRadius="var(--radius-lg)"
+      p={{ base: '3', md: '4' }}
+      boxShadow="var(--shadow-sm)"
+      transition="var(--transition-normal)"
+      _hover={{ transform: 'translateY(-2px)', boxShadow: 'var(--shadow-md)' }}
+      flex="1"
+      minW="160px"
+    >
+      {icon && (
+        <Flex
+          align="center"
+          justify="center"
+          flexShrink={0}
+          w={{ base: '40px', md: '48px' }}
+          h={{ base: '40px', md: '48px' }}
+          borderRadius="full"
+          bg={STAT_COLORS[colorScheme] || STAT_COLORS.primary}
+          color="white"
+          fontSize="var(--font-size-lg)"
+        >
+          {icon}
+        </Flex>
+      )}
+      <Box flex="1" minW="0">
+        <Box
+          fontSize={{ base: 'var(--font-size-lg)', md: 'var(--font-size-xl)' }}
+          fontWeight="700"
+          color="var(--color-text-primary)"
+          lineHeight="1.1"
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace="nowrap"
+        >
+          {value}
+        </Box>
+        <Box
+          fontSize="var(--font-size-sm)"
+          color="var(--color-text-muted)"
+          mt="1"
+        >
+          {label}
+        </Box>
+      </Box>
+    </Flex>
   );
 }
 

@@ -5,8 +5,31 @@
  */
 
 import { logger } from '../../logger';
-import { AI_TASKS, SYSTEM_PROMPTS } from '../constants';
+import { AI_TASKS } from '../constants';
 import { complete } from '../complete';
+import { resolveSystemPrompt } from './_shared';
+
+/**
+ * Strip markdown code fences (``` and ```json) and surrounding whitespace.
+ * Handles JSON returned inside fenced blocks like ```json\n[...]\n```.
+ */
+function stripCodeFences(content) {
+  const trimmed = (content || '').trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenceMatch ? fenceMatch[1].trim() : trimmed;
+}
+
+/**
+ * Strip leading list markers, ordinals, quotes from a tip line.
+ *  e.g. "1. Bring layers" → "Bring layers"
+ *       "- \"Try local food\"" → "Try local food"
+ */
+function cleanTipLine(line) {
+  return line
+    .replace(/^\s*(?:\d+[\.\)]|[-*•])\s+/, '') // numbered or bullet prefix
+    .replace(/^\s*["'“”‘’]+|["'“”‘’]+\s*$/g, '') // surrounding quotes
+    .trim();
+}
 
 /**
  * Generate travel tips for a destination or experience
@@ -34,7 +57,7 @@ export async function generateTravelTips(context, options = {}) {
   if (description) contextStr += `Description: ${description}\n`;
   if (categories.length > 0) contextStr += `Focus on: ${categories.join(', ')}\n`;
 
-  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.GENERATE_TIPS]) || SYSTEM_PROMPTS[AI_TASKS.GENERATE_TIPS];
+  const systemPrompt = resolveSystemPrompt(AI_TASKS.GENERATE_TIPS, options);
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -50,18 +73,24 @@ export async function generateTravelTips(context, options = {}) {
     temperature: 0.8
   });
 
-  // Parse JSON response
+  // Parse JSON response (tolerant of markdown code fences)
+  const cleaned = stripCodeFences(result.content);
   try {
-    const tips = JSON.parse(result.content);
+    const tips = JSON.parse(cleaned);
     if (Array.isArray(tips)) {
-      return tips.slice(0, count);
+      return tips
+        .map(t => (typeof t === 'string' ? t.trim() : String(t).trim()))
+        .filter(Boolean)
+        .slice(0, count);
     }
   } catch (e) {
     logger.warn('Failed to parse travel tips as JSON, attempting extraction', { content: result.content });
-    // Try to extract tips from non-JSON response
-    const lines = result.content.split('\n').filter(line => line.trim());
-    return lines.slice(0, count);
   }
 
-  return [];
+  // Fallback: extract from non-JSON response, stripping list markers/quotes
+  return cleaned
+    .split('\n')
+    .map(cleanTipLine)
+    .filter(Boolean)
+    .slice(0, count);
 }

@@ -23,6 +23,7 @@ import { useNavigationContext } from '../../contexts/NavigationContext';
 import { subscribeToEvent } from '../../utilities/event-bus';
 import { openWithAnalysis } from '../../hooks/useBienBot';
 import { logger } from '../../utilities/logger';
+import { BienBotIcon } from '../BienBotPanel/icons';
 import styles from './BienBotTrigger.module.css';
 
 /**
@@ -55,6 +56,7 @@ export default function BienBotTrigger({
   const { enabled: hasAI } = useFeatureFlag('ai_features');
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMounted, setPanelMounted] = useState(false);
+  const [panelLoading, setPanelLoading] = useState(false);
   const [initialMessage, setInitialMessage] = useState(null);
   const [initialSessionId, setInitialSessionId] = useState(null);
   const [analysisSuggestions, setAnalysisSuggestions] = useState(null);
@@ -138,6 +140,7 @@ export default function BienBotTrigger({
         setInvokeContextOverride(null);
       }
       setPanelMounted(true);
+      setPanelLoading(true);
       setPanelOpen(true);
     });
     return unsub;
@@ -155,6 +158,7 @@ export default function BienBotTrigger({
         logger.error('[BienBotTrigger] Greeting analysis failed', { error: err.message });
         // Fall back to plain open on error
         setPanelMounted(true);
+        setPanelLoading(true);
         setPanelOpen(true);
       } finally {
         setGreetingLoading(false);
@@ -162,6 +166,7 @@ export default function BienBotTrigger({
       return;
     }
     setPanelMounted(true);
+    setPanelLoading(true);
     setPanelOpen(true);
   }, [invokeContext, currentView, hasChatAccess, isEntityView, user?._id]);
 
@@ -172,6 +177,26 @@ export default function BienBotTrigger({
     setAnalysisSuggestions(null);
     setInvokeContextOverride(null);
   }, []);
+
+  const handleReset = useCallback(() => {
+    logger.debug('[BienBotTrigger] BienBot reset by user click during loading');
+    setPanelMounted(false);
+    setPanelOpen(false);
+    setPanelLoading(false);
+    setGreetingLoading(false);
+    setInitialMessage(null);
+    setInitialSessionId(null);
+    setAnalysisSuggestions(null);
+    setInvokeContextOverride(null);
+  }, []);
+
+  const handleFabClick = useCallback(() => {
+    if (greetingLoading || panelLoading) {
+      handleReset();
+    } else {
+      handleOpen();
+    }
+  }, [greetingLoading, panelLoading, handleReset, handleOpen]);
 
   const clearAnalysisSuggestions = useCallback(() => {
     setAnalysisSuggestions(null);
@@ -202,29 +227,27 @@ export default function BienBotTrigger({
   // elements) so this causes no accessibility regressions.
   return createPortal(
     <div aria-live="off">
-      {!panelOpen && (
+      {(!panelOpen || panelLoading) && (
         <button
           type="button"
           className={`${styles.fab} ${!hasChatAccess ? styles.fabNotification : ''}`}
-          onClick={handleOpen}
-          disabled={greetingLoading}
-          aria-busy={greetingLoading}
-          aria-label={ariaLabel}
+          onClick={handleFabClick}
+          aria-busy={greetingLoading || panelLoading}
+          aria-label={greetingLoading || panelLoading ? 'BienBot is loading. Click to restart.' : ariaLabel}
+          title={greetingLoading || panelLoading ? 'Click to restart BienBot' : undefined}
         >
           <span className={styles.fabIcon} aria-hidden="true">
-            {hasChatAccess ? (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor" />
-                <path d="M9 9.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5zM15 9.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z" fill="currentColor" />
-                <path d="M12 17.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" fill="currentColor" />
-              </svg>
+            {greetingLoading || panelLoading ? (
+              <span className={styles.spinner} />
+            ) : hasChatAccess ? (
+              <BienBotIcon size={24} />
             ) : (
               <FaBell size={20} />
             )}
           </span>
 
           {/* Notification badge */}
-          {unseenCount > 0 && (
+          {unseenCount > 0 && !greetingLoading && !panelLoading && (
             <span className={styles.badge} aria-hidden="true">
               {unseenCount > 99 ? '99+' : unseenCount}
             </span>
@@ -236,7 +259,9 @@ export default function BienBotTrigger({
         <BienBotPanelLazy
           open={panelOpen}
           onClose={handleClose}
+          onLoaded={() => setPanelLoading(false)}
           invokeContext={invokeContextOverride || invokeContext}
+          baseInvokeContext={invokeContext}
           navigationSchema={navigationSchema}
           currentView={currentView}
           isEntityView={isEntityView}
@@ -272,6 +297,7 @@ BienBotTrigger.propTypes = {
 function BienBotPanelLazy({
   open,
   onClose,
+  onLoaded,
   invokeContext,
   navigationSchema,
   currentView,
@@ -292,11 +318,17 @@ function BienBotPanelLazy({
     let cancelled = false;
     import('../BienBotPanel/BienBotPanel')
       .then(mod => {
-        if (!cancelled) setPanel(() => mod.default);
+        if (!cancelled) {
+          setPanel(() => mod.default);
+          onLoaded?.();
+        }
       })
       .catch(err => {
         logger.error('[BienBotTrigger] Failed to load BienBotPanel', { error: err.message });
-        if (!cancelled) setLoadError(true);
+        if (!cancelled) {
+          setLoadError(true);
+          onLoaded?.();
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -328,6 +360,7 @@ function BienBotPanelLazy({
 BienBotPanelLazy.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
+  onLoaded: PropTypes.func,
   invokeContext: PropTypes.shape({
     entity: PropTypes.string.isRequired,
     id: PropTypes.string.isRequired,
@@ -350,4 +383,11 @@ BienBotPanelLazy.propTypes = {
     })),
   }),
   clearAnalysisSuggestions: PropTypes.func,
+  baseInvokeContext: PropTypes.shape({
+    entity: PropTypes.string,
+    id: PropTypes.string,
+    label: PropTypes.string,
+    contextDescription: PropTypes.string
+  }),
+  navigationSchema: PropTypes.object,
 };

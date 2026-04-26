@@ -12,9 +12,27 @@ const logger = require('./backend-logger');
 const { getEnforcer } = require('./permission-enforcer');
 const { validateObjectId } = require('./controller-helpers');
 const { findSimilarItems } = require('./fuzzy-match');
-const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage, computePopularityScore, computeAffinityScore, computeAndCacheAffinity } = require('./hidden-signals');
-const signalsConfig = require('./signals-config');
+const { aggregateGroupSignals, applySignalDecay, signalsToNaturalLanguage } = require('./hidden-signals');
 const affinityCache = require('./affinity-cache');
+const { getTravelOriginContext } = require('./travel-origin');
+const {
+  buildDiscoveryContext,
+  buildSimilarExperiencesContext,
+  formatDiscoveryContextBlock,
+  SEMANTIC_ACTIVITY_MAP,
+  DIM_DRIVER_DESCRIPTIONS,
+  describeDimDrivers,
+  expandActivityTypes,
+  computeAdaptiveWeights,
+  computeCostAlignment,
+  normalizeCostToPercentile,
+  computeRecencyScore,
+  normalizeCount,
+  generateMatchReason,
+  findSimilarUsers,
+  findCoOccurringExperiences,
+  findPopularExperiences
+} = require('./bienbot-discovery');
 
 // Lazy-loaded models (resolved on first use)
 let Destination, Experience, Plan, User, Activity;
@@ -146,20 +164,30 @@ async function buildDisambiguationBlock(type, userId, options = {}) {
       }
       if (!destId) return null;
 
-      // Fetch all user plans and filter to same destination
-      const userPlans = await Plan
-        .find({ user: new Types.ObjectId(userId) })
+      // Push destination filter to DB: find experiences at destId, then query plans.
+      const destExperiences = await Experience
+        .find({ destination: destId })
+        .select('_id')
+        .lean();
+      if (!destExperiences.length) return null;
+
+      const destExpIds = destExperiences.map(e => e._id);
+      const planQuery = {
+        user: new Types.ObjectId(userId),
+        experience: { $in: destExpIds }
+      };
+      if (options.currentId) {
+        const { valid, objectId } = validateObjectId(options.currentId, 'currentId');
+        if (valid) planQuery._id = { $ne: objectId };
+      }
+
+      const otherPlans = await Plan
+        .find(planQuery)
         .populate({ path: 'experience', select: 'name destination' })
         .select('experience planned_date plan')
         .sort({ updatedAt: -1 })
-        .limit(50)
+        .limit(5)
         .lean();
-
-      const otherPlans = userPlans.filter(p => {
-        if (options.currentId && String(p._id) === String(options.currentId)) return false;
-        const planDestId = p.experience?.destination?._id ?? p.experience?.destination;
-        return planDestId && String(planDestId) === String(destId);
-      });
 
       if (otherPlans.length < 2) return null;
 
@@ -390,6 +418,55 @@ async function collectPlanNotes(planItems, userId, threshold = 500) {
   return `[PLAN NOTES]\n${noteLines.join('\n')}\n[/PLAN NOTES]`;
 }
 
+/**
+ * Wrap a list of attention signals in [ATTENTION] tags.
+ * Returns null when there are no signals.
+ * @param {string[]} signals
+ * @param {number} [max=5]
+ * @returns {string|null}
+ */
+function renderAttentionBlock(signals, max = 5) {
+  if (!signals || !signals.length) return null;
+  return `\n[ATTENTION]\n${signals.slice(0, max).join('\n')}\n[/ATTENTION]`;
+}
+
+/**
+ * Return a proximity tag string for a plan, e.g. " (+3d)" or " (2d overdue)".
+ * Prefers scheduled item proximity over plan.planned_date.
+ * Returns '' when no date information is available.
+ * @param {object} plan - lean plan document with .plan[] and .planned_date
+ * @returns {string}
+ */
+function computePlanProximityTag(plan) {
+  const scheduled = (plan.plan || []).filter(i => i.scheduled_date && !i.complete);
+  let proximity = null;
+  if (scheduled.length > 0) {
+    proximity = Math.min(...scheduled.map(i => computeDaysUntil(i.scheduled_date)));
+  } else if (plan.planned_date) {
+    proximity = computeDaysUntil(plan.planned_date);
+  }
+  if (proximity === null) return '';
+  return proximity < 0
+    ? ` (${Math.abs(proximity)}d overdue)`
+    : ` (+${proximity}d)`;
+}
+
+/**
+ * Format a [TRAVEL SIGNALS] block from a hidden_signals object.
+ * Returns null when signals are absent or produce no natural-language text.
+ * @param {object|null} hiddenSignals - raw hidden_signals from DB
+ * @param {'traveler'|'group'} role
+ * @param {number} [count=1]
+ * @returns {string|null}
+ */
+function formatSignalBlock(hiddenSignals, role, count = 1) {
+  if (!hiddenSignals) return null;
+  const decayed = applySignalDecay(hiddenSignals);
+  const text = signalsToNaturalLanguage(decayed, { role, count });
+  if (!text) return null;
+  return `[TRAVEL SIGNALS]\n${text}\n[/TRAVEL SIGNALS]`;
+}
+
 // ---------------------------------------------------------------------------
 // Individual builders
 // ---------------------------------------------------------------------------
@@ -410,7 +487,8 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
   if (!destIdValid) return null;
 
   try {
-    const destination = await Destination.findById(destOid);
+    const destination = await Destination.findById(destOid)
+      .select('name country state overview location travel_tips travel_tips_updated_at visibility hidden_signals permissions');
     if (!destination) return null;
 
     const perm = await enforcer.canView({ userId, resource: destination });
@@ -424,9 +502,9 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
 
     if (isStale || !hasTips) {
       try {
-        const { enrichDestination } = require('./bienbot-external-data');
+        const { enrichDestinationViaRegistry } = require('./destination-enrichment');
         // Non-blocking background refresh — serve cached data (if any) immediately
-        enrichDestination(destinationId, { _id: userId }, { background: hasTips, force: !hasTips }).catch(err => {
+        enrichDestinationViaRegistry(destinationId, { _id: userId }, { background: hasTips, force: !hasTips }).catch(err => {
           logger.warn('[bienbot-context] Background enrichment failed', { destinationId, error: err.message });
         });
       } catch (e) {
@@ -447,12 +525,30 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       destination.visibility ? `Visibility: ${destination.visibility}` : null
     ];
 
+    // Pre-fetch user doc (for signals) and user plans in parallel
+    let _userDocForDest = null;
+    let userPlansForDest = [];
+    try {
+      const [fetchedUser, fetchedPlans] = await Promise.all([
+        User.findById(userId).select('hidden_signals').lean(),
+        options.userPlans
+          ? Promise.resolve(options.userPlans)
+          : Plan.find({ user: userId })
+              .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
+              .select('experience planned_date plan')
+              .lean()
+      ]);
+      _userDocForDest = fetchedUser;
+      userPlansForDest = fetchedPlans;
+    } catch (prefetchErr) {
+      logger.debug('[bienbot-context] Destination pre-fetch partial failure', { error: prefetchErr.message });
+    }
+
     // Inject hidden travel signals for destination and requesting user
     try {
       const destSignals = applySignalDecay(destination.hidden_signals || {});
       const destNL = signalsToNaturalLanguage(destSignals, { role: 'traveler' });
-      const userDoc = await User.findById(userId).select('hidden_signals').lean();
-      const userSignals = userDoc ? applySignalDecay(userDoc.hidden_signals || {}) : null;
+      const userSignals = _userDocForDest ? applySignalDecay(_userDocForDest.hidden_signals || {}) : null;
       const userNL = userSignals ? signalsToNaturalLanguage(userSignals, { role: 'traveler' }) : '';
       if (destNL || userNL) {
         const signalParts = [];
@@ -464,26 +560,8 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
       logger.debug('[bienbot-context] Signal injection skipped', { error: sigErr.message });
     }
 
-    // Fetch user plans once — reused by cross-entity block and attention signals block.
-    // Caller may pass opts.userPlans to avoid a redundant DB query when multiple
-    // context builders run in parallel.
-    let userPlansForDest = [];
-    try {
-      if (options.userPlans) {
-        userPlansForDest = options.userPlans;
-      } else {
-        userPlansForDest = await Plan.find({ user: userId })
-          .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name country' } })
-          .select('experience planned_date plan')
-          .lean();
-      }
-    } catch (planFetchErr) {
-      logger.debug('[bienbot-context] Destination plan fetch skipped', { error: planFetchErr.message });
-    }
-
     // Cross-entity: Your other plans for this destination (up to 3)
     try {
-      const today = new Date(); today.setHours(0, 0, 0, 0);
       const relatedPlans = userPlansForDest.filter(p => {
         if (!p.experience?.destination) return false;
         const planDestId = p.experience.destination._id || p.experience.destination;
@@ -496,16 +574,7 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
         for (const p of relatedPlans) {
           const expName = p.experience?.name || '(unnamed)';
           const destName = p.experience?.destination?.name || destination.name;
-          const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
-          let proximity = null;
-          if (scheduled.length > 0) {
-            const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
-            proximity = min;
-          } else if (p.planned_date) {
-            const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
-            proximity = Math.round((t - today) / 86400000);
-          }
-          const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+          const tag = computePlanProximityTag(p);
           lines.push(`  ${expName} (${destName})${tag}`);
         }
       }
@@ -548,9 +617,8 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
         }
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Destination attention signals skipped', { error: sigErr.message });
     }
@@ -621,7 +689,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
       const planDateStr = userPlanForExp.planned_date
         ? formatPlanDate(userPlanForExp.planned_date)
         : 'no date set';
-      lines.push(`\nUser's plan for this experience: exists (${planItemCount} items, date: ${planDateStr})`);
+      lines.push(`\nUser's plan for this experience: exists (plan_id: ${userPlanForExp._id}, ${planItemCount} items, date: ${planDateStr})`);
     } else {
       lines.push("\nUser's plan for this experience: none (user has not planned this experience yet)");
     }
@@ -635,7 +703,6 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
           .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
           .select('experience planned_date plan')
           .lean();
-        const today = new Date(); today.setHours(0, 0, 0, 0);
         const relatedPlans = userPlans.filter(p => {
           if (!p.experience?._id) return false;
           if (String(p.experience._id) === String(experience._id)) return false;
@@ -647,16 +714,7 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
           for (const p of relatedPlans) {
             const expName = p.experience?.name || '(unnamed)';
             const destName = p.experience?.destination?.name || experience.destination?.name || '';
-            const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
-            let proximity = null;
-            if (scheduled.length > 0) {
-              const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
-              proximity = min;
-            } else if (p.planned_date) {
-              const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
-              proximity = Math.round((t - today) / 86400000);
-            }
-            const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+            const tag = computePlanProximityTag(p);
             lines.push(`  ${expName} (${destName})${tag}`);
           }
         }
@@ -715,9 +773,8 @@ async function buildExperienceContext(experienceId, userId, options = {}) {
         }
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Experience attention signals skipped', { error: sigErr.message });
     }
@@ -741,7 +798,8 @@ async function buildUserPlanContext(planId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planOid)
-      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } });
+      .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+      .select('experience planned_date plan costs currency permissions member_locations');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -827,49 +885,45 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       logger.debug('[bienbot-context] Temporal buckets skipped', { error: bucketErr.message });
     }
 
-    // Inject group travel signals from plan collaborators
+    // Run group-signal fetch and notes collection in parallel.
+    const memberIds = (plan.permissions || []).filter(p => p.entity === 'user').map(p => p._id);
+    if (!memberIds.some(id => String(id) === String(userId))) {
+      memberIds.push(userId);
+    }
+    const [memberDocs, notesBlock] = await Promise.all([
+      User.find({ _id: { $in: memberIds } }).select('hidden_signals name').lean().catch(() => []),
+      collectPlanNotes(planItems, userId).catch(() => null)
+    ]);
+
+    // Inject group travel signals
     try {
-      const memberIds = (plan.permissions || []).filter(p => p.entity === 'user').map(p => p._id);
-      if (!memberIds.some(id => String(id) === String(userId))) {
-        memberIds.push(userId);
-      }
-      const memberDocs = await User.find({ _id: { $in: memberIds } }).select('hidden_signals name').lean();
       if (memberDocs.length > 0) {
         const groupSignals = aggregateGroupSignals(memberDocs);
-        const decayed = applySignalDecay(groupSignals);
-        const signalText = signalsToNaturalLanguage(decayed, { role: memberDocs.length > 1 ? 'group' : 'traveler', count: memberDocs.length });
-        if (signalText) {
-          lines.push(`[TRAVEL SIGNALS]`);
-          lines.push(signalText);
-          lines.push(`[/TRAVEL SIGNALS]`);
-        }
+        const signalBlock = formatSignalBlock(groupSignals, memberDocs.length > 1 ? 'group' : 'traveler', memberDocs.length);
+        if (signalBlock) lines.push(signalBlock);
       }
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan signal injection skipped', { error: sigErr.message });
     }
 
-    // Inject plan item notes (visibility-filtered)
-    try {
-      const notesBlock = await collectPlanNotes(planItems, userId);
-      if (notesBlock) lines.push(notesBlock);
-    } catch (noteErr) {
-      logger.debug('[bienbot-context] Plan notes injection skipped', { error: noteErr.message });
-    }
+    // Inject plan item notes
+    if (notesBlock) lines.push(notesBlock);
 
     // Cross-entity: Your other plans for the same experience or destination (up to 2)
     // Caller may pass opts.userPlans to avoid a redundant DB query.
     try {
       const expId = plan.experience?._id;
       const planIdStr = plan._id.toString();
-      const baseUserPlans = options.userPlans || await Plan.find({ user: userId, _id: { $ne: plan._id } })
-        .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
-        .select('experience planned_date plan')
-        .lean();
-      const userOtherPlans = baseUserPlans.filter(p => String(p._id) !== planIdStr);
+      const baseUserPlans = options.userPlans
+        ? options.userPlans.filter(p => String(p._id) !== planIdStr)
+        : await Plan.find({ user: userId, _id: { $ne: plan._id } })
+            .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+            .select('experience planned_date plan')
+            .lean();
       // Prefer same experience first; otherwise same destination
-      const sameExpPlans = userOtherPlans.filter(p => expId && String(p.experience?._id) === String(expId));
+      const sameExpPlans = baseUserPlans.filter(p => expId && String(p.experience?._id) === String(expId));
       const remainingSlots = 2 - sameExpPlans.length;
-      const sameDestPlans = remainingSlots > 0 ? userOtherPlans.filter(p => {
+      const sameDestPlans = remainingSlots > 0 ? baseUserPlans.filter(p => {
         if (sameExpPlans.find(sp => String(sp._id) === String(p._id))) return false;
         const planDestId = p.experience?.destination?._id || p.experience?.destination;
         const curDestId = plan.experience?.destination || null;
@@ -877,21 +931,11 @@ async function buildUserPlanContext(planId, userId, options = {}) {
       }).slice(0, remainingSlots) : [];
       const relatedPlans = [...sameExpPlans.slice(0, 2), ...sameDestPlans];
       if (relatedPlans.length > 0) {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
         lines.push('\nYour other plans nearby:');
         for (const p of relatedPlans) {
           const expName = p.experience?.name || '(unnamed)';
           const destName = p.experience?.destination?.name || '';
-          const scheduled = (p.plan || []).filter(i => i.scheduled_date && !i.complete);
-          let proximity = null;
-          if (scheduled.length > 0) {
-            const min = Math.min(...scheduled.map(i => { const t = new Date(i.scheduled_date); t.setHours(0, 0, 0, 0); return Math.round((t - today) / 86400000); }));
-            proximity = min;
-          } else if (p.planned_date) {
-            const t = new Date(p.planned_date); t.setHours(0, 0, 0, 0);
-            proximity = Math.round((t - today) / 86400000);
-          }
-          const tag = proximity === null ? '' : proximity < 0 ? ` (${Math.abs(proximity)}d overdue)` : ` (+${proximity}d)`;
+          const tag = computePlanProximityTag(p);
           lines.push(`  ${expName}${destName ? ` (${destName})` : ''}${tag}`);
         }
       }
@@ -975,9 +1019,8 @@ async function buildUserPlanContext(planId, userId, options = {}) {
         signals.push('⚠ All items complete — consider archiving');
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan attention signals skipped', { error: sigErr.message });
     }
@@ -1035,7 +1078,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
 
   try {
     const plan = await Plan.findById(planOid)
-      .populate('experience', 'name');
+      .populate('experience', 'name')
+      .select('experience plan costs currency permissions');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -1115,15 +1159,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
     // Hidden signals for the user viewing this item
     try {
       const userDoc = await User.findById(userId).select('hidden_signals').lean();
-      if (userDoc?.hidden_signals) {
-        const decayed = applySignalDecay(userDoc.hidden_signals);
-        const signalText = signalsToNaturalLanguage(decayed, { role: 'traveler', count: 1 });
-        if (signalText) {
-          lines.push(`[TRAVEL SIGNALS]`);
-          lines.push(signalText);
-          lines.push(`[/TRAVEL SIGNALS]`);
-        }
-      }
+      const signalBlock = formatSignalBlock(userDoc?.hidden_signals, 'traveler');
+      if (signalBlock) lines.push(signalBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan item signal injection skipped', { error: sigErr.message });
     }
@@ -1184,9 +1221,8 @@ async function buildPlanItemContext(planId, itemId, userId, options = {}) {
         signals.push(`⚠ This item is ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''} overdue`);
       }
 
-      if (signals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${signals.slice(0, 5).join('\n')}\n[/ATTENTION]`);
-      }
+      const attentionBlock = renderAttentionBlock(signals);
+      if (attentionBlock) lines.push(attentionBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Plan item attention signals skipped', { error: sigErr.message });
     }
@@ -1230,6 +1266,7 @@ async function buildUserProfileContext(targetUserId, requestingUserId, options =
       user.bio ? `Bio: ${user.bio}` : null,
       user.preferences?.currency ? `Currency: ${user.preferences.currency}` : null,
       user.preferences?.timezone ? `Timezone: ${user.preferences.timezone}` : null,
+      getTravelOriginContext(user),
       user.links?.length ? `Links: ${user.links.map(l => l.title || l.url).join(', ')}` : null,
       experienceCount > 0
         ? `Experiences created: ${experienceCount}  (use list_user_experiences to fetch them)`
@@ -1264,6 +1301,208 @@ const ACTIVITY_TYPE_MAP = {
   User: 'user'
 };
 
+/**
+ * @private
+ * Builds the "Active plans (N):" block for the greeting context.
+ * @param {Array} plans - lean plan documents with populated experience + destination
+ * @returns {string[]} Lines to push into the parent array
+ */
+function _buildActivePlansSection(plans) {
+  const lines = [];
+  if (plans.length === 0) {
+    lines.push('\nNo active plans yet.');
+    return lines;
+  }
+  lines.push(`\nActive plans (${plans.length}):`);
+  for (const plan of plans) {
+    const expName = plan.experience?.name || '(unknown)';
+    const expId = plan.experience?._id?.toString() || null;
+    const destName = plan.experience?.destination?.name || null;
+    const destId = plan.experience?.destination?._id?.toString() || null;
+    const planId = plan._id.toString();
+    const planItems = plan.plan || [];
+    const totalItems = planItems.length;
+    const completedItems = planItems.filter(i => i.complete).length;
+    const daysUntil = plan.planned_date ? computeDaysUntil(plan.planned_date) : null;
+
+    let proximityTag = '';
+    if (daysUntil !== null) {
+      if (daysUntil === 0) proximityTag = ' [TODAY]';
+      else if (daysUntil > 0 && daysUntil <= 30) proximityTag = ` [in ${daysUntil}d]`;
+      else if (daysUntil < 0) proximityTag = ` [${Math.abs(daysUntil)}d ago]`;
+    }
+    const dateStr = plan.planned_date
+      ? new Date(plan.planned_date).toISOString().split('T')[0]
+      : 'no date set';
+    const itemsLabel = totalItems === 0
+      ? 'no items yet'
+      : `${totalItems} item${totalItems !== 1 ? 's' : ''} (${completedItems} completed)`;
+
+    let entityRefs = `Plan: ${entityJSON(planId, expName, 'plan')}`;
+    if (expId) entityRefs += ` Experience: ${entityJSON(expId, expName, 'experience')}`;
+    if (destId && destName) entityRefs += ` Destination: ${entityJSON(destId, destName, 'destination')}`;
+
+    lines.push(`  • ${expName}${proximityTag} (${dateStr}) — ${itemsLabel} — ${entityRefs}`);
+
+    const { todayItems, next7Items } = buildTemporalBuckets(planItems);
+    for (const it of todayItems.slice(0, 2)) {
+      const lbl = it.content || it.text || it.name || '(unnamed)';
+      lines.push(`    ↳ TODAY: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
+    }
+    for (const it of next7Items.slice(0, 2)) {
+      const lbl = it.content || it.text || it.name || '(unnamed)';
+      const days = computeDaysUntil(it.scheduled_date);
+      lines.push(`    ↳ in ${days}d: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
+    }
+  }
+  return lines;
+}
+
+/**
+ * @private
+ * Builds the [RECENT ACTIVITY (48h)] block for the greeting context.
+ * @param {Array} recentActivities - lean Activity documents (last 20, sorted desc)
+ * @returns {string[]} Lines to push, or empty array
+ */
+function _buildRecentActivitySection(recentActivities) {
+  const lines = [];
+  const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+  const recent48h = recentActivities.filter(a => new Date(a.createdAt).getTime() > cutoff);
+  if (recent48h.length === 0) return lines;
+  lines.push(`\n[RECENT ACTIVITY (48h)]`);
+  for (const a of recent48h.slice(0, 10)) {
+    const resourceName = a.resource?.name || null;
+    const resourceId = a.resource?.id?.toString() || null;
+    const resourceType = ACTIVITY_TYPE_MAP[a.resource?.type] || null;
+
+    let activityLine = `  • ${a.action}`;
+    if (resourceName) activityLine += ` — "${resourceName}"`;
+    if (resourceId && resourceType && resourceName) {
+      activityLine += ` ${entityJSON(resourceId, resourceName, resourceType)}`;
+    }
+    if (a.target?.id && a.target?.name && ACTIVITY_TYPE_MAP[a.target?.type]) {
+      activityLine += ` → ${entityJSON(a.target.id.toString(), a.target.name, ACTIVITY_TYPE_MAP[a.target.type])}`;
+    }
+    lines.push(activityLine);
+  }
+  lines.push(`[/RECENT ACTIVITY]`);
+  return lines;
+}
+
+/**
+ * @private
+ * Builds [ATTENTION], [OVERDUE ITEMS], [IMMINENT INCOMPLETE ITEMS], and
+ * [PLANS WITHOUT DATE] blocks for the greeting context.
+ * Uses a single pass over plans to collect overdue items alongside attention
+ * signals, avoiding the duplicate loop present in the pre-refactor version.
+ * @param {Array} plans - lean plan documents (same as passed to buildUserGreetingContext)
+ * @returns {string[]} Lines to push into the parent array
+ */
+function _buildGreetingAttentionSection(plans) {
+  const lines = [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  const attentionSignals = [];
+  const imminentIncompleteItems = [];
+  const emptyPlanRefs = [];
+  const undatedPlanRefs = [];
+  const overdueItemDetails = [];
+
+  for (const plan of plans) {
+    const planItems = plan.plan || [];
+    const expName = plan.experience?.name || 'this trip';
+    const expId = plan.experience?._id?.toString() || null;
+    const destName = plan.experience?.destination?.name || null;
+    const destId = plan.experience?.destination?._id?.toString() || null;
+    const planId = plan._id.toString();
+
+    const daysUntilTrip = plan.planned_date
+      ? Math.round((new Date(plan.planned_date).setHours(0, 0, 0, 0) - today) / 86400000)
+      : null;
+
+    if (!plan.planned_date) {
+      undatedPlanRefs.push({ planId, expName, expId, destName, destId });
+    }
+
+    if (planItems.length === 0) {
+      const planRef = entityJSON(planId, expName, 'plan');
+      const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+      attentionSignals.push(`⚠ Your "${expName}" plan has no items yet — Plan: ${planRef}${expRef}`);
+      emptyPlanRefs.push({ planId, expName, expId, destName, destId });
+    }
+
+    if (daysUntilTrip !== null && daysUntilTrip >= 0 && daysUntilTrip <= 7) {
+      const incomplete = planItems.filter(i => !i.complete);
+      if (incomplete.length > 0) {
+        const planRef = entityJSON(planId, expName, 'plan');
+        attentionSignals.push(
+          `⚠ ${incomplete.length} item${incomplete.length !== 1 ? 's' : ''} still open on your "${expName}" trip in ${daysUntilTrip} day${daysUntilTrip !== 1 ? 's' : ''} — Plan: ${planRef}`
+        );
+        for (const item of incomplete.slice(0, 5)) {
+          const itemName = item.content || item.text || '(unnamed item)';
+          imminentIncompleteItems.push({ planId, expName, expId, destName, destId, item, itemName, daysUntilTrip });
+        }
+      }
+    }
+
+    // Collect overdue items in the same pass — avoids a second loop over plans
+    for (const item of planItems) {
+      if (item.complete || !item.scheduled_date) continue;
+      const d = new Date(item.scheduled_date); d.setHours(0, 0, 0, 0);
+      if (d < today) {
+        const daysOverdue = Math.round((today - d) / 86400000);
+        const itemName = item.content || item.text || '(unnamed item)';
+        overdueItemDetails.push({ planId, expName, expId, destName, destId, item, itemName, daysOverdue });
+      }
+    }
+  }
+
+  const totalOverdue = overdueItemDetails.length;
+  if (totalOverdue > 0) {
+    attentionSignals.push(`⚠ You have ${totalOverdue} overdue item${totalOverdue !== 1 ? 's' : ''} across your plans—worth reviewing first`);
+  }
+
+  const attentionBlock = renderAttentionBlock(attentionSignals, 6);
+  if (attentionBlock) lines.push(attentionBlock);
+
+  if (overdueItemDetails.length > 0) {
+    lines.push(`\n[OVERDUE ITEMS]`);
+    for (const { planId, expName, expId, destName, destId, item, itemName, daysOverdue } of overdueItemDetails.slice(0, 10)) {
+      const planRef = entityJSON(planId, expName, 'plan');
+      const itemRef = entityJSON(item._id.toString(), itemName, 'plan_item');
+      const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+      const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
+      lines.push(`  • ${itemName} (${daysOverdue}d overdue) in "${expName}" — Item: ${itemRef} Plan: ${planRef}${expRef}${destRef}`);
+    }
+    lines.push(`[/OVERDUE ITEMS]`);
+  }
+
+  if (imminentIncompleteItems.length > 0) {
+    lines.push(`\n[IMMINENT INCOMPLETE ITEMS]`);
+    for (const { planId, expName, expId, destName, destId, item, itemName, daysUntilTrip } of imminentIncompleteItems.slice(0, 10)) {
+      const planRef = entityJSON(planId, expName, 'plan');
+      const itemRef = entityJSON(item._id.toString(), itemName, 'plan_item');
+      const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+      const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
+      lines.push(`  • ${itemName} (trip in ${daysUntilTrip}d — "${expName}") — Item: ${itemRef} Plan: ${planRef}${expRef}${destRef}`);
+    }
+    lines.push(`[/IMMINENT INCOMPLETE ITEMS]`);
+  }
+
+  if (undatedPlanRefs.length > 0) {
+    lines.push(`\n[PLANS WITHOUT DATE]`);
+    for (const { planId, expName, expId, destName, destId } of undatedPlanRefs.slice(0, 5)) {
+      const planRef = entityJSON(planId, expName, 'plan');
+      const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
+      const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
+      lines.push(`  • "${expName}" — no trip date set — Plan: ${planRef}${expRef}${destRef}`);
+    }
+    lines.push(`[/PLANS WITHOUT DATE]`);
+  }
+
+  return lines;
+}
+
 async function buildUserGreetingContext(userId, options = {}) {
   loadModels();
   const { valid: userIdValid, objectId: userOid } = validateObjectId(userId, 'userId');
@@ -1291,229 +1530,36 @@ async function buildUserGreetingContext(userId, options = {}) {
 
     if (!userDoc) return null;
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-
     const lines = [
       `[User Greeting] Hello, ${userDoc.name || 'traveler'}`,
       `Entity: ${entityJSON(userId, userDoc.name || 'traveler', 'user')}`
     ];
 
-    // ------------------------------------------------------------------
-    // Active plans — ALL up to 10, each with experience + destination refs
-    // ------------------------------------------------------------------
-    if (plans.length > 0) {
-      lines.push(`\nActive plans (${plans.length}):`);
-      for (const plan of plans) {
-        const expName = plan.experience?.name || '(unknown)';
-        const expId = plan.experience?._id?.toString() || null;
-        const destName = plan.experience?.destination?.name || null;
-        const destId = plan.experience?.destination?._id?.toString() || null;
-        const planId = plan._id.toString();
-        const planItems = plan.plan || [];
-        const totalItems = planItems.length;
-        const completedItems = planItems.filter(i => i.complete).length;
-        const daysUntil = plan.planned_date ? computeDaysUntil(plan.planned_date) : null;
+    // Default travel origin (departure point for transport / route queries)
+    const originCtx = getTravelOriginContext(userDoc);
+    if (originCtx) lines.push(originCtx);
 
-        let proximityTag = '';
-        if (daysUntil !== null) {
-          if (daysUntil === 0) proximityTag = ' [TODAY]';
-          else if (daysUntil > 0 && daysUntil <= 7) proximityTag = ` [in ${daysUntil}d]`;
-          else if (daysUntil > 7 && daysUntil <= 30) proximityTag = ` [in ${daysUntil}d]`;
-          else if (daysUntil < 0) proximityTag = ` [${Math.abs(daysUntil)}d ago]`;
-        }
-        const dateStr = plan.planned_date ? new Date(plan.planned_date).toISOString().split('T')[0] : 'no date set';
-        const itemsLabel = totalItems === 0 ? 'no items yet' : `${totalItems} item${totalItems !== 1 ? 's' : ''} (${completedItems} completed)`;
+    // Active plans
+    lines.push(..._buildActivePlansSection(plans));
 
-        // Build entity ref suffix: plan + experience + destination (all refs on one line)
-        let entityRefs = `Plan: ${entityJSON(planId, expName, 'plan')}`;
-        if (expId) entityRefs += ` Experience: ${entityJSON(expId, expName, 'experience')}`;
-        if (destId && destName) entityRefs += ` Destination: ${entityJSON(destId, destName, 'destination')}`;
-
-        lines.push(`  • ${expName}${proximityTag} (${dateStr}) — ${itemsLabel} — ${entityRefs}`);
-
-        // Surface today/imminent items from this plan (with entity refs)
-        const { todayItems, next7Items } = buildTemporalBuckets(planItems);
-        for (const it of todayItems.slice(0, 2)) {
-          const lbl = it.content || it.text || it.name || '(unnamed)';
-          lines.push(`    ↳ TODAY: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
-        }
-        for (const it of next7Items.slice(0, 2)) {
-          const lbl = it.content || it.text || it.name || '(unnamed)';
-          const days = computeDaysUntil(it.scheduled_date);
-          lines.push(`    ↳ in ${days}d: ${lbl} — ${entityJSON(it._id.toString(), lbl, 'plan_item')}`);
-        }
-      }
-    } else {
-      lines.push(`\nNo active plans yet.`);
-    }
-
-    // ------------------------------------------------------------------
-    // Recent activity — entity refs per event so follow-ups can navigate
-    // ------------------------------------------------------------------
+    // Recent activity
     try {
-      const cutoff = Date.now() - 48 * 60 * 60 * 1000;
-      const recent48h = recentActivities.filter(a => new Date(a.createdAt).getTime() > cutoff);
-      if (recent48h.length > 0) {
-        lines.push(`\n[RECENT ACTIVITY (48h)]`);
-        for (const a of recent48h.slice(0, 10)) {
-          const resourceName = a.resource?.name || null;
-          const resourceId = a.resource?.id?.toString() || null;
-          const resourceType = ACTIVITY_TYPE_MAP[a.resource?.type] || null;
-
-          let activityLine = `  • ${a.action}`;
-          if (resourceName) activityLine += ` — "${resourceName}"`;
-          if (resourceId && resourceType && resourceName) {
-            activityLine += ` ${entityJSON(resourceId, resourceName, resourceType)}`;
-          }
-          // Include target entity ref for relationship actions (e.g. collaborator added)
-          if (a.target?.id && a.target?.name && ACTIVITY_TYPE_MAP[a.target?.type]) {
-            const targetType = ACTIVITY_TYPE_MAP[a.target.type];
-            activityLine += ` → ${entityJSON(a.target.id.toString(), a.target.name, targetType)}`;
-          }
-          lines.push(activityLine);
-        }
-        lines.push(`[/RECENT ACTIVITY]`);
-      }
+      lines.push(..._buildRecentActivitySection(recentActivities));
     } catch (actErr) {
       logger.debug('[bienbot-context] Greeting activity section skipped', { error: actErr.message });
     }
 
-    // ------------------------------------------------------------------
-    // Hidden travel signals
-    // ------------------------------------------------------------------
+    // Travel signals
     try {
-      if (userDoc.hidden_signals) {
-        const decayed = applySignalDecay(userDoc.hidden_signals);
-        const signalText = signalsToNaturalLanguage(decayed, { role: 'traveler', count: 1 });
-        if (signalText) {
-          lines.push(`\n[TRAVEL SIGNALS]`);
-          lines.push(signalText);
-          lines.push(`[/TRAVEL SIGNALS]`);
-        }
-      }
+      const signalBlock = formatSignalBlock(userDoc.hidden_signals, 'traveler');
+      if (signalBlock) lines.push('\n' + signalBlock);
     } catch (sigErr) {
       logger.debug('[bienbot-context] Greeting signal injection skipped', { error: sigErr.message });
     }
 
-    // ------------------------------------------------------------------
-    // Attention signals + detailed entity sections
-    // ------------------------------------------------------------------
+    // Attention, overdue, imminent, undated
     try {
-      const attentionSignals = [];
-
-      // Collect imminent incomplete items (≤7 days) with full entity refs
-      const imminentIncompleteItems = [];
-      // Collect empty plans with entity refs
-      const emptyPlanRefs = [];
-      // Collect plans without a date set
-      const undatedPlanRefs = [];
-
-      for (const plan of (plans || [])) {
-        const planItems = plan.plan || [];
-        const expName = plan.experience?.name || 'this trip';
-        const expId = plan.experience?._id?.toString() || null;
-        const destName = plan.experience?.destination?.name || null;
-        const destId = plan.experience?.destination?._id?.toString() || null;
-        const planId = plan._id.toString();
-
-        const daysUntilTrip = plan.planned_date
-          ? Math.round((new Date(plan.planned_date).setHours(0, 0, 0, 0) - today) / 86400000)
-          : null;
-
-        // Plans with no planned date
-        if (!plan.planned_date) {
-          undatedPlanRefs.push({ planId, expName, expId, destName, destId });
-        }
-
-        // Empty plans
-        if (planItems.length === 0) {
-          const planRef = entityJSON(planId, expName, 'plan');
-          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
-          attentionSignals.push(`⚠ Your "${expName}" plan has no items yet — Plan: ${planRef}${expRef}`);
-          emptyPlanRefs.push({ planId, expName, expId, destName, destId });
-        }
-
-        // Imminent trip (≤7 days) with open items
-        if (daysUntilTrip !== null && daysUntilTrip >= 0 && daysUntilTrip <= 7) {
-          const incomplete = planItems.filter(i => !i.complete);
-          if (incomplete.length > 0) {
-            const planRef = entityJSON(planId, expName, 'plan');
-            attentionSignals.push(
-              `⚠ ${incomplete.length} item${incomplete.length !== 1 ? 's' : ''} still open on your "${expName}" trip in ${daysUntilTrip} day${daysUntilTrip !== 1 ? 's' : ''} — Plan: ${planRef}`
-            );
-            for (const item of incomplete.slice(0, 5)) {
-              const itemName = item.content || item.text || '(unnamed item)';
-              imminentIncompleteItems.push({ planId, expName, expId, destName, destId, item, itemName, daysUntilTrip });
-            }
-          }
-        }
-      }
-
-      // Aggregate overdue items across all plans — collect full details for entity refs
-      const overdueItemDetails = [];
-      for (const plan of (plans || [])) {
-        const planItems = plan.plan || [];
-        const planId = plan._id.toString();
-        const expName = plan.experience?.name || 'this trip';
-        const expId = plan.experience?._id?.toString() || null;
-        const destName = plan.experience?.destination?.name || null;
-        const destId = plan.experience?.destination?._id?.toString() || null;
-        for (const item of planItems) {
-          if (item.complete || !item.scheduled_date) continue;
-          const d = new Date(item.scheduled_date); d.setHours(0, 0, 0, 0);
-          if (d < today) {
-            const daysOverdue = Math.round((today - d) / 86400000);
-            const itemName = item.content || item.text || '(unnamed item)';
-            overdueItemDetails.push({ planId, expName, expId, destName, destId, item, itemName, daysOverdue });
-          }
-        }
-      }
-      const totalOverdue = overdueItemDetails.length;
-      if (totalOverdue > 0) {
-        attentionSignals.push(`⚠ You have ${totalOverdue} overdue item${totalOverdue !== 1 ? 's' : ''} across your plans—worth reviewing first`);
-      }
-
-      if (attentionSignals.length > 0) {
-        lines.push(`\n[ATTENTION]\n${attentionSignals.slice(0, 6).join('\n')}\n[/ATTENTION]`);
-      }
-
-      // Detailed overdue items — BienBot can answer "which item is overdue?" and propose navigation
-      if (overdueItemDetails.length > 0) {
-        lines.push(`\n[OVERDUE ITEMS]`);
-        for (const { planId, expName, expId, destName, destId, item, itemName, daysOverdue } of overdueItemDetails.slice(0, 10)) {
-          const planRef = entityJSON(planId, expName, 'plan');
-          const itemRef = entityJSON(item._id.toString(), itemName, 'plan_item');
-          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
-          const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
-          lines.push(`  • ${itemName} (${daysOverdue}d overdue) in "${expName}" — Item: ${itemRef} Plan: ${planRef}${expRef}${destRef}`);
-        }
-        lines.push(`[/OVERDUE ITEMS]`);
-      }
-
-      // Imminent incomplete items — BienBot can answer "what's still open for my trip this week?"
-      if (imminentIncompleteItems.length > 0) {
-        lines.push(`\n[IMMINENT INCOMPLETE ITEMS]`);
-        for (const { planId, expName, expId, destName, destId, item, itemName, daysUntilTrip } of imminentIncompleteItems.slice(0, 10)) {
-          const planRef = entityJSON(planId, expName, 'plan');
-          const itemRef = entityJSON(item._id.toString(), itemName, 'plan_item');
-          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
-          const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
-          lines.push(`  • ${itemName} (trip in ${daysUntilTrip}d — "${expName}") — Item: ${itemRef} Plan: ${planRef}${expRef}${destRef}`);
-        }
-        lines.push(`[/IMMINENT INCOMPLETE ITEMS]`);
-      }
-
-      // Plans without a date — BienBot can surface these and ask the user to set one
-      if (undatedPlanRefs.length > 0) {
-        lines.push(`\n[PLANS WITHOUT DATE]`);
-        for (const { planId, expName, expId, destName, destId } of undatedPlanRefs.slice(0, 5)) {
-          const planRef = entityJSON(planId, expName, 'plan');
-          const expRef = expId ? ` Experience: ${entityJSON(expId, expName, 'experience')}` : '';
-          const destRef = destId && destName ? ` Destination: ${entityJSON(destId, destName, 'destination')}` : '';
-          lines.push(`  • "${expName}" — no trip date set — Plan: ${planRef}${expRef}${destRef}`);
-        }
-        lines.push(`[/PLANS WITHOUT DATE]`);
-      }
+      lines.push(..._buildGreetingAttentionSection(plans));
     } catch (sigErr) {
       logger.debug('[bienbot-context] Greeting attention signals skipped', { error: sigErr.message });
     }
@@ -1538,10 +1584,25 @@ async function buildSearchContext(query, userId, options = {}) {
   try {
     const trimmedQuery = query.trim();
 
-    // Search destinations, experiences, and user plans in parallel
+    // Build a broad name-match regex from query words to push filtering into MongoDB.
+    // findSimilarItems still applies fuzzy scoring on the returned subset.
+    const escapedWords = trimmedQuery
+      .split(/\s+/)
+      .filter(w => w.length >= 2)
+      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const nameRegex = escapedWords.length > 0
+      ? new RegExp(escapedWords.join('|'), 'i')
+      : new RegExp(trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
     const [destinations, experiences, userPlans] = await Promise.all([
-      Destination.find({ visibility: 'public' }).select('name country overview').limit(100).lean(),
-      Experience.find({ visibility: 'public' }).select('name overview destination').populate('destination', 'name').limit(100).lean(),
+      Destination.find({
+        visibility: 'public',
+        $or: [{ name: { $regex: nameRegex } }, { country: { $regex: nameRegex } }]
+      }).select('name country overview').limit(30).lean(),
+      Experience.find({
+        visibility: 'public',
+        name: { $regex: nameRegex }
+      }).select('name overview destination').populate('destination', 'name').limit(30).lean(),
       userId
         ? Plan.find({ user: userId })
             .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
@@ -1655,15 +1716,12 @@ async function buildSuggestionContext(destinationId, experienceId, userId, optio
       if (valid) query._id = { $ne: experienceId };
     }
 
-    const publicExpCount = await Experience.countDocuments(query);
+    const [publicExpCount, sampleExps] = await Promise.all([
+      Experience.countDocuments(query),
+      Experience.find(query).select('plan_items.text plan_items.content').limit(5).lean()
+    ]);
 
     if (publicExpCount === 0) return null;
-
-    // Sample a few item names so the LLM knows suggestions are available
-    const sampleExps = await Experience.find(query)
-      .select('plan_items.text plan_items.content')
-      .limit(5)
-      .lean();
 
     const sampleItems = [];
     for (const exp of sampleExps) {
@@ -1708,7 +1766,8 @@ async function buildPlanNextStepsContext(planId, userId, options = {}) {
   const enforcer = getEnforcer({ Destination, Experience, Plan, User });
 
   try {
-    const plan = await Plan.findById(planId).populate('experience', 'name');
+    const plan = await Plan.findById(planId).populate('experience', 'name')
+      .select('experience plan costs permissions');
     if (!plan) return null;
 
     const perm = await enforcer.canView({ userId, resource: plan });
@@ -1798,41 +1857,6 @@ async function buildPlanNextStepsContext(planId, userId, options = {}) {
 // ---------------------------------------------------------------------------
 
 /**
- * Map dimension names to qualitative natural-language driver descriptions.
- * Each entry describes what a strong alignment on that dimension means for the
- * user ↔ entity relationship. Used by both the [AFFINITY] block and discovery
- * results so the LLM can compose coherent dialogue without numeric terms.
- */
-const DIM_DRIVER_DESCRIPTIONS = {
-  energy:             'shared preference for activity level',
-  novelty:            'mutual interest in novel, off-the-beaten-path experiences',
-  budget_sensitivity: 'aligned budget expectations',
-  social:             'similar social orientation for group or solo travel',
-  structure:          'compatible need for planning and structure',
-  food_focus:         'shared interest in food and culinary experiences',
-  cultural_depth:     'mutual appreciation for cultural depth and local immersion',
-  comfort_zone:       'similar comfort zone and willingness to try new things'
-};
-
-/**
- * Convert an array of top_dims entries (or bare dimension names) into a
- * comma-separated list of human-readable driver descriptions.
- *
- * @param {Array<{dim: string}|string>} dims - top_dims entries or dimension name strings.
- * @returns {string} Comma-separated qualitative descriptions, or '' if empty.
- */
-function describeDimDrivers(dims) {
-  if (!Array.isArray(dims) || dims.length === 0) return '';
-  return dims
-    .map(d => {
-      const name = typeof d === 'string' ? d : d?.dim;
-      return DIM_DRIVER_DESCRIPTIONS[name] || name;
-    })
-    .filter(Boolean)
-    .join(', ');
-}
-
-/**
  * Append an [AFFINITY] line to contextLines when the user has meaningful affinity data
  * for the given experience. Non-fatal — enrichment is best-effort only.
  *
@@ -1893,18 +1917,16 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
       return contextLines.join('\n');
     }
     case 'plan': {
-      const contextStr = await buildUserPlanContext(id, userId, options);
+      loadModels();
+      const [contextStr, planDoc] = await Promise.all([
+        buildUserPlanContext(id, userId, options),
+        Plan.findById(id).select('experience').lean().catch(planExpErr => {
+          logger.warn('[bienbot-context] Could not resolve experience_id for plan affinity block', { planId: id, error: planExpErr.message });
+          return null;
+        })
+      ]);
       if (!contextStr) return null;
-      // Resolve the experience_id for affinity enrichment from the plan context.
-      // buildUserPlanContext populates plan.experience._id — re-fetch just the field.
-      let planExperienceId = null;
-      try {
-        loadModels();
-        const planDoc = await Plan.findById(id).select('experience').lean();
-        planExperienceId = planDoc?.experience?.toString() || null;
-      } catch (planExpErr) {
-        logger.warn('[bienbot-context] Could not resolve experience_id for plan affinity block', { planId: id, error: planExpErr.message });
-      }
+      const planExperienceId = planDoc?.experience?.toString() || null;
       const contextLines = [contextStr];
       if (planExperienceId) {
         await appendAffinityBlock(contextLines, userId, planExperienceId);
@@ -1938,917 +1960,11 @@ async function buildContextForInvokeContext(invokeContext, userId, options = {})
   }
 }
 
-// ---------------------------------------------------------------------------
-// Discovery helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Maps semantic category keywords to plan item activity_type values.
- * 14 categories including the original 5 plus 9 new ones.
- */
-const SEMANTIC_ACTIVITY_MAP = {
-  // Existing
-  culinary:          ['food', 'drinks', 'coffee', 'market', 'local'],
-  adventure:         ['adventure', 'nature', 'sports', 'tour'],
-  cultural:          ['museum', 'sightseeing', 'religious', 'local'],
-  wellness:          ['wellness', 'health', 'rest'],
-  nightlife:         ['nightlife', 'drinks', 'entertainment'],
-  // New
-  'family-friendly': ['sightseeing', 'nature', 'entertainment', 'class', 'tour'],
-  budget:            ['food', 'local', 'nature', 'sightseeing'],
-  romantic:          ['food', 'drinks', 'wellness', 'sightseeing', 'entertainment'],
-  solo:              ['museum', 'nature', 'coffee', 'adventure', 'photography'],
-  photography:       ['photography', 'sightseeing', 'nature', 'museum'],
-  historical:        ['museum', 'sightseeing', 'religious', 'tour'],
-  beach:             ['nature', 'sports', 'wellness', 'rest', 'adventure'],
-  mountain:          ['nature', 'adventure', 'sports', 'tour', 'photography'],
-  urban:             ['sightseeing', 'food', 'nightlife', 'shopping', 'entertainment']
-};
-
-// ---------------------------------------------------------------------------
-// Ranking helper constants
-// ---------------------------------------------------------------------------
-
-const DEFAULT_DISCOVERY_WEIGHTS = {
-  plan_count:      0.30,
-  completion_rate: 0.25,
-  recency:         0.20,
-  collaborators:   0.10,
-  cost_alignment:  0.15
-};
-
-const WEIGHT_FLOOR = 0.05;
-const SIGNAL_THRESHOLD = 0.7;
-const MIN_CONFIDENCE = 0.2;
-const RECENCY_HALF_LIFE_DAYS = 174; // e^(-ln2 * 90/174) ≈ 0.70 at 90 days, per spec
-
-// ---------------------------------------------------------------------------
-// Ranking helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Expand semantic categories (e.g., 'culinary') to concrete activity types.
- * Unknown types pass through as-is for direct activity_type matching.
- * @param {string[]} categories
- * @returns {string[]}
- */
-function expandActivityTypes(categories) {
-  if (!categories || !categories.length) return [];
-  const types = new Set();
-  for (const cat of categories) {
-    if (SEMANTIC_ACTIVITY_MAP[cat]) {
-      SEMANTIC_ACTIVITY_MAP[cat].forEach(t => types.add(t));
-    } else {
-      types.add(cat); // pass through as raw activity_type
-    }
-  }
-  return [...types];
-}
-
-/**
- * Compute signal-adaptive ranking weights based on user's hidden signals.
- * Returns DEFAULT_DISCOVERY_WEIGHTS if signals are absent or low-confidence.
- * Symmetric +0.10/-0.10 swaps per dimension. Enforces 0.05 floor. Re-normalizes to 1.0.
- * @param {Object|null} signals
- * @returns {Object}
- */
-function computeAdaptiveWeights(signals) {
-  const weights = { ...DEFAULT_DISCOVERY_WEIGHTS };
-
-  if (!signals || (signals.confidence || 0) < MIN_CONFIDENCE) return weights;
-
-  // Symmetric +0.10/-0.10 swaps
-  if ((signals.budget_sensitivity || 0) > SIGNAL_THRESHOLD) {
-    weights.cost_alignment += 0.10;
-    weights.plan_count -= 0.10;
-  }
-  if ((signals.social || 0) > SIGNAL_THRESHOLD) {
-    weights.collaborators += 0.10;
-    weights.recency -= 0.10;
-  }
-  if ((signals.structure || 0) > SIGNAL_THRESHOLD) {
-    weights.completion_rate += 0.10;
-    weights.plan_count -= 0.10;
-  }
-  if ((signals.novelty || 0) > SIGNAL_THRESHOLD) {
-    weights.recency += 0.10;
-    weights.completion_rate -= 0.10;
-  }
-
-  // Enforce minimum floor
-  Object.keys(weights).forEach(k => {
-    weights[k] = Math.max(weights[k], WEIGHT_FLOOR);
-  });
-
-  // Re-normalize to sum to 1.0
-  const sum = Object.values(weights).reduce((a, b) => a + b, 0);
-  Object.keys(weights).forEach(k => { weights[k] /= sum; });
-
-  return weights;
-}
-
-/**
- * Map a cost value to its percentile within a candidate set.
- * Returns 0.0 (cheapest) to 1.0 (most expensive). Neutral 0.5 for edge cases.
- * @param {number} cost
- * @param {number[]} allCandidateCosts
- * @returns {number}
- */
-function normalizeCostToPercentile(cost, allCandidateCosts) {
-  if (!allCandidateCosts || !allCandidateCosts.length || allCandidateCosts.length === 1) return 0.5;
-  const sorted = [...allCandidateCosts].sort((a, b) => a - b);
-  const rank = sorted.indexOf(cost);
-  if (rank === -1) return 0.5;
-  return rank / (sorted.length - 1);
-}
-
-/**
- * Compute cost alignment between an experience cost and user's budget sensitivity.
- * 1.0 = perfect fit, 0.0 = worst mismatch, 0.5 = neutral.
- * @param {number|null} experienceCost
- * @param {Object|null} signals
- * @param {number[]} allCandidateCosts
- * @returns {number}
- */
-function computeCostAlignment(experienceCost, signals, allCandidateCosts) {
-  if (!experienceCost || !signals) return 0.5;
-  const userBudgetLevel = 1 - (signals.budget_sensitivity || 0.5);
-  const costPercentile = normalizeCostToPercentile(experienceCost, allCandidateCosts || []);
-  return 1 - Math.abs(userBudgetLevel - costPercentile);
-}
-
-/**
- * Exponential decay recency score.
- * ~1.0 for today, ~0.7 for 90 days, ~0.3 for 180+ days.
- * Uses ln(2)/RECENCY_HALF_LIFE_DAYS as decay constant.
- * @param {Date|null} date
- * @returns {number}
- */
-function computeRecencyScore(date) {
-  if (!date) return 0;
-  const daysSince = (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24);
-  if (daysSince < 0) return 1;
-  return Math.exp(-0.693 * daysSince / RECENCY_HALF_LIFE_DAYS); // ln(2) ~= 0.693
-}
-
-/**
- * Normalize a count value to [0, 1] using the max in the candidate set.
- * @param {number} value
- * @param {number} maxValue
- * @returns {number}
- */
-function normalizeCount(value, maxValue) {
-  if (!maxValue || maxValue === 0) return 0;
-  return Math.min(value / maxValue, 1);
-}
-
-/**
- * Generate a human-readable match_reason from the dominant ranking signal.
- * Finds the dominant signal (highest weighted contribution) and fills a template.
- * Prepends a category phrase when categories are provided.
- * @param {Object} candidate
- * @param {Object} weights
- * @param {string[]} categories
- * @returns {string}
- */
-function generateMatchReason(candidate, weights, categories) {
-  const categoryPhrases = {
-    culinary: 'culinary travelers',
-    adventure: 'adventure seekers',
-    cultural: 'culture enthusiasts',
-    wellness: 'wellness travelers',
-    nightlife: 'nightlife enthusiasts',
-    'family-friendly': 'families',
-    budget: 'budget travelers',
-    romantic: 'couples',
-    solo: 'solo travelers',
-    photography: 'photographers',
-    historical: 'history buffs',
-    beach: 'beach lovers',
-    mountain: 'mountain explorers',
-    urban: 'city explorers'
-  };
-
-  const templates = {
-    plan_count:      (c) => `Planned by ${c.co_occurrence_count} similar travelers`,
-    completion_rate: (c) => `${Math.round((c.avg_completion_rate || 0) * 100)}% plan completion rate`,
-    recency:         () => 'Recently trending among travelers',
-    collaborators:   (c) => `Popular group activity - ${c.collaborator_count} collaborators`,
-    cost_alignment:  () => 'Good budget fit for your travel style'
-  };
-
-  // Find dominant signal (highest weighted contribution)
-  const contributions = {
-    plan_count:      (weights.plan_count || 0) * (candidate.co_occurrence_count ? 1 : 0),
-    completion_rate: (weights.completion_rate || 0) * (candidate.avg_completion_rate || 0),
-    recency:         (weights.recency || 0) * (candidate.recency_score || 0),
-    collaborators:   (weights.collaborators || 0) * (candidate.collaborator_count ? 1 : 0),
-    cost_alignment:  (weights.cost_alignment || 0) * 0.5 // neutral default
-  };
-
-  const dominant = Object.entries(contributions)
-    .sort(([, a], [, b]) => b - a)[0][0];
-
-  // Build phrase
-  const catPhrase = (categories || [])
-    .map(c => categoryPhrases[c] || c)
-    .filter(Boolean)[0];
-
-  const signalPhrase = templates[dominant](candidate);
-  return catPhrase
-    ? `Popular among ${catPhrase} - ${signalPhrase}`
-    : signalPhrase;
-}
-
-/**
- * Build a discovery context block for cross-dimensional queries.
- *
- * Uses collaborative filtering to discover experiences planned by similar users.
- * Two-stage pipeline: find similar users → find co-occurring experiences → rank.
- *
- * @param {Object} filters - { activity_types, destination_id, destination_name, max_cost, cross_destination, min_plans }
- * @param {string} userId - Querying user's ID
- * @param {Object} [options] - { limit }
- * @returns {Promise<Object|null>} { contextBlock, results, query_metadata } or null if no results
- */
-async function buildDiscoveryContext(filters = {}, userId, options = {}) {
-  const { getCacheKey, createDiscoveryCache } = require('./discovery-cache');
-  const UserModel = require('../models/user');
-
-  const limit = options.limit || 8;
-  const cacheKey = getCacheKey(filters);
-  const cache = createDiscoveryCache();
-
-  try {
-    // Check cache
-    let candidates = await cache.get(cacheKey);
-    let cacheHit = !!candidates;
-
-    if (!candidates) {
-      // Stage 1: Find similar users (requires activity_types)
-      const similarUsers = await findSimilarUsers(filters, userId);
-
-      if (similarUsers.length > 0) {
-        // Stage 2: Find co-occurring experiences
-        candidates = await findCoOccurringExperiences(similarUsers, filters, userId);
-        if (candidates.length > 0) {
-          logger.debug('[bienbot-context] Collaborative filtering produced candidates', { count: candidates.length });
-        } else {
-          logger.debug('[bienbot-context] No co-occurring experiences found, falling back to popularity', { filters, userId });
-        }
-      } else {
-        logger.debug('[bienbot-context] No similar users found, falling back to popularity', { filters, userId });
-      }
-
-      // Fallback: popularity-based discovery when collaborative filtering yields nothing
-      // (happens when activity_types are omitted or data is sparse)
-      if (!candidates || !candidates.length) {
-        candidates = await findPopularExperiences(filters, userId);
-      }
-
-      if (!candidates.length) {
-        logger.debug('[bienbot-context] No experiences found for filters', { filters, userId });
-        return null;
-      }
-
-      await cache.set(cacheKey, candidates);
-    }
-
-    // Fetch user's hidden signals for personalized ranking
-    let signals = null;
-    try {
-      const user = await UserModel.findById(userId).select('hidden_signals').lean();
-      if (user?.hidden_signals) {
-        signals = applySignalDecay(user.hidden_signals);
-      }
-    } catch (err) {
-      logger.warn('[bienbot-context] Failed to fetch user signals for ranking', { userId, error: err.message });
-    }
-
-    // Compute adaptive weights (personalized by user behavioral signals)
-    const weights = computeAdaptiveWeights(signals);
-
-    const allCosts = candidates.map(c => c.cost_estimate).filter(Boolean);
-    const maxCoOccurrence = Math.max(...candidates.map(c => c.co_occurrence_count), 1);
-    const maxCollaborators = Math.max(...candidates.map(c => c.collaborator_count), 1);
-
-    // Load pre-computed content signals from Experience documents.
-    // One secondary query keyed by experience_id — avoids modifying the aggregation pipeline.
-    // Experiences whose signals haven't been computed yet fall back to neutral defaults.
-    let experienceSignalsMap = new Map();
-    try {
-      const ExperienceModel = require('../models/experience');
-      const candidateIds = candidates.map(c => c.experience_id).filter(Boolean);
-      const storedSignalDocs = await ExperienceModel
-        .find({ _id: { $in: candidateIds } })
-        .select('signals hidden_signals')
-        .lean();
-      for (const doc of storedSignalDocs) {
-        if (doc._id) experienceSignalsMap.set(doc._id.toString(), {
-          signals: doc.signals || null,
-          hidden_signals: doc.hidden_signals || null
-        });
-      }
-    } catch (err) {
-      logger.warn('[bienbot-context] Failed to load stored content signals; falling back to neutral', { error: err.message });
-    }
-
-    // Compute per-candidate-set maximums for popularity normalisation.
-    // This makes each candidate's popularity score relative to the destination
-    // context rather than a global absolute value.
-    const maxPopularity = {
-      planCount:             Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.planCount             || 0), 1),
-      planCountWithActivity: Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.planCountWithActivity || 0), 1),
-      completedPlanCount:    Math.max(...[...experienceSignalsMap.values()].map(s => s?.signals?.popularity?.completedPlanCount    || 0), 1)
-    };
-
-    const formula = signalsConfig.formula;
-
-    // Load affinity map once for all candidates (cache-first; empty Map on failure or missing userId)
-    let affinityMap = new Map();
-    if (userId) {
-      try {
-        affinityMap = await affinityCache.getAffinityMap(userId);
-      } catch (affinityErr) {
-        logger.warn('[bienbot-context] Failed to load affinity map for discovery ranking', { userId, error: affinityErr.message });
-      }
-    }
-
-    // Score and rank
-    const scored = candidates.map(c => {
-      const recencyScore = computeRecencyScore(c.latest_planned_date);
-
-      // Adaptive score: existing multi-factor formula personalized by user behavioral signals.
-      // Weights are re-normalized internally by computeAdaptiveWeights.
-      const adaptiveScore =
-        weights.plan_count      * normalizeCount(c.co_occurrence_count, maxCoOccurrence) +
-        weights.completion_rate * (c.avg_completion_rate || 0) +
-        weights.recency         * recencyScore +
-        weights.collaborators   * normalizeCount(c.collaborator_count, maxCollaborators) +
-        weights.cost_alignment  * computeCostAlignment(c.cost_estimate, signals, allCosts);
-
-      // Stored content signals — neutral defaults for experiences not yet computed.
-      // trustScore null → 0.5 (unknown, not penalised); popularity absent → 0.
-      const storedEntry    = experienceSignalsMap.get(c.experience_id.toString());
-      const storedSignals  = storedEntry?.signals   || null;
-      const entityBehavior = storedEntry?.hidden_signals || null;
-      const trustScore     = storedSignals?.trustScore ?? 0.5;
-      const popularityNorm = computePopularityScore(
-        storedSignals?.popularity || {},
-        maxPopularity
-      );
-
-      // Affinity: use pre-loaded cache entry when available; fall back to live
-      // computation for cold-cache candidates (avoids per-candidate DB round-trips).
-      // On a cache miss, fire-and-forget computeAndCacheAffinity so subsequent
-      // requests for the same (user, experience) pair hit the cache.
-      const cachedAffinity = affinityMap.get(c.experience_id.toString());
-      let affinityScore;
-      let affinityDrivers = '';
-      if (cachedAffinity) {
-        affinityScore = cachedAffinity.score;
-        if (cachedAffinity.top_dims?.length) {
-          affinityDrivers = describeDimDrivers(cachedAffinity.top_dims);
-        }
-      } else {
-        affinityScore = computeAffinityScore(signals, entityBehavior);
-        // Warm the cache asynchronously — never awaited, never throws
-        computeAndCacheAffinity(userId, c.experience_id).catch(() => {});
-      }
-
-      // Blended formula: formula coefficients from signalsConfig (SIGNALS_CONFIG env var).
-      // recencyBoost is always computed fresh — not stored — so it stays accurate between
-      // signal update events.
-      const relevanceScore =
-        formula.adaptiveFactor * adaptiveScore   +
-        formula.trustScore     * trustScore      +
-        formula.popularity     * popularityNorm  +
-        formula.recencyBoost   * recencyScore    +
-        formula.affinity       * affinityScore;
-
-      const matchReason = generateMatchReason(
-        { ...c, recency_score: recencyScore },
-        weights,
-        filters.activity_types
-      );
-
-      return {
-        experience_id: c.experience_id.toString(),
-        experience_name: c.experience_name,
-        destination_name: c.destination_name,
-        destination_id: c.destination_id?.toString(),
-        activity_types: c.activity_types || [],
-        cost_estimate: c.cost_estimate,
-        plan_count: c.co_occurrence_count,
-        completion_rate: c.avg_completion_rate,
-        collaborator_count: c.collaborator_count,
-        trust_score: Math.round(trustScore * 1000) / 1000,
-        popularity_score: Math.round(popularityNorm * 1000) / 1000,
-        affinity_score: Math.round(affinityScore * 1000) / 1000,
-        affinity_drivers: affinityDrivers,
-        relevance_score: Math.round(relevanceScore * 1000) / 1000,
-        match_reason: matchReason,
-        default_photo_url: c.default_photo_url
-      };
-    });
-
-    scored.sort((a, b) => b.relevance_score - a.relevance_score);
-    const results = scored.slice(0, limit);
-
-    if (!results.length) return null;
-
-    const contextBlock = formatDiscoveryContextBlock(results, filters);
-
-    // Signal feedback (fire-and-forget)
-    try {
-      const expandedTypes = expandActivityTypes(filters.activity_types);
-      const { processSignalEvent } = require('./hidden-signals');
-      processSignalEvent(userId, {
-        type: 'search',
-        metadata: {
-          source: 'discovery',
-          activity_type: expandedTypes[0] || null,
-          all_activity_types: expandedTypes,
-          result_count: results.length
-        }
-      });
-    } catch (e) {
-      // Silently ignore signal event errors
-    }
-
-    logger.info('[bienbot-context] buildDiscoveryContext completed', {
-      userId,
-      resultCount: results.length,
-      cacheHit,
-      crossDestination: !!(filters.cross_destination || (!filters.destination_id && !filters.destination_name))
-    });
-
-    return {
-      contextBlock,
-      results,
-      query_metadata: {
-        filters_applied: filters,
-        cache_hit: cacheHit,
-        result_count: results.length,
-        cross_destination: !!(filters.cross_destination || (!filters.destination_id && !filters.destination_name))
-      }
-    };
-  } catch (err) {
-    logger.error('[bienbot-context] buildDiscoveryContext failed', { error: err.message });
-    return null;
-  }
-}
-
-/**
- * Format discovery results into a text context block for the LLM.
- */
-function formatDiscoveryContextBlock(results, filters) {
-  const header = filters.activity_types?.length
-    ? `Discovery results for ${filters.activity_types.join(', ')} experiences`
-    : 'Discovery results';
-
-  // Qualitative popularity labels — avoid exposing raw counts to the LLM
-  const popularityLabel = (planCount) => {
-    if (!planCount || planCount <= 0) return 'new';
-    if (planCount <= 2) return 'emerging';
-    if (planCount <= 10) return 'popular';
-    return 'very popular';
-  };
-
-  const completionLabel = (rate) => {
-    if (rate == null || rate <= 0) return null;
-    if (rate >= 0.8) return 'very high completion';
-    if (rate >= 0.5) return 'solid completion';
-    if (rate >= 0.2) return 'moderate completion';
-    return null;
-  };
-
-  const affinityLabel = (score) => {
-    if (score == null) return null;
-    if (score > 0.6) return 'strong match for your travel style';
-    if (score >= 0.4) return 'moderate match for your travel style';
-    if (score < 0.4) return 'different from your usual travel style';
-    return null;
-  };
-
-  const lines = results.map((r, i) => {
-    const parts = [
-      `${i + 1}. ${r.experience_name} (${r.destination_name})`,
-      popularityLabel(r.plan_count) + ' among travelers'
-    ];
-    const compLabel = completionLabel(r.completion_rate);
-    if (compLabel) parts.push(compLabel);
-    const affLabel = affinityLabel(r.affinity_score);
-    if (affLabel) parts.push(affLabel);
-    if (r.affinity_drivers) parts.push(`driven by ${r.affinity_drivers}`);
-    parts.push(r.match_reason);
-    return parts.join(' — ');
-  });
-
-  return `[DISCOVERY RESULTS]\n${header}:\n${lines.join('\n')}\n[/DISCOVERY RESULTS]`;
-}
-
-/**
- * Build context of similar experiences in the same destination.
- * Used for post-plan onboarding to suggest related content.
- *
- * @param {string} experienceId - Current experience ID
- * @param {string} destinationId - Destination ID
- * @param {string} userId
- * @param {object} [options]
- * @returns {Promise<string|null>}
- */
-async function buildSimilarExperiencesContext(experienceId, destinationId, userId, options = {}) {
-  loadModels();
-
-  try {
-    if (!destinationId) return null;
-
-    // Find other public experiences in the same destination, sorted by plan count
-    const pipeline = [
-      { $match: {
-        destination: require('mongoose').Types.ObjectId.createFromHexString(String(destinationId)),
-        _id: { $ne: require('mongoose').Types.ObjectId.createFromHexString(String(experienceId)) },
-        visibility: { $ne: 'private' }
-      }},
-      { $lookup: {
-        from: 'plans',
-        localField: '_id',
-        foreignField: 'experience',
-        as: 'plans'
-      }},
-      { $addFields: { plan_count: { $size: '$plans' } } },
-      { $sort: { plan_count: -1 } },
-      { $limit: 5 },
-      { $project: { name: 1, overview: 1, plan_count: 1, experience_type: 1 } }
-    ];
-
-    const results = await Experience.aggregate(pipeline);
-    if (results.length === 0) return null;
-
-    const lines = ['[SIMILAR EXPERIENCES]'];
-    for (const r of results) {
-      const types = r.experience_type?.join(', ') || '';
-      lines.push(`- ${r.name} (${r.plan_count} plan${r.plan_count !== 1 ? 's' : ''})${types ? ` [${types}]` : ''}`);
-    }
-    lines.push('[/SIMILAR EXPERIENCES]');
-
-    return trimToTokenBudget(lines.join('\n'), options.tokenBudget || 800);
-  } catch (err) {
-    logger.error('[bienbot-context] buildSimilarExperiencesContext failed', { error: err.message });
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Stage 1: Find users who planned matching activity types
-// ---------------------------------------------------------------------------
-
-async function findSimilarUsers(filters, userId) {
-  const activityTypes = expandActivityTypes(filters.activity_types);
-  if (!activityTypes.length) return [];
-
-  const Plan = require('../models/plan');
-  const { Types } = require('mongoose');
-  const matchStage = {
-    'plan.activity_type': { $in: activityTypes },
-    user: { $ne: new Types.ObjectId(userId) }
-  };
-
-  const pipeline = [
-    { $match: matchStage },
-    // Lookup experience for destination filter + visibility
-    { $lookup: {
-      from: 'experiences',
-      localField: 'experience',
-      foreignField: '_id',
-      as: 'exp'
-    }},
-    { $unwind: '$exp' },
-    { $match: { 'exp.visibility': { $ne: 'private' } } }
-  ];
-
-  // Destination filter
-  const shouldFilterDestination = !filters.cross_destination &&
-    (filters.destination_id || filters.destination_name);
-
-  if (shouldFilterDestination) {
-    if (filters.destination_id) {
-      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
-    } else if (filters.destination_name) {
-      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      pipeline.push(
-        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest' } },
-        { $unwind: '$dest' },
-        { $match: { 'dest.name': nameRegex } }
-      );
-    }
-  }
-
-  // Cost filter via $reduce on plan[].cost
-  if (filters.max_cost) {
-    pipeline.push({
-      $addFields: {
-        _totalCost: { $reduce: {
-          input: '$plan',
-          initialValue: 0,
-          in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-        }}
-      }
-    });
-    pipeline.push({ $match: { _totalCost: { $lte: filters.max_cost } } });
-  }
-
-  // Group by user
-  pipeline.push(
-    { $group: {
-      _id: '$user',
-      matchingPlanCount: { $sum: 1 },
-      experienceIds: { $addToSet: '$experience' }
-    }},
-    { $sort: { matchingPlanCount: -1 } },
-    { $limit: 50 }
-  );
-
-  const results = await Plan.aggregate(pipeline);
-
-  logger.debug('[bienbot-context] findSimilarUsers', {
-    userId,
-    activityTypes,
-    resultCount: results.length
-  });
-
-  return results.map(r => ({
-    userId: r._id,
-    matchingPlanCount: r.matchingPlanCount,
-    experienceIds: r.experienceIds
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// Stage 2: Find other experiences planned by similar users
-// ---------------------------------------------------------------------------
-
-async function findCoOccurringExperiences(similarUsers, filters, userId) {
-  if (!similarUsers.length) return [];
-
-  const Plan = require('../models/plan');
-  const userIds = similarUsers.map(u => u.userId);
-  const excludeExpIds = [...new Set(similarUsers.flatMap(u => u.experienceIds))];
-
-  const pipeline = [
-    { $match: {
-      user: { $in: userIds },
-      experience: { $nin: excludeExpIds }
-    }},
-    { $lookup: {
-      from: 'experiences',
-      localField: 'experience',
-      foreignField: '_id',
-      as: 'exp'
-    }},
-    { $unwind: '$exp' },
-    { $match: { 'exp.visibility': { $ne: 'private' } } },
-    { $addFields: {
-      _planCost: { $reduce: {
-        input: '$plan',
-        initialValue: 0,
-        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-      }},
-      _completedCount: { $size: { $filter: {
-        input: '$plan',
-        cond: { $eq: ['$$this.complete', true] }
-      }}},
-      _totalCount: { $size: '$plan' },
-      _userCollaborators: { $filter: {
-        input: '$permissions',
-        cond: { $eq: ['$$this.entity', 'user'] }
-      }}
-    }},
-    { $addFields: {
-      _completionRate: { $cond: {
-        if: { $gt: ['$_totalCount', 0] },
-        then: { $divide: ['$_completedCount', '$_totalCount'] },
-        else: 0
-      }}
-    }},
-    { $group: {
-      _id: '$experience',
-      co_occurrence_count: { $sum: 1 },
-      avg_completion_rate: { $avg: '$_completionRate' },
-      collaborator_ids: { $addToSet: '$_userCollaborators._id' },
-      latest_planned_date: { $max: '$planned_date' },
-      avg_cost: { $avg: '$_planCost' },
-      experience_name: { $first: '$exp.name' },
-      destination_id: { $first: '$exp.destination' },
-      activity_types: { $first: '$exp.experience_type' },
-      plan_item_types: { $first: '$exp.plan_items.activity_type' },
-      photos: { $first: '$exp.photos' }
-    }},
-    { $lookup: {
-      from: 'destinations',
-      localField: 'destination_id',
-      foreignField: '_id',
-      as: 'dest'
-    }},
-    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
-    { $lookup: {
-      from: 'photos',
-      let: {
-        photoId: { $let: {
-          vars: {
-            defaultEntry: { $arrayElemAt: [{ $filter: { input: '$photos', as: 'p', cond: { $eq: ['$$p.default', true] } } }, 0] },
-            firstEntry: { $arrayElemAt: ['$photos', 0] }
-          },
-          in: { $ifNull: ['$$defaultEntry.photo', '$$firstEntry.photo'] }
-        }}
-      },
-      pipeline: [
-        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
-        { $project: { url: 1 } }
-      ],
-      as: 'photo'
-    }},
-    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
-    { $sort: { co_occurrence_count: -1 } },
-    { $limit: 20 }
-  ];
-
-  const results = await Plan.aggregate(pipeline);
-
-  logger.debug('[bienbot-context] findCoOccurringExperiences', {
-    similarUserCount: similarUsers.length,
-    resultCount: results.length
-  });
-
-  return results.map(r => {
-    const flatCollabs = (r.collaborator_ids || []).flat().flat();
-    const uniqueCollabs = [...new Set(flatCollabs.map(id => id?.toString()).filter(Boolean))];
-
-    const allTypes = [...new Set([
-      ...(r.activity_types || []),
-      ...(r.plan_item_types || []).filter(Boolean)
-    ])];
-
-    return {
-      experience_id: r._id,
-      experience_name: r.experience_name,
-      destination_name: r.dest?.name || 'Unknown',
-      destination_id: r.destination_id,
-      activity_types: allTypes,
-      cost_estimate: Math.round(r.avg_cost || 0),
-      co_occurrence_count: r.co_occurrence_count,
-      avg_completion_rate: r.avg_completion_rate || 0,
-      collaborator_count: uniqueCollabs.length,
-      latest_planned_date: r.latest_planned_date,
-      default_photo_url: r.photo?.url || null
-    };
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Popularity-based fallback: used when collaborative filtering yields no results
-// (e.g. no activity_types provided, new user, or sparse plan data)
-// ---------------------------------------------------------------------------
-
-/**
- * Find popular public experiences ranked by plan count.
- * Returns the same candidate shape as findCoOccurringExperiences.
- * Supports destination and max_cost filters; cross_destination flag is ignored
- * (query is always cross-destination by default).
- * @param {Object} filters - { destination_id, destination_name, max_cost }
- * @param {string} userId - Exclude plans owned by this user
- * @returns {Promise<Array>}
- */
-async function findPopularExperiences(filters, userId) {
-  const Plan = require('../models/plan');
-  const { Types } = require('mongoose');
-
-  const pipeline = [
-    { $match: { user: { $ne: new Types.ObjectId(userId) } } },
-    { $lookup: {
-      from: 'experiences',
-      localField: 'experience',
-      foreignField: '_id',
-      as: 'exp'
-    }},
-    { $unwind: '$exp' },
-    { $match: { 'exp.visibility': { $ne: 'private' } } }
-  ];
-
-  // Optional destination filter
-  const shouldFilterDestination = !filters.cross_destination &&
-    (filters.destination_id || filters.destination_name);
-
-  if (shouldFilterDestination) {
-    if (filters.destination_id) {
-      pipeline.push({ $match: { 'exp.destination': new Types.ObjectId(filters.destination_id) } });
-    } else if (filters.destination_name) {
-      const nameRegex = new RegExp(filters.destination_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      pipeline.push(
-        { $lookup: { from: 'destinations', localField: 'exp.destination', foreignField: '_id', as: 'dest_filter' } },
-        { $unwind: '$dest_filter' },
-        { $match: { 'dest_filter.name': nameRegex } }
-      );
-    }
-  }
-
-  // Optional cost filter
-  if (filters.max_cost) {
-    pipeline.push(
-      { $addFields: {
-        _planCostFilter: { $reduce: {
-          input: '$plan',
-          initialValue: 0,
-          in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-        }}
-      }},
-      { $match: { _planCostFilter: { $lte: filters.max_cost } } }
-    );
-  }
-
-  pipeline.push(
-    { $addFields: {
-      _planCost: { $reduce: {
-        input: '$plan',
-        initialValue: 0,
-        in: { $add: ['$$value', { $ifNull: ['$$this.cost', 0] }] }
-      }},
-      _completedCount: { $size: { $filter: {
-        input: '$plan',
-        cond: { $eq: ['$$this.complete', true] }
-      }}},
-      _totalCount: { $size: '$plan' }
-    }},
-    { $addFields: {
-      _completionRate: { $cond: {
-        if: { $gt: ['$_totalCount', 0] },
-        then: { $divide: ['$_completedCount', '$_totalCount'] },
-        else: 0
-      }}
-    }},
-    { $group: {
-      _id: '$experience',
-      co_occurrence_count: { $sum: 1 },
-      avg_completion_rate: { $avg: '$_completionRate' },
-      latest_planned_date: { $max: '$planned_date' },
-      avg_cost: { $avg: '$_planCost' },
-      experience_name: { $first: '$exp.name' },
-      destination_id: { $first: '$exp.destination' },
-      activity_types: { $first: '$exp.experience_type' },
-      photos: { $first: '$exp.photos' }
-    }},
-    { $lookup: {
-      from: 'destinations',
-      localField: 'destination_id',
-      foreignField: '_id',
-      as: 'dest'
-    }},
-    { $unwind: { path: '$dest', preserveNullAndEmptyArrays: true } },
-    { $lookup: {
-      from: 'photos',
-      let: { photoId: { $let: {
-        vars: {
-          defaultEntry: { $arrayElemAt: [{ $filter: { input: '$photos', as: 'p', cond: { $eq: ['$$p.default', true] } } }, 0] },
-          firstEntry: { $arrayElemAt: ['$photos', 0] }
-        },
-        in: { $ifNull: ['$$defaultEntry.photo', '$$firstEntry.photo'] }
-      }} },
-      pipeline: [
-        { $match: { $expr: { $eq: ['$_id', '$$photoId'] } } },
-        { $project: { url: 1 } }
-      ],
-      as: 'photo'
-    }},
-    { $unwind: { path: '$photo', preserveNullAndEmptyArrays: true } },
-    { $sort: { co_occurrence_count: -1 } },
-    { $limit: 20 }
-  );
-
-  const results = await Plan.aggregate(pipeline);
-
-  logger.debug('[bienbot-context] findPopularExperiences', {
-    userId,
-    filters,
-    resultCount: results.length
-  });
-
-  return results.map(r => ({
-    experience_id: r._id,
-    experience_name: r.experience_name,
-    destination_name: r.dest?.name || 'Unknown',
-    destination_id: r.destination_id,
-    activity_types: r.activity_types || [],
-    cost_estimate: Math.round(r.avg_cost || 0),
-    co_occurrence_count: r.co_occurrence_count,
-    avg_completion_rate: r.avg_completion_rate || 0,
-    collaborator_count: 0,
-    latest_planned_date: r.latest_planned_date,
-    default_photo_url: r.photo?.url || null
-  }));
-}
 
 module.exports = {
+  renderAttentionBlock,
+  computePlanProximityTag,
+  formatSignalBlock,
   buildDestinationContext,
   buildExperienceContext,
   buildUserPlanContext,
@@ -2875,5 +1991,6 @@ module.exports = {
   findSimilarUsers,
   findCoOccurringExperiences,
   findPopularExperiences,
+  buildInlineDetailSummary,
   formatDiscoveryContextBlock
 };

@@ -4,8 +4,9 @@
  * @module ai/functions/translate
  */
 
-import { AI_TASKS, SYSTEM_PROMPTS } from '../constants';
+import { AI_TASKS } from '../constants';
 import { complete } from '../complete';
+import { resolveSystemPrompt } from './_shared';
 
 /**
  * Translate travel content to another language
@@ -19,9 +20,13 @@ import { complete } from '../complete';
  * @returns {Promise<string>} Translated text
  */
 export async function translate(text, targetLanguage, options = {}) {
+  if (typeof targetLanguage !== 'string' || !targetLanguage.trim()) {
+    throw new Error('translate: targetLanguage is required');
+  }
+
   const { sourceLanguage = 'auto-detect' } = options;
 
-  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.TRANSLATE]) || SYSTEM_PROMPTS[AI_TASKS.TRANSLATE];
+  const systemPrompt = resolveSystemPrompt(AI_TASKS.TRANSLATE, options);
 
   const messages = [
     { role: 'system', content: systemPrompt },

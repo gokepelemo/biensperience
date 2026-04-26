@@ -508,6 +508,36 @@ async function updateUser(req, res, next) {
         prefs.messages = m;
       }
 
+      // defaultTravelOrigin: geocode a new string value, or clear when null/empty
+      if (Object.prototype.hasOwnProperty.call(p, 'defaultTravelOrigin')) {
+        if (p.defaultTravelOrigin === null || p.defaultTravelOrigin === '') {
+          prefs.defaultTravelOrigin = null;
+        } else if (typeof p.defaultTravelOrigin === 'string' && p.defaultTravelOrigin.trim().length >= 2) {
+          const originQuery = p.defaultTravelOrigin.trim().substring(0, 200);
+          try {
+            const geocodedOrigin = await geocodeAddress(originQuery);
+            if (geocodedOrigin) {
+              prefs.defaultTravelOrigin = {
+                displayName: geocodedOrigin.displayName,
+                city: geocodedOrigin.city,
+                state: geocodedOrigin.state,
+                country: geocodedOrigin.country,
+                countryCode: geocodedOrigin.countryCode,
+                postalCode: geocodedOrigin.postalCode,
+                lat: geocodedOrigin.latitude,
+                lng: geocodedOrigin.longitude
+              };
+            } else {
+              backendLogger.warn('defaultTravelOrigin geocoding returned no results', {
+                userId: userId.toString(), query: originQuery
+              });
+            }
+          } catch (e) {
+            backendLogger.warn('Failed to geocode defaultTravelOrigin', { error: e?.message });
+          }
+        }
+      }
+
       // Only set preferences if at least one valid value present
       if (Object.keys(prefs).length > 0) {
         validatedUpdateData.preferences = prefs;
@@ -978,6 +1008,36 @@ async function updateUserAsAdmin(req, res) {
         prefs.messages = m;
       }
 
+      // defaultTravelOrigin: geocode a new string value, or clear when null/empty
+      if (Object.prototype.hasOwnProperty.call(p, 'defaultTravelOrigin')) {
+        if (p.defaultTravelOrigin === null || p.defaultTravelOrigin === '') {
+          prefs.defaultTravelOrigin = null;
+        } else if (typeof p.defaultTravelOrigin === 'string' && p.defaultTravelOrigin.trim().length >= 2) {
+          const originQuery = p.defaultTravelOrigin.trim().substring(0, 200);
+          try {
+            const geocodedOrigin = await geocodeAddress(originQuery);
+            if (geocodedOrigin) {
+              prefs.defaultTravelOrigin = {
+                displayName: geocodedOrigin.displayName,
+                city: geocodedOrigin.city,
+                state: geocodedOrigin.state,
+                country: geocodedOrigin.country,
+                countryCode: geocodedOrigin.countryCode,
+                postalCode: geocodedOrigin.postalCode,
+                lat: geocodedOrigin.latitude,
+                lng: geocodedOrigin.longitude
+              };
+            } else {
+              backendLogger.warn('defaultTravelOrigin geocoding returned no results', {
+                userId: userId.toString(), query: originQuery
+              });
+            }
+          } catch (e) {
+            backendLogger.warn('Failed to geocode defaultTravelOrigin', { error: e?.message });
+          }
+        }
+      }
+
       // Only set preferences if at least one valid value present
       if (Object.keys(prefs).length > 0) {
         validatedUpdateData.preferences = prefs;
@@ -1020,6 +1080,16 @@ async function updateUserAsAdmin(req, res) {
       });
     } catch (err) {
       backendLogger.error('Failed to broadcast user:updated (admin) event', { error: err.message, userId: user._id.toString() });
+    }
+
+    // Recompute content signals for all experiences this user owns if curator
+    // flag is now enabled — trustScore has a curator boost that needs refreshing.
+    // Fire-and-forget; never delays the response.
+    const curatorFlagEnabled = Array.isArray(validatedUpdateData.feature_flags) &&
+      validatedUpdateData.feature_flags.some(f => f.flag === 'curator' && f.enabled);
+    if (curatorFlagEnabled) {
+      const { recomputeSignalsForOwner } = require('../../utilities/hidden-signals');
+      recomputeSignalsForOwner(userId);
     }
 
     return successResponse(res, { user }, 'User updated by admin successfully');

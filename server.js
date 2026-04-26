@@ -38,9 +38,14 @@ seedAIProviders()
 
 // Seed intent corpus from JSON on first boot and sync new utterances (async, non-blocking)
 seedIntentCorpus()
-  .then(({ seeded, synced }) => {
+  .then(({ seeded, synced, migrated }) => {
     if (seeded > 0) {
       backendLogger.info('Intent corpus seeded', { intents: seeded });
+    }
+    if (migrated > 0) {
+      const { resetManager } = require('./utilities/bienbot-intent-classifier');
+      resetManager();
+      backendLogger.info('Intent corpus migrated', { migrated });
     }
     if (synced > 0) {
       // New utterances synced — force NLP model retrain so they take effect
@@ -52,6 +57,30 @@ seedIntentCorpus()
   .catch(err => {
     backendLogger.warn('Intent corpus seed skipped', { error: err.message });
   });
+
+// Start intent-classifier retrain scheduler (no-op when slot-fill flag is off).
+(async () => {
+  try {
+    const { __test__: classifierInternals } = require('./utilities/bienbot-intent-classifier');
+    const isSlotFillEnabled = classifierInternals && classifierInternals.isSlotFillEnabled;
+    const enabled = isSlotFillEnabled ? await isSlotFillEnabled() : false;
+    if (!enabled) {
+      backendLogger.info('Intent retrain scheduler skipped (slot-fill disabled)');
+      return;
+    }
+    const IntentClassifierConfig = require('./models/intent-classifier-config');
+    const config = await IntentClassifierConfig.getConfig();
+    const { start: startScheduler } = require('./utilities/bienbot-intent-retrain-scheduler');
+    await startScheduler({
+      minChurnEvents: config.retrain_min_churn_events,
+      minIntervalSeconds: config.retrain_min_interval_seconds,
+      deltaThreshold: config.retrain_delta_threshold
+    });
+    backendLogger.info('Intent retrain scheduler started');
+  } catch (err) {
+    backendLogger.warn('Intent retrain scheduler failed to start', { error: err.message });
+  }
+})();
 
 // Update exchange rates on server start (async, non-blocking)
 updateExchangeRates()

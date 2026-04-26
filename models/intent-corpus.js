@@ -42,6 +42,12 @@ const intentCorpusSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    corpus_version: {
+      type: String,
+      enum: ['v1', 'v2'],
+      default: 'v1',
+      index: true
+    },
     created_by: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'

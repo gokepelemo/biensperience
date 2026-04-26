@@ -4,8 +4,9 @@
  * @module ai/functions/autocomplete
  */
 
-import { AI_TASKS, SYSTEM_PROMPTS } from '../constants';
+import { AI_TASKS } from '../constants';
 import { complete } from '../complete';
+import { resolveSystemPrompt } from './_shared';
 
 /**
  * Autocomplete text with AI suggestions
@@ -21,7 +22,7 @@ import { complete } from '../complete';
 export async function autocomplete(text, options = {}) {
   const { context = '', maxLength = 100 } = options;
 
-  const systemPrompt = (options.prompts && options.prompts[AI_TASKS.AUTOCOMPLETE]) || SYSTEM_PROMPTS[AI_TASKS.AUTOCOMPLETE];
+  const systemPrompt = resolveSystemPrompt(AI_TASKS.AUTOCOMPLETE, options);
 
   const messages = [
     { role: 'system', content: systemPrompt },

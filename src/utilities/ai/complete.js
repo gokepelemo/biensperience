@@ -23,7 +23,11 @@ const AI_API_BASE = '/api/ai';
  * @param {number} [options.temperature] - Temperature (0-1)
  * @param {number} [options.maxTokens] - Max output tokens
  * @param {string} [options.task] - Task type for routing
- * @param {Object} [options.prompts] - Optional prompts override (not used in backend proxy)
+ *
+ * Note: `options.prompts` is intentionally not forwarded here. The high-level
+ * function modules (functions/*.js) resolve prompts client-side and bake them
+ * into the messages array before calling complete().
+ *
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string}>}
  */
 export async function complete(messages, options = {}) {

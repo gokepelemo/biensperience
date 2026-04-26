@@ -453,10 +453,40 @@ All admin endpoints require `super_admin` role + `ai_admin` feature flag.
 
 ## NLP.js — Local Intent Classification
 
-**File:** `utilities/bienbot-intent-classifier.js`
+**Orchestrator:** `utilities/bienbot-intent-classifier.js`
+**Popularity scorer:** `utilities/bienbot-intent-popularity-scorer.js`
+**Entity registry:** `utilities/bienbot-intent-entity-registry.js`
+**Retrain scheduler:** `utilities/bienbot-intent-retrain-scheduler.js`
 **Corpus (seed):** `utilities/bienbot-intent-corpus.json`
 **Corpus (runtime):** `IntentCorpus` model (MongoDB)
 **Package:** `node-nlp-rn` (NLP.js for React Native / Node.js runtime)
+
+### Deployment Toggle: `nlp_slot_fill_enabled`
+
+Process-wide (evaluated once at classifier boot). Not a per-user feature flag — all `/api/bienbot/*` endpoints are already gated by the existing `ai_features` user flag. Resolution order:
+
+1. `NLP_SLOT_FILL_V2=true` / `NLP_SLOT_FILL_V2=false` env var (highest priority)
+2. `IntentClassifierConfig.nlp_slot_fill_enabled` boolean (singleton, admin-editable)
+3. Default: `false`
+
+- **OFF (default):** literal corpus; regex-only `destination_name` / `experience_name` extraction.
+- **ON:** slot-filled corpus (`%destination_name%`, `%experience_name%`); top-K NER via `addNamedEntityText` registered from DB; regex fallback for long tail.
+
+Both model states coexist on disk because the toggle value is baked into the cache key along with the corpus hash and entity-registry composition fingerprint.
+
+### Retrain Triggers
+
+The scheduler subscribes to entity churn events (`plan:created`, `plan:deleted`, `destination:*`, `experience:*`, `user:favorite_*`) and retrains when all three thresholds are met:
+
+- `retrain_min_churn_events` (default 25)
+- `retrain_min_interval_seconds` (default 3600)
+- `retrain_delta_threshold` (default 0.10 — Jaccard overlap of top-K IDs)
+
+All three live on `IntentClassifierConfig`. The scheduler is wired in `server.js` and stays dormant when slot-fill is OFF.
+
+### Corpus Versioning
+
+The JSON corpus file declares a `version` field (currently `v2`). When the seeder sees non-custom DB entries with an older `corpus_version`, it overwrites them with the new utterances and bumps the version. Custom entries (`is_custom: true`, admin-edited) are never overwritten.
 
 ### Why NLP.js
 
@@ -515,7 +545,7 @@ The runtime corpus is stored in the `IntentCorpus` model, enabling admins to add
 }
 ```
 
-On startup, if the DB corpus is empty, `utilities/bienbot-corpus-seeder.js` populates it from the JSON seed file. The JSON file serves as the canonical seed; the DB is the runtime source of truth.
+On startup, if the DB corpus is empty, `utilities/intent-corpus-seeder.js` populates it from the JSON seed file. On a `corpus_version` bump, non-custom entries are overwritten with the new utterances; same-version boots merge in any new utterances. Custom entries are never modified. The JSON file serves as the canonical seed; the DB is the runtime source of truth.
 
 ### Classification Logging
 
@@ -595,11 +625,11 @@ NLP.js generalises from training examples — the model learns word patterns and
 
 ### Entity Extraction
 
-| Entity | Method | Notes |
-|--------|--------|-------|
-| `user_email` | NLP.js regex entity + fallback regex | Matches standard email patterns |
-| `destination_name` | Heuristic regex patterns | Extracts capitalised nouns after prepositions (`about`, `in`, `to`, `for`) |
-| `experience_name` | NLP.js slot filling + quoted string fallback | Looks for quoted strings |
+| Entity | Method (slot-fill OFF) | Method (slot-fill ON) | Notes |
+|--------|------------------------|-----------------------|-------|
+| `user_email` | NLP.js regex entity | NLP.js regex entity | Matches standard email patterns |
+| `destination_name` | Heuristic regex (capitalised-after-preposition) | Top-K `addNamedEntityText` + regex long tail | ON handles lowercase and multi-word names via DB-derived top-K |
+| `experience_name` | Quoted-string regex + heuristic | Top-K `addNamedEntityText` + quoted-string regex long tail | ON adds registry-backed matches alongside regex |
 | `plan_item_texts` | Comma/and-separated list parsing | Only for `ADD_PLAN_ITEMS` intent |
 | `tip_content` | Content after "tip:"/"tip about" extraction | Only for `ADD_DESTINATION_TIP` intent |
 | `cost_category` | Keyword + synonym mapping | Maps hotel→accommodation, flight→transport, dinner→food, tour→activities, gear→equipment |
@@ -638,6 +668,42 @@ To add a new intent:
 4. **Restart the server** — the model retrains automatically on startup.
 
 Add at least 5–10 diverse utterances per intent for reliable classification.
+
+---
+
+## LLM Structured Output
+
+`executeAIRequest` in `utilities/ai-gateway.js` accepts a `schema` option that routes to provider-native structured output:
+
+- **Anthropic:** synthesises a tool from the schema and forces `tool_choice: { type: 'tool', name: schema.name }`. Returns the tool `input` as `result.content` (already an object — no JSON.parse needed).
+- **OpenAI:** passes `response_format: { type: 'json_schema', strict: true, json_schema: {...} }`. Parses the JSON string into an object and returns as `result.content`.
+- **Other providers / schema omitted:** falls back to the ad-hoc JSON-parse path (unchanged).
+
+```javascript
+const result = await executeAIRequest({
+  messages: [...],
+  task: 'intent_classification',
+  user,
+  options: { maxTokens: 200, temperature: 0 },
+  schema: {
+    name: 'classify_intent',
+    description: 'Classify a user message into an intent',
+    json_schema: {
+      type: 'object',
+      properties: {
+        intent: { type: 'string', enum: [...] },
+        confidence: { type: 'number', minimum: 0, maximum: 1 }
+      },
+      required: ['intent', 'confidence'],
+      additionalProperties: false
+    }
+  }
+});
+
+// result.content is already the parsed object — no JSON.parse needed.
+```
+
+In-tree consumers: `bienbot-intent-classifier.js` (LLM fallback), `bienbot-session-summarizer.js`.
 
 ---
 
@@ -824,7 +890,7 @@ function MyAIComponent({ destination }) {
 |------|---------|
 | `utilities/bienbot-intent-classifier.js` | NLP.js neural network for local intent classification |
 | `utilities/bienbot-intent-corpus.json` | Training utterances for each intent (seed data) |
-| `utilities/bienbot-corpus-seeder.js` | Seeds the IntentCorpus model from the JSON file on startup |
+| `utilities/intent-corpus-seeder.js` | Seeds the IntentCorpus model from the JSON file on startup; migrates non-custom entries on `corpus_version` bumps |
 | `models/intent-corpus.js` | MongoDB-backed corpus (runtime source of truth) |
 | `models/intent-classifier-config.js` | Singleton config (confidence thresholds, LLM fallback toggle, log retention) |
 | `models/intent-classification-log.js` | Per-classification log entries with LLM reclassification fields |
@@ -1223,7 +1289,7 @@ The Messages tab (`MessagesModal`) uses Stream Chat for user-to-user and group m
 
 #### Chat Drawer
 
-BienBot is accessed via the floating BienBotTrigger button on entity pages. It opens a slide-out panel with entity-aware context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
+BienBot is accessed via the floating BienBotTrigger button rendered globally across the entire application for all authenticated users. It opens a slide-out panel with auto-detected or user-profile context and uses SSE for streaming responses. See [Chat Drawer](#chat-drawer) for full details.
 
 ---
 
@@ -1233,15 +1299,21 @@ BienBot is accessed via the floating BienBotTrigger button on entity pages. It o
 
 **File:** `src/components/BienBotTrigger/BienBotTrigger.jsx`
 
-A fixed-position floating action button (bottom-right) rendered on entity pages. Visibility conditions:
+A fixed-position floating action button (bottom-right) rendered globally in `App.jsx` for all authenticated users. The FAB returns `null` only when the user is not authenticated.
 
-- User is authenticated (`useUser()`)
-- `ai_features` feature flag is enabled (`useFeatureFlag('ai_features')`)
-- Required props are present: `entity`, `entityId`, `entityLabel`
+**Visibility and mode:**
 
-If any condition fails, the FAB returns `null` (not rendered).
+| Condition | Result |
+|---|---|
+| User not authenticated | FAB not rendered |
+| Authenticated, `ai_features` flag enabled (or super admin) | Full AI assistant mode (smiley icon) |
+| Authenticated, no `ai_features` flag | Notification-only mode (bell icon) |
 
-The FAB icon switches between a smiley-face (AI-enabled mode) and a bell (notification-only mode when `ai_features` is absent). A badge shows the count of unseen notifications when `unseenNotificationIds` is non-empty.
+A badge on the FAB shows the count of unseen notifications when `unseenNotificationIds` is non-empty.
+
+**Context detection:** The component uses `useRouteContext` to auto-detect entity context from the current route (experience, destination, plan, plan item, or user profile). Entity props (`entity`, `entityId`, `entityLabel`, `contextDescription`) are **optional overrides** used by sub-entity views such as plan item modals — when provided, they take precedence over the route-detected context.
+
+**Non-entity pages (dashboard, home, experiences list, etc.):** When the FAB is clicked on a page that has no detectable entity context (`isEntityView: false`), BienBot opens with the logged-in user's profile summary. It calls `openWithAnalysis('user', user._id, 'Your Travel Plans')`, which fetches a pre-analysis of the user's travel plans and displays it as a synthetic assistant greeting with suggested prompts.
 
 The panel is rendered into a `document.body` portal to avoid stacking-context clipping on positioned ancestor elements. The component subscribes to `bienbot:open` and `bienbot:context_updated` events on the event bus so it can be opened and context-updated programmatically from anywhere in the app.
 

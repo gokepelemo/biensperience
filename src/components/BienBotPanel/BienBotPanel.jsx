@@ -9,13 +9,12 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useNavigate, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useNavigate } from 'react-router-dom';
 import { FaBell } from 'react-icons/fa';
-import { Button, Text, Heading } from '../design-system';
-import { Tag } from '@chakra-ui/react';
+import { Text } from '../design-system';
 import useBienBot from '../../hooks/useBienBot';
+import { useInputHistory } from '../../hooks/useInputHistory';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useUser } from '../../contexts/UserContext';
 import { useData } from '../../contexts/DataContext';
 import {
@@ -25,501 +24,21 @@ import {
   getNavigationUrlForResult
 } from '../../utilities/bienbot-suggestions';
 import { logger } from '../../utilities/logger';
-import { broadcastEvent } from '../../utilities/event-bus';
-import { OperationType } from '../../utilities/plan-operations';
-import WorkflowStepCard from './WorkflowStepCard';
-import PlanSelector from './PlanSelector';
-import SuggestionList from './SuggestionList';
-import TipSuggestionList from './TipSuggestionList';
-import BienBotPhotoGallery from './BienBotPhotoGallery';
-import DiscoveryResultCard from './DiscoveryResultCard';
-import PendingActionCard from './PendingActionCard';
-import SessionHistoryView from './SessionHistoryView';
-import EntityRefList from './EntityRefList';
-import { getAttachmentUrl, applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
-import { createPlan } from '../../utilities/plans-api';
+import { decodeHtmlEntities } from '../../utilities/html-entities';
 import { eventBus } from '../../utilities/event-bus';
+import { useBienBotOptimistic } from './useBienBotOptimistic';
+import { useExecuteAction } from './useExecuteAction';
+import PendingActionsArea from './PendingActionsArea';
+import ChatInputArea from './ChatInputArea';
+import SessionHistoryView from './SessionHistoryView';
+import { applyTips as applyTipsAPI } from '../../utilities/bienbot-api';
+import { createPlan } from '../../utilities/plans-api';
 import Autocomplete from '../Autocomplete/Autocomplete';
-import ContextSwitchPrompt from '../ContextSwitchPrompt/ContextSwitchPrompt';
+import NotificationItem from './NotificationItem';
+import BienBotHeader from './BienBotHeader';
+import MessageList from './MessageList';
 import styles from './BienBotPanel.module.css';
-
-// ─── Close icon ──────────────────────────────────────────────────────────────
-
-function CloseIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M18 6L6 18M6 6l12 12"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// ─── BienBot robot icon ───────────────────────────────────────────────────────
-
-function BienBotIcon() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="9" cy="10" r="1.25" fill="currentColor" />
-      <circle cx="15" cy="10" r="1.25" fill="currentColor" />
-      <path
-        d="M8.5 15.5c1 1.5 5 1.5 7 0"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-// ─── New chat icon ──────────────────────────────────────────────────────────
-
-function NewChatIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-// ─── History icon ──────────────────────────────────────────────────────────
-
-function HistoryIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
-
-// ─── Send icon ────────────────────────────────────────────────────────────────
-
-function SendIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// ─── Share icon ─────────────────────────────────────────────────────────────
-
-function ShareIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="2" />
-      <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-      <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="2" />
-      <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
-
-// ─── Session share popover ──────────────────────────────────────────────────
-
-function SessionSharePopover({ open, onClose, sharedWith, onShare, onUnshare, isOwner, onSearchUsers }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-
-  const handleSearch = useCallback(async (query) => {
-    setSearchQuery(query);
-    if (!query || query.length < 2 || !onSearchUsers) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const users = await onSearchUsers(query);
-      // Filter out users already shared with
-      const sharedIds = new Set((sharedWith || []).map(c => c.user_id?.toString()));
-      setSearchResults((users || []).filter(u => !sharedIds.has(u._id?.toString())));
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [onSearchUsers, sharedWith]);
-
-  const handleSelect = useCallback(async (item) => {
-    if (!item?._id || isSubmitting) return;
-    setError('');
-    setIsSubmitting(true);
-    try {
-      const result = await onShare(item._id, 'viewer');
-      if (result) {
-        setSearchQuery('');
-        setSearchResults([]);
-      } else {
-        setError('Could not share. The user may not mutually follow you.');
-      }
-    } catch {
-      setError('Failed to share session.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [isSubmitting, onShare]);
-
-  if (!open) return null;
-
-  return (
-    <div className={styles.sharePopover}>
-      <div className={styles.sharePopoverHeader}>
-        <Text size="sm" style={{ fontWeight: 600 }}>Share session</Text>
-        <button type="button" className={styles.sharePopoverClose} onClick={onClose} aria-label="Close share popover">
-          <CloseIcon />
-        </button>
-      </div>
-
-      {isOwner && (
-        <div className={styles.shareForm}>
-          <Autocomplete
-            inputId="bienbot-share-search"
-            placeholder="Search mutual followers…"
-            entityType="user"
-            items={searchResults}
-            onSelect={handleSelect}
-            onSearch={handleSearch}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            showAvatar={true}
-            showMeta={true}
-            size="sm"
-            loading={isSearching}
-            emptyMessage={
-              searchQuery && searchQuery.length < 2
-                ? 'Type at least 2 characters'
-                : 'No mutual followers found'
-            }
-            disableFilter={true}
-            disabled={isSubmitting}
-          />
-        </div>
-      )}
-
-      {error && <Text size="sm" className={styles.shareError}>{error}</Text>}
-
-      {(sharedWith || []).length > 0 && (
-        <div className={styles.shareList}>
-          {sharedWith.map((collab) => (
-            <div key={collab.user_id} className={styles.shareListItem}>
-              <Text size="sm" className={styles.shareListUser}>
-                {collab.user_name || collab.user_id?.toString().slice(-6)}
-              </Text>
-              {isOwner && (
-                <button
-                  type="button"
-                  className={styles.shareRemoveButton}
-                  onClick={() => onUnshare(collab.user_id)}
-                  aria-label="Remove collaborator"
-                  title="Remove"
-                >
-                  <CloseIcon />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {(sharedWith || []).length === 0 && !isOwner && (
-        <Text size="sm" style={{ color: 'var(--color-text-tertiary)', padding: 'var(--space-2) 0' }}>
-          No collaborators yet.
-        </Text>
-      )}
-    </div>
-  );
-}
-
-SessionSharePopover.propTypes = {
-  open: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  sharedWith: PropTypes.array,
-  onShare: PropTypes.func.isRequired,
-  onUnshare: PropTypes.func.isRequired,
-  isOwner: PropTypes.bool,
-  onSearchUsers: PropTypes.func
-};
-
-// ─── Paperclip (attach) icon ──────────────────────────────────────────────────
-
-function AttachIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// PlanCard removed — plan disambiguation now handled by PlanSelector component
-
-// ─── Inline entity chip renderer ─────────────────────────────────────────────
-
-/**
- * Parse message text and replace inline JSON entity refs with clickable chips.
- * Pattern: {"_id":"...","name":"...","type":"..."} (keys in any order)
- *
- * @param {string} text - Raw message text from the LLM
- * @param {Function} navigate - React Router navigate function
- * @param {object} chipStyles - CSS module styles object
- * @returns {React.ReactNode}
- */
-// Match compact JSON entity refs embedded in LLM output
-const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
-// Placeholder token used to survive markdown parsing: \uE000entity{n}\uE001 (Private Use Area - safe through remark)
-const PLACEHOLDER_RE = /\uE000entity(\d+)\uE001/g;
-
-function buildEntityChip(ref, idx, _navigate, chipStyles) {
-  const { _id, name, type } = ref;
-  let url = null;
-  if (_id && name && type) {
-    if (type === 'destination') url = `/destinations/${_id}`;
-    else if (type === 'experience') url = `/experiences/${_id}`;
-    else if (type === 'plan') url = ref.experience_id ? `/experiences/${ref.experience_id}#plan-${_id}` : null;
-  }
-  const label = name || type || 'entity';
-  if (url) {
-    return (
-      <Link
-        key={`chip-${_id}-${idx}`}
-        to={url}
-        className={chipStyles.inlineEntityChip}
-        aria-label={`View ${type}: ${label}`}
-      >
-        {label}
-      </Link>
-    );
-  }
-  return <span key={`chip-nolink-${idx}`} className={chipStyles.inlineEntityChipNoLink}>{label}</span>;
-}
-
-function substituteChips(text, entityRefs, navigate, chipStyles) {
-  if (typeof text !== 'string') return text;
-  const parts = [];
-  let last = 0;
-  let m;
-  PLACEHOLDER_RE.lastIndex = 0;
-  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    const ref = entityRefs[parseInt(m[1], 10)];
-    if (ref) parts.push(buildEntityChip(ref, m.index, navigate, chipStyles));
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  if (parts.length === 0) return text;
-  if (parts.length === 1) return parts[0];
-  return parts.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
-}
-
-function processChildren(children, entityRefs, navigate, chipStyles) {
-  return React.Children.map(children, (child) => {
-    if (typeof child === 'string') return substituteChips(child, entityRefs, navigate, chipStyles);
-    return child;
-  });
-}
-
-function renderMessageContent(text, navigate, chipStyles, role) {
-  if (!text) return null;
-
-  // Extract entity JSON refs and replace with placeholder tokens
-  const entityRefs = [];
-  ENTITY_JSON_RE.lastIndex = 0;
-  const processedText = text.replace(ENTITY_JSON_RE, (match) => {
-    try {
-      entityRefs.push(JSON.parse(match));
-      return `\uE000entity${entityRefs.length - 1}\uE001`;
-    } catch {
-      return match;
-    }
-  });
-
-  // User messages: plain text with entity chips (no markdown parsing)
-  if (role !== 'assistant') {
-    const result = substituteChips(processedText, entityRefs, navigate, chipStyles);
-    if (!Array.isArray(result)) return result;
-    return result.map((p, i) => (typeof p === 'string' ? <React.Fragment key={i}>{p}</React.Fragment> : p));
-  }
-
-  // Assistant messages: full markdown rendering with entity chip substitution
-  const bindChip = (children) => processChildren(children, entityRefs, navigate, chipStyles);
-
-  const mdComponents = {
-    p: ({ children }) => <p>{bindChip(children)}</p>,
-    li: ({ children }) => <li>{bindChip(children)}</li>,
-    a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>,
-    pre: ({ children }) => <pre className={chipStyles.codeBlock}>{children}</pre>,
-    code: ({ children, className }) => <code className={className}>{children}</code>,
-  };
-
-  return (
-    <div className={chipStyles.markdownContent}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-        {processedText}
-      </ReactMarkdown>
-    </div>
-  );
-}
-
-// ─── Notification item ───────────────────────────────────────────────────────
-
-function NotificationItem({ notification, onView, onViewSession }) {
-  const message = notification.reason ||
-    `${notification.actor?.name || 'Someone'} added you as a collaborator to ${notification.resource?.name || 'an experience'}`;
-  const resourceId = notification.resource?.id || notification.resource?._id;
-  const isBienBotSession = notification.resource?.type === 'BienBotSession';
-
-  return (
-    <div className={styles.notificationItem}>
-      <span className={styles.notificationIcon} aria-hidden="true">
-        <FaBell size={14} />
-      </span>
-      <div className={styles.notificationContent}>
-        <Text size="sm">{message}</Text>
-        {resourceId && !isBienBotSession && (
-          <button
-            type="button"
-            className={styles.notificationViewButton}
-            onClick={() => onView(resourceId, notification._id)}
-          >
-            View
-          </button>
-        )}
-        {isBienBotSession && resourceId && (
-          <button
-            type="button"
-            className={styles.notificationViewButton}
-            onClick={() => onViewSession?.(resourceId, notification._id)}
-          >
-            View session
-          </button>
-        )}
-        {isBienBotSession && !resourceId && (
-          <button
-            type="button"
-            className={styles.notificationViewButton}
-            onClick={() => onView(null, notification._id)}
-          >
-            Dismiss
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-NotificationItem.propTypes = {
-  notification: PropTypes.shape({
-    _id: PropTypes.string,
-    reason: PropTypes.string,
-    actor: PropTypes.shape({ name: PropTypes.string }),
-    resource: PropTypes.shape({
-      id: PropTypes.string,
-      _id: PropTypes.string,
-      name: PropTypes.string
-    })
-  }).isRequired,
-  onView: PropTypes.func.isRequired,
-  onViewSession: PropTypes.func
-};
-
-// ─── Image attachment with signed URL ─────────────────────────────────────────
-
-function ImageAttachment({ attachment, sessionId, messageIndex, attachmentIndex }) {
-  const [imageUrl, setImageUrl] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!sessionId || messageIndex < 0 || attachmentIndex < 0) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await getAttachmentUrl(sessionId, messageIndex, attachmentIndex);
-        if (!cancelled && result?.url) {
-          setImageUrl(result.url);
-        }
-      } catch (err) {
-        logger.debug('[BienBotPanel] Failed to load attachment URL', { error: err.message });
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [sessionId, messageIndex, attachmentIndex]);
-
-  if (loading) {
-    return (
-      <span className={styles.attachmentBadge}>
-        <span className={styles.attachmentFilename}>{attachment.filename}</span>
-      </span>
-    );
-  }
-
-  if (imageUrl) {
-    return (
-      <div className={styles.imageAttachment}>
-        <img
-          src={imageUrl}
-          alt={attachment.filename}
-          className={styles.imageAttachmentThumb}
-          loading="lazy"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <span className={styles.attachmentBadge}>
-      <span className={styles.attachmentFilename}>{attachment.filename}</span>
-    </span>
-  );
-}
-
-ImageAttachment.propTypes = {
-  attachment: PropTypes.shape({
-    filename: PropTypes.string.isRequired,
-    mimeType: PropTypes.string,
-    s3Key: PropTypes.string
-  }).isRequired,
-  sessionId: PropTypes.string,
-  messageIndex: PropTypes.number.isRequired,
-  attachmentIndex: PropTypes.number.isRequired
-};
+import { CloseIcon, BienBotIcon } from './icons';
 
 // ─── Main BienBotPanel component ──────────────────────────────────────────────
 
@@ -530,6 +49,7 @@ ImageAttachment.propTypes = {
  * @param {boolean} props.open - Whether the panel is visible
  * @param {Function} props.onClose - Callback to close the panel
  * @param {Object|null} props.invokeContext - Entity context ({ entity, id, label }) or null for non-entity views
+ * @param {Object|null} props.baseInvokeContext - Route-only context (no override). Used solely to detect page navigations for the ContextSwitchPrompt.
  * @param {string|null} props.currentView - View identifier for non-entity pages
  * @param {boolean} props.isEntityView - Whether current page is an entity detail page
  * @param {boolean} props.notificationOnly - Whether to show notification-only mode (no chat)
@@ -555,6 +75,7 @@ export default function BienBotPanel({
   open,
   onClose,
   invokeContext,
+  baseInvokeContext = null,
   navigationSchema = null,
   currentView,
   isEntityView,
@@ -567,9 +88,14 @@ export default function BienBotPanel({
   analysisSuggestions = null,
   clearAnalysisSuggestions = null,
 }) {
+  const panelRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  // Set to true when the user explicitly sends a message so the scroll
+  // effect always jumps to the bottom, regardless of current scroll position.
+  const userSentRef = useRef(false);
   const inputValueRef = useRef('');
   const prevContextRef = useRef(null);
   // Tracks which (sessionId, entity, entityId) combos have already been reconciled
@@ -579,8 +105,6 @@ export default function BienBotPanel({
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [executingActionId, setExecutingActionId] = useState(null);
-  const executingActionRef = useRef(null);
   // Prevents duplicate plan creation if the user double-clicks "Plan this" before
   // createPlan resolves (isStreaming/isLoading are only set later, inside sendHiddenMessage).
   const isPlanningRef = useRef(false);
@@ -595,6 +119,7 @@ export default function BienBotPanel({
 
   const { user } = useUser();
   const { getPlan } = useData();
+  const broadcastOptimistic = useBienBotOptimistic();
 
   // ── Auto-resize textarea to fit content ──────────────────────────────────
   const resizeTextarea = useCallback(() => {
@@ -611,6 +136,17 @@ export default function BienBotPanel({
     if (!el) return;
     el.style.height = 'auto';
   }, []);
+
+  // ── Input history recall (ArrowUp / ArrowDown) ───────────────────────────
+  const { handleHistoryKey, resetHistory } = useInputHistory({
+    inputRef,
+    onValueChange: useCallback(() => {
+      // Sync inputValueRef with the updated textarea value, then resize.
+      inputValueRef.current = inputRef.current?.value ?? '';
+      resizeTextarea();
+    }, [resizeTextarea]),
+  });
+
   const navigate = useNavigate();
 
   const {
@@ -649,15 +185,27 @@ export default function BienBotPanel({
     fetchSessions
   } = useBienBot({ invokeContext, navigationSchema, userId: user?._id });
 
+  const { handleExecuteAction, executingActionId } = useExecuteAction({
+    pendingActions,
+    executeActions,
+    cancelAction,
+    navigate,
+    onClose,
+    broadcastOptimistic,
+    appendStructuredContent,
+    appendMessage,
+    userId: user?._id,
+  });
+
+  // ── Focus trap: keep focus inside the dialog while open ────────────────
+  useFocusTrap(panelRef, open);
+
   // ── Handle adding suggested plan items ─────────────────────────────────
   const handleAddSuggestedItems = useCallback(
     (items) => {
       if (!items?.length || isStreaming || isLoading) return;
       const itemNames = items
-        .map(i => (i.text || i.content || '')
-          .replace(/&#39;/g, "'").replace(/&apos;/g, "'")
-          .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim())
+        .map(i => decodeHtmlEntities(i.text || i.content || '').trim())
         .filter(Boolean);
       if (!itemNames.length) return;
       const msg = `Add these plan items: ${itemNames.join(', ')}`;
@@ -670,13 +218,11 @@ export default function BienBotPanel({
   const handleAddPhotos = useCallback(
     (photos, entityType, entityId) => {
       if (!photos?.length || isStreaming || isLoading) return;
-      const photoPayload = photos.map(p => ({
-        url: p.url,
-        photographer: p.photographer,
-        photographer_url: p.photographer_url,
-        unsplash_url: p.unsplash_url
-      }));
-      const msg = `Add ${photos.length} selected photo${photos.length !== 1 ? 's' : ''} to the ${entityType}`;
+      const photoLines = photos.map(p => {
+        const credit = p.photographer ? ` (by ${p.photographer}${p.photographer_url ? ` — ${p.photographer_url}` : ''})` : '';
+        return `- ${p.url}${credit}`;
+      }).join('\n');
+      const msg = `Add these ${photos.length} selected photo${photos.length !== 1 ? 's' : ''} to the ${entityType}:\n${photoLines}`;
       sendMessage(msg);
     },
     [sendMessage, isStreaming, isLoading]
@@ -922,6 +468,9 @@ export default function BienBotPanel({
 
     analysisGreetingInjectedRef.current = true;
     const content = formatAnalysisSuggestions(analysisSuggestions);
+    // Force-scroll so the greeting is always visible, even if the user had
+    // previously scrolled up in a prior conversation.
+    userSentRef.current = true;
     // replaceInitialGreeting removes any existing greeting-only messages before
     // inserting the new one, so the user never sees stale or duplicate greetings
     // when they reopen BienBot without having sent anything.
@@ -946,7 +495,7 @@ export default function BienBotPanel({
     if (clearAnalysisSuggestions) {
       clearAnalysisSuggestions();
     }
-  }, [open, analysisSuggestions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, analysisSuggestions, replaceInitialGreeting, setPriorGreeting, setSuggestedNextSteps, clearAnalysisSuggestions]);
 
   // ── Re-focus input after BienBot finishes responding ─────────────────────
   useEffect(() => {
@@ -956,17 +505,24 @@ export default function BienBotPanel({
   }, [isLoading, isStreaming, open]);
 
   // ── Detect invokeContext changes when panel opens on a different entity ──
+  // IMPORTANT: we track baseInvokeContext (route-only, no override) to detect
+  // real page navigations. Disambiguation actions (select_plan, select_destination)
+  // change invokeContextOverride in BienBotTrigger, which flows into invokeContext
+  // but NOT into baseInvokeContext. This prevents a spurious ContextSwitchPrompt
+  // when the user clicks a plan card from a resumed session while still on the
+  // same experience page (e.g. Nashville Glamping).
+  const navContext = baseInvokeContext || invokeContext;
   useEffect(() => {
-    if (!open || !invokeContext?.id) return;
+    if (!open || !navContext?.id) return;
 
     const prev = prevContextRef.current;
-    const changed = prev && (prev.id !== invokeContext.id || prev.entity !== invokeContext.entity);
+    const changed = prev && (prev.id !== navContext.id || prev.entity !== navContext.entity);
 
     // Store current as previous for next comparison (include label for ContextSwitchPrompt)
     prevContextRef.current = {
-      entity: invokeContext.entity,
-      id: invokeContext.id,
-      label: invokeContext.contextDescription || invokeContext.label || invokeContext.entity,
+      entity: navContext.entity,
+      id: navContext.id,
+      label: navContext.contextDescription || navContext.label || navContext.entity,
     };
 
     if (!changed) return;
@@ -978,11 +534,11 @@ export default function BienBotPanel({
       // context. The user can choose to continue their current conversation or switch
       // BienBot's focus to the newly navigated entity.
       const prevLabel = prev.label || prev.entity;
-      const newLabel = invokeContext.contextDescription || invokeContext.label || invokeContext.entity;
+      const newLabel = navContext.contextDescription || navContext.label || navContext.entity;
       setPendingContextSwitch({
-        entity: invokeContext.entity,
-        entityId: invokeContext.id,
-        contextDescription: invokeContext.contextDescription,
+        entity: navContext.entity,
+        entityId: navContext.id,
+        contextDescription: navContext.contextDescription,
         prevEntityLabel: prevLabel,
         newEntityLabel: newLabel,
       });
@@ -993,7 +549,7 @@ export default function BienBotPanel({
       // replaced/injected the new entity's greeting.
       resetSession();
     }
-  }, [open, invokeContext?.entity, invokeContext?.id, updateContext, resetSession]);
+  }, [open, navContext?.entity, navContext?.id, updateContext, resetSession]);
 
   // ── Reconcile a resumed session's context with the current page entity ──────
   // When the user resumes an old session while viewing a different entity, the
@@ -1084,10 +640,25 @@ export default function BienBotPanel({
 
   // ── Scroll to bottom on new messages ─────────────────────────────────────
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container || !messagesEndRef.current) return;
+
+    // Always scroll when the user explicitly sent a message
+    const forcedByUser = userSentRef.current;
+    if (forcedByUser) {
+      userSentRef.current = false;
     }
-  }, [messages]);
+
+    // Otherwise only auto-scroll if user is within ~80px of the bottom
+    const scrollFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const nearBottom = scrollFromBottom < 80;
+
+    if (forcedByUser || nearBottom) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: isStreaming ? 'auto' : 'smooth'
+      });
+    }
+  }, [messages, isStreaming]);
 
   // ── Close on Escape key ───────────────────────────────────────────────────
   useEffect(() => {
@@ -1148,6 +719,7 @@ export default function BienBotPanel({
     if (!text || isStreaming || isLoading) return;
 
     logger.debug('[BienBotPanel] Sending message', { length: text.length, hasAttachment: !!attachment });
+    userSentRef.current = true;
 
     // Detect /message slash command — routes to peer exchange (no LLM)
     const isMessageCommand = /^\/message\s/.test(text);
@@ -1167,6 +739,7 @@ export default function BienBotPanel({
     if (inputRef.current) {
       inputRef.current.value = '';
       inputValueRef.current = '';
+      resetHistory();
     }
     resetTextareaHeight();
     if (attachmentPreviewUrl) {
@@ -1174,17 +747,28 @@ export default function BienBotPanel({
       setAttachmentPreviewUrl(null);
     }
     setAttachment(null);
-  }, [isStreaming, isLoading, isSessionOwner, replyTo, sendSharedComment, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl]);
+  }, [isStreaming, isLoading, isSessionOwner, replyTo, sendSharedComment, sendMessage, attachment, resetTextareaHeight, attachmentPreviewUrl, resetHistory]);
 
-  // Keyboard submit (Enter without Shift)
+  // Keyboard submit (Enter without Shift) + input history recall (ArrowUp / ArrowDown)
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
+        return;
+      }
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Build newest-first list of user message texts from the current session.
+        // messagesRef is kept in sync with `messages` via a useEffect.
+        const history = messagesRef.current
+          .filter(m => m.role === 'user' && typeof m.content === 'string' && m.content.trim())
+          .map(m => m.content)
+          .reverse();
+        handleHistoryKey(e, history);
       }
     },
-    [handleSend]
+    [handleSend, handleHistoryKey]
   );
 
   // ── Collaborator reply — pre-fill textarea with /message slash command ──
@@ -1224,463 +808,12 @@ export default function BienBotPanel({
   );
 
   // ── Action execute/cancel ─────────────────────────────────────────────────
-  const handleExecuteAction = useCallback(
-    async (actionId) => {
-      logger.debug('[BienBotPanel] Executing action', { actionId });
-
-      // Guard against rapid double-clicks: state updates are async so we
-      // use a ref to prevent re-entry before the disabled prop propagates.
-      if (executingActionRef.current === actionId) return;
-      executingActionRef.current = actionId;
-
-      // Check if it's a navigate action (client-only, no server call)
-      const action = pendingActions.find(a => (a._id || a.id) === actionId);
-      if (action && action.type === 'navigate_to_entity') {
-        const url = action.payload?.url;
-        // Validate URL contains real IDs, not LLM placeholders like <unknown> or <experienceId>
-        if (url && !/<[^>]+>/.test(url)) {
-          navigate(url);
-          cancelAction(actionId);
-          executingActionRef.current = null;
-          return;
-        }
-        // Bad URL — cancel without navigating
-        cancelAction(actionId);
-        executingActionRef.current = null;
-        return;
-      }
-
-      // For select_plan, cancel all other select_plan actions (user picked one)
-      if (action && action.type === 'select_plan') {
-        const otherSelectPlans = pendingActions.filter(
-          a => a.type === 'select_plan' && (a._id || a.id) !== actionId
-        );
-        for (const other of otherSelectPlans) {
-          cancelAction(other._id || other.id);
-        }
-      }
-
-      // For select_destination, cancel all other select_destination actions (user picked one)
-      if (action && action.type === 'select_destination') {
-        const otherSelectDestinations = pendingActions.filter(
-          a => a.type === 'select_destination' && (a._id || a.id) !== actionId
-        );
-        for (const other of otherSelectDestinations) {
-          cancelAction(other._id || other.id);
-        }
-      }
-
-      // Show executing state on the action card
-      setExecutingActionId(actionId);
-
-      // ─── Optimistic UI updates ──────────────────────────────────────────────
-      // Fire BEFORE the API call so DOM elements already on screen reflect the
-      // change instantly — same pattern as the manual UI interactions.
-      // All events are flagged _optimistic:true. There is no rollback: if the
-      // server call fails the stale optimistic state persists until the next
-      // data refresh (acceptable for the BienBot confirmed-action flow).
-      //
-      // Strategy by action category:
-      //  • Plan item changes  → plan:operation (UPDATE_ITEM / DELETE_ITEM via
-      //    usePlanManagement's CRDT handler) + plan:item:updated for the open modal
-      //  • Plan-level deletes → plan:deleted (direct state removal)
-      //  • Plan-level updates → plan:operation UPDATE_PLAN / REORDER_ITEMS
-      //  • Completion toggles → plan:item:completed / plan:item:uncompleted
-      //    (dedicated direct-patch handler in usePlanManagement)
-      //  • Social follows     → follow:created / follow:deleted / follow:request:accepted
-      //  • Actions that need the full server response to construct a meaningful
-      //    optimistic state (create_*, sync_plan, costs, notes/details) are skipped.
-      if (action) {
-        const p = action.payload || {};
-        const sid = (v) => (v?.toString ? v.toString() : v) ?? null;
-        const now = Date.now();
-        // Build a minimal operation object compatible with usePlanManagement's
-        // plan:operation handler (no sessionId needed — dedup uses operation.id).
-        const makePlanOp = (type, payload) => ({
-          id: `bienbot_op_${now}_${Math.random().toString(36).substring(2, 6)}`,
-          type,
-          payload,
-          vectorClock: {},
-          timestamp: now
-        });
-
-        switch (action.type) {
-          // ── Completion toggle ──────────────────────────────────────────────
-          case 'mark_plan_item_complete':
-          case 'mark_plan_item_incomplete': {
-            const isComplete = action.type === 'mark_plan_item_complete';
-            const planIdStr = sid(p.plan_id);
-            const itemIdStr = sid(p.item_id);
-            if (planIdStr && itemIdStr) {
-              broadcastEvent(isComplete ? 'plan:item:completed' : 'plan:item:uncompleted', {
-                planId: planIdStr,
-                itemId: itemIdStr,
-                planItemId: itemIdStr,
-                action: isComplete ? 'item_completed' : 'item_uncompleted',
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // ── Plan item field update ─────────────────────────────────────────
-          case 'update_plan_item': {
-            const planIdStr = sid(p.plan_id);
-            const itemIdStr = sid(p.item_id);
-            if (planIdStr && itemIdStr) {
-              const changes = {};
-              if (p.text !== undefined) changes.text = p.text;
-              if (p.complete !== undefined) changes.complete = p.complete;
-              if (p.scheduled_date !== undefined) changes.scheduled_date = p.scheduled_date;
-              if (p.scheduled_time !== undefined) changes.scheduled_time = p.scheduled_time;
-              if (p.cost !== undefined) changes.cost_estimate = p.cost;
-              if (p.cost_estimate !== undefined) changes.cost_estimate = p.cost_estimate;
-              if (p.activity_type !== undefined) changes.activity_type = p.activity_type;
-              if (p.location !== undefined) changes.location = p.location;
-              if (p.url !== undefined) changes.url = p.url;
-              if (Object.keys(changes).length > 0) {
-                // Patch the plan items list immediately via CRDT operation
-                broadcastEvent('plan:operation', {
-                  planId: planIdStr,
-                  operation: makePlanOp(OperationType.UPDATE_ITEM, { itemId: itemIdStr, changes })
-                });
-                // Also update the open modal's selected item
-                broadcastEvent('plan:item:updated', {
-                  planId: planIdStr,
-                  itemId: itemIdStr,
-                  planItemId: itemIdStr,
-                  planItem: { _id: itemIdStr, ...changes },
-                  _optimistic: true,
-                  version: now
-                });
-                // Mirror completion state to the dedicated completion events so
-                // the checkbox and progress bar update via the direct-patch handler
-                if (changes.complete !== undefined) {
-                  broadcastEvent(changes.complete ? 'plan:item:completed' : 'plan:item:uncompleted', {
-                    planId: planIdStr,
-                    itemId: itemIdStr,
-                    planItemId: itemIdStr,
-                    action: changes.complete ? 'item_completed' : 'item_uncompleted',
-                    _optimistic: true,
-                    version: now
-                  });
-                }
-              }
-            }
-            break;
-          }
-
-          // ── Plan item deletion ─────────────────────────────────────────────
-          case 'delete_plan_item': {
-            const planIdStr = sid(p.plan_id);
-            const itemIdStr = sid(p.item_id);
-            if (planIdStr && itemIdStr) {
-              broadcastEvent('plan:operation', {
-                planId: planIdStr,
-                operation: makePlanOp(OperationType.DELETE_ITEM, { itemId: itemIdStr })
-              });
-            }
-            break;
-          }
-
-          // ── Plan deletion ──────────────────────────────────────────────────
-          case 'delete_plan': {
-            const planIdStr = sid(p.plan_id);
-            if (planIdStr) {
-              broadcastEvent('plan:deleted', {
-                planId: planIdStr,
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // ── Plan metadata update (date, title, notes) ──────────────────────
-          case 'update_plan': {
-            const planIdStr = sid(p.plan_id);
-            if (planIdStr) {
-              const changes = {};
-              if (p.planned_date !== undefined) changes.planned_date = p.planned_date;
-              if (p.title !== undefined) changes.title = p.title;
-              if (p.notes !== undefined) changes.notes = p.notes;
-              if (Object.keys(changes).length > 0) {
-                broadcastEvent('plan:operation', {
-                  planId: planIdStr,
-                  operation: makePlanOp(OperationType.UPDATE_PLAN, { changes })
-                });
-              }
-            }
-            break;
-          }
-
-          // ── Pin / unpin plan item ──────────────────────────────────────────
-          case 'pin_plan_item':
-          case 'unpin_plan_item': {
-            const planIdStr = sid(p.plan_id);
-            const itemIdStr = sid(p.item_id);
-            if (planIdStr && itemIdStr) {
-              const changes = { pinned: action.type === 'pin_plan_item' };
-              broadcastEvent('plan:operation', {
-                planId: planIdStr,
-                operation: makePlanOp(OperationType.UPDATE_ITEM, { itemId: itemIdStr, changes })
-              });
-              broadcastEvent('plan:item:updated', {
-                planId: planIdStr,
-                itemId: itemIdStr,
-                planItemId: itemIdStr,
-                planItem: { _id: itemIdStr, ...changes },
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // ── Unassign plan item (null assignee is safe without user details) ─
-          case 'unassign_plan_item': {
-            const planIdStr = sid(p.plan_id);
-            const itemIdStr = sid(p.item_id);
-            if (planIdStr && itemIdStr) {
-              const changes = { assignee: null };
-              broadcastEvent('plan:operation', {
-                planId: planIdStr,
-                operation: makePlanOp(OperationType.UPDATE_ITEM, { itemId: itemIdStr, changes })
-              });
-              broadcastEvent('plan:item:updated', {
-                planId: planIdStr,
-                itemId: itemIdStr,
-                planItemId: itemIdStr,
-                planItem: { _id: itemIdStr, ...changes },
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // ── Reorder plan items ─────────────────────────────────────────────
-          case 'reorder_plan_items': {
-            const planIdStr = sid(p.plan_id);
-            const itemIds = p.item_ids || [];
-            if (planIdStr && itemIds.length > 0) {
-              broadcastEvent('plan:operation', {
-                planId: planIdStr,
-                operation: makePlanOp(OperationType.REORDER_ITEMS, { itemIds })
-              });
-            }
-            break;
-          }
-
-          // ── Follow user ────────────────────────────────────────────────────
-          case 'follow_user': {
-            const followingIdStr = sid(p.user_id);
-            const followerIdStr = sid(user?._id);
-            if (followingIdStr && followerIdStr) {
-              broadcastEvent('follow:created', {
-                followingId: followingIdStr,
-                followerId: followerIdStr,
-                userId: followerIdStr,
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // ── Unfollow user ──────────────────────────────────────────────────
-          case 'unfollow_user': {
-            const followingIdStr = sid(p.user_id);
-            const followerIdStr = sid(user?._id);
-            if (followingIdStr && followerIdStr) {
-              broadcastEvent('follow:deleted', {
-                followingId: followingIdStr,
-                followerId: followerIdStr,
-                userId: followerIdStr,
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // ── Accept follow request ──────────────────────────────────────────
-          case 'accept_follow_request': {
-            const followerIdStr = sid(p.follower_id);
-            const followingIdStr = sid(user?._id);
-            if (followerIdStr && followingIdStr) {
-              broadcastEvent('follow:request:accepted', {
-                followerId: followerIdStr,
-                followingId: followingIdStr,
-                _optimistic: true,
-                version: now
-              });
-            }
-            break;
-          }
-
-          // Actions that require the full server response to construct a
-          // meaningful state update (create_*, sync_plan, notes/details,
-          // costs, collaborator adds) are handled post-execution by
-          // bienbot-api.js and need no pre-API optimistic event.
-          default:
-            break;
-        }
-      }
-
-      const result = await executeActions([actionId]);
-
-      setExecutingActionId(null);
-      // On success the action is removed from pendingActions and the card
-      // disappears on the next render — leave the ref set so any click that
-      // snuck in while the fetch was in-flight (already queued as a macrotask)
-      // is still blocked. On failure the card stays visible and the user must
-      // be able to retry, so we clear the ref only then.
-      if (!result) {
-        executingActionRef.current = null;
-      }
-
-      // Build a feedback message summarizing what happened
-      if (result?.results) {
-        const feedbackLines = [];
-        for (const actionResult of result.results) {
-          if (actionResult.success) {
-            if (actionResult.type === 'create_plan') {
-              const expName = actionResult.result?.experience?.name || '';
-              const itemCount = actionResult.result?.plan?.length || 0;
-              feedbackLines.push(
-                `\u2705 Plan created${expName ? ` for ${expName}` : ''}${itemCount > 0 ? ` with ${itemCount} item${itemCount !== 1 ? 's' : ''}` : ''}. Taking you there now\u2026`
-              );
-            } else if (actionResult.type === 'update_plan_item') {
-              // For plan item updates, summarize what changed
-              const payload = action?.payload || {};
-              const changes = [];
-              if (payload.scheduled_date) changes.push('scheduled date');
-              if (payload.scheduled_time) changes.push('scheduled time');
-              if (payload.text) changes.push('description');
-              if (payload.cost !== undefined) changes.push('cost');
-              if (payload.activity_type) changes.push('activity type');
-              if (payload.complete !== undefined) changes.push(payload.complete ? 'marked complete' : 'marked incomplete');
-              if (payload.location) changes.push('location');
-              const summary = changes.length > 0 ? changes.join(', ') : 'details';
-              feedbackLines.push(`\u2705 Plan item updated: ${summary}`);
-            } else if (actionResult.type === 'mark_plan_item_complete' || actionResult.type === 'mark_plan_item_incomplete') {
-              const isComplete = actionResult.type === 'mark_plan_item_complete';
-              const itemPayload = action?.payload || {};
-              const itemIdStr = itemPayload.item_id?.toString ? itemPayload.item_id.toString() : itemPayload.item_id;
-              const planItems = Array.isArray(actionResult.result?.plan) ? actionResult.result.plan : [];
-              const matchedItem = planItems.find(i => (i._id?.toString ? i._id.toString() : i._id) === itemIdStr);
-              const itemName = matchedItem?.text || action?.description || '';
-              feedbackLines.push(isComplete
-                ? `\u2705 ${itemName ? `"${itemName}" marked complete` : 'Plan item marked complete'}`
-                : `\u2705 ${itemName ? `"${itemName}" marked incomplete` : 'Plan item marked incomplete'}`
-              );
-            } else {
-              const entityName = actionResult.result?.name || actionResult.result?.title || actionResult.result?.content || '';
-              const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
-              const typeLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
-              feedbackLines.push(`\u2705 ${typeLabel}${entityName ? `: ${entityName}` : ''}`);
-            }
-          } else {
-            const rawLabel = (actionResult.type || '').replace(/_/g, ' ');
-            const typeLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
-            feedbackLines.push(`\u274c ${typeLabel}: ${actionResult.error || 'failed'}`);
-          }
-        }
-        if (feedbackLines.length > 0) {
-          appendMessage({
-            _id: `exec-result-${Date.now()}`,
-            role: 'assistant',
-            content: feedbackLines.join('\n'),
-            createdAt: new Date().toISOString(),
-            isActionResult: true
-          });
-        }
-
-        // Auto-navigate to newly created entities (panel stays open)
-        let navigated = false;
-        for (const actionResult of result.results) {
-          const navUrl = getNavigationUrlForResult(actionResult);
-          if (navUrl) {
-            navigate(navUrl);
-            navigated = true;
-            break; // Only navigate once
-          }
-        }
-
-        // Re-emit entity events after navigation so that page components
-        // that mount on the new route can pick them up (they may have missed
-        // the initial broadcast fired before navigate() was called).
-        if (navigated && result.results) {
-          setTimeout(() => {
-            try {
-              for (const actionResult of result.results) {
-                if (!actionResult.success) continue;
-                const entity = actionResult.result || actionResult.entity || actionResult.data;
-                if (!entity) continue;
-                switch (actionResult.type) {
-                  case 'create_plan':
-                    broadcastEvent('plan:created', {
-                      plan: entity,
-                      planId: entity._id,
-                      experienceId: entity.experience?._id || entity.experience,
-                      version: Date.now()
-                    });
-                    break;
-                  case 'update_plan':
-                  case 'add_plan_items':
-                  case 'sync_plan':
-                    broadcastEvent('plan:updated', {
-                      plan: entity,
-                      planId: entity._id || actionResult.planId,
-                      version: Date.now()
-                    });
-                    break;
-                  case 'create_experience':
-                    broadcastEvent('experience:created', { experience: entity, experienceId: entity._id });
-                    break;
-                  case 'update_experience':
-                    broadcastEvent('experience:updated', { experience: entity, experienceId: entity._id });
-                    break;
-                  case 'create_destination':
-                    broadcastEvent('destination:created', { destination: entity, destinationId: entity._id });
-                    break;
-                  case 'update_destination':
-                    broadcastEvent('destination:updated', { destination: entity, destinationId: entity._id });
-                    break;
-                  default:
-                    break;
-                }
-              }
-            } catch (e) { /* silently ignore */ }
-          }, 300);
-        }
-      }
-
-      // Contextual enrichment: suggestions/tips/photos after entity creation
-      if (result?.enrichment) {
-        appendStructuredContent(result.enrichment);
-      }
-
-      // Post-execution follow-up: LLM "what's next?" message with plan items context
-      if (result?.followUpMessage) {
-        appendMessage({
-          _id: `exec-followup-${Date.now()}`,
-          role: 'assistant',
-          content: result.followUpMessage,
-          createdAt: new Date().toISOString()
-        });
-      }
-    },
-    [executeActions, pendingActions, cancelAction, navigate, appendStructuredContent, appendMessage]
-  );
 
   const handleCancelAction = useCallback(
     (actionId) => {
       logger.debug('[BienBotPanel] Cancelling action', { actionId });
       cancelAction(actionId);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      inputRef.current?.focus();
     },
     [cancelAction]
   );
@@ -1689,10 +822,12 @@ export default function BienBotPanel({
     (actionId, description) => {
       // Cancel the action so BienBot can propose a revised one
       cancelAction(actionId);
-      // Pre-fill the input with a correction prompt
+      // Pre-fill the input with a correction prompt including the original description
       if (inputRef.current) {
-        inputRef.current.value = `Update this action: `;
+        const prefix = description ? `Update this action: ${description}` : 'Update this action: ';
+        inputRef.current.value = prefix;
         inputRef.current.focus();
+        inputRef.current.setSelectionRange(prefix.length, prefix.length);
         resizeTextarea();
       }
     },
@@ -1751,11 +886,16 @@ export default function BienBotPanel({
   // ── Backdrop click closes panel ───────────────────────────────────────────
   const handleBackdropClick = useCallback(
     (e) => {
-      if (e.target === e.currentTarget) {
-        onClose();
+      if (e.target !== e.currentTarget) return;
+      const draft = inputRef.current?.value?.trim();
+      const hasUnsaved = !!draft || !!attachment;
+      if (hasUnsaved) {
+        const ok = window.confirm('You have an unsent message. Close anyway?');
+        if (!ok) return;
       }
+      onClose();
     },
-    [onClose]
+    [onClose, attachment]
   );
 
   // ── Notification view handler ────────────────────────────────────────────
@@ -1781,6 +921,7 @@ export default function BienBotPanel({
         onMarkNotificationsSeen([notificationId]);
       }
       try {
+        userSentRef.current = true;
         await loadSession(sessionId);
         setViewMode('chat');
       } catch (e) {
@@ -1830,6 +971,7 @@ export default function BienBotPanel({
     // No session requested, or this exact session was already loaded.
     if (!initialSessionId || initialSessionLoadedRef.current === initialSessionId) return;
     initialSessionLoadedRef.current = initialSessionId;
+    userSentRef.current = true;
     loadSession(initialSessionId).catch(() => {});
 
     // Reset on cleanup so StrictMode's double-invocation and dep-change
@@ -1844,8 +986,24 @@ export default function BienBotPanel({
   useEffect(() => {
     if (!open || currentSession) return;
     fetchSessions({ status: 'active' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only re-run on `open` flip; `currentSession` and `fetchSessions` would re-trigger the fetch on every session change
   }, [open]);
+
+  // ── Resume / dismiss saved session callbacks (passed to MessageList) ────────
+  const handleResume = useCallback(() => {
+    if (!savedSession) return;
+    const sid = savedSession.sessionId;
+    setSavedSession(null);
+    userSentRef.current = true;
+    loadSession(sid).catch(() => {
+      clearPersistedSession();
+    });
+  }, [savedSession, loadSession, clearPersistedSession]);
+
+  const handleDismissResume = useCallback(() => {
+    setSavedSession(null);
+    clearPersistedSession();
+  }, [clearPersistedSession]);
 
   // Panel label from invokeContext
   const panelLabel = notificationOnly
@@ -1865,113 +1023,38 @@ export default function BienBotPanel({
 
       {/* Drawer / bottom sheet */}
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={panelLabel}
         className={`${styles.panel} ${open ? styles.open : ''}`}
       >
         {/* ── Header ─────────────────────────────────────────── */}
-        <div className={styles.header}>
-          <span className={styles.botIcon} aria-hidden="true">
-            {notificationOnly ? <FaBell size={22} /> : <BienBotIcon />}
-          </span>
-
-          <div className={styles.headerTitle}>
-            <Heading level={5} style={{ margin: 0, lineHeight: 1.3 }}>
-              {notificationOnly ? 'Notifications' : 'BienBot'}
-            </Heading>
-            {!notificationOnly && invokeContext?.label && (
-              <Text
-                size="sm"
-                className={styles.headerLabel}
-                title={invokeContext.label}
-              >
-                {invokeContext.label}
-              </Text>
-            )}
-          </div>
-
-          {!notificationOnly && (currentSession || hasSharedSessions) && (
-            <div className={styles.shareWrapper}>
-              <button
-                type="button"
-                className={styles.newChatButton}
-                onClick={() => {
-                  if (!currentSession) {
-                    // No active session — open history so the user can select a shared session
-                    fetchSessions({ status: 'active' });
-                    setViewMode('history');
-                  } else {
-                    setShareOpen(prev => !prev);
-                  }
-                }}
-                aria-label={currentSession ? 'Share session' : 'View shared sessions'}
-                title={currentSession ? 'Share session' : 'View shared sessions'}
-              >
-                <ShareIcon />
-                {currentSession && (currentSession.shared_with || []).length > 0 && (
-                  <span className={styles.shareBadge}>{currentSession.shared_with.length}</span>
-                )}
-              </button>
-              {currentSession && (
-                <SessionSharePopover
-                  open={shareOpen}
-                  onClose={() => setShareOpen(false)}
-                  sharedWith={currentSession.shared_with}
-                  onShare={shareSession}
-                  onUnshare={unshareSession}
-                  isOwner={isSessionOwner}
-                  onSearchUsers={searchMutualFollowers}
-                />
-              )}
-            </div>
-          )}
-
-          {!notificationOnly && messages.length > 0 && (
-            <button
-              type="button"
-              className={styles.newChatButton}
-              onClick={handleNewChat}
-              aria-label="Start new chat"
-              title="New chat"
-              disabled={isStreaming}
-            >
-              <NewChatIcon />
-            </button>
-          )}
-
-          {!notificationOnly && (
-            <button
-              type="button"
-              className={styles.newChatButton}
-              onClick={() => {
-                if (viewMode === 'history') {
-                  setViewMode('chat');
-                } else {
-                  fetchSessions({ status: 'active' });
-                  setViewMode('history');
-                }
-              }}
-              aria-label={viewMode === 'history' ? 'Back to chat' : 'Chat history'}
-              title={viewMode === 'history' ? 'Back to chat' : 'Chat history'}
-            >
-              <HistoryIcon />
-            </button>
-          )}
-
-          <button
-            type="button"
-            className={styles.closeButton}
-            onClick={onClose}
-            aria-label={notificationOnly ? 'Close notifications' : 'Close BienBot'}
-          >
-            <CloseIcon />
-          </button>
-        </div>
+        <BienBotHeader
+          notificationOnly={notificationOnly}
+          invokeContext={invokeContext}
+          currentSession={currentSession}
+          hasSharedSessions={hasSharedSessions}
+          isSessionOwner={isSessionOwner}
+          shareOpen={shareOpen}
+          setShareOpen={setShareOpen}
+          shareSession={shareSession}
+          unshareSession={unshareSession}
+          searchMutualFollowers={searchMutualFollowers}
+          fetchSessions={fetchSessions}
+          setViewMode={setViewMode}
+          viewMode={viewMode}
+          messagesCount={messages.length}
+          handleNewChat={handleNewChat}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          clearSession={clearSession}
+          onClose={onClose}
+        />
 
         {notificationOnly ? (
           /* ── Notification-only mode ──────────────────────────── */
-          <div className={styles.messages} aria-live="polite" aria-atomic="false">
+          <div ref={messagesContainerRef} className={styles.messages} aria-live="off" aria-atomic="false">
             {notifications.length === 0 ? (
               <div className={styles.emptyState}>
                 <Text size="sm">No notifications yet</Text>
@@ -1997,6 +1080,7 @@ export default function BienBotPanel({
             userId={user?._id?.toString()}
             onSelectSession={async (sid) => {
               try {
+                userSentRef.current = true;
                 await loadSession(sid);
                 setViewMode('chat');
               } catch {
@@ -2038,394 +1122,81 @@ export default function BienBotPanel({
             )}
 
             {/* ── Messages ───────────────────────────────────────── */}
-            <div className={styles.messages} aria-live="polite" aria-atomic="false">
-              {savedSession && !currentSession && messages.length === 0 && !isLoading ? (
-                <div className={styles.resumePrompt}>
-                  <Text size="sm">You have an unfinished conversation.</Text>
-                  <div className={styles.resumeButtons}>
-                    <Button
-                      variant="gradient"
-                      size="sm"
-                      onClick={() => {
-                        const sid = savedSession.sessionId;
-                        setSavedSession(null);
-                        loadSession(sid).catch(() => {
-                          clearPersistedSession();
-                        });
-                      }}
-                    >
-                      Continue
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSavedSession(null);
-                        clearPersistedSession();
-                      }}
-                    >
-                      New Chat
-                    </Button>
-                  </div>
-                </div>
-              ) : messages.length === 0 && !isLoading ? (
-                <div className={styles.emptyState}>
-                  <Text size="sm">{emptyStateText}</Text>
-                </div>
-              ) : (
-                messages.map((msg, msgIdx) => {
-                  const isUser = msg.role === 'user';
-                  const isAssistant = msg.role === 'assistant';
-                  const isSharedComment = msg.message_type === 'shared_comment';
-                  // A collaborator message is a shared_comment from someone other than the
-                  // current user. We use sent_by (ObjectId) for the comparison.
-                  const isCollaboratorMessage = isSharedComment && msg.sender_name &&
-                    msg.sent_by?.toString() !== user?._id?.toString();
-                  const isCurrentlyStreaming =
-                    isAssistant && isStreaming && msg === messages[messages.length - 1];
+            <MessageList
+              messages={messages}
+              isLoading={isLoading}
+              isStreaming={isStreaming}
+              currentSession={currentSession}
+              emptyStateText={emptyStateText}
+              savedSession={savedSession}
+              onResume={handleResume}
+              onDismissResume={handleDismissResume}
+              onAddSuggestedItems={handleAddSuggestedItems}
+              onAddPhotos={handleAddPhotos}
+              onAddTips={handleAddTips}
+              onViewDiscoveryResult={handleViewDiscoveryResult}
+              onPlanDiscoveryResult={handlePlanDiscoveryResult}
+              onDiscoveryEmpty={handleDiscoveryEmpty}
+              onEntityRefSelect={handleEntityRefSelect}
+              onReplyToCollaborator={handleReplyToCollaborator}
+              currentPlanItemTexts={currentPlanItemTexts}
+              currentUserId={user?._id?.toString()}
+              messagesContainerRef={messagesContainerRef}
+              messagesEndRef={messagesEndRef}
+            />
 
-                  // Skip rendering empty bubbles (no text, no structured content, no attachments)
-                  const hasContent = msg.content ||
-                    msg.structured_content?.length > 0 ||
-                    (isUser && msg.attachments?.length > 0) ||
-                    isCurrentlyStreaming;
-                  if (!hasContent) return null;
-
-                  return (
-                    <div
-                      key={msg.msg_id || msg._id || msgIdx}
-                      className={[
-                        styles.message,
-                        isSharedComment ? styles.messageSharedComment : (isUser ? styles.messageUser : styles.messageAssistant),
-                        msg.error ? styles.messageError : '',
-                        msg.isContextAck ? styles.messageContextAck : '',
-                        msg.isActionResult ? styles.messageActionResult : '',
-                        isCurrentlyStreaming ? styles.streaming : ''
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {isSharedComment && msg.sender_name && (
-                        <span className={styles.messageSenderName}>{msg.sender_name}</span>
-                      )}
-                      {msg.reply_to_preview && (
-                        <span className={styles.replyPreviewInMessage}>{msg.reply_to_preview}</span>
-                      )}
-                      {isUser && msg.attachments?.length > 0 && (
-                        <div className={styles.messageAttachments}>
-                          {msg.attachments.map((att, i) => {
-                            const isImage = att.mimeType?.startsWith('image/');
-                            if (isImage && att.s3Key) {
-                              return (
-                                <ImageAttachment
-                                  key={i}
-                                  attachment={att}
-                                  sessionId={currentSession?._id}
-                                  messageIndex={messages.indexOf(msg)}
-                                  attachmentIndex={i}
-                                />
-                              );
-                            }
-                            return (
-                              <span key={i} className={styles.attachmentBadge}>
-                                <AttachIcon />
-                                <span className={styles.attachmentFilename}>{att.filename}</span>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {renderMessageContent(msg.content, navigate, styles, msg.role)}
-                      {msg.structured_content?.length > 0 && (
-                        <div className={styles.structuredContent}>
-                          {msg.structured_content.map((block, blockIdx) => {
-                            if (block.type === 'suggestion_list') {
-                              return (
-                                <SuggestionList
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onAddSelected={handleAddSuggestedItems}
-                                  disabled={isLoading || isStreaming}
-                                  existingItemTexts={currentPlanItemTexts}
-                                />
-                              );
-                            }
-                            if (block.type === 'photo_gallery') {
-                              return (
-                                <BienBotPhotoGallery
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onAddPhotos={handleAddPhotos}
-                                  disabled={isLoading || isStreaming}
-                                />
-                              );
-                            }
-                            if (block.type === 'tip_suggestion_list') {
-                              return (
-                                <TipSuggestionList
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onAddSelected={handleAddTips}
-                                  disabled={isLoading || isStreaming}
-                                />
-                              );
-                            }
-                            if (block.type === 'discovery_result_list') {
-                              return (
-                                <DiscoveryResultCard
-                                  key={blockIdx}
-                                  data={block.data}
-                                  onView={handleViewDiscoveryResult}
-                                  onPlan={handlePlanDiscoveryResult}
-                                  onEmpty={handleDiscoveryEmpty}
-                                  disabled={isLoading || isStreaming}
-                                />
-                              );
-                            }
-                            if (block.type === 'entity_ref_list') {
-                              return (
-                                <EntityRefList
-                                  key={blockIdx}
-                                  refs={block.data?.refs || []}
-                                  onSelect={handleEntityRefSelect}
-                                />
-                              );
-                            }
-                            return null;
-                          })}
-                        </div>
-                      )}
-                      {isCollaboratorMessage && msg.msg_id && (
-                        <div className={styles.collaboratorReplyRow}>
-                          <button
-                            type="button"
-                            className={styles.collaboratorReplyButton}
-                            onClick={() => handleReplyToCollaborator(msg)}
-                            aria-label={`Reply to ${msg.sender_name}`}
-                          >
-                            ↩ Reply
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-
-              {/* Loading dots (between last user message and first assistant token) */}
-              {isLoading && !isStreaming && (
-                <div className={styles.loadingDots} aria-label="BienBot is thinking">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
+            {/* ── Screen-reader status: announce only the final assistant message ── */}
+            {!isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+              <div role="status" aria-live="polite" className={styles.srOnly}>
+                {messages[messages.length - 1].content}
+              </div>
+            )}
 
             {/* ── Pending action cards ────────────────────────────── */}
-            {pendingActions.length > 0 && (() => {
-              // Separate regular actions from workflow steps and plan/destination pickers
-              const regularActions = [];
-              const planPickerActions = [];
-              const destinationPickerActions = [];
-              const workflowGroups = new Map();
+            <PendingActionsArea
+              pendingActions={pendingActions}
+              isLoading={isLoading}
+              isStreaming={isStreaming}
+              executingActionId={executingActionId}
+              onExecute={handleExecuteAction}
+              onCancel={handleCancelAction}
+              onUpdate={handleUpdateAction}
+              onApproveStep={handleApproveStep}
+              onSkipStep={handleSkipStep}
+              onEditStep={handleEditStep}
+              onCancelWorkflow={handleCancelWorkflow}
+            />
 
-              for (const action of pendingActions) {
-                if (action.workflow_id) {
-                  const group = workflowGroups.get(action.workflow_id) || [];
-                  group.push(action);
-                  workflowGroups.set(action.workflow_id, group);
-                } else if (action.type === 'select_plan') {
-                  planPickerActions.push(action);
-                } else if (action.type === 'select_destination') {
-                  destinationPickerActions.push(action);
-                } else {
-                  regularActions.push(action);
-                }
-              }
-
-              return (
-                <div className={styles.actionsContainer}>
-                  {/* Destination picker (select_destination disambiguation) */}
-                  {destinationPickerActions.length > 0 && (
-                    <PlanSelector
-                      actions={destinationPickerActions}
-                      onExecute={handleExecuteAction}
-                      onCancel={handleCancelAction}
-                      disabled={isLoading || isStreaming}
-                    />
-                  )}
-
-                  {/* Plan picker (select_plan disambiguation) */}
-                  {planPickerActions.length > 0 && (
-                    <PlanSelector
-                      actions={planPickerActions}
-                      onExecute={handleExecuteAction}
-                      onCancel={handleCancelAction}
-                      disabled={isLoading || isStreaming}
-                    />
-                  )}
-
-                  {/* Workflow step cards */}
-                  {[...workflowGroups.entries()].map(([wfId, steps]) => (
-                    <WorkflowStepCard
-                      key={wfId}
-                      workflowId={wfId}
-                      steps={steps}
-                      onApprove={handleApproveStep}
-                      onSkip={handleSkipStep}
-                      onEdit={handleEditStep}
-                      onCancelWorkflow={handleCancelWorkflow}
-                      disabled={isLoading || isStreaming}
-                    />
-                  ))}
-
-                  {/* Regular (non-workflow) action cards */}
-                  {regularActions.map((action) => (
-                    <PendingActionCard
-                      key={action._id || action.id}
-                      action={action}
-                      onExecute={handleExecuteAction}
-                      onUpdate={handleUpdateAction}
-                      onCancel={handleCancelAction}
-                      disabled={isLoading || isStreaming}
-                      executing={executingActionId}
-                    />
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* ── Suggested action chips ───────────────────────────── */}
-            {visibleChips.length > 0 && (
-              <div className={styles.chipsContainer}>
-                {visibleChips.map((step, idx) => {
-                  const label =
-                    typeof step === 'string'
-                      ? step
-                      : step.label || step.text || '';
-                  return (
-                    <Tag.Root
-                      key={idx}
-                      variant="outline"
-                      colorPalette="purple"
-                      size="lg"
-                      className={styles.chip}
-                      onClick={() => handleChipClick(step)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleChipClick(step);
-                        }
-                      }}
-                    >
-                      <Tag.Label>{label}</Tag.Label>
-                    </Tag.Root>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* ── Input area ──────────────────────────────────────── */}
-            {attachment && (
-              <div className={styles.attachmentPreview}>
-                {attachmentPreviewUrl && (
-                  <img
-                    src={attachmentPreviewUrl}
-                    alt={attachment.name}
-                    className={styles.attachmentPreviewThumb}
-                  />
-                )}
-                <span className={styles.attachmentPreviewName}>
-                  {!attachmentPreviewUrl && <AttachIcon />}
-                  {attachment.name}
-                </span>
-                <button
-                  type="button"
-                  className={styles.attachmentRemove}
-                  onClick={handleRemoveAttachment}
-                  aria-label="Remove attachment"
-                >
-                  <CloseIcon />
-                </button>
-              </div>
-            )}
-            {replyTo && (
-              <div className={styles.replyStrip}>
-                <span className={styles.replyStripContent}>
-                  Replying to <strong>{replyTo.senderName}</strong>: {replyTo.preview}
-                </span>
-                <button
-                  type="button"
-                  className={styles.replyStripClose}
-                  onClick={() => setReplyTo(null)}
-                  aria-label="Cancel reply"
-                >
-                  <CloseIcon />
-                </button>
-              </div>
-            )}
-            {pendingContextSwitch && (
-              <ContextSwitchPrompt
-                prevEntityLabel={pendingContextSwitch.prevEntityLabel}
-                newEntityLabel={pendingContextSwitch.newEntityLabel}
-                newEntityType={pendingContextSwitch.entity}
-                onStay={() => setPendingContextSwitch(null)}
-                onSwitch={() => {
-                  switchContext(
-                    pendingContextSwitch.entity,
-                    pendingContextSwitch.entityId,
-                    pendingContextSwitch.contextDescription
-                  );
-                  setPendingContextSwitch(null);
-                }}
-              />
-            )}
-            <div className={styles.inputArea}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ALLOWED_ATTACH_TYPES}
-                className={styles.hiddenFileInput}
-                onChange={handleFileChange}
-                aria-hidden="true"
-                tabIndex={-1}
-              />
-              <button
-                type="button"
-                className={styles.attachButton}
-                onClick={handleAttachClick}
-                disabled={isStreaming || !!attachment}
-                aria-label="Attach a file"
-                title="Attach image or document"
-              >
-                <AttachIcon />
-              </button>
-              <textarea
-                ref={inputRef}
-                className={styles.textInput}
-                placeholder={placeholderText}
-                rows={1}
-                disabled={isStreaming}
-                onInput={resizeTextarea}
-                onKeyDown={handleKeyDown}
-                aria-label="Message input"
-              />
-              <Button
-                variant="primary"
-                size="md"
-                className={styles.sendButton}
-                onClick={handleSend}
-                disabled={isLoading || isStreaming}
-                aria-label="Send message"
-              >
-                <SendIcon />
-              </Button>
-            </div>
+            <ChatInputArea
+              inputRef={inputRef}
+              fileInputRef={fileInputRef}
+              visibleChips={visibleChips}
+              onChipClick={handleChipClick}
+              attachment={attachment}
+              attachmentPreviewUrl={attachmentPreviewUrl}
+              onAttachClick={handleAttachClick}
+              onFileChange={handleFileChange}
+              onRemoveAttachment={handleRemoveAttachment}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+              pendingContextSwitch={pendingContextSwitch}
+              onStaySwitch={() => setPendingContextSwitch(null)}
+              onAcceptSwitch={() => {
+                switchContext(
+                  pendingContextSwitch.entity,
+                  pendingContextSwitch.entityId,
+                  pendingContextSwitch.contextDescription
+                );
+                setPendingContextSwitch(null);
+              }}
+              placeholderText={placeholderText}
+              isStreaming={isStreaming}
+              isLoading={isLoading}
+              resizeTextarea={resizeTextarea}
+              onKeyDown={handleKeyDown}
+              onSend={handleSend}
+              allowedAttachTypes={ALLOWED_ATTACH_TYPES}
+            />
           </>
         )}
       </div>

@@ -335,6 +335,24 @@ const createPlan = asyncHandler(async (req, res) => {
           return;
         }
 
+        // Track creation first (returnActivity: true) so we can link the auto-contributor
+        // permission grant as a child activity — keeping it off the personal dashboard feed.
+        const planWithExperience = {
+          ...plan.toObject(),
+          experience: {
+            _id: experience._id,
+            name: experience.name
+          }
+        };
+        const parentActivity = await trackCreate({
+          resource: planWithExperience,
+          resourceType: 'Plan',
+          actor: req.user,
+          req,
+          reason: `Plan created for experience "${experience.name}"`,
+          returnActivity: true
+        });
+
         await enforcer.addPermission({
           resource: experience,
           permission: {
@@ -350,26 +368,26 @@ const createPlan = asyncHandler(async (req, res) => {
             requestPath: req.path,
             requestMethod: req.method
           },
-          allowSelfContributor: true
+          allowSelfContributor: true,
+          parentActivityId: parentActivity?._id || null
+        });
+      } else {
+        // No contributor permission to grant; just track plan creation.
+        const planWithExperience = {
+          ...plan.toObject(),
+          experience: {
+            _id: experience._id,
+            name: experience.name
+          }
+        };
+        trackCreate({
+          resource: planWithExperience,
+          resourceType: 'Plan',
+          actor: req.user,
+          req,
+          reason: `Plan created for experience "${experience.name}"`
         });
       }
-
-      // Track creation (non-blocking)
-      // Populate experience for activity tracking so it shows experience name instead of "Plan"
-      const planWithExperience = {
-        ...plan.toObject(),
-        experience: {
-          _id: experience._id,
-          name: experience.name
-        }
-      };
-      trackCreate({
-        resource: planWithExperience,
-        resourceType: 'Plan',
-        actor: req.user,
-        req,
-        reason: `Plan created for experience "${experience.name}"`
-      });
 
       // Log experience_planned activity for the experience activity feed
       // Only if user's profile is public

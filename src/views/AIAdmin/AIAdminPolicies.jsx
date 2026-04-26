@@ -5,17 +5,34 @@
  * token budgets, provider restrictions, and content filtering.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Flex, Badge, Stack, Input, Textarea } from '@chakra-ui/react';
-import { FaPlus, FaEdit, FaTrash, FaGlobe, FaUser } from 'react-icons/fa';
-import { Button, Card, CardHeader, CardBody, Alert, Modal } from '../../components/design-system';
-import { Text, Heading } from '../../components/design-system';
-import { Form, FormGroup, FormLabel, FormControl } from '../../components/design-system';
+import { FaPlus, FaEdit, FaTrash, FaGlobe, FaUser, FaTimes } from 'react-icons/fa';
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardBody,
+  Alert,
+  Modal,
+  Text,
+  Heading,
+  Form,
+  FormGroup,
+  FormLabel,
+  FormControl,
+  SearchInput,
+  EmptyState,
+  Pill
+} from '../../components/design-system';
 import SkeletonLoader from '../../components/SkeletonLoader/SkeletonLoader';
+import Pagination from '../../components/Pagination/Pagination';
 import { getPolicies, createPolicy, updatePolicy, deletePolicy } from '../../utilities/ai-admin-api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { logger } from '../../utilities/logger';
+
+const POLICIES_PER_PAGE = 50;
 
 const EMPTY_POLICY = {
   name: '',
@@ -37,8 +54,40 @@ export default function AIAdminPolicies() {
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [formData, setFormData] = useState(EMPTY_POLICY);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const { success: showSuccess, error: showError } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+
+  const filteredPolicies = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return policies.filter(p => {
+      if (scopeFilter !== 'all' && p.scope !== scopeFilter) return false;
+      if (!term) return true;
+      const haystack = [
+        p.name,
+        p.scope,
+        p.target?.name,
+        p.target?.email
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [policies, search, scopeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPolicies.length / POLICIES_PER_PAGE));
+  const paginatedPolicies = useMemo(() => {
+    const start = (page - 1) * POLICIES_PER_PAGE;
+    return filteredPolicies.slice(start, start + POLICIES_PER_PAGE);
+  }, [filteredPolicies, page]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [search, scopeFilter]);
+
+  // Clamp page if filtered list shrinks below current page
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -166,6 +215,13 @@ export default function AIAdminPolicies() {
           </Box>
           <SkeletonLoader width="110px" height="36px" variant="rectangle" />
         </Flex>
+        {/* Filter row */}
+        <Flex gap="var(--space-2)">
+          <SkeletonLoader width="280px" height="32px" variant="rectangle" />
+          <SkeletonLoader width="60px" height="32px" variant="rectangle" />
+          <SkeletonLoader width="70px" height="32px" variant="rectangle" />
+          <SkeletonLoader width="60px" height="32px" variant="rectangle" />
+        </Flex>
         {/* Policy cards */}
         {[1, 2].map(i => (
           <Card key={i}>
@@ -203,15 +259,28 @@ export default function AIAdminPolicies() {
     return <Alert variant="danger">{error}</Alert>;
   }
 
+  const hasActiveFilters = search.trim() !== '' || scopeFilter !== 'all';
+  const handleClearFilters = () => {
+    setSearch('');
+    setScopeFilter('all');
+  };
+
   return (
     <Stack gap="var(--space-4)">
       {ConfirmDialog}
-      <Flex justify="space-between" align="center">
+      <Flex justify="space-between" align="center" wrap="wrap" gap="var(--space-3)">
         <Box>
-          <Heading as="h2" fontSize="var(--font-size-lg)" fontWeight="var(--font-weight-semibold)">
-            AI Policies
-          </Heading>
-          <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)">
+          <Flex align="center" gap="var(--space-2)" wrap="wrap">
+            <Heading as="h2" size="heading-3">AI Policies</Heading>
+            {policies.length > 0 && (
+              <Pill variant="info">
+                {hasActiveFilters
+                  ? `${filteredPolicies.length} of ${policies.length}`
+                  : filteredPolicies.length}
+              </Pill>
+            )}
+          </Flex>
+          <Text color="var(--color-text-secondary)" fontSize="var(--font-size-sm)" mt="var(--space-1)">
             Configure guardrails, rate limits, and token budgets per user or globally.
           </Text>
         </Box>
@@ -220,17 +289,89 @@ export default function AIAdminPolicies() {
         </Button>
       </Flex>
 
-      {policies.length === 0 && (
-        <Alert variant="info">No policies configured. Create a global policy to set default guardrails.</Alert>
+      {policies.length === 0 ? (
+        <EmptyState
+          variant="generic"
+          icon="🛡️"
+          title="No policies configured"
+          description="Create a global policy to set default guardrails, rate limits, and token budgets."
+          primaryAction="New Policy"
+          onPrimaryAction={handleCreate}
+          size="md"
+          compact
+        />
+      ) : (
+        <>
+          <Card>
+            <Flex
+              align={{ base: 'stretch', md: 'center' }}
+              direction={{ base: 'column', md: 'row' }}
+              gap={{ base: 'var(--space-2)', md: 'var(--space-3)' }}
+              p="var(--space-3)"
+              bg="var(--color-bg-secondary)"
+              borderBottom="1px solid var(--color-border-light)"
+              wrap="wrap"
+            >
+              <Box flex="1" minW={{ base: '100%', md: '200px' }}>
+                <SearchInput
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onClear={() => setSearch('')}
+                  placeholder="Search policies by name, target user, or email..."
+                  size="sm"
+                  ariaLabel="Filter policies"
+                />
+              </Box>
+              <Flex gap="var(--space-1)" wrap="wrap">
+                {[
+                  { value: 'all', label: 'All' },
+                  { value: 'global', label: 'Global' },
+                  { value: 'user', label: 'User' }
+                ].map(opt => (
+                  <Button
+                    key={opt.value}
+                    variant={scopeFilter === opt.value ? 'gradient' : 'outline'}
+                    size="sm"
+                    onClick={() => setScopeFilter(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </Flex>
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  aria-label="Clear all filters"
+                >
+                  <FaTimes /> Clear
+                </Button>
+              )}
+            </Flex>
+          </Card>
+
+          {filteredPolicies.length === 0 && (
+            <EmptyState
+              variant="search"
+              title="No policies match"
+              description="Try adjusting your search or scope filter."
+              primaryAction="Clear Filters"
+              onPrimaryAction={handleClearFilters}
+              size="md"
+              compact
+            />
+          )}
+        </>
       )}
 
-      {policies.map(policy => (
+      {paginatedPolicies.map(policy => (
         <Card key={policy._id}>
           <CardHeader>
             <Flex justify="space-between" align="center" width="100%">
               <Flex align="center" gap="var(--space-3)">
                 {policy.scope === 'global' ? <FaGlobe /> : <FaUser />}
-                <Heading as="h3" fontSize="var(--font-size-md)" fontWeight="var(--font-weight-semibold)">
+                <Heading as="h3" size="heading-5">
                   {policy.name}
                 </Heading>
                 <Badge colorPalette={policy.active ? 'green' : 'gray'} variant="subtle" fontSize="var(--font-size-xs)">
@@ -283,6 +424,15 @@ export default function AIAdminPolicies() {
         </Card>
       ))}
 
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalResults={filteredPolicies.length}
+        resultsPerPage={POLICIES_PER_PAGE}
+        onPageChange={setPage}
+        variant="compact"
+      />
+
       <Modal
         show={showForm}
         onClose={() => setShowForm(false)}
@@ -290,7 +440,7 @@ export default function AIAdminPolicies() {
         centered
       >
         <Box p="var(--space-4)">
-          <Heading as="h3" fontSize="var(--font-size-lg)" mb="var(--space-4)">
+          <Heading as="h3" size="heading-3" mb="var(--space-4)">
             {editingPolicy ? 'Edit Policy' : 'Create Policy'}
           </Heading>
 
@@ -355,7 +505,7 @@ export default function AIAdminPolicies() {
               />
             </FormGroup>
 
-            <Heading as="h4" fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-semibold)">
+            <Heading as="h4" size="heading-6">
               Rate Limits
             </Heading>
 
@@ -389,7 +539,7 @@ export default function AIAdminPolicies() {
               </Box>
             </Flex>
 
-            <Heading as="h4" fontSize="var(--font-size-sm)" fontWeight="var(--font-weight-semibold)">
+            <Heading as="h4" size="heading-6">
               Token Budget
             </Heading>
 

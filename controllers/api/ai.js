@@ -13,39 +13,9 @@
 
 const logger = require('../../utilities/backend-logger');
 const { lang } = require('../../utilities/lang.constants');
-const { executeAIRequest, GatewayError } = require('../../utilities/ai-gateway');
+const { executeAIRequest, GatewayError, getProviderForTask } = require('../../utilities/ai-gateway');
 const { getApiKeyForProvider } = require('../../utilities/ai-provider-registry');
-
-// ---------------------------------------------------------------------------
-// Constants (exported for backward compatibility)
-// ---------------------------------------------------------------------------
-
-const AI_PROVIDERS = {
-  OPENAI: 'openai',
-  ANTHROPIC: 'anthropic',
-  MISTRAL: 'mistral',
-  GEMINI: 'gemini'
-};
-
-const AI_TASKS = {
-  AUTOCOMPLETE: 'autocomplete',
-  EDIT_LANGUAGE: 'edit_language',
-  IMPROVE_DESCRIPTION: 'improve_description',
-  SUMMARIZE: 'summarize',
-  GENERATE_TIPS: 'generate_tips',
-  TRANSLATE: 'translate',
-  GENERAL: 'general',
-  BIENBOT_CHAT: 'bienbot_chat',
-  BIENBOT_SUMMARIZE: 'bienbot_summarize',
-  BIENBOT_ANALYZE: 'bienbot_analyze'
-};
-
-const DEFAULT_MODELS = {
-  [AI_PROVIDERS.OPENAI]: 'gpt-4o-mini',
-  [AI_PROVIDERS.ANTHROPIC]: 'claude-3-haiku-20240307',
-  [AI_PROVIDERS.MISTRAL]: 'mistral-small-latest',
-  [AI_PROVIDERS.GEMINI]: 'gemini-1.5-flash'
-};
+const { AI_PROVIDERS, AI_TASKS, DEFAULT_MODELS } = require('../../utilities/ai-constants');
 
 // ---------------------------------------------------------------------------
 // Backward-compatible helpers (used by bienbot controller and others)
@@ -61,71 +31,40 @@ function getApiKey(provider) {
 }
 
 /**
- * Get provider for a task from env vars (backward-compatible wrapper).
- * @param {string} task
- * @returns {string}
- */
-function getProviderForTask(task) {
-  const envMap = {
-    [AI_TASKS.AUTOCOMPLETE]: 'AI_AUTOCOMPLETE_PROVIDER',
-    [AI_TASKS.EDIT_LANGUAGE]: 'AI_EDIT_PROVIDER',
-    [AI_TASKS.IMPROVE_DESCRIPTION]: 'AI_IMPROVE_PROVIDER',
-    [AI_TASKS.SUMMARIZE]: 'AI_SUMMARIZE_PROVIDER',
-    [AI_TASKS.GENERATE_TIPS]: 'AI_TIPS_PROVIDER',
-    [AI_TASKS.TRANSLATE]: 'AI_TRANSLATE_PROVIDER'
-  };
-
-  const envKey = envMap[task];
-  const taskProvider = envKey ? process.env[envKey] : null;
-  if (taskProvider && Object.values(AI_PROVIDERS).includes(taskProvider)) {
-    return taskProvider;
-  }
-  return process.env.AI_DEFAULT_PROVIDER || AI_PROVIDERS.OPENAI;
-}
-
-/**
  * Call AI provider through the gateway (backward-compatible wrapper).
  *
  * Used by bienbot controller. Pass _user in options for policy enforcement.
+ *
+ * Propagates GatewayError unchanged so callers can use instanceof checks.
  *
  * @param {string} provider - Provider name
  * @param {Array} messages - Chat messages
  * @param {Object} options - { model, temperature, maxTokens, _user, task, intent }
  * @returns {Promise<{content, usage, model, provider}>}
+ * @throws {GatewayError} When the gateway rejects the request
  */
 async function callProvider(provider, messages, options = {}) {
-  try {
-    const result = await executeAIRequest({
-      messages,
-      task: options.task || AI_TASKS.GENERAL,
-      user: options._user || null,
-      intent: options.intent || null,
-      options: {
-        provider,
-        model: options.model,
-        temperature: options.temperature,
-        maxTokens: options.maxTokens
-      },
-      entityContext: options.entityContext || null
-    });
+  const result = await executeAIRequest({
+    messages,
+    task: options.task || AI_TASKS.GENERAL,
+    user: options._user || null,
+    intent: options.intent || null,
+    options: {
+      provider,
+      model: options.model,
+      temperature: options.temperature,
+      maxTokens: options.maxTokens
+    },
+    entityContext: options.entityContext || null
+  });
 
-    // Return in the legacy format (without policyApplied)
-    return {
-      content: result.content,
-      usage: result.usage,
-      model: result.model,
-      provider: result.provider
-    };
-  } catch (err) {
-    // Convert GatewayError to plain Error for backward-compat callers
-    if (err instanceof GatewayError) {
-      const plainError = new Error(err.message);
-      plainError.code = err.code;
-      plainError.statusCode = err.statusCode;
-      throw plainError;
-    }
-    throw err;
-  }
+  // Return in the legacy format (without policyApplied)
+  return {
+    content: result.content,
+    usage: result.usage,
+    model: result.model,
+    provider: result.provider
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +88,32 @@ function handleGatewayError(error, res, userId) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Validation constants
+// ---------------------------------------------------------------------------
+
+const MAX_TEXT_LENGTH = 50000;
+const MAX_TIPS_CATEGORY_LENGTH = 200;
+const MAX_TIPS_DESTINATION_LENGTH = 200;
+const MIN_TIPS_COUNT = 1;
+const MAX_TIPS_COUNT = 20;
+const DEFAULT_TIPS_COUNT = 5;
+
+// ============================================================================
+// Helper: Prompt Resolution
+// ============================================================================
+
+/**
+ * Resolve prompt for a task: caller override → lang default → hardcoded fallback.
+ * @param {Object} options - Request options (may have .prompts sub-object)
+ * @param {string} key - Prompt key (snake_case, matches lang.constants)
+ * @param {string} defaultPrompt - Hardcoded fallback
+ * @returns {string}
+ */
+function resolvePrompt(options, key, defaultPrompt) {
+  return options?.prompts?.[key] ?? lang.current.prompts?.[key] ?? defaultPrompt;
+}
+
 // ============================================================================
 // Controller Methods
 // ============================================================================
@@ -159,7 +124,7 @@ function handleGatewayError(error, res, userId) {
  */
 exports.complete = async (req, res) => {
   try {
-    const { messages, task = AI_TASKS.GENERAL, options = {} } = req.body;
+    const { messages, task = AI_TASKS.GENERAL, options = {}, entityContext = null } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({
@@ -184,13 +149,13 @@ exports.complete = async (req, res) => {
         temperature: options.temperature,
         maxTokens: options.maxTokens
       },
-      entityContext: req.body.entityContext || null
+      entityContext
     });
 
     logger.debug('AI completion success', {
       userId: req.user._id,
       provider: result.provider,
-      tokens: result.usage.totalTokens
+      tokens: result.usage?.totalTokens ?? ((result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0))
     });
 
     return res.json({
@@ -217,9 +182,18 @@ exports.autocomplete = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.autocomplete ||
-      lang.current.prompts?.autocomplete ||
-      'You are a helpful writing assistant. Complete the given text naturally and concisely. Only provide the completion, not the original text.';
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'autocomplete',
+      'You are a helpful writing assistant. Complete the given text naturally and concisely. Only provide the completion, not the original text.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -272,11 +246,18 @@ exports.improve = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.improve ||
-      options.prompts?.improveDescription ||
-      lang.current.prompts?.improve_description ||
-      lang.current.prompts?.improveDescription ||
-      'You are a professional editor. Improve the given text to be more engaging, clear, and well-written. Maintain the original meaning and tone. Return only the improved text.';
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'improve_description',
+      'You are a professional editor. Improve the given text to be more engaging, clear, and well-written. Maintain the original meaning and tone. Return only the improved text.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -286,14 +267,19 @@ exports.improve = async (req, res) => {
     logger.info('AI improve request', {
       userId: req.user._id,
       type,
-      customPrompt: !!(options.prompts?.improve || options.prompts?.improveDescription)
+      customPrompt: !!options.prompts?.improve_description
     });
 
     const result = await executeAIRequest({
       messages,
       task: AI_TASKS.IMPROVE_DESCRIPTION,
       user: req.user,
-      options: { temperature: 0.7, maxTokens: 500 }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.7,
+        maxTokens: 500
+      }
     });
 
     return res.json({
@@ -324,9 +310,18 @@ exports.translate = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.translate ||
-      lang.current.prompts?.translate ||
-      'You are a professional translator. Translate the given text accurately while preserving meaning, tone, and style. Return only the translation.';
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'translate',
+      'You are a professional translator. Translate the given text accurately while preserving meaning, tone, and style. Return only the translation.'
+    );
 
     const sourceInfo = sourceLanguage === 'auto' ? '' : `from ${sourceLanguage} `;
     const messages = [
@@ -344,7 +339,12 @@ exports.translate = async (req, res) => {
       messages,
       task: AI_TASKS.TRANSLATE,
       user: req.user,
-      options: { temperature: 0.3, maxTokens: 1000 }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.3,
+        maxTokens: 1000
+      }
     });
 
     return res.json({
@@ -376,13 +376,25 @@ exports.summarize = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.summarize ||
-      lang.current.prompts?.summarize ||
-      'You are a skilled summarizer. Create a concise summary of the given text that captures the key points. Be clear and informative.';
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
+    // Parse and clamp maxLength to prevent NaN in arithmetic
+    const safeMaxLength = Math.min(Math.max(parseInt(maxLength, 10) || 200, 50), 1000);
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'summarize',
+      'You are a skilled summarizer. Create a concise summary of the given text that captures the key points. Be clear and informative.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Summarize the following in about ${maxLength} words or less:\n\n${text}` }
+      { role: 'user', content: `Summarize the following in about ${safeMaxLength} words or less:\n\n${text}` }
     ];
 
     logger.info('AI summarize request', {
@@ -395,7 +407,12 @@ exports.summarize = async (req, res) => {
       messages,
       task: AI_TASKS.SUMMARIZE,
       user: req.user,
-      options: { temperature: 0.5, maxTokens: Math.min(maxLength * 2, 500) }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.5,
+        maxTokens: Math.min(safeMaxLength * 2, 500)
+      }
     });
 
     return res.json({
@@ -417,7 +434,8 @@ exports.summarize = async (req, res) => {
  */
 exports.generateTips = async (req, res) => {
   try {
-    const { destination, category = 'general', count = 5, options = {} } = req.body;
+    const { destination, options = {} } = req.body;
+    let { category = 'general', count = DEFAULT_TIPS_COUNT } = req.body;
 
     if (!destination) {
       return res.status(400).json({
@@ -426,37 +444,49 @@ exports.generateTips = async (req, res) => {
       });
     }
 
-    const systemPrompt = options.prompts?.generateTips ||
-      options.prompts?.generate_tips ||
-      lang.current.prompts?.generate_tips ||
-      lang.current.prompts?.generateTips ||
-      'You are a knowledgeable travel expert. Generate practical, specific travel tips for the given destination. Format as a numbered list.';
+    // Sanitize count: clamp to integer in [1, 20]
+    const safeCount = Math.min(Math.max(parseInt(count, 10) || DEFAULT_TIPS_COUNT, MIN_TIPS_COUNT), MAX_TIPS_COUNT);
+
+    // Truncate category and destination silently if over max length
+    const safeCategory = String(category).slice(0, MAX_TIPS_CATEGORY_LENGTH);
+    const safeDestination = String(destination).slice(0, MAX_TIPS_DESTINATION_LENGTH);
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'generate_tips',
+      'You are a knowledgeable travel expert. Generate practical, specific travel tips for the given destination. Format as a numbered list.'
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Generate ${count} ${category} travel tips for ${destination}. Be specific and practical.` }
+      { role: 'user', content: `Generate ${safeCount} ${safeCategory} travel tips for ${safeDestination}. Be specific and practical.` }
     ];
 
     logger.info('AI generate-tips request', {
       userId: req.user._id,
-      destination,
-      category,
-      customPrompt: !!(options.prompts?.generateTips || options.prompts?.generate_tips)
+      destination: safeDestination,
+      category: safeCategory,
+      customPrompt: !!options.prompts?.generate_tips
     });
 
     const result = await executeAIRequest({
       messages,
       task: AI_TASKS.GENERATE_TIPS,
       user: req.user,
-      options: { temperature: 0.8, maxTokens: 800 }
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.8,
+        maxTokens: 800
+      }
     });
 
     return res.json({
       success: true,
       data: {
         tips: result.content,
-        destination,
-        category,
+        destination: safeDestination,
+        category: safeCategory,
         provider: result.provider,
         usage: result.usage
       }
@@ -471,12 +501,9 @@ exports.generateTips = async (req, res) => {
  * Check AI service availability
  */
 exports.status = async (req, res) => {
-  const providers = {
-    openai: !!getApiKeyForProvider('openai'),
-    anthropic: !!getApiKeyForProvider('anthropic'),
-    mistral: !!getApiKeyForProvider('mistral'),
-    gemini: !!getApiKeyForProvider('gemini')
-  };
+  const providers = Object.fromEntries(
+    Object.values(AI_PROVIDERS).map(name => [name, !!getApiKeyForProvider(name)])
+  );
 
   const available = Object.values(providers).some(v => v);
 

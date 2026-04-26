@@ -101,6 +101,8 @@ async function fetchCsrfToken() {
  * @param {Function} [options.onSession] - Called with session info: ({ sessionId, title }) => void
  * @param {Function} [options.onActions] - Called with pending actions: (actions: Array) => void
  * @param {Function} [options.onStructuredContent] - Called with structured content blocks: (blocks: Array) => void
+ * @param {Function} [options.onToolCallStart] - Called when the backend tool-use loop begins a tool call: ({ call_id, type, label }) => void
+ * @param {Function} [options.onToolCallEnd] - Called when a tool call finishes: ({ call_id, ok }) => void
  * @param {Function} [options.onDone] - Called on stream completion: ({ usage, intent, confidence }) => void
  * @param {Function} [options.onError] - Called on error: (error: Error) => void
  * @param {AbortSignal} [options.signal] - AbortSignal for cancellation
@@ -116,6 +118,8 @@ export async function postMessage(sessionId, message, options = {}) {
     onSession,
     onActions,
     onStructuredContent,
+    onToolCallStart,
+    onToolCallEnd,
     onDone,
     onError,
     signal
@@ -289,6 +293,14 @@ export async function postMessage(sessionId, message, options = {}) {
               if (onStructuredContent) onStructuredContent(eventData.blocks);
               break;
 
+            case 'tool_call_start':
+              if (onToolCallStart) onToolCallStart(eventData);
+              break;
+
+            case 'tool_call_end':
+              if (onToolCallEnd) onToolCallEnd(eventData);
+              break;
+
             case 'done':
               if (onDone) onDone(eventData);
               break;
@@ -392,10 +404,12 @@ export async function getSession(sessionId) {
 /**
  * Resume a past BienBot session.
  * @param {string} sessionId - Session ID
+ * @param {Object} [currentPageContext] - The entity the user is currently viewing ({ entity, id, label })
  * @returns {Promise<Object>} { session, greeting }
  */
-export async function resumeSession(sessionId) {
-  const result = await sendRequest(`${BASE_URL}/sessions/${sessionId}/resume`, "POST");
+export async function resumeSession(sessionId, currentPageContext = null) {
+  const body = currentPageContext ? { current_page_context: currentPageContext } : undefined;
+  const result = await sendRequest(`${BASE_URL}/sessions/${sessionId}/resume`, "POST", body);
 
   try {
     broadcastEvent('bienbot:session_resumed', {

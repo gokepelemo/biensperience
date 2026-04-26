@@ -31,7 +31,8 @@ export default function Preferences() {
     notificationsEnabled: prefs.notifications?.enabled !== false,
     notificationChannels: prefs.notifications?.channels || ['email', 'bienbot'],
     notificationTypes: prefs.notifications?.types || ['activity','reminder'],
-    notificationWebhooks: prefs.notifications?.webhooks || []
+    notificationWebhooks: prefs.notifications?.webhooks || [],
+    defaultTravelOriginInput: prefs.defaultTravelOrigin?.displayName || ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -75,6 +76,7 @@ export default function Preferences() {
       notificationChannels: p.notifications?.channels || prev.notificationChannels,
       notificationTypes: p.notifications?.types || prev.notificationTypes,
       notificationWebhooks: normalizedWebhooks.length > 0 ? normalizedWebhooks : prev.notificationWebhooks,
+      defaultTravelOriginInput: p.defaultTravelOrigin?.displayName || prev.defaultTravelOriginInput || ''
     }));
     // Apply theme immediately when profile loads
     if (p.theme) {
@@ -144,7 +146,8 @@ export default function Preferences() {
             bienbotDisabled: !form.notificationChannels.includes('bienbot'),
             types: form.notificationTypes,
             webhooks: form.notificationWebhooks
-          }
+          },
+          defaultTravelOrigin: form.defaultTravelOriginInput.trim() || null
         }
       };
 
@@ -295,6 +298,25 @@ export default function Preferences() {
                   <option value="public">Public</option>
                   <option value="private">Private</option>
                 </Form.Control>
+              </Form.Group>
+            </div>
+
+            <div className="form-section">
+              <div className="form-section-title">Travel</div>
+
+              <Form.Group className={styles.mb0}>
+                <Form.Label htmlFor="default-travel-origin">Default Travel Origin</Form.Label>
+                <Form.Control
+                  type="text"
+                  id="default-travel-origin"
+                  value={form.defaultTravelOriginInput}
+                  onChange={e => handleChange('defaultTravelOriginInput', e.target.value)}
+                  placeholder="e.g. New York, NY or London, UK"
+                  autoComplete="off"
+                />
+                <div className={`form-text ${styles.mt2}`}>
+                  Your default departure city or address. Used by BienBot and future transport booking flows as the starting point when planning travel to a destination.
+                </div>
               </Form.Group>
             </div>
 

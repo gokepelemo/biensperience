@@ -686,7 +686,7 @@ class PermissionEnforcer {
    * @param {boolean} options.allowSelfContributor - Allow users to add themselves as contributor (for auto-assignment)
    * @returns {Promise<Object>} - { success: boolean, error: string|null, rollbackToken: string|null }
    */
-  async addPermission({ resource, permission, actorId, reason, metadata = {}, allowSelfContributor = false }) {
+  async addPermission({ resource, permission, actorId, reason, metadata = {}, allowSelfContributor = false, parentActivityId = null }) {
     try {
       backendLogger.info('ENFORCER: addPermission called', {
         resourceId: resource?._id?.toString ? resource._id.toString() : resource?._id,
@@ -912,7 +912,8 @@ class PermissionEnforcer {
         newState,
         reason,
         metadata,
-        rollbackToken
+        rollbackToken,
+        parentActivityId
       });
 
       backendLogger.info('ENFORCER: audit log created (result)', { success: !!auditResult.success, resourceId: resource._id });
@@ -1322,7 +1323,7 @@ class PermissionEnforcer {
    * Create activity log entry
    * @private
    */
-  async _createAuditLog({ action, actor, resource, permission, previousState, newState, reason, metadata, rollbackToken }) {
+  async _createAuditLog({ action, actor, resource, permission, previousState, newState, reason, metadata, rollbackToken, parentActivityId = null }) {
     try {
       const Activity = require('../models/activity');
 
@@ -1355,6 +1356,7 @@ class PermissionEnforcer {
           requestMethod: metadata.requestMethod || null
         },
         rollbackToken,
+        parentActivityId: parentActivityId || null,
         tags: ['permission', action],
         status: 'success'
       };

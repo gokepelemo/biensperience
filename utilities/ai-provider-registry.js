@@ -172,31 +172,11 @@ function isValidModel(providerName, model, dbConfig = null) {
     return dbConfig.valid_models.includes(model);
   }
 
-  // Hardcoded fallback (from original controllers/api/ai.js)
-  const FALLBACK_VALID_MODELS = {
-    openai: [
-      'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4-turbo-preview', 'gpt-4',
-      'gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'o1-preview', 'o1-mini'
-    ],
-    anthropic: [
-      'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307',
-      'claude-3-5-sonnet-20240620', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022',
-      'claude-sonnet-4-20250514', 'claude-opus-4-5-20251101'
-    ],
-    mistral: [
-      'mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest',
-      'open-mistral-7b', 'open-mixtral-8x7b', 'open-mixtral-8x22b',
-      'codestral-latest', 'mistral-embed'
-    ],
-    gemini: [
-      'gemini-1.5-pro', 'gemini-1.5-pro-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest',
-      'gemini-1.0-pro', 'gemini-1.0-pro-latest', 'gemini-pro', 'gemini-pro-vision',
-      'gemini-2.0-flash-exp', 'gemini-exp-1206'
-    ]
-  };
-
-  const allowlist = FALLBACK_VALID_MODELS[providerName.toLowerCase()];
-  return allowlist ? allowlist.includes(model) : false;
+  // Fallback: derive from the seed defaults so the allowlist stays in sync
+  // with what gets seeded into the DB. Avoids drift from a duplicate hardcoded list.
+  const { DEFAULT_PROVIDERS } = require('./ai-seed-providers');
+  const seed = DEFAULT_PROVIDERS.find(p => p.provider === providerName.toLowerCase());
+  return !!(seed && seed.valid_models?.includes(model));
 }
 
 // ---------------------------------------------------------------------------
@@ -231,12 +211,25 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   };
   // o-series models do not support temperature (gpt-5+ still does)
   if (!isOSeries) requestBody.temperature = temperature;
-  // Enable JSON object mode for tasks that always return JSON (BienBot chat/analyze).
-  // Requires the system or user prompt to mention "JSON" — which BienBot's prompts do.
-  // Skipped for o-series models and o1/o1-mini which do not support response_format.
-  const isJsonTask = options.jsonMode === true || (typeof options.task === 'string' && options.task.startsWith('bienbot'));
-  if (isJsonTask && !isOSeries) {
-    requestBody.response_format = { type: 'json_object' };
+  // Structured output via OpenAI json_schema. Overrides the json_object mode
+  // below since a schema is stricter and we need the server to validate.
+  if (options.schema) {
+    requestBody.response_format = {
+      type: 'json_schema',
+      json_schema: {
+        name: options.schema.name,
+        strict: true,
+        schema: options.schema.json_schema
+      }
+    };
+  } else {
+    // Enable JSON object mode for tasks that always return JSON (BienBot chat/analyze).
+    // Requires the system or user prompt to mention "JSON" — which BienBot's prompts do.
+    // Skipped for o-series models and o1/o1-mini which do not support response_format.
+    const isJsonTask = options.jsonMode === true || (typeof options.task === 'string' && options.task.startsWith('bienbot'));
+    if (isJsonTask && !isOSeries) {
+      requestBody.response_format = { type: 'json_object' };
+    }
   }
 
   const response = await fetch(endpoint, {
@@ -255,8 +248,29 @@ registerProvider('openai', async (messages, options = {}, dbConfig = null) => {
   }
 
   const data = await response.json();
+  const rawContent = data.choices[0]?.message?.content || '';
+
+  if (options.schema) {
+    let parsed;
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch (err) {
+      throw new Error(`OpenAI schema response not valid JSON: ${err.message}`);
+    }
+    return {
+      content: parsed,
+      usage: {
+        inputTokens: data.usage?.prompt_tokens || 0,
+        outputTokens: data.usage?.completion_tokens || 0,
+        totalTokens: data.usage?.total_tokens || 0
+      },
+      model: data.model,
+      provider: 'openai'
+    };
+  }
+
   return {
-    content: data.choices[0]?.message?.content || '',
+    content: rawContent,
     usage: {
       inputTokens: data.usage?.prompt_tokens || 0,
       outputTokens: data.usage?.completion_tokens || 0,
@@ -292,6 +306,25 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
     }
   }
 
+  const requestBody = {
+    model,
+    system: systemMessage || undefined,
+    messages: userMessages,
+    max_tokens: maxTokens,
+    temperature
+  };
+
+  // Structured output via Anthropic tool-use: force the model to emit a single
+  // tool call whose input matches the requested JSON schema.
+  if (options.schema) {
+    requestBody.tools = [{
+      name: options.schema.name,
+      description: options.schema.description || '',
+      input_schema: options.schema.json_schema
+    }];
+    requestBody.tool_choice = { type: 'tool', name: options.schema.name };
+  }
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -299,13 +332,7 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
       'x-api-key': apiKey,
       'anthropic-version': apiVersion
     },
-    body: JSON.stringify({
-      model,
-      system: systemMessage || undefined,
-      messages: userMessages,
-      max_tokens: maxTokens,
-      temperature
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
@@ -315,6 +342,26 @@ registerProvider('anthropic', async (messages, options = {}, dbConfig = null) =>
   }
 
   const data = await response.json();
+
+  if (options.schema) {
+    const toolUse = Array.isArray(data.content)
+      ? data.content.find(c => c && c.type === 'tool_use' && c.name === options.schema.name)
+      : null;
+    if (!toolUse) {
+      throw new Error(`Anthropic schema response missing tool_use for ${options.schema.name}`);
+    }
+    return {
+      content: toolUse.input,
+      usage: {
+        inputTokens: data.usage?.input_tokens || 0,
+        outputTokens: data.usage?.output_tokens || 0,
+        totalTokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+      },
+      model: data.model,
+      provider: 'anthropic'
+    };
+  }
+
   return {
     content: data.content[0]?.text || '',
     usage: {

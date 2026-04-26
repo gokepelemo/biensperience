@@ -605,6 +605,8 @@ Return the text content followed by any structured observations.`
  */
 async function extractWordText(filePath, options = {}) {
   try {
+    const safePath = sanitizePath(filePath);
+
     let mammoth;
     try {
       mammoth = require('mammoth');
@@ -619,7 +621,7 @@ async function extractWordText(filePath, options = {}) {
       };
     }
 
-    const result = await mammoth.extractRawText({ path: filePath });
+    const result = await mammoth.extractRawText({ path: safePath });
 
     return {
       text: result.value,

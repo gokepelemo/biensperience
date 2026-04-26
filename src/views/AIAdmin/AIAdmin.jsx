@@ -7,98 +7,110 @@
  * @module views/AIAdmin
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { Box, Tabs, Flex, Text as ChakraText } from '@chakra-ui/react';
-import { FaRobot, FaShieldAlt, FaChartBar, FaRoute, FaBrain } from 'react-icons/fa';
+import { useState } from 'react';
+import { Box, Flex } from '@chakra-ui/react';
+import { FaRobot, FaShieldAlt, FaChartBar, FaRoute, FaBrain, FaCog } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext';
-import { useApp } from '../../contexts/AppContext';
-import { useToast } from '../../contexts/ToastContext';
 import { isSuperAdmin } from '../../utilities/permissions';
 import { hasFeatureFlag } from '../../utilities/feature-flags';
-import { Container, Alert } from '../../components/design-system';
+import { Container, Alert, Tabs, Text } from '../../components/design-system';
 import PageOpenGraph from '../../components/OpenGraph/PageOpenGraph';
+import PageWrapper from '../../components/PageWrapper/PageWrapper';
 import AIAdminProviders from './AIAdminProviders';
 import AIAdminPolicies from './AIAdminPolicies';
 import AIAdminUsage from './AIAdminUsage';
 import AIAdminRouting from './AIAdminRouting';
 import AIAdminClassifier from './AIAdminClassifier';
-import { logger } from '../../utilities/logger';
+
+const TABS = [
+  { value: 'providers', label: 'Providers', icon: <FaRobot /> },
+  { value: 'policies', label: 'Policies', icon: <FaShieldAlt /> },
+  { value: 'usage', label: 'Usage', icon: <FaChartBar /> },
+  { value: 'routing', label: 'Routing', icon: <FaRoute /> },
+  { value: 'classifier', label: 'Classifier', icon: <FaBrain /> }
+];
 
 export default function AIAdmin() {
   const { user } = useUser();
-  const { registerH1, updatePageTitle, clearActionButtons } = useApp();
   const [activeTab, setActiveTab] = useState('providers');
 
   const isAuthorized = user && isSuperAdmin(user) && hasFeatureFlag(user, 'ai_admin');
-
-  useEffect(() => {
-    const h1 = document.querySelector('h1');
-    if (h1) registerH1(h1);
-    updatePageTitle('AI Administration');
-    return () => clearActionButtons();
-  }, [registerH1, updatePageTitle, clearActionButtons]);
 
   if (!isAuthorized) {
     return (
       <Container>
         <PageOpenGraph title="AI Admin" description="AI gateway administration" />
-        <Alert variant="warning">
-          You do not have permission to access this page. This page requires super admin access and the ai_admin feature flag.
-        </Alert>
+        <Box mt="12">
+          <Alert variant="warning">
+            You do not have permission to access this page. This page requires super admin access and the ai_admin feature flag.
+          </Alert>
+        </Box>
       </Container>
     );
   }
 
-  const tabs = [
-    { value: 'providers', label: 'Providers', icon: <FaRobot /> },
-    { value: 'policies', label: 'Policies', icon: <FaShieldAlt /> },
-    { value: 'usage', label: 'Usage', icon: <FaChartBar /> },
-    { value: 'routing', label: 'Routing', icon: <FaRoute /> },
-    { value: 'classifier', label: 'Classifier', icon: <FaBrain /> }
-  ];
-
   return (
-    <Container>
+    <>
       <PageOpenGraph title="AI Admin" description="AI gateway administration" />
-
-      <Box py="var(--space-6)">
-        <h1 className="visually-hidden">AI Administration</h1>
-        <Tabs.Root
-          value={activeTab}
-          onValueChange={(e) => setActiveTab(e.value)}
-          variant="line"
-          size="md"
-        >
-          <Tabs.List>
-            {tabs.map(tab => (
-              <Tabs.Trigger key={tab.value} value={tab.value}>
-                <Flex align="center" gap="var(--space-2)">
-                  {tab.icon}
-                  <ChakraText>{tab.label}</ChakraText>
-                </Flex>
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
-
-          <Box pt="var(--space-6)">
-            <Tabs.Content value="providers">
-              <AIAdminProviders />
-            </Tabs.Content>
-            <Tabs.Content value="policies">
-              <AIAdminPolicies />
-            </Tabs.Content>
-            <Tabs.Content value="usage">
-              <AIAdminUsage />
-            </Tabs.Content>
-            <Tabs.Content value="routing">
-              <AIAdminRouting />
-            </Tabs.Content>
-            <Tabs.Content value="classifier">
-              <AIAdminClassifier />
-            </Tabs.Content>
+      <PageWrapper title="AI">
+        <Container>
+          <Box pt="var(--space-6)" pb="var(--space-3)">
+            <h1 style={{ marginBottom: 'var(--space-2)' }}>
+              <FaCog
+                style={{
+                  marginRight: '0.5rem',
+                  color: 'var(--color-primary)',
+                  verticalAlign: 'middle'
+                }}
+              />
+              AI
+            </h1>
+            <Text
+              color="var(--color-text-muted)"
+              fontSize="clamp(0.8125rem, 1.5vw, 0.9375rem)"
+              mb="0"
+            >
+              Configure AI providers, policies, routing rules, and the intent classifier. Review usage analytics across the platform.
+            </Text>
           </Box>
-        </Tabs.Root>
-      </Box>
-    </Container>
+
+          <Tabs
+            activeKey={activeTab}
+            onSelect={setActiveTab}
+            variant="line"
+            size="md"
+          >
+            <Tabs.List>
+              {TABS.map(tab => (
+                <Tabs.Trigger key={tab.value} value={tab.value}>
+                  <Flex align="center" gap="var(--space-2)">
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </Flex>
+                </Tabs.Trigger>
+              ))}
+            </Tabs.List>
+
+            <Box pt="var(--space-6)">
+              <Tabs.Content value="providers">
+                <AIAdminProviders />
+              </Tabs.Content>
+              <Tabs.Content value="policies">
+                <AIAdminPolicies />
+              </Tabs.Content>
+              <Tabs.Content value="usage">
+                <AIAdminUsage />
+              </Tabs.Content>
+              <Tabs.Content value="routing">
+                <AIAdminRouting />
+              </Tabs.Content>
+              <Tabs.Content value="classifier">
+                <AIAdminClassifier />
+              </Tabs.Content>
+            </Box>
+          </Tabs>
+        </Container>
+      </PageWrapper>
+    </>
   );
 }

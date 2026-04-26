@@ -1,0 +1,726 @@
+{
+  "version": "v1",
+  "description": "Curated classification cases for BienBot intent classifier. Entries with run_flag_off=false exercise the new NER path (lowercase / multi-word destinations) and only run with slot-fill ON.",
+  "cases": [
+    {
+      "id": "query-dest-simple",
+      "message": "Tell me about Tokyo",
+      "expected_intent": "QUERY_DESTINATION",
+      "expected_entities": { "destination_name": "Tokyo" },
+      "min_confidence": 0.5,
+      "must_extract_entity": true,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-dest-lowercase",
+      "message": "tell me about tokyo",
+      "expected_intent": "QUERY_DESTINATION",
+      "expected_entities": { "destination_name": "tokyo" },
+      "min_confidence": 0.5,
+      "must_extract_entity": true,
+      "run_flag_off": false
+    },
+    {
+      "id": "query-dest-multi-word",
+      "message": "What's the best food in New York",
+      "expected_intent": "QUERY_DESTINATION",
+      "expected_entities": { "destination_name": "New York" },
+      "min_confidence": 0.5,
+      "must_extract_entity": true,
+      "run_flag_off": false
+    },
+    {
+      "id": "query-dest-apostrophe",
+      "message": "Tell me about Saint John's",
+      "expected_intent": "QUERY_DESTINATION",
+      "expected_entities": { "destination_name": "Saint John's" },
+      "min_confidence": 0.4,
+      "must_extract_entity": true,
+      "run_flag_off": false
+    },
+    {
+      "id": "query-dest-emoji",
+      "message": "Tell me about Paris 🗼",
+      "expected_intent": "QUERY_DESTINATION",
+      "expected_entities": { "destination_name": "Paris" },
+      "min_confidence": 0.5,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "plan-exp-quoted",
+      "message": "I want to plan \"Cherry Blossom Tour\"",
+      "expected_intent": "PLAN_EXPERIENCE",
+      "expected_entities": { "experience_name": "Cherry Blossom Tour" },
+      "min_confidence": 0.5,
+      "must_extract_entity": true,
+      "run_flag_off": true
+    },
+    {
+      "id": "plan-exp-single-quote",
+      "message": "I'd like to plan 'Sushi Workshop'",
+      "expected_intent": "PLAN_EXPERIENCE",
+      "expected_entities": { "experience_name": "Sushi Workshop" },
+      "min_confidence": 0.4,
+      "must_extract_entity": true,
+      "run_flag_off": false
+    },
+    {
+      "id": "create-exp",
+      "message": "Create a new experience called \"Weekend Getaway\"",
+      "expected_intent": "CREATE_EXPERIENCE",
+      "expected_entities": { "experience_name": "Weekend Getaway" },
+      "min_confidence": 0.5,
+      "must_extract_entity": true,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-plan-items",
+      "message": "Add some plan items to my trip",
+      "expected_intent": "ADD_PLAN_ITEMS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "invite-email",
+      "message": "Invite jane@example.com as a collaborator",
+      "expected_intent": "INVITE_COLLABORATOR",
+      "expected_entities": { "user_email": "jane@example.com" },
+      "min_confidence": 0.6,
+      "must_extract_entity": true,
+      "run_flag_off": true
+    },
+    {
+      "id": "invite-email-plus-tag",
+      "message": "Add alex+travel@example.co.uk to the plan",
+      "expected_intent": "INVITE_COLLABORATOR",
+      "expected_entities": { "user_email": "alex+travel@example.co.uk" },
+      "min_confidence": 0.5,
+      "must_extract_entity": true,
+      "run_flag_off": true
+    },
+    {
+      "id": "sync-plan",
+      "message": "Sync my plan with the latest experience updates",
+      "expected_intent": "SYNC_PLAN",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "answer-question-ambiguous",
+      "message": "What should I pack for a trip?",
+      "expected_intent": "ANSWER_QUESTION",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "answer-question-weather",
+      "message": "What's the weather like in general?",
+      "expected_intent": "ANSWER_QUESTION",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "complete-plan-item",
+      "message": "Mark item 3 as done",
+      "expected_intent": "COMPLETE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "uncomplete-plan-item",
+      "message": "Uncheck item 2",
+      "expected_intent": "UNCOMPLETE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "schedule-plan-item",
+      "message": "Schedule item 1 for next Tuesday",
+      "expected_intent": "SCHEDULE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-plan-item-note",
+      "message": "Add a note to item 4: remember passports",
+      "expected_intent": "ADD_PLAN_ITEM_NOTE",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan-item-note",
+      "message": "Update the note on item 4",
+      "expected_intent": "UPDATE_PLAN_ITEM_NOTE",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "delete-plan-item-note",
+      "message": "Delete the note on item 4",
+      "expected_intent": "DELETE_PLAN_ITEM_NOTE",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "set-plan-item-location",
+      "message": "Set the location for item 2 to Shibuya Crossing",
+      "expected_intent": "SET_PLAN_ITEM_LOCATION",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan-item-cost",
+      "message": "Change the price of item 1 to $120",
+      "expected_intent": "UPDATE_PLAN_ITEM_COST",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-plan-item-detail",
+      "message": "Add a detail to item 3",
+      "expected_intent": "ADD_PLAN_ITEM_DETAIL",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan-item-detail",
+      "message": "Edit the detail on item 3",
+      "expected_intent": "UPDATE_PLAN_ITEM_DETAIL",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": false
+    },
+    {
+      "id": "delete-plan-item-detail",
+      "message": "Remove the detail from item 3",
+      "expected_intent": "DELETE_PLAN_ITEM_DETAIL",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "assign-plan-item",
+      "message": "Assign item 2 to Alice",
+      "expected_intent": "ASSIGN_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan-item-text",
+      "message": "Rename item 1 to Airport Transfer",
+      "expected_intent": "UPDATE_PLAN_ITEM_TEXT",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan-item-url",
+      "message": "Set the URL of item 3 to https://example.com/booking",
+      "expected_intent": "UPDATE_PLAN_ITEM_URL",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-experience",
+      "message": "Update the experience description",
+      "expected_intent": "UPDATE_EXPERIENCE",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-experience-plan-item",
+      "message": "Add a plan item to this experience",
+      "expected_intent": "ADD_EXPERIENCE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-experience-plan-item",
+      "message": "Update plan item 2 on the experience",
+      "expected_intent": "UPDATE_EXPERIENCE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "delete-experience-plan-item",
+      "message": "Delete plan item 2 from the experience",
+      "expected_intent": "DELETE_EXPERIENCE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-destination",
+      "message": "Update the destination description",
+      "expected_intent": "UPDATE_DESTINATION",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-destination-tip",
+      "message": "Add a travel tip: bring cash for taxis",
+      "expected_intent": "ADD_DESTINATION_TIP",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "favorite-destination",
+      "message": "Add Tokyo to my favorites",
+      "expected_intent": "FAVORITE_DESTINATION",
+      "expected_entities": { "destination_name": "Tokyo" },
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan",
+      "message": "Update my plan's notes",
+      "expected_intent": "UPDATE_PLAN",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "delete-plan",
+      "message": "Delete this plan",
+      "expected_intent": "DELETE_PLAN",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "delete-plan-item",
+      "message": "Delete item 5",
+      "expected_intent": "DELETE_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-plan-cost",
+      "message": "Add a cost of $250 for hotel",
+      "expected_intent": "ADD_PLAN_COST",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "remove-collaborator",
+      "message": "Remove the collaborator Bob",
+      "expected_intent": "REMOVE_COLLABORATOR",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": false
+    },
+    {
+      "id": "set-member-location",
+      "message": "I am at Shinjuku now",
+      "expected_intent": "SET_MEMBER_LOCATION",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": false
+    },
+    {
+      "id": "remove-member-location",
+      "message": "Remove my location",
+      "expected_intent": "REMOVE_MEMBER_LOCATION",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "navigate-to-entity",
+      "message": "Go to the Tokyo destination page",
+      "expected_intent": "NAVIGATE_TO_ENTITY",
+      "expected_entities": { "destination_name": "Tokyo" },
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "multi-action",
+      "message": "Create a plan and invite jane@example.com",
+      "expected_intent": "MULTI_ACTION",
+      "expected_entities": { "user_email": "jane@example.com" },
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-plan",
+      "message": "What's on my itinerary",
+      "expected_intent": "QUERY_PLAN",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "discover-experiences",
+      "message": "Show me popular experiences",
+      "expected_intent": "DISCOVER_EXPERIENCES",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "discover-destinations",
+      "message": "Suggest me some destinations",
+      "expected_intent": "DISCOVER_DESTINATIONS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-upcoming",
+      "message": "What trips do I have coming up?",
+      "expected_intent": "QUERY_UPCOMING",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-today",
+      "message": "What's on my plan today?",
+      "expected_intent": "QUERY_TODAY",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "discuss-plan-item",
+      "message": "Tell me more about item 3",
+      "expected_intent": "DISCUSS_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-recent-activity",
+      "message": "What's happened on my plan recently?",
+      "expected_intent": "QUERY_RECENT_ACTIVITY",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-user-experiences",
+      "message": "What experiences have I created?",
+      "expected_intent": "QUERY_USER_EXPERIENCES",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "create-destination",
+      "message": "Create a new destination called Kyoto",
+      "expected_intent": "CREATE_DESTINATION",
+      "expected_entities": { "destination_name": "Kyoto" },
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "search-content",
+      "message": "Search for sushi experiences",
+      "expected_intent": "SEARCH_CONTENT",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "follow-user",
+      "message": "Follow user Alice",
+      "expected_intent": "FOLLOW_USER",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "unfollow-user",
+      "message": "Unfollow Bob",
+      "expected_intent": "UNFOLLOW_USER",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-followers",
+      "message": "Who follows me?",
+      "expected_intent": "QUERY_FOLLOWERS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "accept-follow-request",
+      "message": "Accept the follow request from Jane",
+      "expected_intent": "ACCEPT_FOLLOW_REQUEST",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-dashboard",
+      "message": "Show me my dashboard",
+      "expected_intent": "QUERY_DASHBOARD",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-plan-costs",
+      "message": "How much is my plan going to cost?",
+      "expected_intent": "QUERY_PLAN_COSTS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-plan-cost",
+      "message": "Update the hotel cost to $300",
+      "expected_intent": "UPDATE_PLAN_COST",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "delete-plan-cost",
+      "message": "Delete the hotel cost entry",
+      "expected_intent": "DELETE_PLAN_COST",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "pin-plan-item",
+      "message": "Pin item 1 to the top",
+      "expected_intent": "PIN_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "unpin-plan-item",
+      "message": "Unpin item 1",
+      "expected_intent": "UNPIN_PLAN_ITEM",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "reorder-plan-items",
+      "message": "Reorder my plan items",
+      "expected_intent": "REORDER_PLAN_ITEMS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "shift-plan-dates",
+      "message": "Shift all plan dates by 2 days",
+      "expected_intent": "SHIFT_PLAN_DATES",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "update-profile",
+      "message": "Update my profile bio",
+      "expected_intent": "UPDATE_PROFILE",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-profile",
+      "message": "What's on my profile",
+      "expected_intent": "QUERY_PROFILE",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": false
+    },
+    {
+      "id": "query-experience-tags",
+      "message": "What tags does this experience have?",
+      "expected_intent": "QUERY_EXPERIENCE_TAGS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-country",
+      "message": "Show me destinations in Japan",
+      "expected_intent": "QUERY_COUNTRY",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-activity-feed",
+      "message": "Show me the activity feed",
+      "expected_intent": "QUERY_ACTIVITY_FEED",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "create-invite",
+      "message": "Create an invite code for my plan",
+      "expected_intent": "CREATE_INVITE",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "share-invite",
+      "message": "Share my invite code",
+      "expected_intent": "SHARE_INVITE",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": false
+    },
+    {
+      "id": "request-plan-access",
+      "message": "Request access to this plan",
+      "expected_intent": "REQUEST_PLAN_ACCESS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "upload-document",
+      "message": "I want to upload a document",
+      "expected_intent": "UPLOAD_DOCUMENT",
+      "expected_entities": {},
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-documents",
+      "message": "Show my uploaded documents",
+      "expected_intent": "QUERY_DOCUMENTS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "add-photo",
+      "message": "Add a photo to the plan",
+      "expected_intent": "ADD_PHOTO",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-photos",
+      "message": "Show the photos on this plan",
+      "expected_intent": "QUERY_PHOTOS",
+      "expected_entities": {},
+      "min_confidence": 0.4,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "query-dest-punctuation",
+      "message": "Tokyo — any tips?",
+      "expected_intent": "QUERY_DESTINATION",
+      "expected_entities": { "destination_name": "Tokyo" },
+      "min_confidence": 0.3,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    },
+    {
+      "id": "ambiguous-greeting",
+      "message": "Hi there!",
+      "expected_intent": "ANSWER_QUESTION",
+      "expected_entities": {},
+      "min_confidence": 0.2,
+      "must_extract_entity": false,
+      "run_flag_off": true
+    }
+  ]
+}

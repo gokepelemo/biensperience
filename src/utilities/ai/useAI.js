@@ -21,6 +21,7 @@ import {
 } from './functions';
 import {
   isAIAvailable,
+  isAIAvailableAsync,
   getConfiguredProviders,
   getDefaultProvider
 } from './utils';
@@ -29,9 +30,21 @@ import {
   createTrackedRequest,
   completeTrackedRequest,
   failTrackedRequest,
+  subscribeToAIEvent,
   subscribeToAIRequests,
   hasAIPendingRequests
 } from './events';
+
+/**
+ * Stable JSON-style hash of a context object for use as a useEffect dep key.
+ * Avoids re-subscribing on every render when the consumer passes an inline
+ * object literal as `context`.
+ */
+function hashContext(ctx) {
+  if (!ctx || typeof ctx !== 'object') return '';
+  const keys = Object.keys(ctx).sort();
+  return keys.map(k => `${k}=${ctx[k]}`).join('|');
+}
 
 /**
  * useAI hook for AI operations with event-bus integration
@@ -49,41 +62,105 @@ export function useAI(options = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastResult, setLastResult] = useState(null);
-  const [available, setAvailable] = useState(isAIAvailable());
-  const [configuredProviders, setConfiguredProviders] = useState(getConfiguredProviders());
+  const [available, setAvailable] = useState(() => isAIAvailable());
+  const [configuredProviders, setConfiguredProviders] = useState([]);
+  const [defaultProvider, setDefaultProvider] = useState(null);
 
+  // Refs keep latest values without forcing effect/callback re-creation.
   const contextRef = useRef(context);
   contextRef.current = context;
 
-  // Subscribe to AI events from other tabs/clients
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  const providerRef = useRef(provider);
+  providerRef.current = provider;
+
+  const contextKey = hashContext(context);
+
+  // Hydrate availability + configured providers + default provider from backend.
   useEffect(() => {
-    const unsubscribe = subscribeToAIRequests(context, {
+    let cancelled = false;
+
+    async function hydrate() {
+      try {
+        const [isAvail, providers, defProvider] = await Promise.all([
+          isAIAvailableAsync(),
+          getConfiguredProviders(),
+          getDefaultProvider()
+        ]);
+        if (cancelled) return;
+        setAvailable(isAvail);
+        setConfiguredProviders(providers);
+        setDefaultProvider(defProvider);
+      } catch (err) {
+        if (cancelled) return;
+        logger.debug('[useAI] Failed to hydrate AI status', { error: err.message });
+      }
+    }
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Subscribe to availability/provider change events so multiple tabs / admin
+  // updates flow through automatically.
+  useEffect(() => {
+    const unsubAvailability = subscribeToAIEvent(AI_EVENTS.AVAILABILITY_CHANGED, (event) => {
+      if (typeof event.available === 'boolean') {
+        setAvailable(event.available);
+      }
+      if (Array.isArray(event.providers)) {
+        setConfiguredProviders(event.providers);
+      }
+    });
+
+    const unsubProvider = subscribeToAIEvent(AI_EVENTS.PROVIDER_CHANGED, (event) => {
+      if (event.newProvider) {
+        setDefaultProvider(event.newProvider);
+      }
+    });
+
+    return () => {
+      unsubAvailability();
+      unsubProvider();
+    };
+  }, []);
+
+  // Subscribe to AI events from other tabs/clients for the current context.
+  // Re-subscribe only when the *content* of the context filter changes.
+  useEffect(() => {
+    const unsubscribe = subscribeToAIRequests(contextRef.current, {
       onStart: (event) => {
-        // Another client started an AI request for this context
         logger.debug('[useAI] Remote request started', { requestId: event.requestId });
       },
       onComplete: (event) => {
-        // Another client completed an AI request for this context
         logger.debug('[useAI] Remote request completed', {
           requestId: event.requestId,
           task: event.task
         });
-        // Optionally sync the result
-        if (onComplete) {
-          onComplete(event.result, event);
+        if (onCompleteRef.current) {
+          onCompleteRef.current(event.result, event);
         }
       },
       onFail: (event) => {
-        // Another client failed an AI request for this context
         logger.debug('[useAI] Remote request failed', {
           requestId: event.requestId,
           error: event.error
         });
+        if (onErrorRef.current) {
+          onErrorRef.current(new Error(event.error), event);
+        }
       }
     });
 
     return unsubscribe;
-  }, [context, onComplete]);
+  }, [contextKey]);
 
   /**
    * Execute an AI operation with tracking
@@ -100,8 +177,8 @@ export function useAI(options = {}) {
       setLastResult(result);
       setLoading(false);
 
-      if (onComplete) {
-        onComplete(result, { requestId: tracker.id, task });
+      if (onCompleteRef.current) {
+        onCompleteRef.current(result, { requestId: tracker.id, task });
       }
 
       return result;
@@ -110,90 +187,67 @@ export function useAI(options = {}) {
       setError(err.message);
       setLoading(false);
 
-      if (onError) {
-        onError(err, { requestId: tracker.id, task });
+      if (onErrorRef.current) {
+        onErrorRef.current(err, { requestId: tracker.id, task });
       }
 
       throw err;
     }
-  }, [onComplete, onError]);
-
-  /**
-   * Autocomplete text
-   */
-  const autocomplete = useCallback(async (text, opts = {}) => {
-    return executeWithTracking(AI_TASKS.AUTOCOMPLETE, () =>
-      aiAutocomplete(text, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Edit language
-   */
-  const editLanguage = useCallback(async (text, opts = {}) => {
-    return executeWithTracking(AI_TASKS.EDIT_LANGUAGE, () =>
-      aiEditLanguage(text, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Improve description
-   */
-  const improveDescription = useCallback(async (description, opts = {}) => {
-    return executeWithTracking(AI_TASKS.IMPROVE_DESCRIPTION, () =>
-      aiImproveDescription(description, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Summarize content
-   */
-  const summarize = useCallback(async (content, opts = {}) => {
-    return executeWithTracking(AI_TASKS.SUMMARIZE, () =>
-      aiSummarize(content, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Generate travel tips
-   */
-  const generateTravelTips = useCallback(async (tipContext, opts = {}) => {
-    return executeWithTracking(AI_TASKS.GENERATE_TIPS, () =>
-      aiGenerateTravelTips(tipContext, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Translate text
-   */
-  const translate = useCallback(async (text, targetLanguage, opts = {}) => {
-    return executeWithTracking(AI_TASKS.TRANSLATE, () =>
-      aiTranslate(text, targetLanguage, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Send a raw completion request
-   */
-  const sendCompletion = useCallback(async (messages, opts = {}) => {
-    return executeWithTracking(opts.task || AI_TASKS.AUTOCOMPLETE, () =>
-      complete(messages, { ...opts, provider: opts.provider || provider })
-    );
-  }, [executeWithTracking, provider]);
-
-  /**
-   * Clear error state
-   */
-  const clearError = useCallback(() => {
-    setError(null);
   }, []);
 
-  /**
-   * Check if any requests are pending for this context
-   */
-  const hasPendingRequests = useCallback(() => {
-    return hasAIPendingRequests(contextRef.current);
-  }, []);
+  const withProvider = (opts) => ({
+    ...opts,
+    provider: opts.provider || providerRef.current
+  });
+
+  const autocomplete = useCallback((text, opts = {}) =>
+    executeWithTracking(AI_TASKS.AUTOCOMPLETE, () =>
+      aiAutocomplete(text, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const editLanguage = useCallback((text, opts = {}) =>
+    executeWithTracking(AI_TASKS.EDIT_LANGUAGE, () =>
+      aiEditLanguage(text, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const improveDescription = useCallback((description, opts = {}) =>
+    executeWithTracking(AI_TASKS.IMPROVE_DESCRIPTION, () =>
+      aiImproveDescription(description, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const summarize = useCallback((content, opts = {}) =>
+    executeWithTracking(AI_TASKS.SUMMARIZE, () =>
+      aiSummarize(content, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const generateTravelTips = useCallback((tipContext, opts = {}) =>
+    executeWithTracking(AI_TASKS.GENERATE_TIPS, () =>
+      aiGenerateTravelTips(tipContext, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const translate = useCallback((text, targetLanguage, opts = {}) =>
+    executeWithTracking(AI_TASKS.TRANSLATE, () =>
+      aiTranslate(text, targetLanguage, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const sendCompletion = useCallback((messages, opts = {}) =>
+    executeWithTracking(opts.task || AI_TASKS.AUTOCOMPLETE, () =>
+      complete(messages, withProvider(opts))
+    ),
+  [executeWithTracking]);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  const hasPendingRequests = useCallback(
+    () => hasAIPendingRequests(contextRef.current),
+    []
+  );
 
   return {
     // State
@@ -202,7 +256,7 @@ export function useAI(options = {}) {
     lastResult,
     available,
     configuredProviders,
-    defaultProvider: getDefaultProvider(),
+    defaultProvider,
 
     // Functions
     autocomplete,

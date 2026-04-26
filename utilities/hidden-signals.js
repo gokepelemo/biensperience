@@ -537,7 +537,7 @@ async function updateExperienceSignals(experienceId) {
     // 1. Load experience and its creator
     const experience = await Experience
       .findById(experienceId)
-      .select('user public plan_items')
+      .select('permissions visibility plan_items')
       .lean();
 
     if (!experience) {
@@ -545,12 +545,15 @@ async function updateExperienceSignals(experienceId) {
       return;
     }
 
-    const creator = experience.user
-      ? await User.findById(experience.user).select('feature_flags').lean()
+    const ownerPerm = Array.isArray(experience.permissions)
+      ? experience.permissions.find(p => p.entity === 'user' && p.type === 'owner')
+      : null;
+    const creator = ownerPerm
+      ? await User.findById(ownerPerm._id).select('feature_flags').lean()
       : null;
 
     const isCurator = creator ? hasFeatureFlag(creator, 'curator') : false;
-    const isPublic  = !!experience.public;
+    const isPublic  = experience.visibility === 'public';
 
     // 2. Aggregate plan metrics for this experience in one query
     const [metrics = {}] = await Plan.aggregate([
@@ -762,6 +765,42 @@ async function refreshSignalsAndAffinity(experienceId, userId, computedAt) {
   }
 }
 
+/**
+ * Recompute content signals for every experience owned by a user.
+ *
+ * Called fire-and-forget after a user's feature flags are updated (e.g. when
+ * the curator flag is granted) so that trustScore reflects the new flag state.
+ * Never throws — errors are logged and silently absorbed.
+ *
+ * @param {string|import('mongoose').Types.ObjectId} userId
+ */
+async function recomputeSignalsForOwner(userId) {
+  if (!userId) return;
+  try {
+    const Experience = require('../models/experience');
+
+    const experiences = await Experience
+      .find({ permissions: { $elemMatch: { _id: userId, entity: 'user', type: 'owner' } } })
+      .select('_id')
+      .lean();
+
+    backendLogger.debug('[hidden-signals] recomputeSignalsForOwner: queuing recompute', {
+      userId: userId?.toString(),
+      count: experiences.length
+    });
+
+    for (const exp of experiences) {
+      updateExperienceSignals(exp._id); // fire-and-forget; errors absorbed internally
+    }
+  } catch (err) {
+    backendLogger.error('[hidden-signals] recomputeSignalsForOwner failed', {
+      userId: userId?.toString(),
+      error: err.message
+    });
+    // Never throw — fire-and-forget
+  }
+}
+
 module.exports = {
   // Constants (exported for testing)
   ACTIVITY_TYPE_SIGNAL_MAP,
@@ -782,6 +821,7 @@ module.exports = {
   // Side-effectful
   processSignalEvent,
   updateExperienceSignals,
+  recomputeSignalsForOwner,
   computeAndCacheAffinity,
   refreshSignalsAndAffinity
 };
