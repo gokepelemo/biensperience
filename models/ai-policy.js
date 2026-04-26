@@ -169,6 +169,17 @@ const aiPolicySchema = new Schema({
     min: 1
   },
 
+  // Hard cap on total LLM call attempts across the entire failover chain.
+  // Without this, worst-case is (maxRetries + 1) × len(providerChain) calls,
+  // which is a runaway cost path. Counted as: every callProvider() invocation
+  // (success or failure) increments the counter; once counter >= cap, the
+  // gateway short-circuits and throws a clear cap-reached error.
+  max_total_attempts: {
+    type: Number,
+    default: 5,
+    min: 1
+  },
+
   active: {
     type: Boolean,
     default: true
