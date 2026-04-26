@@ -23,3 +23,25 @@ describe('Wikivoyage provider registration', () => {
     expect(out.body.error).toBeDefined();
   });
 });
+
+describe('Google Maps provider', () => {
+  beforeEach(() => {
+    _resetRegistryForTest();
+    _resetForTest();
+    process.env.GOOGLE_MAPS_API_KEY = 'test-key';
+    bootstrap();
+  });
+  afterEach(() => { delete process.env.GOOGLE_MAPS_API_KEY; });
+
+  it('registers fetch_destination_places', () => {
+    expect(getTool('fetch_destination_places')).toBeTruthy();
+  });
+
+  it('disables provider when GOOGLE_MAPS_API_KEY is absent', () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
+    _resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+    expect(getTool('fetch_destination_places')).toBeNull();
+  });
+});
