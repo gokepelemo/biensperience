@@ -67,3 +67,25 @@ describe('TripAdvisor provider', () => {
     expect(getTool('fetch_destination_attractions')).toBeNull();
   });
 });
+
+describe('Unsplash provider', () => {
+  beforeEach(() => {
+    _resetRegistryForTest();
+    _resetForTest();
+    process.env.UNSPLASH_ACCESS_KEY = 'test-key';
+    bootstrap();
+  });
+  afterEach(() => { delete process.env.UNSPLASH_ACCESS_KEY; });
+
+  it('registers fetch_destination_photos', () => {
+    expect(getTool('fetch_destination_photos')).toBeTruthy();
+  });
+
+  it('is disabled when UNSPLASH_ACCESS_KEY is absent', () => {
+    delete process.env.UNSPLASH_ACCESS_KEY;
+    _resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+    expect(getTool('fetch_destination_photos')).toBeNull();
+  });
+});
