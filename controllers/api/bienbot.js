@@ -137,6 +137,118 @@ function stripNullBytes(str) {
 }
 
 /**
+ * Validate priorReferencedEntities sent by the client (originating from the
+ * /analyze endpoint or resume summarizer) and merge the resolved IDs into
+ * session.context.
+ *
+ * Trust model: the IDs were emitted by a server-side LLM that only sees
+ * entity refs the user already has access to, but the request body could be
+ * forged. Each entity is verified to:
+ *   1. Have a valid ObjectId-format _id and an allowed type.
+ *   2. Resolve to an existing record in the database.
+ *   3. Be view-permitted for the requesting user.
+ *
+ * Entities that pass are merged into session.context (one ID per type slot,
+ * preferring the order received from the LLM — which is asked to put the
+ * most-central entity first). Existing context IDs are NOT overwritten so a
+ * navigation-schema seeded entity always wins over a greeting suggestion.
+ *
+ * @param {object} params
+ * @param {Array<{ type, _id, name }>} params.referencedEntities - Raw entity list from the client
+ * @param {object} params.session - BienBotSession document
+ * @param {string} params.userId
+ * @returns {Promise<{ appliedCount: number, applied: object, skipped: number }>}
+ */
+async function mergeReferencedEntitiesIntoContext({ referencedEntities, session, userId }) {
+  loadModels();
+  const objectIdLike = /^[a-fA-F0-9]{24}$/;
+  const VALID_TYPES = new Set(['destination', 'experience', 'plan', 'plan_item']);
+  const TYPE_TO_CONTEXT_KEY = {
+    destination: 'destination_id',
+    experience: 'experience_id',
+    plan: 'plan_id',
+    plan_item: 'plan_item_id'
+  };
+
+  // Cap to mitigate batch-probing attempts
+  const candidates = referencedEntities.slice(0, 8).filter(e =>
+    e
+    && VALID_TYPES.has(e.type)
+    && typeof e._id === 'string'
+    && objectIdLike.test(e._id)
+  );
+
+  if (candidates.length === 0) {
+    return { appliedCount: 0, applied: {}, skipped: 0 };
+  }
+
+  const enforcer = getEnforcer({ Destination, Experience, Plan, User });
+  const applied = {};
+  const existingCtx = session.context || {};
+  let skipped = 0;
+
+  for (const candidate of candidates) {
+    const ctxKey = TYPE_TO_CONTEXT_KEY[candidate.type];
+    // Don't overwrite a slot already filled by navigation-schema or a previously
+    // applied (higher-priority) candidate of the same type.
+    if (applied[ctxKey] || existingCtx[ctxKey]) {
+      skipped++;
+      continue;
+    }
+
+    let resource = null;
+    let parentPlanId = null;
+    try {
+      switch (candidate.type) {
+        case 'destination':
+          resource = await Destination.findById(candidate._id);
+          break;
+        case 'experience':
+          resource = await Experience.findById(candidate._id);
+          break;
+        case 'plan':
+          resource = await Plan.findById(candidate._id);
+          break;
+        case 'plan_item': {
+          // Find the parent plan that owns this plan_item subdocument.
+          const parentPlan = await Plan.findOne({ 'plan._id': candidate._id });
+          if (parentPlan) {
+            resource = parentPlan;
+            parentPlanId = parentPlan._id.toString();
+          }
+          break;
+        }
+      }
+    } catch {
+      skipped++;
+      continue;
+    }
+
+    if (!resource) {
+      skipped++;
+      continue;
+    }
+
+    const permCheck = await enforcer.canView({ userId, resource });
+    if (!permCheck.allowed) {
+      skipped++;
+      continue;
+    }
+
+    applied[ctxKey] = candidate._id;
+    if (parentPlanId && !applied.plan_id && !existingCtx.plan_id) {
+      applied.plan_id = parentPlanId;
+    }
+  }
+
+  if (Object.keys(applied).length > 0) {
+    await session.updateContext(applied);
+  }
+
+  return { appliedCount: Object.keys(applied).length, applied, skipped };
+}
+
+/**
  * Resolve the entity label from the DB for an invokeContext.
  * Never trusts client-supplied label.
  *
@@ -317,7 +429,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Use the affinity driver descriptions to explain WHY an experience is a good fit.',
     '',
     'GREETING CONTEXT SECTIONS — follow-up handling:',
-    '- Every entity mentioned in the greeting carries an inline entityJSON ref. Use those IDs for actions and navigation without asking the user.',
+    '- Every entity mentioned in the greeting carries an inline entityJSON ref in the CONTEXT BLOCK below (these are server-generated and appear in context only — never reproduce them in your message). Use those IDs for actions, entity_refs, and navigation without asking the user.',
     '',
     'OVERDUE ITEMS ([OVERDUE ITEMS] section):',
     '- When the user asks which item is overdue, or asks to see/go to the overdue item, use the [OVERDUE ITEMS] section to identify the item by name and plan.',
@@ -338,7 +450,7 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '',
     'RECENT ACTIVITY ([RECENT ACTIVITY (48h)] section):',
     '- When the user asks "what did I do recently?", "which experience did I update?", or "show my recent changes", use [RECENT ACTIVITY (48h)].',
-    '- Each activity line includes an entityJSON ref for the affected entity — use those IDs directly.',
+    '- Each activity line in the context below includes an inline entityJSON ref for the affected entity — use those IDs directly in entity_refs and action payloads. Do not reproduce JSON objects in your message text.',
     '- Propose navigate_to_entity if the user wants to go to a recently-modified entity.',
     '',
     'ACTIVE PLANS (active plans list):',
@@ -370,16 +482,18 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Only include entities with real IDs from context — never fabricate. Leave entity_refs as [] if none apply.',
     '',
     'ENTITY REFERENCES IN MESSAGES:',
-    'When your message text mentions an entity for which you have a REAL _id from the context blocks, embed it as a compact JSON object:',
-    '  {"_id":"<real_id_from_context>","name":"<display_name>","type":"<entity_type>"}',
+    'When your message text mentions an entity for which you have a REAL _id from the context blocks, reference it by its index in the entity_refs array using the placeholder ⟦entity:N⟧ where N is the zero-based index of the entity in the entity_refs you return.',
     'Entity types: destination, experience, plan, plan_item, user',
     'Examples:',
-    '  "I\'ll create a plan for {\\"_id\\":\\"693f214a2b3c4d5e6f7a8b9c\\",\\"name\\":\\"Tokyo Temple Tour\\",\\"type\\":\\"experience\\"}!"',
+    '  entity_refs: [{"type":"experience","_id":"693f214a2b3c4d5e6f7a8b9c","name":"Tokyo Temple Tour"}]',
+    '  message: "I\'ll create a plan for ⟦entity:0⟧!"',
     'Rules:',
-    '- ONLY embed an entity JSON object if you have the real _id from the context blocks. Never invent or guess an _id.',
-    '- If you do NOT have a real _id for an entity (e.g. the user named a destination not yet in context), use plain text for the name — do NOT embed a JSON object.',
-    '- _id must be a real MongoDB ObjectId or other ID exactly as it appears in the context — never a slug, abbreviation, or made-up string.',
-    '- The name field is what the user sees; always include it.',
+    '- The placeholder MUST match the order of entity_refs. ⟦entity:0⟧ refers to entity_refs[0], ⟦entity:1⟧ to entity_refs[1], etc.',
+    '- ONLY use ⟦entity:N⟧ when you have included the corresponding entry in entity_refs with a REAL _id from the context blocks. Never invent or guess an _id.',
+    '- If you do NOT have a real _id for an entity (e.g. the user named a destination not yet in context), write the name as plain text — do NOT use a placeholder.',
+    '- Do NOT embed JSON objects (like {"_id":"..."}) inside the message text. Use the ⟦entity:N⟧ placeholder format only.',
+    '- _id in entity_refs must be a real MongoDB ObjectId or other ID exactly as it appears in the context — never a slug, abbreviation, or made-up string.',
+    '- The name field in entity_refs is what the user sees as the chip label; always include it.',
     '',
     'INTENT-SPECIFIC BEHAVIOR:',
     '- QUERY_DASHBOARD: Summarize the user\'s overview — upcoming plans, recent activity, stats from the context. Be proactive about surfacing important information. When the user follows up with a prioritization question ("what should I focus on?", "where do I start?"), apply the global TRAVEL SIGNALS prioritization rule.',
@@ -1168,6 +1282,65 @@ const TOOL_CALL_LABELS = {
 Object.assign(TOOL_CALL_LABELS, toolRegistry.getToolLabels());
 
 /**
+ * Repair LLM output where the model embedded an inline entity JSON object
+ * inside the `message` string field WITHOUT escaping its inner quotes,
+ * e.g. `{"message":"Did you mean {"_id":"abc","name":"Casablanca"}?", ...}`
+ *
+ * Strategy: find `"message"\s*:\s*"`, then walk forward bracket-by-bracket.
+ * The message string ends at the first `"` that is followed (after optional
+ * whitespace) by `,` or `}` AND is at brace depth 0. Any `{` ... `}` block
+ * encountered before that — including its inner `"` chars — is treated as
+ * inline entity JSON and gets its quotes escaped.
+ *
+ * Returns the repaired text, or null if no repair was possible.
+ */
+function repairUnescapedInlineJson(text) {
+  const startMatch = text.match(/"message"\s*:\s*"/);
+  if (!startMatch) return null;
+  const valueStart = startMatch.index + startMatch[0].length;
+
+  let i = valueStart;
+  let depth = 0;
+  let endIdx = -1;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '\\' && i + 1 < text.length) {
+      i += 2;
+      continue;
+    }
+    if (ch === '{') {
+      depth++;
+      i++;
+      continue;
+    }
+    if (ch === '}') {
+      if (depth > 0) depth--;
+      i++;
+      continue;
+    }
+    if (ch === '"' && depth === 0) {
+      // Check if this is the message-string terminator.
+      let j = i + 1;
+      while (j < text.length && /\s/.test(text[j])) j++;
+      if (j < text.length && (text[j] === ',' || text[j] === '}')) {
+        endIdx = i;
+        break;
+      }
+    }
+    i++;
+  }
+
+  if (endIdx === -1) return null;
+
+  const messageBody = text.slice(valueStart, endIdx);
+  // Re-escape: turn unescaped " into \" inside the body. Existing escaped \"
+  // and \\ stay intact.
+  const repairedBody = messageBody.replace(/(^|[^\\])"/g, (_, prefix) => `${prefix}\\"`);
+
+  return text.slice(0, valueStart) + repairedBody + text.slice(endIdx);
+}
+
+/**
  * Parse structured JSON response from LLM.
  * Returns { message, pending_actions } or a fallback.
  */
@@ -1228,22 +1401,33 @@ function parseLLMResponse(text) {
         ? parsed.entity_refs.filter(isValidEntityRef)
         : [];
 
-      // Extract inline entity JSON objects embedded in the message text.
-      // The LLM is instructed to embed entities as compact JSON within prose,
-      // e.g. "I'll create a plan for {"_id":"...","name":"Tokyo","type":"experience"}!"
-      const seenIds = new Set(entityRefs.map(r => r._id));
-      const inlinePattern = /\{[^{}]*"_id"[^{}]*\}/g;
-      for (const match of (parsed.message.match(inlinePattern) || [])) {
-        try {
-          const obj = JSON.parse(match);
-          if (isValidEntityRef(obj) && !seenIds.has(obj._id)) {
-            entityRefs.push(obj);
-            seenIds.add(obj._id);
+      // Defensive harvest: if the LLM ignores instructions and embeds inline
+      // JSON entity objects in the message text, lift them into entity_refs
+      // and replace each occurrence with a ⟦entity:N⟧ placeholder so the
+      // frontend renders a chip instead of raw JSON. New prompt instructs the
+      // LLM to use ⟦entity:N⟧ directly; this branch handles legacy/drifted output.
+      let messageText = typeof parsed.message === 'string' ? parsed.message : '';
+      if (messageText.includes('{') && messageText.includes('"_id"')) {
+        const seenIds = new Set(entityRefs.map(r => r._id));
+        const inlinePattern = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*\}/g;
+        messageText = messageText.replace(inlinePattern, (match) => {
+          try {
+            const obj = JSON.parse(match);
+            if (!isValidEntityRef(obj)) return match;
+            let idx = entityRefs.findIndex(r => r._id === obj._id);
+            if (idx === -1) {
+              entityRefs.push(obj);
+              seenIds.add(obj._id);
+              idx = entityRefs.length - 1;
+            }
+            return `⟦entity:${idx}⟧`;
+          } catch {
+            return match;
           }
-        } catch { /* ignore malformed inline objects */ }
+        });
       }
 
-      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs, tool_calls: toolCalls };
+      return { message: messageText, pending_actions: actions, entity_refs: entityRefs, tool_calls: toolCalls };
     } catch {
       return null;
     }
@@ -1276,6 +1460,24 @@ function parseLLMResponse(text) {
     if (fsBrace !== -1 && fsLastBrace > fsBrace) {
       const fsExtracted = tryParse(fenceStripped.slice(fsBrace, fsLastBrace + 1));
       if (fsExtracted) return fsExtracted;
+    }
+  }
+
+  // 2c. Repair attempt for legacy unescaped inline-entity-JSON output.
+  // Old prompt asked the LLM to embed {"_id":"...","name":"...","type":"..."}
+  // inside the message string. Models sometimes forgot to escape inner quotes,
+  // breaking the outer envelope. Detect that pattern, escape the inline JSON,
+  // and reparse — so the legacy failure mode no longer truncates messages.
+  if (text.trimStart().startsWith('{') && /"message"\s*:\s*"[^"]*\{\s*"_id"/.test(text)) {
+    const repaired = repairUnescapedInlineJson(text);
+    if (repaired && repaired !== text) {
+      const repairedResult = tryParse(repaired);
+      if (repairedResult) {
+        logger.info('[bienbot] parseLLMResponse: repaired legacy inline-JSON envelope', {
+          length: text.length
+        });
+        return repairedResult;
+      }
     }
   }
 
@@ -2675,6 +2877,39 @@ exports.chat = async (req, res) => {
       }
       if (Object.keys(contextUpdate).length > 0) {
         await session.updateContext(contextUpdate);
+      }
+
+      // Merge priorReferencedEntities (the entities the analyze LLM identified
+      // as the focus of its greeting) into session.context. Tied to the same
+      // gating as priorGreeting — only accepted on new sessions, only when a
+      // valid analysis sentinel is also provided.
+      const rawReferenced = req.body.priorReferencedEntities;
+      const isServerAnalysisGreeting =
+        typeof req.body.priorGreeting === 'string'
+        && stripNullBytes(req.body.priorGreeting).trim().startsWith('[ANALYSIS]');
+      if (
+        Array.isArray(rawReferenced)
+        && rawReferenced.length > 0
+        && isServerAnalysisGreeting
+      ) {
+        try {
+          const merged = await mergeReferencedEntitiesIntoContext({
+            referencedEntities: rawReferenced,
+            session,
+            userId
+          });
+          if (merged.appliedCount > 0) {
+            logger.info('[bienbot] Seeded session.context from priorReferencedEntities', {
+              sessionId: session._id.toString(),
+              userId,
+              applied: merged.applied,
+              skipped: merged.skipped
+            });
+          }
+        } catch (refErr) {
+          // Non-fatal — context can be re-derived from the conversation later
+          logger.warn('[bienbot] Failed to merge priorReferencedEntities', { error: refErr.message });
+        }
       }
     }
   } catch (err) {
@@ -4578,7 +4813,8 @@ exports.resume = async (req, res) => {
     // Use cached summary
     summaryData = {
       summary: session.summary.text,
-      next_steps: session.summary.suggested_next_steps || []
+      next_steps: session.summary.suggested_next_steps || [],
+      referenced_entities: session.summary.referenced_entities || []
     };
   } else {
     // Generate new summary
@@ -4597,11 +4833,37 @@ exports.resume = async (req, res) => {
       throw err;
     }
 
-    // Cache the result
+    // Cache the result (including referenced entities for future resumes)
     try {
-      await session.cacheSummary(summaryData.summary, summaryData.next_steps);
+      await session.cacheSummary(
+        summaryData.summary,
+        summaryData.next_steps,
+        summaryData.referenced_entities || []
+      );
     } catch (err) {
       logger.warn('[bienbot] Failed to cache summary', { error: err.message });
+    }
+  }
+
+  // Thread referenced_entities into session.context so follow-up questions
+  // about an entity the recap focused on (e.g. "show the Casablanca plan
+  // details" when the recap mentioned a specific Casablanca plan) don't
+  // trigger redundant disambiguation.
+  if (Array.isArray(summaryData.referenced_entities) && summaryData.referenced_entities.length > 0) {
+    try {
+      const merged = await mergeReferencedEntitiesIntoContext({
+        referencedEntities: summaryData.referenced_entities,
+        session,
+        userId: req.user._id.toString()
+      });
+      if (merged.appliedCount > 0) {
+        logger.info('[bienbot] Resume: seeded session.context from summary referenced_entities', {
+          sessionId: session._id.toString(),
+          applied: merged.applied
+        });
+      }
+    } catch (refErr) {
+      logger.warn('[bienbot] Resume: failed to merge referenced_entities', { error: refErr.message });
     }
   }
 
@@ -5515,7 +5777,7 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
     '',
     'RULES:',
     '- Return ONLY a valid JSON object. No markdown fences, no explanation outside JSON.',
-    '- The object must have a "suggestions" array and a "suggested_prompts" array.',
+    '- The object must have a "suggestions" array, a "suggested_prompts" array, and a "referenced_entities" array.',
     actionTypeNote
       ? `- Each suggestion must have: { "type": "<warning|tip|info|action>", "message": "<text>" }`
       : `- Each suggestion must have: { "type": "<warning|tip|info>", "message": "<text>" }`,
@@ -5534,6 +5796,14 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
     entity === 'experience' ? '- If the context shows the user has no plan for this experience, include a tip encouraging them to create a plan. Otherwise, do not mention plan creation.' : null,
     ...suggestedPromptsRules,
     '',
+    'REFERENCED ENTITIES:',
+    '- Also return a "referenced_entities" array listing every entity (destination, experience, plan, plan_item) you mention by name in the suggestions or suggested_prompts.',
+    '- Each entry: { "type": "destination|experience|plan|plan_item", "_id": "<real id from context>", "name": "<display name>" }.',
+    '- Use ONLY real _id values that appear verbatim in the context block. Never invent IDs.',
+    '- This array tells the chat session which specific entities the greeting focuses on so follow-up questions can act on them without disambiguation.',
+    '- If a suggestion is general (no specific entity), do not include any entry for it.',
+    '- Order the array so the most central entity (the one the user is most likely to ask about next) appears first.',
+    '',
     'Example response:',
     '{',
     '  "suggestions": [',
@@ -5544,6 +5814,9 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
     '  "suggested_prompts": [',
     '    "Which plan items still need budget estimates?",',
     '    "What\'s left to plan for the Tokyo trip?"',
+    '  ],',
+    '  "referenced_entities": [',
+    '    { "type": "plan", "_id": "693f214a2b3c4d5e6f7a8b9c", "name": "Tokyo Temple Tour" }',
     '  ]',
     '}'
   ].filter(l => l !== null).join('\n');
@@ -5712,9 +5985,10 @@ exports.analyze = async (req, res) => {
     return errorResponse(res, null, 'AI service temporarily unavailable', 503);
   }
 
-  // --- Parse suggestions and suggested prompts ---
+  // --- Parse suggestions, suggested prompts, referenced entities ---
   let suggestions = [];
   let suggestedPrompts = [];
+  let referencedEntities = [];
   try {
     const cleaned = (llmResult.content || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
     const parsed = JSON.parse(cleaned);
@@ -5722,6 +5996,7 @@ exports.analyze = async (req, res) => {
     // Support both old format (array) and new format (object with suggestions + suggested_prompts)
     const suggestionsArr = Array.isArray(parsed) ? parsed : (parsed.suggestions || []);
     const promptsArr = Array.isArray(parsed) ? [] : (parsed.suggested_prompts || []);
+    const entitiesArr = Array.isArray(parsed) ? [] : (parsed.referenced_entities || []);
 
     const VALID_TYPES = new Set(['warning', 'tip', 'info', 'action']);
     suggestions = suggestionsArr
@@ -5733,6 +6008,24 @@ exports.analyze = async (req, res) => {
       .filter(p => typeof p === 'string' && p.trim())
       .slice(0, 4)
       .map(p => p.trim().slice(0, 100));
+
+    const VALID_ENTITY_TYPES = new Set(['destination', 'experience', 'plan', 'plan_item']);
+    const objectIdLike = /^[a-fA-F0-9]{24}$/;
+    referencedEntities = entitiesArr
+      .filter(e =>
+        e
+        && VALID_ENTITY_TYPES.has(e.type)
+        && typeof e._id === 'string'
+        && objectIdLike.test(e._id)
+        && typeof e.name === 'string'
+        && e.name.trim()
+      )
+      .slice(0, 8)
+      .map(e => ({
+        type: e.type,
+        _id: e._id,
+        name: e.name.trim().slice(0, 120)
+      }));
   } catch (err) {
     logger.warn('[bienbot] analyze: failed to parse LLM suggestions', {
       entity,
@@ -5749,14 +6042,16 @@ exports.analyze = async (req, res) => {
     entityId,
     mode,
     suggestionCount: suggestions.length,
-    suggestedPromptsCount: suggestedPrompts.length
+    suggestedPromptsCount: suggestedPrompts.length,
+    referencedEntityCount: referencedEntities.length
   });
 
   return successResponse(res, {
     entity,
     entityId: validatedId,
     suggestions,
-    suggestedPrompts
+    suggestedPrompts,
+    referencedEntities
   });
 };
 

@@ -1,9 +1,15 @@
 /**
  * MessageContent — Memoised markdown + entity-chip renderer for BienBot messages.
  *
- * Extracts and renders inline entity JSON refs as clickable chips, and renders
- * assistant messages through ReactMarkdown with GFM support. Memoised via
- * React.memo so each message's output is cached across parent re-renders.
+ * Two reference formats are supported:
+ * 1. Preferred (current): `⟦entity:N⟧` placeholders that index into the
+ *    `entityRefs` prop (a server-validated array of {_id, name, type}).
+ * 2. Legacy: inline JSON `{"_id":"...","name":"...","type":"..."}` objects
+ *    embedded in the message text. Retained for one release so historical
+ *    messages still render chips. New LLM output should never use this form.
+ *
+ * Rendered through ReactMarkdown with GFM. Memoised via React.memo so each
+ * message's output is cached across parent re-renders.
  *
  * @module components/BienBotPanel/MessageContent
  */
@@ -16,10 +22,14 @@ import remarkGfm from 'remark-gfm';
 import { getEntityUrl } from '../../utilities/bienbot-entity-urls';
 import styles from './BienBotPanel.module.css';
 
-// Match compact JSON entity refs embedded in LLM output
+// Match ⟦entity:N⟧ placeholders that reference the entityRefs prop by index.
+const PLACEHOLDER_REF_RE = /⟦entity:(\d+)⟧/g;
+// Legacy: match compact JSON entity refs embedded in message text. Retained
+// so messages from before the placeholder migration still render chips.
 const ENTITY_JSON_RE = /\{[^{}]*"_id"\s*:\s*"[^"]*"[^{}]*"name"\s*:\s*"[^"]*"[^{}]*"type"\s*:\s*"[^"]*"[^{}]*\}/g;
-// Placeholder token used to survive markdown parsing: entity{n} (Private Use Area - safe through remark)
-const PLACEHOLDER_RE = /entity(\d+)/g;
+// Internal placeholder used to survive markdown parsing without interacting
+// with markdown syntax. Replaced with chip components after rendering.
+const INTERNAL_PLACEHOLDER_RE = /entity(\d+)/g;
 
 function buildEntityChip(ref, idx) {
   const { _id, name, type } = ref;
@@ -45,8 +55,8 @@ function substituteChips(text, entityRefs) {
   const parts = [];
   let last = 0;
   let m;
-  PLACEHOLDER_RE.lastIndex = 0;
-  while ((m = PLACEHOLDER_RE.exec(text)) !== null) {
+  INTERNAL_PLACEHOLDER_RE.lastIndex = 0;
+  while ((m = INTERNAL_PLACEHOLDER_RE.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     const ref = entityRefs[parseInt(m[1], 10)];
     if (ref) parts.push(buildEntityChip(ref, m.index));
@@ -65,21 +75,47 @@ function processChildren(children, entityRefs) {
   });
 }
 
-function MessageContent({ text, role }) {
+function MessageContent({ text, role, entityRefs: entityRefsProp = null }) {
   const { processedText, entityRefs } = useMemo(() => {
     if (!text) return { processedText: '', entityRefs: [] };
-    const refs = [];
+
+    // Start with server-provided entity_refs (preferred path).
+    const refs = Array.isArray(entityRefsProp)
+      ? entityRefsProp.filter(r => r && r._id && r.name && r.type)
+      : [];
+
+    // First pass: replace ⟦entity:N⟧ placeholders with the internal
+    // entity{N} marker that survives markdown parsing.
+    let out = text.replace(PLACEHOLDER_REF_RE, (match, idxStr) => {
+      const idx = parseInt(idxStr, 10);
+      if (idx >= 0 && idx < refs.length) {
+        return `entity${idx}`;
+      }
+      // Out-of-range placeholder: drop it so the user doesn't see the brackets
+      return '';
+    });
+
+    // Second pass (legacy): inline JSON entity blocks. Append each parsed
+    // object to refs and emit an internal marker pointing at the new index.
     ENTITY_JSON_RE.lastIndex = 0;
-    const out = text.replace(ENTITY_JSON_RE, (match) => {
+    out = out.replace(ENTITY_JSON_RE, (match) => {
       try {
-        refs.push(JSON.parse(match));
-        return `entity${refs.length - 1}`;
+        const obj = JSON.parse(match);
+        if (!obj || !obj._id || !obj.name || !obj.type) return match;
+        // De-dupe against existing refs by _id
+        let idx = refs.findIndex(r => r._id === obj._id);
+        if (idx === -1) {
+          refs.push(obj);
+          idx = refs.length - 1;
+        }
+        return `entity${idx}`;
       } catch {
         return match;
       }
     });
+
     return { processedText: out, entityRefs: refs };
-  }, [text]);
+  }, [text, entityRefsProp]);
 
   if (!text) return null;
 
@@ -112,6 +148,11 @@ function MessageContent({ text, role }) {
 MessageContent.propTypes = {
   text: PropTypes.string,
   role: PropTypes.string,
+  entityRefs: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    name: PropTypes.string,
+    type: PropTypes.string
+  }))
 };
 
 export default React.memo(MessageContent);

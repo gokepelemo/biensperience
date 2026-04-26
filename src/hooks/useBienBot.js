@@ -60,6 +60,7 @@ export async function openWithAnalysis(entity, entityId, entityLabel) {
       entityLabel,
       suggestions: result.suggestions,
       suggestedPrompts: result.suggestedPrompts || [],
+      referencedEntities: result.referencedEntities || [],
     },
   });
 }
@@ -96,6 +97,11 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   // the backend can persist it as the opening assistant turn, giving the LLM the
   // context it needs to answer follow-up questions about the analysis.
   const priorGreetingRef = useRef(null);
+  // Entities the analyze LLM identified as the focus of its greeting suggestions.
+  // Sent once as `priorReferencedEntities` alongside priorGreeting so the backend
+  // can seed session.context with the specific IDs (avoiding disambiguation when
+  // the user asks a follow-up about an entity the greeting already pinpointed).
+  const priorReferencedEntitiesRef = useRef(null);
 
   // Keep sessionIdRef in sync with currentSession
   useEffect(() => {
@@ -196,14 +202,17 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     const hasInvokeContext = invokeContext?.entity && invokeContext?.id;
     const isFirstMessage = !sid && !invokeContextSentRef.current;
     const priorGreeting = !sid ? priorGreetingRef.current : null;
-    // Clear after capture so it is only ever sent once
+    const priorReferencedEntities = !sid ? priorReferencedEntitiesRef.current : null;
+    // Clear after capture so they are only ever sent once
     if (priorGreeting) priorGreetingRef.current = null;
+    if (priorReferencedEntities) priorReferencedEntitiesRef.current = null;
 
     try {
       await postMessage(sid, text, {
         invokeContext: hasInvokeContext ? invokeContext : undefined,
         navigationSchema: (isFirstMessage && navigationSchema) ? navigationSchema : undefined,
         priorGreeting: priorGreeting || undefined,
+        priorReferencedEntities: priorReferencedEntities || undefined,
         attachment: attachment || undefined,
         hiddenUserMessage: hiddenText || undefined,
         signal: controller.signal,
@@ -306,12 +315,15 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
           // Attach structured content blocks to the current assistant message.
           // discovery_result_list blocks replace any existing sentinel (data===null)
           // in-place so the skeleton transitions to real content without flickering.
+          // entity_ref_list blocks are promoted to msg.entity_refs so MessageContent
+          // can resolve ⟦entity:N⟧ placeholders without scanning structured_content.
           if (blocks && blocks.length > 0) {
             setMessages(prev =>
               prev.map(m => {
                 if (m._id !== assistantMessageId) return m;
                 let existing = m.structured_content || [];
                 let updated = [...existing];
+                let promotedEntityRefs = m.entity_refs;
                 for (const block of blocks) {
                   if (block.type === 'discovery_result_list') {
                     const sentinelIdx = updated.findIndex(
@@ -323,11 +335,14 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
                     } else {
                       updated = [...updated, block];
                     }
+                  } else if (block.type === 'entity_ref_list' && Array.isArray(block.data?.refs)) {
+                    promotedEntityRefs = block.data.refs;
+                    updated = [...updated, block];
                   } else {
                     updated = [...updated, block];
                   }
                 }
-                return { ...m, structured_content: updated };
+                return { ...m, structured_content: updated, entity_refs: promotedEntityRefs };
               })
             );
           }
@@ -1059,6 +1074,17 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     priorGreetingRef.current = text || null;
   }, []);
 
+  /**
+   * Store the entities surfaced by the analyze LLM so the backend can seed
+   * session.context on the first chat turn — avoiding redundant disambiguation
+   * for entities the greeting already focused on.
+   */
+  const setPriorReferencedEntities = useCallback((entities) => {
+    priorReferencedEntitiesRef.current = Array.isArray(entities) && entities.length > 0
+      ? entities
+      : null;
+  }, []);
+
   // appendStructuredContent — inject a structured content block into the last
   // assistant message (used for post-action enrichment like tip suggestions)
   // ---------------------------------------------------------------------------
@@ -1136,6 +1162,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     appendMessage,
     replaceInitialGreeting,
     setPriorGreeting,
+    setPriorReferencedEntities,
     getPersistedSession,
     clearPersistedSession,
     resetSession

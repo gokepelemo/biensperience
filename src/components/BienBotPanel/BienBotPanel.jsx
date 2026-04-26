@@ -179,6 +179,7 @@ export default function BienBotPanel({
     appendMessage,
     replaceInitialGreeting,
     setPriorGreeting,
+    setPriorReferencedEntities,
     resetSession,
     getPersistedSession,
     clearPersistedSession,
@@ -487,6 +488,14 @@ export default function BienBotPanel({
     // the LLM the context it needs to answer follow-up questions coherently.
     setPriorGreeting(`[ANALYSIS]\n${content}`);
 
+    // Stash the entities the analyze LLM identified as the focus of its greeting.
+    // The chat handler seeds session.context with these IDs on first-message creation
+    // so follow-ups don't trigger redundant disambiguation for entities the greeting
+    // already pinpointed.
+    if (Array.isArray(analysisSuggestions.referencedEntities) && analysisSuggestions.referencedEntities.length > 0) {
+      setPriorReferencedEntities(analysisSuggestions.referencedEntities);
+    }
+
     // Set suggested prompts as clickable chips so the user can act on the greeting
     if (analysisSuggestions.suggestedPrompts?.length > 0) {
       setSuggestedNextSteps(analysisSuggestions.suggestedPrompts);
@@ -495,7 +504,7 @@ export default function BienBotPanel({
     if (clearAnalysisSuggestions) {
       clearAnalysisSuggestions();
     }
-  }, [open, analysisSuggestions, replaceInitialGreeting, setPriorGreeting, setSuggestedNextSteps, clearAnalysisSuggestions]);
+  }, [open, analysisSuggestions, replaceInitialGreeting, setPriorGreeting, setPriorReferencedEntities, setSuggestedNextSteps, clearAnalysisSuggestions]);
 
   // ── Re-focus input after BienBot finishes responding ─────────────────────
   useEffect(() => {
@@ -1228,6 +1237,11 @@ BienBotPanel.propTypes = {
       message: PropTypes.string,
     })),
     suggestedPrompts: PropTypes.arrayOf(PropTypes.string),
+    referencedEntities: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      _id: PropTypes.string,
+      name: PropTypes.string,
+    })),
   }),
   clearAnalysisSuggestions: PropTypes.func,
 };

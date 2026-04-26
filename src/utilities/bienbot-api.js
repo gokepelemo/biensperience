@@ -113,6 +113,7 @@ export async function postMessage(sessionId, message, options = {}) {
     invokeContext,
     navigationSchema,
     priorGreeting,
+    priorReferencedEntities,
     attachment,
     onToken,
     onSession,
@@ -169,6 +170,9 @@ export async function postMessage(sessionId, message, options = {}) {
     }
     if (!sessionId && priorGreeting) {
       bodyObj.priorGreeting = priorGreeting;
+    }
+    if (!sessionId && Array.isArray(priorReferencedEntities) && priorReferencedEntities.length > 0) {
+      bodyObj.priorReferencedEntities = priorReferencedEntities;
     }
     if (options.hiddenUserMessage) {
       bodyObj.hiddenUserMessage = options.hiddenUserMessage;
@@ -1188,7 +1192,13 @@ export async function clearMemory() {
  *
  * @param {string} entity - Entity type: 'plan' | 'experience' | 'destination' | 'plan_item' | 'user'
  * @param {string} entityId - MongoDB ObjectId of the entity
- * @returns {Promise<{ entity: string, entityId: string, suggestions: Array<{ type: 'warning'|'tip'|'info', message: string }> }>}
+ * @returns {Promise<{
+ *   entity: string,
+ *   entityId: string,
+ *   suggestions: Array<{ type: 'warning'|'tip'|'info'|'action', message: string }>,
+ *   suggestedPrompts: string[],
+ *   referencedEntities: Array<{ type: string, _id: string, name: string }>
+ * }>}
  */
 export async function analyzeEntity(entity, entityId) {
   const result = await sendRequest(`${BASE_URL}/analyze`, 'POST', { entity, entityId });
