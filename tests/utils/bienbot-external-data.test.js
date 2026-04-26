@@ -7,14 +7,15 @@
  * - suggestPlanItems() validation, empty results, deduplication, frequency ranking
  * - fetchEntityPhotos() validation, Unsplash API mock, missing API key graceful degradation
  * - addEntityPhotos() permission check, S3 transfer, Unsplash URL photos
- * - fetchWikivoyageTips() section parsing, fallback to summary, timeout handling
- * - fetchGoogleMapsTips() place search, review filtering, missing API key
- * - fetchTravelData() parallel execution, partial provider failure
- * - enrichDestination() cache freshness, background mode, permission check
+ * - extractPlanItemCandidates() Wikivoyage section parsing
+ * - fetchWikivoyagePlanItems() Wikivoyage plan-item extraction (still used
+ *   by suggestPlanItems for Tier-3 fallback)
  *
- * Note: fetchDestinationTips() (the legacy multi-provider aggregator) was
- * deleted; its replacement lives in the BienBot tool registry and is covered
- * by tests/utilities/bienbot-tool-registry-providers.test.js.
+ * The legacy multi-provider aggregator (fetchTravelData / enrichDestination /
+ * fetchWikivoyageTips / fetchGoogleMapsTips / fetchUnsplashPhotos /
+ * fetchTripAdvisor*) was removed in T11. Their responsibilities live in:
+ *   - utilities/bienbot-tool-registry/providers/* (per-provider tools)
+ *   - utilities/destination-enrichment.js (the parallel-merge orchestrator)
  */
 
 // ---------------------------------------------------------------------------
@@ -84,18 +85,16 @@ const {
   suggestPlanItems,
   fetchEntityPhotos,
   addEntityPhotos,
-  fetchWikivoyageTips,
   fetchWikivoyagePlanItems,
   extractPlanItemCandidates,
-  fetchGoogleMapsTips,
-  fetchTravelData,
-  enrichDestination,
 } = require('../../utilities/bienbot-external-data');
 
-// fetchDestinationTips was the multi-provider aggregator in this module;
-// it has been replaced by the registry-owned `fetch_destination_tips` tool
-// (Wikivoyage provider, single-source). Its tests below are removed; the
-// registry tool's behaviour is covered by tests/utilities/bienbot-tool-registry-providers.test.js.
+// fetchDestinationTips, fetchTravelData, enrichDestination, fetchWikivoyageTips,
+// fetchGoogleMapsTips, fetchUnsplashPhotos, fetchTripAdvisorTips/Places — all
+// REMOVED in T11. Their responsibilities moved to the BienBot tool registry
+// providers (tests/utilities/bienbot-tool-registry-providers.test.js). The
+// /api/destinations/:id/enrich route now goes through
+// utilities/destination-enrichment.js (tests/utilities/destination-enrichment.test.js).
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -822,116 +821,8 @@ describe('bienbot-external-data', () => {
   });
 
   // =========================================================================
-  // fetchWikivoyageTips
+  // fetchWikivoyageTips: REMOVED in T11 — covered by registry-providers tests.
   // =========================================================================
-
-  describe('fetchWikivoyageTips()', () => {
-    beforeEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('returns structured tips from section-level parsing', async () => {
-      // Mock section index response
-      const sectionsResponse = {
-        parse: {
-          sections: [
-            { line: 'See', index: '1' },
-            { line: 'Do', index: '2' },
-            { line: 'Eat', index: '3' },
-          ],
-        },
-      };
-
-      // Mock section content responses
-      const sectionContent = (text) => ({
-        parse: { text: { '*': `<p>${text}</p>` } },
-      });
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse)) // sections list
-        .mockResolvedValueOnce(mockFetchResponse(sectionContent('Visit the ancient temple ruins and admire the stunning architecture'))) // See
-        .mockResolvedValueOnce(mockFetchResponse(sectionContent('Try river kayaking through the gorges and scenic valleys'))) // Do
-        .mockResolvedValueOnce(mockFetchResponse(sectionContent('Sample the local street food markets with traditional delicacies'))); // Eat
-
-      const tips = await fetchWikivoyageTips('Kyoto');
-
-      expect(tips.length).toBeGreaterThan(0);
-      expect(tips[0]).toMatchObject({
-        source: 'Wikivoyage',
-        url: expect.stringContaining('Kyoto'),
-      });
-      // Should have type and category from section mapping
-      expect(tips[0]).toHaveProperty('type');
-      expect(tips[0]).toHaveProperty('category');
-      expect(tips[0]).toHaveProperty('callToAction');
-    });
-
-    it('falls back to summary when section parsing returns nothing', async () => {
-      // Sections return empty
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        // Summary fallback
-        .mockResolvedValueOnce(mockFetchResponse({
-          extract: 'Kyoto is a beautiful city in Japan. It has many temples and shrines. The food is excellent and diverse.',
-          content_urls: { desktop: { page: 'https://en.wikivoyage.org/wiki/Kyoto' } },
-        }));
-
-      const tips = await fetchWikivoyageTips('Kyoto');
-
-      expect(tips.length).toBeGreaterThan(0);
-      expect(tips[0]).toMatchObject({
-        type: 'Custom',
-        category: 'Overview',
-        source: 'Wikivoyage',
-        icon: '🌍',
-      });
-    });
-
-    it('returns empty array when destination page does not exist (404)', async () => {
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({
-          error: { code: 'missingtitle', info: 'Page not found' },
-        }))
-        // Summary also 404
-        .mockResolvedValueOnce(mockFetchResponse({}, false, 404));
-
-      const tips = await fetchWikivoyageTips('NonexistentPlace12345');
-      expect(tips).toEqual([]);
-    });
-
-    it('respects maxTotalTips option', async () => {
-      const sectionsResponse = {
-        parse: {
-          sections: [
-            { line: 'See', index: '1' },
-            { line: 'Do', index: '2' },
-            { line: 'Eat', index: '3' },
-            { line: 'Sleep', index: '4' },
-          ],
-        },
-      };
-
-      const longContent = (prefix) => ({
-        parse: {
-          text: {
-            '*': Array.from({ length: 10 }, (_, i) =>
-              `<li>${prefix} item ${i} with enough text to pass the 15 char minimum filter</li>`
-            ).join(''),
-          },
-        },
-      });
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
-        .mockResolvedValueOnce(mockFetchResponse(longContent('See')))
-        .mockResolvedValueOnce(mockFetchResponse(longContent('Do')))
-        .mockResolvedValueOnce(mockFetchResponse(longContent('Eat')))
-        .mockResolvedValueOnce(mockFetchResponse(longContent('Sleep')));
-
-      const tips = await fetchWikivoyageTips('Paris', { maxTotalTips: 3 });
-      expect(tips.length).toBeLessThanOrEqual(3);
-    });
-  });
 
   // =========================================================================
   // extractPlanItemCandidates
@@ -1161,272 +1052,16 @@ describe('bienbot-external-data', () => {
   });
 
   // =========================================================================
-  // fetchGoogleMapsTips
-  // =========================================================================
-
-  describe('fetchGoogleMapsTips()', () => {
-    beforeEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('returns empty array when GOOGLE_MAPS_API_KEY is not set', async () => {
-      delete process.env.GOOGLE_MAPS_API_KEY;
-      const tips = await fetchGoogleMapsTips('Paris');
-      expect(tips).toEqual([]);
-    });
-
-    it('fetches place reviews and filters by rating >= 4', async () => {
-      process.env.GOOGLE_MAPS_API_KEY = 'test-key';
-
-      global.fetch = jest.fn()
-        // Find place
-        .mockResolvedValueOnce(mockFetchResponse({
-          candidates: [{ place_id: 'place-123', name: 'Paris' }],
-        }))
-        // Place details
-        .mockResolvedValueOnce(mockFetchResponse({
-          result: {
-            name: 'Paris',
-            url: 'https://maps.google.com/paris',
-            reviews: [
-              { text: 'Amazing city with beautiful architecture!', rating: 5 },
-              { text: 'Terrible experience, too crowded.', rating: 2 },
-              { text: 'Loved the food and the culture here.', rating: 4 },
-              { text: 'Pretty good overall trip to Paris.', rating: 4 },
-            ],
-          },
-        }));
-
-      const tips = await fetchGoogleMapsTips('Paris');
-
-      // Only reviews with rating >= 4 should be included
-      expect(tips.length).toBe(3);
-      expect(tips.every(t => t.rating >= 4)).toBe(true);
-      expect(tips[0]).toMatchObject({
-        type: 'review',
-        source: 'Google Maps',
-      });
-    });
-
-    it('returns empty when place is not found', async () => {
-      process.env.GOOGLE_MAPS_API_KEY = 'test-key';
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ candidates: [] }));
-
-      const tips = await fetchGoogleMapsTips('NonexistentPlace12345');
-      expect(tips).toEqual([]);
-    });
-
-    it('truncates long reviews to 150 characters', async () => {
-      process.env.GOOGLE_MAPS_API_KEY = 'test-key';
-
-      const longText = 'A'.repeat(200);
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({
-          candidates: [{ place_id: 'place-123' }],
-        }))
-        .mockResolvedValueOnce(mockFetchResponse({
-          result: {
-            name: 'Paris',
-            reviews: [{ text: longText, rating: 5 }],
-          },
-        }));
-
-      const tips = await fetchGoogleMapsTips('Paris');
-      expect(tips[0].value.length).toBe(150); // 147 + '...'
-    });
-  });
-
-  // =========================================================================
-  // fetchTravelData
-  // =========================================================================
-
-  describe('fetchTravelData()', () => {
-    beforeEach(() => {
-      jest.useRealTimers();
-      delete process.env.UNSPLASH_ACCESS_KEY;
-      delete process.env.GOOGLE_MAPS_API_KEY;
-    });
-
-    it('runs all providers in parallel and combines results', async () => {
-      // With no API keys, Unsplash and Google Maps return empty
-      // Wikivoyage (no key needed) will be mocked
-      global.fetch = jest.fn()
-        // Wikivoyage sections
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        // Wikivoyage summary fallback
-        .mockResolvedValueOnce(mockFetchResponse({
-          extract: 'Paris is the capital of France. The city is known for the Eiffel Tower landmark.',
-          content_urls: { desktop: { page: 'https://en.wikivoyage.org/wiki/Paris' } },
-        }));
-
-      const result = await fetchTravelData('Paris');
-
-      expect(result).toHaveProperty('travel_tips');
-      expect(result).toHaveProperty('photos');
-      expect(result).toHaveProperty('providers_succeeded');
-      expect(result).toHaveProperty('providers_failed');
-    });
-
-    it('handles partial provider failure gracefully', async () => {
-      // Wikivoyage sections — succeed with empty, summary — succeed with data
-      // Google Maps — no key so returns empty
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({
-          extract: 'Paris is the capital of France and a wonderful travel destination.',
-          content_urls: { desktop: { page: 'https://en.wikivoyage.org/wiki/Paris' } },
-        }));
-
-      const result = await fetchTravelData('Paris', { includePhotos: false });
-
-      // Should not throw — returns combined results
-      expect(result.travel_tips).toBeDefined();
-      expect(result.photos).toBeDefined();
-      expect(result.providers_succeeded).toContain('wikivoyage');
-    });
-
-    it('skips photos when includePhotos is false', async () => {
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({ extract: '' }));
-
-      const result = await fetchTravelData('Paris', { includePhotos: false });
-
-      expect(result.photos).toEqual([]);
-    });
-  });
-
-  // =========================================================================
-  // enrichDestination
-  // =========================================================================
-
-  describe('enrichDestination()', () => {
-    let mockEnforcer;
-
-    beforeEach(() => {
-      jest.useRealTimers();
-      mockEnforcer = {
-        canEdit: jest.fn().mockResolvedValue({ allowed: true }),
-      };
-      getEnforcer.mockReturnValue(mockEnforcer);
-      delete process.env.UNSPLASH_ACCESS_KEY;
-      delete process.env.GOOGLE_MAPS_API_KEY;
-    });
-
-    it('returns 400 for invalid destination ID', async () => {
-      const result = await enrichDestination('not-valid', mockUser);
-      expect(result.statusCode).toBe(400);
-    });
-
-    it('returns 404 when destination not found', async () => {
-      Destination.findById.mockResolvedValue(null);
-
-      const result = await enrichDestination(VALID_ID, mockUser);
-      expect(result.statusCode).toBe(404);
-    });
-
-    it('returns 403 when user lacks edit permission', async () => {
-      mockEnforcer.canEdit.mockResolvedValue({ allowed: false, reason: 'Not authorized' });
-      Destination.findById.mockResolvedValue({ _id: VALID_ID, name: 'Paris' });
-
-      const result = await enrichDestination(VALID_ID, mockUser);
-      expect(result.statusCode).toBe(403);
-    });
-
-    it('returns cached data when cache is fresh', async () => {
-      const freshDest = {
-        _id: VALID_ID,
-        name: 'Paris',
-        travel_tips: [{ type: 'Custom', value: 'Cached tip' }],
-        travel_tips_updated_at: new Date(), // just now = fresh
-        toObject: jest.fn().mockReturnValue({ _id: VALID_ID, name: 'Paris', travel_tips: ['Cached tip'] }),
-      };
-      Destination.findById.mockResolvedValue(freshDest);
-
-      const result = await enrichDestination(VALID_ID, mockUser);
-
-      expect(result.statusCode).toBe(200);
-      expect(result.body.data.cached).toBe(true);
-    });
-
-    it('fetches fresh data when cache is stale', async () => {
-      const staleDest = {
-        _id: VALID_ID,
-        name: 'Paris',
-        travel_tips: [{ type: 'Custom', value: 'Old tip' }],
-        travel_tips_updated_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), // 8 days ago
-        photos: [],
-        save: jest.fn().mockResolvedValue(true),
-        toObject: jest.fn().mockReturnValue({ _id: VALID_ID }),
-      };
-      Destination.findById.mockResolvedValue(staleDest);
-
-      // Mock external calls to return empty (just testing cache logic)
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({ extract: '' }));
-
-      const result = await enrichDestination(VALID_ID, mockUser);
-
-      expect(result.statusCode).toBe(200);
-      expect(result.body.data.cached).toBe(false);
-      expect(staleDest.save).toHaveBeenCalled();
-    });
-
-    it('forces refresh when force=true even with fresh cache', async () => {
-      const freshDest = {
-        _id: VALID_ID,
-        name: 'Paris',
-        travel_tips: [{ type: 'Custom', value: 'Tip' }],
-        travel_tips_updated_at: new Date(), // fresh
-        photos: [],
-        save: jest.fn().mockResolvedValue(true),
-        toObject: jest.fn().mockReturnValue({ _id: VALID_ID }),
-      };
-      Destination.findById.mockResolvedValue(freshDest);
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({ extract: '' }));
-
-      const result = await enrichDestination(VALID_ID, mockUser, { force: true });
-
-      expect(result.statusCode).toBe(200);
-      expect(result.body.data.cached).toBe(false);
-    });
-
-    it('returns cached data immediately in background mode', async () => {
-      const staleDest = {
-        _id: VALID_ID,
-        name: 'Paris',
-        travel_tips: [{ type: 'Custom', value: 'Stale tip' }],
-        travel_tips_updated_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
-        photos: [],
-        save: jest.fn().mockResolvedValue(true),
-        toObject: jest.fn().mockReturnValue({ _id: VALID_ID, travel_tips: ['Stale tip'] }),
-      };
-      Destination.findById.mockResolvedValue(staleDest);
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({ extract: '' }));
-
-      const result = await enrichDestination(VALID_ID, mockUser, { background: true });
-
-      expect(result.statusCode).toBe(200);
-      expect(result.body.data.cached).toBe(true);
-      expect(result.body.data.refreshing).toBe(true);
-    });
-  });
-
-  // =========================================================================
-  // fetchDestinationTips: REMOVED.
+  // fetchGoogleMapsTips, fetchTravelData, enrichDestination, fetchDestinationTips:
+  // REMOVED in T11.
   //
-  // The legacy multi-provider aggregator is gone. The replacement
-  // (`fetch_destination_tips` in the BienBot tool registry, Wikivoyage-only)
-  // is exercised by tests/utilities/bienbot-tool-registry-providers.test.js.
+  // The legacy multi-provider aggregator chain is gone. The replacements are
+  // covered by:
+  //   - tests/utilities/bienbot-tool-registry-providers.test.js
+  //     (per-provider registry tools)
+  //   - tests/utilities/destination-enrichment.test.js
+  //     (the new utility that calls registry tools and persists to the
+  //     Destination doc; consumed by /api/destinations/:id/enrich and the
+  //     bienbot-context-builders background trigger)
   // =========================================================================
 });
