@@ -290,7 +290,12 @@ experienceSchema.virtual("completion_percentage").get(function () {
  */
 experienceSchema.index({ name: 1 });
 experienceSchema.index({ 'permissions._id': 1, 'permissions.type': 1 });
-experienceSchema.index({ 'permissions._id': 1 });
+// NOTE: A solo index on { 'permissions._id': 1 } was removed (bd #8f36.9) because
+// it is fully subsumed by the compound indexes above and below — both lead with
+// 'permissions._id', so any planner that would have selected the solo index will
+// select the compound one via B-tree prefix-match.
+// Production must drop the legacy index by running:
+//   node utilities/migrations/2026-04-26-drop-experience-permissions-id-solo-index.js
 experienceSchema.index({ experience_type: 1 });
 // Index the slug array for fast tag lookups
 experienceSchema.index({ experience_type_slugs: 1 });
