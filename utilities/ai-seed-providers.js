@@ -117,16 +117,17 @@ async function seedAIProviders() {
 
   try {
     // Seed providers (upsert by provider name).
-    // `rawResult` exposes the underlying MongoDB write result so we can
-    // reliably detect inserts vs updates without comparing timestamps.
+    // `includeResultMetadata` exposes the underlying MongoDB write result so
+    // we can reliably detect inserts vs updates without comparing timestamps.
+    // (Replaces the deprecated `rawResult` option in mongoose 8+.)
     for (const providerData of DEFAULT_PROVIDERS) {
-      const rawResult = await AIProviderConfig.findOneAndUpdate(
+      const result = await AIProviderConfig.findOneAndUpdate(
         { provider: providerData.provider },
         { $setOnInsert: providerData },
-        { upsert: true, new: true, rawResult: true }
+        { upsert: true, new: true, includeResultMetadata: true }
       );
 
-      const lastError = rawResult?.lastErrorObject;
+      const lastError = result?.lastErrorObject;
       const wasInsert = lastError && lastError.updatedExisting === false;
       if (wasInsert) {
         providersSeeded++;
