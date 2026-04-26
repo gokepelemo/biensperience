@@ -76,7 +76,7 @@ const sessionCookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const sessionConfig = {
   secret: getSessionSecret(),
   resave: false,
-  saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
+  saveUninitialized: false, // Stateless CSRF (fixed session identifier in csrf-csrf config below) means anonymous visitors don't need empty sessions persisted; avoids a Mongo session-store write per unauthenticated visitor (incl. bots).
   cookie: {
     secure: isProduction || isRender, // Always secure in production/Render
     httpOnly: true, // Prevents client-side JS from accessing the cookie
