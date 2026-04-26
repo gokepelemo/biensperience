@@ -265,6 +265,62 @@ function _resetRegistryForTest() {
   writeToolNames.clear();
 }
 
+const { createProviderContext } = require('./provider-context');
+
+function _validatePayload(schema, payload) {
+  const missing = [];
+  const cleaned = {};
+  for (const [field, rule] of Object.entries(schema)) {
+    if (rule.required && (payload?.[field] === undefined || payload?.[field] === null)) {
+      missing.push(field);
+      continue;
+    }
+    if (payload?.[field] !== undefined) {
+      cleaned[field] = payload[field];
+    }
+  }
+  return { missing, cleaned };
+}
+
+async function executeRegisteredTool(name, payload, user, opts = {}) {
+  const entry = getTool(name);
+  if (!entry) {
+    return { success: false, statusCode: 404, body: { ok: false, error: 'unknown_tool' }, errors: ['unknown_tool'] };
+  }
+  const { provider, tool } = entry;
+
+  const { missing, cleaned } = _validatePayload(tool.payloadSchema, payload || {});
+  if (missing.length > 0) {
+    return {
+      success: false, statusCode: 400,
+      body: { ok: false, error: 'invalid_payload', missing },
+      errors: ['invalid_payload']
+    };
+  }
+
+  const providerCtx = createProviderContext(provider, opts);
+
+  let response;
+  try {
+    response = await tool.handler(cleaned, user, providerCtx);
+  } catch (err) {
+    providerCtx.logger.error(`tool ${name} threw`, { error: err.message }, err);
+    return { success: false, statusCode: 500, body: { ok: false, error: 'fetch_failed' }, errors: ['fetch_failed'] };
+  }
+
+  if (!response || typeof response.statusCode !== 'number') {
+    return { success: false, statusCode: 500, body: { ok: false, error: 'fetch_failed' }, errors: ['handler_returned_invalid_shape'] };
+  }
+
+  const isSuccess = response.statusCode >= 200 && response.statusCode < 300;
+  return {
+    success: isSuccess,
+    statusCode: response.statusCode,
+    body: response.body,
+    errors: isSuccess ? [] : [response.body?.error || `status_${response.statusCode}`]
+  };
+}
+
 module.exports = {
   registerProvider,
   getTool,
@@ -272,5 +328,6 @@ module.exports = {
   getWriteToolNames,
   getAllProviders,
   isProviderEnabled,
+  executeRegisteredTool,
   _resetRegistryForTest
 };
