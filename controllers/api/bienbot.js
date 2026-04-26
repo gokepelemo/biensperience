@@ -5963,3 +5963,4 @@ exports.getAttachmentUrl = async (req, res) => {
 exports.parseLLMResponse = parseLLMResponse;
 exports.verifyPendingActionEntityIds = verifyPendingActionEntityIds;
 exports.buildSystemPrompt = buildSystemPrompt;
+exports._ACTION_ENTITY_VERIFY_FOR_TEST = ACTION_ENTITY_VERIFY;

@@ -422,3 +422,20 @@ describe('fetch_user_plans handler', () => {
     expect(outcome.body.plans).toEqual([]);
   });
 });
+
+describe('fetcher registration coverage', () => {
+  it('every TOOL_CALL_ACTION_TYPE has a verifier entry', () => {
+    const { TOOL_CALL_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
+    const { _ACTION_ENTITY_VERIFY_FOR_TEST } = require('../../controllers/api/bienbot');
+    for (const type of TOOL_CALL_ACTION_TYPES) {
+      expect(_ACTION_ENTITY_VERIFY_FOR_TEST[type]).toBeDefined();
+    }
+  });
+
+  it('every TOOL_CALL_ACTION_TYPE has a handler', () => {
+    const { TOOL_CALL_ACTION_TYPES, ACTION_HANDLERS } = require('../../utilities/bienbot-action-executor');
+    for (const type of TOOL_CALL_ACTION_TYPES) {
+      expect(ACTION_HANDLERS[type]).toBeDefined();
+    }
+  });
+});
