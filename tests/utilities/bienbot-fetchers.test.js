@@ -278,3 +278,43 @@ describe('fetch_plan_collaborators handler', () => {
     expect(outcome.body.error).toBe('invalid_id');
   });
 });
+
+describe('fetch_experience_items handler', () => {
+  let owner, dest, exp;
+
+  beforeAll(async () => { await dbSetup.connect(); });
+  afterAll(async () => { await dbSetup.closeDatabase(); });
+
+  beforeEach(async () => {
+    await Promise.all([Plan.deleteMany({}), Experience.deleteMany({}), Destination.deleteMany({}), User.deleteMany({})]);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    owner = await User.create({ name: 'O', email: `o-${suffix}@x.test`, password: 'pw12345!' });
+    dest = await Destination.create({ name: 'D', country: 'X', user: owner._id });
+    exp = await Experience.create({
+      name: 'E', destination: dest._id, user: owner._id,
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }],
+      plan_items: [
+        { text: 'Visit X', cost_estimate: 50 },
+        { text: 'Tour Y', cost_estimate: 100 }
+      ]
+    });
+  });
+
+  it('returns experience items with cost_estimate and photos_count', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_experience_items', payload: { experience_id: exp._id.toString() } }, owner
+    );
+    expect(outcome.body.items).toHaveLength(2);
+    const visit = outcome.body.items.find(i => i.content === 'Visit X');
+    expect(visit.cost_estimate).toBe(50);
+    expect(visit.photos_count).toBe(0);
+    expect(visit._id).toBeDefined();
+  });
+
+  it('returns invalid_id for malformed id', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_experience_items', payload: { experience_id: 'bad' } }, owner
+    );
+    expect(outcome.body.error).toBe('invalid_id');
+  });
+});

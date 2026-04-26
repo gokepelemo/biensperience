@@ -107,6 +107,7 @@ const ALLOWED_ACTION_TYPES = [
   'fetch_plan_items',
   'fetch_plan_costs',
   'fetch_plan_collaborators',
+  'fetch_experience_items',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -186,6 +187,7 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'fetch_plan_items',
   'fetch_plan_costs',
   'fetch_plan_collaborators',
+  'fetch_experience_items',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -207,7 +209,8 @@ const READ_ONLY_ACTION_TYPES = new Set([
 const TOOL_CALL_ACTION_TYPES = new Set([
   'fetch_plan_items',
   'fetch_plan_costs',
-  'fetch_plan_collaborators'
+  'fetch_plan_collaborators',
+  'fetch_experience_items'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1340,6 +1343,69 @@ async function executeFetchPlanCollaborators(payload, user) {
 }
 
 /**
+ * fetch_experience_items — read-only, no confirmation.
+ * Returns the experience template's plan items with cost_estimate and photos_count.
+ * payload: { experience_id, limit? }
+ */
+async function executeFetchExperienceItems(payload, user) {
+  const Experience = require('../models/experience');
+  const Destination = require('../models/destination');
+  const Plan = require('../models/plan');
+  const User = require('../models/user');
+  const { getEnforcer } = require('./permission-enforcer');
+  const mongoose = require('mongoose');
+
+  const expIdStr = String(payload?.experience_id || '');
+  if (!mongoose.Types.ObjectId.isValid(expIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // No .lean() — enforcer needs Mongoose class info
+  const exp = await Experience.findById(expIdStr).select('plan_items permissions visibility destination user');
+  if (!exp) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: exp });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const FETCH_EXPERIENCE_ITEMS_MAX = 100;
+  const requestedLimit = Number.isFinite(payload?.limit)
+    ? Math.max(1, Math.floor(payload.limit))
+    : FETCH_EXPERIENCE_ITEMS_MAX;
+  const limit = Math.min(requestedLimit, FETCH_EXPERIENCE_ITEMS_MAX);
+
+  const all = exp.plan_items || [];
+  const sliced = all.slice(0, limit);
+
+  // Schema deviation: Experience.plan_items uses `text` (not `content`) and a
+  // single `photo` ObjectId (not `photos[]`). Map to the documented shape:
+  // map text → content, and derive photos_count from the singular photo field
+  // (also tolerate an array form if it ever appears).
+  return {
+    statusCode: 200,
+    body: {
+      items: sliced.map(it => {
+        let photos_count = 0;
+        if (Array.isArray(it.photos)) {
+          photos_count = it.photos.length;
+        } else if (it.photo) {
+          photos_count = 1;
+        }
+        return {
+          _id: it._id?.toString(),
+          content: it.text || it.content || it.name || null,
+          parent_id: it.parent ? it.parent.toString() : null,
+          cost_estimate: it.cost_estimate || 0,
+          photos_count
+        };
+      }),
+      total: all.length,
+      returned: sliced.length
+    }
+  };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -2118,6 +2184,7 @@ const ACTION_HANDLERS = {
   fetch_plan_items: executeFetchPlanItems,
   fetch_plan_costs: executeFetchPlanCosts,
   fetch_plan_collaborators: executeFetchPlanCollaborators,
+  fetch_experience_items: executeFetchExperienceItems,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,
