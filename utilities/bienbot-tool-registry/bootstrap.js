@@ -4,6 +4,7 @@ const googleMaps = require('./providers/google-maps');
 const tripadvisor = require('./providers/tripadvisor');
 const unsplash = require('./providers/unsplash');
 const weather = require('./providers/weather');
+const holidays = require('./providers/holidays');
 
 let bootstrapped = false;
 
@@ -15,6 +16,7 @@ function bootstrap() {
   registerProvider(tripadvisor);
   registerProvider(unsplash);
   registerProvider(weather);
+  registerProvider(holidays);
 }
 
 function _resetForTest() {

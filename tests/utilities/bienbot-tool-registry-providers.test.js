@@ -111,3 +111,15 @@ describe('Weather provider', () => {
     expect(getTool('fetch_forecast')).toBeNull();
   });
 });
+
+describe('Holidays provider', () => {
+  beforeEach(() => {
+    _resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+  });
+
+  it('registers fetch_public_holidays without requiring an env key', () => {
+    expect(getTool('fetch_public_holidays')).toBeTruthy();
+  });
+});
