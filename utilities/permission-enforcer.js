@@ -88,11 +88,11 @@ class PermissionEnforcer {
         };
       }
 
-      backendLogger.info('PERMISSION_DEBUG: can() called', { userId, resourceId: resource?._id, action });
+      backendLogger.debug('PERMISSION_DEBUG: can() called', { userId, resourceId: resource?._id, action });
 
       // Convert userId to string for consistent comparison
       const userIdStr = userId.toString ? userId.toString() : userId;
-      backendLogger.info('PERMISSION_DEBUG: userIdStr', { userIdStr });
+      backendLogger.debug('PERMISSION_DEBUG: userIdStr', { userIdStr });
 
       // Check email verification requirements for actions that require it
       if (action === ACTIONS.EDIT || action === ACTIONS.DELETE || action === ACTIONS.MANAGE_PERMISSIONS) {
@@ -122,7 +122,7 @@ class PermissionEnforcer {
           resourceUser: resource?.user ? (resource.user._id ? resource.user._id : resource.user) : resource?.user
         };
         const samplePermissions = (resource.permissions && Array.isArray(resource.permissions)) ? resource.permissions.slice(0,5).map(p => ({ _id: p._id, entity: p.entity, type: p.type })) : [];
-        backendLogger.info('PERMISSION_DEBUG: resolved permissions', { userId: userIdStr, action, resourceSummary, samplePermissions, permissionInfo });
+        backendLogger.debug('PERMISSION_DEBUG: resolved permissions', { userId: userIdStr, action, resourceSummary, samplePermissions, permissionInfo });
       } catch (logErr) {
         backendLogger.error('PERMISSION_DEBUG: failed to log resolved permissions', { error: logErr?.message });
       }
@@ -130,7 +130,7 @@ class PermissionEnforcer {
       // Check if action is allowed based on role
       const actionAllowed = this._isActionAllowed(action, permissionInfo.role);
 
-      backendLogger.info('PERMISSION_DEBUG: action decision', { userId: userIdStr, action, role: permissionInfo.role, allowed: actionAllowed });
+      backendLogger.debug('PERMISSION_DEBUG: action decision', { userId: userIdStr, action, role: permissionInfo.role, allowed: actionAllowed });
 
       if (!actionAllowed) {
         // Return structured error with actionable information
@@ -409,38 +409,38 @@ class PermissionEnforcer {
    */
   async _getUserPermissions(userId, resource, context = {}) {
     const userIdStr = userId.toString();
-    backendLogger.info('PERMISSION_DEBUG: _getUserPermissions called for userId:', userIdStr);
+    backendLogger.debug('PERMISSION_DEBUG: _getUserPermissions called for userId:', userIdStr);
 
     // Check if user is super admin - they have full access to everything
     if (this.models.User) {
       try {
-        backendLogger.info('PERMISSION_DEBUG: Checking super admin status for userId:', userIdStr);
+        backendLogger.debug('PERMISSION_DEBUG: Checking super admin status for userId:', userIdStr);
         const user = await this.models.User.findById(userIdStr);
-        backendLogger.info('PERMISSION_DEBUG: User found:', !!user);
+        backendLogger.debug('PERMISSION_DEBUG: User found:', !!user);
         if (user) {
-          backendLogger.info('PERMISSION_DEBUG: User details:', {
+          backendLogger.debug('PERMISSION_DEBUG: User details:', {
             _id: user._id,
             role: user.role,
             isSuperAdmin: user.isSuperAdmin,
             email: user.email
           });
           if (isSuperAdmin(user)) {
-            backendLogger.info('PERMISSION_DEBUG: User is super admin - granting OWNER role');
+            backendLogger.debug('PERMISSION_DEBUG: User is super admin - granting OWNER role');
             return { role: ROLES.OWNER, inherited: false, superAdmin: true };
           } else {
-            backendLogger.info('PERMISSION_DEBUG: User is NOT super admin');
+            backendLogger.debug('PERMISSION_DEBUG: User is NOT super admin');
           }
         }
       } catch (error) {
         backendLogger.error('Error checking super admin status', { error: error.message, userId: userIdStr });
       }
     } else {
-      backendLogger.info('PERMISSION_DEBUG: No User model available');
+      backendLogger.debug('PERMISSION_DEBUG: No User model available');
     }
 
     // Check if user is owner (highest priority)
     const ownerCheck = isOwner(userIdStr, resource);
-    backendLogger.info('COLLAB_DEBUG: isOwner check', {
+    backendLogger.debug('COLLAB_DEBUG: isOwner check', {
       userIdStr,
       resourceId: resource._id,
       resourceUser: resource.user?.toString ? resource.user.toString() : resource.user,
@@ -460,7 +460,7 @@ class PermissionEnforcer {
         p._id.toString() === userIdStr
       );
 
-      backendLogger.info('COLLAB_DEBUG: Direct permission check', {
+      backendLogger.debug('COLLAB_DEBUG: Direct permission check', {
         userIdStr,
         foundPermission: !!directPermission,
         permissionType: directPermission?.type,
@@ -616,20 +616,20 @@ class PermissionEnforcer {
     const userIdStr = userId.toString();
 
     if (!this.models.User) {
-      backendLogger.info('PERMISSION_DEBUG: No User model available for email verification check');
+      backendLogger.debug('PERMISSION_DEBUG: No User model available for email verification check');
       return { allowed: false, reason: 'User model not available for email verification' };
     }
 
     try {
-      backendLogger.info('PERMISSION_DEBUG: Checking email verification for user', userIdStr);
+      backendLogger.debug('PERMISSION_DEBUG: Checking email verification for user', userIdStr);
       const user = await this.models.User.findById(userIdStr);
 
       if (!user) {
-        backendLogger.info('PERMISSION_DEBUG: User not found for email verification', userIdStr);
+        backendLogger.debug('PERMISSION_DEBUG: User not found for email verification', userIdStr);
         return { allowed: false, reason: 'User not found' };
       }
 
-      backendLogger.info('PERMISSION_DEBUG: User details for email check', {
+      backendLogger.debug('PERMISSION_DEBUG: User details for email check', {
         userId: userIdStr,
         email: user.email,
         isSuperAdmin: user.isSuperAdmin,
@@ -640,19 +640,19 @@ class PermissionEnforcer {
 
       // OAuth users are automatically verified
       if (user.provider && user.provider !== 'local') {
-        backendLogger.info('PERMISSION_DEBUG: OAuth user - email verification bypassed', userIdStr);
+        backendLogger.debug('PERMISSION_DEBUG: OAuth user - email verification bypassed', userIdStr);
         return { allowed: true };
       }
 
       // Super admins bypass email verification
       if (isSuperAdmin(user)) {
-        backendLogger.info('PERMISSION_DEBUG: Super admin user - email verification bypassed', userIdStr);
+        backendLogger.debug('PERMISSION_DEBUG: Super admin user - email verification bypassed', userIdStr);
         return { allowed: true };
       }
 
       // Check if email is confirmed
       if (!user.emailConfirmed) {
-        backendLogger.info('PERMISSION_DEBUG: Email not confirmed - blocking action', userIdStr);
+        backendLogger.debug('PERMISSION_DEBUG: Email not confirmed - blocking action', userIdStr);
         const errorResponse = emailNotVerifiedError(user.email);
         return {
           allowed: false,
@@ -662,10 +662,10 @@ class PermissionEnforcer {
         };
       }
 
-      backendLogger.info('PERMISSION_DEBUG: Email verification passed', userIdStr);
+      backendLogger.debug('PERMISSION_DEBUG: Email verification passed', userIdStr);
       return { allowed: true };
     } catch (error) {
-      backendLogger.info('PERMISSION_DEBUG: Error checking email verification', error.message, userIdStr);
+      backendLogger.debug('PERMISSION_DEBUG: Error checking email verification', error.message, userIdStr);
       return { allowed: false, reason: 'Error checking email verification status' };
     }
   }
@@ -688,7 +688,7 @@ class PermissionEnforcer {
    */
   async addPermission({ resource, permission, actorId, reason, metadata = {}, allowSelfContributor = false, parentActivityId = null }) {
     try {
-      backendLogger.info('ENFORCER: addPermission called', {
+      backendLogger.debug('ENFORCER: addPermission called', {
         resourceId: resource?._id?.toString ? resource._id.toString() : resource?._id,
         permission: { _id: permission?._id, entity: permission?.entity, type: permission?.type },
         actorId: actorId?.toString ? actorId.toString() : actorId
@@ -922,7 +922,7 @@ class PermissionEnforcer {
         // Continue anyway - mutation succeeded but audit failed
       }
 
-      backendLogger.info('Permission added successfully', {
+      backendLogger.debug('Permission added successfully', {
         resourceType: resource.constructor.modelName,
         resourceId: resource._id,
         permissionEntity: permission.entity,
@@ -1029,7 +1029,7 @@ class PermissionEnforcer {
         backendLogger.error('Failed to create audit log', { error: auditResult.error });
       }
 
-      backendLogger.info('Permission removed successfully', {
+      backendLogger.debug('Permission removed successfully', {
         resourceType: resource.constructor.modelName,
         resourceId: resource._id,
         removedPermission: removed,
@@ -1205,7 +1205,7 @@ class PermissionEnforcer {
         backendLogger.error('Failed to create audit log', { error: auditResult.error });
       }
 
-      backendLogger.info('Ownership transferred successfully', {
+      backendLogger.debug('Ownership transferred successfully', {
         resourceType: resource.constructor.modelName,
         resourceId: resource._id,
         oldOwnerId: oldOwnerId.toString(),
@@ -1245,7 +1245,7 @@ class PermissionEnforcer {
         return { success: false, error: result.error };
       }
 
-      backendLogger.info('Successfully rolled back change', {
+      backendLogger.debug('Successfully rolled back change', {
         rollbackToken,
         actorId,
         reason
@@ -1290,7 +1290,7 @@ class PermissionEnforcer {
         .sort({ timestamp: -1 })
         .lean();
 
-      backendLogger.info('Audit log retrieved', {
+      backendLogger.debug('Audit log retrieved', {
         resourceType: resource.constructor.modelName,
         resourceId: resource._id,
         count: activities.length,
