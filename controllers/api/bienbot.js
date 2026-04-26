@@ -1917,6 +1917,14 @@ function sendSSE(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+function sendToolCallStart(res, payload) {
+  sendSSE(res, 'tool_call_start', payload);
+}
+
+function sendToolCallEnd(res, payload) {
+  sendSSE(res, 'tool_call_end', payload);
+}
+
 /**
  * Split text into adaptive SSE chunks at word boundaries.
  *
