@@ -408,9 +408,10 @@ function createWebSocketServer(server, options = {}) {
 
     let user;
     try {
-      const secret = process.env.SECRET || process.env.JWT_SECRET;
+      const { getJwtSecret } = require('./secrets');
+      const secret = getJwtSecret();
       if (!secret) {
-        backendLogger.error('[WebSocket] Missing JWT secret (SECRET/JWT_SECRET)');
+        backendLogger.error('[WebSocket] Missing JWT secret (JWT_SECRET/SECRET)');
         ws.close(1011, 'Server error');
         return;
       }

@@ -13,6 +13,7 @@ const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/w
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const { getDefaultPhoto } = require("../../utilities/photo-utils");
 const { generateRawToken, hashToken } = require("../../utilities/token-hash");
+const { getJwtSecret } = require("../../utilities/secrets");
 
 function isE164PhoneNumber(value) {
   if (typeof value !== 'string') return false;
@@ -63,7 +64,7 @@ function buildJwtPayload(user) {
 }
 
 function createJWT(user) {
-  return jwt.sign({ user: buildJwtPayload(user) }, process.env.SECRET, { expiresIn: "24h" });
+  return jwt.sign({ user: buildJwtPayload(user) }, getJwtSecret(), { expiresIn: "24h" });
 }
 
 async function create(req, res) {

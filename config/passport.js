@@ -11,6 +11,7 @@ const User = require('../models/user');
 const Photo = require('../models/photo');
 const jwt = require('jsonwebtoken');
 const backendLogger = require('../utilities/backend-logger');
+const { getJwtSecret } = require('../utilities/secrets');
 
 /**
  * Create a profile photo entity from OAuth provider photo URL
@@ -479,7 +480,7 @@ function buildJwtPayload(user) {
 function createToken(user) {
   return jwt.sign(
     { user: buildJwtPayload(user) },
-    process.env.SECRET,
+    getJwtSecret(),
     { expiresIn: '24h' }
   );
 }

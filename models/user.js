@@ -736,9 +736,10 @@ userSchema.methods.generateToken = function() {
       .filter(f => f.enabled)
       .map(f => ({ flag: f.flag, enabled: true })),
   };
+  const { getJwtSecret } = require('../utilities/secrets');
   return jwt.sign(
     { user: payload },
-    process.env.SECRET,
+    getJwtSecret(),
     { expiresIn: '24h' }
   );
 };

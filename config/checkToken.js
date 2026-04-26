@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const ApiToken = require('../models/apiToken');
 const backendLogger = require('../utilities/backend-logger');
+const { getJwtSecret } = require('../utilities/secrets');
 
 module.exports = function(req, res, next) {
     // Check for token in Authorization header, query params, or secure cookie
@@ -35,7 +36,7 @@ module.exports = function(req, res, next) {
         }
 
         // Otherwise, try JWT verification
-        jwt.verify(token, process.env.SECRET, async function(err, decoded) {
+        jwt.verify(token, getJwtSecret(), async function(err, decoded) {
             if (err) {
                 backendLogger.warn('JWT verification failed', { error: err.message, ip: req.ip });
                 req.user = null;

@@ -32,6 +32,10 @@ if (process.env.NODE_ENV !== 'test') {
   require("./config/database");
 }
 
+// Loud boot-time warning if any required secret is missing in production.
+const { getSessionSecret, getCsrfSecret, validateSecretsAtBoot } = require('./utilities/secrets');
+validateSecretsAtBoot();
+
 /**
  * Client development server port
  * @type {number}
@@ -70,7 +74,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isRender = process.env.RENDER === 'true';
 const sessionCookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || process.env.SECRET,
+  secret: getSessionSecret(),
   resave: false,
   saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
   cookie: {
@@ -92,7 +96,7 @@ if (isProduction && process.env.DATABASE_URL) {
     autoRemove: 'native', // Use MongoDB TTL index for automatic cleanup
     touchAfter: 24 * 3600, // Only update session once per 24 hours unless data changes
     crypto: {
-      secret: process.env.SESSION_SECRET || process.env.SECRET
+      secret: getSessionSecret()
     }
   });
   backendLogger.info('Session store: MongoDB (production)');
@@ -143,7 +147,7 @@ const {
   generateCsrfToken, // Used to create a CSRF token pair (correct name from csrf-csrf v4)
   doubleCsrfProtection, // Middleware to validate CSRF tokens
 } = doubleCsrf({
-  getSecret: () => process.env.CSRF_SECRET || process.env.SECRET,
+  getSecret: () => getCsrfSecret(),
   // Fixed identifier - security comes from cookie-header matching, not session binding
   getSessionIdentifier: () => 'biensperience-csrf-v1',
   cookieName: (isProduction || isRender) ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
