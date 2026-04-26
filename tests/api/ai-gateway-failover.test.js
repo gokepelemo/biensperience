@@ -226,18 +226,41 @@ describe('executeAIRequest — provider failover', () => {
     expect(registry.callProvider).toHaveBeenCalledTimes(3);
   });
 
-  it('does NOT failover on non-retryable errors (auth, 4xx)', async () => {
+  it('advances to next provider on auth error (key invalid for this provider)', async () => {
+    // Behavior change (bd #8f36.12): 401/402/quota errors are non-retryable
+    // *within the current provider* but DO advance to the next provider — the
+    // user's key on provider A may be invalid while provider B works fine.
     mockPoliciesOnce([
       { scope: 'global', ...makePolicy({ preferred_provider: 'openai', fallback_providers: ['anthropic'] }) }
     ]);
     registry.getApiKeyForProvider.mockReturnValue('sk-test');
-    registry.callProvider.mockRejectedValue(authError());
+    registry.callProvider
+      .mockRejectedValueOnce(authError())                  // openai 401
+      .mockResolvedValueOnce(providerResult('anthropic')); // anthropic succeeds
+
+    const result = await gateway.executeAIRequest({ messages, task, user, options: fastRetry });
+
+    expect(result.provider).toBe('anthropic');
+    expect(registry.callProvider).toHaveBeenCalledTimes(2);
+    expect(registry.callProvider).toHaveBeenNthCalledWith(1, 'openai', expect.any(Array), expect.any(Object));
+    expect(registry.callProvider).toHaveBeenNthCalledWith(2, 'anthropic', expect.any(Array), expect.any(Object));
+  });
+
+  it('does NOT failover on truly non-retryable errors (e.g. content policy)', async () => {
+    // Errors that aren't transient AND aren't auth/quota/400 — e.g. a content
+    // policy violation or unknown 4xx — fail closed without trying fallbacks.
+    mockPoliciesOnce([
+      { scope: 'global', ...makePolicy({ preferred_provider: 'openai', fallback_providers: ['anthropic'] }) }
+    ]);
+    registry.getApiKeyForProvider.mockReturnValue('sk-test');
+    const policyErr = new Error('Content policy violation');
+    policyErr.statusCode = 451;
+    registry.callProvider.mockRejectedValue(policyErr);
 
     await expect(
       gateway.executeAIRequest({ messages, task, user, options: fastRetry })
-    ).rejects.toMatchObject({ statusCode: 401 });
+    ).rejects.toMatchObject({ statusCode: 451 });
 
-    // Only primary was tried, no fallback
     expect(registry.callProvider).toHaveBeenCalledTimes(1);
     expect(registry.callProvider).toHaveBeenCalledWith('openai', expect.any(Array), expect.any(Object));
   });
@@ -335,5 +358,95 @@ describe('executeAIRequest — provider failover', () => {
     ).rejects.toMatchObject({ statusCode: 503 });
 
     expect(registry.callProvider).toHaveBeenCalledTimes(1);
+  });
+
+  // --------------------------------------------------------------------
+  // bd #8f36.12 — total-attempts cap across the entire failover chain
+  // --------------------------------------------------------------------
+
+  it('caps total attempts across the failover chain (cap < retries × providers)', async () => {
+    // Without the cap, this configuration would issue (maxRetries+1) × 3 = 9
+    // calls (3 retries each across 3 providers). With max_total_attempts=3
+    // the gateway must stop after exactly 3 calls.
+    mockPoliciesOnce([
+      {
+        scope: 'global',
+        ...makePolicy({
+          preferred_provider: 'openai',
+          fallback_providers: ['anthropic', 'google'],
+          max_total_attempts: 3
+        })
+      }
+    ]);
+    registry.getApiKeyForProvider.mockReturnValue('sk-test');
+    // All providers return a transient (retryable) 503 indefinitely.
+    registry.callProvider.mockRejectedValue(transientError('Service Unavailable'));
+
+    // Use a generous per-provider retry budget so the cross-chain cap is the
+    // binding constraint, not callWithRetry's local maxRetries.
+    const localRetry = { retryConfig: { maxRetries: 2, baseDelayMs: 1, maxDelayMs: 2 } };
+
+    await expect(
+      gateway.executeAIRequest({ messages, task, user, options: localRetry })
+    ).rejects.toMatchObject({
+      code: 'ATTEMPT_CAP_REACHED',
+      statusCode: 503
+    });
+
+    // Exactly the cap, not 9.
+    expect(registry.callProvider).toHaveBeenCalledTimes(3);
+
+    // The user-facing error message should reference the cap.
+    try {
+      await gateway.executeAIRequest({ messages, task, user, options: localRetry });
+    } catch (err) {
+      // (Second call doesn't run — the rejection above already consumed the
+      // mock's behavior; this block is just to grab the error shape from the
+      // first throw via toThrow plumbing — but jest doesn't reuse the error,
+      // so we re-trigger and inspect.)
+      expect(err.message).toMatch(/cap|attempt/i);
+    }
+
+    // Telemetry: completion log fires with cap_reached: true and total_attempts: 3.
+    const completionCalls = logger.warn.mock.calls.filter(
+      ([msg]) => msg === '[ai-gateway] Failover loop complete'
+    );
+    expect(completionCalls.length).toBeGreaterThanOrEqual(1);
+    const completionPayload = completionCalls[0][1];
+    expect(completionPayload).toMatchObject({
+      status: 'error',
+      cap_reached: true,
+      total_attempts: 3,
+      cap: 3
+    });
+  });
+
+  it('caller can override max_total_attempts via options (e.g. for tests)', async () => {
+    mockPoliciesOnce([
+      {
+        scope: 'global',
+        ...makePolicy({
+          preferred_provider: 'openai',
+          fallback_providers: ['anthropic']
+          // no max_total_attempts in policy → falls back to default
+        })
+      }
+    ]);
+    registry.getApiKeyForProvider.mockReturnValue('sk-test');
+    registry.callProvider.mockRejectedValue(transientError());
+
+    await expect(
+      gateway.executeAIRequest({
+        messages,
+        task,
+        user,
+        options: {
+          retryConfig: { maxRetries: 5, baseDelayMs: 1, maxDelayMs: 2 },
+          maxTotalAttempts: 2
+        }
+      })
+    ).rejects.toMatchObject({ code: 'ATTEMPT_CAP_REACHED' });
+
+    expect(registry.callProvider).toHaveBeenCalledTimes(2);
   });
 });

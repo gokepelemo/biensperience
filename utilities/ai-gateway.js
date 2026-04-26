@@ -38,6 +38,10 @@ const RATE_ENTRIES_TRIM_TARGET = 5000;
 const DEFAULT_HEADROOM_TOKENS = 100;
 const DEFAULT_MAX_TOKENS = 1000;
 const DEFAULT_MAX_TOKENS_PER_REQUEST = 4000;
+// Hard cap on total LLM call attempts across the entire failover chain.
+// Worst case without this cap was (maxRetries+1) × providerChainLength
+// (e.g. 4 × 3 = 12 calls). Cap bounds blast radius for cost + latency.
+const DEFAULT_MAX_TOTAL_ATTEMPTS = 5;
 const DEFAULT_TEMPERATURE = 0.7;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
@@ -139,6 +143,7 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     task_routing: [],
     content_filtering: { enabled: false, block_patterns: [], redact_patterns: [] },
     max_tokens_per_request: DEFAULT_MAX_TOKENS_PER_REQUEST,
+    max_total_attempts: DEFAULT_MAX_TOTAL_ATTEMPTS,
     // Provider/model overrides from entity config
     preferred_provider: null,
     preferred_model: null,
@@ -238,6 +243,10 @@ function mergePolicy(target, source) {
 
   if (source.max_tokens_per_request != null) {
     target.max_tokens_per_request = source.max_tokens_per_request;
+  }
+
+  if (source.max_total_attempts != null) {
+    target.max_total_attempts = source.max_total_attempts;
   }
 }
 
@@ -574,6 +583,48 @@ function getEnvProviderForTask(task) {
 }
 
 // ---------------------------------------------------------------------------
+// Telemetry helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Emit a single structured log line summarising the outcome of the failover
+ * loop. Always fires once per executeAIRequest, regardless of success/failure.
+ * Used by the AI usage admin view + ops dashboards to spot runaway-cost paths.
+ *
+ * Fields:
+ *  - status: 'success' | 'error'
+ *  - total_attempts: actual LLM call count across the chain
+ *  - cap: configured max_total_attempts for this request
+ *  - cap_reached: true when the cap short-circuited iteration
+ *  - final_provider: provider that produced the response (success) or last tried (error)
+ *  - providers_tried, provider_chain_length: how far through the chain we got
+ *  - failover_index: 0 = primary, >0 = nth fallback (success path only)
+ *  - error_message: present on error
+ */
+function logFailoverComplete(fields) {
+  const payload = {
+    status: fields.status,
+    total_attempts: fields.totalAttempts,
+    cap: fields.cap,
+    cap_reached: !!fields.capReached,
+    final_provider: fields.finalProvider || null,
+    providers_tried: fields.providersTried,
+    provider_chain_length: fields.providerChainLength
+  };
+  if (typeof fields.failoverIndex === 'number') {
+    payload.failover_index = fields.failoverIndex;
+  }
+  if (fields.errorMessage) {
+    payload.error_message = fields.errorMessage;
+  }
+  if (fields.status === 'success') {
+    logger.info('[ai-gateway] Failover loop complete', payload);
+  } else {
+    logger.warn('[ai-gateway] Failover loop complete', payload);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main gateway function
 // ---------------------------------------------------------------------------
 
@@ -681,10 +732,30 @@ async function executeAIRequest(params) {
   // Record rate limit entry once per user request
   if (userId) recordRateEntry(userId);
 
+  // Shared attempt tracker for the entire failover chain. Without this cap,
+  // worst-case attempt count is (maxRetries + 1) × providerChain.length —
+  // e.g. 4 × 3 = 12 LLM calls — a runaway cost path. Allow per-request override
+  // via options.maxTotalAttempts for tests / debugging.
+  const callerCap = Number(options.maxTotalAttempts);
+  const policyCap = Number(policy.max_total_attempts);
+  const attemptTracker = {
+    count: 0,
+    cap: Math.max(
+      1,
+      Number.isFinite(callerCap) && callerCap > 0
+        ? Math.floor(callerCap)
+        : (Number.isFinite(policyCap) && policyCap > 0 ? Math.floor(policyCap) : DEFAULT_MAX_TOTAL_ATTEMPTS)
+    )
+  };
+
   let result;
   let lastError;
+  let capReached = false;
+  let providersTried = 0;
   let lastAttemptedProvider = route.provider;
   let lastAttemptedModel = callOptions.model;
+  let usedFailoverIndex = 0;
+
   for (let i = 0; i < providerChain.length; i++) {
     const currentProvider = providerChain[i];
     const currentApiKey = getApiKeyForProvider(currentProvider);
@@ -701,13 +772,16 @@ async function executeAIRequest(params) {
 
     lastAttemptedProvider = currentProvider;
     lastAttemptedModel = currentCallOptions.model;
+    providersTried += 1;
 
     try {
       result = await callWithRetry(
         () => callProvider(currentProvider, filterResult.messages, currentCallOptions),
         options.retryConfig,
-        `${currentProvider}/${task || 'unknown'}`
+        `${currentProvider}/${task || 'unknown'}`,
+        attemptTracker
       );
+      usedFailoverIndex = i;
 
       if (i > 0) {
         logger.info('[ai-gateway] Failover succeeded', {
@@ -721,9 +795,45 @@ async function executeAIRequest(params) {
     } catch (err) {
       lastError = err;
 
+      // Cross-provider attempt cap reached — stop iterating, do NOT try the
+      // next provider. The cap exists precisely to bound the chain, so we
+      // exit immediately rather than burn another attempt elsewhere.
+      if (err instanceof AttemptCapReachedError) {
+        capReached = true;
+        break;
+      }
+
+      // Auth / quota / 400-class shape errors: this provider is unusable but
+      // the next one might work. Skip remaining retries within current
+      // provider and advance. (Retries within current provider are already
+      // skipped because callWithRetry threw on the first non-retryable error.)
+      if (shouldAdvanceProvider(err)) {
+        if (i < providerChain.length - 1) {
+          logger.warn('[ai-gateway] Provider non-retryable error, advancing to fallback', {
+            failedProvider: currentProvider,
+            nextProvider: providerChain[i + 1],
+            statusCode: err.statusCode || err.status || null,
+            quotaExhausted: isQuotaExhaustedError(err),
+            error: err.message
+          });
+        }
+        continue;
+      }
+
+      // Other non-retryable errors (content policy, validation we can't
+      // recover from, unknown 4xx) — fail closed without failover.
       if (!isRetryableError(err)) {
-        // Non-retryable error (auth failure, content policy, etc.) — do not failover
         await trackUsage(userId, task, currentProvider, currentCallOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext);
+        logFailoverComplete({
+          status: 'error',
+          totalAttempts: attemptTracker.count,
+          cap: attemptTracker.cap,
+          capReached: false,
+          finalProvider: currentProvider,
+          providersTried,
+          providerChainLength: providerChain.length,
+          errorMessage: err.message
+        });
         throw err;
       }
 
@@ -738,15 +848,48 @@ async function executeAIRequest(params) {
   }
 
   if (!result) {
-    // All providers exhausted (either all failed or all skipped due to missing API keys)
-    const finalError = lastError || new GatewayError(
-      `No configured AI providers available for this request (tried: ${providerChain.join(', ')})`,
-      'PROVIDER_NOT_CONFIGURED',
-      503
-    );
+    // All providers exhausted (either all failed, all skipped due to missing
+    // API keys, or the cross-chain attempt cap was hit).
+    let finalError;
+    if (capReached) {
+      finalError = new GatewayError(
+        `AI gateway exhausted attempt cap (${attemptTracker.count}/${attemptTracker.cap}) ` +
+        `after trying ${providersTried} provider(s) [${providerChain.slice(0, providersTried).join(', ')}]: ` +
+        `${lastError ? lastError.message : 'unknown error'}`,
+        'ATTEMPT_CAP_REACHED',
+        503
+      );
+    } else {
+      finalError = lastError || new GatewayError(
+        `No configured AI providers available for this request (tried: ${providerChain.join(', ')})`,
+        'PROVIDER_NOT_CONFIGURED',
+        503
+      );
+    }
     await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
+    logFailoverComplete({
+      status: 'error',
+      totalAttempts: attemptTracker.count,
+      cap: attemptTracker.cap,
+      capReached,
+      finalProvider: lastAttemptedProvider,
+      providersTried,
+      providerChainLength: providerChain.length,
+      errorMessage: finalError.message
+    });
     throw finalError;
   }
+
+  logFailoverComplete({
+    status: 'success',
+    totalAttempts: attemptTracker.count,
+    cap: attemptTracker.cap,
+    capReached: false,
+    finalProvider: result.provider || lastAttemptedProvider,
+    providersTried,
+    providerChainLength: providerChain.length,
+    failoverIndex: usedFailoverIndex
+  });
 
   // Step 8: Track usage
   const latencyMs = Date.now() - startTime;
@@ -848,6 +991,10 @@ const RETRYABLE_PATTERNS = [
  * @returns {boolean}
  */
 function isRetryableError(err) {
+  // Quota errors look like 429 but aren't retryable on the same provider —
+  // classify them out before the generic 429 check.
+  if (isQuotaExhaustedError(err)) return false;
+
   // Check HTTP status code (may be set by provider handlers)
   if (err.statusCode && RETRYABLE_STATUS_CODES.has(err.statusCode)) return true;
   if (err.status && RETRYABLE_STATUS_CODES.has(err.status)) return true;
@@ -855,6 +1002,63 @@ function isRetryableError(err) {
   // Check error message against known patterns
   const msg = err.message || '';
   return RETRYABLE_PATTERNS.some(pattern => pattern.test(msg));
+}
+
+/**
+ * Determine whether an error means "this provider is unusable; advance to the
+ * next one without retrying within the current provider". These are non-
+ * retryable errors that we still want to failover for, instead of throwing.
+ *
+ * Covers:
+ *   - 401 (auth) — provider key invalid; no point retrying
+ *   - 402 (payment required) — billing problem on this provider
+ *   - 429-quota (e.g. OpenAI `insufficient_quota`) — burned through monthly
+ *     allotment; retrying won't help, but next provider might
+ *   - 400-class shape/validation errors that aren't 404 (route mismatch is
+ *     not a provider problem we can recover from by switching)
+ *
+ * Pragmatically: if a 429 carries a quota signal, treat as quota; otherwise
+ * keep treating 429 as a transient rate-limit (retryable) and rely on the
+ * total-attempts cap to bound damage.
+ *
+ * @param {Error} err
+ * @returns {boolean}
+ */
+function shouldAdvanceProvider(err) {
+  if (!err) return false;
+  const status = err.statusCode || err.status;
+
+  if (status === 401 || status === 402) return true;
+  if (isQuotaExhaustedError(err)) return true;
+
+  // 400 (bad request) — payload shape problem; same shape will fail on retry.
+  // We failover because some providers are stricter than others (e.g. about
+  // optional fields), and the next provider might accept the request.
+  if (status === 400) return true;
+
+  return false;
+}
+
+/**
+ * Heuristic: is this error a hard quota/billing exhaustion (not a soft
+ * rate-limit)? OpenAI uses `code: 'insufficient_quota'`; others vary.
+ * Pattern-matched on common phrasings.
+ */
+function isQuotaExhaustedError(err) {
+  if (!err) return false;
+  if (err.code === 'insufficient_quota') return true;
+  if (err.type === 'insufficient_quota') return true;
+
+  const status = err.statusCode || err.status;
+  if (status !== 402 && status !== 429) {
+    // Quota signals only matter for the statuses that overlap with rate-limit
+    // / billing categories. A 500 with the word "quota" in the message is
+    // still transient.
+    if (status) return false;
+  }
+
+  const msg = (err.message || '').toLowerCase();
+  return /insufficient[_\s]quota|quota exceeded|exceeded your (current )?quota|billing|hard limit reached/.test(msg);
 }
 
 /**
@@ -907,21 +1111,57 @@ function sleep(ms) {
 }
 
 /**
+ * Sentinel error thrown when the cross-provider total-attempts cap is hit.
+ * Surfaces from `callWithRetry` and is recognised in the failover loop so it
+ * can stop iterating and produce a single user-facing error.
+ */
+class AttemptCapReachedError extends Error {
+  constructor(totalAttempts, cap, lastProviderError) {
+    super(
+      `AI gateway exhausted total attempt cap (${totalAttempts}/${cap}); ` +
+      `last error: ${lastProviderError ? lastProviderError.message : 'unknown'}`
+    );
+    this.name = 'AttemptCapReachedError';
+    this.code = 'ATTEMPT_CAP_REACHED';
+    this.statusCode = 503;
+    this.totalAttempts = totalAttempts;
+    this.cap = cap;
+    this.cause = lastProviderError;
+  }
+}
+
+/**
  * Call a provider with retry logic using exponential backoff and jitter.
  *
  * Only transient errors (rate limits, timeouts, 5xx) are retried.
  * Non-retryable errors (auth failures, validation, content blocked) are thrown immediately.
  *
+ * Every call (success OR failure) increments the optional shared `attemptTracker`
+ * counter. If the counter reaches `attemptTracker.cap` the function throws
+ * `AttemptCapReachedError` instead of issuing further calls. This bounds the
+ * total cross-provider attempt count when callers wire the same tracker through
+ * multiple provider invocations.
+ *
  * @param {Function} callFn - () => Promise<result> — the provider call to execute
  * @param {Object} [retryConfig] - Override default retry configuration
  * @param {string} [context] - Logging context (provider name, task)
+ * @param {{count: number, cap: number}} [attemptTracker] - Shared attempt counter (mutated)
  * @returns {Promise<Object>} Provider response
  */
-async function callWithRetry(callFn, retryConfig = {}, context = '') {
+async function callWithRetry(callFn, retryConfig = {}, context = '', attemptTracker = null) {
   const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
   let lastError;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    // Pre-call cap check — refuse to issue another LLM request if we'd blow
+    // the cross-provider budget. Surfaces a distinct sentinel so the failover
+    // loop can stop immediately rather than try the next provider.
+    if (attemptTracker && attemptTracker.count >= attemptTracker.cap) {
+      throw new AttemptCapReachedError(attemptTracker.count, attemptTracker.cap, lastError);
+    }
+
+    if (attemptTracker) attemptTracker.count += 1;
+
     try {
       return await callFn();
     } catch (err) {
@@ -935,6 +1175,11 @@ async function callWithRetry(callFn, retryConfig = {}, context = '') {
       // Don't retry if we've exhausted all attempts
       if (attempt >= config.maxRetries) {
         break;
+      }
+
+      // Don't bother sleeping if the next call would just fail the cap check.
+      if (attemptTracker && attemptTracker.count >= attemptTracker.cap) {
+        throw new AttemptCapReachedError(attemptTracker.count, attemptTracker.cap, err);
       }
 
       // Honor a server-supplied Retry-After if present (capped at maxDelayMs);
@@ -983,9 +1228,12 @@ module.exports = {
   resolvePolicy,
   invalidatePolicyCache,
   GatewayError,
+  AttemptCapReachedError,
   // Exported for testing
   callWithRetry,
   isRetryableError,
+  shouldAdvanceProvider,
+  isQuotaExhaustedError,
   calculateRetryDelay,
   extractRetryAfterMs,
   applyContentFiltering,
@@ -993,6 +1241,7 @@ module.exports = {
   routeRequest,
   findTaskRoute,
   DEFAULT_RETRY_CONFIG,
+  DEFAULT_MAX_TOTAL_ATTEMPTS,
   // Exported so the AI controller and utilities can use the canonical
   // implementation. NOTE: this is the env-only resolver, not the policy-aware
   // routing path used inside executeAIRequest.
