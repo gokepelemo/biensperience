@@ -28,7 +28,7 @@ const {
   buildDiscoveryContext,
   buildPlanNextStepsContext
 } = require('../../utilities/bienbot-context-builders');
-const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
+const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES, TOOL_CALL_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
 const { validateNavigationSchema, extractContextIds } = require('../../utilities/navigation-context-schema');
@@ -498,6 +498,30 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '    }',
     '  ]',
     '}',
+    '',
+    'TOOL CALLS (silent fetches):',
+    '- Your JSON response MAY include a top-level `tool_calls` array when you need data not present in the context above.',
+    '- Each tool call has the same shape as a pending_action: { type, payload }. Tool calls are EXECUTED IMMEDIATELY by the system without user confirmation.',
+    '- After tool calls execute, you will receive a follow-up turn containing a [TOOL RESULTS] block. In that follow-up, produce your real answer using the data — do NOT include `tool_calls` again. The fetch budget is exhausted for the turn.',
+    '- Available tool calls (use only when the user request actually needs the data):',
+    '  - fetch_plan_items: { plan_id, filter?: "all"|"unscheduled"|"scheduled"|"incomplete"|"overdue", limit?: 100 }',
+    '  - fetch_plan_costs: { plan_id, group_by?: "category"|"item"|"none" }',
+    '  - fetch_plan_collaborators: { plan_id }',
+    '  - fetch_experience_items: { experience_id, limit?: 100 }',
+    '  - fetch_destination_experiences: { destination_id, limit?: 50, sort?: "popular"|"recent"|"name" }',
+    '  - fetch_user_plans: { user_id?: defaults to self, status?: "active"|"completed"|"all", limit?: 50 }',
+    '- NEVER invent IDs in a fetch payload. Use only IDs from the provided context, listed entities, or earlier entity_refs.',
+    '- If a fetch result includes `{ ok: false, error }`, briefly acknowledge the failure in your response. Do not invent the data.',
+    '- If a fetch result has `returned < total`, tell the user how many were not returned and offer to narrow the filter.',
+    '',
+    'WHEN TO USE TOOL CALLS:',
+    '- "Review/list/show me the items" with an active plan → fetch_plan_items',
+    '- "Schedule the unscheduled ones", "prioritize my items", "what is left to plan" → fetch_plan_items with filter="unscheduled" first, then propose update_plan_item actions in your follow-up reply',
+    '- "What did I spend", "break down the costs" with active plan → fetch_plan_costs',
+    '- "Who is on this plan" → fetch_plan_collaborators',
+    '- "What experiences are at <destination>" → fetch_destination_experiences',
+    '- "What plans am I working on" → fetch_user_plans (defaults to the requesting user)',
+    '- "What is in this experience template" → fetch_experience_items',
     '',
     'PENDING ACTION BUTTON OVERRIDES (optional):',
     'Each action in pending_actions may include these optional fields to customise button labels:',
@@ -1135,6 +1159,15 @@ async function buildContextBlocks(intent, entities, session, userId, message, na
   return blocks.length > 0 ? blocks.join('\n\n') : null;
 }
 
+const TOOL_CALL_LABELS = {
+  fetch_plan_items: 'Fetching plan items…',
+  fetch_plan_costs: 'Fetching costs…',
+  fetch_plan_collaborators: 'Fetching collaborators…',
+  fetch_experience_items: 'Fetching experience items…',
+  fetch_destination_experiences: 'Fetching experiences…',
+  fetch_user_plans: 'Fetching plans…'
+};
+
 /**
  * Parse structured JSON response from LLM.
  * Returns { message, pending_actions } or a fallback.
@@ -1171,6 +1204,16 @@ function parseLLMResponse(text) {
           })
         : [];
 
+      const toolCalls = Array.isArray(parsed.tool_calls)
+        ? parsed.tool_calls
+          .filter(tc =>
+            tc && typeof tc.type === 'string' &&
+            TOOL_CALL_ACTION_TYPES.has(tc.type) &&
+            tc.payload && typeof tc.payload === 'object'
+          )
+          .map(tc => ({ type: tc.type, payload: tc.payload }))
+        : [];
+
       const isValidEntityRef = (r) =>
         r && typeof r._id === 'string' && r._id.length > 0 &&
         typeof r.type === 'string' && typeof r.name === 'string' &&
@@ -1195,7 +1238,7 @@ function parseLLMResponse(text) {
         } catch { /* ignore malformed inline objects */ }
       }
 
-      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs };
+      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs, tool_calls: toolCalls };
     } catch {
       return null;
     }
@@ -1266,13 +1309,13 @@ function parseLLMResponse(text) {
         }
       } catch { /* ignore — return message without actions */ }
 
-      return { message, pending_actions: actions, entity_refs: [] };
+      return { message, pending_actions: actions, entity_refs: [], tool_calls: [] };
     }
     logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
       length: text.length,
       preview: text.slice(0, 120)
     });
-    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
+    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [], tool_calls: [] };
   }
 
   // 4. Plain text (no JSON structure) — return the text as the message
@@ -1283,14 +1326,14 @@ function parseLLMResponse(text) {
       length: trimmed.length,
       preview: trimmed.slice(0, 120)
     });
-    return { message: trimmed, pending_actions: [], entity_refs: [] };
+    return { message: trimmed, pending_actions: [], entity_refs: [], tool_calls: [] };
   }
 
   logger.warn('[bienbot] parseLLMResponse: no message field in response', {
     length: text.length,
     preview: text.slice(0, 120)
   });
-  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
+  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [], tool_calls: [] };
 }
 
 /**
@@ -1434,6 +1477,12 @@ const ACTION_ENTITY_VERIFY = {
                                   { field: 'experience_id', model: 'experience', required: false }
                                 ] },
   fetch_destination_tips:      { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  fetch_plan_items:            { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_plan_costs:            { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_plan_collaborators:    { refs: [{ field: 'plan_id', model: 'plan', required: true }] },
+  fetch_experience_items:      { refs: [{ field: 'experience_id', model: 'experience', required: true }] },
+  fetch_destination_experiences: { refs: [{ field: 'destination_id', model: 'destination', required: true }] },
+  fetch_user_plans:            { refs: [{ field: 'user_id', model: 'user', required: false }] },
   // Optional plan_id only.
   create_invite:               { refs: [{ field: 'plan_id', model: 'plan', required: false }] },
   // experience_id required.
@@ -1940,6 +1989,14 @@ function sendSSE(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+function sendToolCallStart(res, payload) {
+  sendSSE(res, 'tool_call_start', payload);
+}
+
+function sendToolCallEnd(res, payload) {
+  sendSSE(res, 'tool_call_end', payload);
+}
+
 /**
  * Split text into adaptive SSE chunks at word boundaries.
  *
@@ -2125,6 +2182,83 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
       return null;
   }
 }
+
+/**
+ * Execute a batch of LLM-proposed tool calls (read-only fetches) in parallel.
+ * Returns a formatted tool-results block ready to inject into the second LLM
+ * prompt, plus per-call metadata for telemetry.
+ *
+ * @param {Object} opts
+ * @param {Array}  opts.toolCalls    - Parsed tool_calls array from first LLM response
+ * @param {Object} opts.user         - req.user
+ * @param {Object} opts.session      - BienBotSession (passed through to handlers)
+ * @param {Function} [opts.executeAction] - Injected for tests; defaults to real executor
+ * @param {Function} [opts.onCallStart] - Called per-call with { call_id, type, label }
+ * @param {Function} [opts.onCallEnd]   - Called per-call with { call_id, ok }
+ * @returns {Promise<{ toolResultsBlock: string, calls: Array }>}
+ */
+async function executeToolCallLoop({
+  toolCalls,
+  user,
+  session,
+  executeAction = require('../../utilities/bienbot-action-executor').executeAction,
+  onCallStart = () => {},
+  onCallEnd = () => {},
+  signal = undefined
+}) {
+  if (signal?.aborted) throw new Error('AbortError');
+
+  const calls = await Promise.all(toolCalls.map(async (tc, idx) => {
+    if (signal?.aborted) throw new Error('AbortError');
+    const callId = `tc_${Date.now()}_${idx}`;
+    const label = TOOL_CALL_LABELS[tc.type] || `Fetching ${tc.type.replace(/_/g, ' ')}…`;
+    onCallStart({ call_id: callId, type: tc.type, label });
+    const startedAt = Date.now();
+
+    let body;
+    let ok;
+    try {
+      const action = { id: callId, type: tc.type, payload: tc.payload, description: label };
+      const outcome = await executeAction(action, user, session);
+      if (signal?.aborted) throw new Error('AbortError');
+      body = outcome?.result?.body ?? outcome?.body ?? { ok: false, error: 'no_body' };
+      ok = !!outcome?.success && !(body && body.ok === false);
+    } catch (err) {
+      if (err.message === 'AbortError') throw err;
+      logger.error('[bienbot:tool-loop] handler threw', { type: tc.type, error: err.message });
+      body = { ok: false, error: 'fetch_failed' };
+      ok = false;
+    }
+
+    onCallEnd({ call_id: callId, ok });
+    return {
+      call_id: callId,
+      type: tc.type,
+      payload: tc.payload,
+      body,
+      ok,
+      duration_ms: Date.now() - startedAt
+    };
+  }));
+
+  if (signal?.aborted) throw new Error('AbortError');
+
+  const toolResultsBlock = [
+    '[TOOL RESULTS — for use in your reply, do not echo verbatim]',
+    ...calls.map(c => {
+      const payloadDigest = Object.entries(c.payload || {})
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ');
+      return `${c.type}(${payloadDigest}): ${JSON.stringify(c.body)}`;
+    }),
+    '[/TOOL RESULTS]'
+  ].join('\n');
+
+  return { toolResultsBlock, calls };
+}
+
+// Export under a `_for-test` alias so tests can drive the function with a mock
+// executeAction. The production callers use the closure-bound default.
+exports._executeToolCallLoopForTest = executeToolCallLoop;
 
 // ---------------------------------------------------------------------------
 // Controller methods
@@ -3413,8 +3547,108 @@ exports.chat = async (req, res) => {
   // --- Step 5: Parse structured response ---
   const rawParsed = parseLLMResponse(llmResult.content || '');
 
+  // --- Step 5a: Tool-use loop (silent fetch + re-prompt) ---
+  // If the first response carries tool_calls, run them in parallel, open the
+  // SSE stream so pill events stream during the wait, then re-prompt the LLM
+  // with the tool results and use the second response as the final answer.
+  // Recursion budget = 1 — any tool_calls in the second response are dropped.
+  const toolLoopAbort = new AbortController();
+  // Fire the abort only when the client actually disconnects before the
+  // response finishes. `res.on('close')` always fires (even on normal end),
+  // so guard with `!res.writableEnded` to distinguish disconnect from completion.
+  res.on('close', () => {
+    if (!res.writableEnded) toolLoopAbort.abort();
+  });
+
+  let parsedFinal = rawParsed;
+  if (Array.isArray(rawParsed.tool_calls) && rawParsed.tool_calls.length > 0) {
+    const startedAtLoop = Date.now();
+    // Verify tool-call entity IDs (reuse the verifier — drops hallucinated IDs).
+    const verifiedToolCalls = await verifyPendingActionEntityIds(
+      rawParsed.tool_calls.map(tc => ({ ...tc, id: `tc_${tc.type}` }))
+    );
+
+    // Open the SSE stream NOW so we can emit pill events while fetching.
+    if (!res.headersSent) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+    }
+
+    let toolResultsBlock;
+    let calls;
+    try {
+      ({ toolResultsBlock, calls } = await executeToolCallLoop({
+        toolCalls: verifiedToolCalls,
+        user: req.user,
+        session,
+        onCallStart: (p) => sendToolCallStart(res, p),
+        onCallEnd: (p) => sendToolCallEnd(res, p),
+        signal: toolLoopAbort.signal
+      }));
+    } catch (err) {
+      if (err.message === 'AbortError' || toolLoopAbort.signal.aborted) {
+        return res.end();
+      }
+      logger.error('[bienbot:tool-loop] tool loop threw', { error: err.message });
+      sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
+      sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
+      return res.end();
+    }
+
+    // Build re-prompt: same conversation + an extra user-role message
+    // containing the tool-results block. The LLM treats it as fresh context.
+    const repromptMessages = [
+      ...conversationMessages,
+      { role: 'assistant', content: JSON.stringify({ message: '', tool_calls: rawParsed.tool_calls }) },
+      { role: 'user', content: toolResultsBlock }
+    ];
+
+    let secondLlm;
+    try {
+      secondLlm = await callProvider(provider, repromptMessages, {
+        temperature: 0.7,
+        maxTokens,
+        _user: req.user,
+        task: AI_TASKS.BIENBOT_CHAT,
+        intent: classification.intent || null
+      });
+    } catch (err) {
+      if (toolLoopAbort.signal.aborted) {
+        return res.end();
+      }
+      logger.error('[bienbot:tool-loop] second LLM call failed', { error: err.message });
+      sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
+      sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
+      return res.end();
+    }
+
+    parsedFinal = parseLLMResponse(secondLlm.content || '');
+
+    // Recursion-budget enforcement: drop tool_calls in the second response.
+    if (parsedFinal.tool_calls && parsedFinal.tool_calls.length > 0) {
+      logger.warn('[bienbot:tool-loop] second response proposed more tool_calls — ignoring', {
+        count: parsedFinal.tool_calls.length,
+        types: parsedFinal.tool_calls.map(t => t.type)
+      });
+      parsedFinal.tool_calls = [];
+    }
+
+    logger.info('[bienbot:tool-loop] turn complete', {
+      sessionId: session._id.toString(),
+      tool_calls_count: calls.length,
+      tool_call_types: calls.map(c => c.type),
+      re_prompt_duration_ms: Date.now() - startedAtLoop,
+      per_call: calls.map(c => ({ type: c.type, ok: c.ok, duration_ms: c.duration_ms }))
+    });
+  }
+
   // Explode workflow actions into individual step-by-step pending actions
-  let explodedActions = explodeWorkflows(rawParsed.pending_actions);
+  let explodedActions = explodeWorkflows(parsedFinal.pending_actions);
 
   // Drop actions whose entity IDs the LLM hallucinated. Runs before the
   // read-only/confirmable split so disambiguation actions (select_plan,
@@ -3501,9 +3735,9 @@ exports.chat = async (req, res) => {
   }
 
   const parsed = {
-    message: rawParsed.message,
+    message: parsedFinal.message,
     pending_actions: confirmableActions,
-    entity_refs: rawParsed.entity_refs || []
+    entity_refs: parsedFinal.entity_refs || []
   };
 
   // --- Verify entity_refs against the database ---
@@ -3704,12 +3938,16 @@ exports.chat = async (req, res) => {
   });
 
   // --- Step 7: SSE-stream the response ---
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  });
+  // Headers may have already been sent by the tool-use loop above (Step 5a),
+  // which opens the stream early so pill events can flow during fetches.
+  if (!res.headersSent) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+  }
 
   // Stream session info (include attachment data for frontend rendering)
   const sessionEvent = {
@@ -5832,3 +6070,5 @@ exports.getAttachmentUrl = async (req, res) => {
 // Exported for testing
 exports.parseLLMResponse = parseLLMResponse;
 exports.verifyPendingActionEntityIds = verifyPendingActionEntityIds;
+exports.buildSystemPrompt = buildSystemPrompt;
+exports._ACTION_ENTITY_VERIFY_FOR_TEST = ACTION_ENTITY_VERIFY;

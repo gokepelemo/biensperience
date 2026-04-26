@@ -104,6 +104,12 @@ const ALLOWED_ACTION_TYPES = [
   'suggest_plan_items',
   'fetch_entity_photos',
   'fetch_destination_tips',
+  'fetch_plan_items',
+  'fetch_plan_costs',
+  'fetch_plan_collaborators',
+  'fetch_experience_items',
+  'fetch_destination_experiences',
+  'fetch_user_plans',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -180,6 +186,12 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'suggest_plan_items',
   'fetch_entity_photos',
   'fetch_destination_tips',
+  'fetch_plan_items',
+  'fetch_plan_costs',
+  'fetch_plan_collaborators',
+  'fetch_experience_items',
+  'fetch_destination_experiences',
+  'fetch_user_plans',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -190,6 +202,21 @@ const READ_ONLY_ACTION_TYPES = new Set([
   // user confirmation step.
   'select_plan',
   'select_destination'
+]);
+
+/**
+ * Read-only fetchers usable as silent tool calls in the LLM tool-use loop.
+ * Subset of READ_ONLY_ACTION_TYPES — only fetchers designed for LLM consumption
+ * (typed, compact result shape) belong here. Card-producing actions like
+ * fetch_entity_photos do NOT belong here; they remain user-facing only.
+ */
+const TOOL_CALL_ACTION_TYPES = new Set([
+  'fetch_plan_items',
+  'fetch_plan_costs',
+  'fetch_plan_collaborators',
+  'fetch_experience_items',
+  'fetch_destination_experiences',
+  'fetch_user_plans'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1151,6 +1178,413 @@ async function executeFetchDestinationTips(payload, user) {
 }
 
 /**
+ * fetch_plan_items — read-only, no confirmation.
+ * Returns the plan's items with full scheduling/completion state for the LLM
+ * to act on. See plan Task 2 for the full implementation.
+ */
+async function executeFetchPlanItems(payload, user) {
+  const Plan = require('../models/plan');
+  const { getEnforcer } = require('./permission-enforcer');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const User = require('../models/user');
+  const { buildInlineDetailSummary } = require('./bienbot-context-builders');
+  const mongoose = require('mongoose');
+
+  const planIdStr = String(payload?.plan_id || '');
+  if (!mongoose.Types.ObjectId.isValid(planIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // Cannot use .lean() here — enforcer._checkVisibility relies on
+  // resource.constructor.modelName to apply Plan-specific RESTRICTED visibility.
+  // .lean() returns a plain object, which falls back to AUTHENTICATED (any logged-in user).
+  const plan = await Plan.findById(planIdStr).select('plan permissions experience user');
+  if (!plan) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const FETCH_PLAN_ITEMS_MAX_LIMIT = 100;
+  const requestedLimit = Number.isFinite(payload?.limit) ? Math.max(1, Math.floor(payload.limit)) : FETCH_PLAN_ITEMS_MAX_LIMIT;
+  const limit = Math.min(requestedLimit, FETCH_PLAN_ITEMS_MAX_LIMIT);
+
+  const filter = payload?.filter || 'all';
+  const allItems = plan.plan || [];
+  const now = Date.now();
+  const matches = allItems.filter(item => {
+    switch (filter) {
+      case 'unscheduled': return !item.scheduled_date && !item.complete;
+      case 'scheduled':   return !!item.scheduled_date;
+      case 'incomplete':  return !item.complete;
+      case 'overdue': {
+        if (item.complete || !item.scheduled_date) return false;
+        return new Date(item.scheduled_date).getTime() < now;
+      }
+      case 'all':
+      default: return true;
+    }
+  });
+
+  const sliced = matches.slice(0, limit);
+  return {
+    statusCode: 200,
+    body: {
+      items: sliced.map(item => ({
+        _id: item._id?.toString(),
+        content: item.content || item.text || item.name || null,
+        scheduled_date: item.scheduled_date || null,
+        scheduled_time: item.scheduled_time || null,
+        complete: !!item.complete,
+        pinned: !!item.pinned,
+        parent_id: item.parent ? item.parent.toString() : null,
+        details_summary: buildInlineDetailSummary(item) || null
+      })),
+      total: matches.length,
+      returned: sliced.length
+    }
+  };
+}
+
+/**
+ * fetch_plan_costs — read-only, no confirmation.
+ * Returns the plan's costs grouped by category with totals in the user's currency.
+ * payload: { plan_id }
+ */
+async function executeFetchPlanCosts(payload, user) {
+  const Plan = require('../models/plan');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const User = require('../models/user');
+  const { getEnforcer } = require('./permission-enforcer');
+  const mongoose = require('mongoose');
+
+  const planIdStr = String(payload?.plan_id || '');
+  if (!mongoose.Types.ObjectId.isValid(planIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // Cannot use .lean() — enforcer needs the Mongoose-model class info.
+  const plan = await Plan.findById(planIdStr).select('costs currency permissions experience user');
+  if (!plan) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const costs = (plan.costs || []).map(c => ({
+    _id: c._id?.toString(),
+    label: c.title || c.label || null,
+    amount: c.cost || c.amount || 0,
+    currency: c.currency || plan.currency || 'USD',
+    category: c.category || null,
+    item_id: c.plan_item ? c.plan_item.toString() : null
+  }));
+
+  const totals_by_category = {};
+  let total_in_user_currency = 0;
+  for (const c of costs) {
+    const key = c.category || 'uncategorized';
+    totals_by_category[key] = (totals_by_category[key] || 0) + c.amount;
+    total_in_user_currency += c.amount;
+  }
+
+  return {
+    statusCode: 200,
+    body: { costs, totals_by_category, total_in_user_currency }
+  };
+}
+
+/**
+ * fetch_plan_collaborators — read-only, no confirmation.
+ * Returns the plan's user permissions joined with member_locations entries.
+ * payload: { plan_id }
+ */
+async function executeFetchPlanCollaborators(payload, user) {
+  const Plan = require('../models/plan');
+  const User = require('../models/user');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const { getEnforcer } = require('./permission-enforcer');
+  const mongoose = require('mongoose');
+
+  const planIdStr = String(payload?.plan_id || '');
+  if (!mongoose.Types.ObjectId.isValid(planIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // No .lean() — enforcer needs Mongoose class info
+  const plan = await Plan.findById(planIdStr).select('permissions member_locations experience user');
+  if (!plan) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const userPerms = (plan.permissions || []).filter(p => p.entity === 'user');
+  const userIds = userPerms.map(p => p._id);
+  const userDocs = await User.find({ _id: { $in: userIds } }).select('name').lean();
+  const nameMap = Object.fromEntries(userDocs.map(u => [String(u._id), u.name]));
+  const locMap = Object.fromEntries((plan.member_locations || []).map(ml => [String(ml.user), ml]));
+
+  const collaborators = userPerms.map(p => {
+    const uid = String(p._id);
+    const ml = locMap[uid];
+    return {
+      user_id: uid,
+      name: nameMap[uid] || 'Unknown',
+      role: p.type || 'collaborator',
+      granted_at: p.granted_at || null,
+      location: ml?.location ? {
+        city: ml.location.city || null,
+        state: ml.location.state || null,
+        country: ml.location.country || null
+      } : null,
+      travel_cost_estimate: ml?.travel_cost_estimate ?? null
+    };
+  });
+
+  return { statusCode: 200, body: { collaborators } };
+}
+
+/**
+ * fetch_experience_items — read-only, no confirmation.
+ * Returns the experience template's plan items with cost_estimate and photos_count.
+ * payload: { experience_id, limit? }
+ */
+async function executeFetchExperienceItems(payload, user) {
+  const Experience = require('../models/experience');
+  const Destination = require('../models/destination');
+  const Plan = require('../models/plan');
+  const User = require('../models/user');
+  const { getEnforcer } = require('./permission-enforcer');
+  const mongoose = require('mongoose');
+
+  const expIdStr = String(payload?.experience_id || '');
+  if (!mongoose.Types.ObjectId.isValid(expIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // No .lean() — enforcer needs Mongoose class info
+  const exp = await Experience.findById(expIdStr).select('plan_items permissions visibility destination user');
+  if (!exp) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: exp });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const FETCH_EXPERIENCE_ITEMS_MAX = 100;
+  const requestedLimit = Number.isFinite(payload?.limit)
+    ? Math.max(1, Math.floor(payload.limit))
+    : FETCH_EXPERIENCE_ITEMS_MAX;
+  const limit = Math.min(requestedLimit, FETCH_EXPERIENCE_ITEMS_MAX);
+
+  const all = exp.plan_items || [];
+  const sliced = all.slice(0, limit);
+
+  // Schema deviation: Experience.plan_items uses `text` (not `content`) and a
+  // single `photo` ObjectId (not `photos[]`). Map to the documented shape:
+  // map text → content, and derive photos_count from the singular photo field
+  // (also tolerate an array form if it ever appears).
+  return {
+    statusCode: 200,
+    body: {
+      items: sliced.map(it => {
+        let photos_count = 0;
+        if (Array.isArray(it.photos)) {
+          photos_count = it.photos.length;
+        } else if (it.photo) {
+          photos_count = 1;
+        }
+        return {
+          _id: it._id?.toString(),
+          content: it.text || it.content || it.name || null,
+          parent_id: it.parent ? it.parent.toString() : null,
+          cost_estimate: it.cost_estimate || 0,
+          photos_count
+        };
+      }),
+      total: all.length,
+      returned: sliced.length
+    }
+  };
+}
+
+/**
+ * fetch_destination_experiences — read-only, no confirmation.
+ * Lists experiences at a destination, sortable by popular/recent/name.
+ * Returns { experiences: [{ _id, name, cost_estimate, plan_count, curator_name }], total, returned }.
+ *
+ * Schema deviation: Experience has no `curator` field and no top-level `user`
+ * ref. The owner lives in `permissions[]` as `{ entity: 'user', type: 'owner' }`.
+ * We resolve the owner User in a single batched lookup to populate
+ * `curator_name`. If a proper curator field is added later, swap the lookup.
+ *
+ * payload: { destination_id: string, sort?: 'popular'|'recent'|'name', limit?: number }
+ */
+async function executeFetchDestinationExperiences(payload, user) {
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const Plan = require('../models/plan');
+  const User = require('../models/user');
+  const mongoose = require('mongoose');
+
+  const destIdStr = String(payload?.destination_id || '');
+  if (!mongoose.Types.ObjectId.isValid(destIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // Destinations are public by default — lean is OK here since we don't call canView.
+  // TODO: route through enforcer.canView if Destination ever gains restricted
+  // visibility. Currently `_getDefaultVisibility` in permission-enforcer.js
+  // returns PUBLIC for Destination, so any authenticated user can read.
+  const dest = await Destination.findById(destIdStr).select('_id').lean();
+  if (!dest) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const FETCH_DEST_EXP_MAX = 50;
+  const requestedLimit = Number.isFinite(payload?.limit)
+    ? Math.max(1, Math.floor(payload.limit))
+    : FETCH_DEST_EXP_MAX;
+  const limit = Math.min(requestedLimit, FETCH_DEST_EXP_MAX);
+  const sort = payload?.sort || 'recent';
+
+  const exps = await Experience.find({ destination: dest._id })
+    .select('name cost_estimate permissions createdAt')
+    .lean();
+
+  // Resolve owner names in a single batched query keyed by the owner permission.
+  // TODO: when Experience gains an explicit `curator` field (per CLAUDE.md
+  // "Curated by {name}" feature), prefer that over the owner-permission
+  // fallback. Owner != curator semantically — owner is whoever can edit;
+  // curator is the user with the `curator` flag who authored the entry.
+  const ownerByExp = new Map();
+  const ownerIdSet = new Set();
+  for (const e of exps) {
+    const ownerPerm = (e.permissions || []).find(
+      p => p.entity === 'user' && p.type === 'owner'
+    );
+    if (ownerPerm?._id) {
+      ownerByExp.set(String(e._id), String(ownerPerm._id));
+      ownerIdSet.add(String(ownerPerm._id));
+    }
+  }
+  const owners = ownerIdSet.size
+    ? await User.find({ _id: { $in: Array.from(ownerIdSet) } }).select('name').lean()
+    : [];
+  const ownerNameById = Object.fromEntries(owners.map(u => [String(u._id), u.name]));
+
+  const expIds = exps.map(e => e._id);
+  const planCounts = expIds.length
+    ? await Plan.aggregate([
+        { $match: { experience: { $in: expIds } } },
+        { $group: { _id: '$experience', count: { $sum: 1 } } }
+      ])
+    : [];
+  const planCountMap = Object.fromEntries(planCounts.map(pc => [String(pc._id), pc.count]));
+
+  let withCounts = exps.map(e => {
+    const ownerId = ownerByExp.get(String(e._id));
+    return {
+      _id: e._id.toString(),
+      name: e.name,
+      cost_estimate: e.cost_estimate || 0,
+      plan_count: planCountMap[String(e._id)] || 0,
+      curator_name: (ownerId && ownerNameById[ownerId]) || null,
+      _createdAt: e.createdAt
+    };
+  });
+
+  if (sort === 'popular')      withCounts.sort((a, b) => b.plan_count - a.plan_count);
+  else if (sort === 'name')    withCounts.sort((a, b) => a.name.localeCompare(b.name));
+  else /* recent */            withCounts.sort((a, b) => new Date(b._createdAt) - new Date(a._createdAt));
+
+  const total = withCounts.length;
+  const sliced = withCounts.slice(0, limit).map(({ _createdAt, ...rest }) => rest);
+  return {
+    statusCode: 200,
+    body: { experiences: sliced, total, returned: sliced.length }
+  };
+}
+
+/**
+ * fetch_user_plans — read-only, no confirmation.
+ * Returns plans owned by a user, defaulting to the requesting user.
+ * Returns { plans: [{ _id, experience_name, destination_name, planned_date, completion_pct, item_count }], total, returned }.
+ *
+ * Permission rule:
+ * - user_id omitted → defaults to requesting user; always allowed.
+ * - user_id provided + matches requesting user → always allowed.
+ * - user_id provided + DIFFERENT user → only return plans where the requesting
+ *   user is also in permissions[] (owner/collaborator/contributor). Super admin
+ *   sees all.
+ *
+ * The permission filter is applied at the Mongo query level via permissions._id,
+ * so .lean() is safe — the enforcer is not invoked.
+ *
+ * payload: { user_id?: string, status?: 'active'|'completed'|'all', limit?: number }
+ */
+async function executeFetchUserPlans(payload, user) {
+  const Plan = require('../models/plan');
+  const mongoose = require('mongoose');
+
+  const targetIdStr = payload?.user_id ? String(payload.user_id) : String(user._id);
+  if (!mongoose.Types.ObjectId.isValid(targetIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  const FETCH_USER_PLANS_MAX = 50;
+  const requestedLimit = Number.isFinite(payload?.limit)
+    ? Math.max(1, Math.floor(payload.limit))
+    : FETCH_USER_PLANS_MAX;
+  const limit = Math.min(requestedLimit, FETCH_USER_PLANS_MAX);
+
+  const requestingUserId = user._id.toString();
+  const isSelf = targetIdStr === requestingUserId;
+  const isSuperAdmin = user.role === 'super_admin';
+
+  // Build the query: target user must be plan owner; requesting user must
+  // also have a permissions entry on the same plan (unless super_admin or
+  // querying themselves).
+  const query = { user: targetIdStr };
+  if (!isSelf && !isSuperAdmin) {
+    query['permissions._id'] = new mongoose.Types.ObjectId(requestingUserId);
+  }
+
+  const status = payload?.status || 'all';
+  if (status === 'active') {
+    query.$or = [
+      { planned_date: { $gte: new Date() } },
+      { planned_date: null }
+    ];
+  } else if (status === 'completed') {
+    query.planned_date = { $lt: new Date() };
+  }
+
+  const total = await Plan.countDocuments(query);
+  const plans = await Plan.find(query)
+    .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+    .select('experience planned_date plan')
+    .limit(limit)
+    .lean();
+
+  const sliced = plans.map(p => {
+    const itemCount = (p.plan || []).length;
+    const completedCount = (p.plan || []).filter(i => i.complete).length;
+    return {
+      _id: p._id.toString(),
+      experience_name: p.experience?.name || null,
+      destination_name: p.experience?.destination?.name || null,
+      planned_date: p.planned_date || null,
+      completion_pct: itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0,
+      item_count: itemCount
+    };
+  });
+
+  return { statusCode: 200, body: { plans: sliced, total, returned: sliced.length } };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -1926,6 +2360,12 @@ const ACTION_HANDLERS = {
   suggest_plan_items: executeSuggestPlanItems,
   fetch_entity_photos: executeFetchEntityPhotos,
   fetch_destination_tips: executeFetchDestinationTips,
+  fetch_plan_items: executeFetchPlanItems,
+  fetch_plan_costs: executeFetchPlanCosts,
+  fetch_plan_collaborators: executeFetchPlanCollaborators,
+  fetch_experience_items: executeFetchExperienceItems,
+  fetch_destination_experiences: executeFetchDestinationExperiences,
+  fetch_user_plans: executeFetchUserPlans,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,
@@ -2255,7 +2695,9 @@ module.exports = {
   executeActions,
   executeSingleWorkflowStep,
   resolveRefs,
+  ACTION_HANDLERS,
   ALLOWED_ACTION_TYPES,
   READ_ONLY_ACTION_TYPES,
+  TOOL_CALL_ACTION_TYPES,
   STRUCTURED_CONTENT_TYPES
 };

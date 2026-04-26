@@ -2391,3 +2391,23 @@ describe('BienBot API', () => {
     });
   });
 });
+
+describe('buildSystemPrompt — tool-use instructions', () => {
+  const { buildSystemPrompt } = require('../../controllers/api/bienbot');
+
+  it('includes tool_calls schema description', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    expect(prompt).toContain('tool_calls');
+    expect(prompt).toContain('fetch_plan_items');
+  });
+
+  it('warns the LLM not to propose tool_calls in the second response', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    expect(prompt).toMatch(/budget|second response|do NOT propose more/i);
+  });
+
+  it('warns against fabricating data on fetch failure', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    expect(prompt).toMatch(/do not invent the data|acknowledge the failure/i);
+  });
+});

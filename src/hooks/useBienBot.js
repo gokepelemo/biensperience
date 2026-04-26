@@ -166,6 +166,10 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   async function streamMessage({ text, hiddenText, attachment }) {
     const assistantMessageId = `temp-${Date.now()}-assistant`;
     let streamedContent = '';
+    // Track in-flight tool-call pills by call_id so we can transition each pill
+    // through pending → success/error and clear them all when the second LLM
+    // response begins streaming tokens (or when the stream errors/aborts).
+    const toolCallPills = new Map();
 
     batchedUpdates(() => {
       setIsLoading(true);
@@ -251,6 +255,19 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         },
 
         onToken: (tokenText) => {
+          // Once the second LLM response starts streaming, any pills from the
+          // tool-call phase have served their purpose. Clear them so the UI
+          // transitions cleanly from pills → answer text.
+          if (toolCallPills.size > 0) {
+            toolCallPills.clear();
+            setMessages(prev =>
+              prev.map(m =>
+                m._id === assistantMessageId
+                  ? { ...m, tool_call_pills: [] }
+                  : m
+              )
+            );
+          }
           streamedContent += tokenText;
           const captured = streamedContent;
           setMessages(prev =>
@@ -260,6 +277,25 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
                 : m
             )
           );
+        },
+
+        onToolCallStart: ({ call_id, type, label }) => {
+          toolCallPills.set(call_id, { call_id, type, label, status: 'pending' });
+          const snapshot = Array.from(toolCallPills.values());
+          setMessages(prev => prev.map(m =>
+            m._id === assistantMessageId ? { ...m, tool_call_pills: snapshot } : m
+          ));
+        },
+
+        onToolCallEnd: ({ call_id, ok }) => {
+          const existing = toolCallPills.get(call_id);
+          if (existing) {
+            toolCallPills.set(call_id, { ...existing, status: ok ? 'success' : 'error' });
+          }
+          const snapshot = Array.from(toolCallPills.values());
+          setMessages(prev => prev.map(m =>
+            m._id === assistantMessageId ? { ...m, tool_call_pills: snapshot } : m
+          ));
         },
 
         onActions: (actions) => {
@@ -311,12 +347,13 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
             setIsStreaming(false);
             setIsLoading(false);
           });
+          toolCallPills.clear();
           // Update the assistant message with an error indicator.
           // Never expose raw exception messages in the chat UI.
           setMessages(prev =>
             prev.map(m =>
               m._id === assistantMessageId
-                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true }
+                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true, tool_call_pills: [] }
                 : m
             )
           );
@@ -326,13 +363,26 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     } catch (err) {
       if (err.name === 'AbortError') {
         logger.debug('[useBienBot] Stream aborted');
+        // Clear any in-flight pills on cancellation so they don't visually
+        // persist on the partially-streamed assistant message.
+        if (toolCallPills.size > 0) {
+          toolCallPills.clear();
+          setMessages(prev =>
+            prev.map(m =>
+              m._id === assistantMessageId
+                ? { ...m, tool_call_pills: [] }
+                : m
+            )
+          );
+        }
       } else {
         logger.error('[useBienBot] Failed to stream message', { error: err.message });
+        toolCallPills.clear();
         // Never expose raw exception messages in the chat UI.
         setMessages(prev =>
           prev.map(m =>
             m._id === assistantMessageId
-              ? { ...m, content: 'Something went wrong. Please try again.', error: true }
+              ? { ...m, content: 'Something went wrong. Please try again.', error: true, tool_call_pills: [] }
               : m
           )
         );
