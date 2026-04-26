@@ -184,6 +184,25 @@ describe('executeToolCallLoop', () => {
     }));
     expect(onCallEnd).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
   });
+
+  it('aborts in-flight fetches when signal is triggered', async () => {
+    const controller = new AbortController();
+    const fakeExecuteAction = jest.fn().mockImplementation(async () => {
+      await new Promise((_, reject) => {
+        controller.signal.addEventListener('abort', () => reject(new Error('AbortError')));
+      });
+    });
+
+    setTimeout(() => controller.abort(), 10);
+
+    await expect(_executeToolCallLoopForTest({
+      toolCalls: [{ type: 'fetch_plan_items', payload: { plan_id: 'p1' } }],
+      user: { _id: 'u' }, session: {},
+      executeAction: fakeExecuteAction,
+      onCallStart: jest.fn(), onCallEnd: jest.fn(),
+      signal: controller.signal
+    })).rejects.toThrow(/abort/i);
+  });
 });
 
 // ---------------------------------------------------------------------------

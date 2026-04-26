@@ -2131,9 +2131,13 @@ async function executeToolCallLoop({
   session,
   executeAction = require('../../utilities/bienbot-action-executor').executeAction,
   onCallStart = () => {},
-  onCallEnd = () => {}
+  onCallEnd = () => {},
+  signal = undefined
 }) {
+  if (signal?.aborted) throw new Error('AbortError');
+
   const calls = await Promise.all(toolCalls.map(async (tc, idx) => {
+    if (signal?.aborted) throw new Error('AbortError');
     const callId = `tc_${Date.now()}_${idx}`;
     const label = TOOL_CALL_LABELS[tc.type] || `Fetching ${tc.type.replace(/_/g, ' ')}…`;
     onCallStart({ call_id: callId, type: tc.type, label });
@@ -2144,9 +2148,11 @@ async function executeToolCallLoop({
     try {
       const action = { id: callId, type: tc.type, payload: tc.payload, description: label };
       const outcome = await executeAction(action, user, session);
+      if (signal?.aborted) throw new Error('AbortError');
       body = outcome?.result?.body ?? outcome?.body ?? { ok: false, error: 'no_body' };
       ok = !!outcome?.success && !(body && body.ok === false);
     } catch (err) {
+      if (err.message === 'AbortError') throw err;
       logger.error('[bienbot:tool-loop] handler threw', { type: tc.type, error: err.message });
       body = { ok: false, error: 'fetch_failed' };
       ok = false;
@@ -2162,6 +2168,8 @@ async function executeToolCallLoop({
       duration_ms: Date.now() - startedAt
     };
   }));
+
+  if (signal?.aborted) throw new Error('AbortError');
 
   const toolResultsBlock = [
     '[TOOL RESULTS — for use in your reply, do not echo verbatim]',
@@ -3472,6 +3480,14 @@ exports.chat = async (req, res) => {
   // SSE stream so pill events stream during the wait, then re-prompt the LLM
   // with the tool results and use the second response as the final answer.
   // Recursion budget = 1 — any tool_calls in the second response are dropped.
+  const toolLoopAbort = new AbortController();
+  // Fire the abort only when the client actually disconnects before the
+  // response finishes. `res.on('close')` always fires (even on normal end),
+  // so guard with `!res.writableEnded` to distinguish disconnect from completion.
+  res.on('close', () => {
+    if (!res.writableEnded) toolLoopAbort.abort();
+  });
+
   let parsedFinal = rawParsed;
   if (Array.isArray(rawParsed.tool_calls) && rawParsed.tool_calls.length > 0) {
     const startedAtLoop = Date.now();
@@ -3491,13 +3507,26 @@ exports.chat = async (req, res) => {
       sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
     }
 
-    const { toolResultsBlock, calls } = await executeToolCallLoop({
-      toolCalls: verifiedToolCalls,
-      user: req.user,
-      session,
-      onCallStart: (p) => sendToolCallStart(res, p),
-      onCallEnd: (p) => sendToolCallEnd(res, p)
-    });
+    let toolResultsBlock;
+    let calls;
+    try {
+      ({ toolResultsBlock, calls } = await executeToolCallLoop({
+        toolCalls: verifiedToolCalls,
+        user: req.user,
+        session,
+        onCallStart: (p) => sendToolCallStart(res, p),
+        onCallEnd: (p) => sendToolCallEnd(res, p),
+        signal: toolLoopAbort.signal
+      }));
+    } catch (err) {
+      if (err.message === 'AbortError' || toolLoopAbort.signal.aborted) {
+        return res.end();
+      }
+      logger.error('[bienbot:tool-loop] tool loop threw', { error: err.message });
+      sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
+      sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
+      return res.end();
+    }
 
     // Build re-prompt: same conversation + an extra user-role message
     // containing the tool-results block. The LLM treats it as fresh context.
@@ -3517,6 +3546,9 @@ exports.chat = async (req, res) => {
         intent: classification.intent || null
       });
     } catch (err) {
+      if (toolLoopAbort.signal.aborted) {
+        return res.end();
+      }
       logger.error('[bienbot:tool-loop] second LLM call failed', { error: err.message });
       sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
       sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
