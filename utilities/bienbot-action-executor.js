@@ -180,6 +180,7 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'suggest_plan_items',
   'fetch_entity_photos',
   'fetch_destination_tips',
+  'fetch_plan_items',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -1151,6 +1152,18 @@ async function executeFetchDestinationTips(payload, user) {
 }
 
 /**
+ * fetch_plan_items — read-only, no confirmation.
+ * Returns the plan's items with full scheduling/completion state for the LLM
+ * to act on. See plan Task 2 for the full implementation.
+ */
+async function executeFetchPlanItems(payload, user) {
+  return {
+    statusCode: 200,
+    body: { items: [], total: 0, returned: 0 }
+  };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -1926,6 +1939,7 @@ const ACTION_HANDLERS = {
   suggest_plan_items: executeSuggestPlanItems,
   fetch_entity_photos: executeFetchEntityPhotos,
   fetch_destination_tips: executeFetchDestinationTips,
+  fetch_plan_items: executeFetchPlanItems,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,
@@ -2255,6 +2269,7 @@ module.exports = {
   executeActions,
   executeSingleWorkflowStep,
   resolveRefs,
+  ACTION_HANDLERS,
   ALLOWED_ACTION_TYPES,
   READ_ONLY_ACTION_TYPES,
   STRUCTURED_CONTENT_TYPES
