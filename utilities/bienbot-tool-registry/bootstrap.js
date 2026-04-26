@@ -1,6 +1,7 @@
 const { registerProvider } = require('./index');
 const wikivoyage = require('./providers/wikivoyage');
 const googleMaps = require('./providers/google-maps');
+const tripadvisor = require('./providers/tripadvisor');
 
 let bootstrapped = false;
 
@@ -9,6 +10,7 @@ function bootstrap() {
   bootstrapped = true;
   registerProvider(wikivoyage);
   registerProvider(googleMaps);
+  registerProvider(tripadvisor);
 }
 
 function _resetForTest() {

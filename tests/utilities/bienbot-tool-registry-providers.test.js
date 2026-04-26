@@ -45,3 +45,25 @@ describe('Google Maps provider', () => {
     expect(getTool('fetch_destination_places')).toBeNull();
   });
 });
+
+describe('TripAdvisor provider', () => {
+  beforeEach(() => {
+    _resetRegistryForTest();
+    _resetForTest();
+    process.env.TRIPADVISOR_API_KEY = 'test-key';
+    bootstrap();
+  });
+  afterEach(() => { delete process.env.TRIPADVISOR_API_KEY; });
+
+  it('registers fetch_destination_attractions', () => {
+    expect(getTool('fetch_destination_attractions')).toBeTruthy();
+  });
+
+  it('is disabled when TRIPADVISOR_API_KEY is absent', () => {
+    delete process.env.TRIPADVISOR_API_KEY;
+    _resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+    expect(getTool('fetch_destination_attractions')).toBeNull();
+  });
+});
