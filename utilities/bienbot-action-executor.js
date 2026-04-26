@@ -1436,6 +1436,9 @@ async function executeFetchDestinationExperiences(payload, user) {
   }
 
   // Destinations are public by default — lean is OK here since we don't call canView.
+  // TODO: route through enforcer.canView if Destination ever gains restricted
+  // visibility. Currently `_getDefaultVisibility` in permission-enforcer.js
+  // returns PUBLIC for Destination, so any authenticated user can read.
   const dest = await Destination.findById(destIdStr).select('_id').lean();
   if (!dest) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
 
@@ -1451,6 +1454,10 @@ async function executeFetchDestinationExperiences(payload, user) {
     .lean();
 
   // Resolve owner names in a single batched query keyed by the owner permission.
+  // TODO: when Experience gains an explicit `curator` field (per CLAUDE.md
+  // "Curated by {name}" feature), prefer that over the owner-permission
+  // fallback. Owner != curator semantically — owner is whoever can edit;
+  // curator is the user with the `curator` flag who authored the entry.
   const ownerByExp = new Map();
   const ownerIdSet = new Set();
   for (const e of exps) {
