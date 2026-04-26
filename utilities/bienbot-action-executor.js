@@ -105,6 +105,7 @@ const ALLOWED_ACTION_TYPES = [
   'fetch_entity_photos',
   'fetch_destination_tips',
   'fetch_plan_items',
+  'fetch_plan_costs',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -182,6 +183,7 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'fetch_entity_photos',
   'fetch_destination_tips',
   'fetch_plan_items',
+  'fetch_plan_costs',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -201,7 +203,8 @@ const READ_ONLY_ACTION_TYPES = new Set([
  * fetch_entity_photos do NOT belong here; they remain user-facing only.
  */
 const TOOL_CALL_ACTION_TYPES = new Set([
-  'fetch_plan_items'
+  'fetch_plan_items',
+  'fetch_plan_costs'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1233,6 +1236,55 @@ async function executeFetchPlanItems(payload, user) {
 }
 
 /**
+ * fetch_plan_costs — read-only, no confirmation.
+ * Returns the plan's costs grouped by category with totals in the user's currency.
+ * payload: { plan_id }
+ */
+async function executeFetchPlanCosts(payload, user) {
+  const Plan = require('../models/plan');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const User = require('../models/user');
+  const { getEnforcer } = require('./permission-enforcer');
+  const mongoose = require('mongoose');
+
+  const planIdStr = String(payload?.plan_id || '');
+  if (!mongoose.Types.ObjectId.isValid(planIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // Cannot use .lean() — enforcer needs the Mongoose-model class info.
+  const plan = await Plan.findById(planIdStr).select('costs currency permissions experience user');
+  if (!plan) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const costs = (plan.costs || []).map(c => ({
+    _id: c._id?.toString(),
+    label: c.title || c.label || null,
+    amount: c.cost || c.amount || 0,
+    currency: c.currency || plan.currency || 'USD',
+    category: c.category || null,
+    item_id: c.plan_item ? c.plan_item.toString() : null
+  }));
+
+  const totals_by_category = {};
+  let total_in_user_currency = 0;
+  for (const c of costs) {
+    const key = c.category || 'uncategorized';
+    totals_by_category[key] = (totals_by_category[key] || 0) + c.amount;
+    total_in_user_currency += c.amount;
+  }
+
+  return {
+    statusCode: 200,
+    body: { costs, totals_by_category, total_in_user_currency }
+  };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -2009,6 +2061,7 @@ const ACTION_HANDLERS = {
   fetch_entity_photos: executeFetchEntityPhotos,
   fetch_destination_tips: executeFetchDestinationTips,
   fetch_plan_items: executeFetchPlanItems,
+  fetch_plan_costs: executeFetchPlanCosts,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,

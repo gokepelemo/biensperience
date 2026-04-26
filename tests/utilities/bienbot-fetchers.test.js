@@ -169,3 +169,56 @@ describe('fetch_plan_items handler', () => {
     expect(outcome.body.error).toBe('invalid_id');
   });
 });
+
+describe('fetch_plan_costs handler', () => {
+  let owner, dest, exp, plan;
+
+  beforeAll(async () => {
+    await dbSetup.connect();
+  });
+
+  afterAll(async () => {
+    await dbSetup.closeDatabase();
+  });
+
+  beforeEach(async () => {
+    await Promise.all([Plan.deleteMany({}), Experience.deleteMany({}), Destination.deleteMany({}), User.deleteMany({})]);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    owner = await User.create({ name: 'O', email: `o-${suffix}@x.test`, password: 'pw12345!' });
+    dest = await Destination.create({ name: 'D', country: 'X', user: owner._id });
+    exp = await Experience.create({
+      name: 'E', destination: dest._id, user: owner._id,
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }]
+    });
+    plan = await Plan.create({
+      experience: exp._id, user: owner._id, currency: 'USD',
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }],
+      costs: [
+        { title: 'Hotel', cost: 200, currency: 'USD', category: 'accommodation' },
+        { title: 'Flight', cost: 500, currency: 'USD', category: 'transport' },
+        { title: 'Dinner', cost: 80, currency: 'USD', category: 'food' }
+      ]
+    });
+  });
+
+  it('returns all costs with totals_by_category', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_plan_costs', payload: { plan_id: plan._id.toString() } },
+      owner
+    );
+    expect(outcome.body.costs).toHaveLength(3);
+    expect(outcome.body.totals_by_category.accommodation).toBe(200);
+    expect(outcome.body.totals_by_category.transport).toBe(500);
+    expect(outcome.body.totals_by_category.food).toBe(80);
+    expect(outcome.body.total_in_user_currency).toBe(780);
+  });
+
+  it('returns not_authorized when user cannot view plan', async () => {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stranger = await User.create({ name: 'S', email: `s-${suffix}@x.test`, password: 'pw12345!' });
+    const outcome = await executeAction(
+      { type: 'fetch_plan_costs', payload: { plan_id: plan._id.toString() } }, stranger
+    );
+    expect(outcome.body.error).toBe('not_authorized');
+  });
+});
