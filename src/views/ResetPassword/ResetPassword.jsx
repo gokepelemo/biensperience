@@ -45,7 +45,7 @@ export default function ResetPassword() {
     }
 
     // Validate password strength
-    if (formData.password.length < 3) {
+    if (formData.password.length < 8) {
       setError(pageStrings.passwordTooShort);
       return;
     }
@@ -141,7 +141,7 @@ export default function ResetPassword() {
                       required
                       autoComplete="new-password"
                       autoFocus
-                      minLength={3}
+                      minLength={8}
                       helpText={pageStrings.minimumCharacters}
                     />
 
@@ -154,7 +154,7 @@ export default function ResetPassword() {
                       placeholder={lang.current.placeholder.reEnterNewPassword}
                       required
                       autoComplete="new-password"
-                      minLength={3}
+                      minLength={8}
                     />
 
                     <Button

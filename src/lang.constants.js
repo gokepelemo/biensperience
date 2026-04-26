@@ -826,7 +826,7 @@ const en = {
     profileName: "This is how you'll appear to other travelers.",
     profileEmail: "We'll use this for account stuff - we promise not to spam.",
     currentPassword: "We need your current password to make changes.",
-    newPassword: "Pick something memorable (at least 3 characters).",
+    newPassword: "Pick something memorable (at least 8 characters).",
     confirmPassword: "Type it again so we know you've got it.",
     profilePhoto: "Let other travelers put a face to your adventures.",
     destinationPhoto: "Upload photos that capture this destination's vibe.",
@@ -1508,7 +1508,7 @@ const en = {
     confirmPasswordPrompt: "Please confirm the password",
     newPasswordsDoNotMatch: "New passwords do not match",
     passwordsDoNotMatch: "Passwords do not match",
-    passwordMinLength: "Password must be at least 3 characters",
+    passwordMinLength: "Password must be at least 8 characters",
 
     // Tooltips for password fields
     setPasswordTooltip: "Set a new password for this user",
@@ -1844,8 +1844,8 @@ const en = {
     newPassword: "New Password",
     confirmPassword: "Confirm Password",
     passwordsDoNotMatch: "Passwords do not match",
-    passwordTooShort: "Password must be at least 3 characters long",
-    minimumCharacters: "Minimum 3 characters",
+    passwordTooShort: "Password must be at least 8 characters long",
+    minimumCharacters: "Minimum 8 characters",
     failedDefault: "Failed to reset password. The link may be invalid or expired.",
   },
 

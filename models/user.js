@@ -62,7 +62,7 @@ const userSchema = new Schema(
     password: {
       type: String,
       trim: true,
-      minLength: 3,
+      minLength: 8,
       required: function() {
         // Password required only if not using OAuth
         return !this.facebookId && !this.googleId && !this.twitterId;

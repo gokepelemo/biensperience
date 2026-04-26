@@ -631,7 +631,7 @@ export default function UpdateProfile() {
         setPasswordError(isEditingSelf ? lang.current.profile.newPasswordsDoNotMatch : lang.current.profile.passwordsDoNotMatch);
         return;
       }
-      if (passwordData.newPassword.length < 3) {
+      if (passwordData.newPassword.length < 8) {
         setPasswordError(lang.current.profile.passwordMinLength);
         return;
       }
@@ -898,7 +898,7 @@ export default function UpdateProfile() {
                         onChange={handlePasswordChange}
                         placeholder={isEditingSelf ? lang.current.profile.enterNewPasswordPlaceholder : lang.current.profile.enterPasswordPlaceholder}
                         autoComplete="new-password"
-                        minLength={3}
+                        minLength={8}
                         tooltip={isEditingSelf ? lang.current.helper.newPassword : lang.current.profile.setPasswordTooltip}
                         tooltipPlacement="top"
                         className={styles.mb3}

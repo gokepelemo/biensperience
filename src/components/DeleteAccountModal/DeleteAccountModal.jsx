@@ -84,8 +84,10 @@ export default function DeleteAccountModal({
     setSearchQuery(selectedUser?.name || '');
   };
 
-  // Validation
-  const isPasswordValid = password.length >= 3;
+  // Validation — verifies current password (any non-empty string); existing
+  // accounts may still have passwords shorter than the new 8-char minimum,
+  // so do not enforce length here. bcrypt.compare on the server is authoritative.
+  const isPasswordValid = password.length >= 1;
   const isConfirmValid = confirmText === 'DELETE';
   const isTransferValid = !transferMode || (transferMode && transferUser);
   const canSubmit = isPasswordValid && isConfirmValid && isTransferValid && !loading;

@@ -50,10 +50,10 @@ let expFood, expMuseum, expNightlife, expAdventure;
 
 beforeAll(async () => {
   // Create users
-  queryingUser = await User.create({ name: 'Querying User', email: 'query@test.com', password: 'test123' });
-  userA = await User.create({ name: 'User A', email: 'a@test.com', password: 'test123' });
-  userB = await User.create({ name: 'User B', email: 'b@test.com', password: 'test123' });
-  userC = await User.create({ name: 'User C', email: 'c@test.com', password: 'test123' });
+  queryingUser = await User.create({ name: 'Querying User', email: 'query@test.com', password: 'test1234' });
+  userA = await User.create({ name: 'User A', email: 'a@test.com', password: 'test1234' });
+  userB = await User.create({ name: 'User B', email: 'b@test.com', password: 'test1234' });
+  userC = await User.create({ name: 'User C', email: 'c@test.com', password: 'test1234' });
 
   // Create destinations
   destParis = await Destination.create({ name: 'Paris', country: 'France', user: userA._id, permissions: [{ _id: userA._id, entity: 'user', type: 'owner' }] });

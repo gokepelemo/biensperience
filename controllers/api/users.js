@@ -74,8 +74,8 @@ async function create(req, res) {
     }
 
     // Validate password strength
-    if (typeof req.body.password !== 'string' || req.body.password.length < 3) {
-      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
+    if (typeof req.body.password !== 'string' || req.body.password.length < 8) {
+      return errorResponse(res, null, 'Password must be at least 8 characters long', 400);
     }
 
     // Validate email format
@@ -358,8 +358,8 @@ async function updateUser(req, res, next) {
       }
 
       // Validate new password
-      if (typeof updateData.password !== 'string' || updateData.password.length < 3) {
-        return res.status(400).json({ error: 'New password must be at least 3 characters' });
+      if (typeof updateData.password !== 'string' || updateData.password.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters' });
       }
     }
 
@@ -787,8 +787,8 @@ async function updateUserAsAdmin(req, res) {
     // Handle password update if provided (no old password required for admin)
     if (updateData.password) {
       // Validate new password
-      if (typeof updateData.password !== 'string' || updateData.password.length < 3) {
-        return errorResponse(res, null, 'New password must be at least 3 characters', 400);
+      if (typeof updateData.password !== 'string' || updateData.password.length < 8) {
+        return errorResponse(res, null, 'New password must be at least 8 characters', 400);
       }
     }
 
@@ -1552,8 +1552,8 @@ async function resetPassword(req, res) {
     }
 
     // Validate password strength
-    if (typeof password !== 'string' || password.length < 3) {
-      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
+    if (typeof password !== 'string' || password.length < 8) {
+      return errorResponse(res, null, 'Password must be at least 8 characters long', 400);
     }
 
     // Hash the submitted token and look up by hash
