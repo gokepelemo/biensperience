@@ -68,30 +68,10 @@ function createJWT(user) {
 
 async function create(req, res) {
   try {
-    // Validate required fields
-    if (!req.body.email || !req.body.password || !req.body.name) {
-      return errorResponse(res, null, 'Email, password, and name are required', 400);
-    }
-
-    // Validate password strength
-    if (typeof req.body.password !== 'string' || req.body.password.length < 3) {
-      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
-    }
-
-    // Validate email format
-    const email = req.body.email;
-    if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
-      return errorResponse(res, null, 'Invalid email format', 400);
-    }
-
-    const hasAt = email.includes('@');
-    const hasDot = email.includes('.');
-    const atPosition = email.indexOf('@');
-    const lastDotPosition = email.lastIndexOf('.');
-
-    if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
+    // NOTE: name/email/password presence + format are enforced by the
+    // `signupSchema` zod middleware mounted on this route (see
+    // `routes/api/users.js` and `controllers/api/users.schemas.js`).
+    // The controller can trust that req.body has the correct shape.
 
     const user = await User.create(req.body);
 
@@ -128,21 +108,11 @@ async function create(req, res) {
 
 async function login(req, res) {
   try {
-    // Validate email format to prevent injection - use safer validation
+    // Email format and password presence are enforced by `loginSchema` zod
+    // middleware (see `routes/api/users.js`). We deliberately do NOT enforce
+    // an 8-char password floor on login because legacy accounts may still
+    // have shorter passwords.
     const email = req.body.email;
-    if (!email || typeof email !== 'string' || email.length > 254 || email.length < 3) {
-      return errorResponse(res, null, 'Invalid email format', 400);
-    }
-
-    // Basic email validation - check for @ and . with reasonable positioning
-    const hasAt = email.includes('@');
-    const hasDot = email.includes('.');
-    const atPosition = email.indexOf('@');
-    const lastDotPosition = email.lastIndexOf('.');
-
-    if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
-      return errorResponse(res, null, 'Invalid email format', 400);
-    }
 
     const user = await User.findOne({ email: email })
       .populate("photos.photo", "url caption photo_credit photo_credit_url width height");
@@ -1492,11 +1462,9 @@ async function updateUserRole(req, res) {
  */
 async function requestPasswordReset(req, res) {
   try {
+    // Email presence and format are enforced by `forgotPasswordSchema` zod
+    // middleware (see `routes/api/users.js`).
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
 
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase().trim() });
@@ -1552,16 +1520,9 @@ async function requestPasswordReset(req, res) {
  */
 async function resetPassword(req, res) {
   try {
+    // Token presence and password strength (>=8) are enforced by
+    // `resetPasswordSchema` zod middleware (see `routes/api/users.js`).
     const { token, password } = req.body;
-
-    if (!token || !password) {
-      return errorResponse(res, null, 'Token and new password are required', 400);
-    }
-
-    // Validate password strength
-    if (typeof password !== 'string' || password.length < 3) {
-      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
-    }
 
     // Hash the token to match what's stored
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');

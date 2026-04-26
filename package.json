@@ -139,7 +139,8 @@
     "vite-plugin-env-compatible": "^2.0.1",
     "vite-plugin-svgr": "^4.5.0",
     "webpack-dev-server": "^5.2.3",
-    "ws": "^8.19.0"
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
   },
   "overrides": {
     "js-yaml": ">=4.1.1"

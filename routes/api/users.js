@@ -3,8 +3,15 @@ const router = express.Router()
 const usersCtrl = require('../../controllers/api/users');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { authLimiter, modificationLimiter } = require('../../config/rateLimiters');
+const { validate } = require('../../utilities/validate');
+const {
+  signupSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} = require('../../controllers/api/users.schemas');
 
-router.post('/', authLimiter, usersCtrl.create); // Rate limit signup
+router.post('/', authLimiter, validate(signupSchema), usersCtrl.create); // Rate limit signup
 router.get('/bulk', ensureLoggedIn, usersCtrl.getBulkUsers); // Bulk fetch users
 router.get('/avatars', ensureLoggedIn, usersCtrl.getAvatars); // Batch avatar URL resolution
 router.get('/search', ensureLoggedIn, usersCtrl.searchUsers);
@@ -20,12 +27,12 @@ router.put('/:id/admin', ensureLoggedIn, modificationLimiter, usersCtrl.updateUs
 router.post('/:id/phone-verification/start', ensureLoggedIn, modificationLimiter, usersCtrl.startPhoneVerification);
 router.post('/:id/phone-verification/confirm', ensureLoggedIn, modificationLimiter, usersCtrl.confirmPhoneVerification);
 
-router.post('/login', authLimiter, usersCtrl.login); // Rate limit login attempts
+router.post('/login', authLimiter, validate(loginSchema), usersCtrl.login); // Rate limit login attempts
 router.get('/check-token', ensureLoggedIn, usersCtrl.checkToken);
 
 // Password reset routes
-router.post('/forgot-password', authLimiter, usersCtrl.requestPasswordReset);
-router.post('/reset-password', authLimiter, usersCtrl.resetPassword);
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), usersCtrl.requestPasswordReset);
+router.post('/reset-password', authLimiter, validate(resetPasswordSchema), usersCtrl.resetPassword);
 
 // Email confirmation routes
 router.get('/confirm-email/:token', usersCtrl.confirmEmail);
