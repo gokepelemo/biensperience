@@ -109,6 +109,7 @@ const ALLOWED_ACTION_TYPES = [
   'fetch_plan_collaborators',
   'fetch_experience_items',
   'fetch_destination_experiences',
+  'fetch_user_plans',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -190,6 +191,7 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'fetch_plan_collaborators',
   'fetch_experience_items',
   'fetch_destination_experiences',
+  'fetch_user_plans',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -213,7 +215,8 @@ const TOOL_CALL_ACTION_TYPES = new Set([
   'fetch_plan_costs',
   'fetch_plan_collaborators',
   'fetch_experience_items',
-  'fetch_destination_experiences'
+  'fetch_destination_experiences',
+  'fetch_user_plans'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1498,6 +1501,83 @@ async function executeFetchDestinationExperiences(payload, user) {
 }
 
 /**
+ * fetch_user_plans — read-only, no confirmation.
+ * Returns plans owned by a user, defaulting to the requesting user.
+ * Returns { plans: [{ _id, experience_name, destination_name, planned_date, completion_pct, item_count }], total, returned }.
+ *
+ * Permission rule:
+ * - user_id omitted → defaults to requesting user; always allowed.
+ * - user_id provided + matches requesting user → always allowed.
+ * - user_id provided + DIFFERENT user → only return plans where the requesting
+ *   user is also in permissions[] (owner/collaborator/contributor). Super admin
+ *   sees all.
+ *
+ * The permission filter is applied at the Mongo query level via permissions._id,
+ * so .lean() is safe — the enforcer is not invoked.
+ *
+ * payload: { user_id?: string, status?: 'active'|'completed'|'all', limit?: number }
+ */
+async function executeFetchUserPlans(payload, user) {
+  const Plan = require('../models/plan');
+  const mongoose = require('mongoose');
+
+  const targetIdStr = payload?.user_id ? String(payload.user_id) : String(user._id);
+  if (!mongoose.Types.ObjectId.isValid(targetIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  const FETCH_USER_PLANS_MAX = 50;
+  const requestedLimit = Number.isFinite(payload?.limit)
+    ? Math.max(1, Math.floor(payload.limit))
+    : FETCH_USER_PLANS_MAX;
+  const limit = Math.min(requestedLimit, FETCH_USER_PLANS_MAX);
+
+  const requestingUserId = user._id.toString();
+  const isSelf = targetIdStr === requestingUserId;
+  const isSuperAdmin = user.role === 'super_admin';
+
+  // Build the query: target user must be plan owner; requesting user must
+  // also have a permissions entry on the same plan (unless super_admin or
+  // querying themselves).
+  const query = { user: targetIdStr };
+  if (!isSelf && !isSuperAdmin) {
+    query['permissions._id'] = new mongoose.Types.ObjectId(requestingUserId);
+  }
+
+  const status = payload?.status || 'all';
+  if (status === 'active') {
+    query.$or = [
+      { planned_date: { $gte: new Date() } },
+      { planned_date: null }
+    ];
+  } else if (status === 'completed') {
+    query.planned_date = { $lt: new Date() };
+  }
+
+  const total = await Plan.countDocuments(query);
+  const plans = await Plan.find(query)
+    .populate({ path: 'experience', select: 'name destination', populate: { path: 'destination', select: 'name' } })
+    .select('experience planned_date plan')
+    .limit(limit)
+    .lean();
+
+  const sliced = plans.map(p => {
+    const itemCount = (p.plan || []).length;
+    const completedCount = (p.plan || []).filter(i => i.complete).length;
+    return {
+      _id: p._id.toString(),
+      experience_name: p.experience?.name || null,
+      destination_name: p.experience?.destination?.name || null,
+      planned_date: p.planned_date || null,
+      completion_pct: itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0,
+      item_count: itemCount
+    };
+  });
+
+  return { statusCode: 200, body: { plans: sliced, total, returned: sliced.length } };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -2278,6 +2358,7 @@ const ACTION_HANDLERS = {
   fetch_plan_collaborators: executeFetchPlanCollaborators,
   fetch_experience_items: executeFetchExperienceItems,
   fetch_destination_experiences: executeFetchDestinationExperiences,
+  fetch_user_plans: executeFetchUserPlans,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,

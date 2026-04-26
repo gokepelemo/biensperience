@@ -367,3 +367,58 @@ describe('fetch_destination_experiences handler', () => {
     expect(outcome.body.error).toBe('invalid_id');
   });
 });
+
+describe('fetch_user_plans registration', () => {
+  it('is registered as a read-only action type', () => {
+    expect(READ_ONLY_ACTION_TYPES.has('fetch_user_plans')).toBe(true);
+  });
+
+  it('has a handler', () => {
+    expect(typeof ACTION_HANDLERS.fetch_user_plans).toBe('function');
+  });
+});
+
+describe('fetch_user_plans handler', () => {
+  let user, otherUser, dest, exp;
+
+  beforeAll(async () => { await dbSetup.connect(); });
+  afterAll(async () => { await dbSetup.closeDatabase(); });
+
+  beforeEach(async () => {
+    await Promise.all([Plan.deleteMany({}), Experience.deleteMany({}), Destination.deleteMany({}), User.deleteMany({})]);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    user = await User.create({ name: 'U', email: `u-${suffix}@x.test`, password: 'pw12345!' });
+    otherUser = await User.create({ name: 'O', email: `o-${suffix}@x.test`, password: 'pw12345!' });
+    dest = await Destination.create({ name: 'D', country: 'X', user: user._id });
+    exp = await Experience.create({
+      name: 'Trip to D', destination: dest._id,
+      permissions: [{ _id: user._id, entity: 'user', type: 'owner' }]
+    });
+    await Plan.create({
+      experience: exp._id, user: user._id, planned_date: new Date('2026-12-01'),
+      permissions: [{ _id: user._id, entity: 'user', type: 'owner' }],
+      plan: [
+        makeItem({ text: 'A', complete: true }),
+        makeItem({ text: 'B', complete: false })
+      ]
+    });
+  });
+
+  it('returns the requesting user own plans by default', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_user_plans', payload: {} }, user
+    );
+    expect(outcome.body.plans).toHaveLength(1);
+    expect(outcome.body.plans[0].experience_name).toBe('Trip to D');
+    expect(outcome.body.plans[0].destination_name).toBe('D');
+    expect(outcome.body.plans[0].completion_pct).toBe(50);
+    expect(outcome.body.plans[0].item_count).toBe(2);
+  });
+
+  it('does not return other users plans without permission', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_user_plans', payload: { user_id: otherUser._id.toString() } }, user
+    );
+    expect(outcome.body.plans).toEqual([]);
+  });
+});
