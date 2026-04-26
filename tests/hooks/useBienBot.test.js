@@ -63,7 +63,7 @@ import { eventBus } from '../../src/utilities/event-bus';
  */
 function buildMockPostMessage(events = []) {
   return jest.fn(async (_sid, _text, options = {}) => {
-    const { onSession, onToken, onActions, onDone, onError } = options;
+    const { onSession, onToken, onActions, onDone, onError, onToolCallStart, onToolCallEnd } = options;
 
     for (const ev of events) {
       switch (ev.type) {
@@ -75,6 +75,12 @@ function buildMockPostMessage(events = []) {
           break;
         case 'actions':
           if (onActions) onActions(ev.data);
+          break;
+        case 'tool_call_start':
+          if (onToolCallStart) onToolCallStart(ev.data);
+          break;
+        case 'tool_call_end':
+          if (onToolCallEnd) onToolCallEnd(ev.data);
           break;
         case 'done':
           if (onDone) onDone(ev.data || {});
@@ -299,6 +305,50 @@ describe('useBienBot', () => {
       expect(assistantMsg?.error).toBe(true);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isStreaming).toBe(false);
+    });
+
+    it('tracks tool-call pills on the assistant message and clears them when tokens stream', async () => {
+      bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+        { type: 'tool_call_start', data: { call_id: 'c1', type: 'fetch_plan_items', label: 'Reading plan items' } },
+        { type: 'tool_call_start', data: { call_id: 'c2', type: 'fetch_plan_costs', label: 'Reading costs' } },
+        { type: 'tool_call_end', data: { call_id: 'c1', ok: true } },
+        { type: 'tool_call_end', data: { call_id: 'c2', ok: false } },
+        // After the second LLM response begins, the first token should clear the pills.
+        { type: 'token', data: 'Here are' },
+        { type: 'done', data: {} }
+      ]));
+
+      const { result } = renderHook(() => useBienBot());
+
+      await act(async () => {
+        await result.current.sendMessage('Show plan');
+      });
+
+      const assistantMsg = result.current.messages.find(m => m.role === 'assistant');
+      expect(assistantMsg).toBeDefined();
+      expect(assistantMsg.content).toBe('Here are');
+      // Pills should be cleared after tokens started streaming
+      expect(assistantMsg.tool_call_pills).toEqual([]);
+    });
+
+    it('exposes pending pill state to the assistant message during fetches', async () => {
+      // No token event — pills should remain on the assistant message.
+      bienbotApi.postMessage.mockImplementation(buildMockPostMessage([
+        { type: 'tool_call_start', data: { call_id: 'c1', type: 'fetch_plan_items', label: 'Reading plan items' } },
+        { type: 'tool_call_end', data: { call_id: 'c1', ok: true } },
+        { type: 'done', data: {} }
+      ]));
+
+      const { result } = renderHook(() => useBienBot());
+
+      await act(async () => {
+        await result.current.sendMessage('Show plan');
+      });
+
+      const assistantMsg = result.current.messages.find(m => m.role === 'assistant');
+      expect(assistantMsg.tool_call_pills).toEqual([
+        { call_id: 'c1', type: 'fetch_plan_items', label: 'Reading plan items', status: 'success' }
+      ]);
     });
 
     it('clears suggestedNextSteps when a new message is sent', async () => {
