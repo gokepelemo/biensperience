@@ -2410,6 +2410,21 @@ describe('buildSystemPrompt — tool-use instructions', () => {
     const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
     expect(prompt).toMatch(/do not invent the data|acknowledge the failure/i);
   });
+
+  it('renders internal tools first, registry tools after', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    const internalIdx = prompt.indexOf('fetch_plan_items');
+    const sectionIdx = prompt.indexOf('External read tools:');
+    if (sectionIdx !== -1) {
+      expect(internalIdx).toBeLessThan(sectionIdx);
+    }
+    expect(internalIdx).toBeGreaterThan(-1);
+  });
+
+  it('uses the Internal data tools header from internal-tools companion', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    expect(prompt).toContain('Internal data tools (read from local database):');
+  });
 });
 
 describe('tool-registry bootstrap', () => {
