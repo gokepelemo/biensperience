@@ -27,7 +27,7 @@ const emailSchema = z
   .trim()
   .min(3, { message: 'Invalid email format' })
   .max(254, { message: 'Invalid email format' })
-  .pipe(z.email({ message: 'Invalid email format' }));
+  .email({ message: 'Invalid email format' });
 
 // Strong password (used for signup and reset). bd #8f36.2 raised the floor
 // to 8 characters.
