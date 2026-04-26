@@ -962,6 +962,48 @@ async function callWithRetry(callFn, retryConfig = {}, context = '') {
 }
 
 // ---------------------------------------------------------------------------
+// Anomalous-output logging (prompt-injection defense, bd #8f36.11)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generic helper that callers (BienBot, document parser, etc.) can use to log
+ * anomalous LLM output in a uniform way. Logs at WARN when any anomaly count
+ * is non-zero, otherwise at DEBUG (so successful turns do not spam the log).
+ *
+ * Anomaly counts MUST be produced by the caller's own validation layer —
+ * never trusted from LLM output. The action-type names that appear in
+ * `unknown_action_types` are LLM-supplied strings; logging them is safe because
+ * we do not execute them, but callers should not feed them back into prompts.
+ *
+ * @param {string} source - A short tag identifying the caller (e.g. 'bienbot:turn').
+ * @param {object} anomalies
+ * @param {string[]} [anomalies.unknown_action_types] - Action types not in the allowlist.
+ * @param {Array<{type: string, summary: string}>} [anomalies.malformed_payloads]
+ *   - Actions that failed shape validation (zod or otherwise).
+ * @param {number} [anomalies.parse_errors] - Count of LLM responses that
+ *   failed strict JSON parsing (and went through fallback paths).
+ * @param {object} [extra] - Extra structured fields (sessionId, userId, etc.)
+ *   to attach to the log line.
+ */
+function logAnomalousOutput(source, anomalies = {}, extra = {}) {
+  const unknown = Array.isArray(anomalies.unknown_action_types) ? anomalies.unknown_action_types : [];
+  const malformed = Array.isArray(anomalies.malformed_payloads) ? anomalies.malformed_payloads : [];
+  const parseErrors = Number.isFinite(anomalies.parse_errors) ? anomalies.parse_errors : 0;
+  const tag = source ? `[ai-gateway:anomaly:${source}]` : '[ai-gateway:anomaly]';
+  const payload = {
+    unknown_action_types: unknown,
+    malformed_payloads: malformed,
+    parse_errors: parseErrors,
+    ...extra
+  };
+  if (unknown.length > 0 || malformed.length > 0 || parseErrors > 0) {
+    logger.warn(`${tag} anomalous output`, payload);
+  } else {
+    logger.debug(`${tag} clean output`, payload);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Custom error class
 // ---------------------------------------------------------------------------
 
@@ -983,6 +1025,8 @@ module.exports = {
   resolvePolicy,
   invalidatePolicyCache,
   GatewayError,
+  // Generic anomalous-output telemetry helper (bd #8f36.11)
+  logAnomalousOutput,
   // Exported for testing
   callWithRetry,
   isRetryableError,
