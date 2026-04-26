@@ -18,6 +18,7 @@ import BienBotPhotoGallery from './BienBotPhotoGallery';
 import TipSuggestionList from './TipSuggestionList';
 import DiscoveryResultCard from './DiscoveryResultCard';
 import EntityRefList from './EntityRefList';
+import ToolCallPill from './ToolCallPill';
 import { AttachIcon } from './icons';
 import styles from './BienBotPanel.module.css';
 
@@ -135,6 +136,17 @@ function MessageList({
                       </span>
                     );
                   })}
+                </div>
+              )}
+              {msg.tool_call_pills?.length > 0 && (
+                <div className={styles.toolCallPills}>
+                  {msg.tool_call_pills.map(pill => (
+                    <ToolCallPill
+                      key={pill.call_id}
+                      label={pill.label}
+                      status={pill.status}
+                    />
+                  ))}
                 </div>
               )}
               <MessageContent text={msg.content} role={msg.role} />

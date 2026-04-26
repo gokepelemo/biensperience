@@ -1632,6 +1632,13 @@
   margin-top: var(--space-2, 0.5rem);
 }
 
+.toolCallPills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 0.25rem);
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
 /* ---------------------------------------------------------------------------
    Inline entity chips (JSON entity refs embedded in message text)
    --------------------------------------------------------------------------- */
