@@ -2,7 +2,6 @@ const User = require("../../models/user");
 const Photo = require("../../models/photo");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
 const { isSuperAdmin } = require("../../utilities/permissions");
@@ -13,6 +12,7 @@ const { geocodeAddress } = require("../../utilities/geocoding-utils");
 const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/websocket-server");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const { getDefaultPhoto } = require("../../utilities/photo-utils");
+const { generateRawToken, hashToken } = require("../../utilities/token-hash");
 
 function isE164PhoneNumber(value) {
   if (typeof value !== 'string') return false;
@@ -95,11 +95,9 @@ async function create(req, res) {
 
     const user = await User.create(req.body);
 
-    // Generate email confirmation token
-    const confirmToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(confirmToken).digest('hex');
-
-    user.emailConfirmationToken = hashedToken;
+    // Generate email confirmation token (raw → email user, hash → DB)
+    const confirmToken = generateRawToken();
+    user.emailConfirmationToken = hashToken(confirmToken);
     user.emailConfirmationExpires = Date.now() + 24 * 3600000; // 24 hours
     await user.save();
 
@@ -1513,14 +1511,9 @@ async function requestPasswordReset(req, res) {
       return successResponse(res, {}, 'If an account exists, a reset email has been sent');
     }
 
-    // Generate reset token (32 bytes = 64 hex characters)
-    const resetToken = crypto.randomBytes(32).toString('hex');
-
-    // Hash the token before storing
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // Set token and expiration (1 hour from now)
-    user.resetPasswordToken = hashedToken;
+    // Generate reset token (raw → email user, hash → DB)
+    const resetToken = generateRawToken();
+    user.resetPasswordToken = hashToken(resetToken);
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
@@ -1563,12 +1556,9 @@ async function resetPassword(req, res) {
       return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
     }
 
-    // Hash the token to match what's stored
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find user with valid token
+    // Hash the submitted token and look up by hash
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
+      resetPasswordToken: hashToken(token),
       resetPasswordExpires: { $gt: Date.now() }
     });
 
@@ -1612,12 +1602,9 @@ async function confirmEmail(req, res) {
       return errorResponse(res, null, 'Token is required', 400);
     }
 
-    // Hash the token to match what's stored
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find user with valid token
+    // Hash the submitted token and look up by hash
     const user = await User.findOne({
-      emailConfirmationToken: hashedToken,
+      emailConfirmationToken: hashToken(token),
       emailConfirmationExpires: { $gt: Date.now() }
     });
 
@@ -1672,11 +1659,9 @@ async function resendConfirmation(req, res) {
       return successResponse(res, {}, 'If an account exists, a confirmation email has been sent');
     }
 
-    // Generate new confirmation token
-    const confirmToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(confirmToken).digest('hex');
-
-    user.emailConfirmationToken = hashedToken;
+    // Generate new confirmation token (raw → email user, hash → DB)
+    const confirmToken = generateRawToken();
+    user.emailConfirmationToken = hashToken(confirmToken);
     user.emailConfirmationExpires = Date.now() + 24 * 3600000; // 24 hours
     await user.save();
 
