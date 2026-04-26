@@ -2411,3 +2411,19 @@ describe('buildSystemPrompt — tool-use instructions', () => {
     expect(prompt).toMatch(/do not invent the data|acknowledge the failure/i);
   });
 });
+
+describe('tool-registry bootstrap', () => {
+  it('boots without error and registers no providers initially', () => {
+    const { bootstrap } = require('../../utilities/bienbot-tool-registry/bootstrap');
+    expect(() => bootstrap()).not.toThrow();
+    const reg = require('../../utilities/bienbot-tool-registry');
+    // Note: bootstrap is idempotent; if other tests have registered test providers,
+    // this assertion may be stale. Use _resetRegistryForTest if needed.
+    reg._resetRegistryForTest();
+    const { _resetForTest, bootstrap: bs } = require('../../utilities/bienbot-tool-registry/bootstrap');
+    _resetForTest();
+    bs();
+    expect(reg.getReadToolNames().size).toBe(0);
+    expect(reg.getWriteToolNames().size).toBe(0);
+  });
+});
