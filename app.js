@@ -182,7 +182,6 @@ app.use(express.json());
 
 // NOTE: Global rate limiter moved below (after auth) to allow super admin skip logic
 
-app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 /**
