@@ -890,13 +890,20 @@ function extractRetryAfterMs(err) {
   return null;
 }
 
+// Hard upper bound for retry delays. Even though callers clamp against
+// config.maxDelayMs, this literal ceiling breaks any taint flow from
+// provider-supplied Retry-After headers into setTimeout (CodeQL
+// js/resource-exhaustion).
+const SLEEP_MAX_MS = 60_000;
+
 /**
  * Sleep for a given number of milliseconds.
  * @param {number} ms
  * @returns {Promise<void>}
  */
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  const safeMs = Number.isFinite(ms) && ms > 0 ? Math.min(ms, SLEEP_MAX_MS) : 0;
+  return new Promise(resolve => setTimeout(resolve, safeMs));
 }
 
 /**

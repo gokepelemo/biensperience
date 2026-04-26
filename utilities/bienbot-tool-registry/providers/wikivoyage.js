@@ -282,6 +282,7 @@ module.exports = {
       ],
       promptHints: [
         'When the user asks about what to do, see, eat, drink, buy, or where to sleep at a destination, propose `fetch_destination_tips` with that destination_id.',
+        'When the user asks to suggest, recommend, or "what should I add" plan items for a plan or destination, call `fetch_destination_tips` in the same turn as `suggest_plan_items` — Wikivoyage tips give curated see/do/eat/drink ideas that complement the frequency-ranked local suggestions.',
         'Prefer `fetch_destination_tips` (read-only, surfaced via card) over inventing tips from training data.',
         'For ratings/addresses of specific places, also call `fetch_destination_places` (Google Maps) in the same turn — they compose well via parallel tool calls.'
       ],
