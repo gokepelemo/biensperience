@@ -89,3 +89,25 @@ describe('Unsplash provider', () => {
     expect(getTool('fetch_destination_photos')).toBeNull();
   });
 });
+
+describe('Weather provider', () => {
+  beforeEach(() => {
+    _resetRegistryForTest();
+    _resetForTest();
+    process.env.OPENWEATHER_API_KEY = 'test-key';
+    bootstrap();
+  });
+  afterEach(() => { delete process.env.OPENWEATHER_API_KEY; });
+
+  it('registers fetch_forecast', () => {
+    expect(getTool('fetch_forecast')).toBeTruthy();
+  });
+
+  it('is disabled when OPENWEATHER_API_KEY is absent', () => {
+    delete process.env.OPENWEATHER_API_KEY;
+    _resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+    expect(getTool('fetch_forecast')).toBeNull();
+  });
+});
