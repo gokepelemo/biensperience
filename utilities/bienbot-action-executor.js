@@ -194,6 +194,16 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'select_destination'
 ]);
 
+/**
+ * Read-only fetchers usable as silent tool calls in the LLM tool-use loop.
+ * Subset of READ_ONLY_ACTION_TYPES — only fetchers designed for LLM consumption
+ * (typed, compact result shape) belong here. Card-producing actions like
+ * fetch_entity_photos do NOT belong here; they remain user-facing only.
+ */
+const TOOL_CALL_ACTION_TYPES = new Set([
+  'fetch_plan_items'
+]);
+
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Date normalisation
@@ -2331,5 +2341,6 @@ module.exports = {
   ACTION_HANDLERS,
   ALLOWED_ACTION_TYPES,
   READ_ONLY_ACTION_TYPES,
+  TOOL_CALL_ACTION_TYPES,
   STRUCTURED_CONTENT_TYPES
 };

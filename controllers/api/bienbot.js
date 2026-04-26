@@ -28,7 +28,7 @@ const {
   buildDiscoveryContext,
   buildPlanNextStepsContext
 } = require('../../utilities/bienbot-context-builders');
-const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
+const { executeActions, executeSingleWorkflowStep, ALLOWED_ACTION_TYPES, READ_ONLY_ACTION_TYPES, TOOL_CALL_ACTION_TYPES } = require('../../utilities/bienbot-action-executor');
 const { resolveEntities, formatResolutionBlock, formatResolutionObjects, FIELD_TYPE_MAP } = require('../../utilities/bienbot-entity-resolver');
 const { summarizeSession } = require('../../utilities/bienbot-session-summarizer');
 const { validateNavigationSchema, extractContextIds } = require('../../utilities/navigation-context-schema');
@@ -1128,6 +1128,16 @@ function parseLLMResponse(text) {
           })
         : [];
 
+      const toolCalls = Array.isArray(parsed.tool_calls)
+        ? parsed.tool_calls
+          .filter(tc =>
+            tc && typeof tc.type === 'string' &&
+            TOOL_CALL_ACTION_TYPES.has(tc.type) &&
+            tc.payload && typeof tc.payload === 'object'
+          )
+          .map(tc => ({ type: tc.type, payload: tc.payload }))
+        : [];
+
       const isValidEntityRef = (r) =>
         r && typeof r._id === 'string' && r._id.length > 0 &&
         typeof r.type === 'string' && typeof r.name === 'string' &&
@@ -1152,7 +1162,7 @@ function parseLLMResponse(text) {
         } catch { /* ignore malformed inline objects */ }
       }
 
-      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs };
+      return { message: parsed.message, pending_actions: actions, entity_refs: entityRefs, tool_calls: toolCalls };
     } catch {
       return null;
     }
@@ -1223,13 +1233,13 @@ function parseLLMResponse(text) {
         }
       } catch { /* ignore — return message without actions */ }
 
-      return { message, pending_actions: actions, entity_refs: [] };
+      return { message, pending_actions: actions, entity_refs: [], tool_calls: [] };
     }
     logger.warn('[bienbot] parseLLMResponse: could not extract message from JSON-like response', {
       length: text.length,
       preview: text.slice(0, 120)
     });
-    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
+    return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [], tool_calls: [] };
   }
 
   // 4. Plain text (no JSON structure) — return the text as the message
@@ -1240,14 +1250,14 @@ function parseLLMResponse(text) {
       length: trimmed.length,
       preview: trimmed.slice(0, 120)
     });
-    return { message: trimmed, pending_actions: [], entity_refs: [] };
+    return { message: trimmed, pending_actions: [], entity_refs: [], tool_calls: [] };
   }
 
   logger.warn('[bienbot] parseLLMResponse: no message field in response', {
     length: text.length,
     preview: text.slice(0, 120)
   });
-  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [] };
+  return { message: 'I had trouble formatting my response. Could you try rephrasing your request?', pending_actions: [], entity_refs: [], tool_calls: [] };
 }
 
 /**
