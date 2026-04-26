@@ -321,6 +321,161 @@ async function executeRegisteredTool(name, payload, user, opts = {}) {
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Registry contributors (T4)
+//
+// These functions consume registered manifests and produce the slots the
+// existing chat pipeline expects. Disabled providers contribute nothing —
+// the LLM should never see tools the server can't actually run.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render a payloadSchema map into a compact `{ field?: type, ... }` string
+ * for inclusion in the system prompt. `optional` adds a `?` suffix to the
+ * field name; `allowed` arrays render as a `"a"|"b"` enum; `format: 'objectId'`
+ * collapses to `string`.
+ */
+function _renderPayloadSchema(schema) {
+  if (!schema || typeof schema !== 'object') return '{}';
+  const parts = [];
+  for (const [field, rule] of Object.entries(schema)) {
+    const fieldLabel = rule && rule.optional ? `${field}?` : field;
+    let typeStr;
+    if (rule && Array.isArray(rule.allowed) && rule.allowed.length > 0) {
+      typeStr = rule.allowed.map((v) => `"${v}"`).join('|');
+    } else if (rule && rule.format === 'objectId') {
+      typeStr = 'string';
+    } else if (rule && typeof rule.type === 'string') {
+      typeStr = rule.type;
+    } else {
+      typeStr = 'any';
+    }
+    parts.push(`${fieldLabel}: ${typeStr}`);
+  }
+  return `{ ${parts.join(', ')} }`;
+}
+
+/**
+ * Iterate enabled tools (read + write) and yield `{ provider, tool }` entries.
+ */
+function _enabledEntries() {
+  const out = [];
+  for (const provider of providers.values()) {
+    if (!isProviderEnabled(provider)) continue;
+    for (const tool of provider.tools) {
+      out.push({ provider, tool });
+    }
+  }
+  return out;
+}
+
+/**
+ * Build the verifier merge map: `{ tool_name: { refs: [...] } }`. Tools with
+ * no idRefs are omitted because the verifier has nothing to do for them.
+ *
+ * Consumed by chat handler when extending ACTION_ENTITY_VERIFY.
+ */
+function getVerifierEntries() {
+  const result = {};
+  for (const { tool } of _enabledEntries()) {
+    const refs = Array.isArray(tool.idRefs) ? tool.idRefs : [];
+    if (refs.length === 0) continue;
+    result[tool.name] = { refs };
+  }
+  return result;
+}
+
+/**
+ * Build the prompt schema section. Two blocks:
+ *
+ *   External read tools:
+ *     via {ProviderA}:
+ *       - tool_name(payloadSchema) — description
+ *
+ *   External write actions (propose in pending_actions, never tool_calls):
+ *     via {ProviderA} (irreversible):
+ *       - tool_name(payloadSchema) — description [IRREVERSIBLE]
+ *
+ * Read tools always come first so the LLM picks gather-info paths over
+ * mutation paths when both could match a user request.
+ */
+function getPromptSchemaSection() {
+  // Group enabled tools by provider, partitioned read vs write.
+  const readByProvider = new Map();
+  const writeByProvider = new Map();
+
+  for (const provider of providers.values()) {
+    if (!isProviderEnabled(provider)) continue;
+    for (const tool of provider.tools) {
+      const bucket = tool.mutating ? writeByProvider : readByProvider;
+      if (!bucket.has(provider.name)) bucket.set(provider.name, { provider, tools: [] });
+      bucket.get(provider.name).tools.push(tool);
+    }
+  }
+
+  const lines = [];
+
+  if (readByProvider.size > 0) {
+    lines.push('External read tools:');
+    for (const { provider, tools: providerTools } of readByProvider.values()) {
+      lines.push(`  via ${provider.displayName}:`);
+      for (const tool of providerTools) {
+        const schema = _renderPayloadSchema(tool.payloadSchema);
+        const desc = tool.description ? ` — ${tool.description}` : '';
+        lines.push(`    - ${tool.name}(${schema})${desc}`);
+      }
+    }
+  }
+
+  if (writeByProvider.size > 0) {
+    if (lines.length > 0) lines.push('');
+    lines.push('External write actions (propose in pending_actions, never tool_calls):');
+    for (const { provider, tools: providerTools } of writeByProvider.values()) {
+      const anyIrreversible = providerTools.some((t) => t.irreversible === true);
+      const providerSuffix = anyIrreversible ? ' (irreversible)' : '';
+      lines.push(`  via ${provider.displayName}${providerSuffix}:`);
+      for (const tool of providerTools) {
+        const schema = _renderPayloadSchema(tool.payloadSchema);
+        const desc = tool.description ? ` — ${tool.description}` : '';
+        const irrev = tool.irreversible === true ? ' [IRREVERSIBLE]' : '';
+        lines.push(`    - ${tool.name}(${schema})${desc}${irrev}`);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Concatenate all promptHints from enabled tools, one per line, prefixed
+ * with `- `. Consumed by buildSystemPrompt's decision-rules section so the
+ * LLM learns which user phrasings should map to which tool.
+ */
+function getPromptDecisionRulesSection() {
+  const lines = [];
+  for (const { tool } of _enabledEntries()) {
+    const hints = Array.isArray(tool.promptHints) ? tool.promptHints : [];
+    for (const hint of hints) {
+      lines.push(`- ${hint}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Build `{ tool_name: label }` for merging into TOOL_CALL_LABELS. Labels are
+ * the human-readable strings shown in the chat UI while a tool runs.
+ */
+function getToolLabels() {
+  const result = {};
+  for (const { tool } of _enabledEntries()) {
+    if (typeof tool.label === 'string' && tool.label.length > 0) {
+      result[tool.name] = tool.label;
+    }
+  }
+  return result;
+}
+
 module.exports = {
   registerProvider,
   getTool,
@@ -329,5 +484,9 @@ module.exports = {
   getAllProviders,
   isProviderEnabled,
   executeRegisteredTool,
+  getVerifierEntries,
+  getPromptSchemaSection,
+  getPromptDecisionRulesSection,
+  getToolLabels,
   _resetRegistryForTest
 };

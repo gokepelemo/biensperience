@@ -6,6 +6,12 @@ const {
   _resetRegistryForTest
 } = require('../../utilities/bienbot-tool-registry');
 const { executeRegisteredTool } = require('../../utilities/bienbot-tool-registry');
+const {
+  getVerifierEntries,
+  getPromptSchemaSection,
+  getPromptDecisionRulesSection,
+  getToolLabels
+} = require('../../utilities/bienbot-tool-registry');
 
 describe('bienbot-tool-registry — manifest validation', () => {
   beforeEach(() => _resetRegistryForTest());
@@ -181,5 +187,94 @@ describe('executeRegisteredTool', () => {
     const out = await executeRegisteredTool('fetch_test', { name: 'y' }, { _id: 'u1' }, {});
     expect(out.success).toBe(false);
     expect(out.body.error).toBe('unknown_tool');
+  });
+});
+
+describe('registry contributors', () => {
+  beforeEach(() => _resetRegistryForTest());
+
+  function provider() {
+    return {
+      name: 'tp', displayName: 'Test Provider', baseUrl: 'https://x',
+      authType: 'none', envKey: null, envKeyOptional: false, budgetPerHour: 60,
+      retryPolicy: { maxRetries: 0, baseDelayMs: 0, timeoutMs: 100 },
+      tools: [
+        {
+          name: 'fetch_thing',
+          mutating: false,
+          description: 'Fetch a thing',
+          idRefs: [{ field: 'thing_id', model: 'experience', required: true }],
+          payloadSchema: {
+            thing_id: { type: 'string', required: true, format: 'objectId' },
+            scope:    { type: 'string', optional: true, allowed: ['x', 'y'] }
+          },
+          label: 'Fetching thing…',
+          promptHints: ['"fetch a thing" → fetch_thing'],
+          handler: async () => ({ statusCode: 200, body: {} })
+        },
+        {
+          name: 'do_thing',
+          mutating: true,
+          description: 'Do a thing',
+          irreversible: true,
+          confirmDescription: 'Do {action} for thing {thing_id}',
+          idRefs: [{ field: 'thing_id', model: 'experience', required: true }],
+          payloadSchema: {
+            thing_id: { type: 'string', required: true, format: 'objectId' },
+            action:   { type: 'string', required: true }
+          },
+          label: 'Do Thing',
+          promptHints: ['"do a thing" → do_thing'],
+          handler: async () => ({ statusCode: 200, body: {} })
+        }
+      ]
+    };
+  }
+
+  it('getVerifierEntries returns one entry per tool with refs from idRefs', () => {
+    registerProvider(provider());
+    const entries = getVerifierEntries();
+    expect(entries.fetch_thing).toEqual({
+      refs: [{ field: 'thing_id', model: 'experience', required: true }]
+    });
+    expect(entries.do_thing).toEqual({
+      refs: [{ field: 'thing_id', model: 'experience', required: true }]
+    });
+  });
+
+  it('getPromptSchemaSection groups read tools then write tools by provider', () => {
+    registerProvider(provider());
+    const section = getPromptSchemaSection();
+    expect(section).toMatch(/via Test Provider/);
+    expect(section).toMatch(/fetch_thing/);
+    expect(section).toMatch(/do_thing/);
+    expect(section.indexOf('fetch_thing')).toBeLessThan(section.indexOf('do_thing'));
+  });
+
+  it('getPromptSchemaSection annotates write tools with irreversible flag', () => {
+    registerProvider(provider());
+    expect(getPromptSchemaSection()).toMatch(/irreversible/);
+  });
+
+  it('getPromptDecisionRulesSection concatenates all promptHints', () => {
+    registerProvider(provider());
+    const section = getPromptDecisionRulesSection();
+    expect(section).toContain('"fetch a thing"');
+    expect(section).toContain('"do a thing"');
+  });
+
+  it('getToolLabels returns name -> label map', () => {
+    registerProvider(provider());
+    const labels = getToolLabels();
+    expect(labels.fetch_thing).toBe('Fetching thing…');
+    expect(labels.do_thing).toBe('Do Thing');
+  });
+
+  it('disabled providers contribute nothing', () => {
+    const p = { ...provider(), authType: 'env_key', envKey: 'NOPE_NEVER', envKeyOptional: true };
+    registerProvider(p);
+    expect(getPromptSchemaSection()).not.toContain('fetch_thing');
+    expect(getVerifierEntries().fetch_thing).toBeUndefined();
+    expect(getToolLabels().fetch_thing).toBeUndefined();
   });
 });
