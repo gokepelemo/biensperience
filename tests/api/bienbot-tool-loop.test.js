@@ -1,3 +1,90 @@
+/**
+ * Tool-use loop tests.
+ *
+ * - Unit tests for `executeToolCallLoop` (injected `executeAction`).
+ * - Integration tests for the chat endpoint that scripts the AI mock to return
+ *   `tool_calls` on the first call and a final answer on the second.
+ */
+
+const request = require('supertest');
+
+// ---- Mock AI layer (must be before app require) ----------------------------
+// Default response is a benign JSON body. Individual tests override per-call
+// with `mockResolvedValueOnce` to script the first/second LLM responses.
+jest.mock('../../controllers/api/ai', () => ({
+  callProvider: jest.fn().mockResolvedValue({
+    content: JSON.stringify({ message: 'Default reply.', pending_actions: [] }),
+    usage: { prompt_tokens: 10, completion_tokens: 10 }
+  }),
+  getApiKey: jest.fn().mockReturnValue('test-api-key'),
+  getProviderForTask: jest.fn().mockReturnValue('openai'),
+  AI_PROVIDERS: { OPENAI: 'openai' },
+  AI_TASKS: { GENERAL: 'general', FAST: 'fast', BIENBOT_ANALYZE: 'bienbot_analyze' },
+  status: jest.fn((req, res) => res.json({ success: true, available: true })),
+  complete: jest.fn((req, res) => res.json({ success: true })),
+  autocomplete: jest.fn((req, res) => res.json({ success: true })),
+  improve: jest.fn((req, res) => res.json({ success: true })),
+  translate: jest.fn((req, res) => res.json({ success: true })),
+  summarize: jest.fn((req, res) => res.json({ success: true })),
+  generateTips: jest.fn((req, res) => res.json({ success: true }))
+}));
+
+// ---- Mock intent classifier -------------------------------------------------
+jest.mock('../../utilities/bienbot-intent-classifier', () => ({
+  classifyIntent: jest.fn().mockResolvedValue({
+    intent: 'ANSWER_QUESTION',
+    entities: {
+      destination_name: null,
+      experience_name: null,
+      user_email: null,
+      plan_item_texts: []
+    },
+    confidence: 0.9
+  })
+}));
+
+// ---- Mock context builders --------------------------------------------------
+jest.mock('../../utilities/bienbot-context-builders', () => {
+  const actual = jest.requireActual('../../utilities/bienbot-context-builders');
+  const mocked = {};
+  for (const [key, value] of Object.entries(actual)) {
+    mocked[key] = typeof value === 'function' ? jest.fn().mockResolvedValue(null) : value;
+  }
+  mocked.buildContextForInvokeContext = jest.fn().mockResolvedValue(null);
+  return mocked;
+});
+
+// ---- Mock action executor ---------------------------------------------------
+// We override executeAction per-test for the integration block. The default
+// returns success with a small body so any unscripted tool call still works.
+jest.mock('../../utilities/bienbot-action-executor', () => ({
+  ALLOWED_ACTION_TYPES: [
+    'create_destination', 'create_experience', 'create_plan',
+    'add_plan_items', 'update_plan_item', 'invite_collaborator', 'sync_plan',
+    'suggest_plan_items', 'fetch_entity_photos', 'fetch_destination_tips',
+    'discover_content', 'fetch_plan_items'
+  ],
+  READ_ONLY_ACTION_TYPES: new Set([
+    'suggest_plan_items', 'fetch_entity_photos', 'fetch_destination_tips',
+    'discover_content', 'fetch_plan_items'
+  ]),
+  TOOL_CALL_ACTION_TYPES: new Set(['fetch_plan_items']),
+  executeAction: jest.fn().mockResolvedValue({
+    success: true,
+    result: { statusCode: 200, body: { items: [], total: 0, returned: 0 } },
+    errors: []
+  }),
+  executeActions: jest.fn().mockResolvedValue({ results: [], errors: [] }),
+  executeSingleWorkflowStep: jest.fn().mockResolvedValue({ success: true, result: null, errors: [] })
+}));
+
+// ---- Mock session summarizer ------------------------------------------------
+jest.mock('../../utilities/bienbot-session-summarizer', () => ({
+  summarizeSession: jest.fn().mockResolvedValue({
+    summary: '', next_steps: []
+  })
+}));
+
 const { _executeToolCallLoopForTest } = require('../../controllers/api/bienbot');
 
 describe('executeToolCallLoop', () => {
@@ -96,5 +183,290 @@ describe('executeToolCallLoop', () => {
       type: 'fetch_plan_items', label: 'Fetching plan items…'
     }));
     expect(onCallEnd).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration: tool-use loop wired into POST /api/bienbot/chat
+// ---------------------------------------------------------------------------
+
+const app = require('../../app');
+const BienBotSession = require('../../models/bienbot-session');
+const {
+  createTestUser,
+  createTestDestination,
+  createTestExperience,
+  createTestPlan,
+  generateAuthToken,
+  clearTestData
+} = require('../utils/testHelpers');
+const dbSetup = require('../setup/testSetup');
+
+async function createAIUser(overrides = {}) {
+  return createTestUser({
+    name: 'Tool Loop User',
+    email: `toolloop_${Date.now()}_${Math.random().toString(36).slice(2, 6)}@test.com`,
+    emailConfirmed: true,
+    role: 'super_admin',
+    feature_flags: [
+      { flag: 'ai_features', enabled: true, granted_at: new Date(), granted_by: null }
+    ],
+    ...overrides
+  });
+}
+
+function parseSSEEvents(text) {
+  const events = [];
+  const blocks = text.split(/\n\n/).filter(Boolean);
+  for (const block of blocks) {
+    const lines = block.split('\n');
+    let event = 'message';
+    let data = null;
+    for (const line of lines) {
+      if (line.startsWith('event: ')) event = line.slice(7).trim();
+      if (line.startsWith('data: ')) {
+        try { data = JSON.parse(line.slice(6)); } catch { data = line.slice(6); }
+      }
+    }
+    if (data !== null) events.push({ event, data });
+  }
+  return events;
+}
+
+describe('POST /api/bienbot/chat — tool-use loop integration', () => {
+  let user, authToken, destination, experience, plan;
+
+  beforeAll(async () => {
+    await dbSetup.connect();
+  });
+
+  beforeEach(async () => {
+    await clearTestData();
+    await BienBotSession.deleteMany({});
+
+    user = await createAIUser();
+    authToken = generateAuthToken(user);
+
+    destination = await createTestDestination(user, { name: 'Tool City', country: 'Tool Country' });
+    experience = await createTestExperience(user, destination, { name: 'Tool Experience' });
+    plan = await createTestPlan(user, experience);
+
+    // Reset AI mock between tests so per-test scripting is isolated.
+    const { callProvider } = require('../../controllers/api/ai');
+    callProvider.mockReset();
+    callProvider.mockResolvedValue({
+      content: JSON.stringify({ message: 'Default reply.', pending_actions: [] }),
+      usage: { prompt_tokens: 10, completion_tokens: 10 }
+    });
+
+    const { executeAction } = require('../../utilities/bienbot-action-executor');
+    executeAction.mockReset();
+    executeAction.mockResolvedValue({
+      success: true,
+      result: { statusCode: 200, body: { items: [], total: 0, returned: 0 } },
+      errors: []
+    });
+  });
+
+  afterAll(async () => {
+    await dbSetup.closeDatabase();
+  });
+
+  it('executes tool_calls then re-prompts with [TOOL RESULTS] and uses the second response', async () => {
+    const { callProvider } = require('../../controllers/api/ai');
+    const { executeAction } = require('../../utilities/bienbot-action-executor');
+
+    // First LLM response → asks for a tool call. Second → final natural answer.
+    callProvider
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: '',
+          tool_calls: [
+            { type: 'fetch_plan_items', payload: { plan_id: plan._id.toString() } }
+          ]
+        }),
+        usage: { prompt_tokens: 50, completion_tokens: 20 }
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: 'You have 2 items in your Tool Experience plan.',
+          pending_actions: []
+        }),
+        usage: { prompt_tokens: 80, completion_tokens: 30 }
+      });
+
+    executeAction.mockResolvedValue({
+      success: true,
+      result: {
+        statusCode: 200,
+        body: {
+          items: [
+            { _id: 'i1', content: 'Item one', completed: false },
+            { _id: 'i2', content: 'Item two', completed: false }
+          ],
+          total: 2,
+          returned: 2
+        }
+      },
+      errors: []
+    });
+
+    const res = await request(app)
+      .post('/api/bienbot/chat')
+      .set('Authorization', authToken)
+      .buffer(true)
+      .parse((response, callback) => {
+        let data = '';
+        response.on('data', chunk => { data += chunk.toString(); });
+        response.on('end', () => callback(null, data));
+      })
+      .send({
+        message: 'What’s in my Tool Experience plan?',
+        sessionId: undefined
+      });
+
+    expect(res.status).toBe(200);
+
+    // Two LLM round-trips
+    expect(callProvider).toHaveBeenCalledTimes(2);
+
+    // The second call's last message must contain the [TOOL RESULTS] block.
+    const secondCallMessages = callProvider.mock.calls[1][1];
+    const lastMessage = secondCallMessages[secondCallMessages.length - 1];
+    expect(lastMessage.role).toBe('user');
+    expect(lastMessage.content).toContain('[TOOL RESULTS');
+    expect(lastMessage.content).toContain('fetch_plan_items');
+
+    // executeAction was invoked once for the single tool call.
+    expect(executeAction).toHaveBeenCalledTimes(1);
+    expect(executeAction.mock.calls[0][0].type).toBe('fetch_plan_items');
+
+    // SSE stream contains tool_call_start and tool_call_end pill events,
+    // plus the second response's answer text.
+    const events = parseSSEEvents(res.body);
+    const eventTypes = events.map(e => e.event);
+    expect(eventTypes).toContain('tool_call_start');
+    expect(eventTypes).toContain('tool_call_end');
+
+    const tokenText = events
+      .filter(e => e.event === 'token')
+      .map(e => e.data.text)
+      .join('');
+    expect(tokenText).toContain('You have 2 items');
+  });
+
+  it('drops tool_calls in the second response (recursion budget = 1)', async () => {
+    const { callProvider } = require('../../controllers/api/ai');
+
+    callProvider
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: '',
+          tool_calls: [{ type: 'fetch_plan_items', payload: { plan_id: plan._id.toString() } }]
+        }),
+        usage: { prompt_tokens: 30, completion_tokens: 10 }
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: 'Done.',
+          // Second response illegally tries another tool call — must be dropped.
+          tool_calls: [{ type: 'fetch_plan_items', payload: { plan_id: plan._id.toString() } }],
+          pending_actions: []
+        }),
+        usage: { prompt_tokens: 30, completion_tokens: 10 }
+      });
+
+    const res = await request(app)
+      .post('/api/bienbot/chat')
+      .set('Authorization', authToken)
+      .buffer(true)
+      .parse((response, callback) => {
+        let data = '';
+        response.on('data', chunk => { data += chunk.toString(); });
+        response.on('end', () => callback(null, data));
+      })
+      .send({ message: 'Show plan items' });
+
+    expect(res.status).toBe(200);
+    // Exactly two LLM calls — the second response's tool_calls were ignored.
+    expect(callProvider).toHaveBeenCalledTimes(2);
+
+    const events = parseSSEEvents(res.body);
+    const tokenText = events
+      .filter(e => e.event === 'token')
+      .map(e => e.data.text)
+      .join('');
+    expect(tokenText).toContain('Done');
+  });
+
+  it('falls back to an error message when the second LLM call fails', async () => {
+    const { callProvider } = require('../../controllers/api/ai');
+
+    callProvider
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: '',
+          tool_calls: [{ type: 'fetch_plan_items', payload: { plan_id: plan._id.toString() } }]
+        }),
+        usage: { prompt_tokens: 30, completion_tokens: 10 }
+      })
+      .mockRejectedValueOnce(new Error('upstream LLM 503'));
+
+    const res = await request(app)
+      .post('/api/bienbot/chat')
+      .set('Authorization', authToken)
+      .buffer(true)
+      .parse((response, callback) => {
+        let data = '';
+        response.on('data', chunk => { data += chunk.toString(); });
+        response.on('end', () => callback(null, data));
+      })
+      .send({ message: 'Fetch and summarize' });
+
+    expect(res.status).toBe(200);
+    expect(callProvider).toHaveBeenCalledTimes(2);
+
+    const events = parseSSEEvents(res.body);
+    const tokenText = events
+      .filter(e => e.event === 'token')
+      .map(e => e.data.text)
+      .join('');
+    expect(tokenText).toMatch(/trouble pulling that data/i);
+
+    const doneEvent = events.find(e => e.event === 'done');
+    expect(doneEvent).toBeTruthy();
+    expect(doneEvent.data.source).toBe('tool_loop_failure');
+  });
+
+  it('skips the loop entirely when the first response carries no tool_calls', async () => {
+    const { callProvider } = require('../../controllers/api/ai');
+
+    callProvider.mockResolvedValueOnce({
+      content: JSON.stringify({
+        message: 'Direct answer, no tools needed.',
+        pending_actions: []
+      }),
+      usage: { prompt_tokens: 30, completion_tokens: 10 }
+    });
+
+    const res = await request(app)
+      .post('/api/bienbot/chat')
+      .set('Authorization', authToken)
+      .buffer(true)
+      .parse((response, callback) => {
+        let data = '';
+        response.on('data', chunk => { data += chunk.toString(); });
+        response.on('end', () => callback(null, data));
+      })
+      .send({ message: 'Hello' });
+
+    expect(res.status).toBe(200);
+    // Only one LLM call — no re-prompt.
+    expect(callProvider).toHaveBeenCalledTimes(1);
+
+    const events = parseSSEEvents(res.body);
+    const eventTypes = events.map(e => e.event);
+    expect(eventTypes).not.toContain('tool_call_start');
+    expect(eventTypes).not.toContain('tool_call_end');
   });
 });

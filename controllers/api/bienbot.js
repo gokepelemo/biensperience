@@ -3467,8 +3467,84 @@ exports.chat = async (req, res) => {
   // --- Step 5: Parse structured response ---
   const rawParsed = parseLLMResponse(llmResult.content || '');
 
+  // --- Step 5a: Tool-use loop (silent fetch + re-prompt) ---
+  // If the first response carries tool_calls, run them in parallel, open the
+  // SSE stream so pill events stream during the wait, then re-prompt the LLM
+  // with the tool results and use the second response as the final answer.
+  // Recursion budget = 1 — any tool_calls in the second response are dropped.
+  let parsedFinal = rawParsed;
+  if (Array.isArray(rawParsed.tool_calls) && rawParsed.tool_calls.length > 0) {
+    const startedAtLoop = Date.now();
+    // Verify tool-call entity IDs (reuse the verifier — drops hallucinated IDs).
+    const verifiedToolCalls = await verifyPendingActionEntityIds(
+      rawParsed.tool_calls.map(tc => ({ ...tc, id: `tc_${tc.type}` }))
+    );
+
+    // Open the SSE stream NOW so we can emit pill events while fetching.
+    if (!res.headersSent) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      sendSSE(res, 'session', { sessionId: session._id.toString(), title: session.title });
+    }
+
+    const { toolResultsBlock, calls } = await executeToolCallLoop({
+      toolCalls: verifiedToolCalls,
+      user: req.user,
+      session,
+      onCallStart: (p) => sendToolCallStart(res, p),
+      onCallEnd: (p) => sendToolCallEnd(res, p)
+    });
+
+    // Build re-prompt: same conversation + an extra user-role message
+    // containing the tool-results block. The LLM treats it as fresh context.
+    const repromptMessages = [
+      ...conversationMessages,
+      { role: 'assistant', content: JSON.stringify({ message: '', tool_calls: rawParsed.tool_calls }) },
+      { role: 'user', content: toolResultsBlock }
+    ];
+
+    let secondLlm;
+    try {
+      secondLlm = await callProvider(provider, repromptMessages, {
+        temperature: 0.7,
+        maxTokens,
+        _user: req.user,
+        task: AI_TASKS.BIENBOT_CHAT,
+        intent: classification.intent || null
+      });
+    } catch (err) {
+      logger.error('[bienbot:tool-loop] second LLM call failed', { error: err.message });
+      sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
+      sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
+      return res.end();
+    }
+
+    parsedFinal = parseLLMResponse(secondLlm.content || '');
+
+    // Recursion-budget enforcement: drop tool_calls in the second response.
+    if (parsedFinal.tool_calls && parsedFinal.tool_calls.length > 0) {
+      logger.warn('[bienbot:tool-loop] second response proposed more tool_calls — ignoring', {
+        count: parsedFinal.tool_calls.length,
+        types: parsedFinal.tool_calls.map(t => t.type)
+      });
+      parsedFinal.tool_calls = [];
+    }
+
+    logger.info('[bienbot:tool-loop] turn complete', {
+      sessionId: session._id.toString(),
+      tool_calls_count: calls.length,
+      tool_call_types: calls.map(c => c.type),
+      re_prompt_duration_ms: Date.now() - startedAtLoop,
+      per_call: calls.map(c => ({ type: c.type, ok: c.ok, duration_ms: c.duration_ms }))
+    });
+  }
+
   // Explode workflow actions into individual step-by-step pending actions
-  let explodedActions = explodeWorkflows(rawParsed.pending_actions);
+  let explodedActions = explodeWorkflows(parsedFinal.pending_actions);
 
   // Drop actions whose entity IDs the LLM hallucinated. Runs before the
   // read-only/confirmable split so disambiguation actions (select_plan,
@@ -3524,9 +3600,9 @@ exports.chat = async (req, res) => {
   }
 
   const parsed = {
-    message: rawParsed.message,
+    message: parsedFinal.message,
     pending_actions: confirmableActions,
-    entity_refs: rawParsed.entity_refs || []
+    entity_refs: parsedFinal.entity_refs || []
   };
 
   // --- Verify entity_refs against the database ---
@@ -3727,12 +3803,16 @@ exports.chat = async (req, res) => {
   });
 
   // --- Step 7: SSE-stream the response ---
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  });
+  // Headers may have already been sent by the tool-use loop above (Step 5a),
+  // which opens the stream early so pill events can flow during fetches.
+  if (!res.headersSent) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+  }
 
   // Stream session info (include attachment data for frontend rendering)
   const sessionEvent = {
