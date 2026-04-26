@@ -318,3 +318,52 @@ describe('fetch_experience_items handler', () => {
     expect(outcome.body.error).toBe('invalid_id');
   });
 });
+
+describe('fetch_destination_experiences handler', () => {
+  let owner, dest, exp1, exp2;
+
+  beforeAll(async () => { await dbSetup.connect(); });
+  afterAll(async () => { await dbSetup.closeDatabase(); });
+
+  beforeEach(async () => {
+    await Promise.all([Plan.deleteMany({}), Experience.deleteMany({}), Destination.deleteMany({}), User.deleteMany({})]);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    owner = await User.create({ name: 'O', email: `o-${suffix}@x.test`, password: 'pw12345!' });
+    dest = await Destination.create({ name: 'D', country: 'X', user: owner._id });
+    exp1 = await Experience.create({
+      name: 'Exp A', destination: dest._id, user: owner._id, cost_estimate: 100,
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }]
+    });
+    exp2 = await Experience.create({
+      name: 'Exp B', destination: dest._id, user: owner._id, cost_estimate: 200,
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }]
+    });
+  });
+
+  it('returns experiences at the destination', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_destination_experiences', payload: { destination_id: dest._id.toString() } }, owner
+    );
+    expect(outcome.body.experiences).toHaveLength(2);
+    expect(outcome.body.experiences.map(e => e.name).sort()).toEqual(['Exp A', 'Exp B']);
+  });
+
+  it('respects sort=popular by plan_count desc', async () => {
+    // Add a plan against exp2 to give it a higher plan_count
+    await Plan.create({
+      experience: exp2._id, user: owner._id,
+      permissions: [{ _id: owner._id, entity: 'user', type: 'owner' }]
+    });
+    const outcome = await executeAction(
+      { type: 'fetch_destination_experiences', payload: { destination_id: dest._id.toString(), sort: 'popular' } }, owner
+    );
+    expect(outcome.body.experiences[0].name).toBe('Exp B');
+  });
+
+  it('returns invalid_id for malformed destination id', async () => {
+    const outcome = await executeAction(
+      { type: 'fetch_destination_experiences', payload: { destination_id: 'bad' } }, owner
+    );
+    expect(outcome.body.error).toBe('invalid_id');
+  });
+});

@@ -108,6 +108,7 @@ const ALLOWED_ACTION_TYPES = [
   'fetch_plan_costs',
   'fetch_plan_collaborators',
   'fetch_experience_items',
+  'fetch_destination_experiences',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -188,6 +189,7 @@ const READ_ONLY_ACTION_TYPES = new Set([
   'fetch_plan_costs',
   'fetch_plan_collaborators',
   'fetch_experience_items',
+  'fetch_destination_experiences',
   'discover_content',
   'list_user_experiences',
   'list_user_followers',
@@ -210,7 +212,8 @@ const TOOL_CALL_ACTION_TYPES = new Set([
   'fetch_plan_items',
   'fetch_plan_costs',
   'fetch_plan_collaborators',
-  'fetch_experience_items'
+  'fetch_experience_items',
+  'fetch_destination_experiences'
 ]);
 
 // ---------------------------------------------------------------------------
@@ -1406,6 +1409,95 @@ async function executeFetchExperienceItems(payload, user) {
 }
 
 /**
+ * fetch_destination_experiences — read-only, no confirmation.
+ * Lists experiences at a destination, sortable by popular/recent/name.
+ * Returns { experiences: [{ _id, name, cost_estimate, plan_count, curator_name }], total, returned }.
+ *
+ * Schema deviation: Experience has no `curator` field and no top-level `user`
+ * ref. The owner lives in `permissions[]` as `{ entity: 'user', type: 'owner' }`.
+ * We resolve the owner User in a single batched lookup to populate
+ * `curator_name`. If a proper curator field is added later, swap the lookup.
+ *
+ * payload: { destination_id: string, sort?: 'popular'|'recent'|'name', limit?: number }
+ */
+async function executeFetchDestinationExperiences(payload, user) {
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const Plan = require('../models/plan');
+  const User = require('../models/user');
+  const mongoose = require('mongoose');
+
+  const destIdStr = String(payload?.destination_id || '');
+  if (!mongoose.Types.ObjectId.isValid(destIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // Destinations are public by default — lean is OK here since we don't call canView.
+  const dest = await Destination.findById(destIdStr).select('_id').lean();
+  if (!dest) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const FETCH_DEST_EXP_MAX = 50;
+  const requestedLimit = Number.isFinite(payload?.limit)
+    ? Math.max(1, Math.floor(payload.limit))
+    : FETCH_DEST_EXP_MAX;
+  const limit = Math.min(requestedLimit, FETCH_DEST_EXP_MAX);
+  const sort = payload?.sort || 'recent';
+
+  const exps = await Experience.find({ destination: dest._id })
+    .select('name cost_estimate permissions createdAt')
+    .lean();
+
+  // Resolve owner names in a single batched query keyed by the owner permission.
+  const ownerByExp = new Map();
+  const ownerIdSet = new Set();
+  for (const e of exps) {
+    const ownerPerm = (e.permissions || []).find(
+      p => p.entity === 'user' && p.type === 'owner'
+    );
+    if (ownerPerm?._id) {
+      ownerByExp.set(String(e._id), String(ownerPerm._id));
+      ownerIdSet.add(String(ownerPerm._id));
+    }
+  }
+  const owners = ownerIdSet.size
+    ? await User.find({ _id: { $in: Array.from(ownerIdSet) } }).select('name').lean()
+    : [];
+  const ownerNameById = Object.fromEntries(owners.map(u => [String(u._id), u.name]));
+
+  const expIds = exps.map(e => e._id);
+  const planCounts = expIds.length
+    ? await Plan.aggregate([
+        { $match: { experience: { $in: expIds } } },
+        { $group: { _id: '$experience', count: { $sum: 1 } } }
+      ])
+    : [];
+  const planCountMap = Object.fromEntries(planCounts.map(pc => [String(pc._id), pc.count]));
+
+  let withCounts = exps.map(e => {
+    const ownerId = ownerByExp.get(String(e._id));
+    return {
+      _id: e._id.toString(),
+      name: e.name,
+      cost_estimate: e.cost_estimate || 0,
+      plan_count: planCountMap[String(e._id)] || 0,
+      curator_name: (ownerId && ownerNameById[ownerId]) || null,
+      _createdAt: e.createdAt
+    };
+  });
+
+  if (sort === 'popular')      withCounts.sort((a, b) => b.plan_count - a.plan_count);
+  else if (sort === 'name')    withCounts.sort((a, b) => a.name.localeCompare(b.name));
+  else /* recent */            withCounts.sort((a, b) => new Date(b._createdAt) - new Date(a._createdAt));
+
+  const total = withCounts.length;
+  const sliced = withCounts.slice(0, limit).map(({ _createdAt, ...rest }) => rest);
+  return {
+    statusCode: 200,
+    body: { experiences: sliced, total, returned: sliced.length }
+  };
+}
+
+/**
  * discover_content — read-only, no confirmation.
  * Uses buildDiscoveryContext to find popular experiences matching filters.
  * payload: { activity_types?, destination_name?, destination_id?, min_plans?, max_cost? }
@@ -2185,6 +2277,7 @@ const ACTION_HANDLERS = {
   fetch_plan_costs: executeFetchPlanCosts,
   fetch_plan_collaborators: executeFetchPlanCollaborators,
   fetch_experience_items: executeFetchExperienceItems,
+  fetch_destination_experiences: executeFetchDestinationExperiences,
   discover_content: executeDiscoverContent,
   // Plan disambiguation
   select_plan: executeSelectPlan,
