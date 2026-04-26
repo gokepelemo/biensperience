@@ -489,3 +489,156 @@ describe('POST /api/bienbot/chat — tool-use loop integration', () => {
     expect(eventTypes).not.toContain('tool_call_end');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Integration: registry-defined tool wired into the tool-use loop
+// ---------------------------------------------------------------------------
+//
+// The block above proves the loop works for INTERNAL fetchers (executed via
+// executeAction). This block proves the same loop also dispatches REGISTRY
+// tools through `toolRegistry.executeRegisteredTool`. We use `fetch_forecast`
+// from the Weather provider because it's the simplest env-keyed read tool;
+// `global.fetch` is mocked so no real HTTP is performed.
+
+describe('POST /api/bienbot/chat — registry-defined tool integration', () => {
+  let user, authToken;
+  let originalFetch;
+  let originalEnvKey;
+
+  beforeAll(async () => {
+    await dbSetup.connect();
+  });
+
+  beforeEach(async () => {
+    await clearTestData();
+    await BienBotSession.deleteMany({});
+
+    user = await createAIUser();
+    authToken = generateAuthToken(user);
+
+    // Provider is env-keyed (envKeyOptional: true). Set a fake key BEFORE
+    // bootstrap so the Weather provider becomes enabled and `fetch_forecast`
+    // is registered in the registry.
+    originalEnvKey = process.env.OPENWEATHER_API_KEY;
+    process.env.OPENWEATHER_API_KEY = 'test-fake-key';
+
+    const reg = require('../../utilities/bienbot-tool-registry');
+    const { _resetForTest, bootstrap } = require('../../utilities/bienbot-tool-registry/bootstrap');
+    reg._resetRegistryForTest();
+    _resetForTest();
+    bootstrap();
+
+    // Reset AI mock so per-test scripting is isolated.
+    const { callProvider } = require('../../controllers/api/ai');
+    callProvider.mockReset();
+    callProvider.mockResolvedValue({
+      content: JSON.stringify({ message: 'Default reply.', pending_actions: [] }),
+      usage: { prompt_tokens: 10, completion_tokens: 10 }
+    });
+
+    // Stub global fetch — providerCtx.httpRequest calls fetch() directly.
+    originalFetch = global.fetch;
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        list: [{
+          dt_txt: '2026-05-01 12:00:00',
+          main: { temp_min: 10, temp_max: 15 },
+          weather: [{ description: 'sunny' }]
+        }]
+      })
+    }));
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    if (originalEnvKey === undefined) {
+      delete process.env.OPENWEATHER_API_KEY;
+    } else {
+      process.env.OPENWEATHER_API_KEY = originalEnvKey;
+    }
+  });
+
+  afterAll(async () => {
+    await dbSetup.closeDatabase();
+  });
+
+  it('dispatches a registry tool through executeRegisteredTool and folds its result into the second LLM prompt', async () => {
+    const { callProvider } = require('../../controllers/api/ai');
+
+    // Sanity check: provider really is registered after bootstrap.
+    const reg = require('../../utilities/bienbot-tool-registry');
+    expect(reg.getTool('fetch_forecast')).toBeTruthy();
+
+    // First LLM response → asks for the registry tool. Second → final answer.
+    callProvider
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: '',
+          tool_calls: [{ type: 'fetch_forecast', payload: { location: 'Tokyo', days: 1 } }],
+          pending_actions: []
+        }),
+        usage: { prompt_tokens: 50, completion_tokens: 20 }
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          message: 'It will be sunny in Tokyo.',
+          pending_actions: []
+        }),
+        usage: { prompt_tokens: 80, completion_tokens: 30 }
+      });
+
+    const res = await request(app)
+      .post('/api/bienbot/chat')
+      .set('Authorization', authToken)
+      .buffer(true)
+      .parse((response, callback) => {
+        let data = '';
+        response.on('data', chunk => { data += chunk.toString(); });
+        response.on('end', () => callback(null, data));
+      })
+      .send({ message: 'what is the weather in Tokyo' });
+
+    expect(res.status).toBe(200);
+
+    // Two LLM round-trips: tool-asking + final.
+    expect(callProvider).toHaveBeenCalledTimes(2);
+
+    // The registry handler called global.fetch (not executeAction).
+    expect(global.fetch).toHaveBeenCalled();
+    const fetchUrl = global.fetch.mock.calls[0][0];
+    expect(fetchUrl).toContain('openweathermap.org');
+    expect(fetchUrl).toContain('Tokyo');
+
+    // The second prompt's last message must contain the [TOOL RESULTS] block
+    // with the registry tool's name and the upstream payload (forecast/sunny).
+    const secondCallMessages = callProvider.mock.calls[1][1];
+    const lastMessage = secondCallMessages[secondCallMessages.length - 1];
+    expect(lastMessage.role).toBe('user');
+    expect(lastMessage.content).toContain('[TOOL RESULTS');
+    expect(lastMessage.content).toContain('fetch_forecast');
+    expect(lastMessage.content).toContain('sunny');
+
+    // SSE stream contains the pill events (label from registry manifest)
+    // and the second response's final answer text.
+    const events = parseSSEEvents(res.body);
+    const eventTypes = events.map(e => e.event);
+    expect(eventTypes).toContain('tool_call_start');
+    expect(eventTypes).toContain('tool_call_end');
+
+    const startEvent = events.find(e => e.event === 'tool_call_start');
+    expect(startEvent.data.type).toBe('fetch_forecast');
+    // Label may be the registry-provided "Fetching forecast…" or the generic
+    // fallback "Fetching fetch forecast…" depending on whether the controller's
+    // TOOL_CALL_LABELS was hydrated before the test re-bootstrapped the registry.
+    // Either way it must mention "forecast".
+    expect(startEvent.data.label).toMatch(/forecast/i);
+
+    const tokenText = events
+      .filter(e => e.event === 'token')
+      .map(e => e.data.text)
+      .join('');
+    expect(tokenText).toContain('It will be sunny');
+  });
+});

@@ -502,9 +502,9 @@ async function buildDestinationContext(destinationId, userId, options = {}) {
 
     if (isStale || !hasTips) {
       try {
-        const { enrichDestination } = require('./bienbot-external-data');
+        const { enrichDestinationViaRegistry } = require('./destination-enrichment');
         // Non-blocking background refresh — serve cached data (if any) immediately
-        enrichDestination(destinationId, { _id: userId }, { background: hasTips, force: !hasTips }).catch(err => {
+        enrichDestinationViaRegistry(destinationId, { _id: userId }, { background: hasTips, force: !hasTips }).catch(err => {
           logger.warn('[bienbot-context] Background enrichment failed', { destinationId, error: err.message });
         });
       } catch (e) {

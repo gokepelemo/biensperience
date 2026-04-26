@@ -2410,4 +2410,35 @@ describe('buildSystemPrompt — tool-use instructions', () => {
     const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
     expect(prompt).toMatch(/do not invent the data|acknowledge the failure/i);
   });
+
+  it('renders internal tools first, registry tools after', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    const internalIdx = prompt.indexOf('fetch_plan_items');
+    const sectionIdx = prompt.indexOf('External read tools:');
+    if (sectionIdx !== -1) {
+      expect(internalIdx).toBeLessThan(sectionIdx);
+    }
+    expect(internalIdx).toBeGreaterThan(-1);
+  });
+
+  it('uses the Internal data tools header from internal-tools companion', () => {
+    const prompt = buildSystemPrompt({ invokeLabel: null, invokeEntityType: null });
+    expect(prompt).toContain('Internal data tools (read from local database):');
+  });
+});
+
+describe('tool-registry bootstrap', () => {
+  it('boots without error and registers known providers', () => {
+    const { bootstrap } = require('../../utilities/bienbot-tool-registry/bootstrap');
+    expect(() => bootstrap()).not.toThrow();
+    const reg = require('../../utilities/bienbot-tool-registry');
+    // Reset and re-bootstrap so the assertions below see a deterministic state
+    // regardless of what other tests in this file previously registered.
+    reg._resetRegistryForTest();
+    const { _resetForTest, bootstrap: bs } = require('../../utilities/bienbot-tool-registry/bootstrap');
+    _resetForTest();
+    bs();
+    expect(reg.getReadToolNames().has('fetch_destination_tips')).toBe(true);
+    expect(reg.getWriteToolNames().size).toBe(0);
+  });
 });

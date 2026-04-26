@@ -791,37 +791,15 @@ async function withRetry(fn, options = {}) {
 // Wikivoyage provider
 // ---------------------------------------------------------------------------
 
-/**
- * Mapping from Wikivoyage section names to TravelTipsList structured tip types.
- * Keys are lowercase Wikivoyage section titles; values are objects with:
- *   tipType  – matches TravelTip component's type enum
- *   category – human-readable label shown in the UI badge
- *   icon     – optional emoji override (TravelTip has defaults per type)
- *   maxTips  – max items to extract from this section
- */
-const WIKIVOYAGE_SECTION_MAP = {
-  'see':          { tipType: 'Custom', category: 'Sightseeing', icon: '👁️', maxTips: 4 },
-  'do':           { tipType: 'Custom', category: 'Activities',  icon: '🎯', maxTips: 4 },
-  'eat':          { tipType: 'Food',   category: 'Food',        icon: null,  maxTips: 3 },
-  'drink':        { tipType: 'Food',   category: 'Nightlife',   icon: '🍸', maxTips: 2 },
-  'buy':          { tipType: 'Custom', category: 'Shopping',    icon: '🛍️', maxTips: 2 },
-  'sleep':        { tipType: 'Accommodation', category: 'Accommodation', icon: null, maxTips: 3 },
-  'get around':   { tipType: 'Transportation', category: 'Transportation', icon: null, maxTips: 3 },
-  'get in':       { tipType: 'Transportation', category: 'Getting There', icon: '✈️', maxTips: 2 },
-  'stay safe':    { tipType: 'Safety', category: 'Safety', icon: null, maxTips: 3 },
-  'stay healthy': { tipType: 'Safety', category: 'Health', icon: '🏥', maxTips: 2 },
-  'cope':         { tipType: 'Custom', category: 'Practical Info', icon: 'ℹ️', maxTips: 2 },
-  'talk':         { tipType: 'Language', category: 'Language', icon: null, maxTips: 2 },
-  'understand':   { tipType: 'Customs', category: 'Culture', icon: null, maxTips: 3 },
-  'respect':      { tipType: 'Customs', category: 'Customs', icon: null, maxTips: 2 },
-  'climate':      { tipType: 'Weather', category: 'Weather', icon: null, maxTips: 2 },
-  'connect':      { tipType: 'Custom', category: 'Connectivity', icon: '📱', maxTips: 2 }
-};
+// WIKIVOYAGE_SECTION_MAP: REMOVED (T11). The tip-section taxonomy now lives
+// inside the registry's Wikivoyage provider
+// (utilities/bienbot-tool-registry/providers/wikivoyage.js), which is the
+// sole owner of `fetch_destination_tips`.
 
 /**
  * Set of Wikivoyage section keys that map to actionable plan items.
- * Sections not in this set (get around, stay safe, talk, etc.) produce travel
- * tips via fetchWikivoyageTips but are not surfaced as plan item suggestions.
+ * Sections not in this set (get around, stay safe, talk, etc.) are not
+ * surfaced as plan item suggestions by suggestPlanItems.
  */
 const PLAN_ITEM_SECTIONS = new Set(['see', 'do', 'eat', 'drink', 'buy', 'sleep']);
 
@@ -905,45 +883,9 @@ function stripHtml(html) {
   return text;
 }
 
-/**
- * Extract useful text fragments from a Wikivoyage section's plain text.
- *
- * Splits on list items and sentences, filters out very short or very long
- * fragments, and returns up to `max` results.
- *
- * @param {string} text - Plain text (HTML already stripped)
- * @param {number} max  - Maximum fragments to return
- * @returns {string[]}
- */
-function extractFragments(text, max) {
-  // Wikivoyage articles use bullet lists extensively — split on newlines first
-  const lines = text
-    .split(/\n+/)
-    .map(l => l.replace(/^[\s•·\-–—*]+/, '').trim())
-    .filter(l =>
-      l.length > 15 && l.length < 400 &&
-      // Strip residual MediaWiki artifacts not caught by stripHtml
-      !/\[edit\]/i.test(l) &&
-      !/\[add listing\]/i.test(l) &&
-      // Strip climate chart captions and table headers
-      !/chart\s*\(explanation\)/i.test(l) &&
-      !/^average\s+(max|min)/i.test(l)
-    );
-
-  if (lines.length > 0) {
-    return lines.slice(0, max);
-  }
-
-  // Fallback: sentence splitting for prose-style sections
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .filter(s =>
-      s.length > 20 && s.length < 300 &&
-      !/\[edit\]/i.test(s) &&
-      !/\[add listing\]/i.test(s)
-    )
-    .slice(0, max);
-}
+// extractFragments: REMOVED (T11). Used only by the deleted
+// fetchWikivoyageTips. The registry's Wikivoyage provider has its own
+// inline fragment extractor.
 
 /**
  * Extract structured plan item candidates from a Wikivoyage section's HTML.
@@ -1005,163 +947,20 @@ function extractPlanItemCandidates(html, sectionKey) {
   return results;
 }
 
-/**
- * Fetch travel tips from Wikivoyage for a destination.
- *
- * Uses a two-tier strategy:
- *   1. **Section-level** (preferred): Fetches the article's section list via
- *      the MediaWiki API, identifies travel-relevant sections (See, Do, Eat,
- *      Sleep, etc.), fetches each section's content, and parses it into
- *      structured tip objects that match the TravelTipsList component format.
- *   2. **Summary fallback**: If the section API fails or returns nothing,
- *      falls back to the REST summary endpoint for a brief extract.
- *
- * Free API, no key required.
- *
- * @param {string} destinationName
- * @param {object} [options]
- * @param {number} [options.maxTotalTips=15] - Overall cap on tips returned
- * @returns {Promise<Array<{ type: string, value: string, source: string, url: string, category?: string, icon?: string, callToAction?: object }>>}
- */
-async function fetchWikivoyageTips(destinationName, options = {}) {
-  const { maxTotalTips = 15 } = options;
-  const encoded = encodeURIComponent(destinationName.replace(/\s+/g, '_'));
-  const pageUrl = `https://en.wikivoyage.org/wiki/${encoded}`;
-
-  // --- Tier 1: Section-level fetching ---
-  const sectionTips = await withRetry(async (signal) => {
-    // Step 1: Get section index
-    const sectionsUrl = `https://en.wikivoyage.org/w/api.php?action=parse&page=${encoded}&prop=sections&format=json&redirects=1`;
-    const sectionsRes = await fetch(sectionsUrl, { signal, headers: { 'Accept': 'application/json' } });
-
-    if (!sectionsRes.ok) {
-      if (sectionsRes.status === 404) return [];
-      throw new Error(`Wikivoyage sections HTTP ${sectionsRes.status}`);
-    }
-
-    const sectionsData = await sectionsRes.json();
-    if (sectionsData.error) {
-      if (sectionsData.error.code === 'missingtitle') return [];
-      throw new Error(`Wikivoyage API error: ${sectionsData.error.info}`);
-    }
-
-    const sections = sectionsData.parse?.sections || [];
-    if (sections.length === 0) return [];
-
-    // Step 2: Identify travel-relevant sections
-    const relevantSections = [];
-    for (const section of sections) {
-      const sectionKey = (section.line || '').toLowerCase().trim();
-      const mapping = WIKIVOYAGE_SECTION_MAP[sectionKey];
-      if (mapping && section.index) {
-        relevantSections.push({ ...mapping, sectionIndex: section.index, sectionName: section.line });
-      }
-    }
-
-    if (relevantSections.length === 0) return [];
-
-    // Step 3: Fetch content for each relevant section (batched, max 6 at a time)
-    const batchSize = 6;
-    const allTips = [];
-
-    for (let i = 0; i < relevantSections.length && allTips.length < maxTotalTips; i += batchSize) {
-      const batch = relevantSections.slice(i, i + batchSize);
-
-      const batchResults = await Promise.allSettled(
-        batch.map(async (sec) => {
-          const contentUrl = `https://en.wikivoyage.org/w/api.php?action=parse&page=${encoded}&prop=text&section=${sec.sectionIndex}&format=json&redirects=1&disabletoc=1`;
-          const contentRes = await fetch(contentUrl, { signal, headers: { 'Accept': 'application/json' } });
-
-          if (!contentRes.ok) return [];
-
-          const contentData = await contentRes.json();
-          const html = contentData.parse?.text?.['*'] || '';
-          if (!html) return [];
-
-          const plainText = stripHtml(html);
-          if (plainText.length < 20) return [];
-
-          const fragments = extractFragments(plainText, sec.maxTips);
-          const sectionAnchor = sec.sectionName.replace(/\s+/g, '_');
-
-          return fragments.map(fragment => ({
-            type: sec.tipType,
-            category: sec.category,
-            value: fragment,
-            source: 'Wikivoyage',
-            url: `${pageUrl}#${sectionAnchor}`,
-            ...(sec.icon ? { icon: sec.icon } : {}),
-            callToAction: {
-              url: `${pageUrl}#${sectionAnchor}`,
-              label: `Read more on Wikivoyage`
-            }
-          }));
-        })
-      );
-
-      for (const result of batchResults) {
-        if (result.status === 'fulfilled' && result.value) {
-          allTips.push(...result.value);
-        }
-      }
-    }
-
-    return allTips.slice(0, maxTotalTips);
-  }, { label: 'wikivoyage-sections', timeoutMs: 12000 });
-
-  if (sectionTips && sectionTips.length > 0) {
-    return sectionTips;
-  }
-
-  // --- Tier 2: Summary fallback ---
-  const summaryTips = await withRetry(async (signal) => {
-    const url = `https://en.wikivoyage.org/api/rest_v1/page/summary/${encoded}`;
-
-    const res = await fetch(url, { signal, headers: { 'Accept': 'application/json' } });
-    if (!res.ok) {
-      if (res.status === 404) return [];
-      throw new Error(`Wikivoyage summary HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    const result = [];
-    const resolvedUrl = data.content_urls?.desktop?.page || pageUrl;
-
-    if (data.extract) {
-      const sentences = data.extract
-        .split(/(?<=[.!?])\s+/)
-        .filter(s => s.length > 20 && s.length < 300)
-        .slice(0, 5);
-
-      for (const sentence of sentences) {
-        result.push({
-          type: 'Custom',
-          category: 'Overview',
-          value: sentence.trim(),
-          source: 'Wikivoyage',
-          url: resolvedUrl,
-          icon: '🌍',
-          callToAction: {
-            url: resolvedUrl,
-            label: 'Read more on Wikivoyage'
-          }
-        });
-      }
-    }
-
-    return result;
-  }, { label: 'wikivoyage-summary', timeoutMs: 6000 });
-
-  return summaryTips || [];
-}
+// fetchWikivoyageTips: REMOVED (T11). Wikivoyage tip-fetching now lives in
+// the BienBot tool registry — `fetch_destination_tips`
+// (utilities/bienbot-tool-registry/providers/wikivoyage.js). Both the
+// /api/destinations/:id/enrich route and BienBot's background context
+// enrichment go through utilities/destination-enrichment.js, which calls
+// the registry tool.
 
 /**
  * Fetch structured plan item candidates from Wikivoyage for a destination.
  *
- * Queries the MediaWiki section API (same endpoint as fetchWikivoyageTips) but
- * limits processing to plan-item-relevant sections (See, Do, Eat, Drink, Buy,
- * Sleep) and returns structured `{ name, description, activity_type, source_url }`
- * objects rather than generic tip strings.
+ * Queries the MediaWiki section API but limits processing to
+ * plan-item-relevant sections (See, Do, Eat, Drink, Buy, Sleep) and returns
+ * structured `{ name, description, activity_type, source_url }` objects
+ * rather than generic tip strings.
  *
  * Deduplicates across sections: if the same attraction name appears in both
  * See and Do, only the first occurrence is kept.
@@ -1372,52 +1171,13 @@ async function reformulateWikivoyagePlanItems(items, destinationName, user) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Unsplash provider (for destination enrichment)
-// ---------------------------------------------------------------------------
-
-/**
- * Fetch landscape photos from Unsplash for a destination.
- *
- * Returns photo objects with attribution for enrichment.
- *
- * @param {string} destinationName
- * @param {number} [count=5]
- * @returns {Promise<Array<{ url: string, thumb_url: string, photographer: string, photographer_url: string, unsplash_url: string }>>}
- */
-async function fetchUnsplashPhotos(destinationName, count = 5) {
-  const accessKey = process.env.UNSPLASH_ACCESS_KEY;
-  if (!accessKey) return [];
-
-  const photos = await withRetry(async (signal) => {
-    const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(destinationName)}&per_page=${count}&orientation=landscape`;
-
-    const res = await fetch(url, {
-      signal,
-      headers: {
-        'Authorization': `Client-ID ${accessKey}`,
-        'Accept-Version': 'v1'
-      }
-    });
-
-    if (!res.ok) throw new Error(`Unsplash HTTP ${res.status}`);
-
-    const data = await res.json();
-    return (data.results || []).map(photo => ({
-      url: photo.urls?.regular || photo.urls?.small,
-      thumb_url: photo.urls?.thumb || photo.urls?.small,
-      photographer: photo.user?.name || 'Unknown',
-      photographer_url: photo.user?.links?.html || null,
-      unsplash_url: photo.links?.html || null,
-      photo_credit: `${photo.user?.name || 'Unknown'} / Unsplash`
-    }));
-  }, { label: 'unsplash-enrich', timeoutMs: 8000, provider: 'unsplash' });
-
-  return photos || [];
-}
+// fetchUnsplashPhotos: REMOVED (T11). Unsplash photo-fetching now lives in
+// the BienBot tool registry — `fetch_destination_photos`
+// (utilities/bienbot-tool-registry/providers/unsplash.js). Destination
+// enrichment uses utilities/destination-enrichment.js.
 
 // ---------------------------------------------------------------------------
-// Google Maps Places provider
+// Google Maps Places provider (still in use by suggestPlanItems)
 // ---------------------------------------------------------------------------
 
 /**
@@ -1490,473 +1250,32 @@ async function fetchGoogleMapsPlaces(destinationName, options = {}) {
   return places || [];
 }
 
-/**
- * Fetch travel-relevant reviews from Google Maps Places API.
- *
- * Retrieves place details and returns up to 3 short reviews as tips.
- *
- * @param {string} destinationName
- * @returns {Promise<Array<{ type: string, value: string, source: string, url: string }>>}
- */
-async function fetchGoogleMapsTips(destinationName) {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!apiKey) return [];
-
-  const tips = await withRetry(async (signal) => {
-    // Step 1: Find place
-    const findUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(destinationName)}&inputtype=textquery&fields=place_id,name&key=${apiKey}`;
-
-    const findRes = await fetch(findUrl, { signal });
-    if (!findRes.ok) throw new Error(`Google Places Find HTTP ${findRes.status}`);
-
-    const findData = await findRes.json();
-    const placeId = findData.candidates?.[0]?.place_id;
-    if (!placeId) return [];
-
-    // Step 2: Get place details with reviews
-    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,reviews,url&key=${apiKey}`;
-
-    const detailsRes = await fetch(detailsUrl, { signal });
-    if (!detailsRes.ok) throw new Error(`Google Places Details HTTP ${detailsRes.status}`);
-
-    const detailsData = await detailsRes.json();
-    const place = detailsData.result;
-    if (!place?.reviews) return [];
-
-    const mapsUrl = place.url || `https://www.google.com/maps/place/?q=place_id:${placeId}`;
-
-    // Take top 3 reviews, truncate to 150 chars
-    return place.reviews
-      .filter(r => r.text && r.rating >= 4)
-      .slice(0, 3)
-      .map(review => ({
-        type: 'review',
-        value: review.text.length > 150 ? review.text.slice(0, 147) + '...' : review.text,
-        source: 'Google Maps',
-        url: mapsUrl,
-        rating: review.rating
-      }));
-  }, { label: 'google-maps', timeoutMs: 10000, provider: 'google_maps_text_search' });
-
-  return tips || [];
-}
+// fetchGoogleMapsTips: REMOVED (T11). Replaced by registry tool
+// `fetch_destination_places` (utilities/bienbot-tool-registry/providers/google-maps.js)
+// — surfaces structured place results rather than reviews-as-tips.
 
 // ---------------------------------------------------------------------------
-// TripAdvisor provider
+// TripAdvisor provider helpers — REMOVED (T11)
+//
+// fetchTripAdvisorTips, fetchTripAdvisorPlaces, toTripAdvisorCategory, and
+// the TRIPADVISOR_CATEGORY_MAP table all moved to the registry's TripAdvisor
+// provider (`fetch_destination_attractions`,
+// utilities/bienbot-tool-registry/providers/tripadvisor.js).
 // ---------------------------------------------------------------------------
 
-/**
- * Maps common category strings to TripAdvisor Content API category values.
- * TripAdvisor nearby_search accepts: 'attractions', 'restaurants', 'hotels', 'geos'
- */
-const TRIPADVISOR_CATEGORY_MAP = {
-  restaurants: 'restaurants',
-  food: 'restaurants',
-  dining: 'restaurants',
-  eat: 'restaurants',
-  cafes: 'restaurants',
-  bars: 'restaurants',
-  nightlife: 'restaurants',
-  hotels: 'hotels',
-  accommodation: 'hotels',
-  sleep: 'hotels',
-  lodging: 'hotels',
-  attractions: 'attractions',
-  museums: 'attractions',
-  sightseeing: 'attractions',
-  see: 'attractions',
-  activities: 'attractions',
-  do: 'attractions',
-  adventure: 'attractions',
-  landmarks: 'attractions',
-  shopping: 'attractions',
-};
-
-/**
- * Normalize an app category string to a TripAdvisor Content API category value.
- *
- * @param {string|null} category
- * @returns {'attractions'|'restaurants'|'hotels'}
- */
-function toTripAdvisorCategory(category) {
-  if (!category) return 'attractions';
-  return TRIPADVISOR_CATEGORY_MAP[category.toLowerCase()] || 'attractions';
-}
-
-/**
- * Fetch traveler reviews from TripAdvisor Content API v3 for a destination.
- *
- * Uses a two-step approach:
- *   1. Location search to resolve the destination to a TripAdvisor location_id.
- *   2. Reviews fetch for that location_id.
- *
- * Requires TRIPADVISOR_API_KEY env var. Returns empty array if key is absent.
- * Each call to this function consumes up to 2 budget slots.
- *
- * Free (non-commercial) tier requires a Referer header matching the registered
- * domain. Set BASE_URL env var to your app's domain (defaults to biensperience.com).
- *
- * @param {string} destinationName
- * @returns {Promise<Array<{ type: string, value: string, source: string, source_type: string, url: string, rating: number }>>}
- */
-async function fetchTripAdvisorTips(destinationName) {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
-  if (!apiKey) return [];
-
-  const referer = process.env.BASE_URL || 'https://biensperience.com';
-  const headers = { accept: 'application/json', Referer: referer };
-  const base = 'https://api.content.tripadvisor.com/api/v1';
-
-  const tips = await withRetry(async (signal) => {
-    // Step 1: resolve destination to TripAdvisor location_id
-    const searchUrl = `${base}/location/search?searchQuery=${encodeURIComponent(destinationName)}&key=${apiKey}&language=en`;
-    const searchRes = await fetch(searchUrl, { signal, headers });
-    if (!searchRes.ok) throw new Error(`TripAdvisor location search HTTP ${searchRes.status}`);
-
-    const searchData = await searchRes.json();
-    const location = searchData.data?.[0];
-    if (!location) return [];
-
-    const locationId = location.location_id;
-
-    // Step 2: fetch reviews for that location
-    const reviewsUrl = `${base}/location/${locationId}/reviews?key=${apiKey}&language=en`;
-    const reviewsRes = await fetch(reviewsUrl, { signal, headers });
-    if (!reviewsRes.ok) throw new Error(`TripAdvisor reviews HTTP ${reviewsRes.status}`);
-
-    const reviewsData = await reviewsRes.json();
-    const reviews = reviewsData.data || [];
-
-    return reviews
-      .filter(r => r.text && Number(r.rating) >= 4)
-      .slice(0, 5)
-      .map(review => {
-        const text = review.text.length > 200
-          ? review.text.slice(0, 197) + '...'
-          : review.text;
-        return {
-          type: 'review',
-          value: text,
-          source: 'TripAdvisor',
-          source_type: 'tripadvisor',
-          url: review.url || `https://www.tripadvisor.com/Tourism-d${locationId}`,
-          rating: Number(review.rating)
-        };
-      });
-  }, { label: 'tripadvisor-tips', timeoutMs: 10000, provider: 'tripadvisor' });
-
-  return tips || [];
-}
-
-/**
- * Fetch POIs from TripAdvisor Content API v3 via nearby search.
- *
- * Uses a two-step approach:
- *   1. Location search to resolve the destination to lat/lng.
- *   2. Nearby search for POIs of the requested category at that lat/lng.
- *
- * Results are shaped to match the Google Maps Places response shape so
- * consumers can treat either source uniformly. `source_type: 'tripadvisor'`
- * is added to distinguish from Google Maps results.
- *
- * Requires TRIPADVISOR_API_KEY env var. Each call consumes up to 2 budget slots.
- *
- * @param {string} destinationName
- * @param {object} [options]
- * @param {string} [options.category] - App category string (e.g. 'restaurants', 'museums')
- * @param {number} [options.maxResults=10] - Max POIs to return (capped at 10)
- * @returns {Promise<Array<{
- *   place_id: string,
- *   name: string,
- *   rating: number|null,
- *   user_ratings_total: number|null,
- *   price_level: string|null,
- *   address: string|null,
- *   opening_hours_open_now: null,
- *   photo_reference: null,
- *   url: string,
- *   types: string[],
- *   category: string,
- *   source_type: 'tripadvisor'
- * }>>}
- */
-async function fetchTripAdvisorPlaces(destinationName, options = {}) {
-  const apiKey = process.env.TRIPADVISOR_API_KEY;
-  if (!apiKey) return [];
-
-  const { category = null, maxResults = 10 } = options;
-  const cappedMax = Math.min(maxResults, 10);
-  const taCategory = toTripAdvisorCategory(category);
-  const referer = process.env.BASE_URL || 'https://biensperience.com';
-  const headers = { accept: 'application/json', Referer: referer };
-  const base = 'https://api.content.tripadvisor.com/api/v1';
-
-  const places = await withRetry(async (signal) => {
-    // Step 1: resolve destination to lat/lng
-    const searchUrl = `${base}/location/search?searchQuery=${encodeURIComponent(destinationName)}&key=${apiKey}&language=en`;
-    const searchRes = await fetch(searchUrl, { signal, headers });
-    if (!searchRes.ok) throw new Error(`TripAdvisor location search HTTP ${searchRes.status}`);
-
-    const searchData = await searchRes.json();
-    const location = searchData.data?.[0];
-    if (!location?.latitude || !location?.longitude) return [];
-
-    const latLong = `${location.latitude},${location.longitude}`;
-
-    // Step 2: nearby search
-    const nearbyUrl = `${base}/location/nearby_search?latLong=${encodeURIComponent(latLong)}&key=${apiKey}&category=${taCategory}&language=en`;
-    const nearbyRes = await fetch(nearbyUrl, { signal, headers });
-    if (!nearbyRes.ok) throw new Error(`TripAdvisor nearby search HTTP ${nearbyRes.status}`);
-
-    const nearbyData = await nearbyRes.json();
-    const results = (nearbyData.data || []).slice(0, cappedMax);
-
-    return results.map(poi => ({
-      place_id: poi.location_id,
-      name: poi.name,
-      rating: poi.rating ? parseFloat(poi.rating) : null,
-      user_ratings_total: poi.num_reviews ? parseInt(poi.num_reviews, 10) : null,
-      price_level: poi.price_level || null,
-      address: poi.address_obj?.address_string || null,
-      opening_hours_open_now: null,
-      photo_reference: null,
-      url: `https://www.tripadvisor.com/Tourism-d${poi.location_id}`,
-      types: poi.subcategory?.map(s => s.key) || [],
-      category: category || 'attraction',
-      source_type: 'tripadvisor'
-    }));
-  }, { label: 'tripadvisor-places', timeoutMs: 10000, provider: 'tripadvisor' });
-
-  return places || [];
-}
-
 // ---------------------------------------------------------------------------
-// fetchTravelData — aggregates all providers with fallback
+// REMOVED (T11): fetchTravelData, enrichDestination, doEnrichment.
+//
+// The legacy multi-provider aggregator chain is gone. Both call sites (the
+// /api/destinations/:id/enrich route and the background trigger in
+// utilities/bienbot-context-builders.js) now go through
+// utilities/destination-enrichment.js#enrichDestinationViaRegistry, which
+// calls these registry tools in parallel:
+//   - fetch_destination_tips        (Wikivoyage)
+//   - fetch_destination_places      (Google Maps)
+//   - fetch_destination_attractions (TripAdvisor)
+//   - fetch_destination_photos      (Unsplash)
 // ---------------------------------------------------------------------------
-
-/**
- * Fetch travel data from all available providers for a destination.
- *
- * Runs providers in parallel. Each provider failing independently does not
- * affect others. Returns combined results from whichever providers succeed.
- *
- * When `category` is specified, also runs fetchGoogleMapsPlaces to return
- * a `places` array of specific POIs for that category.
- *
- * @param {string} destinationName
- * @param {object} [options]
- * @param {boolean} [options.includePhotos=true] - Whether to fetch Unsplash photos
- * @param {number} [options.photoCount=5] - Number of photos to fetch
- * @param {string} [options.category] - POI category for Google Maps Places (e.g. 'restaurants', 'museums')
- * @returns {Promise<{ travel_tips: Array, photos: Array, places: Array, providers_succeeded: string[], providers_failed: string[] }>}
- */
-async function fetchTravelData(destinationName, options = {}) {
-  const { includePhotos = true, photoCount = 5, category = null } = options;
-
-  const providers = [
-    fetchWikivoyageTips(destinationName),
-    fetchGoogleMapsTips(destinationName),
-    includePhotos ? fetchUnsplashPhotos(destinationName, photoCount) : Promise.resolve([]),
-    fetchTripAdvisorTips(destinationName)
-  ];
-
-  // Optional category-filtered POI search via Text Search API and TripAdvisor
-  if (category) {
-    providers.push(fetchGoogleMapsPlaces(destinationName, { category }));
-    providers.push(fetchTripAdvisorPlaces(destinationName, { category }));
-  }
-
-  const providerResults = await Promise.allSettled(providers);
-
-  const providerNames = ['wikivoyage', 'google_maps', 'unsplash', 'tripadvisor'];
-  if (category) {
-    providerNames.push('google_maps_places');
-    providerNames.push('tripadvisor_places');
-  }
-
-  const succeeded = [];
-  const failed = [];
-
-  const travelTips = [];
-  let photos = [];
-  let places = [];
-
-  providerResults.forEach((result, idx) => {
-    const name = providerNames[idx];
-
-    if (result.status === 'fulfilled' && result.value && result.value.length > 0) {
-      succeeded.push(name);
-      if (name === 'unsplash') {
-        photos = result.value;
-      } else if (name === 'google_maps_places' || name === 'tripadvisor_places') {
-        places = [...places, ...result.value];
-      } else {
-        travelTips.push(...result.value);
-      }
-    } else if (result.status === 'rejected') {
-      failed.push(name);
-      logger.warn(`[bienbot-external-data] Provider ${name} failed`, {
-        error: result.reason?.message,
-        destination: destinationName
-      });
-    } else {
-      // fulfilled but empty — not a failure, just no data
-      succeeded.push(name);
-    }
-  });
-
-  logger.info('[bienbot-external-data] fetchTravelData completed', {
-    destination: destinationName,
-    tipsCount: travelTips.length,
-    photosCount: photos.length,
-    placesCount: places.length,
-    succeeded,
-    failed
-  });
-
-  return { travel_tips: travelTips, photos, places, providers_succeeded: succeeded, providers_failed: failed };
-}
-
-// ---------------------------------------------------------------------------
-// enrichDestination — caching + background refresh
-// ---------------------------------------------------------------------------
-
-/**
- * Enrich a destination with external travel data.
- *
- * Checks the destination's travel_tips cache. If fresh (< 7 days), returns
- * cached data immediately. If stale or empty, fetches fresh data and saves it.
- *
- * @param {string} destinationId
- * @param {object} user - Authenticated user
- * @param {object} [options]
- * @param {boolean} [options.force=false] - Force refresh even if cache is fresh
- * @param {boolean} [options.background=false] - Non-blocking: resolve immediately with cached data, refresh in background
- * @returns {Promise<{ statusCode: number, body: object }>}
- */
-async function enrichDestination(destinationId, user, options = {}) {
-  loadModels();
-
-  const { force = false, background = false } = options;
-
-  const { valid, objectId: destOid } = validateObjectId(destinationId, 'destinationId');
-  if (!valid) {
-    return { statusCode: 400, body: { success: false, error: 'Invalid destination ID' } };
-  }
-
-  try {
-    const enforcer = getEnforcer({ Destination, Experience, Plan, User });
-    const destination = await Destination.findById(destOid);
-
-    if (!destination) {
-      return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
-    }
-
-    const permCheck = await enforcer.canEdit({ userId: user._id, resource: destination });
-    if (!permCheck.allowed) {
-      return { statusCode: 403, body: { success: false, error: permCheck.reason || 'Not authorized' } };
-    }
-
-    // Check cache freshness
-    const lastEnriched = destination.travel_tips_updated_at;
-    const isFresh = lastEnriched && (Date.now() - new Date(lastEnriched).getTime()) < CACHE_TTL_MS;
-    const hasTips = destination.travel_tips && destination.travel_tips.length > 0;
-
-    if (isFresh && hasTips && !force) {
-      return {
-        statusCode: 200,
-        body: {
-          success: true,
-          data: { destination: destination.toObject(), cached: true }
-        }
-      };
-    }
-
-    // Background mode: return cached data immediately, refresh in background
-    if (background && hasTips) {
-      // Fire and forget
-      doEnrichment(destination).catch(err => {
-        logger.error('[bienbot-external-data] Background enrichment failed', {
-          destinationId, error: err.message
-        });
-      });
-
-      return {
-        statusCode: 200,
-        body: {
-          success: true,
-          data: { destination: destination.toObject(), cached: true, refreshing: true }
-        }
-      };
-    }
-
-    // Synchronous enrichment
-    const updated = await doEnrichment(destination);
-
-    return {
-      statusCode: 200,
-      body: {
-        success: true,
-        data: { destination: updated.toObject(), cached: false }
-      }
-    };
-  } catch (err) {
-    logger.error('[bienbot-external-data] enrichDestination failed', {
-      destinationId, error: err.message
-    });
-    return { statusCode: 500, body: { success: false, error: 'Failed to enrich destination' } };
-  }
-}
-
-/**
- * Internal: fetch travel data and save to destination.
- *
- * @param {object} destination - Mongoose destination document
- * @returns {Promise<object>} Updated destination document
- */
-async function doEnrichment(destination) {
-  const { travel_tips, photos } = await fetchTravelData(destination.name);
-
-  if (travel_tips.length > 0) {
-    destination.travel_tips = travel_tips;
-  }
-
-  // Add fetched photos to the destination entity as proper Photo documents.
-  // Dedup by URL against photos already linked to this destination.
-  if (photos.length > 0) {
-    const existingPhotoIds = destination.photos || [];
-    const existingUrls = existingPhotoIds.length > 0
-      ? new Set(
-          (await Photo.find({ _id: { $in: existingPhotoIds } }).select('url').lean())
-            .map(p => p.url)
-            .filter(Boolean)
-        )
-      : new Set();
-
-    for (const photo of photos) {
-      if (!photo.url || existingUrls.has(photo.url)) continue;
-      const photoDoc = await Photo.create({
-        url: photo.url,
-        photo_credit: photo.photo_credit || 'Unsplash',
-        photo_credit_url: photo.photographer_url || 'https://unsplash.com'
-      });
-      destination.photos.push(photoDoc._id);
-      existingUrls.add(photo.url);
-    }
-  }
-
-  // Mark enrichment timestamp
-  destination.travel_tips_updated_at = new Date();
-  await destination.save();
-
-  logger.info('[bienbot-external-data] Destination enriched', {
-    destinationId: destination._id.toString(),
-    tipsCount: travel_tips.length,
-    photosCount: photos.length
-  });
-
-  return destination;
-}
 
 // ---------------------------------------------------------------------------
 // cleanupSessionPhotos — background cleanup on session archive
@@ -2006,121 +1325,19 @@ async function cleanupSessionPhotos(session) {
 }
 
 // ---------------------------------------------------------------------------
-// fetch_destination_tips (read-only contextual enrichment)
+// fetch_destination_tips: REMOVED.
+//
+// Previously this module exported a multi-provider aggregator
+// (`fetchDestinationTips`) that fanned out to Wikivoyage + Google Maps and
+// dedup'd against existing destination tips. That responsibility has moved
+// to the BienBot tool registry: the Wikivoyage provider in
+// `utilities/bienbot-tool-registry/providers/wikivoyage.js` owns
+// `fetch_destination_tips` natively (single-provider, no aggregation).
+//
+// Multi-provider composition is now the LLM's job — it can call
+// `fetch_destination_tips` and `fetch_destination_places` (Google Maps) in
+// the same tool-use turn; the loop runs them in parallel.
 // ---------------------------------------------------------------------------
-
-/**
- * Fetch travel tips from external sources for a destination.
- *
- * This is a READ_ONLY action type used during contextual enrichment — e.g.
- * after a destination is created via BienBot, or when the user asks for tips.
- * Tips are returned as selectable suggestions; the user picks which ones to
- * add, and BienBot then proposes an `update_destination` action.
- *
- * @param {object} payload
- * @param {string} payload.destination_id - Destination to fetch tips for
- * @param {string} [payload.destination_name] - Optional name override (skips DB lookup)
- * @param {object} user - Authenticated user object
- * @returns {Promise<{ statusCode: number, body: object }>}
- */
-async function fetchDestinationTips(payload, user) {
-  loadModels();
-
-  const { destination_id, destination_name: nameOverride } = payload;
-
-  if (!destination_id) {
-    return { statusCode: 400, body: { success: false, error: 'destination_id is required' } };
-  }
-
-  const { valid, objectId: destOid } = validateObjectId(destination_id, 'destination_id');
-  if (!valid) {
-    return { statusCode: 400, body: { success: false, error: 'Invalid destination_id format' } };
-  }
-
-  try {
-    // Resolve destination name
-    let destinationName = nameOverride;
-    let destination;
-
-    if (!destinationName) {
-      destination = await Destination.findById(destOid).select('name travel_tips').lean();
-      if (!destination) {
-        return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
-      }
-      destinationName = destination.name;
-    }
-
-    if (!destinationName) {
-      return { statusCode: 200, body: { success: true, data: { tips: [], destination_id, destination_name: null } } };
-    }
-
-    // Fetch tips from all external providers (Wikivoyage, Google Maps)
-    const { travel_tips } = await fetchTravelData(destinationName, { includePhotos: false });
-
-    if (!travel_tips || travel_tips.length === 0) {
-      return {
-        statusCode: 200,
-        body: {
-          success: true,
-          data: {
-            tips: [],
-            destination_id,
-            destination_name: destinationName,
-            provider_count: 0
-          }
-        }
-      };
-    }
-
-    // Deduplicate against any existing tips on the destination
-    const existingTips = destination?.travel_tips || [];
-    const existingNormalized = existingTips.map(t => {
-      const val = typeof t === 'string' ? t : t.value || '';
-      return val.toLowerCase().trim();
-    }).filter(Boolean);
-
-    const filteredTips = travel_tips.filter(tip => {
-      const normalized = (tip.value || '').toLowerCase().trim();
-      return !existingNormalized.some(existing =>
-        existing.includes(normalized) ||
-        normalized.includes(existing) ||
-        normalizedSimilarity(existing, normalized) > 0.8
-      );
-    });
-
-    // Count unique sources
-    const sources = new Set(filteredTips.map(t => t.source).filter(Boolean));
-
-    logger.info('[bienbot-external-data] Destination tips fetched for enrichment', {
-      destinationId: destination_id,
-      destinationName,
-      totalFetched: travel_tips.length,
-      afterDedup: filteredTips.length,
-      sources: [...sources],
-      userId: user._id.toString()
-    });
-
-    return {
-      statusCode: 200,
-      body: {
-        success: true,
-        data: {
-          tips: filteredTips,
-          destination_id,
-          destination_name: destinationName,
-          provider_count: sources.size
-        }
-      }
-    };
-  } catch (err) {
-    logger.error('[bienbot-external-data] fetchDestinationTips failed', {
-      destinationId: destination_id,
-      error: err.message,
-      userId: user._id.toString()
-    });
-    return { statusCode: 500, body: { success: false, error: 'Failed to fetch destination tips' } };
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -2157,21 +1374,20 @@ function normalizedSimilarity(a, b) {
 }
 
 module.exports = {
+  // Action handlers (consumed by the BienBot action executor)
   suggestPlanItems,
   fetchEntityPhotos,
   addEntityPhotos,
   cleanupSessionPhotos,
-  fetchDestinationTips,
-  fetchTravelData,
-  enrichDestination,
-  fetchWikivoyageTips,
+
+  // Wikivoyage helpers used by suggestPlanItems
   fetchWikivoyagePlanItems,
   extractPlanItemCandidates,
-  fetchUnsplashPhotos,
-  fetchGoogleMapsTips,
+
+  // Google Maps Places helper used by suggestPlanItems for category POIs
   fetchGoogleMapsPlaces,
-  fetchTripAdvisorTips,
-  fetchTripAdvisorPlaces,
+
+  // Generic utilities consumed elsewhere in the bienbot pipeline
   withRetry,
   normalizedSimilarity
 };

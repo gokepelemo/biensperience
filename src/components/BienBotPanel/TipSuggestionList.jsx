@@ -52,7 +52,7 @@ const CATEGORY_COLORS = {
 };
 
 function TipSuggestionList({ data, onAddSelected, disabled }) {
-  const { tips = [], destination_name, provider_count } = data || {};
+  const { tips = [], destination_name } = data || {};
   const [selected, setSelected] = useState(new Set());
 
   const toggleItem = useCallback((index) => {
@@ -94,11 +94,9 @@ function TipSuggestionList({ data, onAddSelected, disabled }) {
             ? `Travel tips for ${destination_name}`
             : 'Suggested travel tips'}
         </Text>
-        {provider_count > 0 && (
-          <Text size="xs" className={styles.suggestionMeta}>
-            From {provider_count} source{provider_count !== 1 ? 's' : ''}
-          </Text>
-        )}
+        <Text size="xs" className={styles.suggestionMeta}>
+          via Wikivoyage
+        </Text>
       </div>
 
       <button
@@ -137,12 +135,7 @@ function TipSuggestionList({ data, onAddSelected, disabled }) {
                     {category}
                   </span>
                 )}
-                <span className={styles.suggestionItemText}>{tip.value}</span>
-                {tip.source && (
-                  <span className={styles.suggestionItemSource}>
-                    via {tip.source}
-                  </span>
-                )}
+                <span className={styles.suggestionItemText}>{tip.content}</span>
               </span>
             </button>
           );
@@ -168,20 +161,14 @@ function TipSuggestionList({ data, onAddSelected, disabled }) {
 TipSuggestionList.propTypes = {
   data: PropTypes.shape({
     tips: PropTypes.arrayOf(PropTypes.shape({
+      section: PropTypes.string,
       type: PropTypes.string,
       category: PropTypes.string,
-      value: PropTypes.string,
-      source: PropTypes.string,
-      url: PropTypes.string,
-      icon: PropTypes.string,
-      callToAction: PropTypes.shape({
-        url: PropTypes.string,
-        label: PropTypes.string
-      })
+      content: PropTypes.string,
+      icon: PropTypes.string
     })),
     destination_id: PropTypes.string,
-    destination_name: PropTypes.string,
-    provider_count: PropTypes.number
+    destination_name: PropTypes.string
   }),
   onAddSelected: PropTypes.func,
   disabled: PropTypes.bool

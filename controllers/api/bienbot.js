@@ -42,6 +42,10 @@ const { AI_TASKS } = require('../../utilities/ai-constants');
 const BienBotSession = require('../../models/bienbot-session');
 const affinityCache = require('../../utilities/affinity-cache');
 const { computeAndCacheAffinity } = require('../../utilities/hidden-signals');
+const toolRegistry = require('../../utilities/bienbot-tool-registry');
+const { bootstrap: bootstrapToolRegistry } = require('../../utilities/bienbot-tool-registry/bootstrap');
+
+bootstrapToolRegistry();
 
 // Lazy-loaded models
 let Destination, Experience, Plan, User;
@@ -504,24 +508,15 @@ function buildSystemPrompt({ invokeLabel, invokeEntityType, contextDescription, 
     '- Each tool call has the same shape as a pending_action: { type, payload }. Tool calls are EXECUTED IMMEDIATELY by the system without user confirmation.',
     '- After tool calls execute, you will receive a follow-up turn containing a [TOOL RESULTS] block. In that follow-up, produce your real answer using the data — do NOT include `tool_calls` again. The fetch budget is exhausted for the turn.',
     '- Available tool calls (use only when the user request actually needs the data):',
-    '  - fetch_plan_items: { plan_id, filter?: "all"|"unscheduled"|"scheduled"|"incomplete"|"overdue", limit?: 100 }',
-    '  - fetch_plan_costs: { plan_id, group_by?: "category"|"item"|"none" }',
-    '  - fetch_plan_collaborators: { plan_id }',
-    '  - fetch_experience_items: { experience_id, limit?: 100 }',
-    '  - fetch_destination_experiences: { destination_id, limit?: 50, sort?: "popular"|"recent"|"name" }',
-    '  - fetch_user_plans: { user_id?: defaults to self, status?: "active"|"completed"|"all", limit?: 50 }',
+    require('../../utilities/bienbot-internal-tools').renderInternalSchemaLines(),
+    toolRegistry.getPromptSchemaSection(),
     '- NEVER invent IDs in a fetch payload. Use only IDs from the provided context, listed entities, or earlier entity_refs.',
     '- If a fetch result includes `{ ok: false, error }`, briefly acknowledge the failure in your response. Do not invent the data.',
     '- If a fetch result has `returned < total`, tell the user how many were not returned and offer to narrow the filter.',
     '',
     'WHEN TO USE TOOL CALLS:',
-    '- "Review/list/show me the items" with an active plan → fetch_plan_items',
-    '- "Schedule the unscheduled ones", "prioritize my items", "what is left to plan" → fetch_plan_items with filter="unscheduled" first, then propose update_plan_item actions in your follow-up reply',
-    '- "What did I spend", "break down the costs" with active plan → fetch_plan_costs',
-    '- "Who is on this plan" → fetch_plan_collaborators',
-    '- "What experiences are at <destination>" → fetch_destination_experiences',
-    '- "What plans am I working on" → fetch_user_plans (defaults to the requesting user)',
-    '- "What is in this experience template" → fetch_experience_items',
+    require('../../utilities/bienbot-internal-tools').renderInternalPromptHints(),
+    toolRegistry.getPromptDecisionRulesSection(),
     '',
     'PENDING ACTION BUTTON OVERRIDES (optional):',
     'Each action in pending_actions may include these optional fields to customise button labels:',
@@ -1168,6 +1163,9 @@ const TOOL_CALL_LABELS = {
   fetch_user_plans: 'Fetching plans…'
 };
 
+// Merge registry tool labels into the literal map
+Object.assign(TOOL_CALL_LABELS, toolRegistry.getToolLabels());
+
 /**
  * Parse structured JSON response from LLM.
  * Returns { message, pending_actions } or a fallback.
@@ -1178,12 +1176,15 @@ function parseLLMResponse(text) {
       const parsed = JSON.parse(raw);
       if (typeof parsed.message !== 'string') return null;
 
+      const registryWriteTools = toolRegistry.getWriteToolNames();
+      const isAllowedAction = (type) => ALLOWED_ACTION_TYPES.includes(type) || registryWriteTools.has(type);
+
       const actions = Array.isArray(parsed.pending_actions)
         ? parsed.pending_actions
           .filter(a =>
             a && typeof a.id === 'string' &&
               typeof a.type === 'string' &&
-              ALLOWED_ACTION_TYPES.includes(a.type) &&
+              isAllowedAction(a.type) &&
               a.payload && typeof a.description === 'string'
           )
           .map(a => {
@@ -1204,11 +1205,14 @@ function parseLLMResponse(text) {
           })
         : [];
 
+      const registryReadTools = toolRegistry.getReadToolNames();
+      const isAllowedToolCall = (type) => TOOL_CALL_ACTION_TYPES.has(type) || registryReadTools.has(type);
+
       const toolCalls = Array.isArray(parsed.tool_calls)
         ? parsed.tool_calls
           .filter(tc =>
             tc && typeof tc.type === 'string' &&
-            TOOL_CALL_ACTION_TYPES.has(tc.type) &&
+            isAllowedToolCall(tc.type) &&
             tc.payload && typeof tc.payload === 'object'
           )
           .map(tc => ({ type: tc.type, payload: tc.payload }))
@@ -1534,6 +1538,9 @@ const ACTION_ENTITY_VERIFY = {
                                 },
                                 refs: [{ field: 'plan_id', model: 'plan', required: false }] }
 };
+
+// Merge registry tool verifier entries into the literal map
+Object.assign(ACTION_ENTITY_VERIFY, toolRegistry.getVerifierEntries());
 
 // Case-insensitive ObjectId parsers for navigate_to_entity URLs. Mongoose
 // accepts uppercase hex IDs, so a lowercase-only regex would mis-classify
@@ -2105,8 +2112,7 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
           data: {
             tips: result.tips,
             destination_id: result.destination_id || null,
-            destination_name: result.destination_name || null,
-            provider_count: result.provider_count || 0
+            destination_name: result.destination_name || null
           }
         };
       }
@@ -2217,9 +2223,21 @@ async function executeToolCallLoop({
 
     let body;
     let ok;
+    let toolSource;
     try {
-      const action = { id: callId, type: tc.type, payload: tc.payload, description: label };
-      const outcome = await executeAction(action, user, session);
+      let outcome;
+      const registryEntry = toolRegistry.getTool(tc.type);
+      if (registryEntry) {
+        toolSource = 'registry';
+        outcome = await toolRegistry.executeRegisteredTool(tc.type, tc.payload, user, {
+          abortSignal: signal,
+          session
+        });
+      } else {
+        toolSource = 'internal';
+        const action = { id: callId, type: tc.type, payload: tc.payload, description: label };
+        outcome = await executeAction(action, user, session);
+      }
       if (signal?.aborted) throw new Error('AbortError');
       body = outcome?.result?.body ?? outcome?.body ?? { ok: false, error: 'no_body' };
       ok = !!outcome?.success && !(body && body.ok === false);
@@ -2237,7 +2255,8 @@ async function executeToolCallLoop({
       payload: tc.payload,
       body,
       ok,
-      duration_ms: Date.now() - startedAt
+      duration_ms: Date.now() - startedAt,
+      tool_source: toolSource
     };
   }));
 
@@ -3643,7 +3662,7 @@ exports.chat = async (req, res) => {
       tool_calls_count: calls.length,
       tool_call_types: calls.map(c => c.type),
       re_prompt_duration_ms: Date.now() - startedAtLoop,
-      per_call: calls.map(c => ({ type: c.type, ok: c.ok, duration_ms: c.duration_ms }))
+      per_call: calls.map(c => ({ type: c.type, ok: c.ok, duration_ms: c.duration_ms, tool_source: c.tool_source }))
     });
   }
 
@@ -3659,8 +3678,13 @@ exports.chat = async (req, res) => {
   // --- Step 5b: Auto-execute read-only actions ---
   // Read-only actions (suggest_plan_items, fetch_entity_photos) execute
   // immediately without confirmation and produce structured_content blocks.
-  const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
-  const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
+  // Registry-owned non-mutating tools (e.g. fetch_destination_tips,
+  // fetch_destination_places) are also auto-executed here.
+  const registryReadToolsForExec = toolRegistry.getReadToolNames();
+  const isReadOnlyAction = (type) =>
+    READ_ONLY_ACTION_TYPES.has(type) || registryReadToolsForExec.has(type);
+  const readOnlyActions = explodedActions.filter(a => isReadOnlyAction(a.type));
+  const confirmableActions = explodedActions.filter(a => !isReadOnlyAction(a.type));
   const READ_ONLY_CONTENT_TYPES = {
     discover_content: 'discovery_result_list',
     fetch_entity_photos: 'photo_gallery',
@@ -3731,6 +3755,19 @@ exports.chat = async (req, res) => {
       }
     } catch (autoDiscErr) {
       logger.warn('[bienbot] Auto-discovery injection failed, continuing without cards', { error: autoDiscErr.message });
+    }
+  }
+
+  // Annotate registry-defined write tools with tool_metadata so the
+  // frontend PendingActionCard can render irreversible styling and
+  // interpolate confirmDescription from the manifest.
+  for (const action of confirmableActions) {
+    const entry = toolRegistry.getTool(action.type);
+    if (entry && entry.tool.mutating) {
+      action.tool_metadata = {
+        irreversible: !!entry.tool.irreversible,
+        confirmDescription: entry.tool.confirmDescription || null
+      };
     }
   }
 
@@ -4236,13 +4273,17 @@ exports.execute = async (req, res) => {
 
     if (createdDest?._id) {
       try {
-        const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
-        const tipResult = await fetchDestinationTips(
+        // fetch_destination_tips is now owned by the BienBot tool registry
+        // (Wikivoyage provider). Execute it directly via the registry to
+        // mirror the chat-loop dispatch path.
+        const tipResult = await toolRegistry.executeRegisteredTool(
+          'fetch_destination_tips',
           { destination_id: createdDest._id.toString(), destination_name: createdDest.name },
-          req.user
+          req.user,
+          { session }
         );
-        if (tipResult.statusCode === 200 && tipResult.body?.success) {
-          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+        if (tipResult.success && tipResult.body) {
+          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body);
           if (block) {
             enrichmentContent = block;
           }
@@ -5262,7 +5303,10 @@ exports.clearMemory = async (req, res) => {
  * Directly appends selected travel tips to a destination, bypassing the LLM.
  * Called from the TipSuggestionList UI when the user confirms their selection.
  *
- * Body: { destination_id: string, tips: Array<{ type, value, category, source, ... }> }
+ * Body: { destination_id: string, tips: Array<{ section?, type?, category?, content }> }
+ *
+ * Tips arrive in the registry's spec shape (`content`); persisted tips on the
+ * destination model use `value` for backwards-compat with existing data.
  */
 exports.applyTips = async (req, res) => {
   const userId = req.user._id.toString();
@@ -5277,16 +5321,23 @@ exports.applyTips = async (req, res) => {
     return errorResponse(res, null, 'Invalid destination_id format', 400);
   }
 
-  // Sanitise: only keep allowed fields per tip
+  // Sanitise: only keep allowed fields per tip. Map registry shape (content)
+  // to the persisted shape (value).
   const sanitised = tips
-    .filter(t => t && typeof t.value === 'string' && t.value.trim())
+    .map(t => ({
+      ...t,
+      _content: typeof t?.content === 'string' && t.content.trim()
+        ? t.content.trim()
+        : (typeof t?.value === 'string' ? t.value.trim() : '')
+    }))
+    .filter(t => t._content)
     .map(t => ({
       type: t.type || 'Custom',
-      value: t.value.trim(),
+      value: t._content,
       ...(t.category ? { category: t.category } : {}),
-      ...(t.source ? { source: t.source } : {}),
+      ...(t.section ? { section: t.section } : {}),
       ...(t.icon ? { icon: t.icon } : {}),
-      ...(t.url ? { url: t.url } : {})
+      source: 'Wikivoyage'
     }));
 
   if (sanitised.length === 0) {
@@ -5872,13 +5923,14 @@ exports.updatePendingAction = async (req, res) => {
     executionResult?.result?._id
   ) {
     try {
-      const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
-      const tipResult = await fetchDestinationTips(
+      const tipResult = await toolRegistry.executeRegisteredTool(
+        'fetch_destination_tips',
         { destination_id: executionResult.result._id.toString(), destination_name: executionResult.result.name },
-        req.user
+        req.user,
+        { session }
       );
-      if (tipResult.statusCode === 200 && tipResult.body?.success) {
-        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+      if (tipResult.success && tipResult.body) {
+        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body);
         if (block) {
           enrichmentContent = block;
         }
