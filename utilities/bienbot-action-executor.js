@@ -11,7 +11,7 @@
 
 const crypto = require('crypto');
 const logger = require('./backend-logger');
-const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos, fetchDestinationTips } = require('./bienbot-external-data');
+const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos } = require('./bienbot-external-data');
 
 // Lazy-loaded controllers (resolved on first use to avoid circular deps)
 let destinationsController, experiencesController, plansController, followsController, usersController, activitiesController, documentsController;
@@ -103,7 +103,8 @@ const ALLOWED_ACTION_TYPES = [
   // Read-only data fetching (execute immediately, no confirmation)
   'suggest_plan_items',
   'fetch_entity_photos',
-  'fetch_destination_tips',
+  // 'fetch_destination_tips' — owned by the BienBot tool registry
+  // (Wikivoyage provider). Allowed via executeAction's registry-aware dispatch.
   'fetch_plan_items',
   'fetch_plan_costs',
   'fetch_plan_collaborators',
@@ -185,7 +186,9 @@ function isSafeNavigationUrl(url) {
 const READ_ONLY_ACTION_TYPES = new Set([
   'suggest_plan_items',
   'fetch_entity_photos',
-  'fetch_destination_tips',
+  // 'fetch_destination_tips' — owned by the BienBot tool registry; the chat
+  // controller computes its read-only set as READ_ONLY_ACTION_TYPES ∪
+  // registry.getReadToolNames(), so registry tools auto-execute too.
   'fetch_plan_items',
   'fetch_plan_costs',
   'fetch_plan_collaborators',
@@ -1167,21 +1170,6 @@ async function executeSuggestPlanItems(payload, user) {
  */
 async function executeFetchEntityPhotos(payload, user, session) {
   return fetchEntityPhotos(payload, user, session);
-}
-
-/**
- * fetch_destination_tips — read-only, no confirmation.
- * Now a thin shim over the tool registry (T7). The Wikivoyage provider's
- * handler currently delegates back to fetchDestinationTips internally to
- * preserve the existing { body: { success, data: { tips, ... } } } shape that
- * card-producing callers in controllers/api/bienbot.js depend on.
- */
-async function executeFetchDestinationTips(payload, user) {
-  const registry = require('./bienbot-tool-registry');
-  const { bootstrap } = require('./bienbot-tool-registry/bootstrap');
-  bootstrap();
-  const out = await registry.executeRegisteredTool('fetch_destination_tips', payload, user, {});
-  return { statusCode: out.statusCode, body: out.body };
 }
 
 /**
@@ -2366,7 +2354,9 @@ const ACTION_HANDLERS = {
   // Read-only data fetching
   suggest_plan_items: executeSuggestPlanItems,
   fetch_entity_photos: executeFetchEntityPhotos,
-  fetch_destination_tips: executeFetchDestinationTips,
+  // fetch_destination_tips: now owned by the BienBot tool registry
+  // (Wikivoyage provider). Dispatched via executeAction's registry-aware
+  // dispatch path; not present in this internal handler map.
   fetch_plan_items: executeFetchPlanItems,
   fetch_plan_costs: executeFetchPlanCosts,
   fetch_plan_collaborators: executeFetchPlanCollaborators,
@@ -2422,7 +2412,22 @@ async function executeAction(action, user, session = null) {
     return { success: false, result: null, errors: ['Missing user'] };
   }
 
-  if (!ALLOWED_ACTION_TYPES_SET.has(action.type)) {
+  // Registry-aware dispatch: tools owned by the BienBot tool registry
+  // (Wikivoyage, Google Maps, …) are not in ALLOWED_ACTION_TYPES — the
+  // registry is their source of truth. Check it before the legacy allowlist
+  // so registry-owned action types pass through.
+  let registryEntry = null;
+  try {
+    const registry = require('./bienbot-tool-registry');
+    const { bootstrap } = require('./bienbot-tool-registry/bootstrap');
+    bootstrap();
+    registryEntry = registry.getTool(action.type);
+  } catch {
+    // Registry not available (test environments mock the executor and may not
+    // bootstrap the registry); fall through to legacy allowlist below.
+  }
+
+  if (!registryEntry && !ALLOWED_ACTION_TYPES_SET.has(action.type)) {
     logger.warn('[bienbot-action-executor] Unknown action type rejected', {
       type: action.type,
       actionId: action.id,
@@ -2442,6 +2447,34 @@ async function executeAction(action, user, session = null) {
       userId: user._id.toString()
     });
     return { success: false, result: null, errors: ['Action already executed'] };
+  }
+
+  // Registry tools dispatch through executeRegisteredTool (handles payload
+  // validation, providerCtx, retry policy). Internal action types use the
+  // ACTION_HANDLERS map below.
+  if (registryEntry) {
+    try {
+      logger.info('[bienbot-action-executor] Executing registry tool', {
+        type: action.type,
+        actionId: action.id,
+        userId: user._id.toString()
+      });
+      const registry = require('./bienbot-tool-registry');
+      const out = await registry.executeRegisteredTool(action.type, action.payload || {}, user, { session });
+      return {
+        success: out.success,
+        result: out.body || null,
+        errors: out.errors || [],
+        statusCode: out.statusCode,
+        body: out.body
+      };
+    } catch (err) {
+      logger.error('[bienbot-action-executor] Registry tool threw exception', {
+        type: action.type,
+        actionId: action.id
+      }, err);
+      return { success: false, result: null, errors: [err.message] };
+    }
   }
 
   const handler = ACTION_HANDLERS[action.type];

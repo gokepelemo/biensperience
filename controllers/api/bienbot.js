@@ -2112,8 +2112,7 @@ function mapReadOnlyResultToStructuredContent(actionType, result) {
           data: {
             tips: result.tips,
             destination_id: result.destination_id || null,
-            destination_name: result.destination_name || null,
-            provider_count: result.provider_count || 0
+            destination_name: result.destination_name || null
           }
         };
       }
@@ -3679,8 +3678,13 @@ exports.chat = async (req, res) => {
   // --- Step 5b: Auto-execute read-only actions ---
   // Read-only actions (suggest_plan_items, fetch_entity_photos) execute
   // immediately without confirmation and produce structured_content blocks.
-  const readOnlyActions = explodedActions.filter(a => READ_ONLY_ACTION_TYPES.has(a.type));
-  const confirmableActions = explodedActions.filter(a => !READ_ONLY_ACTION_TYPES.has(a.type));
+  // Registry-owned non-mutating tools (e.g. fetch_destination_tips,
+  // fetch_destination_places) are also auto-executed here.
+  const registryReadToolsForExec = toolRegistry.getReadToolNames();
+  const isReadOnlyAction = (type) =>
+    READ_ONLY_ACTION_TYPES.has(type) || registryReadToolsForExec.has(type);
+  const readOnlyActions = explodedActions.filter(a => isReadOnlyAction(a.type));
+  const confirmableActions = explodedActions.filter(a => !isReadOnlyAction(a.type));
   const READ_ONLY_CONTENT_TYPES = {
     discover_content: 'discovery_result_list',
     fetch_entity_photos: 'photo_gallery',
@@ -4256,13 +4260,17 @@ exports.execute = async (req, res) => {
 
     if (createdDest?._id) {
       try {
-        const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
-        const tipResult = await fetchDestinationTips(
+        // fetch_destination_tips is now owned by the BienBot tool registry
+        // (Wikivoyage provider). Execute it directly via the registry to
+        // mirror the chat-loop dispatch path.
+        const tipResult = await toolRegistry.executeRegisteredTool(
+          'fetch_destination_tips',
           { destination_id: createdDest._id.toString(), destination_name: createdDest.name },
-          req.user
+          req.user,
+          { session }
         );
-        if (tipResult.statusCode === 200 && tipResult.body?.success) {
-          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+        if (tipResult.success && tipResult.body) {
+          const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body);
           if (block) {
             enrichmentContent = block;
           }
@@ -5282,7 +5290,10 @@ exports.clearMemory = async (req, res) => {
  * Directly appends selected travel tips to a destination, bypassing the LLM.
  * Called from the TipSuggestionList UI when the user confirms their selection.
  *
- * Body: { destination_id: string, tips: Array<{ type, value, category, source, ... }> }
+ * Body: { destination_id: string, tips: Array<{ section?, type?, category?, content }> }
+ *
+ * Tips arrive in the registry's spec shape (`content`); persisted tips on the
+ * destination model use `value` for backwards-compat with existing data.
  */
 exports.applyTips = async (req, res) => {
   const userId = req.user._id.toString();
@@ -5297,16 +5308,23 @@ exports.applyTips = async (req, res) => {
     return errorResponse(res, null, 'Invalid destination_id format', 400);
   }
 
-  // Sanitise: only keep allowed fields per tip
+  // Sanitise: only keep allowed fields per tip. Map registry shape (content)
+  // to the persisted shape (value).
   const sanitised = tips
-    .filter(t => t && typeof t.value === 'string' && t.value.trim())
+    .map(t => ({
+      ...t,
+      _content: typeof t?.content === 'string' && t.content.trim()
+        ? t.content.trim()
+        : (typeof t?.value === 'string' ? t.value.trim() : '')
+    }))
+    .filter(t => t._content)
     .map(t => ({
       type: t.type || 'Custom',
-      value: t.value.trim(),
+      value: t._content,
       ...(t.category ? { category: t.category } : {}),
-      ...(t.source ? { source: t.source } : {}),
+      ...(t.section ? { section: t.section } : {}),
       ...(t.icon ? { icon: t.icon } : {}),
-      ...(t.url ? { url: t.url } : {})
+      source: 'Wikivoyage'
     }));
 
   if (sanitised.length === 0) {
@@ -5892,13 +5910,14 @@ exports.updatePendingAction = async (req, res) => {
     executionResult?.result?._id
   ) {
     try {
-      const { fetchDestinationTips } = require('../../utilities/bienbot-external-data');
-      const tipResult = await fetchDestinationTips(
+      const tipResult = await toolRegistry.executeRegisteredTool(
+        'fetch_destination_tips',
         { destination_id: executionResult.result._id.toString(), destination_name: executionResult.result.name },
-        req.user
+        req.user,
+        { session }
       );
-      if (tipResult.statusCode === 200 && tipResult.body?.success) {
-        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body.data);
+      if (tipResult.success && tipResult.body) {
+        const block = mapReadOnlyResultToStructuredContent('fetch_destination_tips', tipResult.body);
         if (block) {
           enrichmentContent = block;
         }

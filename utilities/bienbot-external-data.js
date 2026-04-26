@@ -2006,121 +2006,19 @@ async function cleanupSessionPhotos(session) {
 }
 
 // ---------------------------------------------------------------------------
-// fetch_destination_tips (read-only contextual enrichment)
+// fetch_destination_tips: REMOVED.
+//
+// Previously this module exported a multi-provider aggregator
+// (`fetchDestinationTips`) that fanned out to Wikivoyage + Google Maps and
+// dedup'd against existing destination tips. That responsibility has moved
+// to the BienBot tool registry: the Wikivoyage provider in
+// `utilities/bienbot-tool-registry/providers/wikivoyage.js` owns
+// `fetch_destination_tips` natively (single-provider, no aggregation).
+//
+// Multi-provider composition is now the LLM's job — it can call
+// `fetch_destination_tips` and `fetch_destination_places` (Google Maps) in
+// the same tool-use turn; the loop runs them in parallel.
 // ---------------------------------------------------------------------------
-
-/**
- * Fetch travel tips from external sources for a destination.
- *
- * This is a READ_ONLY action type used during contextual enrichment — e.g.
- * after a destination is created via BienBot, or when the user asks for tips.
- * Tips are returned as selectable suggestions; the user picks which ones to
- * add, and BienBot then proposes an `update_destination` action.
- *
- * @param {object} payload
- * @param {string} payload.destination_id - Destination to fetch tips for
- * @param {string} [payload.destination_name] - Optional name override (skips DB lookup)
- * @param {object} user - Authenticated user object
- * @returns {Promise<{ statusCode: number, body: object }>}
- */
-async function fetchDestinationTips(payload, user) {
-  loadModels();
-
-  const { destination_id, destination_name: nameOverride } = payload;
-
-  if (!destination_id) {
-    return { statusCode: 400, body: { success: false, error: 'destination_id is required' } };
-  }
-
-  const { valid, objectId: destOid } = validateObjectId(destination_id, 'destination_id');
-  if (!valid) {
-    return { statusCode: 400, body: { success: false, error: 'Invalid destination_id format' } };
-  }
-
-  try {
-    // Resolve destination name
-    let destinationName = nameOverride;
-    let destination;
-
-    if (!destinationName) {
-      destination = await Destination.findById(destOid).select('name travel_tips').lean();
-      if (!destination) {
-        return { statusCode: 404, body: { success: false, error: 'Destination not found' } };
-      }
-      destinationName = destination.name;
-    }
-
-    if (!destinationName) {
-      return { statusCode: 200, body: { success: true, data: { tips: [], destination_id, destination_name: null } } };
-    }
-
-    // Fetch tips from all external providers (Wikivoyage, Google Maps)
-    const { travel_tips } = await fetchTravelData(destinationName, { includePhotos: false });
-
-    if (!travel_tips || travel_tips.length === 0) {
-      return {
-        statusCode: 200,
-        body: {
-          success: true,
-          data: {
-            tips: [],
-            destination_id,
-            destination_name: destinationName,
-            provider_count: 0
-          }
-        }
-      };
-    }
-
-    // Deduplicate against any existing tips on the destination
-    const existingTips = destination?.travel_tips || [];
-    const existingNormalized = existingTips.map(t => {
-      const val = typeof t === 'string' ? t : t.value || '';
-      return val.toLowerCase().trim();
-    }).filter(Boolean);
-
-    const filteredTips = travel_tips.filter(tip => {
-      const normalized = (tip.value || '').toLowerCase().trim();
-      return !existingNormalized.some(existing =>
-        existing.includes(normalized) ||
-        normalized.includes(existing) ||
-        normalizedSimilarity(existing, normalized) > 0.8
-      );
-    });
-
-    // Count unique sources
-    const sources = new Set(filteredTips.map(t => t.source).filter(Boolean));
-
-    logger.info('[bienbot-external-data] Destination tips fetched for enrichment', {
-      destinationId: destination_id,
-      destinationName,
-      totalFetched: travel_tips.length,
-      afterDedup: filteredTips.length,
-      sources: [...sources],
-      userId: user._id.toString()
-    });
-
-    return {
-      statusCode: 200,
-      body: {
-        success: true,
-        data: {
-          tips: filteredTips,
-          destination_id,
-          destination_name: destinationName,
-          provider_count: sources.size
-        }
-      }
-    };
-  } catch (err) {
-    logger.error('[bienbot-external-data] fetchDestinationTips failed', {
-      destinationId: destination_id,
-      error: err.message,
-      userId: user._id.toString()
-    });
-    return { statusCode: 500, body: { success: false, error: 'Failed to fetch destination tips' } };
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -2161,7 +2059,6 @@ module.exports = {
   fetchEntityPhotos,
   addEntityPhotos,
   cleanupSessionPhotos,
-  fetchDestinationTips,
   fetchTravelData,
   enrichDestination,
   fetchWikivoyageTips,

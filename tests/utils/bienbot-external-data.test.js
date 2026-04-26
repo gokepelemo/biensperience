@@ -11,7 +11,10 @@
  * - fetchGoogleMapsTips() place search, review filtering, missing API key
  * - fetchTravelData() parallel execution, partial provider failure
  * - enrichDestination() cache freshness, background mode, permission check
- * - fetchDestinationTips() deduplication against existing tips
+ *
+ * Note: fetchDestinationTips() (the legacy multi-provider aggregator) was
+ * deleted; its replacement lives in the BienBot tool registry and is covered
+ * by tests/utilities/bienbot-tool-registry-providers.test.js.
  */
 
 // ---------------------------------------------------------------------------
@@ -87,8 +90,12 @@ const {
   fetchGoogleMapsTips,
   fetchTravelData,
   enrichDestination,
-  fetchDestinationTips,
 } = require('../../utilities/bienbot-external-data');
+
+// fetchDestinationTips was the multi-provider aggregator in this module;
+// it has been replaced by the registry-owned `fetch_destination_tips` tool
+// (Wikivoyage provider, single-source). Its tests below are removed; the
+// registry tool's behaviour is covered by tests/utilities/bienbot-tool-registry-providers.test.js.
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1416,92 +1423,10 @@ describe('bienbot-external-data', () => {
   });
 
   // =========================================================================
-  // fetchDestinationTips
+  // fetchDestinationTips: REMOVED.
+  //
+  // The legacy multi-provider aggregator is gone. The replacement
+  // (`fetch_destination_tips` in the BienBot tool registry, Wikivoyage-only)
+  // is exercised by tests/utilities/bienbot-tool-registry-providers.test.js.
   // =========================================================================
-
-  describe('fetchDestinationTips()', () => {
-    beforeEach(() => {
-      jest.useRealTimers();
-      delete process.env.UNSPLASH_ACCESS_KEY;
-      delete process.env.GOOGLE_MAPS_API_KEY;
-    });
-
-    it('returns 400 when destination_id is missing', async () => {
-      const result = await fetchDestinationTips({}, mockUser);
-      expect(result.statusCode).toBe(400);
-    });
-
-    it('returns 400 for invalid destination_id format', async () => {
-      const result = await fetchDestinationTips({ destination_id: 'bad' }, mockUser);
-      expect(result.statusCode).toBe(400);
-    });
-
-    it('returns 404 when destination is not found', async () => {
-      Destination.findById.mockReturnValue(chainable(null));
-
-      const result = await fetchDestinationTips({ destination_id: VALID_ID }, mockUser);
-      expect(result.statusCode).toBe(404);
-    });
-
-    it('uses destination_name override and skips DB lookup', async () => {
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({ extract: '' }));
-
-      const result = await fetchDestinationTips({
-        destination_id: VALID_ID,
-        destination_name: 'Tokyo',
-      }, mockUser);
-
-      expect(result.statusCode).toBe(200);
-      // Should NOT have called Destination.findById since name was overridden
-      expect(Destination.findById).not.toHaveBeenCalled();
-    });
-
-    it('deduplicates against existing destination tips', async () => {
-      Destination.findById.mockReturnValue(chainable({
-        _id: VALID_ID,
-        name: 'Paris',
-        travel_tips: [{ value: 'Visit the Eiffel Tower and enjoy the beautiful view' }],
-      }));
-
-      // Return tips that include a duplicate
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({ parse: { sections: [] } }))
-        .mockResolvedValueOnce(mockFetchResponse({
-          extract: 'Visit the Eiffel Tower and enjoy the beautiful view. The Louvre Museum has an amazing art collection worth seeing.',
-          content_urls: { desktop: { page: 'https://en.wikivoyage.org/wiki/Paris' } },
-        }));
-
-      const result = await fetchDestinationTips({ destination_id: VALID_ID }, mockUser);
-
-      expect(result.statusCode).toBe(200);
-      // The Eiffel Tower tip should be deduplicated
-      const tipValues = (result.body.data.tips || []).map(t => t.value);
-      const hasDuplicate = tipValues.some(v =>
-        v.toLowerCase().includes('visit the eiffel tower')
-      );
-      expect(hasDuplicate).toBe(false);
-    });
-
-    it('returns empty tips with provider_count 0 when no data available', async () => {
-      Destination.findById.mockReturnValue(chainable({
-        _id: VALID_ID,
-        name: 'UnknownPlace',
-        travel_tips: [],
-      }));
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce(mockFetchResponse({
-          error: { code: 'missingtitle', info: 'not found' },
-        }))
-        .mockResolvedValueOnce(mockFetchResponse({}, false, 404));
-
-      const result = await fetchDestinationTips({ destination_id: VALID_ID }, mockUser);
-
-      expect(result.statusCode).toBe(200);
-      expect(result.body.data.tips).toEqual([]);
-      expect(result.body.data.provider_count).toBe(0);
-    });
-  });
 });
