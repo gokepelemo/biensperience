@@ -185,6 +185,22 @@ app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+/**
+ * Per-request correlation id. Honours an inbound X-Request-Id when present
+ * (so frontends and load balancers can pre-tag), otherwise generates a uuid.
+ * The id is echoed in the X-Request-Id response header and included in
+ * sanitised error responses for support lookups.
+ */
+const { randomUUID } = require('crypto');
+app.use((req, res, next) => {
+  const inbound = req.get('X-Request-Id');
+  req.id = (typeof inbound === 'string' && inbound.length > 0 && inbound.length <= 128)
+    ? inbound
+    : randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
+
 // Root endpoint - API info for API clients (must be BEFORE static file serving)
 app.get('/', (req, res, next) => {
   // Check if request is from an API client (curl, Postman, etc.)
@@ -406,16 +422,13 @@ app.use("/health-check", (req, res) => {
   res.send("OK");
 });
 
-// Centralized API error handler: ensure API routes always return JSON
-// This catches errors thrown by middleware/controllers and prevents HTML error pages
-app.use('/api', (err, req, res, next) => {
-  backendLogger.error('Unhandled API error', { error: err && err.message, stack: err && err.stack, path: req.path });
-  // If headers already sent, delegate to default handler
-  if (res.headersSent) return next(err);
-  // Use standardized error response payload
-  const status = (err && (err.statusCode || err.status)) ? (err.statusCode || err.status) : 500;
-  return res.status(status).json({ success: false, error: (err && err.message) || 'Internal server error' });
-});
+// Centralized API error handler: ensure API routes always return JSON.
+// Production: only operational errors (APIError, isOperational:true, or 4xx
+// status) surface their message; internal/5xx errors return a generic message
+// + correlation id so internal details (Mongo strings, library internals) are
+// never leaked. Full err+stack is always logged.
+const { buildApiErrorHandler } = require('./utilities/api-error');
+app.use('/api', buildApiErrorHandler({ logger: backendLogger }));
 
 // Catch-all route for React app (only in production)
 // SECURITY: Apply rate limiting to prevent abuse of static file serving
