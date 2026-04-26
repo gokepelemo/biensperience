@@ -1991,5 +1991,6 @@ module.exports = {
   findSimilarUsers,
   findCoOccurringExperiences,
   findPopularExperiences,
+  buildInlineDetailSummary,
   formatDiscoveryContextBlock
 };

@@ -104,6 +104,7 @@ const ALLOWED_ACTION_TYPES = [
   'suggest_plan_items',
   'fetch_entity_photos',
   'fetch_destination_tips',
+  'fetch_plan_items',
   'discover_content',
   // Plan selection (disambiguation)
   'select_plan',
@@ -1157,9 +1158,67 @@ async function executeFetchDestinationTips(payload, user) {
  * to act on. See plan Task 2 for the full implementation.
  */
 async function executeFetchPlanItems(payload, user) {
+  const Plan = require('../models/plan');
+  const { getEnforcer } = require('./permission-enforcer');
+  const Destination = require('../models/destination');
+  const Experience = require('../models/experience');
+  const User = require('../models/user');
+  const { buildInlineDetailSummary } = require('./bienbot-context-builders');
+  const mongoose = require('mongoose');
+
+  const planIdStr = String(payload?.plan_id || '');
+  if (!mongoose.Types.ObjectId.isValid(planIdStr)) {
+    return { statusCode: 400, body: { ok: false, error: 'invalid_id' } };
+  }
+
+  // Cannot use .lean() here — enforcer._checkVisibility relies on
+  // resource.constructor.modelName to apply Plan-specific RESTRICTED visibility.
+  // .lean() returns a plain object, which falls back to AUTHENTICATED (any logged-in user).
+  const plan = await Plan.findById(planIdStr).select('plan permissions experience user');
+  if (!plan) return { statusCode: 404, body: { ok: false, error: 'not_found' } };
+
+  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
+  const perm = await enforcer.canView({ userId: user._id, resource: plan });
+  if (!perm.allowed) return { statusCode: 403, body: { ok: false, error: 'not_authorized' } };
+
+  const FETCH_PLAN_ITEMS_MAX_LIMIT = 100;
+  const requestedLimit = Number.isFinite(payload?.limit) ? Math.max(1, Math.floor(payload.limit)) : FETCH_PLAN_ITEMS_MAX_LIMIT;
+  const limit = Math.min(requestedLimit, FETCH_PLAN_ITEMS_MAX_LIMIT);
+
+  const filter = payload?.filter || 'all';
+  const allItems = plan.plan || [];
+  const now = Date.now();
+  const matches = allItems.filter(item => {
+    switch (filter) {
+      case 'unscheduled': return !item.scheduled_date && !item.complete;
+      case 'scheduled':   return !!item.scheduled_date;
+      case 'incomplete':  return !item.complete;
+      case 'overdue': {
+        if (item.complete || !item.scheduled_date) return false;
+        return new Date(item.scheduled_date).getTime() < now;
+      }
+      case 'all':
+      default: return true;
+    }
+  });
+
+  const sliced = matches.slice(0, limit);
   return {
     statusCode: 200,
-    body: { items: [], total: 0, returned: 0 }
+    body: {
+      items: sliced.map(item => ({
+        _id: item._id?.toString(),
+        content: item.content || item.text || item.name || null,
+        scheduled_date: item.scheduled_date || null,
+        scheduled_time: item.scheduled_time || null,
+        complete: !!item.complete,
+        pinned: !!item.pinned,
+        parent_id: item.parent ? item.parent.toString() : null,
+        details_summary: buildInlineDetailSummary(item) || null
+      })),
+      total: matches.length,
+      returned: sliced.length
+    }
   };
 }
 
