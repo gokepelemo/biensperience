@@ -35,7 +35,10 @@ const requestLogEntrySchema = new Schema({
   latency_ms: { type: Number, default: 0 },
   status: {
     type: String,
-    enum: ['success', 'error', 'filtered'],
+    // 'cap_reached'  — failover loop exhausted total-attempts cap (bd #8f36.12 + #863b)
+    // 'rate_limited' — per-user rate or token-budget rejected the request pre-LLM-call
+    // 'disabled'     — entity ai_config.disabled rejected the request
+    enum: ['success', 'error', 'filtered', 'cap_reached', 'rate_limited', 'disabled'],
     default: 'success'
   },
   error_message: { type: String, default: null },

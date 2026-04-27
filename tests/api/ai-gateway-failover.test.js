@@ -449,4 +449,69 @@ describe('executeAIRequest — provider failover', () => {
 
     expect(registry.callProvider).toHaveBeenCalledTimes(2);
   });
+
+  // --------------------------------------------------------------------
+  // bd #863b — every exit path records an AIUsage doc with the right status
+  // --------------------------------------------------------------------
+
+  it('records cap_reached status (not generic error) when attempt cap is hit', async () => {
+    mockPoliciesOnce([
+      {
+        scope: 'global',
+        ...makePolicy({
+          preferred_provider: 'openai',
+          fallback_providers: ['anthropic'],
+          max_total_attempts: 2
+        })
+      }
+    ]);
+    registry.getApiKeyForProvider.mockReturnValue('sk-test');
+    registry.callProvider.mockRejectedValue(transientError());
+
+    await expect(
+      gateway.executeAIRequest({
+        messages, task, user,
+        options: { retryConfig: { maxRetries: 5, baseDelayMs: 1, maxDelayMs: 2 } }
+      })
+    ).rejects.toMatchObject({ code: 'ATTEMPT_CAP_REACHED' });
+
+    // trackUsage is called via AIUsage.trackRequest. Find the call with cap_reached status.
+    const calls = AIUsage.trackRequest.mock.calls.map(c => c[0]);
+    const capReachedCalls = calls.filter(p => p.status === 'cap_reached');
+    expect(capReachedCalls.length).toBe(1);
+    expect(capReachedCalls[0]).toMatchObject({
+      status: 'cap_reached',
+      inputTokens: 0,
+      outputTokens: 0,
+    });
+  });
+
+  it('records zero (not undefined/NaN) token counts on every error exit path', async () => {
+    mockPoliciesOnce([
+      {
+        scope: 'global',
+        ...makePolicy({
+          preferred_provider: 'openai',
+          fallback_providers: []
+        })
+      }
+    ]);
+    registry.getApiKeyForProvider.mockReturnValue('sk-test');
+    registry.callProvider.mockRejectedValue(authError()); // non-retryable
+
+    await expect(
+      gateway.executeAIRequest({ messages, task, user, options: {} })
+    ).rejects.toBeDefined();
+
+    const calls = AIUsage.trackRequest.mock.calls.map(c => c[0]);
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+    for (const payload of calls) {
+      expect(typeof payload.inputTokens).toBe('number');
+      expect(typeof payload.outputTokens).toBe('number');
+      expect(Number.isFinite(payload.inputTokens)).toBe(true);
+      expect(Number.isFinite(payload.outputTokens)).toBe(true);
+      expect(payload.inputTokens).toBe(0);
+      expect(payload.outputTokens).toBe(0);
+    }
+  });
 });

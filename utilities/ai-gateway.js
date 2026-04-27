@@ -760,6 +760,22 @@ function logFailoverComplete(fields) {
  * @param {Object} [params.entityContext] - { entityType, entityId, aiConfig }
  * @param {string} [params.intent] - BienBot classified intent (e.g. QUERY_DESTINATION)
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string, policyApplied: Object}>}
+ *
+ * Exit paths and AIUsage tracking (bd #863b — keep this list in sync with
+ * trackUsage call sites below):
+ *   1. Entity AI disabled       → trackUsage(status:'disabled')      throw AI_DISABLED
+ *   2. Content filter blocks    → trackUsage(status:'filtered')      throw CONTENT_FILTERED
+ *   3. Rate limit exceeded      → trackUsage(status:'rate_limited')  throw RATE_LIMIT_EXCEEDED
+ *   4. Token budget exceeded    → trackUsage(status:'rate_limited')  throw TOKEN_BUDGET_EXCEEDED
+ *   5. Successful provider call → trackUsage(status:'success')       return {content,...}
+ *   6. Per-provider non-retry err → trackUsage(status:'error')        throw err  (failover loop, mid-chain)
+ *   7. Failover exhausted       → trackUsage(status:'error')         throw GatewayError
+ *   8. Attempt cap reached      → trackUsage(status:'cap_reached')   throw GatewayError(ATTEMPT_CAP_REACHED)
+ *
+ * Every exit path that consumes any cost (network call, token count) records
+ * a usage doc; pre-LLM rejections record with token counts of 0. This keeps
+ * the AIUsage aggregation honest for billing visibility and rate-limit
+ * dashboards.
  */
 async function executeAIRequest(params) {
   const { messages, task, user, options: callerOptions = {}, entityContext, intent, schema } = params;
@@ -776,33 +792,37 @@ async function executeAIRequest(params) {
     user
   });
 
-  // Check if AI is disabled for this entity
+  // Check if AI is disabled for this entity.
+  // Exit path: trackUsage(status:'disabled') — bd #863b.
   if (policy.ai_disabled) {
+    await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'disabled', 'AI features are disabled for this entity', entityContext);
     throw new GatewayError('AI features are disabled for this entity', 'AI_DISABLED', 403);
   }
 
-  // Step 2: Content filtering
+  // Step 2: Content filtering — exit path: trackUsage(status:'filtered').
   const filterResult = applyContentFiltering(messages, policy.content_filtering);
   if (filterResult.blocked) {
-    // Track filtered request
     await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'filtered', filterResult.reason, entityContext);
     throw new GatewayError(filterResult.reason, 'CONTENT_FILTERED', 400);
   }
 
-  // Step 3: Rate limiting (super admins exempt)
+  // Step 3: Rate limiting (super admins exempt).
+  // Exit path: trackUsage(status:'rate_limited') — bd #863b.
   if (!isSuperAdmin && userId) {
     const rateCheck = await checkRateLimit(userId, policy.rate_limits);
     if (!rateCheck.allowed) {
+      await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'rate_limited', rateCheck.reason, entityContext);
       throw new GatewayError(rateCheck.reason, 'RATE_LIMIT_EXCEEDED', 429);
     }
   }
 
-  // Step 4: Token budget check (super admins exempt)
-  // Pass estimated maxTokens so the check can preemptively block near-limit requests
+  // Step 4: Token budget check (super admins exempt).
+  // Exit path: trackUsage(status:'rate_limited') — bd #863b.
   if (!isSuperAdmin && userId) {
     const estimatedTokens = options.maxTokens || 1000;
     const budgetCheck = await checkTokenBudget(userId, policy.token_budget, estimatedTokens);
     if (!budgetCheck.allowed) {
+      await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'rate_limited', budgetCheck.reason, entityContext);
       throw new GatewayError(budgetCheck.reason, 'TOKEN_BUDGET_EXCEEDED', 429);
     }
   }
@@ -987,7 +1007,11 @@ async function executeAIRequest(params) {
         503
       );
     }
-    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
+    // Distinguish cap-reached from generic provider-exhaustion in the usage
+    // record so admins can see "this user's request hit the cross-provider
+    // attempt cap" vs "all providers errored out". bd #863b.
+    const usageStatus = capReached ? 'cap_reached' : 'error';
+    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, usageStatus, finalError.message, entityContext);
     logFailoverComplete({
       status: 'error',
       totalAttempts: attemptTracker.count,
