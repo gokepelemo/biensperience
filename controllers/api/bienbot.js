@@ -6013,26 +6013,11 @@ function buildAnalyzeSystemPrompt({ mode = 'standard', daysUntil = null, current
 exports.analyze = async (req, res) => {
   const userId = req.user._id.toString();
 
-  // --- Input validation ---
+  // Format/presence/entity-enum/ObjectId-shape validation handled by
+  // `validate(analyzeSchema)` in the route. Controller now only does
+  // entity-existence + permission checks.
   const { entity, entityId } = req.body;
-
-  if (!entity || typeof entity !== 'string') {
-    return errorResponse(res, null, 'entity is required', 400);
-  }
-
-  const allowedEntities = Object.keys(ANALYZE_ENTITY_MAP);
-  if (!allowedEntities.includes(entity)) {
-    return errorResponse(res, null, `Unsupported entity type. Must be one of: ${allowedEntities.join(', ')}`, 400);
-  }
-
-  if (!entityId || typeof entityId !== 'string') {
-    return errorResponse(res, null, 'entityId is required', 400);
-  }
-
-  const { valid, objectId: validatedId } = validateObjectId(entityId, 'entityId');
-  if (!valid) {
-    return errorResponse(res, null, 'Invalid entityId format', 400);
-  }
+  const { objectId: validatedId } = validateObjectId(entityId, 'entityId');
 
   // --- Load entity and check permission ---
   let resource;

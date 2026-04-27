@@ -14,6 +14,13 @@ const router = express.Router();
 const { createUploadMiddleware } = require('../../utilities/upload-middleware');
 const documentsCtrl = require('../../controllers/api/documents');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
+const { validate } = require('../../utilities/validate');
+const {
+  uploadDocumentSchema,
+  reprocessDocumentSchema,
+  deleteDocumentSchema,
+  updateVisibilitySchema,
+} = require('../../controllers/api/documents.schemas');
 
 const { upload, handleError: handleMulterError } = createUploadMiddleware({
   dest: 'uploads/documents',
@@ -59,6 +66,7 @@ router.post('/',
   ensureLoggedIn,
   upload.single('document'),
   handleMulterError,
+  validate(uploadDocumentSchema),
   documentsCtrl.upload
 );
 
@@ -87,14 +95,14 @@ router.get('/entity/:entityType/:entityId', ensureLoggedIn, documentsCtrl.getByE
  *            documentTypeHint?: string
  *          }
  */
-router.post('/:id/reprocess', ensureLoggedIn, documentsCtrl.reprocess);
+router.post('/:id/reprocess', ensureLoggedIn, validate(reprocessDocumentSchema), documentsCtrl.reprocess);
 
 /**
  * @route   DELETE /api/documents/:id
  * @desc    Soft delete a document (disables it, keeps in S3)
  * @access  Private (owner only)
  */
-router.delete('/:id', ensureLoggedIn, documentsCtrl.delete);
+router.delete('/:id', ensureLoggedIn, validate(deleteDocumentSchema), documentsCtrl.delete);
 
 /**
  * @route   DELETE /api/documents/:id/permanent
@@ -116,7 +124,7 @@ router.post('/:id/restore', ensureLoggedIn, documentsCtrl.restore);
  * @access  Private (owner only)
  * @body    { visibility: 'collaborators' | 'private' }
  */
-router.patch('/:id/visibility', ensureLoggedIn, documentsCtrl.updateVisibility);
+router.patch('/:id/visibility', ensureLoggedIn, validate(updateVisibilitySchema), documentsCtrl.updateVisibility);
 
 /**
  * @route   GET /api/documents/:id/preview
