@@ -13,34 +13,39 @@ const crypto = require('crypto');
 const logger = require('./backend-logger');
 const { suggestPlanItems, fetchEntityPhotos, addEntityPhotos } = require('./bienbot-external-data');
 
-// Lazy-loaded controllers (resolved on first use to avoid circular deps)
-let destinationsController, experiencesController, plansController, followsController, usersController, activitiesController, documentsController;
+// Service layer (depends on models + utilities only — never on controllers).
+// These are the canonical CRUD operations the executor calls directly.
+const planService = require('../services/plan-service');
+const experienceService = require('../services/experience-service');
+const destinationService = require('../services/destination-service');
 
-function loadControllers() {
-  if (!destinationsController) {
-    destinationsController = require('../controllers/api/destinations');
-    experiencesController = require('../controllers/api/experiences');
-    plansController = require('../controllers/api/plans');
-    followsController = require('../controllers/api/follows');
-    usersController = require('../controllers/api/users');
-    activitiesController = require('../controllers/api/activities');
-    documentsController = require('../controllers/api/documents');
-  }
-}
+// Top-level model + enforcer imports. The previous lazy `loadModels()` dance
+// was defensive — there is no real circular dependency between these models
+// and the executor. See bd #8f36.13.
+const _mongoose = require('mongoose');
+const _Plan = require('../models/plan');
+const _Experience = require('../models/experience');
+const _Destination = require('../models/destination');
+const _User = require('../models/user');
+const _getEnforcer = require('./permission-enforcer').getEnforcer;
 
-// Lazy-loaded models (resolved on first use to avoid circular deps)
-let _mongoose, _Plan, _Experience, _Destination, _User, _getEnforcer;
+// Top-level controller imports. The previous lazy `loadControllers()` dance
+// was defensive — controllers do not import the executor (verified at the
+// time of bd #8f36.13). Long-tail action handlers still delegate to controllers
+// via the mock-req/res pattern below; canonical CRUD goes through the service
+// layer above.
+const destinationsController = require('../controllers/api/destinations');
+const experiencesController = require('../controllers/api/experiences');
+const plansController = require('../controllers/api/plans');
+const followsController = require('../controllers/api/follows');
+const usersController = require('../controllers/api/users');
+const activitiesController = require('../controllers/api/activities');
+const documentsController = require('../controllers/api/documents');
 
-function loadModels() {
-  if (!_mongoose) {
-    _mongoose = require('mongoose');
-    _Plan = require('../models/plan');
-    _Experience = require('../models/experience');
-    _Destination = require('../models/destination');
-    _User = require('../models/user');
-    _getEnforcer = require('./permission-enforcer').getEnforcer;
-  }
-}
+// Backwards-compat shims — handlers below historically called these helpers.
+// They are now no-ops; kept so we do not need to surgically remove every call site.
+function loadControllers() { /* no-op: controllers are top-level requires now */ }
+function loadModels() { /* no-op: models are top-level requires now */ }
 
 // ---------------------------------------------------------------------------
 // Limits
@@ -325,21 +330,46 @@ function buildMockRes() {
 // ---------------------------------------------------------------------------
 
 /**
+ * Convert a service-layer result (`{ data, error, code }` shape) into the
+ * `{ statusCode, body }` shape the executor returns to its callers.
+ *
+ * @param {object} result - Service-layer response.
+ * @param {object} [options]
+ * @param {string} [options.dataKey] - Key in `result` that holds the success entity.
+ * @param {number} [options.successCode=200]
+ * @param {object} [options.extraBody] - Extra fields to merge into the success body.
+ * @returns {{ statusCode: number, body: object }}
+ */
+function toExecutorResult(result, { dataKey, successCode = 200, extraBody = {} } = {}) {
+  if (!result || result.error) {
+    return {
+      statusCode: result?.code || 400,
+      body: { success: false, error: result?.error || 'Unknown error' }
+    };
+  }
+  const data = dataKey ? result[dataKey] : (result.data || result);
+  return {
+    statusCode: successCode,
+    body: { success: true, data, ...extraBody }
+  };
+}
+
+/**
  * create_destination
  * payload: { name, country, state?, overview?, location? }
  */
 async function executeCreateDestination(payload, user) {
-  loadControllers();
-  const req = buildMockReq(user, {
-    name: payload.name,
-    country: payload.country,
-    state: payload.state,
-    overview: payload.overview,
-    location: payload.location
+  const result = await destinationService.createDestination({
+    data: {
+      name: payload.name,
+      country: payload.country,
+      state: payload.state,
+      overview: payload.overview,
+      location: payload.location
+    },
+    actor: user
   });
-  const { res, getResult } = buildMockRes();
-  await destinationsController.create(req, res);
-  return getResult();
+  return toExecutorResult(result, { dataKey: 'destination', successCode: 201 });
 }
 
 /**
@@ -347,18 +377,19 @@ async function executeCreateDestination(payload, user) {
  * payload: { name, destination?, description?, plan_items?, experience_type?, visibility? }
  */
 async function executeCreateExperience(payload, user) {
-  loadControllers();
-  const req = buildMockReq(user, {
-    name: payload.name,
-    destination: payload.destination_id || payload.destination,
-    description: payload.description,
-    plan_items: payload.plan_items,
-    experience_type: payload.experience_type,
-    visibility: payload.visibility
+  const result = await experienceService.createExperience({
+    data: {
+      name: payload.name,
+      destination: payload.destination_id || payload.destination,
+      description: payload.description,
+      overview: payload.overview,
+      plan_items: payload.plan_items,
+      experience_type: payload.experience_type,
+      visibility: payload.visibility
+    },
+    actor: user
   });
-  const { res, getResult } = buildMockRes();
-  await experiencesController.create(req, res);
-  return getResult();
+  return toExecutorResult(result, { dataKey: 'experience', successCode: 201 });
 }
 
 /**
@@ -366,18 +397,13 @@ async function executeCreateExperience(payload, user) {
  * payload: { experience_id, planned_date?, currency? }
  */
 async function executeCreatePlan(payload, user) {
-  loadControllers();
-  const req = buildMockReq(
-    user,
-    {
-      planned_date: normalizeDateOnly(payload.planned_date),
-      currency: payload.currency
-    },
-    { experienceId: payload.experience_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.createPlan(req, res);
-  return getResult();
+  const result = await planService.createPlan({
+    experienceId: payload.experience_id,
+    plannedDate: normalizeDateOnly(payload.planned_date),
+    currency: payload.currency,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan', successCode: 201 });
 }
 
 /**
@@ -385,7 +411,6 @@ async function executeCreatePlan(payload, user) {
  * payload: { plan_id, items: [{ text, url?, cost?, planning_days?, parent?, activity_type? }] }
  */
 async function executeAddPlanItems(payload, user) {
-  loadControllers();
   const items = Array.isArray(payload.items) ? payload.items : [payload.items].filter(Boolean);
 
   if (items.length > MAX_PLAN_ITEMS_PER_BATCH) {
@@ -398,48 +423,29 @@ async function executeAddPlanItems(payload, user) {
     };
   }
 
-  const results = [];
+  const result = await planService.addPlanItems({
+    planId: payload.plan_id,
+    items,
+    actor: user
+  });
 
-  for (const item of items) {
-    const req = buildMockReq(
-      user,
-      {
-        text: item.text,
-        url: item.url,
-        cost: item.cost,
-        planning_days: item.planning_days,
-        parent: item.parent,
-        activity_type: item.activity_type,
-        location: item.location
-      },
-      { id: payload.plan_id }
-    );
-    const { res, getResult } = buildMockRes();
-    await plansController.addPlanItem(req, res);
-    const result = getResult();
-    results.push(result);
-
-    // If any item fails, stop the batch and report
-    if (result.statusCode >= 400) {
-      return {
-        statusCode: result.statusCode,
-        body: {
-          success: false,
-          error: `Failed to add item "${item.text}": ${result.body?.error || 'Unknown error'}`,
-          partial_results: results
-        }
-      };
-    }
+  if (result.error) {
+    return {
+      statusCode: result.code || 400,
+      body: {
+        success: false,
+        error: `Failed to add item: ${result.error}`,
+        partial_results: result.partialResults
+      }
+    };
   }
 
-  // Return the final plan state (from the last successful add)
-  const lastResult = results[results.length - 1];
   return {
-    statusCode: lastResult.statusCode,
+    statusCode: 200,
     body: {
       success: true,
-      data: lastResult.body?.data || lastResult.body,
-      items_added: items.length
+      data: result.plan,
+      items_added: result.itemsAdded
     }
   };
 }
@@ -450,8 +456,7 @@ async function executeAddPlanItems(payload, user) {
  *            activity_type?, scheduled_date?, scheduled_time?, visibility? }
  */
 async function executeUpdatePlanItem(payload, user) {
-  loadControllers();
-  const body = {};
+  const updates = {};
   const updateFields = [
     'complete', 'text', 'cost', 'planning_days', 'url',
     'activity_type', 'scheduled_date', 'scheduled_time',
@@ -459,40 +464,36 @@ async function executeUpdatePlanItem(payload, user) {
   ];
   for (const field of updateFields) {
     if (payload[field] !== undefined) {
-      body[field] = payload[field];
+      updates[field] = payload[field];
     }
   }
-  // Normalise date-only strings to noon UTC to prevent off-by-one shifts
-  if (body.scheduled_date) body.scheduled_date = normalizeDateOnly(body.scheduled_date);
-  const req = buildMockReq(
-    user,
-    body,
-    { id: payload.plan_id, itemId: payload.item_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.updatePlanItem(req, res);
-  return getResult();
+  if (updates.scheduled_date) updates.scheduled_date = normalizeDateOnly(updates.scheduled_date);
+
+  const result = await planService.updatePlanItem({
+    planId: payload.plan_id,
+    itemId: payload.item_id,
+    updates,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan' });
 }
 
 /**
  * invite_collaborator
  * payload: { plan_id?, experience_id?, user_id, type? }
  *
- * Delegates to either plans.addCollaborator or experiences.addExperiencePermission
- * depending on which entity ID is provided.
+ * Plan path goes through plan-service. Experience path still delegates to
+ * the controller's permission endpoint (no service equivalent yet).
  */
 async function executeInviteCollaborator(payload, user) {
-  loadControllers();
-
   if (payload.plan_id) {
-    const req = buildMockReq(
-      user,
-      { userId: payload.user_id },
-      { id: payload.plan_id }
-    );
-    const { res, getResult } = buildMockRes();
-    await plansController.addCollaborator(req, res);
-    return getResult();
+    const result = await planService.addCollaborator({
+      planId: payload.plan_id,
+      userId: payload.user_id,
+      actor: user,
+      metadata: { source: 'bienbot-action-executor' }
+    });
+    return toExecutorResult(result, { dataKey: 'plan' });
   }
 
   if (payload.experience_id) {
@@ -614,15 +615,13 @@ async function executeSyncPlan(payload, user) {
  * payload: { plan_id, item_id }
  */
 async function executeMarkPlanItemComplete(payload, user) {
-  loadControllers();
-  const req = buildMockReq(
-    user,
-    { complete: true },
-    { id: payload.plan_id, itemId: payload.item_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.updatePlanItem(req, res);
-  return getResult();
+  const result = await planService.markItemComplete({
+    planId: payload.plan_id,
+    itemId: payload.item_id,
+    complete: true,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan' });
 }
 
 /**
@@ -630,15 +629,13 @@ async function executeMarkPlanItemComplete(payload, user) {
  * payload: { plan_id, item_id }
  */
 async function executeMarkPlanItemIncomplete(payload, user) {
-  loadControllers();
-  const req = buildMockReq(
-    user,
-    { complete: false },
-    { id: payload.plan_id, itemId: payload.item_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.updatePlanItem(req, res);
-  return getResult();
+  const result = await planService.markItemComplete({
+    planId: payload.plan_id,
+    itemId: payload.item_id,
+    complete: false,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan' });
 }
 
 /**
@@ -787,18 +784,17 @@ async function executeUnassignPlanItem(payload, user) {
  * payload: { experience_id, name?, overview?, destination?, experience_type?, visibility?, map_location? }
  */
 async function executeUpdateExperience(payload, user) {
-  loadControllers();
-  const body = {};
+  const updates = {};
   const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'location'];
   for (const field of updateFields) {
-    if (payload[field] !== undefined) {
-      body[field] = payload[field];
-    }
+    if (payload[field] !== undefined) updates[field] = payload[field];
   }
-  const req = buildMockReq(user, body, { id: payload.experience_id });
-  const { res, getResult } = buildMockRes();
-  await experiencesController.update(req, res);
-  return getResult();
+  const result = await experienceService.updateExperience({
+    experienceId: payload.experience_id,
+    updates,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'experience' });
 }
 
 /**
@@ -862,18 +858,17 @@ async function executeDeleteExperiencePlanItem(payload, user) {
  * payload: { destination_id, name?, country?, state?, overview?, location?, map_location?, travel_tips? }
  */
 async function executeUpdateDestination(payload, user) {
-  loadControllers();
-  const body = {};
+  const updates = {};
   const updateFields = ['name', 'country', 'state', 'overview', 'location', 'map_location', 'travel_tips'];
   for (const field of updateFields) {
-    if (payload[field] !== undefined) {
-      body[field] = payload[field];
-    }
+    if (payload[field] !== undefined) updates[field] = payload[field];
   }
-  const req = buildMockReq(user, body, { id: payload.destination_id });
-  const { res, getResult } = buildMockRes();
-  await destinationsController.update(req, res);
-  return getResult();
+  const result = await destinationService.updateDestination({
+    destinationId: payload.destination_id,
+    updates,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'destination' });
 }
 
 /**
@@ -901,9 +896,12 @@ async function executeToggleFavoriteDestination(payload, user) {
 /**
  * update_plan
  * payload: { plan_id, planned_date?, currency?, notes? }
+ *
+ * NOTE: Continues to delegate to the controller because the controller adds
+ * `_shift_meta` to the response (used to auto-propose shift_plan_item_dates).
+ * Moving _shift_meta into the service layer would expand scope; tracked.
  */
 async function executeUpdatePlan(payload, user, session) {
-  loadControllers();
   const body = {};
   if (payload.planned_date !== undefined) body.planned_date = normalizeDateOnly(payload.planned_date);
   if (payload.currency !== undefined) body.currency = payload.currency;
@@ -967,9 +965,6 @@ async function executeShiftPlanItemDates(payload, user) {
  * resolution produces a plan the user doesn't own, the call will 403 safely.
  */
 async function executeDeletePlan(payload, user, session = null) {
-  loadControllers();
-  loadModels();
-
   let planId = payload.plan_id;
 
   // Fallback: resolve from experience_id when plan_id is absent.
@@ -1017,10 +1012,11 @@ async function executeDeletePlan(payload, user, session = null) {
     };
   }
 
-  const req = buildMockReq(user, {}, { id: planId });
-  const { res, getResult } = buildMockRes();
-  await plansController.deletePlan(req, res);
-  return getResult();
+  const result = await planService.deletePlan({ planId, actor: user });
+  if (result.error) {
+    return { statusCode: result.code || 400, body: { success: false, error: result.error } };
+  }
+  return { statusCode: 200, body: { success: true, message: 'Plan deleted successfully' } };
 }
 
 /**
@@ -1093,13 +1089,17 @@ async function executeDeletePlanCost(payload, user) {
  * payload: { plan_id?, experience_id?, user_id }
  */
 async function executeRemoveCollaborator(payload, user) {
-  loadControllers();
-
   if (payload.plan_id) {
-    const req = buildMockReq(user, {}, { id: payload.plan_id, userId: payload.user_id });
-    const { res, getResult } = buildMockRes();
-    await plansController.removeCollaborator(req, res);
-    return getResult();
+    const result = await planService.removeCollaborator({
+      planId: payload.plan_id,
+      userId: payload.user_id,
+      actor: user,
+      metadata: { source: 'bienbot-action-executor' }
+    });
+    if (result.error) {
+      return { statusCode: result.code || 400, body: { success: false, error: result.error } };
+    }
+    return { statusCode: 200, body: { success: true, message: 'Collaborator removed successfully' } };
   }
 
   if (payload.experience_id) {

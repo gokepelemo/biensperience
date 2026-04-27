@@ -5,6 +5,7 @@ const User = require("../../models/user");
 const Photo = require("../../models/photo");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require("../../utilities/permission-enforcer");
+const planService = require("../../services/plan-service");
 const { asyncHandler, successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const backendLogger = require("../../utilities/backend-logger");
 const mongoose = require("mongoose");
@@ -2052,50 +2053,11 @@ const addCollaborator = asyncHandler(async (req, res) => {
 const removeCollaborator = asyncHandler(async (req, res) => {
   const { id, userId } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
-    return res.status(400).json({ error: "Invalid ID" });
-  }
-
-  const plan = await Plan.findById(id);
-
-  if (!plan) {
-    return res.status(404).json({ error: "Plan not found" });
-  }
-
-  // Only owner can remove collaborators
-  const enforcer = getEnforcer({ Plan, Experience, Destination, User });
-  try {
-    if (plan.user && plan.user.toString() === req.user._id.toString()) {
-      backendLogger.debug('Remove collaborator: short-circuit owner check passed', {
-        planId: plan._id.toString(),
-        ownerId: plan.user.toString(),
-        actorId: req.user._id.toString()
-      });
-    } else {
-      const permCheck = await enforcer.canManagePermissions({
-        userId: req.user._id,
-        resource: plan
-      });
-
-      if (!permCheck.allowed) {
-        return res.status(403).json({
-          error: "Only the plan owner can remove collaborators",
-          message: permCheck.reason
-        });
-      }
-    }
-  } catch (err) {
-    backendLogger.error('Error checking permissions for removeCollaborator', { error: err?.message, stack: err?.stack });
-    return res.status(500).json({ error: 'Error checking permissions' });
-  }
-
-  // Remove collaborator using enforcer (SECURE)
-  const result = await enforcer.removePermission({
-    resource: plan,
-    permissionId: userId,
-    entityType: 'user',
-    actorId: req.user._id,
-    reason: 'Collaborator removed from plan',
+  // Delegate validation + permission + enforcer-mediated mutation to the service.
+  const svcResult = await planService.removeCollaborator({
+    planId: id,
+    userId,
+    actor: req.user,
     metadata: {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
@@ -2104,9 +2066,19 @@ const removeCollaborator = asyncHandler(async (req, res) => {
     }
   });
 
-  if (!result.success) {
-    return res.status(400).json({ error: result.error });
+  if (svcResult.error) {
+    // Map service error codes to existing controller status responses.
+    if (svcResult.code === 404) return res.status(404).json({ error: svcResult.error });
+    if (svcResult.code === 403) {
+      return res.status(403).json({
+        error: 'Only the plan owner can remove collaborators',
+        message: svcResult.error
+      });
+    }
+    return res.status(svcResult.code || 400).json({ error: svcResult.error });
   }
+
+  const plan = svcResult.plan;
 
   // Best-effort: keep plan group chat membership in sync after removal.
   try {
