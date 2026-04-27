@@ -1,27 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import {
-  postMessage,
   postSharedComment as postSharedCommentAPI,
   getMutualFollowers as getMutualFollowersAPI,
-  getSessions,
-  getSession,
-  resumeSession as resumeSessionAPI,
-  executeActions as executeActionsAPI,
-  cancelAction as cancelActionAPI,
-  deleteSession as deleteSessionAPI,
   updateSessionContext as updateSessionContextAPI,
-  updateActionStatus as updateActionStatusAPI,
-  getWorkflowState as getWorkflowStateAPI,
-  addSessionCollaborator as addCollaboratorAPI,
-  removeSessionCollaborator as removeCollaboratorAPI,
   analyzeEntity,
 } from '../utilities/bienbot-api';
-import { eventBus, broadcastEvent } from '../utilities/event-bus';
+import { broadcastEvent } from '../utilities/event-bus';
 import { logger } from '../utilities/logger';
-import { encryptData, decryptData } from '../utilities/crypto-utils';
-
-const ACTIVE_SESSION_KEY = 'bien:bienbot_active_session';
+import useSessionManager from './useSessionManager';
+import useSSEStream from './useSSEStream';
+import useActionManager from './useActionManager';
 
 /**
  * Open the BienBot panel with a pre-filled message in the input.
@@ -68,6 +56,14 @@ export async function openWithAnalysis(entity, entityId, entityLabel) {
  * useBienBot — manages BienBot conversation state, SSE streaming,
  * pending actions, and session lifecycle.
  *
+ * Composed from three focused hooks:
+ *   - useSessionManager — sessions list, currentSession, persistence, lifecycle
+ *   - useSSEStream      — token streaming, tool-call pills, AbortController
+ *   - useActionManager  — pendingActions, executeActions, cancelAction, workflows
+ *
+ * The public API is unchanged from the pre-split implementation; consumers
+ * (BienBotPanel etc.) need no modifications.
+ *
  * @param {Object} params
  * @param {string|null} [params.sessionId] - Existing session to load, or null for a new session
  * @param {Object} [params.invokeContext] - Entity context ({ entity, id, label }) from the mounting component
@@ -75,20 +71,15 @@ export async function openWithAnalysis(entity, entityId, entityLabel) {
  */
 export default function useBienBot({ sessionId: initialSessionId = null, invokeContext, navigationSchema = null, userId = null } = {}) {
   // ---------------------------------------------------------------------------
-  // State
+  // Composed-hook state (lives at the top level so multiple sub-hooks can share)
   // ---------------------------------------------------------------------------
-  const [sessions, setSessions] = useState([]);
-  const [currentSession, setCurrentSession] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [pendingActions, setPendingActions] = useState([]);
   const [suggestedNextSteps, setSuggestedNextSteps] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
 
   // ---------------------------------------------------------------------------
-  // Refs
+  // Refs shared across sub-hooks
   // ---------------------------------------------------------------------------
-  const abortControllerRef = useRef(null);
   const sessionIdRef = useRef(initialSessionId);
   const invokeContextSentRef = useRef(false);
   // Holds the formatted analysis greeting text that was shown to the user before the
@@ -96,304 +87,95 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   // the backend can persist it as the opening assistant turn, giving the LLM the
   // context it needs to answer follow-up questions about the analysis.
   const priorGreetingRef = useRef(null);
-
-  // Keep sessionIdRef in sync with currentSession
-  useEffect(() => {
-    if (currentSession?._id) {
-      sessionIdRef.current = currentSession._id;
-    }
-  }, [currentSession]);
+  // Shared AbortController for the SSE stream so both useSessionManager
+  // (clearSession/resetSession/loadSession) and useSSEStream can cancel it.
+  const abortControllerRef = useRef(null);
 
   // ---------------------------------------------------------------------------
-  // Helpers
+  // Action manager — owns pendingActions slice + execute/cancel/workflow helpers
   // ---------------------------------------------------------------------------
-
-  /** Cancel any in-flight SSE stream. */
-  const cancelStream = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Session persistence (localStorage) — AES-GCM encrypted
-  // ---------------------------------------------------------------------------
-
-  /** Persist active session ID to encrypted localStorage. */
-  const persistSessionId = useCallback(async (sid) => {
-    if (!sid || !userId) return;
-    try {
-      const encrypted = await encryptData({ sessionId: sid, userId }, userId);
-      localStorage.setItem(ACTIVE_SESSION_KEY, encrypted);
-    } catch (err) {
-      logger.debug('[useBienBot] Failed to persist session', { error: err?.message });
-    }
-  }, [userId]);
-
-  /** Clear persisted session ID from localStorage. */
-  const clearPersistedSession = useCallback(() => {
-    try {
-      localStorage.removeItem(ACTIVE_SESSION_KEY);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  /** Read persisted session ID (returns Promise<{ sessionId, userId } | null>). */
-  const getPersistedSession = useCallback(async () => {
-    try {
-      const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
-      if (!raw || !userId) return null;
-      return await decryptData(raw, userId);
-    } catch {
-      return null;
-    }
-  }, [userId]);
+  const {
+    pendingActions,
+    setPendingActions,
+    executeActions,
+    cancelAction,
+    approveStep,
+    skipStep,
+    editStep,
+    cancelWorkflow,
+  } = useActionManager({
+    sessionIdRef,
+    setCurrentSession: (...args) => sessionManagerRef.current?.setCurrentSession(...args),
+    setIsLoading,
+  });
 
   // ---------------------------------------------------------------------------
-  // streamMessage — internal SSE streaming helper shared by sendMessage and
-  // sendHiddenMessage. Manages the assistant placeholder, abort controller,
-  // session bootstrap, and all SSE event handlers.
+  // SSE stream — owns isStreaming + streamMessage + cancelStream
   //
-  // @param {Object} opts
-  // @param {string}  opts.text        - Wire text (stored in session history)
-  // @param {string}  [opts.hiddenText] - When set, sent to LLM via hiddenUserMessage;
-  //                                      text is stored as the visible turn
-  // @param {File}    [opts.attachment] - File attachment (sendMessage flow only)
+  // We pass setCurrentSession as a wrapper that defers to the session manager
+  // (which is constructed below). This avoids a circular-init problem while
+  // preserving the original semantics: streamMessage's onSession callback
+  // updates the same currentSession state managed by useSessionManager.
   // ---------------------------------------------------------------------------
+  const sessionManagerRef = useRef(null);
 
-  async function streamMessage({ text, hiddenText, attachment }) {
-    const assistantMessageId = `temp-${Date.now()}-assistant`;
-    let streamedContent = '';
-    // Track in-flight tool-call pills by call_id so we can transition each pill
-    // through pending → success/error and clear them all when the second LLM
-    // response begins streaming tokens (or when the stream errors/aborts).
-    const toolCallPills = new Map();
+  const {
+    isStreaming,
+    setIsStreaming,
+    streamMessage,
+    cancelStream,
+  } = useSSEStream({
+    sessionIdRef,
+    invokeContext,
+    navigationSchema,
+    userId,
+    invokeContextSentRef,
+    priorGreetingRef,
+    abortControllerRef,
+    persistSessionId: (...args) => sessionManagerRef.current?.persistSessionId(...args),
+    setMessages,
+    setCurrentSession: (...args) => sessionManagerRef.current?.setCurrentSession(...args),
+    setPendingActions,
+    setIsLoading,
+  });
 
-    batchedUpdates(() => {
-      setIsLoading(true);
-      setIsStreaming(true);
-    });
+  // ---------------------------------------------------------------------------
+  // Session manager — owns sessions list, currentSession, persistence,
+  // load/fetch/delete/share/unshare, clear/reset, and event subscriptions
+  // ---------------------------------------------------------------------------
+  const sessionManager = useSessionManager({
+    initialSessionId,
+    userId,
+    invokeContext,
+    sessionIdRef,
+    invokeContextSentRef,
+    setMessages,
+    setPendingActions,
+    setSuggestedNextSteps,
+    setIsLoading,
+    setIsStreaming,
+    cancelStream,
+  });
 
-    // Append a placeholder assistant message to accumulate tokens into
-    setMessages(prev => [...prev, {
-      _id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      createdAt: new Date().toISOString()
-    }]);
+  const {
+    sessions,
+    currentSession,
+    setCurrentSession,
+    persistSessionId,
+    clearPersistedSession,
+    getPersistedSession,
+    loadSession,
+    fetchSessions,
+    deleteSession,
+    shareSession,
+    unshareSession,
+    clearSession,
+    resetSession,
+  } = sessionManager;
 
-    // Set up abort controller
-    cancelStream();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    // Always send invokeContext when available so the backend knows which entity
-    // page the user is currently viewing. This is critical for plan disambiguation
-    // on resumed sessions (otherwise the backend can't anchor actions to the page).
-    const sid = sessionIdRef.current;
-    const hasInvokeContext = invokeContext?.entity && invokeContext?.id;
-    const isFirstMessage = !sid && !invokeContextSentRef.current;
-    const priorGreeting = !sid ? priorGreetingRef.current : null;
-    // Clear after capture so it is only ever sent once
-    if (priorGreeting) priorGreetingRef.current = null;
-
-    try {
-      await postMessage(sid, text, {
-        invokeContext: hasInvokeContext ? invokeContext : undefined,
-        navigationSchema: (isFirstMessage && navigationSchema) ? navigationSchema : undefined,
-        priorGreeting: priorGreeting || undefined,
-        attachment: attachment || undefined,
-        hiddenUserMessage: hiddenText || undefined,
-        signal: controller.signal,
-
-        onSession: ({ sessionId: newSessionId, title, attachment: attachmentInfo }) => {
-          sessionIdRef.current = newSessionId;
-          if (isFirstMessage) {
-            invokeContextSentRef.current = true;
-          }
-          setCurrentSession(prev => ({
-            ...(prev || {}),
-            _id: newSessionId,
-            title: title || prev?.title,
-            // Mark the current user as owner so isSessionOwner evaluates correctly
-            // for follow-up messages. The onSession event fires only when this client
-            // creates the session, so the sender is always the owner.
-            user: userId,
-            // Populate invoke_context on new sessions so the reconciliation effect
-            // recognises the entity as already tracked and does not inject a
-            // spurious "context has changed" ack message.
-            ...(isFirstMessage && hasInvokeContext ? {
-              invoke_context: {
-                entity: invokeContext.entity,
-                entity_id: invokeContext.id,
-                entity_label: invokeContext.label,
-              }
-            } : {})
-          }));
-          persistSessionId(newSessionId);
-          // Update optimistic user message with S3 attachment info from server.
-          // Find the most recent user message that has a pending attachment without s3Key.
-          if (attachmentInfo?.s3Key) {
-            setMessages(prev =>
-              prev.map(m => {
-                if (m.role === 'user' && m.attachments?.length > 0 && !m.attachments[0].s3Key) {
-                  return {
-                    ...m,
-                    attachments: m.attachments.map((att, idx) =>
-                      idx === 0
-                        ? { ...att, s3Key: attachmentInfo.s3Key, s3Bucket: attachmentInfo.s3Bucket, isProtected: attachmentInfo.isProtected }
-                        : att
-                    )
-                  };
-                }
-                return m;
-              })
-            );
-          }
-        },
-
-        onToken: (tokenText) => {
-          // Once the second LLM response starts streaming, any pills from the
-          // tool-call phase have served their purpose. Clear them so the UI
-          // transitions cleanly from pills → answer text.
-          if (toolCallPills.size > 0) {
-            toolCallPills.clear();
-            setMessages(prev =>
-              prev.map(m =>
-                m._id === assistantMessageId
-                  ? { ...m, tool_call_pills: [] }
-                  : m
-              )
-            );
-          }
-          streamedContent += tokenText;
-          const captured = streamedContent;
-          setMessages(prev =>
-            prev.map(m =>
-              m._id === assistantMessageId
-                ? { ...m, content: captured }
-                : m
-            )
-          );
-        },
-
-        onToolCallStart: ({ call_id, type, label }) => {
-          toolCallPills.set(call_id, { call_id, type, label, status: 'pending' });
-          const snapshot = Array.from(toolCallPills.values());
-          setMessages(prev => prev.map(m =>
-            m._id === assistantMessageId ? { ...m, tool_call_pills: snapshot } : m
-          ));
-        },
-
-        onToolCallEnd: ({ call_id, ok }) => {
-          const existing = toolCallPills.get(call_id);
-          if (existing) {
-            toolCallPills.set(call_id, { ...existing, status: ok ? 'success' : 'error' });
-          }
-          const snapshot = Array.from(toolCallPills.values());
-          setMessages(prev => prev.map(m =>
-            m._id === assistantMessageId ? { ...m, tool_call_pills: snapshot } : m
-          ));
-        },
-
-        onActions: (actions) => {
-          setPendingActions(actions || []);
-        },
-
-        onStructuredContent: (blocks) => {
-          // Attach structured content blocks to the current assistant message.
-          // discovery_result_list blocks replace any existing sentinel (data===null)
-          // in-place so the skeleton transitions to real content without flickering.
-          if (blocks && blocks.length > 0) {
-            setMessages(prev =>
-              prev.map(m => {
-                if (m._id !== assistantMessageId) return m;
-                let existing = m.structured_content || [];
-                let updated = [...existing];
-                for (const block of blocks) {
-                  if (block.type === 'discovery_result_list') {
-                    const sentinelIdx = updated.findIndex(
-                      b => b.type === 'discovery_result_list' && b.data === null
-                    );
-                    if (sentinelIdx !== -1) {
-                      updated = [...updated];
-                      updated[sentinelIdx] = block;
-                    } else {
-                      updated = [...updated, block];
-                    }
-                  } else {
-                    updated = [...updated, block];
-                  }
-                }
-                return { ...m, structured_content: updated };
-              })
-            );
-          }
-        },
-
-        onDone: () => {
-          batchedUpdates(() => {
-            setIsStreaming(false);
-            setIsLoading(false);
-          });
-          abortControllerRef.current = null;
-        },
-
-        onError: (error) => {
-          logger.error('[useBienBot] Stream error', { error: error.message });
-          batchedUpdates(() => {
-            setIsStreaming(false);
-            setIsLoading(false);
-          });
-          toolCallPills.clear();
-          // Update the assistant message with an error indicator.
-          // Never expose raw exception messages in the chat UI.
-          setMessages(prev =>
-            prev.map(m =>
-              m._id === assistantMessageId
-                ? { ...m, content: streamedContent || 'Something went wrong. Please try again.', error: true, tool_call_pills: [] }
-                : m
-            )
-          );
-          abortControllerRef.current = null;
-        }
-      });
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        logger.debug('[useBienBot] Stream aborted');
-        // Clear any in-flight pills on cancellation so they don't visually
-        // persist on the partially-streamed assistant message.
-        if (toolCallPills.size > 0) {
-          toolCallPills.clear();
-          setMessages(prev =>
-            prev.map(m =>
-              m._id === assistantMessageId
-                ? { ...m, tool_call_pills: [] }
-                : m
-            )
-          );
-        }
-      } else {
-        logger.error('[useBienBot] Failed to stream message', { error: err.message });
-        toolCallPills.clear();
-        // Never expose raw exception messages in the chat UI.
-        setMessages(prev =>
-          prev.map(m =>
-            m._id === assistantMessageId
-              ? { ...m, content: 'Something went wrong. Please try again.', error: true, tool_call_pills: [] }
-              : m
-          )
-        );
-      }
-      batchedUpdates(() => {
-        setIsStreaming(false);
-        setIsLoading(false);
-      });
-      abortControllerRef.current = null;
-    }
-  }
+  // Keep the sessionManagerRef pointing at the latest manager so the wrappers
+  // injected into useActionManager / useSSEStream resolve to the live setters.
+  sessionManagerRef.current = sessionManager;
 
   // ---------------------------------------------------------------------------
   // sendMessage
@@ -427,7 +209,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     setMessages(prev => [...prev, userMessage]);
 
     await streamMessage({ text, attachment });
-  }, [invokeContext, navigationSchema, userId, cancelStream, persistSessionId]);
+  }, [streamMessage, setPendingActions]);
 
   // ---------------------------------------------------------------------------
   // sendHiddenMessage — programmatic follow-up that stores visibleText in the
@@ -449,69 +231,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
     if (isStreaming || isLoading) return;
 
     await streamMessage({ text: storedText, hiddenText });
-  }, [isStreaming, isLoading, invokeContext, navigationSchema, userId, cancelStream, persistSessionId]);
-
-  // ---------------------------------------------------------------------------
-  // executeActions
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Execute pending actions by IDs.
-   * Entity events are emitted by bienbot-api.js automatically.
-   *
-   * @param {string[]} actionIds - Action IDs to execute
-   * @returns {Promise<Object|null>} Execution result or null on error
-   */
-  const executeActions = useCallback(async (actionIds) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !actionIds?.length) return null;
-
-    setIsLoading(true);
-    try {
-      const result = await executeActionsAPI(sid, actionIds);
-
-      // Remove executed actions from pendingActions
-      setPendingActions(prev =>
-        prev.filter(a => !actionIds.includes(a._id || a.id))
-      );
-
-      // If the server returned an updated session, merge it — don't replace.
-      // The execute endpoint returns a sparse { id, context } object and does not
-      // include the `user` field, so a full replace would make isSessionOwner false
-      // on subsequent renders, incorrectly routing follow-up messages to sendSharedComment.
-      if (result?.session) {
-        setCurrentSession(prev => prev ? { ...prev, ...result.session } : result.session);
-      }
-
-      return result;
-    } catch (err) {
-      logger.error('[useBienBot] Failed to execute actions', { error: err.message });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // cancelAction
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Cancel (remove) a single pending action.
-   *
-   * @param {string} actionId - Action ID to cancel
-   */
-  const cancelAction = useCallback(async (actionId) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !actionId) return;
-
-    try {
-      await cancelActionAPI(sid, actionId);
-      setPendingActions(prev => prev.filter(a => (a._id || a.id) !== actionId));
-    } catch (err) {
-      logger.error('[useBienBot] Failed to cancel action', { error: err.message });
-    }
-  }, []);
+  }, [isStreaming, isLoading, streamMessage]);
 
   // ---------------------------------------------------------------------------
   // updateContext — inject entity context mid-session
@@ -588,7 +308,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       logger.error('[useBienBot] Failed to update context', { error: err.message, entity, entityId });
       return null;
     }
-  }, [userId]);
+  }, [userId, setCurrentSession]);
 
   /**
    * Explicitly switch BienBot's context to a new entity. Unlike updateContext (passive
@@ -606,260 +326,7 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   );
 
   // ---------------------------------------------------------------------------
-  // Session management
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Load (resume) a past session. Inserts the server greeting as the first message
-   * and populates suggestedNextSteps from the greeting.
-   *
-   * @param {string} sid - Session ID to resume
-   */
-  const loadSession = useCallback(async (sid) => {
-    if (!sid) return;
-
-    setIsLoading(true);
-    try {
-      const currentPageContext = invokeContext?.entity && invokeContext?.id
-        ? { entity: invokeContext.entity, id: invokeContext.id, label: invokeContext.label }
-        : null;
-      const result = await resumeSessionAPI(sid, currentPageContext);
-      const { session, greeting } = result || {};
-
-      if (!session) {
-        logger.warn('[useBienBot] No session returned from resume', { sid });
-        return;
-      }
-
-      sessionIdRef.current = session._id;
-      invokeContextSentRef.current = true; // Resumed sessions already have context
-      persistSessionId(session._id);
-
-      batchedUpdates(() => {
-        setCurrentSession(session);
-        setPendingActions(
-          (session.pending_actions || []).filter(a => !a.executed)
-        );
-
-        // Build initial messages: greeting + any existing history
-        const initialMessages = [];
-
-        if (greeting) {
-          const greetingContent = greeting.text || greeting.message || (typeof greeting === 'string' ? greeting : '');
-          if (greetingContent) {
-            initialMessages.push({
-              _id: `greeting-${Date.now()}`,
-              role: 'assistant',
-              content: greetingContent,
-              createdAt: new Date().toISOString()
-            });
-          }
-
-          // Extract suggested_next_steps from greeting
-          if (greeting.suggested_next_steps?.length) {
-            setSuggestedNextSteps(greeting.suggested_next_steps);
-          } else {
-            setSuggestedNextSteps([]);
-          }
-        }
-
-        // Append session message history if present
-        if (session.messages?.length) {
-          initialMessages.push(...session.messages);
-        }
-
-        setMessages(initialMessages);
-      });
-    } catch (err) {
-      logger.error('[useBienBot] Failed to load session', { error: err.message, sid });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [persistSessionId, invokeContext]);
-
-  /**
-   * Clear the current session state. Does NOT delete the session server-side.
-   */
-  const clearSession = useCallback(() => {
-    cancelStream();
-    clearPersistedSession();
-
-    batchedUpdates(() => {
-      sessionIdRef.current = null;
-      invokeContextSentRef.current = false;
-      setCurrentSession(null);
-      setMessages([]);
-      setPendingActions([]);
-      setSuggestedNextSteps([]);
-      setIsLoading(false);
-      setIsStreaming(false);
-    });
-  }, [cancelStream, clearPersistedSession]);
-
-  /**
-   * Reset session tracking without clearing messages or suggested prompts.
-   * Used when the user navigates to a new entity without sending any messages,
-   * so the analysis greeting for the new entity can be shown while ensuring the
-   * next message creates a fresh session anchored to the new entity.
-   */
-  const resetSession = useCallback(() => {
-    cancelStream();
-    clearPersistedSession();
-
-    batchedUpdates(() => {
-      sessionIdRef.current = null;
-      invokeContextSentRef.current = false;
-      setCurrentSession(null);
-      setPendingActions([]);
-      setIsLoading(false);
-      setIsStreaming(false);
-      // Intentionally does NOT clear messages or suggestedNextSteps so the
-      // analysis greeting for the new entity remains visible.
-    });
-  }, [cancelStream, clearPersistedSession]);
-
-  /**
-   * Delete a session server-side. Only the session owner may do this.
-   * Directly updates local state after successful API call for immediate feedback.
-   *
-   * @param {string} sid - Session ID to delete
-   * @returns {Promise<void>}
-   */
-  const deleteSession = useCallback(async (sid) => {
-    if (!sid) return;
-    try {
-      await deleteSessionAPI(sid);
-      // Directly update state after successful API call (don't rely solely on event bus)
-      setSessions(prev => prev.filter(s => s._id !== sid));
-      if (sessionIdRef.current === sid) {
-        clearSession();
-      }
-    } catch (err) {
-      logger.error('[useBienBot] Failed to delete session', { error: err.message, sid });
-      throw err;
-    }
-  }, [clearSession]);
-
-  // ---------------------------------------------------------------------------
-  // Fetch sessions list
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Refresh the sessions list from the server.
-   *
-   * @param {Object} [options] - Filter options ({ status })
-   */
-  const fetchSessions = useCallback(async (options) => {
-    try {
-      const result = await getSessions(options);
-      setSessions(result?.sessions || []);
-    } catch (err) {
-      logger.error('[useBienBot] Failed to fetch sessions', { error: err.message });
-    }
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Load initial session if provided
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (initialSessionId) {
-      loadSession(initialSessionId);
-    }
-  }, [initialSessionId, loadSession]);
-
-  // ---------------------------------------------------------------------------
-  // Event subscriptions — keep sessions list in sync
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const unsubDeleted = eventBus.subscribe('bienbot:session_deleted', (event) => {
-      const deletedId = event.sessionId;
-      if (deletedId) {
-        setSessions(prev => prev.filter(s => s._id !== deletedId));
-        // If the deleted session is the current one, clear it
-        if (sessionIdRef.current === deletedId) {
-          clearSession();
-        }
-      }
-    });
-
-    const unsubResumed = eventBus.subscribe('bienbot:session_resumed', (event) => {
-      const resumedId = event.sessionId;
-      if (resumedId) {
-        // Move resumed session to top of list
-        setSessions(prev => {
-          const session = prev.find(s => s._id === resumedId);
-          if (!session) return prev;
-          return [session, ...prev.filter(s => s._id !== resumedId)];
-        });
-      }
-    });
-
-    const unsubCreated = eventBus.subscribe('bienbot:session_created', (event) => {
-      const { sessionId: createdId, userId: creatorId } = event;
-      // Only react to sessions created by this user in another tab
-      if (createdId && creatorId === userId && createdId !== sessionIdRef.current) {
-        fetchSessions();
-      }
-    });
-
-    return () => {
-      unsubDeleted();
-      unsubResumed();
-      unsubCreated();
-    };
-  }, [clearSession, fetchSessions, userId]);
-
-  // ---------------------------------------------------------------------------
-  // Session sharing
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Share the current session with another user.
-   *
-   * @param {string} userId - User ID to share with
-   * @param {string} [role='viewer'] - 'viewer' or 'editor'
-   * @returns {Promise<Object|null>} Updated shared_with list, or null on error
-   */
-  const shareSession = useCallback(async (userId, role = 'viewer') => {
-    const sid = sessionIdRef.current;
-    if (!sid || !userId) return null;
-
-    try {
-      const result = await addCollaboratorAPI(sid, userId, role);
-      if (result?.shared_with) {
-        setCurrentSession(prev => prev ? { ...prev, shared_with: result.shared_with } : prev);
-      }
-      return result;
-    } catch (err) {
-      logger.error('[useBienBot] Failed to share session', { error: err.message });
-      return null;
-    }
-  }, []);
-
-  /**
-   * Remove a collaborator from the current session.
-   *
-   * @param {string} userId - User ID to remove
-   * @returns {Promise<Object|null>} Updated shared_with list, or null on error
-   */
-  const unshareSession = useCallback(async (userId) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !userId) return null;
-
-    try {
-      const result = await removeCollaboratorAPI(sid, userId);
-      if (result?.shared_with) {
-        setCurrentSession(prev => prev ? { ...prev, shared_with: result.shared_with } : prev);
-      }
-      return result;
-    } catch (err) {
-      logger.error('[useBienBot] Failed to unshare session', { error: err.message });
-      return null;
-    }
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Workflow step management
+  // Shared comments + mutual-follower search
   // ---------------------------------------------------------------------------
 
   /**
@@ -927,122 +394,6 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
       return [];
     }
   }, []);
-
-  /**
-   * Approve a workflow step. Executes it immediately and updates local state.
-   *
-   * @param {string} actionId - Action ID to approve
-   * @returns {Promise<Object|null>} Updated action result, or null on error
-   */
-  const approveStep = useCallback(async (actionId) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !actionId) return null;
-
-    setIsLoading(true);
-    try {
-      const data = await updateActionStatusAPI(sid, actionId, 'approved');
-
-      // Sync pending actions from server response
-      if (data?.pending_actions) {
-        setPendingActions(data.pending_actions.filter(a => !a.executed));
-      }
-
-      return data;
-    } catch (err) {
-      logger.error('[useBienBot] Failed to approve step', { error: err.message, actionId });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Skip a workflow step. Cascades failure to dependent steps.
-   *
-   * @param {string} actionId - Action ID to skip
-   * @returns {Promise<Object|null>} Updated action result, or null on error
-   */
-  const skipStep = useCallback(async (actionId) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !actionId) return null;
-
-    try {
-      const data = await updateActionStatusAPI(sid, actionId, 'skipped');
-
-      if (data?.pending_actions) {
-        setPendingActions(data.pending_actions.filter(a => !a.executed));
-      }
-
-      return data;
-    } catch (err) {
-      logger.error('[useBienBot] Failed to skip step', { error: err.message, actionId });
-      return null;
-    }
-  }, []);
-
-  /**
-   * Edit a workflow step's payload and optionally approve it.
-   *
-   * @param {string} actionId - Action ID to edit
-   * @param {Object} newPayload - Updated payload
-   * @returns {Promise<Object|null>} Updated action result, or null on error
-   */
-  const editStep = useCallback(async (actionId, newPayload) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !actionId) return null;
-
-    setIsLoading(true);
-    try {
-      const data = await updateActionStatusAPI(sid, actionId, 'approved', newPayload);
-
-      if (data?.pending_actions) {
-        setPendingActions(data.pending_actions.filter(a => !a.executed));
-      }
-
-      return data;
-    } catch (err) {
-      logger.error('[useBienBot] Failed to edit step', { error: err.message, actionId });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Cancel an entire workflow (skip all remaining pending steps).
-   *
-   * @param {string} workflowId - Workflow ID to cancel
-   * @returns {Promise<void>}
-   */
-  const cancelWorkflow = useCallback(async (workflowId) => {
-    const sid = sessionIdRef.current;
-    if (!sid || !workflowId) return;
-
-    const workflowSteps = pendingActions.filter(
-      a => a.workflow_id === workflowId && a.status === 'pending'
-    );
-
-    for (const step of workflowSteps) {
-      try {
-        await updateActionStatusAPI(sid, step.id, 'skipped');
-      } catch (err) {
-        logger.error('[useBienBot] Failed to skip workflow step during cancel', {
-          error: err.message,
-          actionId: step.id
-        });
-      }
-    }
-
-    // Refresh pending actions from server
-    try {
-      const sessionData = await getSession(sid);
-      if (sessionData?.pending_actions) {
-        setPendingActions(sessionData.pending_actions.filter(a => !a.executed));
-      }
-    } catch (err) {
-      logger.error('[useBienBot] Failed to refresh after workflow cancel', { error: err.message });
-    }
-  }, [pendingActions]);
 
   // ---------------------------------------------------------------------------
   // Cleanup: cancel in-flight stream on unmount
