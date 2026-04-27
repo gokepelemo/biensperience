@@ -51,6 +51,7 @@ export default function LoginForm({ setUser }) {
     const navigate = useNavigate();
     const passwordTimerRef = useRef(null);
     const emailInputRef = useRef(null);
+    const copyTimerRef = useRef(null);
 
     /**
      * Fill demo credentials into the form
@@ -70,7 +71,8 @@ export default function LoginForm({ setUser }) {
         try {
             await navigator.clipboard.writeText(text);
             setCopiedField(field);
-            setTimeout(() => setCopiedField(null), 2000);
+            if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+            copyTimerRef.current = setTimeout(() => setCopiedField(null), 2000);
         } catch (err) {
             // Fallback for older browsers
             const textArea = document.createElement('textarea');
@@ -80,7 +82,8 @@ export default function LoginForm({ setUser }) {
             document.execCommand('copy');
             document.body.removeChild(textArea);
             setCopiedField(field);
-            setTimeout(() => setCopiedField(null), 2000);
+            if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+            copyTimerRef.current = setTimeout(() => setCopiedField(null), 2000);
         }
     }
 
@@ -171,11 +174,14 @@ export default function LoginForm({ setUser }) {
         }
     }
 
-    // Cleanup timer on component unmount
+    // Cleanup timers on component unmount
     useEffect(() => {
         return () => {
             if (passwordTimerRef.current) {
                 clearTimeout(passwordTimerRef.current);
+            }
+            if (copyTimerRef.current) {
+                clearTimeout(copyTimerRef.current);
             }
         };
     }, []);
