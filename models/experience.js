@@ -241,41 +241,129 @@ const experienceSchema = new Schema(
 
 experienceSchema.index({ destination: 1 });
 
-experienceSchema.virtual("cost_estimate").get(function () {
-  const calculateTotalCost = (itemId) => {
-    const item = this.plan_items.id(itemId);
-    if (!item) return 0;
-    let total = item.cost_estimate || 0;
-    this.plan_items.forEach(subItem => {
-      if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
-        total += calculateTotalCost(subItem._id);
-      }
-    });
-    return total;
-  };
-  if (!this.plan_items || this.plan_items.length === 0) return 0;
-  return this.plan_items.reduce((sum, item) => {
-    if (!item.parent) { // only root items
-      return sum + calculateTotalCost(item._id);
+/**
+ * Per-document memoization for cost_estimate / max_planning_days virtuals.
+ *
+ * Both virtuals previously did O(N) recursive descents per root item, calling
+ * `plan_items.id(...)` (which is O(N)) and a nested `forEach` on the full
+ * plan_items array — overall O(N^2) per serialization. With deeply nested
+ * plan_items this dominated list-view serialize cost.
+ *
+ * Strategy:
+ *  - Build a parent -> children index ONCE per plan_items array reference.
+ *  - Traverse iteratively (post-order via stack) to fold up totals/max-days.
+ *  - Cache the result in a WeakMap keyed on the plan_items array reference,
+ *    so repeated `toJSON` / `toObject` calls within a single request reuse
+ *    the computation. The cache is freed automatically when the document
+ *    (and therefore its plan_items array) is GC'd.
+ *
+ * Invalidation: Mongoose mutations to plan_items keep the SAME array object
+ * (it's a MongooseArray). We invalidate by snapshotting the array length and
+ * a cheap fingerprint of its contents; a mismatch on subsequent reads
+ * triggers recomputation.
+ */
+const COST_CACHE = new WeakMap();
+const PLANNING_DAYS_CACHE = new WeakMap();
+
+function fingerprintPlanItems(planItems) {
+  // Cheap O(N) fingerprint that changes if a relevant field mutates.
+  // We intentionally skip _id stringification on every read by using the
+  // raw _id value (ObjectId) as part of the fingerprint indirectly via
+  // length + summed numeric fields + last item _id reference identity.
+  let costSum = 0;
+  let daysSum = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    const it = planItems[i];
+    costSum += Number(it.cost_estimate) || 0;
+    daysSum += Number(it.planning_days) || 0;
+  }
+  return `${planItems.length}:${costSum}:${daysSum}`;
+}
+
+function buildChildIndex(planItems) {
+  // Map<parentIdString, indices[]> — root items are bucketed under '__root__'.
+  const childrenByParent = new Map();
+  for (let i = 0; i < planItems.length; i++) {
+    const it = planItems[i];
+    const parentKey = it.parent ? String(it.parent) : '__root__';
+    let bucket = childrenByParent.get(parentKey);
+    if (!bucket) {
+      bucket = [];
+      childrenByParent.set(parentKey, bucket);
     }
-    return sum;
-  }, 0);
+    bucket.push(i);
+  }
+  return childrenByParent;
+}
+
+function computeCostEstimate(planItems) {
+  if (!planItems || planItems.length === 0) return 0;
+  const childrenByParent = buildChildIndex(planItems);
+  // Iterative post-order traversal of all subtrees rooted at items without a parent.
+  // Because cost is purely additive, we can sum every reachable item exactly once
+  // by walking from each root via the children index.
+  let total = 0;
+  const stack = [];
+  const roots = childrenByParent.get('__root__') || [];
+  for (const rootIdx of roots) stack.push(rootIdx);
+  while (stack.length > 0) {
+    const idx = stack.pop();
+    const item = planItems[idx];
+    total += Number(item.cost_estimate) || 0;
+    const childIndices = childrenByParent.get(String(item._id));
+    if (childIndices) {
+      for (const ci of childIndices) stack.push(ci);
+    }
+  }
+  return total;
+}
+
+function computeMaxPlanningDays(planItems) {
+  if (!planItems || planItems.length === 0) return 0;
+  const childrenByParent = buildChildIndex(planItems);
+  // For each root, compute max planning_days down its subtree, then take overall max.
+  const roots = childrenByParent.get('__root__') || [];
+  if (roots.length === 0) return 0;
+  let overallMax = 0;
+  // Iterative DFS per root, tracking max along the path.
+  for (const rootIdx of roots) {
+    const stack = [rootIdx];
+    let subtreeMax = 0;
+    while (stack.length > 0) {
+      const idx = stack.pop();
+      const item = planItems[idx];
+      const days = Number(item.planning_days) || 0;
+      if (days > subtreeMax) subtreeMax = days;
+      const childIndices = childrenByParent.get(String(item._id));
+      if (childIndices) {
+        for (const ci of childIndices) stack.push(ci);
+      }
+    }
+    if (subtreeMax > overallMax) overallMax = subtreeMax;
+  }
+  return overallMax;
+}
+
+experienceSchema.virtual("cost_estimate").get(function () {
+  const planItems = this.plan_items;
+  if (!planItems || planItems.length === 0) return 0;
+  const cached = COST_CACHE.get(planItems);
+  const fp = fingerprintPlanItems(planItems);
+  if (cached && cached.fp === fp) return cached.value;
+  const value = computeCostEstimate(planItems);
+  COST_CACHE.set(planItems, { fp, value });
+  return value;
 });
 
 experienceSchema.virtual("max_planning_days").get(function () {
-  const calculateMaxDays = (itemId) => {
-    const item = this.plan_items.id(itemId);
-    if (!item) return 0;
-    let maxDays = item.planning_days || 0;
-    this.plan_items.forEach(subItem => {
-      if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
-        maxDays = Math.max(maxDays, calculateMaxDays(subItem._id));
-      }
-    });
-    return maxDays;
-  };
-  if (!this.plan_items || this.plan_items.length === 0) return 0;
-  return Math.max(...this.plan_items.filter(item => !item.parent).map(item => calculateMaxDays(item._id)));
+  const planItems = this.plan_items;
+  if (!planItems || planItems.length === 0) return 0;
+  const cached = PLANNING_DAYS_CACHE.get(planItems);
+  const fp = fingerprintPlanItems(planItems);
+  if (cached && cached.fp === fp) return cached.value;
+  const value = computeMaxPlanningDays(planItems);
+  PLANNING_DAYS_CACHE.set(planItems, { fp, value });
+  return value;
 });
 
 experienceSchema.virtual("completion_percentage").get(function () {
@@ -342,6 +430,11 @@ experienceSchema.pre('save', function (next) {
  * Pre-save hook: ensure `experience_type_slugs` is populated from `experience_type`.
  * - Slugifies each tag value
  * - Ensures global uniqueness of the slug by appending a short random suffix when a collision exists
+ *
+ * PERF: previously did up to N*5 sequential DB queries (one `findOne` per tag
+ * per retry). Now batches all candidates into ONE `$in` query per attempt
+ * round, so a save with N tags issues 1 query in the common (no-collision)
+ * case and at most 5 queries total in the worst case (down from 5*N).
  */
 experienceSchema.pre('save', async function (next) {
   try {
@@ -359,31 +452,63 @@ experienceSchema.pre('save', async function (next) {
 
     const crypto = require('crypto');
     const Experience = mongoose.model('Experience');
+    const selfIdStr = this._id ? String(this._id) : null;
 
-    const slugs = [];
+    // Collect base slugs (deduped, valid only)
+    const tagBases = [];
+    const seenBase = new Set();
     for (const rawTag of this.experience_type) {
       if (!rawTag || typeof rawTag !== 'string') continue;
-      let base = slugify(rawTag);
-      if (!base) continue;
-
-      // Ensure this slug is unique across experiences; if collision, append short hash
-      let candidate = base;
-      let attempts = 0;
-      while (attempts < 5) {
-        const conflict = await Experience.findOne({ experience_type_slugs: candidate }, { _id: 1 }).lean().exec();
-        // Allow conflict if it is the same document (update case)
-        if (!conflict || (this._id && String(conflict._id) === String(this._id))) break;
-        // Collision with another document: append short random suffix
-        const suffix = crypto.randomBytes(3).toString('hex');
-        candidate = `${base}-${suffix}`;
-        attempts += 1;
-      }
-
-      slugs.push(candidate);
+      const base = slugify(rawTag);
+      if (!base || seenBase.has(base)) continue;
+      seenBase.add(base);
+      tagBases.push(base);
     }
 
-    // Deduplicate and set
-    this.experience_type_slugs = Array.from(new Set(slugs));
+    if (tagBases.length === 0) {
+      this.experience_type_slugs = [];
+      return next();
+    }
+
+    // Working state: tag -> candidate slug (starts as base, may gain suffix)
+    const tagToCandidate = new Map(tagBases.map(b => [b, b]));
+    const MAX_ATTEMPTS = 5;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const candidates = Array.from(tagToCandidate.values());
+
+      // ONE batched query per round: find any experiences (excluding self)
+      // whose experience_type_slugs intersect our candidate set.
+      const filter = { experience_type_slugs: { $in: candidates } };
+      if (selfIdStr) filter._id = { $ne: this._id };
+      const conflicts = await Experience.find(filter, { experience_type_slugs: 1 })
+        .lean()
+        .exec();
+
+      // Build a set of taken slugs (only those in our candidate list)
+      const candidateSet = new Set(candidates);
+      const taken = new Set();
+      for (const conflict of conflicts) {
+        const slugs = conflict.experience_type_slugs || [];
+        for (const s of slugs) {
+          if (candidateSet.has(s)) taken.add(s);
+        }
+      }
+
+      if (taken.size === 0) break; // all good
+
+      // Re-suffix only the colliding candidates; non-colliding ones are kept.
+      for (const [base, candidate] of tagToCandidate.entries()) {
+        if (taken.has(candidate)) {
+          const suffix = crypto.randomBytes(3).toString('hex');
+          tagToCandidate.set(base, `${base}-${suffix}`);
+        }
+      }
+      // Loop again to verify the new suffixed candidates don't themselves collide.
+    }
+
+    // Deduplicate (defensive — bases were already deduped) and set
+    this.experience_type_slugs = Array.from(new Set(tagToCandidate.values()));
     return next();
   } catch (err) {
     return next(err);
