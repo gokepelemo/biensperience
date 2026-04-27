@@ -774,16 +774,8 @@ async function addDestinationPermission(req, res) {
     }
 
     const { _id, entity, type } = req.body;
-
-    // Validate required fields
-    if (!_id || !entity) {
-      return errorResponse(res, null, 'Permission must have _id and entity fields', 400);
-    }
-
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(_id)) {
-      return errorResponse(res, null, 'Invalid permission _id format', 400);
-    }
+    // Format/presence checks for `_id`, `entity`, and `_id` ObjectId shape
+    // are handled by `validate(addDestinationPermissionSchema)` in the route.
 
     // Validate entity exists
     if (entity === permissions.ENTITY_TYPES.USER) {

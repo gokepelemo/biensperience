@@ -16,6 +16,17 @@ const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware'
 const { createUploadMiddleware } = require('../../utilities/upload-middleware');
 const { skipIfSuperAdmin } = require('../../config/rateLimiters');
 const { createRateLimitStore } = require('../../utilities/rate-limit-store');
+const { validate } = require('../../utilities/validate');
+const {
+  chatSchema,
+  executeSchema,
+  resumeSchema,
+  updateContextSchema,
+  updatePendingActionSchema,
+  addSessionCollaboratorSchema,
+  analyzeSchema,
+  applyTipsSchema,
+} = require('../../controllers/api/bienbot.schemas');
 
 const { upload: bienbotUpload, handleError: bienbotHandleError } = createUploadMiddleware({
   dest: 'uploads/temp',
@@ -54,7 +65,7 @@ router.use(bienbotRateLimiter);
  *          Supports optional file attachment via multipart/form-data
  * @access  Private (requires ai_features flag)
  */
-router.post('/chat', bienbotUpload.single('attachment'), bienbotHandleError, bienbotCtrl.chat);
+router.post('/chat', bienbotUpload.single('attachment'), bienbotHandleError, validate(chatSchema), bienbotCtrl.chat);
 
 /**
  * @route   GET /api/bienbot/sessions
@@ -82,14 +93,14 @@ router.delete('/sessions/:id', bienbotCtrl.deleteSession);
  * @desc    Execute pending actions from a session
  * @access  Private (requires ai_features flag)
  */
-router.post('/sessions/:id/execute', bienbotCtrl.execute);
+router.post('/sessions/:id/execute', validate(executeSchema), bienbotCtrl.execute);
 
 /**
  * @route   POST /api/bienbot/sessions/:id/resume
  * @desc    Resume a past session with summary and greeting
  * @access  Private (requires ai_features flag)
  */
-router.post('/sessions/:id/resume', bienbotCtrl.resume);
+router.post('/sessions/:id/resume', validate(resumeSchema), bienbotCtrl.resume);
 
 /**
  * @route   DELETE /api/bienbot/sessions/:id/pending/:actionId
@@ -103,7 +114,7 @@ router.delete('/sessions/:id/pending/:actionId', bienbotCtrl.deletePendingAction
  * @desc    Update a pending action's status (approve, skip) or edit its payload
  * @access  Private (requires ai_features flag)
  */
-router.patch('/sessions/:id/pending/:actionId', bienbotCtrl.updatePendingAction);
+router.patch('/sessions/:id/pending/:actionId', validate(updatePendingActionSchema), bienbotCtrl.updatePendingAction);
 
 /**
  * @route   GET /api/bienbot/sessions/:id/workflow/:workflowId
@@ -117,7 +128,7 @@ router.get('/sessions/:id/workflow/:workflowId', bienbotCtrl.getWorkflowState);
  * @desc    Update session context mid-conversation (e.g. plan item opened)
  * @access  Private (requires ai_features flag)
  */
-router.post('/sessions/:id/context', bienbotCtrl.updateContext);
+router.post('/sessions/:id/context', validate(updateContextSchema), bienbotCtrl.updateContext);
 
 /**
  * @route   GET /api/bienbot/mutual-followers
@@ -131,7 +142,7 @@ router.get('/mutual-followers', bienbotCtrl.getMutualFollowers);
  * @desc    Share a session with another user (owner only)
  * @access  Private (requires ai_features flag)
  */
-router.post('/sessions/:id/collaborators', bienbotCtrl.addSessionCollaborator);
+router.post('/sessions/:id/collaborators', validate(addSessionCollaboratorSchema), bienbotCtrl.addSessionCollaborator);
 
 /**
  * @route   DELETE /api/bienbot/sessions/:id/collaborators/:userId
@@ -159,14 +170,14 @@ router.delete('/memory', bienbotCtrl.clearMemory);
  * @desc    Proactively analyze an entity and return suggestions without starting a conversation
  * @access  Private (requires ai_features flag)
  */
-router.post('/analyze', bienbotCtrl.analyze);
+router.post('/analyze', validate(analyzeSchema), bienbotCtrl.analyze);
 
 /**
  * @route   POST /api/bienbot/sessions/:id/tips
  * @desc    Directly append selected travel tips to a destination (bypasses LLM)
  * @access  Private (requires ai_features flag)
  */
-router.post('/sessions/:id/tips', bienbotCtrl.applyTips);
+router.post('/sessions/:id/tips', validate(applyTipsSchema), bienbotCtrl.applyTips);
 
 /**
  * @route   GET /api/bienbot/sessions/:id/attachments/:messageIndex/:attachmentIndex

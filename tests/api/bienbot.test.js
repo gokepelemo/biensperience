@@ -1062,7 +1062,12 @@ describe('BienBot API', () => {
         .send({ entityId: plan._id.toString() });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/entity is required/i);
+      // Zod-validated route — surface comes from VALIDATION_ERROR envelope
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      const entityIssue = (res.body.issues || []).find(i =>
+        Array.isArray(i.path) && i.path.join('.') === 'body.entity'
+      );
+      expect(entityIssue).toBeDefined();
     });
 
     it('returns 400 when entity is not a string', async () => {
@@ -1072,7 +1077,11 @@ describe('BienBot API', () => {
         .send({ entity: 123, entityId: plan._id.toString() });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/entity is required/i);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      const entityIssue = (res.body.issues || []).find(i =>
+        Array.isArray(i.path) && i.path.join('.') === 'body.entity'
+      );
+      expect(entityIssue).toBeDefined();
     });
 
     it('returns 400 for unsupported entity type', async () => {
@@ -1082,7 +1091,11 @@ describe('BienBot API', () => {
         .send({ entity: 'unknown_entity', entityId: user._id.toString() });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/unsupported entity type/i);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      const entityIssue = (res.body.issues || []).find(i =>
+        Array.isArray(i.path) && i.path.join('.') === 'body.entity'
+      );
+      expect(entityIssue).toBeDefined();
     });
 
     it('returns 400 when entityId is missing', async () => {
@@ -1092,7 +1105,11 @@ describe('BienBot API', () => {
         .send({ entity: 'plan' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/entityId is required/i);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      const idIssue = (res.body.issues || []).find(i =>
+        Array.isArray(i.path) && i.path.join('.') === 'body.entityId'
+      );
+      expect(idIssue).toBeDefined();
     });
 
     it('returns 400 when entityId is not a string', async () => {
@@ -1102,7 +1119,11 @@ describe('BienBot API', () => {
         .send({ entity: 'plan', entityId: 12345 });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/entityId is required/i);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      const idIssue = (res.body.issues || []).find(i =>
+        Array.isArray(i.path) && i.path.join('.') === 'body.entityId'
+      );
+      expect(idIssue).toBeDefined();
     });
 
     it('returns 400 for invalid ObjectId format', async () => {
@@ -1112,7 +1133,11 @@ describe('BienBot API', () => {
         .send({ entity: 'plan', entityId: 'not-an-objectid' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/invalid entityId/i);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      const idIssue = (res.body.issues || []).find(i =>
+        Array.isArray(i.path) && i.path.join('.') === 'body.entityId'
+      );
+      expect(idIssue).toBeDefined();
     });
 
     // --- Entity not found ---
