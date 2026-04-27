@@ -15,6 +15,7 @@ const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware');
 const { createUploadMiddleware } = require('../../utilities/upload-middleware');
 const { skipIfSuperAdmin } = require('../../config/rateLimiters');
+const { createRateLimitStore } = require('../../utilities/rate-limit-store');
 
 const { upload: bienbotUpload, handleError: bienbotHandleError } = createUploadMiddleware({
   dest: 'uploads/temp',
@@ -38,7 +39,8 @@ const bienbotRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: skipIfSuperAdmin
+  skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:bienbot:' })
 });
 
 // All routes require auth + ai_features flag

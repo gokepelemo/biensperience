@@ -13,6 +13,7 @@ const rateLimit = require('express-rate-limit');
 const aiCtrl = require('../../controllers/api/ai');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware');
+const { createRateLimitStore } = require('../../utilities/rate-limit-store');
 
 // Helper: skip limiting for super admins
 function skipIfSuperAdmin(req) {
@@ -36,7 +37,8 @@ const aiRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: skipIfSuperAdmin
+  skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:ai:' })
 });
 
 /**

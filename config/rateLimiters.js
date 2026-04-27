@@ -4,6 +4,7 @@
  */
 
 const rateLimit = require('express-rate-limit');
+const { createRateLimitStore } = require('../utilities/rate-limit-store');
 
 // Helper: skip limiting for super admins
 function skipIfSuperAdmin(req) {
@@ -27,6 +28,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:api:' }),
 });
 
 /**
@@ -43,6 +45,7 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
   // Super admin skip doesn't apply pre-auth, but leaving for completeness on authenticated auth endpoints
   skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:auth:' }),
 });
 
 /**
@@ -58,6 +61,7 @@ const collaboratorLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:collab:' }),
 });
 
 /**
@@ -72,6 +76,7 @@ const modificationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:mod:' }),
 });
 
 /**
@@ -86,6 +91,7 @@ const externalApiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:external:' }),
 });
 
 /**
@@ -100,6 +106,7 @@ const staticAssetsLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   // No super admin skip for static assets - it's unauthenticated
+  store: createRateLimitStore({ prefix: 'rl:static:' }),
 });
 
 module.exports = {
