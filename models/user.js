@@ -712,6 +712,7 @@ userSchema.methods.isSessionValid = function(sessionId) {
  */
 userSchema.methods.generateToken = function() {
   const jwt = require('jsonwebtoken');
+  const { generateJti } = require('../utilities/jwt-denylist');
   const u = this.toObject ? this.toObject() : this;
   const payload = {
     _id: u._id,
@@ -736,9 +737,10 @@ userSchema.methods.generateToken = function() {
       .filter(f => f.enabled)
       .map(f => ({ flag: f.flag, enabled: true })),
   };
+  // jti enables Redis-backed revocation (see utilities/jwt-denylist.js).
   const { getJwtSecret } = require('../utilities/secrets');
   return jwt.sign(
-    { user: payload },
+    { user: payload, jti: generateJti() },
     getJwtSecret(),
     { expiresIn: '24h' }
   );

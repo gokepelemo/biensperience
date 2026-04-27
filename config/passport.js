@@ -478,8 +478,10 @@ function buildJwtPayload(user) {
  * Helper function to create JWT token for OAuth users
  */
 function createToken(user) {
+  // jti enables Redis-backed revocation (see utilities/jwt-denylist.js).
+  const { generateJti } = require('../utilities/jwt-denylist');
   return jwt.sign(
-    { user: buildJwtPayload(user) },
+    { user: buildJwtPayload(user), jti: generateJti() },
     getJwtSecret(),
     { expiresIn: '24h' }
   );

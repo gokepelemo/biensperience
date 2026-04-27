@@ -14,6 +14,7 @@ const { successResponse, errorResponse, validateObjectId } = require("../../util
 const { getDefaultPhoto } = require("../../utilities/photo-utils");
 const { generateRawToken, hashToken } = require("../../utilities/token-hash");
 const { getJwtSecret } = require("../../utilities/secrets");
+const { generateJti } = require("../../utilities/jwt-denylist");
 
 function isE164PhoneNumber(value) {
   if (typeof value !== 'string') return false;
@@ -64,7 +65,12 @@ function buildJwtPayload(user) {
 }
 
 function createJWT(user) {
-  return jwt.sign({ user: buildJwtPayload(user) }, getJwtSecret(), { expiresIn: "24h" });
+  // jti enables Redis-backed revocation (see utilities/jwt-denylist.js).
+  return jwt.sign(
+    { user: buildJwtPayload(user), jti: generateJti() },
+    getJwtSecret(),
+    { expiresIn: "24h" }
+  );
 }
 
 async function create(req, res) {
