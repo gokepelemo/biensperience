@@ -27,6 +27,7 @@ const url = require('url');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const backendLogger = require('./backend-logger');
+const { isDenylisted } = require('./jwt-denylist');
 
 /**
  * Cache for user profile visibility to avoid repeated DB queries
@@ -407,6 +408,7 @@ function createWebSocketServer(server, options = {}) {
     }
 
     let user;
+    let decodedJti = null;
     try {
       const secret = process.env.SECRET || process.env.JWT_SECRET;
       if (!secret) {
@@ -417,6 +419,7 @@ function createWebSocketServer(server, options = {}) {
 
       const decoded = jwt.verify(token, secret);
       user = decoded?.user || decoded;
+      decodedJti = decoded?.jti || null;
     } catch (error) {
       backendLogger.warn('[WebSocket] Connection rejected: Invalid token', {
         error: error.message
@@ -430,6 +433,22 @@ function createWebSocketServer(server, options = {}) {
       backendLogger.warn('[WebSocket] Connection rejected: Token missing user id');
       ws.close(4001, 'Unauthorized');
       return;
+    }
+
+    // Reject revoked tokens. Fire-and-forget: if Redis is unavailable
+    // isDenylisted() returns false (graceful), so this never blocks
+    // legitimate connections. We close the socket asynchronously if the
+    // jti has been revoked.
+    if (decodedJti) {
+      isDenylisted(decodedJti).then((revoked) => {
+        if (revoked && ws.readyState === WebSocket.OPEN) {
+          backendLogger.warn('[WebSocket] Closing connection: token denylisted', {
+            jti: decodedJti,
+            userId
+          });
+          try { ws.close(4001, 'Unauthorized'); } catch (_) { /* ignore */ }
+        }
+      }).catch(() => { /* fail open */ });
     }
 
     // Check connection limit per user

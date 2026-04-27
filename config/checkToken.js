@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const ApiToken = require('../models/apiToken');
 const backendLogger = require('../utilities/backend-logger');
+const { isDenylisted } = require('../utilities/jwt-denylist');
 
 module.exports = function(req, res, next) {
     // Check for token in Authorization header, query params, or secure cookie
@@ -43,6 +44,20 @@ module.exports = function(req, res, next) {
             }
 
             try {
+                // Reject revoked tokens (logout, password change, etc.).
+                // Graceful: when Redis is unavailable isDenylisted returns false
+                // and the request proceeds — security degrades to JWT expiry only.
+                if (decoded.jti && await isDenylisted(decoded.jti)) {
+                    backendLogger.warn('JWT rejected: token is denylisted', {
+                        jti: decoded.jti,
+                        userId: decoded.user && decoded.user._id,
+                        ip: req.ip,
+                        path: req.path
+                    });
+                    req.user = null;
+                    return next();
+                }
+
                 // Verify user still exists in database
                 const user = await User.findById(decoded.user._id);
                 if (!user) {
@@ -68,6 +83,10 @@ module.exports = function(req, res, next) {
                 // Convert to plain object to ensure all properties are accessible
                 req.user = user.toObject ? user.toObject() : user;
                 req.exp = new Date(decoded.exp * 1000);
+                // Expose jti and the raw exp (seconds-since-epoch) so the
+                // logout endpoint can revoke this specific token.
+                req.jti = decoded.jti || null;
+                req.expSeconds = typeof decoded.exp === 'number' ? decoded.exp : null;
                 return next();
             } catch (dbErr) {
                 backendLogger.error('Error checking user existence', {

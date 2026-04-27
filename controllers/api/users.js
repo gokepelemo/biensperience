@@ -13,6 +13,7 @@ const { geocodeAddress } = require("../../utilities/geocoding-utils");
 const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/websocket-server");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const { getDefaultPhoto } = require("../../utilities/photo-utils");
+const { generateJti } = require("../../utilities/jwt-denylist");
 
 function isE164PhoneNumber(value) {
   if (typeof value !== 'string') return false;
@@ -63,7 +64,12 @@ function buildJwtPayload(user) {
 }
 
 function createJWT(user) {
-  return jwt.sign({ user: buildJwtPayload(user) }, process.env.SECRET, { expiresIn: "24h" });
+  // jti enables Redis-backed revocation (see utilities/jwt-denylist.js).
+  return jwt.sign(
+    { user: buildJwtPayload(user), jti: generateJti() },
+    process.env.SECRET,
+    { expiresIn: "24h" }
+  );
 }
 
 async function create(req, res) {

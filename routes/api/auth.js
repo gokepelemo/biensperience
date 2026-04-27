@@ -564,33 +564,51 @@ router.get('/linked-accounts', ensureLoggedIn, async (req, res) => {
 router.post('/logout', ensureLoggedIn, async (req, res) => {
   try {
     const { clearSessionForUser } = require('../../utilities/session-middleware');
+    const { addToDenylist, remainingSecondsFromExp } = require('../../utilities/jwt-denylist');
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       backendLogger.warn('Logout attempted for non-existent user', { userId: req.user._id });
       return res.status(200).json({ message: 'Logged out successfully' });
     }
-    
+
+    // Revoke the current JWT by adding its jti to the Redis denylist with
+    // TTL = remaining token lifetime. No-op if Redis is unavailable
+    // (security degrades to JWT expiry only — same as today).
+    if (req.jti && req.expSeconds) {
+      const ttl = remainingSecondsFromExp(req.expSeconds);
+      if (ttl > 0) {
+        const added = await addToDenylist(req.jti, ttl);
+        if (added) {
+          backendLogger.info('JWT denylisted on logout', {
+            jti: req.jti,
+            userId: req.user._id,
+            ttlSeconds: ttl
+          });
+        }
+      }
+    }
+
     // Clear session from database
     await clearSessionForUser(user);
-    
+
     // Clear session cookie
     res.clearCookie('bien_session_id', {
       httpOnly: true, // Match the setting used when cookie was created
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
     });
-    
+
     // Clear auth token cookie
     res.clearCookie('auth_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax'
     });
-    
+
     backendLogger.info('User logged out successfully', { userId: req.user._id });
     res.json({ message: 'Logged out successfully' });
-    
+
   } catch (err) {
     backendLogger.error('Logout error', { error: err.message, userId: req.user._id });
     res.status(500).json({ error: 'Failed to logout' });
