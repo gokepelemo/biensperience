@@ -37,11 +37,12 @@ export default function TwoFactorAuthModal({
     if (show) {
       setCode(['', '', '', '', '', '']);
       // Focus first input after a short delay
-      setTimeout(() => {
+      const focusTimer = setTimeout(() => {
         if (inputRefs.current[0]) {
           inputRefs.current[0].focus();
         }
       }, 100);
+      return () => clearTimeout(focusTimer);
     }
   }, [show]);
 

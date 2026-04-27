@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Box, Flex, SimpleGrid, NativeSelect } from "@chakra-ui/react";
 import { FaUserShield, FaUser, FaEnvelope, FaCalendarAlt, FaFilter, FaSort, FaSortUp, FaSortDown, FaUserPlus, FaTimes } from "react-icons/fa";
@@ -83,6 +83,12 @@ export default function AllUsers() {
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const errorClearTimerRef = useRef(null);
+
+  // Clear error auto-dismiss timer on unmount.
+  useEffect(() => () => {
+    if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
+  }, []);
 
   const hasActiveFilters = searchTerm.trim() || roleFilter !== 'all';
 
@@ -254,7 +260,8 @@ export default function AllUsers() {
   const handleRoleUpdate = async (userId, newRole) => {
     if (userId === user._id) {
       setError(lang.current.admin.cannotChangeOwnRole);
-      setTimeout(() => setError(null), 3000);
+      if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
+      errorClearTimerRef.current = setTimeout(() => setError(null), 3000);
       return;
     }
 

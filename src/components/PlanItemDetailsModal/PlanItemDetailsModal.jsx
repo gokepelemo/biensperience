@@ -171,6 +171,11 @@ export default function PlanItemDetailsModal({
   // Touch tracking refs for swipe-to-navigate
   const touchStartXRef = useRef(null);
   const touchStartYRef = useRef(null);
+  // Address copy reset timer
+  const addressCopyTimerRef = useRef(null);
+  useEffect(() => () => {
+    if (addressCopyTimerRef.current) clearTimeout(addressCopyTimerRef.current);
+  }, []);
 
   // Mobile/Tablet: allow the details modal to scroll within its fixed overlay.
   // Uses 991px breakpoint to match tab dropdown visibility (same breakpoint as .detailsTabs display: none)
@@ -1161,7 +1166,8 @@ export default function PlanItemDetailsModal({
       logger.debug('[PlanItemDetailsModal] Address copied to clipboard', { address });
 
       // Reset the copied state after 2 seconds
-      setTimeout(() => {
+      if (addressCopyTimerRef.current) clearTimeout(addressCopyTimerRef.current);
+      addressCopyTimerRef.current = setTimeout(() => {
         setAddressCopied(false);
       }, 2000);
     } catch (err) {
@@ -1176,7 +1182,8 @@ export default function PlanItemDetailsModal({
       try {
         document.execCommand('copy');
         setAddressCopied(true);
-        setTimeout(() => setAddressCopied(false), 2000);
+        if (addressCopyTimerRef.current) clearTimeout(addressCopyTimerRef.current);
+        addressCopyTimerRef.current = setTimeout(() => setAddressCopied(false), 2000);
       } catch (fallbackErr) {
         logger.error('[PlanItemDetailsModal] Fallback copy also failed', { error: fallbackErr.message });
       }
