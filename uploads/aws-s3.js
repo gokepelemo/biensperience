@@ -6,17 +6,58 @@ const slugify = require("slugify");
 const path = require("path");
 const backendLogger = require("../utilities/backend-logger");
 
+// Resolve AWS credentials. Prefer the AWS-prefixed env names so the SDK can
+// also pick up IAM instance-role credentials transparently in deployment
+// environments. Fall back to legacy bare names with a one-time deprecation
+// warn — drop the fallback in a future release.
+let _legacyAwsWarned = false;
+function resolveAwsCredentials() {
+  const access = process.env.AWS_ACCESS_KEY_ID;
+  const secret = process.env.AWS_SECRET_ACCESS_KEY;
+  if (access && secret) return { accessKeyId: access, secretAccessKey: secret };
+
+  const legacyAccess = process.env.ACCESS_KEY_ID;
+  const legacySecret = process.env.SECRET_ACCESS_KEY;
+  if (legacyAccess && legacySecret) {
+    if (!_legacyAwsWarned) {
+      _legacyAwsWarned = true;
+      backendLogger.warn(
+        "[aws] Using legacy ACCESS_KEY_ID/SECRET_ACCESS_KEY env names. " +
+        "Rename to AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY for IAM instance-role compatibility (bd #8f36.21)."
+      );
+    }
+    return { accessKeyId: legacyAccess, secretAccessKey: legacySecret };
+  }
+
+  // Neither pair set — return undefined so the SDK falls through to its
+  // default credential provider chain (env > shared config > instance metadata).
+  return undefined;
+}
+
 // Create S3 client with v3 configuration
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.ACCESS_KEY_ID,
-    secretAccessKey: process.env.SECRET_ACCESS_KEY,
-  },
+  credentials: resolveAwsCredentials(),
 });
 
-// Bucket configuration
-const PUBLIC_BUCKET = process.env.BUCKET_NAME;
+// Bucket configuration. Prefer S3_BUCKET_NAME (matches .env.example) and the
+// SDK convention; legacy BUCKET_NAME accepted as fallback with a one-time warn.
+let _legacyBucketWarned = false;
+function resolvePublicBucket() {
+  if (process.env.S3_BUCKET_NAME) return process.env.S3_BUCKET_NAME;
+  if (process.env.BUCKET_NAME) {
+    if (!_legacyBucketWarned) {
+      _legacyBucketWarned = true;
+      backendLogger.warn(
+        "[aws] Using legacy BUCKET_NAME env name. Rename to S3_BUCKET_NAME (bd #8f36.21)."
+      );
+    }
+    return process.env.BUCKET_NAME;
+  }
+  return undefined;
+}
+
+const PUBLIC_BUCKET = resolvePublicBucket();
 const PROTECTED_BUCKET = process.env.S3_PROTECTED_BUCKET_NAME;
 
 const fs = require("fs");
@@ -469,7 +510,7 @@ const s3GetSignedUrl = async function (key, options = {}) {
   const bucketName = explicitBucket || (isProtected ? PROTECTED_BUCKET : PUBLIC_BUCKET);
 
   if (!bucketName) {
-    throw new Error('Bucket not configured. Check S3_PROTECTED_BUCKET_NAME or BUCKET_NAME environment variables.');
+    throw new Error('Bucket not configured. Check S3_PROTECTED_BUCKET_NAME or S3_BUCKET_NAME environment variables.');
   }
 
   backendLogger.debug('Generating signed URL', { bucket: bucketName, key, expiresIn });
@@ -512,7 +553,7 @@ const s3Download = async function (key, options = {}) {
   const bucketName = explicitBucket || (isProtected ? PROTECTED_BUCKET : PUBLIC_BUCKET);
 
   if (!bucketName) {
-    throw new Error('Bucket not configured. Check S3_PROTECTED_BUCKET_NAME or BUCKET_NAME environment variables.');
+    throw new Error('Bucket not configured. Check S3_PROTECTED_BUCKET_NAME or S3_BUCKET_NAME environment variables.');
   }
 
   backendLogger.debug('Downloading from S3', { bucket: bucketName, key, isProtected });
