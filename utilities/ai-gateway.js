@@ -16,6 +16,7 @@
 
 const logger = require('./backend-logger');
 const { callProvider, getApiKeyForProvider, getAllProviderConfigs } = require('./ai-provider-registry');
+const { getSharedRedisClient } = require('./rate-limit-store');
 
 // Lazy model loading
 let AIPolicy, AIUsage;
@@ -251,8 +252,28 @@ function mergePolicy(target, source) {
 }
 
 // ---------------------------------------------------------------------------
-// Rate limiting (in-memory sliding window)
+// Rate limiting
 // ---------------------------------------------------------------------------
+//
+// Two backends share the same `checkRateLimit` / `recordRateEntry` API:
+//
+//   1. Redis (selected when REDIS_URL is set) — fixed-window counters per
+//      minute/hour/day. Each window key embeds the bucket epoch (e.g.
+//      `aigw:rate:<userId>:m:<floor(now/60s)>`) so it auto-resets at the
+//      window boundary; we just INCR and set EXPIRE on first increment.
+//      Safe under horizontal scaling.
+//
+//   2. In-memory sliding window (the original implementation) — used in
+//      dev/test and as a graceful fallback if Redis is unavailable. Per-
+//      instance only; do NOT rely on this when numInstances > 1.
+//
+// The fixed-window approximation is intentional for the Redis path: it
+// trades the sliding-window's exact-N-in-last-window guarantee for an
+// atomic, distributed counter. At the boundary a user could in theory
+// fire `2 * limit` requests in the worst case (limit at end of window N
+// + limit at start of window N+1) — acceptable for the AI gateway's
+// abuse-prevention use case, and the same trade-off `rate-limit-redis`
+// makes for the express limiters above.
 
 const rateLimitStore = new Map();
 
@@ -276,16 +297,104 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 /**
+ * Build the per-window Redis key for a user. Embedding the bucket epoch
+ * means we never have to delete keys — they expire naturally and a new
+ * bucket starts at the next boundary.
+ */
+function _windowKey(userId, granularity, windowMs, now) {
+  const bucket = Math.floor(now / windowMs);
+  return `aigw:rate:${userId}:${granularity}:${bucket}`;
+}
+
+/**
+ * Atomically read counters for all active windows. Returns null on any
+ * Redis error so the caller can fall back to the in-memory path.
+ *
+ * @returns {Promise<{minute:number, hour:number, day:number}|null>}
+ */
+async function _redisGetWindowCounts(client, userId, now) {
+  try {
+    const mKey = _windowKey(userId, 'm', MS_PER_MINUTE, now);
+    const hKey = _windowKey(userId, 'h', MS_PER_HOUR, now);
+    const dKey = _windowKey(userId, 'd', MS_PER_DAY, now);
+    const pipeline = client.pipeline();
+    pipeline.get(mKey);
+    pipeline.get(hKey);
+    pipeline.get(dKey);
+    const results = await pipeline.exec();
+    if (!results) return { minute: 0, hour: 0, day: 0 };
+    const [mRes, hRes, dRes] = results;
+    return {
+      minute: parseInt((mRes && mRes[1]) || '0', 10) || 0,
+      hour: parseInt((hRes && hRes[1]) || '0', 10) || 0,
+      day: parseInt((dRes && dRes[1]) || '0', 10) || 0,
+    };
+  } catch (err) {
+    logger.warn('[ai-gateway] Redis rate-check failed, falling back to memory', { error: err.message });
+    return null;
+  }
+}
+
+/**
+ * Atomically increment all three window counters and set their expiries
+ * on first increment (when INCR returns 1). Best-effort — failures fall
+ * back to the in-memory recorder.
+ */
+async function _redisRecordEntry(client, userId, now) {
+  try {
+    const mKey = _windowKey(userId, 'm', MS_PER_MINUTE, now);
+    const hKey = _windowKey(userId, 'h', MS_PER_HOUR, now);
+    const dKey = _windowKey(userId, 'd', MS_PER_DAY, now);
+    const pipeline = client.pipeline();
+    // INCR + PEXPIRE per window. PEXPIRE is set on every call (idempotent
+    // and cheap) so a long-lived bucket can't lose its TTL after a flush.
+    pipeline.incr(mKey);
+    pipeline.pexpire(mKey, MS_PER_MINUTE + 1000);
+    pipeline.incr(hKey);
+    pipeline.pexpire(hKey, MS_PER_HOUR + 1000);
+    pipeline.incr(dKey);
+    pipeline.pexpire(dKey, MS_PER_DAY + 1000);
+    await pipeline.exec();
+    return true;
+  } catch (err) {
+    logger.warn('[ai-gateway] Redis rate-record failed, falling back to memory', { error: err.message });
+    return false;
+  }
+}
+
+/**
  * Check rate limits for a user.
+ *
  * @param {string} userId
  * @param {Object} rateLimits - { requests_per_minute, requests_per_hour, requests_per_day }
- * @returns {{ allowed: boolean, reason: string|null, retryAfterMs: number|null }}
+ * @returns {Promise<{ allowed: boolean, reason: string|null, retryAfterMs: number|null }>}
  */
-function checkRateLimit(userId, rateLimits) {
+async function checkRateLimit(userId, rateLimits) {
   if (!userId || !rateLimits) return { allowed: true, reason: null, retryAfterMs: null };
 
-  const key = `rate:${userId}`;
   const now = Date.now();
+
+  // Redis path (distributed) — fixed-window counters per granularity.
+  const client = getSharedRedisClient();
+  if (client) {
+    const counts = await _redisGetWindowCounts(client, userId, now);
+    if (counts) {
+      if (rateLimits.requests_per_minute != null && counts.minute >= rateLimits.requests_per_minute) {
+        return { allowed: false, reason: 'Rate limit exceeded (per minute)', retryAfterMs: MS_PER_MINUTE };
+      }
+      if (rateLimits.requests_per_hour != null && counts.hour >= rateLimits.requests_per_hour) {
+        return { allowed: false, reason: 'Rate limit exceeded (per hour)', retryAfterMs: MS_PER_HOUR };
+      }
+      if (rateLimits.requests_per_day != null && counts.day >= rateLimits.requests_per_day) {
+        return { allowed: false, reason: 'Rate limit exceeded (per day)', retryAfterMs: MS_PER_DAY };
+      }
+      return { allowed: true, reason: null, retryAfterMs: null };
+    }
+    // Fall through to in-memory if Redis errored.
+  }
+
+  // In-memory sliding-window path (single-instance / dev / fallback).
+  const key = `rate:${userId}`;
   const entries = rateLimitStore.get(key) || [];
 
   if (rateLimits.requests_per_minute != null) {
@@ -313,12 +422,24 @@ function checkRateLimit(userId, rateLimits) {
 }
 
 /**
- * Record a request timestamp for rate limiting.
+ * Record a request timestamp for rate limiting. Async because the Redis
+ * path issues a pipelined INCR/PEXPIRE round-trip; in-memory path
+ * resolves immediately.
  */
-function recordRateEntry(userId) {
+async function recordRateEntry(userId) {
+  const now = Date.now();
+
+  const client = getSharedRedisClient();
+  if (client) {
+    const ok = await _redisRecordEntry(client, userId, now);
+    if (ok) return;
+    // Fall through to in-memory recording on Redis failure so we don't
+    // silently drop accounting and let abusers slip through.
+  }
+
   const key = `rate:${userId}`;
   let entries = rateLimitStore.get(key) || [];
-  entries.push(Date.now());
+  entries.push(now);
   if (entries.length > MAX_RATE_ENTRIES_PER_USER) {
     entries = entries.slice(-RATE_ENTRIES_TRIM_TARGET);
   }
@@ -670,7 +791,7 @@ async function executeAIRequest(params) {
 
   // Step 3: Rate limiting (super admins exempt)
   if (!isSuperAdmin && userId) {
-    const rateCheck = checkRateLimit(userId, policy.rate_limits);
+    const rateCheck = await checkRateLimit(userId, policy.rate_limits);
     if (!rateCheck.allowed) {
       throw new GatewayError(rateCheck.reason, 'RATE_LIMIT_EXCEEDED', 429);
     }
@@ -730,7 +851,7 @@ async function executeAIRequest(params) {
   const providerChain = [route.provider, ...resolvedFallbacks.filter(p => p !== route.provider)];
 
   // Record rate limit entry once per user request
-  if (userId) recordRateEntry(userId);
+  if (userId) await recordRateEntry(userId);
 
   // Shared attempt tracker for the entire failover chain. Without this cap,
   // worst-case attempt count is (maxRetries + 1) × providerChain.length —
