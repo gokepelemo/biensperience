@@ -124,6 +124,23 @@ router.post(
 );
 
 /**
+ * @route   POST /api/ai/edit-language
+ * @desc    Edit/proofread text language (grammar, clarity, tone)
+ * @access  Private (requires ai_features flag)
+ * @body    {
+ *            text: string,
+ *            options?: object
+ *          }
+ */
+router.post(
+  '/edit-language',
+  ensureLoggedIn,
+  requireFeatureFlag('ai_features'),
+  aiRateLimiter,
+  aiCtrl.editLanguage
+);
+
+/**
  * @route   POST /api/ai/summarize
  * @desc    Summarize text
  * @access  Private (requires ai_features flag)
