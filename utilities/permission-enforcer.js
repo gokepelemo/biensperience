@@ -224,6 +224,39 @@ class PermissionEnforcer {
   }
 
   /**
+   * Whether the given user is a super admin. Synchronous — accepts a user
+   * object (not an id). Centralized here so callers don't import permissions.js
+   * directly (bd #9224 — CLAUDE.md target state).
+   * @param {Object} user - User document or plain object
+   * @returns {boolean}
+   */
+  isSuperAdmin(user) {
+    return isSuperAdmin(user);
+  }
+
+  /**
+   * Whether the given user is the owner of the resource. Synchronous —
+   * accepts a user object (not an id). Centralized for the same reason as
+   * isSuperAdmin above.
+   * @param {Object} user - User document or plain object
+   * @param {Object} resource - Resource with permissions[]
+   * @returns {boolean}
+   */
+  isOwner(user, resource) {
+    return isOwner(user, resource);
+  }
+
+  /**
+   * Whether the given user is a collaborator on the resource. Synchronous.
+   * @param {Object} user - User document or plain object
+   * @param {Object} resource - Resource with permissions[]
+   * @returns {boolean}
+   */
+  isCollaborator(user, resource) {
+    return isCollaborator(user, resource);
+  }
+
+  /**
    * Get user's role for a resource
    * @param {string} userId - User ID
    * @param {Object} resource - Resource to check
@@ -1230,9 +1263,15 @@ function getEnforcer(models = null) {
   return enforcerInstance;
 }
 
+// bd #9224 — single public entry point. Re-export every symbol from
+// utilities/permissions.js so consumers can `const permissions = require(
+// '../utilities/permission-enforcer');` and still call permissions.<helper>
+// without breaking change. This makes permission-enforcer.js the canonical
+// import; permissions.js is internal (see its @internal JSDoc).
 module.exports = {
   PermissionEnforcer,
   getEnforcer,
   ACTIONS,
-  VISIBILITY
+  VISIBILITY,
+  ...require('./permissions'),
 };

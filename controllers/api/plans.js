@@ -3,8 +3,9 @@ const Experience = require("../../models/experience");
 const Destination = require("../../models/destination");
 const User = require("../../models/user");
 const Photo = require("../../models/photo");
-const permissions = require("../../utilities/permissions");
-const { getEnforcer } = require("../../utilities/permission-enforcer");
+// bd #9224 — single entry point: permission-enforcer re-exports the helpers.
+const permissions = require("../../utilities/permission-enforcer");
+const { getEnforcer } = permissions;
 const planService = require("../../services/plan-service");
 const { asyncHandler, successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const backendLogger = require("../../utilities/backend-logger");

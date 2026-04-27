@@ -17,6 +17,11 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const backendLogger = require('../utilities/backend-logger');
+// bd #9224 — direct import of permissions.js is permitted here because
+// permission-service is part of the same internal layer as permissions.js
+// (the permission-enforcer's addPermission delegates to this service for the
+// atomic mutation pattern). All other consumers must go through
+// utilities/permission-enforcer.js.
 const {
   ROLES,
   ENTITY_TYPES,

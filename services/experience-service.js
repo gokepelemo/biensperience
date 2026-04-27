@@ -20,8 +20,11 @@ const Destination = require('../models/destination');
 const User = require('../models/user');
 const Plan = require('../models/plan');
 const backendLogger = require('../utilities/backend-logger');
-const permissions = require('../utilities/permissions');
-const { getEnforcer } = require('../utilities/permission-enforcer');
+const enforcerModule = require('../utilities/permission-enforcer');
+const { getEnforcer } = enforcerModule;
+// Backward-compat alias: existing service code uses `permissions.<helper>`.
+// Re-bound from the enforcer's re-exports so this is the only entry point (bd #9224).
+const permissions = enforcerModule;
 const { broadcastEvent } = require('../utilities/websocket-server');
 const { createPlanItemLocation } = require('../utilities/address-utils');
 const { findDuplicateFuzzy } = require('../utilities/fuzzy-match');

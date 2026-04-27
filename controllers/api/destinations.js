@@ -5,8 +5,9 @@ const Experience = require("../../models/experience");
 const Photo = require("../../models/photo");
 const Activity = require("../../models/activity");
 const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
-const permissions = require("../../utilities/permissions");
-const { getEnforcer } = require('../../utilities/permission-enforcer');
+// bd #9224 — single entry point: permission-enforcer re-exports the helpers.
+const permissions = require('../../utilities/permission-enforcer');
+const { getEnforcer } = permissions;
 const backendLogger = require("../../utilities/backend-logger");
 const { trackCreate, trackUpdate, trackDelete, extractMetadata, extractActor } = require('../../utilities/activity-tracker');
 const { broadcastEvent } = require('../../utilities/websocket-server');

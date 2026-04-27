@@ -4,8 +4,11 @@ const Destination = require('../../models/destination');
 const User = require('../../models/user');
 const Plan = require('../../models/plan');
 const Photo = require('../../models/photo');
-const permissions = require('../../utilities/permissions');
-const { getEnforcer } = require('../../utilities/permission-enforcer');
+// bd #9224 — single entry point: permission-enforcer re-exports all helpers
+// from permissions.js (getAllPermissions, wouldCreateCircularDependency, etc.)
+// alongside the enforcer factory.
+const permissions = require('../../utilities/permission-enforcer');
+const { getEnforcer, isOwner, isCollaborator, isSuperAdmin, ROLES, ENTITY_TYPES } = permissions;
 const backendLogger = require('../../utilities/backend-logger');
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
@@ -1849,8 +1852,7 @@ async function showUserExperiences(req, res) {
 
     const plans = await query.exec();
 
-    // Check if requester is super admin
-    const { isSuperAdmin } = require('../../utilities/permissions');
+    // Check if requester is super admin (top-level isSuperAdmin from permission-enforcer)
     const includePlanIds = isSuperAdmin(req.user);
 
     let uniqueExperiences;
