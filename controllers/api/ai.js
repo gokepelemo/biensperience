@@ -16,6 +16,7 @@ const { lang } = require('../../utilities/lang.constants');
 const { executeAIRequest, GatewayError, getProviderForTask } = require('../../utilities/ai-gateway');
 const { getApiKeyForProvider } = require('../../utilities/ai-provider-registry');
 const { AI_PROVIDERS, AI_TASKS, DEFAULT_MODELS } = require('../../utilities/ai-constants');
+const { successResponse, errorResponse } = require('../../utilities/controller-helpers');
 
 // ---------------------------------------------------------------------------
 // Backward-compatible helpers (used by bienbot controller and others)
@@ -73,19 +74,11 @@ async function callProvider(provider, messages, options = {}) {
 
 function handleGatewayError(error, res, userId) {
   if (error instanceof GatewayError) {
-    return res.status(error.statusCode).json({
-      success: false,
-      error: error.message,
-      code: error.code
-    });
+    return errorResponse(res, error, error.message, error.statusCode, error.code);
   }
 
   logger.error('AI request error', { error: error.message, userId });
-  return res.status(500).json({
-    success: false,
-    error: error.message || 'AI request failed',
-    code: error.code || 'UNKNOWN'
-  });
+  return errorResponse(res, error, error.message || 'AI request failed', 500, error.code || 'UNKNOWN');
 }
 
 // ---------------------------------------------------------------------------
@@ -127,10 +120,7 @@ exports.complete = async (req, res) => {
     const { messages, task = AI_TASKS.GENERAL, options = {}, entityContext = null } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Messages array is required'
-      });
+      return errorResponse(res, null, 'Messages array is required', 400);
     }
 
     logger.info('AI completion request', {
@@ -158,10 +148,7 @@ exports.complete = async (req, res) => {
       tokens: result.usage?.totalTokens ?? ((result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0))
     });
 
-    return res.json({
-      success: true,
-      data: result
-    });
+    return successResponse(res, result);
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
   }
@@ -176,17 +163,11 @@ exports.autocomplete = async (req, res) => {
     const { text, context = '', options = {} } = req.body;
 
     if (!text) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required'
-      });
+      return errorResponse(res, null, 'Text is required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     const systemPrompt = resolvePrompt(
@@ -218,13 +199,10 @@ exports.autocomplete = async (req, res) => {
       }
     });
 
-    return res.json({
-      success: true,
-      data: {
-        completion: result.content,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      completion: result.content,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -240,17 +218,11 @@ exports.improve = async (req, res) => {
     const { text, type = 'general', options = {} } = req.body;
 
     if (!text) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required'
-      });
+      return errorResponse(res, null, 'Text is required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     const systemPrompt = resolvePrompt(
@@ -282,13 +254,10 @@ exports.improve = async (req, res) => {
       }
     });
 
-    return res.json({
-      success: true,
-      data: {
-        improved: result.content,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      improved: result.content,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -304,17 +273,11 @@ exports.translate = async (req, res) => {
     const { text, targetLanguage, sourceLanguage = 'auto', options = {} } = req.body;
 
     if (!text || !targetLanguage) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text and target language are required'
-      });
+      return errorResponse(res, null, 'Text and target language are required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     const systemPrompt = resolvePrompt(
@@ -347,14 +310,11 @@ exports.translate = async (req, res) => {
       }
     });
 
-    return res.json({
-      success: true,
-      data: {
-        translation: result.content,
-        targetLanguage,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      translation: result.content,
+      targetLanguage,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -370,17 +330,11 @@ exports.summarize = async (req, res) => {
     const { text, maxLength = 200, options = {} } = req.body;
 
     if (!text) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required'
-      });
+      return errorResponse(res, null, 'Text is required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     // Parse and clamp maxLength to prevent NaN in arithmetic
@@ -415,13 +369,10 @@ exports.summarize = async (req, res) => {
       }
     });
 
-    return res.json({
-      success: true,
-      data: {
-        summary: result.content,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      summary: result.content,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -438,10 +389,7 @@ exports.generateTips = async (req, res) => {
     let { category = 'general', count = DEFAULT_TIPS_COUNT } = req.body;
 
     if (!destination) {
-      return res.status(400).json({
-        success: false,
-        error: 'Destination is required'
-      });
+      return errorResponse(res, null, 'Destination is required', 400);
     }
 
     // Sanitize count: clamp to integer in [1, 20]
@@ -481,15 +429,12 @@ exports.generateTips = async (req, res) => {
       }
     });
 
-    return res.json({
-      success: true,
-      data: {
-        tips: result.content,
-        destination: safeDestination,
-        category: safeCategory,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      tips: result.content,
+      destination: safeDestination,
+      category: safeCategory,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -507,13 +452,10 @@ exports.status = async (req, res) => {
 
   const available = Object.values(providers).some(v => v);
 
-  return res.json({
-    success: true,
-    data: {
-      available,
-      defaultProvider: process.env.AI_DEFAULT_PROVIDER || 'openai',
-      providers
-    }
+  return successResponse(res, {
+    available,
+    defaultProvider: process.env.AI_DEFAULT_PROVIDER || 'openai',
+    providers
   });
 };
 
