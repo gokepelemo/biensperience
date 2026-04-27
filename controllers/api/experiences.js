@@ -15,6 +15,7 @@ const { successResponse, errorResponse, paginatedResponse, validateObjectId } = 
 const { aggregateGroupSignals, refreshSignalsAndAffinity } = require('../../utilities/hidden-signals');
 const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
+const experienceService = require('../../services/experience-service');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -1318,18 +1319,19 @@ async function updateExperience(req, res) {
 
 async function deleteExperience(req, res) {
   try {
-    // Validate ObjectId format
+    // Pre-fetch the experience for activity tracking and the "other users have
+    // plans" gate. Service performs the canonical permission check + delete.
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
-    let experience = await Experience.findById(req.params.id);
-    
+    const experience = await Experience.findById(req.params.id);
     if (!experience) {
       return errorResponse(res, null, 'Experience not found', 404);
     }
 
-    // Check if user has permission to delete using PermissionEnforcer
+    // Permission check is duplicated here (service repeats it) so we can
+    // gate the "other users have plans" warning before the service is invoked.
     const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canDelete({
       userId: req.user._id,
@@ -1339,45 +1341,25 @@ async function deleteExperience(req, res) {
     if (!permCheck.allowed) {
       return errorResponse(res, null, permCheck.reason || 'Only the experience owner can delete it.', 403);
     }
-    
-    // Check if any other users have plans for this experience
-    // Only prevent deletion if non-owner users have plans (owners can cascade delete)
+
+    // Block non-owners from deleting an experience that has plans owned by others.
     const existingPlans = await Plan.find({ experience: req.params.id })
       .populate({
         path: 'user',
         select: '_id name email photos',
-        populate: [
-          {
-            path: 'photos',
-            model: 'Photo'
-          }
-        ]
+        populate: [{ path: 'photos', model: 'Photo' }]
       });
-    
+
     if (existingPlans.length > 0) {
-      // Check if any plan belongs to someone other than the owner
       const otherUserPlans = existingPlans.filter(
         plan => plan.user._id.toString() !== req.user._id.toString()
       );
-      
-      // If there are plans by other users, the owner can still delete (cascade delete)
-      // Only non-owners are prevented from deleting experiences with other users' plans
       if (otherUserPlans.length > 0 && !permCheck.allowed) {
-        // Get unique users with their plan details
-        const usersWithPlans = otherUserPlans.map(plan => ({
-          userId: plan.user._id,
-          name: plan.user.name,
-          email: plan.user.email,
-          photos: plan.user.photos,
-          planId: plan._id,
-          plannedDate: plan.planned_date
-      }));
-        
         return errorResponse(res, null, 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.', 409);
       }
     }
-    
-    // Track deletion (non-blocking) - must happen before deleteOne()
+
+    // Track deletion (non-blocking) before service runs.
     trackDelete({
       resource: experience,
       resourceType: 'Experience',
@@ -1385,61 +1367,19 @@ async function deleteExperience(req, res) {
       req,
       reason: `Experience "${experience.name}" deleted`
     });
-    
-    // Get plan IDs before deletion so frontend can emit events for cascade-deleted plans
-    let deletedPlanIds = [];
-    let deletedPlansCount = 0;
 
-    // Delete all plans associated with this experience
-    // This prevents orphaned plans showing as "Unnamed Experience" on dashboards
-    try {
-      // First, get the plan IDs so we can return them
-      const plansToDelete = await Plan.find({ experience: req.params.id }).select('_id user').lean();
-      deletedPlanIds = plansToDelete.map(p => ({
-        planId: p._id.toString(),
-        userId: p.user ? p.user.toString() : null
-      }));
+    // Delegate cascade-delete + WebSocket broadcast to the service.
+    const result = await experienceService.deleteExperience({
+      experienceId: req.params.id,
+      actor: req.user
+    });
 
-      // Then delete them
-      const deleteResult = await Plan.deleteMany({ experience: req.params.id });
-      deletedPlansCount = deleteResult.deletedCount;
-
-      backendLogger.info('Deleted associated plans', {
-        experienceId: req.params.id,
-        plansDeleted: deletedPlansCount,
-        planIds: deletedPlanIds.map(p => p.planId)
-      });
-    } catch (planDeleteErr) {
-      backendLogger.error('Error deleting associated plans', {
-        error: planDeleteErr.message,
-        experienceId: req.params.id
-      });
-      // Don't fail the experience deletion if plan deletion fails
-      // The plans will become orphaned but the experience deletion should succeed
+    if (result.error) {
+      return errorResponse(res, null, result.error, result.code || 400);
     }
 
-    await experience.deleteOne();
-
-    // Broadcast experience deletion via WebSocket (async, non-blocking)
-    try {
-      broadcastEvent('experience', req.params.id.toString(), {
-        type: 'experience:deleted',
-        payload: {
-          experienceId: req.params.id.toString(),
-          deletedPlans: deletedPlanIds,
-          userId: req.user._id.toString()
-        }
-      }, req.user._id.toString());
-    } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience deletion', { error: wsErr.message });
-    }
-
-    // Return deletion info including cascade-deleted plans for frontend event emission
     return successResponse(res, {
-      deletedPlans: {
-        count: deletedPlansCount,
-        plans: deletedPlanIds
-      }
+      deletedPlans: result.deletedPlans
     }, 'Experience deleted successfully');
   } catch (err) {
     backendLogger.error('Error deleting experience', { error: err.message, userId: req.user._id, experienceId: req.params.id });

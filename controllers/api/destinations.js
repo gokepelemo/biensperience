@@ -13,6 +13,7 @@ const { broadcastEvent } = require('../../utilities/websocket-server');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
 const { successResponse, errorResponse, paginatedResponse } = require('../../utilities/controller-helpers');
 const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
+const destinationService = require('../../services/destination-service');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -403,50 +404,34 @@ async function updateDestination(req, res) {
 
 async function deleteDestination(req, res) {
   try {
-    // Validate ObjectId format
+    // Pre-fetch the destination so we can run trackDelete with the full document
+    // before the service deletes it.
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return errorResponse(res, null, 'Invalid destination ID format', 400);
     }
 
-    let destination = await Destination.findById(req.params.id);
-
-    if (!destination) {
+    const destinationForTracking = await Destination.findById(req.params.id);
+    if (!destinationForTracking) {
       return errorResponse(res, null, 'Destination not found', 404);
     }
 
-    // Check if user can delete using PermissionEnforcer (handles super admin correctly)
-    const enforcer = getEnforcer({ Destination, Experience, User });
-    const permCheck = await enforcer.canDelete({
-      userId: req.user._id,
-      resource: destination
-    });
-
-    if (!permCheck.allowed) {
-      return errorResponse(res, null, permCheck.reason || 'You must be the owner to delete this destination.', 403);
-    }
-    
-    // Track deletion (non-blocking) - must happen before deleteOne()
+    // Track deletion (non-blocking) before service mutates state.
     trackDelete({
-      resource: destination,
+      resource: destinationForTracking,
       resourceType: 'Destination',
       actor: req.user,
       req,
-      reason: `Destination "${destination.name}" deleted`
+      reason: `Destination "${destinationForTracking.name}" deleted`
     });
 
-    await destination.deleteOne();
+    // Delegate the permission check + mutation + broadcast to the service.
+    const result = await destinationService.deleteDestination({
+      destinationId: req.params.id,
+      actor: req.user
+    });
 
-    // Broadcast destination deletion via WebSocket
-    try {
-      broadcastEvent('destination', req.params.id.toString(), {
-        type: 'destination:deleted',
-        payload: {
-          destinationId: req.params.id.toString(),
-          userId: req.user._id.toString()
-        }
-      }, req.user._id.toString());
-    } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast destination deletion', { error: wsErr.message });
+    if (result.error) {
+      return errorResponse(res, null, result.error, result.code || 400);
     }
 
     return successResponse(res, { destinationId: req.params.id }, 'Destination deleted successfully');
