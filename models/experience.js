@@ -241,41 +241,101 @@ const experienceSchema = new Schema(
 
 experienceSchema.index({ destination: 1 });
 
-experienceSchema.virtual("cost_estimate").get(function () {
-  const calculateTotalCost = (itemId) => {
-    const item = this.plan_items.id(itemId);
-    if (!item) return 0;
-    let total = item.cost_estimate || 0;
-    this.plan_items.forEach(subItem => {
-      if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
-        total += calculateTotalCost(subItem._id);
-      }
-    });
-    return total;
-  };
-  if (!this.plan_items || this.plan_items.length === 0) return 0;
-  return this.plan_items.reduce((sum, item) => {
-    if (!item.parent) { // only root items
-      return sum + calculateTotalCost(item._id);
+/**
+ * cost_estimate / max_planning_days virtuals
+ * ------------------------------------------
+ * Both previously did O(N) recursive descents per root item, calling
+ * `plan_items.id(...)` (itself O(N)) and a nested forEach on the full
+ * plan_items array — overall O(N^2) per serialization. With deeply
+ * nested plan_items this dominated list-view serialize cost.
+ *
+ * Strategy (parity with bd #855a / Plan):
+ *  - Build a parent->children index ONCE per plan_items array reference.
+ *  - Traverse iteratively (DFS via stack) to fold up totals/max-days.
+ *  - Memoize the result via the shared helper in models/_virtual-cache.js,
+ *    keyed on the plan_items array reference, invalidated by a cheap
+ *    fingerprint of length + summed numeric fields.
+ *
+ * Mongoose mutations to plan_items keep the SAME array object (it's a
+ * MongooseArray), so identity is stable for the document's lifetime;
+ * the fingerprint catches in-place edits.
+ */
+const { getCachedVirtual, buildChildIndex } = require('./_virtual-cache');
+
+function fingerprintExperiencePlanItems(planItems) {
+  // Cheap O(N) fingerprint that changes if a relevant field mutates.
+  let costSum = 0;
+  let daysSum = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    const it = planItems[i];
+    costSum += Number(it.cost_estimate) || 0;
+    daysSum += Number(it.planning_days) || 0;
+  }
+  return `${planItems.length}:${costSum}:${daysSum}`;
+}
+
+function computeExperienceCostEstimate(planItems) {
+  const childrenByParent = buildChildIndex(planItems);
+  // Iterative DFS over all subtrees. Cost is purely additive, so summing
+  // every reachable item once via the children index is correct.
+  let total = 0;
+  const stack = [];
+  const roots = childrenByParent.get('__root__') || [];
+  for (const rootIdx of roots) stack.push(rootIdx);
+  while (stack.length > 0) {
+    const idx = stack.pop();
+    const item = planItems[idx];
+    total += Number(item.cost_estimate) || 0;
+    const childIndices = childrenByParent.get(String(item._id));
+    if (childIndices) {
+      for (const ci of childIndices) stack.push(ci);
     }
-    return sum;
-  }, 0);
+  }
+  return total;
+}
+
+function computeExperienceMaxPlanningDays(planItems) {
+  const childrenByParent = buildChildIndex(planItems);
+  // Per-root max via iterative DFS, then overall max across roots.
+  const roots = childrenByParent.get('__root__') || [];
+  if (roots.length === 0) return 0;
+  let overallMax = 0;
+  for (const rootIdx of roots) {
+    const stack = [rootIdx];
+    let subtreeMax = 0;
+    while (stack.length > 0) {
+      const idx = stack.pop();
+      const item = planItems[idx];
+      const days = Number(item.planning_days) || 0;
+      if (days > subtreeMax) subtreeMax = days;
+      const childIndices = childrenByParent.get(String(item._id));
+      if (childIndices) {
+        for (const ci of childIndices) stack.push(ci);
+      }
+    }
+    if (subtreeMax > overallMax) overallMax = subtreeMax;
+  }
+  return overallMax;
+}
+
+experienceSchema.virtual("cost_estimate").get(function () {
+  return getCachedVirtual(
+    this.plan_items,
+    'experience:cost_estimate',
+    fingerprintExperiencePlanItems,
+    computeExperienceCostEstimate,
+    0
+  );
 });
 
 experienceSchema.virtual("max_planning_days").get(function () {
-  const calculateMaxDays = (itemId) => {
-    const item = this.plan_items.id(itemId);
-    if (!item) return 0;
-    let maxDays = item.planning_days || 0;
-    this.plan_items.forEach(subItem => {
-      if (subItem.parent && subItem.parent.toString() === itemId.toString()) {
-        maxDays = Math.max(maxDays, calculateMaxDays(subItem._id));
-      }
-    });
-    return maxDays;
-  };
-  if (!this.plan_items || this.plan_items.length === 0) return 0;
-  return Math.max(...this.plan_items.filter(item => !item.parent).map(item => calculateMaxDays(item._id)));
+  return getCachedVirtual(
+    this.plan_items,
+    'experience:max_planning_days',
+    fingerprintExperiencePlanItems,
+    computeExperienceMaxPlanningDays,
+    0
+  );
 });
 
 experienceSchema.virtual("completion_percentage").get(function () {
