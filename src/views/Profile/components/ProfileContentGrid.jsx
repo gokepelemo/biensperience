@@ -6,7 +6,7 @@
  * Designed to match the Profile view's grid pattern for consistency.
  */
 
-import { forwardRef } from 'react';
+import { forwardRef, memo } from 'react';
 import ExperienceCard from '../../../components/ExperienceCard/ExperienceCard';
 import DestinationCard from '../../../components/DestinationCard/DestinationCard';
 import { SkeletonLoader, EmptyState } from '../../../components/design-system';
@@ -128,7 +128,12 @@ const ProfileContentGrid = forwardRef(function ProfileContentGrid({
   );
 });
 
-export default ProfileContentGrid;
+// Wrap with React.memo so Profile.jsx's frequent re-renders (caused by
+// auxiliary state like `activeTab`, `showAllPlanned`, etc.) don't cascade
+// into a full grid rebuild when the tab's items array hasn't changed.
+// IMPORTANT: callers should pass stable refs for `renderCard`, `onPageChange`,
+// and `emptyState` (via useCallback / useMemo) for memo to actually short-circuit.
+export default memo(ProfileContentGrid);
 
 /**
  * Skeleton loader for ProfileContentGrid

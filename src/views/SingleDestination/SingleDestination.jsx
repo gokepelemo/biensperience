@@ -486,6 +486,32 @@ export default function SingleDestination() {
     setVisibleExperiencesCount(6);
   }, [destinationId]);
 
+  // Stable callbacks passed to DestinationExperienceGrid → ExperienceCard.
+  // ExperienceCard is wrapped with React.memo; new function identities each
+  // render would force every card to re-render even when its data hasn't
+  // changed. With dozens of experiences per destination, this is the most
+  // common path that benefits from memoization.
+  const handleLoadMoreExperiencesGrid = useCallback(() => {
+    setVisibleExperiencesCount((prev) => prev + 6);
+  }, []);
+
+  const handleOptimisticDeleteExperience = useCallback((id) => {
+    setDirectDestinationExperiences((prev) => {
+      if (!prev) return prev;
+      return prev.filter((e) => {
+        const eid = e?._id || e;
+        return String(eid) !== String(id);
+      });
+    });
+  }, []);
+
+  const handleAddExperienceFromGrid = useCallback(() => {
+    openExperienceWizard({
+      destinationId,
+      destinationName: `${destination?.name}, ${destination?.country}`
+    });
+  }, [openExperienceWizard, destinationId, destination?.name, destination?.country]);
+
   // Get hero image URL
   const getHeroImageUrl = () => {
     if (!destination?.photos?.length) {
@@ -734,20 +760,11 @@ export default function SingleDestination() {
                     destinationCountry={destination.country}
                     visibleCount={visibleExperiencesCount}
                     hasMore={hasMoreExperiences}
-                    onLoadMore={() => setVisibleExperiencesCount((prev) => prev + 6)}
+                    onLoadMore={handleLoadMoreExperiencesGrid}
                     isLoading={experiencesLoading}
                     userPlans={plans}
-                    onOptimisticDelete={(id) => {
-                      // Remove the experience from directDestinationExperiences immediately
-                      setDirectDestinationExperiences((prev) => {
-                        if (!prev) return prev;
-                        return prev.filter((e) => {
-                          const eid = e?._id || e;
-                          return String(eid) !== String(id);
-                        });
-                      });
-                    }}
-                    onAddExperience={() => openExperienceWizard({ destinationId, destinationName: `${destination?.name}, ${destination?.country}` })}
+                    onOptimisticDelete={handleOptimisticDeleteExperience}
+                    onAddExperience={handleAddExperienceFromGrid}
                   />
                 </Card.Body>
               </Card>
