@@ -50,17 +50,43 @@ jest.mock('../../utilities/ai-provider-registry', () => ({
 const { executeAIRequest } = require('../../utilities/ai-gateway');
 const controller = require('../../controllers/api/ai');
 
-/** Build a minimal mock response object */
+/**
+ * Build a minimal mock response object.
+ *
+ * Supports both `.json(body)` and `.send(jsonString)` so it works with
+ * controller code that calls `res.json()` directly *and* with the shared
+ * `successResponse` / `errorResponse` helpers from controller-helpers.js,
+ * which call `res.setHeader()` + `res.status().send(JSON.stringify(...))`.
+ */
 function mockRes() {
   const res = {
     _status: 200,
     _body: null,
+    _headers: {},
+    locals: {},
+    setHeader(name, value) {
+      this._headers[name] = value;
+    },
     status(code) {
       this._status = code;
       return this;
     },
     json(body) {
       this._body = body;
+      return this;
+    },
+    send(body) {
+      // controller-helpers serializes payloads to a JSON string; parse so
+      // assertions can use deep-equal against object literals.
+      if (typeof body === 'string') {
+        try {
+          this._body = JSON.parse(body);
+        } catch {
+          this._body = body;
+        }
+      } else {
+        this._body = body;
+      }
       return this;
     }
   };
