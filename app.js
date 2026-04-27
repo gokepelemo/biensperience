@@ -418,6 +418,16 @@ app.use("/health-check", (req, res) => {
   res.send("OK");
 });
 
+// /api/health — used by Render's healthCheckPath. Returns 200 when Mongo is
+// connected (readyState 1), 503 otherwise. Kept simple — no DB query — so a
+// flapping Mongo doesn't accidentally fail the healthcheck when reads work.
+app.get("/api/health", (req, res) => {
+  const mongoose = require("mongoose");
+  const ready = mongoose.connection?.readyState === 1;
+  if (ready) return res.status(200).json({ ok: true, mongo: "connected" });
+  return res.status(503).json({ ok: false, mongo: "disconnected" });
+});
+
 // Centralized API error handler: ensure API routes always return JSON.
 // Production: only operational errors (APIError, isOperational:true, or 4xx
 // status) surface their message; internal/5xx errors return a generic message

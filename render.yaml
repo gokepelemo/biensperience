@@ -1,15 +1,184 @@
 # Render deployment configuration for Biensperience
-# This file configures the full-stack application for Render using Bun runtime
+# This file configures the full-stack application for Render using Bun runtime.
+#
+# All secret envVars use sync: false — operators set the actual values in the
+# Render dashboard. This prevents Render from accidentally overwriting them
+# from this file and prevents missing-secret deploys (Render fails the deploy
+# if a sync:false envVar has no value set).
 
 services:
   # Biensperience Full-Stack Application
   - type: web
     name: biensperience
     runtime: bun
+    plan: free
     buildCommand: bun run build
     startCommand: bun run start
+
+    # /api/health pings Mongo's connection state. Defined in app.js.
+    healthCheckPath: /api/health
+
+    # Single instance until Redis-backed rate-limit store is provisioned (REDIS_URL
+    # set + verified). Bumping numInstances above 1 without Redis silently
+    # multiplies per-user rate budgets — see bd #8f36.19.
+    numInstances: 1
+
     envVars:
+      # ---------------------------------------------------------------------
+      # Render runtime
+      # ---------------------------------------------------------------------
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: RENDER
+        value: "true"
+
+      # ---------------------------------------------------------------------
+      # Database
+      # ---------------------------------------------------------------------
+      - key: MONGODB_URI
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # Auth secrets — bd #8f36.3 split SECRET into three independent values.
+      # Set all three in production. SECRET is accepted as a legacy fallback
+      # for local dev; in production it triggers a loud boot warning if any
+      # of the three independent values is missing.
+      # ---------------------------------------------------------------------
+      - key: SESSION_SECRET
+        sync: false
+      - key: CSRF_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SECRET
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # Cookies / CORS
+      # ---------------------------------------------------------------------
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: COOKIE_DOMAIN
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # AWS S3 — both AWS-prefixed (preferred, supports IAM instance roles)
+      # and legacy bare names (transitional fallback per bd #8f36.21).
+      # ---------------------------------------------------------------------
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: ACCESS_KEY_ID
+        sync: false
+      - key: SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: S3_PROTECTED_BUCKET_NAME
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # OAuth providers (each block optional — leave unset to disable)
+      # ---------------------------------------------------------------------
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: FACEBOOK_CALLBACK_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: TWITTER_CLIENT_ID
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
+      - key: TWITTER_CALLBACK_URL
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # Email (Resend) and SMS/messaging (Sinch)
+      # ---------------------------------------------------------------------
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: LEGAL_EMAIL_CONTACT
+        sync: false
+      - key: SINCH_PROJECT_ID
+        sync: false
+      - key: SINCH_APP_ID
+        sync: false
+      - key: SINCH_KEY_ID
+        sync: false
+      - key: SINCH_KEY_SECRET
+        sync: false
+      - key: SINCH_REGION
+        sync: false
+      - key: SINCH_APPLICATION_KEY
+        sync: false
+      - key: SINCH_APPLICATION_SECRET
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # AI provider keys (each optional — backend disables routes that lack
+      # configured providers).
+      # ---------------------------------------------------------------------
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI_DEFAULT_PROVIDER
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # Third-party APIs (all optional — features degrade gracefully)
+      # ---------------------------------------------------------------------
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: UNSPLASH_ACCESS_KEY
+        sync: false
+      - key: TRIPADVISOR_API_KEY
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: TRIP_ALERT_WEBHOOK_URL
+        sync: false
+      - key: EXCHANGE_RATE_API_KEY
+        sync: false
+      - key: STREAM_CHAT_API_KEY
+        sync: false
+      - key: STREAM_CHAT_API_SECRET
+        sync: false
+      - key: VITE_STREAM_CHAT_API_KEY
+        sync: false
+
+      # ---------------------------------------------------------------------
+      # Infrastructure
+      # bd #8f36.19 — REDIS_URL enables distributed rate-limit store.
+      # Required before bumping numInstances above 1.
+      # ---------------------------------------------------------------------
+      - key: REDIS_URL
+        sync: false
+      - key: LOG_LEVEL
+        value: "2"
+      - key: WEBSOCKET_ENABLED
+        value: "true"
