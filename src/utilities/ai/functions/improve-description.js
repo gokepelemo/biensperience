@@ -1,50 +1,36 @@
 /**
  * AI Description Improvement Function
  *
+ * Posts to POST /api/ai/improve. The backend owns prompt resolution and
+ * provider routing; callers may forward `options.prompts` for per-call
+ * overrides honored by the backend's `resolvePrompt()` path.
+ *
  * @module ai/functions/improve-description
  */
 
-import { AI_TASKS } from '../constants';
-import { complete } from '../complete';
-import { resolveSystemPrompt } from './_shared';
+import { postAIRequest } from './_request';
 
 /**
- * Improve a destination or experience description
+ * Improve a destination or experience description.
  *
  * @param {string} description - Original description
- * @param {Object} options - Options
- * @param {string} [options.type] - Content type (destination, experience, activity)
- * @param {string} [options.name] - Name of the destination/experience
- * @param {string} [options.location] - Location context
- * @param {string} [options.provider] - Override provider
- * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
+ * @param {Object} [options] - Options
+ * @param {string} [options.type] - Content type (destination, experience, activity, plan, general)
+ * @param {string} [options.name] - Name of the destination/experience (forwarded as context)
+ * @param {string} [options.location] - Location context (forwarded)
+ * @param {Object} [options.prompts] - Optional caller prompt overrides forwarded to backend
+ * @param {string} [options.provider] - Override provider (forwarded)
+ * @param {string} [options.model] - Override model (forwarded)
  * @returns {Promise<string>} Improved description
  */
 export async function improveDescription(description, options = {}) {
-  const { type = 'destination', name = '', location = '' } = options;
+  const { type = 'general', ...rest } = options;
 
-  let contextInfo = '';
-  if (name) contextInfo += `Name: ${name}\n`;
-  if (location) contextInfo += `Location: ${location}\n`;
-  if (type) contextInfo += `Type: ${type}\n`;
-
-  const systemPrompt = resolveSystemPrompt(AI_TASKS.IMPROVE_DESCRIPTION, options);
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: contextInfo
-        ? `${contextInfo}\nImprove this ${type} description:\n\n${description}`
-        : `Improve this ${type} description:\n\n${description}`
-    }
-  ];
-
-  const result = await complete(messages, {
-    ...options,
-    task: AI_TASKS.IMPROVE_DESCRIPTION,
-    temperature: 0.7
+  const data = await postAIRequest('improve', {
+    text: description,
+    type,
+    options: rest
   });
 
-  return result.content.trim();
+  return typeof data?.improved === 'string' ? data.improved.trim() : '';
 }

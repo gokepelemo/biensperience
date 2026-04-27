@@ -9,7 +9,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { logger } from '../logger';
-import { complete } from './complete';
 import { AI_TASKS } from './constants';
 import {
   autocomplete as aiAutocomplete,
@@ -236,12 +235,6 @@ export function useAI(options = {}) {
     ),
   [executeWithTracking]);
 
-  const sendCompletion = useCallback((messages, opts = {}) =>
-    executeWithTracking(opts.task || AI_TASKS.AUTOCOMPLETE, () =>
-      complete(messages, withProvider(opts))
-    ),
-  [executeWithTracking]);
-
   const clearError = useCallback(() => setError(null), []);
 
   const hasPendingRequests = useCallback(
@@ -265,7 +258,6 @@ export function useAI(options = {}) {
     summarize,
     generateTravelTips,
     translate,
-    sendCompletion,
 
     // Utilities
     clearError,

@@ -2,7 +2,9 @@
  * AI Utilities for Biensperience
  *
  * SECURITY: All AI API calls go through the backend proxy. API keys are
- * stored server-side only — never exposed to the frontend.
+ * stored server-side only — never exposed to the frontend. The backend owns
+ * prompt resolution and provider routing; per-call prompt overrides may be
+ * forwarded via `options.prompts`.
  *
  * Requires the 'ai_features' feature flag to be enabled for the user.
  *
@@ -42,15 +44,8 @@ export {
   AI_PROVIDERS,
   AI_TASKS,
   DEFAULT_MODELS,
-  PROVIDER_ENDPOINTS,
-  SYSTEM_PROMPTS
+  PROVIDER_ENDPOINTS
 } from './constants';
-
-// Configuration (provider-routing hint only; backend is authoritative)
-export { getProviderForTask } from './config';
-
-// Core completion
-export { complete } from './complete';
 
 // High-level functions
 export {
@@ -93,7 +88,6 @@ export { useAI } from './useAI';
 
 // Default export for convenience
 import { AI_PROVIDERS, AI_TASKS } from './constants';
-import { complete } from './complete';
 import {
   autocomplete,
   editLanguage,
@@ -118,9 +112,6 @@ export default {
   AI_PROVIDERS,
   AI_TASKS,
   AI_EVENTS,
-
-  // Core functions
-  complete,
 
   // High-level functions
   autocomplete,

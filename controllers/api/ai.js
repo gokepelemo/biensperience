@@ -362,6 +362,77 @@ exports.translate = async (req, res) => {
 };
 
 /**
+ * POST /api/ai/edit-language
+ * Edit/proofread text language endpoint
+ *
+ * Mirrors `improve` but is intended for language-level fixes (grammar, clarity,
+ * tone) rather than wholesale rewriting. Returns `data.edited`.
+ */
+exports.editLanguage = async (req, res) => {
+  try {
+    const { text, options = {} } = req.body;
+
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text is required'
+      });
+    }
+
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'edit_language',
+      'You are an expert editor for travel content. Improve the grammar, clarity, and flow of the text while maintaining the original meaning and tone. Fix any spelling or punctuation errors. Only output the edited text, no explanations or commentary.'
+    );
+
+    const tone = typeof options.tone === 'string' && options.tone.trim()
+      ? options.tone.trim()
+      : 'friendly';
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Edit this text to improve its grammar and clarity. Maintain a ${tone} tone:\n\n${text}` }
+    ];
+
+    logger.info('AI edit-language request', {
+      userId: req.user._id,
+      textLength: text.length,
+      customPrompt: !!options.prompts?.edit_language
+    });
+
+    const result = await executeAIRequest({
+      messages,
+      task: AI_TASKS.EDIT_LANGUAGE,
+      user: req.user,
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.3,
+        maxTokens: 800
+      }
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        edited: result.content,
+        provider: result.provider,
+        usage: result.usage
+      }
+    });
+  } catch (error) {
+    return handleGatewayError(error, res, req.user._id);
+  }
+};
+
+/**
  * POST /api/ai/summarize
  * Summarization endpoint
  */
