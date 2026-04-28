@@ -8,6 +8,7 @@ const { findDuplicateFuzzy } = require("../../utilities/fuzzy-match");
 const permissions = require("../../utilities/permissions");
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require("../../utilities/backend-logger");
+const { withRequest } = require("../../utilities/log-context");
 const { trackCreate, trackUpdate, trackDelete, extractMetadata, extractActor } = require('../../utilities/activity-tracker');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
@@ -124,6 +125,7 @@ async function index(req, res) {
 }
 
 async function createDestination(req, res) {
+  const log = withRequest(req);
   try {
     // Whitelist allowed fields to prevent mass assignment
     const allowedFields = ['name', 'country', 'state', 'overview', 'photos', 'travel_tips', 'tags', 'map_location', 'location'];
@@ -148,7 +150,7 @@ async function createDestination(req, res) {
           }
         }
       } catch (geoErr) {
-        backendLogger.warn('[createDestination] Geocoding failed, using raw location', { error: geoErr.message });
+        log.warn('[createDestination] Geocoding failed, using raw location', { error: geoErr.message });
         // If geocoding fails but location has address, store it anyway
         if (typeof req.body.location === 'object' && req.body.location.address) {
           destinationData.location = req.body.location;
@@ -163,7 +165,7 @@ async function createDestination(req, res) {
           destinationData.location = geocodedLocation;
         }
       } catch (geoErr) {
-        backendLogger.warn('[createDestination] map_location geocoding failed', { error: geoErr.message });
+        log.warn('[createDestination] map_location geocoding failed', { error: geoErr.message });
       }
     }
 
@@ -222,14 +224,16 @@ async function createDestination(req, res) {
       returnActivity: true
     });
 
-    // Broadcast destination creation via WebSocket (async, non-blocking)
+    // Broadcast destination creation via WebSocket (async, non-blocking).
+    // serverRequestId lets the receiving client correlate the WS frame back
+    // to the originating HTTP request in their own log stream.
     try {
       broadcastEvent('destination', destination._id.toString(), {
         type: 'destination:created',
-        payload: { destination, userId: req.user._id.toString() }
+        payload: { destination, userId: req.user._id.toString(), serverRequestId: req.id }
       });
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast destination creation', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast destination creation', { error: wsErr.message });
     }
 
     return successResponse(
@@ -240,7 +244,7 @@ async function createDestination(req, res) {
       createdActivity?._id ? { activityId: createdActivity._id } : null
     );
   } catch (err) {
-    backendLogger.error('Error creating destination', { error: err.message, userId: req.user._id, name: req.body.name, country: req.body.country });
+    log.error('Error creating destination', { error: err.message, name: req.body.name, country: req.body.country });
     return errorResponse(res, err, 'Failed to create destination', 400);
   }
 }
@@ -261,6 +265,7 @@ async function showDestination(req, res) {
 }
 
 async function updateDestination(req, res) {
+  const log = withRequest(req);
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -336,7 +341,7 @@ async function updateDestination(req, res) {
           }
         }
       } catch (geoErr) {
-        backendLogger.warn('[updateDestination] Geocoding failed, using raw location', { error: geoErr.message });
+        log.warn('[updateDestination] Geocoding failed, using raw location', { error: geoErr.message });
         // If geocoding fails but location has address, use it anyway
         if (typeof updateData.location === 'object' && updateData.location.address) {
           // Keep the provided location object
@@ -354,7 +359,7 @@ async function updateDestination(req, res) {
           updateData.location = geocodedLocation;
         }
       } catch (geoErr) {
-        backendLogger.warn('[updateDestination] map_location geocoding failed', { error: geoErr.message });
+        log.warn('[updateDestination] map_location geocoding failed', { error: geoErr.message });
       }
     }
 
@@ -379,7 +384,8 @@ async function updateDestination(req, res) {
     // Populate photos field for response (consistent with showDestination)
     await destination.populate('photos.photo');
 
-    // Broadcast destination update via WebSocket
+    // Broadcast destination update via WebSocket. serverRequestId lets the
+    // receiving client correlate the WS frame to the originating HTTP request.
     try {
       broadcastEvent('destination', req.params.id.toString(), {
         type: 'destination:updated',
@@ -387,21 +393,23 @@ async function updateDestination(req, res) {
           destination,
           destinationId: req.params.id.toString(),
           updatedFields: Object.keys(updateData),
-          userId: req.user._id.toString()
+          userId: req.user._id.toString(),
+          serverRequestId: req.id
         }
       }, req.user._id.toString());
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast destination update', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast destination update', { error: wsErr.message });
     }
 
     return successResponse(res, destination, 'Destination updated successfully');
   } catch (err) {
-    backendLogger.error('Error updating destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
+    log.error('Error updating destination', { error: err.message, destinationId: req.params.id });
     return errorResponse(res, err, 'Failed to update destination', 400);
   }
 }
 
 async function deleteDestination(req, res) {
+  const log = withRequest(req);
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -436,22 +444,24 @@ async function deleteDestination(req, res) {
 
     await destination.deleteOne();
 
-    // Broadcast destination deletion via WebSocket
+    // Broadcast destination deletion via WebSocket. serverRequestId lets the
+    // receiving client correlate the WS frame to the originating HTTP request.
     try {
       broadcastEvent('destination', req.params.id.toString(), {
         type: 'destination:deleted',
         payload: {
           destinationId: req.params.id.toString(),
-          userId: req.user._id.toString()
+          userId: req.user._id.toString(),
+          serverRequestId: req.id
         }
       }, req.user._id.toString());
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast destination deletion', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast destination deletion', { error: wsErr.message });
     }
 
     return successResponse(res, { destinationId: req.params.id }, 'Destination deleted successfully');
   } catch (err) {
-    backendLogger.error('Error deleting destination', { error: err.message, userId: req.user._id, destinationId: req.params.id });
+    log.error('Error deleting destination', { error: err.message, destinationId: req.params.id });
     return errorResponse(res, err, 'Failed to delete destination', 400);
   }
 }

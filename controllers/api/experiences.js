@@ -7,6 +7,7 @@ const Photo = require('../../models/photo');
 const permissions = require('../../utilities/permissions');
 const { getEnforcer } = require('../../utilities/permission-enforcer');
 const backendLogger = require('../../utilities/backend-logger');
+const { withRequest } = require('../../utilities/log-context');
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
@@ -682,6 +683,7 @@ async function index(req, res) {
 }
 
 async function createExperience(req, res) {
+  const log = withRequest(req);
   try {
     // Initialize permissions array with owner
     req.body.permissions = [
@@ -728,7 +730,7 @@ async function createExperience(req, res) {
 
     // Log if curator is creating experience (curated status derived from owner's feature flag)
     if (hasFeatureFlag(req.user, 'curator')) {
-      backendLogger.info('Curator creating experience', { userId: req.user._id.toString(), name: req.body.name });
+      log.info('Curator creating experience', { name: req.body.name });
     }
 
     // Geocode location/map_location into a structured location object
@@ -741,7 +743,7 @@ async function createExperience(req, res) {
           req.body.map_location = geocodedLocation.address || req.body.map_location;
         }
       } catch (geoErr) {
-        backendLogger.warn('[createExperience] Geocoding failed, using raw value', { error: geoErr.message });
+        log.warn('[createExperience] Geocoding failed, using raw value', { error: geoErr.message });
         if (req.body.location && typeof req.body.location === 'string') {
           req.body.location = { address: req.body.location };
         }
@@ -758,14 +760,16 @@ async function createExperience(req, res) {
       reason: `Experience "${experience.name}" created`
     });
 
-    // Broadcast experience creation via WebSocket (async, non-blocking)
+    // Broadcast experience creation via WebSocket (async, non-blocking).
+    // serverRequestId lets the receiving client correlate the WS frame to
+    // the originating HTTP request.
     try {
       broadcastEvent('experience', experience._id.toString(), {
         type: 'experience:created',
-        payload: { experience, userId: req.user._id.toString() }
+        payload: { experience, userId: req.user._id.toString(), serverRequestId: req.id }
       });
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
     }
 
     // Fire-and-forget: re-aggregate destination signals
@@ -773,7 +777,7 @@ async function createExperience(req, res) {
 
     return successResponse(res, experience, 'Experience created successfully', 201);
   } catch (err) {
-    backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
+    log.error('Error creating experience', { error: err.message, name: req.body.name, destination: req.body.destination });
     return errorResponse(res, err, 'Failed to create experience', 400);
   }
 }
@@ -1121,8 +1125,9 @@ async function showExperienceWithContext(req, res) {
 }
 
 async function updateExperience(req, res) {
-  backendLogger.info('updateExperience called', { experienceId: req.params.experienceId || req.params.id, userId: req.user._id });
+  const log = withRequest(req);
   const experienceId = req.params.experienceId || req.params.id;
+  log.info('updateExperience called', { experienceId });
 
   const { valid: expIdValid, objectId: expOid } = validateObjectId(experienceId, 'experienceId');
   if (!expIdValid) {
@@ -1130,12 +1135,12 @@ async function updateExperience(req, res) {
   }
 
   try {
-    backendLogger.info('Looking up experience', { experienceId });
+    log.info('Looking up experience', { experienceId });
     let experience = await Experience.findById(expOid);
-    backendLogger.info('Experience lookup result', { found: !!experience });
-    
+    log.info('Experience lookup result', { experienceId, found: !!experience });
+
     if (!experience) {
-      backendLogger.warn('Experience not found', { experienceId });
+      log.warn('Experience not found', { experienceId });
       return errorResponse(res, null, 'Experience not found', 404);
     }
     
@@ -1217,7 +1222,7 @@ async function updateExperience(req, res) {
           }
         }
       } catch (geoErr) {
-        backendLogger.warn('[updateExperience] Geocoding failed, using raw location', { error: geoErr.message });
+        log.warn('[updateExperience] Geocoding failed, using raw location', { error: geoErr.message });
         if (typeof updateData.location === 'string') {
           updateData.location = { address: updateData.location };
         }
@@ -1229,10 +1234,10 @@ async function updateExperience(req, res) {
           updateData.location = geocodedLocation;
         }
       } catch (geoErr) {
-        backendLogger.warn('[updateExperience] map_location geocoding failed', { error: geoErr.message });
+        log.warn('[updateExperience] map_location geocoding failed', { error: geoErr.message });
       }
     }
-    backendLogger.info('Filtered update data', {
+    log.info('Filtered update data', {
       experienceId,
       updateFields: Object.keys(updateData),
       originalBodyKeys: Object.keys(req.body)
@@ -1240,27 +1245,27 @@ async function updateExperience(req, res) {
 
     // Validate permissions if present
     if (updateData.permissions) {
-      backendLogger.debug('Validating permissions', { count: updateData.permissions.length });
+      log.debug('Validating permissions', { count: updateData.permissions.length });
       for (const perm of updateData.permissions) {
         if (!perm._id) {
-          backendLogger.error('Invalid permission: missing _id', { permission: perm, experienceId });
+          log.error('Invalid permission: missing _id', { permission: perm, experienceId });
           return errorResponse(res, null, 'Invalid permissions data: missing _id', 400);
         }
         if (!perm.entity || !['user', 'destination', 'experience'].includes(perm.entity)) {
-          backendLogger.error('Invalid permission: invalid entity', { permission: perm, experienceId });
+          log.error('Invalid permission: invalid entity', { permission: perm, experienceId });
           return errorResponse(res, null, 'Invalid permissions data: invalid entity', 400);
         }
       }
     }
-    
+
     // Capture previous state for activity tracking
     const previousState = experience.toObject();
-    
+
     experience = Object.assign(experience, updateData);
-    
-    backendLogger.info('About to save experience', { experienceId, bodyKeys: Object.keys(req.body) });
+
+    log.info('About to save experience', { experienceId, bodyKeys: Object.keys(req.body) });
     await experience.save();
-    backendLogger.info('Experience saved successfully', { experienceId });
+    log.info('Experience saved successfully', { experienceId });
     
     // Track update (non-blocking)
     trackUpdate({
@@ -1273,7 +1278,9 @@ async function updateExperience(req, res) {
       reason: `Experience "${experience.name}" updated`
     });
 
-    // Broadcast experience update via WebSocket (async, non-blocking)
+    // Broadcast experience update via WebSocket (async, non-blocking).
+    // serverRequestId lets the receiving client correlate the WS frame to
+    // the originating HTTP request.
     try {
       broadcastEvent('experience', experienceId.toString(), {
         type: 'experience:updated',
@@ -1281,11 +1288,12 @@ async function updateExperience(req, res) {
           experience,
           experienceId: experienceId.toString(),
           updatedFields: Object.keys(updateData),
-          userId: req.user._id.toString()
+          userId: req.user._id.toString(),
+          serverRequestId: req.id
         }
       }, req.user._id.toString()); // Exclude sender from broadcast
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
     }
 
     // Fire-and-forget: re-aggregate destination signals
@@ -1293,30 +1301,29 @@ async function updateExperience(req, res) {
 
     return successResponse(res, experience, 'Experience updated successfully');
   } catch (err) {
-    backendLogger.error('Experience save error details', {
+    log.error('Experience save error details', {
       message: err.message,
       stack: err.stack,
       name: err.name,
       code: err.code,
       errors: err.errors
     });
-    
+
     // Safe logging to avoid undefined property access
     const safeExperienceId = experienceId || 'undefined';
-    const safeUserId = req.user && req.user._id ? req.user._id.toString() : 'undefined';
-    
-    backendLogger.error('Error saving experience', { 
-      error: err.message, 
-      errors: err.errors, 
-      userId: safeUserId, 
-      experienceId: safeExperienceId 
+
+    log.error('Error saving experience', {
+      error: err.message,
+      errors: err.errors,
+      experienceId: safeExperienceId
     });
-    
+
     return errorResponse(res, err, 'Failed to update experience', 400);
   }
 }
 
 async function deleteExperience(req, res) {
+  const log = withRequest(req);
   try {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -1404,13 +1411,13 @@ async function deleteExperience(req, res) {
       const deleteResult = await Plan.deleteMany({ experience: req.params.id });
       deletedPlansCount = deleteResult.deletedCount;
 
-      backendLogger.info('Deleted associated plans', {
+      log.info('Deleted associated plans', {
         experienceId: req.params.id,
         plansDeleted: deletedPlansCount,
         planIds: deletedPlanIds.map(p => p.planId)
       });
     } catch (planDeleteErr) {
-      backendLogger.error('Error deleting associated plans', {
+      log.error('Error deleting associated plans', {
         error: planDeleteErr.message,
         experienceId: req.params.id
       });
@@ -1420,18 +1427,21 @@ async function deleteExperience(req, res) {
 
     await experience.deleteOne();
 
-    // Broadcast experience deletion via WebSocket (async, non-blocking)
+    // Broadcast experience deletion via WebSocket (async, non-blocking).
+    // serverRequestId lets the receiving client correlate the WS frame to
+    // the originating HTTP request.
     try {
       broadcastEvent('experience', req.params.id.toString(), {
         type: 'experience:deleted',
         payload: {
           experienceId: req.params.id.toString(),
           deletedPlans: deletedPlanIds,
-          userId: req.user._id.toString()
+          userId: req.user._id.toString(),
+          serverRequestId: req.id
         }
       }, req.user._id.toString());
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience deletion', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast experience deletion', { error: wsErr.message });
     }
 
     // Return deletion info including cascade-deleted plans for frontend event emission
@@ -1442,7 +1452,7 @@ async function deleteExperience(req, res) {
       }
     }, 'Experience deleted successfully');
   } catch (err) {
-    backendLogger.error('Error deleting experience', { error: err.message, userId: req.user._id, experienceId: req.params.id });
+    log.error('Error deleting experience', { error: err.message, experienceId: req.params.id });
     return errorResponse(res, err, 'Failed to delete experience', 400);
   }
 }

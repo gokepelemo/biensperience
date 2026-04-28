@@ -55,7 +55,13 @@ async function callProvider(provider, messages, options = {}) {
       temperature: options.temperature,
       maxTokens: options.maxTokens
     },
-    entityContext: options.entityContext || null
+    entityContext: options.entityContext || null,
+    // Propagate the originating HTTP request so the gateway can stamp
+    // the correlation id on AIUsage records and telemetry log lines.
+    // Callers without an HTTP context (background jobs, seeds) omit `_req`
+    // and the gateway gracefully resolves to a null requestId.
+    req: options._req || null,
+    requestId: options.requestId || null
   });
 
   // Return in the legacy format (without policyApplied)
@@ -149,7 +155,8 @@ exports.complete = async (req, res) => {
         temperature: options.temperature,
         maxTokens: options.maxTokens
       },
-      entityContext
+      entityContext,
+      req
     });
 
     logger.debug('AI completion success', {
@@ -215,7 +222,8 @@ exports.autocomplete = async (req, res) => {
         model: options.model,
         temperature: 0.7,
         maxTokens: 150
-      }
+      },
+      req
     });
 
     return res.json({
@@ -279,7 +287,8 @@ exports.improve = async (req, res) => {
         model: options.model,
         temperature: 0.7,
         maxTokens: 500
-      }
+      },
+      req
     });
 
     return res.json({
@@ -344,7 +353,8 @@ exports.translate = async (req, res) => {
         model: options.model,
         temperature: 0.3,
         maxTokens: 1000
-      }
+      },
+      req
     });
 
     return res.json({
@@ -412,7 +422,8 @@ exports.summarize = async (req, res) => {
         model: options.model,
         temperature: 0.5,
         maxTokens: Math.min(safeMaxLength * 2, 500)
-      }
+      },
+      req
     });
 
     return res.json({
@@ -478,7 +489,8 @@ exports.generateTips = async (req, res) => {
         model: options.model,
         temperature: 0.8,
         maxTokens: 800
-      }
+      },
+      req
     });
 
     return res.json({

@@ -587,16 +587,25 @@ function getEnvProviderForTask(task) {
  * @param {Object} [params.options] - Caller options { provider, model, temperature, maxTokens, intent }
  * @param {Object} [params.entityContext] - { entityType, entityId, aiConfig }
  * @param {string} [params.intent] - BienBot classified intent (e.g. QUERY_DESTINATION)
+ * @param {Object} [params.req] - Originating Express request (for correlation id)
+ * @param {string} [params.requestId] - Explicit correlation id (alternative to passing req)
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string, policyApplied: Object}>}
  */
 async function executeAIRequest(params) {
-  const { messages, task, user, options: callerOptions = {}, entityContext, intent, schema } = params;
+  const { messages, task, user, options: callerOptions = {}, entityContext, intent, schema, req } = params;
   // Don't mutate the caller's object — callers commonly pass a shared options
   // bag and a stray `intent` write would leak across requests.
   const options = { ...callerOptions, intent: callerOptions.intent || intent || null };
   const startTime = Date.now();
   const userId = user ? (user._id || user.id || '').toString() : null;
   const isSuperAdmin = user && (user.role === 'super_admin' || user.isSuperAdmin);
+  // Resolve correlation id: prefer caller-provided requestId, then req.id /
+  // req.traceId, else null. Background jobs (no HTTP context) pass nothing
+  // and we degrade gracefully to a null requestId on the AIUsage record.
+  const requestId = params.requestId
+    || req?.id
+    || req?.traceId
+    || null;
 
   // Step 1: Resolve effective policy
   const policy = await resolvePolicy({
@@ -613,7 +622,7 @@ async function executeAIRequest(params) {
   const filterResult = applyContentFiltering(messages, policy.content_filtering);
   if (filterResult.blocked) {
     // Track filtered request
-    await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'filtered', filterResult.reason, entityContext);
+    await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'filtered', filterResult.reason, entityContext, requestId);
     throw new GatewayError(filterResult.reason, 'CONTENT_FILTERED', 400);
   }
 
@@ -713,7 +722,8 @@ async function executeAIRequest(params) {
         logger.info('[ai-gateway] Failover succeeded', {
           primaryProvider: route.provider,
           usedProvider: currentProvider,
-          failoverIndex: i
+          failoverIndex: i,
+          requestId
         });
       }
 
@@ -723,7 +733,7 @@ async function executeAIRequest(params) {
 
       if (!isRetryableError(err)) {
         // Non-retryable error (auth failure, content policy, etc.) — do not failover
-        await trackUsage(userId, task, currentProvider, currentCallOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext);
+        await trackUsage(userId, task, currentProvider, currentCallOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext, requestId);
         throw err;
       }
 
@@ -731,7 +741,8 @@ async function executeAIRequest(params) {
         logger.warn('[ai-gateway] Provider failed after retries, trying fallback', {
           failedProvider: currentProvider,
           nextProvider: providerChain[i + 1],
-          error: err.message
+          error: err.message,
+          requestId
         });
       }
     }
@@ -744,7 +755,7 @@ async function executeAIRequest(params) {
       'PROVIDER_NOT_CONFIGURED',
       503
     );
-    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
+    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext, requestId);
     throw finalError;
   }
 
@@ -753,7 +764,7 @@ async function executeAIRequest(params) {
   await trackUsage(
     userId, task, result.provider, result.model,
     result.usage.inputTokens, result.usage.outputTokens,
-    latencyMs, 'success', null, entityContext
+    latencyMs, 'success', null, entityContext, requestId
   );
 
   return {
@@ -776,8 +787,20 @@ async function executeAIRequest(params) {
 
 /**
  * Track an AI request in the usage model.
+ *
+ * @param {string} userId
+ * @param {string} task
+ * @param {string} provider
+ * @param {string} model
+ * @param {number} inputTokens
+ * @param {number} outputTokens
+ * @param {number} latencyMs
+ * @param {string} status
+ * @param {string} [errorMessage]
+ * @param {Object} [entityContext]
+ * @param {string} [requestId] - HTTP correlation id from req.id (null for non-HTTP callers)
  */
-async function trackUsage(userId, task, provider, model, inputTokens, outputTokens, latencyMs, status, errorMessage, entityContext) {
+async function trackUsage(userId, task, provider, model, inputTokens, outputTokens, latencyMs, status, errorMessage, entityContext, requestId = null) {
   if (!userId) return;
 
   try {
@@ -793,11 +816,13 @@ async function trackUsage(userId, task, provider, model, inputTokens, outputToke
       status: status || 'success',
       errorMessage,
       entityType: entityContext?.entityType || null,
-      entityId: entityContext?.entityId || null
+      entityId: entityContext?.entityId || null,
+      requestId
     });
   } catch (err) {
-    // Don't fail the request due to tracking errors
-    logger.warn('[ai-gateway] Usage tracking failed', { error: err.message, userId });
+    // Don't fail the request due to tracking errors. Include requestId so the
+    // tracking failure itself can be correlated back to the originating HTTP call.
+    logger.warn('[ai-gateway] Usage tracking failed', { error: err.message, userId, requestId });
   }
 }
 
