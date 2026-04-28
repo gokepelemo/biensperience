@@ -1,13 +1,20 @@
 /**
  * Follows API Service
- * Frontend service for managing follow relationships and feed
+ * Frontend service for managing follow relationships and feed.
+ *
+ * Note: the follows controller does NOT use the standard `{ success, data }`
+ * envelope; it returns shapes like `{ success: true, follow }` or
+ * `{ success: true, relationship }` at the top level. To preserve those
+ * contracts, this module passes `unwrap: false` to sendApi so callers see
+ * the original response shape.
  */
 
-import { sendRequest } from './send-request';
+import { sendApi } from './api-client.js';
 import { logger } from './logger';
 import { broadcastEvent } from './event-bus';
 
 const BASE_URL = '/api/follows';
+const NO_UNWRAP = { unwrap: false };
 
 /**
  * Follow a user
@@ -16,7 +23,7 @@ const BASE_URL = '/api/follows';
  */
 export async function followUser(userId, currentUserId = null) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${userId}`, 'POST');
+    const result = await sendApi('POST', `${BASE_URL}/${userId}`, null, NO_UNWRAP);
 
     logger.info('User followed successfully', { userId });
 
@@ -46,7 +53,7 @@ export async function followUser(userId, currentUserId = null) {
  */
 export async function unfollowUser(userId, currentUserId = null) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${userId}`, 'DELETE');
+    const result = await sendApi('DELETE', `${BASE_URL}/${userId}`, null, NO_UNWRAP);
 
     logger.info('User unfollowed successfully', { userId });
 
@@ -74,7 +81,7 @@ export async function unfollowUser(userId, currentUserId = null) {
  */
 export async function removeFollower(followerId, removedById = null) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${followerId}/remove-follower`, 'DELETE');
+    const result = await sendApi('DELETE', `${BASE_URL}/${followerId}/remove-follower`, null, NO_UNWRAP);
 
     logger.info('Follower removed successfully', { followerId });
 
@@ -105,7 +112,7 @@ export async function removeFollower(followerId, removedById = null) {
  */
 export async function getFollowStatus(userId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${userId}/status`);
+    const result = await sendApi('GET', `${BASE_URL}/${userId}/status`, null, NO_UNWRAP);
     return {
       isFollowing: result.isFollowing,
       isPending: result.isPending || false
@@ -123,7 +130,7 @@ export async function getFollowStatus(userId) {
  */
 export async function getFollowRelationship(userId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${userId}/relationship`);
+    const result = await sendApi('GET', `${BASE_URL}/${userId}/relationship`, null, NO_UNWRAP);
     return result.relationship;
   } catch (error) {
     logger.error('Error getting follow relationship', { error: error.message, userId });
@@ -138,7 +145,7 @@ export async function getFollowRelationship(userId) {
  */
 export async function getFollowCounts(userId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${userId}/counts`);
+    const result = await sendApi('GET', `${BASE_URL}/${userId}/counts`, null, NO_UNWRAP);
     return result.counts;
   } catch (error) {
     logger.error('Error getting follow counts', { error: error.message, userId });
@@ -159,7 +166,7 @@ export async function getFollowers(userId, options = {}) {
     const { limit = 50, skip = 0 } = options;
     const params = new URLSearchParams({ limit, skip });
 
-    return await sendRequest(`${BASE_URL}/${userId}/followers?${params}`);
+    return await sendApi('GET', `${BASE_URL}/${userId}/followers?${params}`, null, NO_UNWRAP);
   } catch (error) {
     logger.error('Error getting followers', { error: error.message, userId });
     throw error;
@@ -179,7 +186,7 @@ export async function getFollowing(userId, options = {}) {
     const { limit = 50, skip = 0 } = options;
     const params = new URLSearchParams({ limit, skip });
 
-    return await sendRequest(`${BASE_URL}/${userId}/following?${params}`);
+    return await sendApi('GET', `${BASE_URL}/${userId}/following?${params}`, null, NO_UNWRAP);
   } catch (error) {
     logger.error('Error getting following list', { error: error.message, userId });
     throw error;
@@ -202,7 +209,7 @@ export async function getFollowFeed(options = {}) {
       params.set('actions', actions);
     }
 
-    return await sendRequest(`${BASE_URL}/feed?${params}`);
+    return await sendApi('GET', `${BASE_URL}/feed?${params}`, null, NO_UNWRAP);
   } catch (error) {
     logger.error('Error getting follow feed', { error: error.message });
     throw error;
@@ -221,7 +228,7 @@ export async function getFollowRequests(options = {}) {
     const { limit = 20, skip = 0 } = options;
     const params = new URLSearchParams({ limit, skip });
 
-    return await sendRequest(`${BASE_URL}/requests?${params}`);
+    return await sendApi('GET', `${BASE_URL}/requests?${params}`, null, NO_UNWRAP);
   } catch (error) {
     logger.error('Error getting follow requests', { error: error.message });
     throw error;
@@ -234,7 +241,7 @@ export async function getFollowRequests(options = {}) {
  */
 export async function getFollowRequestCount() {
   try {
-    const result = await sendRequest(`${BASE_URL}/requests/count`);
+    const result = await sendApi('GET', `${BASE_URL}/requests/count`, null, NO_UNWRAP);
     return result.count;
   } catch (error) {
     logger.error('Error getting follow request count', { error: error.message });
@@ -249,7 +256,7 @@ export async function getFollowRequestCount() {
  */
 export async function acceptFollowRequest(requesterId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/requests/${requesterId}/accept`, 'PUT');
+    const result = await sendApi('PUT', `${BASE_URL}/requests/${requesterId}/accept`, null, NO_UNWRAP);
 
     logger.info('Follow request accepted', { requesterId });
 
@@ -278,7 +285,7 @@ export async function acceptFollowRequest(requesterId) {
  */
 export async function rejectFollowRequest(requesterId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/requests/${requesterId}`, 'DELETE');
+    const result = await sendApi('DELETE', `${BASE_URL}/requests/${requesterId}`, null, NO_UNWRAP);
 
     logger.info('Follow request rejected', { requesterId });
 
