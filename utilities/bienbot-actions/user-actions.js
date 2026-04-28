@@ -16,8 +16,16 @@ const {
   loadControllers,
   buildMockReq,
   buildMockRes,
+  toExecutorResult,
   logger
 } = require('./_shared');
+
+// Service layer (depends on models + utilities only — never on controllers).
+// Per bd #8f36.13 + bd #8667 — the plan-collaborator paths of
+// invite_collaborator/remove_collaborator below call the plan service
+// directly. The experience-collaborator path still delegates to the
+// controller's permission endpoint (no service equivalent yet).
+const planService = require('../../services/plan-service');
 
 // ---------------------------------------------------------------------------
 // Collaborator management (cross-entity user permissions)
@@ -27,24 +35,22 @@ const {
  * invite_collaborator
  * payload: { plan_id?, experience_id?, user_id, type? }
  *
- * Delegates to either plans.addCollaborator or experiences.addExperiencePermission
- * depending on which entity ID is provided.
+ * Plan path goes through plan-service. Experience path still delegates to
+ * the controller's permission endpoint (no service equivalent yet).
  */
 async function executeInviteCollaborator(payload, user) {
-  const { plansController, experiencesController } = loadControllers();
-
   if (payload.plan_id) {
-    const req = buildMockReq(
-      user,
-      { userId: payload.user_id },
-      { id: payload.plan_id }
-    );
-    const { res, getResult } = buildMockRes();
-    await plansController.addCollaborator(req, res);
-    return getResult();
+    const result = await planService.addCollaborator({
+      planId: payload.plan_id,
+      userId: payload.user_id,
+      actor: user,
+      metadata: { source: 'bienbot-action-executor' }
+    });
+    return toExecutorResult(result, { dataKey: 'plan' });
   }
 
   if (payload.experience_id) {
+    const { experiencesController } = loadControllers();
     const req = buildMockReq(
       user,
       {
@@ -68,18 +74,26 @@ async function executeInviteCollaborator(payload, user) {
 /**
  * remove_collaborator
  * payload: { plan_id?, experience_id?, user_id }
+ *
+ * Plan path goes through plan-service. Experience path still delegates to
+ * the controller's permission endpoint (no service equivalent yet).
  */
 async function executeRemoveCollaborator(payload, user) {
-  const { plansController, experiencesController } = loadControllers();
-
   if (payload.plan_id) {
-    const req = buildMockReq(user, {}, { id: payload.plan_id, userId: payload.user_id });
-    const { res, getResult } = buildMockRes();
-    await plansController.removeCollaborator(req, res);
-    return getResult();
+    const result = await planService.removeCollaborator({
+      planId: payload.plan_id,
+      userId: payload.user_id,
+      actor: user,
+      metadata: { source: 'bienbot-action-executor' }
+    });
+    if (result.error) {
+      return { statusCode: result.code || 400, body: { success: false, error: result.error } };
+    }
+    return { statusCode: 200, body: { success: true, message: 'Collaborator removed successfully' } };
   }
 
   if (payload.experience_id) {
+    const { experiencesController } = loadControllers();
     const req = buildMockReq(user, {}, {
       id: payload.experience_id,
       entityId: payload.user_id,

@@ -12,8 +12,15 @@ const {
   loadControllers,
   loadModels,
   buildMockReq,
-  buildMockRes
+  buildMockRes,
+  toExecutorResult
 } = require('./_shared');
+
+// Service layer (depends on models + utilities only — never on controllers).
+// Per bd #8f36.13 + bd #8667 — canonical CRUD handlers below call the
+// destination service directly. Long-tail handlers (favorite toggling,
+// disambiguation) continue to delegate to controllers via loadControllers().
+const destinationService = require('../../services/destination-service');
 
 // ---------------------------------------------------------------------------
 // create_destination
@@ -24,17 +31,17 @@ const {
  * payload: { name, country, state?, overview?, location? }
  */
 async function executeCreateDestination(payload, user) {
-  const { destinationsController } = loadControllers();
-  const req = buildMockReq(user, {
-    name: payload.name,
-    country: payload.country,
-    state: payload.state,
-    overview: payload.overview,
-    location: payload.location
+  const result = await destinationService.createDestination({
+    data: {
+      name: payload.name,
+      country: payload.country,
+      state: payload.state,
+      overview: payload.overview,
+      location: payload.location
+    },
+    actor: user
   });
-  const { res, getResult } = buildMockRes();
-  await destinationsController.create(req, res);
-  return getResult();
+  return toExecutorResult(result, { dataKey: 'destination', successCode: 201 });
 }
 
 // ---------------------------------------------------------------------------
@@ -46,18 +53,17 @@ async function executeCreateDestination(payload, user) {
  * payload: { destination_id, name?, country?, state?, overview?, location?, map_location?, travel_tips? }
  */
 async function executeUpdateDestination(payload, user) {
-  const { destinationsController } = loadControllers();
-  const body = {};
+  const updates = {};
   const updateFields = ['name', 'country', 'state', 'overview', 'location', 'map_location', 'travel_tips'];
   for (const field of updateFields) {
-    if (payload[field] !== undefined) {
-      body[field] = payload[field];
-    }
+    if (payload[field] !== undefined) updates[field] = payload[field];
   }
-  const req = buildMockReq(user, body, { id: payload.destination_id });
-  const { res, getResult } = buildMockRes();
-  await destinationsController.update(req, res);
-  return getResult();
+  const result = await destinationService.updateDestination({
+    destinationId: payload.destination_id,
+    updates,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'destination' });
 }
 
 /**
