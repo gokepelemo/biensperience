@@ -11,8 +11,15 @@
 const {
   loadControllers,
   buildMockReq,
-  buildMockRes
+  buildMockRes,
+  toExecutorResult
 } = require('./_shared');
+
+// Service layer (depends on models + utilities only — never on controllers).
+// Per bd #8f36.13 + bd #8667 — canonical CRUD handlers below call the
+// experience service directly. Long-tail handlers (experience plan-item
+// CRUD) continue to delegate to controllers via loadControllers().
+const experienceService = require('../../services/experience-service');
 
 // ---------------------------------------------------------------------------
 // create_experience
@@ -23,18 +30,19 @@ const {
  * payload: { name, destination?, description?, plan_items?, experience_type?, visibility? }
  */
 async function executeCreateExperience(payload, user) {
-  const { experiencesController } = loadControllers();
-  const req = buildMockReq(user, {
-    name: payload.name,
-    destination: payload.destination_id || payload.destination,
-    description: payload.description,
-    plan_items: payload.plan_items,
-    experience_type: payload.experience_type,
-    visibility: payload.visibility
+  const result = await experienceService.createExperience({
+    data: {
+      name: payload.name,
+      destination: payload.destination_id || payload.destination,
+      description: payload.description,
+      overview: payload.overview,
+      plan_items: payload.plan_items,
+      experience_type: payload.experience_type,
+      visibility: payload.visibility
+    },
+    actor: user
   });
-  const { res, getResult } = buildMockRes();
-  await experiencesController.create(req, res);
-  return getResult();
+  return toExecutorResult(result, { dataKey: 'experience', successCode: 201 });
 }
 
 // ---------------------------------------------------------------------------
@@ -46,18 +54,17 @@ async function executeCreateExperience(payload, user) {
  * payload: { experience_id, name?, overview?, destination?, experience_type?, visibility?, map_location? }
  */
 async function executeUpdateExperience(payload, user) {
-  const { experiencesController } = loadControllers();
-  const body = {};
+  const updates = {};
   const updateFields = ['name', 'overview', 'destination', 'experience_type', 'visibility', 'location'];
   for (const field of updateFields) {
-    if (payload[field] !== undefined) {
-      body[field] = payload[field];
-    }
+    if (payload[field] !== undefined) updates[field] = payload[field];
   }
-  const req = buildMockReq(user, body, { id: payload.experience_id });
-  const { res, getResult } = buildMockRes();
-  await experiencesController.update(req, res);
-  return getResult();
+  const result = await experienceService.updateExperience({
+    experienceId: payload.experience_id,
+    updates,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'experience' });
 }
 
 /**

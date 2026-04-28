@@ -226,6 +226,37 @@ function buildMockRes() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Service-result adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a service-layer result (`{ <dataKey>, error, code }` shape) into the
+ * `{ statusCode, body }` shape the executor returns to its callers.
+ *
+ * Mirrors the helper introduced in bd #8f36.13 on the (pre-split) executor.
+ *
+ * @param {object} result - Service-layer response.
+ * @param {object} [options]
+ * @param {string} [options.dataKey] - Key in `result` that holds the success entity.
+ * @param {number} [options.successCode=200]
+ * @param {object} [options.extraBody] - Extra fields to merge into the success body.
+ * @returns {{ statusCode: number, body: object }}
+ */
+function toExecutorResult(result, { dataKey, successCode = 200, extraBody = {} } = {}) {
+  if (!result || result.error) {
+    return {
+      statusCode: result?.code || 400,
+      body: { success: false, error: result?.error || 'Unknown error' }
+    };
+  }
+  const data = dataKey ? result[dataKey] : (result.data || result);
+  return {
+    statusCode: successCode,
+    body: { success: true, data, ...extraBody }
+  };
+}
+
 module.exports = {
   // Constants
   MAX_WORKFLOW_STEPS,
@@ -245,6 +276,7 @@ module.exports = {
   isSafeNavigationUrl,
   buildMockReq,
   buildMockRes,
+  toExecutorResult,
   // Logger
   logger
 };

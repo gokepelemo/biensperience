@@ -19,8 +19,15 @@ const {
   normalizeDateOnly,
   buildMockReq,
   buildMockRes,
+  toExecutorResult,
   logger
 } = require('./_shared');
+
+// Service layer (depends on models + utilities only — never on controllers).
+// Per bd #8f36.13 + bd #8667 — canonical CRUD handlers below call the plan
+// service directly. Long-tail handlers (notes/details/costs/sub-resources)
+// continue to delegate to controllers via the loadControllers() pattern.
+const planService = require('../../services/plan-service');
 
 // ---------------------------------------------------------------------------
 // create_plan
@@ -31,18 +38,13 @@ const {
  * payload: { experience_id, planned_date?, currency? }
  */
 async function executeCreatePlan(payload, user) {
-  const { plansController } = loadControllers();
-  const req = buildMockReq(
-    user,
-    {
-      planned_date: normalizeDateOnly(payload.planned_date),
-      currency: payload.currency
-    },
-    { experienceId: payload.experience_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.createPlan(req, res);
-  return getResult();
+  const result = await planService.createPlan({
+    experienceId: payload.experience_id,
+    plannedDate: normalizeDateOnly(payload.planned_date),
+    currency: payload.currency,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan', successCode: 201 });
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +56,6 @@ async function executeCreatePlan(payload, user) {
  * payload: { plan_id, items: [{ text, url?, cost?, planning_days?, parent?, activity_type? }] }
  */
 async function executeAddPlanItems(payload, user) {
-  const { plansController } = loadControllers();
   const items = Array.isArray(payload.items) ? payload.items : [payload.items].filter(Boolean);
 
   if (items.length > MAX_PLAN_ITEMS_PER_BATCH) {
@@ -67,48 +68,29 @@ async function executeAddPlanItems(payload, user) {
     };
   }
 
-  const results = [];
+  const result = await planService.addPlanItems({
+    planId: payload.plan_id,
+    items,
+    actor: user
+  });
 
-  for (const item of items) {
-    const req = buildMockReq(
-      user,
-      {
-        text: item.text,
-        url: item.url,
-        cost: item.cost,
-        planning_days: item.planning_days,
-        parent: item.parent,
-        activity_type: item.activity_type,
-        location: item.location
-      },
-      { id: payload.plan_id }
-    );
-    const { res, getResult } = buildMockRes();
-    await plansController.addPlanItem(req, res);
-    const result = getResult();
-    results.push(result);
-
-    // If any item fails, stop the batch and report
-    if (result.statusCode >= 400) {
-      return {
-        statusCode: result.statusCode,
-        body: {
-          success: false,
-          error: `Failed to add item "${item.text}": ${result.body?.error || 'Unknown error'}`,
-          partial_results: results
-        }
-      };
-    }
+  if (result.error) {
+    return {
+      statusCode: result.code || 400,
+      body: {
+        success: false,
+        error: `Failed to add item: ${result.error}`,
+        partial_results: result.partialResults
+      }
+    };
   }
 
-  // Return the final plan state (from the last successful add)
-  const lastResult = results[results.length - 1];
   return {
-    statusCode: lastResult.statusCode,
+    statusCode: 200,
     body: {
       success: true,
-      data: lastResult.body?.data || lastResult.body,
-      items_added: items.length
+      data: result.plan,
+      items_added: result.itemsAdded
     }
   };
 }
@@ -123,8 +105,7 @@ async function executeAddPlanItems(payload, user) {
  *            activity_type?, scheduled_date?, scheduled_time?, visibility? }
  */
 async function executeUpdatePlanItem(payload, user) {
-  const { plansController } = loadControllers();
-  const body = {};
+  const updates = {};
   const updateFields = [
     'complete', 'text', 'cost', 'planning_days', 'url',
     'activity_type', 'scheduled_date', 'scheduled_time',
@@ -132,19 +113,19 @@ async function executeUpdatePlanItem(payload, user) {
   ];
   for (const field of updateFields) {
     if (payload[field] !== undefined) {
-      body[field] = payload[field];
+      updates[field] = payload[field];
     }
   }
   // Normalise date-only strings to noon UTC to prevent off-by-one shifts
-  if (body.scheduled_date) body.scheduled_date = normalizeDateOnly(body.scheduled_date);
-  const req = buildMockReq(
-    user,
-    body,
-    { id: payload.plan_id, itemId: payload.item_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.updatePlanItem(req, res);
-  return getResult();
+  if (updates.scheduled_date) updates.scheduled_date = normalizeDateOnly(updates.scheduled_date);
+
+  const result = await planService.updatePlanItem({
+    planId: payload.plan_id,
+    itemId: payload.item_id,
+    updates,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan' });
 }
 
 // ---------------------------------------------------------------------------
@@ -249,15 +230,13 @@ async function executeSyncPlan(payload, user) {
  * payload: { plan_id, item_id }
  */
 async function executeMarkPlanItemComplete(payload, user) {
-  const { plansController } = loadControllers();
-  const req = buildMockReq(
-    user,
-    { complete: true },
-    { id: payload.plan_id, itemId: payload.item_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.updatePlanItem(req, res);
-  return getResult();
+  const result = await planService.markItemComplete({
+    planId: payload.plan_id,
+    itemId: payload.item_id,
+    complete: true,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan' });
 }
 
 /**
@@ -265,15 +244,13 @@ async function executeMarkPlanItemComplete(payload, user) {
  * payload: { plan_id, item_id }
  */
 async function executeMarkPlanItemIncomplete(payload, user) {
-  const { plansController } = loadControllers();
-  const req = buildMockReq(
-    user,
-    { complete: false },
-    { id: payload.plan_id, itemId: payload.item_id }
-  );
-  const { res, getResult } = buildMockRes();
-  await plansController.updatePlanItem(req, res);
-  return getResult();
+  const result = await planService.markItemComplete({
+    planId: payload.plan_id,
+    itemId: payload.item_id,
+    complete: false,
+    actor: user
+  });
+  return toExecutorResult(result, { dataKey: 'plan' });
 }
 
 /**
@@ -486,7 +463,6 @@ async function executeShiftPlanItemDates(payload, user) {
  * resolution produces a plan the user doesn't own, the call will 403 safely.
  */
 async function executeDeletePlan(payload, user, session = null) {
-  const { plansController } = loadControllers();
   const { Plan } = loadModels();
 
   let planId = payload.plan_id;
@@ -536,10 +512,11 @@ async function executeDeletePlan(payload, user, session = null) {
     };
   }
 
-  const req = buildMockReq(user, {}, { id: planId });
-  const { res, getResult } = buildMockRes();
-  await plansController.deletePlan(req, res);
-  return getResult();
+  const result = await planService.deletePlan({ planId, actor: user });
+  if (result.error) {
+    return { statusCode: result.code || 400, body: { success: false, error: result.error } };
+  }
+  return { statusCode: 200, body: { success: true, message: 'Plan deleted successfully' } };
 }
 
 /**
