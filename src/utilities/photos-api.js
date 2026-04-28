@@ -1,4 +1,5 @@
-import { uploadFile, uploadFileWithProgress, sendRequest } from "./send-request.js";
+import { uploadFile, uploadFileWithProgress } from "./send-request.js";
+import { sendApi } from "./api-client.js";
 import { logger } from "./logger.js";
 import { broadcastEvent, generateOptimisticId } from "./event-bus.js";
 
@@ -129,7 +130,7 @@ export async function uploadPhotoBatch(request, options = {}) {
 }
 
 export async function uploadPhotoUrl(data) {
-    const result = await sendRequest(`${BASE_URL}url`, "POST", data);
+    const result = await sendApi("POST", `${BASE_URL}url`, data);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for created events
@@ -148,7 +149,7 @@ export async function uploadPhotoUrl(data) {
 }
 
 export async function updatePhoto(id, data) {
-    const result = await sendRequest(`${BASE_URL}${id}`, "PUT", data);
+    const result = await sendApi("PUT", `${BASE_URL}${id}`, data);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
@@ -164,7 +165,7 @@ export async function updatePhoto(id, data) {
 }
 
 export async function deletePhoto(id) {
-    const result = await sendRequest(`${BASE_URL}${id}`, "DELETE");
+    const result = await sendApi("DELETE", `${BASE_URL}${id}`);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
@@ -217,11 +218,11 @@ export async function getPhotosByIds(ids) {
     }
 
     try {
-        const result = await sendRequest(`${BASE_URL}batch-get`, "POST", { ids: validIds });
-        // API returns { success: true, data: [...] }
-        const photos = result?.data || result || [];
-        logger.debug('[photos-api] Photos fetched by IDs', { count: photos?.length, requestedCount: validIds.length });
-        return photos;
+        // sendApi returns the unwrapped data array directly
+        const photos = await sendApi("POST", `${BASE_URL}batch-get`, { ids: validIds });
+        const list = Array.isArray(photos) ? photos : [];
+        logger.debug('[photos-api] Photos fetched by IDs', { count: list?.length, requestedCount: validIds.length });
+        return list;
     } catch (e) {
         logger.error('[photos-api] Failed to fetch photos by IDs', { error: e.message, idsCount: validIds.length });
         return [];

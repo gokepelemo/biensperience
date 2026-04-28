@@ -1,10 +1,22 @@
-import { sendRequest, sendQueuedRequest, PRIORITY } from "./send-request";
+import { sendApi } from "./api-client.js";
+import { sendQueuedRequest, PRIORITY } from "./send-request";
 import { normalizeUrl } from "./url-utils.js";
 import { logger } from "./logger";
 import { broadcastEvent, eventBus } from "./event-bus";
 import { createOperation, OperationType } from "./plan-operations";
 
 const BASE_URL = "/api/plans";
+
+/**
+ * Plans-api uses sendApi with `unwrap: false` to preserve the historical
+ * contract of returning the raw response (some functions use `extractData`
+ * to opt-in to envelope unwrapping; others return the full response).
+ *
+ * Wire errors are still surfaced as ApiError via sendApi.
+ */
+function sendPlanRequest(url, method = "GET", body = null) {
+  return sendApi(method, url, body, { unwrap: false });
+}
 
 /**
  * Extract data from API response
@@ -87,7 +99,7 @@ export function getPlanById(planId) {
  * POST /api/plans/:id/access-requests
  */
 export async function requestPlanAccess(planId, message = '') {
-  const result = await sendRequest(`${BASE_URL}/${planId}/access-requests`, 'POST', {
+  const result = await sendPlanRequest(`${BASE_URL}/${planId}/access-requests`, 'POST', {
     message
   });
 
@@ -109,7 +121,7 @@ export async function requestPlanAccess(planId, message = '') {
  * @returns {Promise<Object>} Preview data: { planId, experienceName, ownerFirstName, experienceId }
  */
 export function getPlanPreview(planId) {
-  return sendRequest(`${BASE_URL}/${planId}/preview`, 'GET').then(extractData);
+  return sendPlanRequest(`${BASE_URL}/${planId}/preview`, 'GET').then(extractData);
 }
 
 /**
@@ -138,7 +150,7 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
       requestBody.currency = currency;
     }
 
-    const response = await sendRequest(`${BASE_URL}/experience/${experienceId}`, "POST", requestBody);
+    const response = await sendPlanRequest(`${BASE_URL}/experience/${experienceId}`, "POST", requestBody);
     const result = extractData(response);
 
     logger.info('[plans-api] Plan created - API response received', {
@@ -202,7 +214,7 @@ export async function createPlan(experienceId, plannedDate, options = {}) {
  * Get all plans for a specific experience that the user can view
  */
 export function getExperiencePlans(experienceId) {
-  return sendRequest(`${BASE_URL}/experience/${experienceId}/all`).then(extractData);
+  return sendPlanRequest(`${BASE_URL}/experience/${experienceId}/all`).then(extractData);
 }
 
 /**
@@ -210,14 +222,14 @@ export function getExperiencePlans(experienceId) {
  * Returns only plan ID - much faster than getUserPlans()
  */
 export function checkUserPlanForExperience(experienceId) {
-  return sendRequest(`${BASE_URL}/experience/${experienceId}/check`);
+  return sendPlanRequest(`${BASE_URL}/experience/${experienceId}/check`);
 }
 
 /**
  * Update a plan
  */
 export function updatePlan(planId, updates) {
-  return sendRequest(`${BASE_URL}/${planId}`, "PUT", updates)
+  return sendPlanRequest(`${BASE_URL}/${planId}`, "PUT", updates)
     .then((response) => {
       const result = extractData(response);
       // Emit event via event bus (handles local + cross-tab dispatch)
@@ -254,7 +266,7 @@ export function updatePlan(planId, updates) {
  * @returns {Promise<{ shifted_count: number }>}
  */
 export async function shiftPlanItemDates(planId, diffMs) {
-  const response = await sendRequest(`${BASE_URL}/${planId}/shift-item-dates`, 'POST', { diff_ms: diffMs });
+  const response = await sendPlanRequest(`${BASE_URL}/${planId}/shift-item-dates`, 'POST', { diff_ms: diffMs });
   const result = extractData(response);
 
   try {
@@ -272,7 +284,7 @@ export async function shiftPlanItemDates(planId, diffMs) {
  * Delete a plan
  */
 export async function deletePlan(planId) {
-  const response = await sendRequest(`${BASE_URL}/${planId}`, "DELETE");
+  const response = await sendPlanRequest(`${BASE_URL}/${planId}`, "DELETE");
   const result = extractData(response);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
@@ -314,7 +326,7 @@ export async function deletePlan(planId) {
  * @returns {Promise<{ token: string, expiresAt: string }>}
  */
 export async function schedulePlanDelete(planId) {
-  const response = await sendRequest(`${BASE_URL}/${planId}/schedule-delete`, 'POST');
+  const response = await sendPlanRequest(`${BASE_URL}/${planId}/schedule-delete`, 'POST');
   return extractData(response);
 }
 
@@ -326,7 +338,7 @@ export async function schedulePlanDelete(planId) {
  * @returns {Promise<{ cancelled: boolean }>}
  */
 export async function cancelScheduledPlanDelete(token) {
-  const response = await sendRequest(`${BASE_URL}/scheduled/${token}`, 'DELETE');
+  const response = await sendPlanRequest(`${BASE_URL}/scheduled/${token}`, 'DELETE');
   return extractData(response);
 }
 
@@ -350,7 +362,7 @@ export function updatePlanItem(planId, itemId, updates) {
     delete normalizedUpdates.completed;
   }
 
-  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates)
+  return sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}`, "PATCH", normalizedUpdates)
     .then((result) => {
       // Emit events via event bus (handles local + cross-tab dispatch)
       try {
@@ -428,7 +440,7 @@ export function addPlanItem(planId, planItem) {
     url: planItem.url ? normalizeUrl(planItem.url) : planItem.url
   };
 
-  return sendRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem)
+  return sendPlanRequest(`${BASE_URL}/${planId}/items`, "POST", normalizedItem)
     .then((result) => {
       // Emit events via event bus (handles local + cross-tab dispatch)
       try {
@@ -473,7 +485,7 @@ export function addPlanItem(planId, planItem) {
  * Delete a plan item from a plan
  */
 export function deletePlanItem(planId, itemId) {
-  return sendRequest(`${BASE_URL}/${planId}/items/${itemId}`, "DELETE")
+  return sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}`, "DELETE")
     .then((result) => {
       // Emit events via event bus (handles local + cross-tab dispatch)
       try {
@@ -511,14 +523,14 @@ export function deletePlanItem(planId, itemId) {
  * Get collaborators for a plan
  */
 export function getCollaborators(planId) {
-  return sendRequest(`${BASE_URL}/${planId}/collaborators`);
+  return sendPlanRequest(`${BASE_URL}/${planId}/collaborators`);
 }
 
 /**
  * Add a collaborator to a plan
  */
 export function addCollaborator(planId, userId) {
-  return sendRequest(`${BASE_URL}/${planId}/permissions/collaborator`, "POST", {
+  return sendPlanRequest(`${BASE_URL}/${planId}/permissions/collaborator`, "POST", {
     userId,
   }).then((result) => {
     // Emit events via event bus (handles local + cross-tab dispatch)
@@ -562,7 +574,7 @@ export function addCollaborator(planId, userId) {
  * Remove a collaborator from a plan
  */
 export function removeCollaborator(planId, userId) {
-  return sendRequest(
+  return sendPlanRequest(
     `${BASE_URL}/${planId}/permissions/collaborator/${userId}`,
     "DELETE"
   ).then((result) => {
@@ -609,7 +621,7 @@ export async function reorderPlanItems(planId, reorderedItems) {
       itemCount: reorderedItems.length
     });
 
-    const result = await sendRequest(
+    const result = await sendPlanRequest(
       `${BASE_URL}/${planId}/reorder`,
       "PUT",
       { plan: reorderedItems }
@@ -670,7 +682,7 @@ export async function addPlanItemNote(planId, itemId, content, visibility) {
   try {
     const payload = { content };
     if (visibility) payload.visibility = visibility;
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes`, "POST", payload);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/notes`, "POST", payload);
 
     // Emit events via event bus (handles local + cross-tab dispatch)
     try {
@@ -708,7 +720,7 @@ export async function updatePlanItemNote(planId, itemId, noteId, content, visibi
   try {
     const payload = { content };
     if (visibility !== undefined) payload.visibility = visibility;
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "PATCH", payload);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "PATCH", payload);
 
     // Emit events via event bus (handles local + cross-tab dispatch)
     try {
@@ -746,7 +758,7 @@ export async function updatePlanItemNote(planId, itemId, noteId, content, visibi
  */
 export async function deletePlanItemNote(planId, itemId, noteId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "DELETE");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}`, "DELETE");
 
     // Emit events via event bus (handles local + cross-tab dispatch)
     try {
@@ -786,7 +798,7 @@ export async function deletePlanItemNote(planId, itemId, noteId) {
  */
 export async function voteNoteRelevancy(planId, itemId, noteId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}/relevancy`, "PATCH");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/notes/${noteId}/relevancy`, "PATCH");
 
     // Emit events via event bus (handles local + cross-tab dispatch)
     try {
@@ -822,7 +834,7 @@ export async function voteNoteRelevancy(planId, itemId, noteId) {
  */
 export async function assignPlanItem(planId, itemId, assignedTo) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "POST", {
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "POST", {
       assignedTo
     });
 
@@ -851,7 +863,7 @@ export async function assignPlanItem(planId, itemId, assignedTo) {
  */
 export async function unassignPlanItem(planId, itemId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "DELETE");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/assign`, "DELETE");
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
@@ -892,7 +904,7 @@ export async function getPlanCosts(planId, filters = {}) {
     const queryString = queryParams.toString();
     const url = `${BASE_URL}/${planId}/costs${queryString ? `?${queryString}` : ''}`;
 
-    return await sendRequest(url);
+    return await sendPlanRequest(url);
   } catch (error) {
     logger.error('[plans-api] Failed to get plan costs', {
       planId,
@@ -909,7 +921,7 @@ export async function getPlanCosts(planId, filters = {}) {
  */
 export async function getPlanCostSummary(planId) {
   try {
-    return await sendRequest(`${BASE_URL}/${planId}/costs/summary`);
+    return await sendPlanRequest(`${BASE_URL}/${planId}/costs/summary`);
   } catch (error) {
     logger.error('[plans-api] Failed to get cost summary', {
       planId,
@@ -926,7 +938,7 @@ export async function getPlanCostSummary(planId) {
  */
 export async function addPlanCost(planId, costData) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/costs`, "POST", costData);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/costs`, "POST", costData);
 
     // Return the newly added cost (last item in the costs array)
     const newCost = result.costs[result.costs.length - 1];
@@ -960,7 +972,7 @@ export async function addPlanCost(planId, costData) {
  */
 export async function updatePlanCost(planId, costId, updates) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "PATCH", updates);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/costs/${costId}`, "PATCH", updates);
 
     // Find and return the updated cost
     const updatedCost = result.costs.find(cost => cost._id === costId);
@@ -993,7 +1005,7 @@ export async function updatePlanCost(planId, costId, updates) {
  */
 export async function deletePlanCost(planId, costId) {
   try {
-    const result = await sendRequest(`${BASE_URL}/${planId}/costs/${costId}`, "DELETE");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/costs/${costId}`, "DELETE");
 
     // Emit cost_deleted event via event bus (handles local + cross-tab dispatch)
     // NOTE: Do NOT emit plan:updated here - it causes duplicate state updates
@@ -1030,7 +1042,7 @@ export async function deletePlanCost(planId, costId) {
 export async function setMemberLocation(planId, locationData) {
   try {
     logger.debug('[plans-api] Setting member location', { planId });
-    const result = await sendRequest(`${BASE_URL}/${planId}/member-location`, 'PUT', locationData);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/member-location`, 'PUT', locationData);
 
     try {
       broadcastEvent('plan:updated', { planId, data: result, version: Date.now() });
@@ -1059,7 +1071,7 @@ export async function removeMemberLocation(planId, userId) {
     const url = userId
       ? `${BASE_URL}/${planId}/member-location?userId=${userId}`
       : `${BASE_URL}/${planId}/member-location`;
-    const result = await sendRequest(url, 'DELETE');
+    const result = await sendPlanRequest(url, 'DELETE');
 
     try {
       broadcastEvent('plan:updated', { planId, data: result, version: Date.now() });
@@ -1095,7 +1107,7 @@ export async function addPlanItemDetail(planId, itemId, detailData) {
       type: detailData.type
     });
 
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/details`, "POST", detailData);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/details`, "POST", detailData);
 
     logger.info('[plans-api] Plan item detail added successfully', {
       planId,
@@ -1153,7 +1165,7 @@ export async function updatePlanItemDetail(planId, itemId, detailId, updates) {
       detailId
     });
 
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/details/${detailId}`, "PATCH", updates);
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/details/${detailId}`, "PATCH", updates);
 
     logger.info('[plans-api] Plan item detail updated successfully', {
       planId,
@@ -1211,7 +1223,7 @@ export async function deletePlanItemDetail(planId, itemId, detailId) {
       detailId
     });
 
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/details/${detailId}`, "DELETE");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/details/${detailId}`, "DELETE");
 
     logger.info('[plans-api] Plan item detail deleted successfully', {
       planId,
@@ -1265,7 +1277,7 @@ export async function pinPlanItem(planId, itemId) {
   try {
     logger.debug('[plans-api] Toggling plan item pin', { planId, itemId });
 
-    const result = await sendRequest(`${BASE_URL}/${planId}/items/${itemId}/pin`, "PUT");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/items/${itemId}/pin`, "PUT");
 
     logger.info('[plans-api] Plan item pin toggled', {
       planId,
@@ -1317,7 +1329,7 @@ export async function unpinPlanItem(planId) {
   try {
     logger.debug('[plans-api] Unpinning plan item', { planId });
 
-    const result = await sendRequest(`${BASE_URL}/${planId}/pin`, "DELETE");
+    const result = await sendPlanRequest(`${BASE_URL}/${planId}/pin`, "DELETE");
 
     logger.info('[plans-api] Plan item unpinned', { planId });
 
