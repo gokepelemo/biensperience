@@ -3929,6 +3929,7 @@ exports.chat = async (req, res) => {
       temperature: 0.7,
       maxTokens,
       _user: req.user,
+      _req: req,
       task: AI_TASKS.BIENBOT_CHAT,
       intent: classification.intent || null,
       entityContext: resolvedInvokeContext ? {
@@ -3940,7 +3941,7 @@ exports.chat = async (req, res) => {
       } : null)
     });
   } catch (err) {
-    logger.error('[bienbot] LLM call failed', { error: err.message, userId });
+    logger.error('[bienbot] LLM call failed', { error: err.message, userId, requestId: req.id });
     return errorResponse(res, null, 'AI service temporarily unavailable', 503);
   }
 
@@ -3994,7 +3995,7 @@ exports.chat = async (req, res) => {
       if (err.message === 'AbortError' || toolLoopAbort.signal.aborted) {
         return res.end();
       }
-      logger.error('[bienbot:tool-loop] tool loop threw', { error: err.message });
+      logger.error('[bienbot:tool-loop] tool loop threw', { error: err.message, requestId: req.id, sessionId: session._id.toString() });
       sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
       sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
       return res.end();
@@ -4014,6 +4015,7 @@ exports.chat = async (req, res) => {
         temperature: 0.7,
         maxTokens,
         _user: req.user,
+        _req: req,
         task: AI_TASKS.BIENBOT_CHAT,
         intent: classification.intent || null
       });
@@ -4021,7 +4023,7 @@ exports.chat = async (req, res) => {
       if (toolLoopAbort.signal.aborted) {
         return res.end();
       }
-      logger.error('[bienbot:tool-loop] second LLM call failed', { error: err.message });
+      logger.error('[bienbot:tool-loop] second LLM call failed', { error: err.message, requestId: req.id });
       sendSSE(res, 'token', { text: 'I had trouble pulling that data — try again in a moment.' });
       sendSSE(res, 'done', { intent: classification.intent, source: 'tool_loop_failure' });
       return res.end();
@@ -4033,7 +4035,9 @@ exports.chat = async (req, res) => {
     if (parsedFinal.tool_calls && parsedFinal.tool_calls.length > 0) {
       logger.warn('[bienbot:tool-loop] second response proposed more tool_calls — ignoring', {
         count: parsedFinal.tool_calls.length,
-        types: parsedFinal.tool_calls.map(t => t.type)
+        types: parsedFinal.tool_calls.map(t => t.type),
+        requestId: req.id,
+        sessionId: session._id.toString()
       });
       parsedFinal.tool_calls = [];
     }
@@ -4051,6 +4055,8 @@ exports.chat = async (req, res) => {
     const hasAnomalies = mergedUnknown.length > 0 || mergedMalformed.length > 0 || mergedParseErrors > 0;
     const turnLog = {
       sessionId: session._id.toString(),
+      requestId: req.id,
+      userId,
       tool_calls_count: calls.length,
       tool_call_types: calls.map(c => c.type),
       re_prompt_duration_ms: Date.now() - startedAtLoop,
