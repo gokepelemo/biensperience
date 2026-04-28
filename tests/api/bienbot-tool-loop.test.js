@@ -24,6 +24,7 @@ jest.mock('../../controllers/api/ai', () => ({
   complete: jest.fn((req, res) => res.json({ success: true })),
   autocomplete: jest.fn((req, res) => res.json({ success: true })),
   improve: jest.fn((req, res) => res.json({ success: true })),
+  editLanguage: jest.fn((req, res) => res.json({ success: true })),
   translate: jest.fn((req, res) => res.json({ success: true })),
   summarize: jest.fn((req, res) => res.json({ success: true })),
   generateTips: jest.fn((req, res) => res.json({ success: true }))

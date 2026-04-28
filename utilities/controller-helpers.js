@@ -45,6 +45,25 @@ function validateObjectId(id, fieldName = 'ID') {
 }
 
 /**
+ * Resolve a request correlation id from common locations.
+ * Checks res.locals.requestId, req.id, and X-Request-Id header (when middleware
+ * is wired up). Returns null when no correlation id is available.
+ * @param {Object} res - Express response
+ * @returns {string|null}
+ */
+function resolveRequestId(res) {
+  if (!res) return null;
+  if (res.locals && typeof res.locals.requestId === 'string') return res.locals.requestId;
+  const req = res.req;
+  if (req) {
+    if (typeof req.id === 'string') return req.id;
+    if (typeof req.requestId === 'string') return req.requestId;
+    if (req.headers && typeof req.headers['x-request-id'] === 'string') return req.headers['x-request-id'];
+  }
+  return null;
+}
+
+/**
  * Standard success response for API controllers
  * @param {Object} res - Express response
  * @param {any} data - Payload data
@@ -55,6 +74,8 @@ function successResponse(res, data = {}, message = null, statusCode = 200, meta 
   const payload = { success: true, data };
   if (message) payload.message = message;
   if (meta && typeof meta === 'object') payload.meta = meta;
+  const requestId = resolveRequestId(res);
+  if (requestId) payload.requestId = requestId;
 
   // Safely serialize payload to prevent runtime JSON errors (e.g., circular refs)
   try {
@@ -82,11 +103,18 @@ function successResponse(res, data = {}, message = null, statusCode = 200, meta 
  * @param {Error|null} err - Error object (optional)
  * @param {string} [message] - Optional message to expose
  * @param {number} [statusCode=400]
+ * @param {string} [code] - Optional machine-readable error code (e.g. 'INVALID_INPUT')
  */
-function errorResponse(res, err = null, message = 'An error occurred', statusCode = 400) {
+function errorResponse(res, err = null, message = 'An error occurred', statusCode = 400, code = null) {
   // Prefer explicit message, fall back to error.message
   const errorMessage = message || (err && err.message) || 'An error occurred';
   const payload = { success: false, error: errorMessage };
+  // Include machine-readable code: explicit arg wins, then err.code
+  const resolvedCode = code || (err && err.code) || null;
+  if (resolvedCode) payload.code = resolvedCode;
+  // Include correlation id when available (added by request-id middleware)
+  const requestId = resolveRequestId(res);
+  if (requestId) payload.requestId = requestId;
   // In development include sanitized details (never expose stack traces or sensitive info)
   if (process.env.NODE_ENV !== 'production' && err) {
     // Sanitize error message to prevent information leakage

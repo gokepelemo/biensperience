@@ -1,11 +1,14 @@
-import { sendRequest } from "./send-request.js";
+import { sendApi } from "./api-client.js";
 import { logger } from "./logger.js";
 import { broadcastEvent } from "./event-bus.js";
 
 const BASE_URL = `/api/users/`;
 
 export async function signUp(userData) {
-  const result = await sendRequest(`${BASE_URL}`, "POST", userData);
+  // Preserve historical contract: return the raw response (envelope) so
+  // callers (users-service.js) can pass it through to setStoredToken unchanged.
+  // The legacy `result.user` path remains supported for older backend formats.
+  const result = await sendApi("POST", `${BASE_URL}`, userData, { unwrap: false });
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for created events
@@ -22,40 +25,33 @@ export async function signUp(userData) {
 }
 
 export async function login(credentials) {
-  const response = await sendRequest(`${BASE_URL}login`, "POST", credentials);
-  // Backend returns { success: true, data: { token, user } } - extract token from data
-  if (response && response.success && response.data && response.data.token) {
-    return response.data.token;
+  // Backend returns { token, user } inside data; sendApi unwraps to that.
+  // Legacy fallback: bare { token } at top level.
+  const data = await sendApi("POST", `${BASE_URL}login`, credentials);
+  if (data && data.token) {
+    return data.token;
   }
-  // Fallback for legacy response format
-  return response.token || response;
+  return data;
 }
 
 export function checkToken() {
-  return sendRequest(`${BASE_URL}check-token`);
+  return sendApi("GET", `${BASE_URL}check-token`);
 }
 
 export async function getUserData(id) {
-  const response = await sendRequest(`${BASE_URL}${id}`, "GET");
-  // Handle standardized API response: { success: true, data: user }
-  if (response && response.success && response.data) {
-    return response.data;
-  }
-  return response;
+  return await sendApi("GET", `${BASE_URL}${id}`);
 }
 
 // OPTIMIZATION: Bulk fetch multiple users in one request
 export async function getBulkUserData(ids) {
   if (!ids || ids.length === 0) return [];
-  const response = await sendRequest(`${BASE_URL}bulk?ids=${ids.join(',')}`, "GET");
-  // Extract data from standardized response format { success: true, data: [] }
-  return response?.data || [];
+  const data = await sendApi("GET", `${BASE_URL}bulk?ids=${ids.join(',')}`);
+  return data || [];
 }
 
 export async function updateUser(id, userData) {
-  const response = await sendRequest(`${BASE_URL}${id}`, "PUT", userData);
-  // Handle standardized API response: { success: true, data: { user, token } }
-  const result = (response && response.success && response.data) ? response.data : response;
+  // Backend returns { user, token } inside data
+  const result = await sendApi("PUT", `${BASE_URL}${id}`, userData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
@@ -74,9 +70,7 @@ export async function updateUser(id, userData) {
 }
 
 export async function updateUserAsAdmin(id, userData) {
-  const response = await sendRequest(`${BASE_URL}${id}/admin`, "PUT", userData);
-  // Handle standardized API response: { success: true, data: { user } }
-  const result = (response && response.success && response.data) ? response.data : response;
+  const result = await sendApi("PUT", `${BASE_URL}${id}/admin`, userData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
@@ -95,17 +89,15 @@ export async function updateUserAsAdmin(id, userData) {
 }
 
 export async function startPhoneVerification(userId, phoneNumber) {
-  const response = await sendRequest(`${BASE_URL}${userId}/phone-verification/start`, 'POST', { phoneNumber });
-  return (response && response.success && response.data) ? response.data : response;
+  return await sendApi("POST", `${BASE_URL}${userId}/phone-verification/start`, { phoneNumber });
 }
 
 export async function confirmPhoneVerification(userId, code) {
-  const response = await sendRequest(`${BASE_URL}${userId}/phone-verification/confirm`, 'POST', { code });
-  return (response && response.success && response.data) ? response.data : response;
+  return await sendApi("POST", `${BASE_URL}${userId}/phone-verification/confirm`, { code });
 }
 
 export async function searchUsers(query) {
-  return await sendRequest(`${BASE_URL}search?q=${encodeURIComponent(query)}`, "GET");
+  return await sendApi("GET", `${BASE_URL}search?q=${encodeURIComponent(query)}`);
 }
 
 /**
@@ -115,14 +107,12 @@ export async function searchUsers(query) {
  * @returns {Promise<Array>} Array of { _id, name, type: 'experience'|'destination', collaboratorCount }
  */
 export async function searchOwnedEntities(query) {
-  const response = await sendRequest(`${BASE_URL}owned-entities/search?q=${encodeURIComponent(query)}`, "GET");
-  return (response && response.success && response.data) ? response.data : (response || []);
+  const data = await sendApi("GET", `${BASE_URL}owned-entities/search?q=${encodeURIComponent(query)}`);
+  return data || [];
 }
 
 export async function updateUserRole(userId, roleData) {
-  const response = await sendRequest(`${BASE_URL}${userId}/role`, "PUT", roleData);
-  // Handle standardized API response: { success: true, data: { user } }
-  const result = (response && response.success && response.data) ? response.data : response;
+  const result = await sendApi("PUT", `${BASE_URL}${userId}/role`, roleData);
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   // Standardized payload: { entity, entityId } for updated events
@@ -141,34 +131,30 @@ export async function updateUserRole(userId, roleData) {
 }
 
 export async function getAllUsers() {
-  const response = await sendRequest(`${BASE_URL}all`, "GET");
-  // Handle standardized API response: { success: true, data: users[] }
-  if (response && response.success && response.data) {
-    return response.data;
-  }
+  const data = await sendApi("GET", `${BASE_URL}all`);
   // Fallback for legacy response format (direct array)
-  return Array.isArray(response) ? response : [];
+  return Array.isArray(data) ? data : [];
 }
 
 export async function checkCanManageFeatureFlags() {
-  const response = await sendRequest(`${BASE_URL}feature-admin-check`, "GET");
-  return response?.data?.canManageFeatureFlags === true;
+  const data = await sendApi("GET", `${BASE_URL}feature-admin-check`);
+  return data?.canManageFeatureFlags === true;
 }
 
 export async function requestPasswordReset(email) {
-  return await sendRequest(`${BASE_URL}forgot-password`, "POST", { email });
+  return await sendApi("POST", `${BASE_URL}forgot-password`, { email });
 }
 
 export async function resetPassword(token, newPassword) {
-  return await sendRequest(`${BASE_URL}reset-password`, "POST", { token, password: newPassword });
+  return await sendApi("POST", `${BASE_URL}reset-password`, { token, password: newPassword });
 }
 
 export async function confirmEmail(token) {
-  return await sendRequest(`${BASE_URL}confirm-email/${token}`, "GET");
+  return await sendApi("GET", `${BASE_URL}confirm-email/${token}`);
 }
 
 export async function resendConfirmation(email) {
-  return await sendRequest(`${BASE_URL}resend-confirmation`, "POST", { email });
+  return await sendApi("POST", `${BASE_URL}resend-confirmation`, { email });
 }
 
 /**
@@ -181,11 +167,13 @@ export async function resendConfirmation(email) {
  * @returns {Promise<Object>} Result with success status and message
  */
 export async function deleteAccount(id, { password, confirmDelete, transferToUserId }) {
-  const result = await sendRequest(`${BASE_URL}${id}`, "DELETE", {
+  // Backend returns { success, dataTransferred, transferredTo }; we want the original
+  // bare response (with `success` flag) so legacy callers keep working. Use unwrap=false.
+  const result = await sendApi("DELETE", `${BASE_URL}${id}`, {
     password,
     confirmDelete,
     transferToUserId
-  });
+  }, { unwrap: false });
 
   // Emit event via event bus (handles local + cross-tab dispatch)
   try {

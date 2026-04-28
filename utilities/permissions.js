@@ -5,6 +5,13 @@
  * Supports collaborators (can edit and modify plan items) and contributors (can add posts).
  * Implements permission inheritance with circular dependency prevention (max 3 levels).
  *
+ * @internal — DO NOT import directly from controllers, services, or other call
+ * sites. This module is the implementation detail of utilities/permission-enforcer.js.
+ * All permission checks should go through `getEnforcer()` from permission-enforcer.js,
+ * which re-exports the synchronous helpers (isOwner / isCollaborator / isSuperAdmin /
+ * canView / ROLES / ENTITY_TYPES). Direct callers from outside the enforcer will be
+ * flagged in code review (bd #9224 — CLAUDE.md target state).
+ *
  * @module permissions
  */
 

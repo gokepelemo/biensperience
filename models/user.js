@@ -62,7 +62,7 @@ const userSchema = new Schema(
     password: {
       type: String,
       trim: true,
-      minLength: 3,
+      minLength: 8,
       required: function() {
         // Password required only if not using OAuth
         return !this.facebookId && !this.googleId && !this.twitterId;
@@ -712,6 +712,7 @@ userSchema.methods.isSessionValid = function(sessionId) {
  */
 userSchema.methods.generateToken = function() {
   const jwt = require('jsonwebtoken');
+  const { generateJti } = require('../utilities/jwt-denylist');
   const u = this.toObject ? this.toObject() : this;
   const payload = {
     _id: u._id,
@@ -736,9 +737,11 @@ userSchema.methods.generateToken = function() {
       .filter(f => f.enabled)
       .map(f => ({ flag: f.flag, enabled: true })),
   };
+  // jti enables Redis-backed revocation (see utilities/jwt-denylist.js).
+  const { getJwtSecret } = require('../utilities/secrets');
   return jwt.sign(
-    { user: payload },
-    process.env.SECRET,
+    { user: payload, jti: generateJti() },
+    getJwtSecret(),
     { expiresIn: '24h' }
   );
 };

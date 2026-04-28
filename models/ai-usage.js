@@ -35,12 +35,20 @@ const requestLogEntrySchema = new Schema({
   latency_ms: { type: Number, default: 0 },
   status: {
     type: String,
-    enum: ['success', 'error', 'filtered'],
+    // 'cap_reached'  — failover loop exhausted total-attempts cap (bd #8f36.12 + #863b)
+    // 'rate_limited' — per-user rate or token-budget rejected the request pre-LLM-call
+    // 'disabled'     — entity ai_config.disabled rejected the request
+    enum: ['success', 'error', 'filtered', 'cap_reached', 'rate_limited', 'disabled'],
     default: 'success'
   },
   error_message: { type: String, default: null },
   entity_type: { type: String, default: null },
-  entity_id: { type: Schema.Types.ObjectId, default: null }
+  entity_id: { type: Schema.Types.ObjectId, default: null },
+  // HTTP correlation id propagated from the originating request via the AI
+  // gateway. Optional — null for non-HTTP callers (background jobs, seeds).
+  // Indexed so the AI usage admin view can pivot from a request id to all
+  // LLM calls it triggered. See utilities/log-context.js.
+  request_id: { type: String, default: null, index: true }
 }, { _id: false });
 
 const aiUsageSchema = new Schema({
@@ -126,6 +134,7 @@ aiUsageSchema.statics.getMonthStart = function (d) {
  * @param {string} [params.entityType] - Entity type if in entity context
  * @param {string} [params.entityId] - Entity ID if in entity context
  * @param {number} [params.costEstimate] - Estimated cost in USD cents
+ * @param {string} [params.requestId] - HTTP correlation id from req.id (null for non-HTTP callers)
  * @returns {Promise<Object>} Updated usage document
  */
 aiUsageSchema.statics.trackRequest = async function (params) {
@@ -134,7 +143,8 @@ aiUsageSchema.statics.trackRequest = async function (params) {
     inputTokens = 0, outputTokens = 0, latencyMs = 0,
     status = 'success', errorMessage = null,
     entityType = null, entityId = null,
-    costEstimate = 0
+    costEstimate = 0,
+    requestId = null
   } = params;
 
   const dateKey = this.getDateKey();
@@ -150,7 +160,8 @@ aiUsageSchema.statics.trackRequest = async function (params) {
     status,
     error_message: errorMessage,
     entity_type: entityType,
-    entity_id: entityId
+    entity_id: entityId,
+    request_id: requestId
   };
 
   return this.findOneAndUpdate(

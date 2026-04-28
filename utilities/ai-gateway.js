@@ -16,6 +16,7 @@
 
 const logger = require('./backend-logger');
 const { callProvider, getApiKeyForProvider, getAllProviderConfigs } = require('./ai-provider-registry');
+const { getSharedRedisClient } = require('./rate-limit-store');
 
 // Lazy model loading
 let AIPolicy, AIUsage;
@@ -38,6 +39,10 @@ const RATE_ENTRIES_TRIM_TARGET = 5000;
 const DEFAULT_HEADROOM_TOKENS = 100;
 const DEFAULT_MAX_TOKENS = 1000;
 const DEFAULT_MAX_TOKENS_PER_REQUEST = 4000;
+// Hard cap on total LLM call attempts across the entire failover chain.
+// Worst case without this cap was (maxRetries+1) × providerChainLength
+// (e.g. 4 × 3 = 12 calls). Cap bounds blast radius for cost + latency.
+const DEFAULT_MAX_TOTAL_ATTEMPTS = 5;
 const DEFAULT_TEMPERATURE = 0.7;
 const TEMPERATURE_MIN = 0;
 const TEMPERATURE_MAX = 2;
@@ -139,6 +144,7 @@ async function resolvePolicy({ entityAIConfig, user } = {}) {
     task_routing: [],
     content_filtering: { enabled: false, block_patterns: [], redact_patterns: [] },
     max_tokens_per_request: DEFAULT_MAX_TOKENS_PER_REQUEST,
+    max_total_attempts: DEFAULT_MAX_TOTAL_ATTEMPTS,
     // Provider/model overrides from entity config
     preferred_provider: null,
     preferred_model: null,
@@ -239,11 +245,35 @@ function mergePolicy(target, source) {
   if (source.max_tokens_per_request != null) {
     target.max_tokens_per_request = source.max_tokens_per_request;
   }
+
+  if (source.max_total_attempts != null) {
+    target.max_total_attempts = source.max_total_attempts;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Rate limiting (in-memory sliding window)
+// Rate limiting
 // ---------------------------------------------------------------------------
+//
+// Two backends share the same `checkRateLimit` / `recordRateEntry` API:
+//
+//   1. Redis (selected when REDIS_URL is set) — fixed-window counters per
+//      minute/hour/day. Each window key embeds the bucket epoch (e.g.
+//      `aigw:rate:<userId>:m:<floor(now/60s)>`) so it auto-resets at the
+//      window boundary; we just INCR and set EXPIRE on first increment.
+//      Safe under horizontal scaling.
+//
+//   2. In-memory sliding window (the original implementation) — used in
+//      dev/test and as a graceful fallback if Redis is unavailable. Per-
+//      instance only; do NOT rely on this when numInstances > 1.
+//
+// The fixed-window approximation is intentional for the Redis path: it
+// trades the sliding-window's exact-N-in-last-window guarantee for an
+// atomic, distributed counter. At the boundary a user could in theory
+// fire `2 * limit` requests in the worst case (limit at end of window N
+// + limit at start of window N+1) — acceptable for the AI gateway's
+// abuse-prevention use case, and the same trade-off `rate-limit-redis`
+// makes for the express limiters above.
 
 const rateLimitStore = new Map();
 
@@ -267,16 +297,104 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 /**
+ * Build the per-window Redis key for a user. Embedding the bucket epoch
+ * means we never have to delete keys — they expire naturally and a new
+ * bucket starts at the next boundary.
+ */
+function _windowKey(userId, granularity, windowMs, now) {
+  const bucket = Math.floor(now / windowMs);
+  return `aigw:rate:${userId}:${granularity}:${bucket}`;
+}
+
+/**
+ * Atomically read counters for all active windows. Returns null on any
+ * Redis error so the caller can fall back to the in-memory path.
+ *
+ * @returns {Promise<{minute:number, hour:number, day:number}|null>}
+ */
+async function _redisGetWindowCounts(client, userId, now) {
+  try {
+    const mKey = _windowKey(userId, 'm', MS_PER_MINUTE, now);
+    const hKey = _windowKey(userId, 'h', MS_PER_HOUR, now);
+    const dKey = _windowKey(userId, 'd', MS_PER_DAY, now);
+    const pipeline = client.pipeline();
+    pipeline.get(mKey);
+    pipeline.get(hKey);
+    pipeline.get(dKey);
+    const results = await pipeline.exec();
+    if (!results) return { minute: 0, hour: 0, day: 0 };
+    const [mRes, hRes, dRes] = results;
+    return {
+      minute: parseInt((mRes && mRes[1]) || '0', 10) || 0,
+      hour: parseInt((hRes && hRes[1]) || '0', 10) || 0,
+      day: parseInt((dRes && dRes[1]) || '0', 10) || 0,
+    };
+  } catch (err) {
+    logger.warn('[ai-gateway] Redis rate-check failed, falling back to memory', { error: err.message });
+    return null;
+  }
+}
+
+/**
+ * Atomically increment all three window counters and set their expiries
+ * on first increment (when INCR returns 1). Best-effort — failures fall
+ * back to the in-memory recorder.
+ */
+async function _redisRecordEntry(client, userId, now) {
+  try {
+    const mKey = _windowKey(userId, 'm', MS_PER_MINUTE, now);
+    const hKey = _windowKey(userId, 'h', MS_PER_HOUR, now);
+    const dKey = _windowKey(userId, 'd', MS_PER_DAY, now);
+    const pipeline = client.pipeline();
+    // INCR + PEXPIRE per window. PEXPIRE is set on every call (idempotent
+    // and cheap) so a long-lived bucket can't lose its TTL after a flush.
+    pipeline.incr(mKey);
+    pipeline.pexpire(mKey, MS_PER_MINUTE + 1000);
+    pipeline.incr(hKey);
+    pipeline.pexpire(hKey, MS_PER_HOUR + 1000);
+    pipeline.incr(dKey);
+    pipeline.pexpire(dKey, MS_PER_DAY + 1000);
+    await pipeline.exec();
+    return true;
+  } catch (err) {
+    logger.warn('[ai-gateway] Redis rate-record failed, falling back to memory', { error: err.message });
+    return false;
+  }
+}
+
+/**
  * Check rate limits for a user.
+ *
  * @param {string} userId
  * @param {Object} rateLimits - { requests_per_minute, requests_per_hour, requests_per_day }
- * @returns {{ allowed: boolean, reason: string|null, retryAfterMs: number|null }}
+ * @returns {Promise<{ allowed: boolean, reason: string|null, retryAfterMs: number|null }>}
  */
-function checkRateLimit(userId, rateLimits) {
+async function checkRateLimit(userId, rateLimits) {
   if (!userId || !rateLimits) return { allowed: true, reason: null, retryAfterMs: null };
 
-  const key = `rate:${userId}`;
   const now = Date.now();
+
+  // Redis path (distributed) — fixed-window counters per granularity.
+  const client = getSharedRedisClient();
+  if (client) {
+    const counts = await _redisGetWindowCounts(client, userId, now);
+    if (counts) {
+      if (rateLimits.requests_per_minute != null && counts.minute >= rateLimits.requests_per_minute) {
+        return { allowed: false, reason: 'Rate limit exceeded (per minute)', retryAfterMs: MS_PER_MINUTE };
+      }
+      if (rateLimits.requests_per_hour != null && counts.hour >= rateLimits.requests_per_hour) {
+        return { allowed: false, reason: 'Rate limit exceeded (per hour)', retryAfterMs: MS_PER_HOUR };
+      }
+      if (rateLimits.requests_per_day != null && counts.day >= rateLimits.requests_per_day) {
+        return { allowed: false, reason: 'Rate limit exceeded (per day)', retryAfterMs: MS_PER_DAY };
+      }
+      return { allowed: true, reason: null, retryAfterMs: null };
+    }
+    // Fall through to in-memory if Redis errored.
+  }
+
+  // In-memory sliding-window path (single-instance / dev / fallback).
+  const key = `rate:${userId}`;
   const entries = rateLimitStore.get(key) || [];
 
   if (rateLimits.requests_per_minute != null) {
@@ -304,12 +422,24 @@ function checkRateLimit(userId, rateLimits) {
 }
 
 /**
- * Record a request timestamp for rate limiting.
+ * Record a request timestamp for rate limiting. Async because the Redis
+ * path issues a pipelined INCR/PEXPIRE round-trip; in-memory path
+ * resolves immediately.
  */
-function recordRateEntry(userId) {
+async function recordRateEntry(userId) {
+  const now = Date.now();
+
+  const client = getSharedRedisClient();
+  if (client) {
+    const ok = await _redisRecordEntry(client, userId, now);
+    if (ok) return;
+    // Fall through to in-memory recording on Redis failure so we don't
+    // silently drop accounting and let abusers slip through.
+  }
+
   const key = `rate:${userId}`;
   let entries = rateLimitStore.get(key) || [];
-  entries.push(Date.now());
+  entries.push(now);
   if (entries.length > MAX_RATE_ENTRIES_PER_USER) {
     entries = entries.slice(-RATE_ENTRIES_TRIM_TARGET);
   }
@@ -574,6 +704,48 @@ function getEnvProviderForTask(task) {
 }
 
 // ---------------------------------------------------------------------------
+// Telemetry helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Emit a single structured log line summarising the outcome of the failover
+ * loop. Always fires once per executeAIRequest, regardless of success/failure.
+ * Used by the AI usage admin view + ops dashboards to spot runaway-cost paths.
+ *
+ * Fields:
+ *  - status: 'success' | 'error'
+ *  - total_attempts: actual LLM call count across the chain
+ *  - cap: configured max_total_attempts for this request
+ *  - cap_reached: true when the cap short-circuited iteration
+ *  - final_provider: provider that produced the response (success) or last tried (error)
+ *  - providers_tried, provider_chain_length: how far through the chain we got
+ *  - failover_index: 0 = primary, >0 = nth fallback (success path only)
+ *  - error_message: present on error
+ */
+function logFailoverComplete(fields) {
+  const payload = {
+    status: fields.status,
+    total_attempts: fields.totalAttempts,
+    cap: fields.cap,
+    cap_reached: !!fields.capReached,
+    final_provider: fields.finalProvider || null,
+    providers_tried: fields.providersTried,
+    provider_chain_length: fields.providerChainLength
+  };
+  if (typeof fields.failoverIndex === 'number') {
+    payload.failover_index = fields.failoverIndex;
+  }
+  if (fields.errorMessage) {
+    payload.error_message = fields.errorMessage;
+  }
+  if (fields.status === 'success') {
+    logger.info('[ai-gateway] Failover loop complete', payload);
+  } else {
+    logger.warn('[ai-gateway] Failover loop complete', payload);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main gateway function
 // ---------------------------------------------------------------------------
 
@@ -587,16 +759,41 @@ function getEnvProviderForTask(task) {
  * @param {Object} [params.options] - Caller options { provider, model, temperature, maxTokens, intent }
  * @param {Object} [params.entityContext] - { entityType, entityId, aiConfig }
  * @param {string} [params.intent] - BienBot classified intent (e.g. QUERY_DESTINATION)
+ * @param {Object} [params.req] - Originating Express request (for correlation id)
+ * @param {string} [params.requestId] - Explicit correlation id (alternative to passing req)
  * @returns {Promise<{content: string, usage: Object, model: string, provider: string, policyApplied: Object}>}
+ *
+ * Exit paths and AIUsage tracking (bd #863b — keep this list in sync with
+ * trackUsage call sites below):
+ *   1. Entity AI disabled       → trackUsage(status:'disabled')      throw AI_DISABLED
+ *   2. Content filter blocks    → trackUsage(status:'filtered')      throw CONTENT_FILTERED
+ *   3. Rate limit exceeded      → trackUsage(status:'rate_limited')  throw RATE_LIMIT_EXCEEDED
+ *   4. Token budget exceeded    → trackUsage(status:'rate_limited')  throw TOKEN_BUDGET_EXCEEDED
+ *   5. Successful provider call → trackUsage(status:'success')       return {content,...}
+ *   6. Per-provider non-retry err → trackUsage(status:'error')        throw err  (failover loop, mid-chain)
+ *   7. Failover exhausted       → trackUsage(status:'error')         throw GatewayError
+ *   8. Attempt cap reached      → trackUsage(status:'cap_reached')   throw GatewayError(ATTEMPT_CAP_REACHED)
+ *
+ * Every exit path that consumes any cost (network call, token count) records
+ * a usage doc; pre-LLM rejections record with token counts of 0. This keeps
+ * the AIUsage aggregation honest for billing visibility and rate-limit
+ * dashboards.
  */
 async function executeAIRequest(params) {
-  const { messages, task, user, options: callerOptions = {}, entityContext, intent, schema } = params;
+  const { messages, task, user, options: callerOptions = {}, entityContext, intent, schema, req } = params;
   // Don't mutate the caller's object — callers commonly pass a shared options
   // bag and a stray `intent` write would leak across requests.
   const options = { ...callerOptions, intent: callerOptions.intent || intent || null };
   const startTime = Date.now();
   const userId = user ? (user._id || user.id || '').toString() : null;
   const isSuperAdmin = user && (user.role === 'super_admin' || user.isSuperAdmin);
+  // Resolve correlation id: prefer caller-provided requestId, then req.id /
+  // req.traceId, else null. Background jobs (no HTTP context) pass nothing
+  // and we degrade gracefully to a null requestId on the AIUsage record.
+  const requestId = params.requestId
+    || req?.id
+    || req?.traceId
+    || null;
 
   // Step 1: Resolve effective policy
   const policy = await resolvePolicy({
@@ -604,33 +801,37 @@ async function executeAIRequest(params) {
     user
   });
 
-  // Check if AI is disabled for this entity
+  // Check if AI is disabled for this entity.
+  // Exit path: trackUsage(status:'disabled') — bd #863b.
   if (policy.ai_disabled) {
+    await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'disabled', 'AI features are disabled for this entity', entityContext);
     throw new GatewayError('AI features are disabled for this entity', 'AI_DISABLED', 403);
   }
 
-  // Step 2: Content filtering
+  // Step 2: Content filtering — exit path: trackUsage(status:'filtered').
   const filterResult = applyContentFiltering(messages, policy.content_filtering);
   if (filterResult.blocked) {
-    // Track filtered request
-    await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'filtered', filterResult.reason, entityContext);
+    await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'filtered', filterResult.reason, entityContext, requestId);
     throw new GatewayError(filterResult.reason, 'CONTENT_FILTERED', 400);
   }
 
-  // Step 3: Rate limiting (super admins exempt)
+  // Step 3: Rate limiting (super admins exempt).
+  // Exit path: trackUsage(status:'rate_limited') — bd #863b.
   if (!isSuperAdmin && userId) {
-    const rateCheck = checkRateLimit(userId, policy.rate_limits);
+    const rateCheck = await checkRateLimit(userId, policy.rate_limits);
     if (!rateCheck.allowed) {
+      await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'rate_limited', rateCheck.reason, entityContext, requestId);
       throw new GatewayError(rateCheck.reason, 'RATE_LIMIT_EXCEEDED', 429);
     }
   }
 
-  // Step 4: Token budget check (super admins exempt)
-  // Pass estimated maxTokens so the check can preemptively block near-limit requests
+  // Step 4: Token budget check (super admins exempt).
+  // Exit path: trackUsage(status:'rate_limited') — bd #863b.
   if (!isSuperAdmin && userId) {
     const estimatedTokens = options.maxTokens || 1000;
     const budgetCheck = await checkTokenBudget(userId, policy.token_budget, estimatedTokens);
     if (!budgetCheck.allowed) {
+      await trackUsage(userId, task, null, null, 0, 0, Date.now() - startTime, 'rate_limited', budgetCheck.reason, entityContext, requestId);
       throw new GatewayError(budgetCheck.reason, 'TOKEN_BUDGET_EXCEEDED', 429);
     }
   }
@@ -679,12 +880,32 @@ async function executeAIRequest(params) {
   const providerChain = [route.provider, ...resolvedFallbacks.filter(p => p !== route.provider)];
 
   // Record rate limit entry once per user request
-  if (userId) recordRateEntry(userId);
+  if (userId) await recordRateEntry(userId);
+
+  // Shared attempt tracker for the entire failover chain. Without this cap,
+  // worst-case attempt count is (maxRetries + 1) × providerChain.length —
+  // e.g. 4 × 3 = 12 LLM calls — a runaway cost path. Allow per-request override
+  // via options.maxTotalAttempts for tests / debugging.
+  const callerCap = Number(options.maxTotalAttempts);
+  const policyCap = Number(policy.max_total_attempts);
+  const attemptTracker = {
+    count: 0,
+    cap: Math.max(
+      1,
+      Number.isFinite(callerCap) && callerCap > 0
+        ? Math.floor(callerCap)
+        : (Number.isFinite(policyCap) && policyCap > 0 ? Math.floor(policyCap) : DEFAULT_MAX_TOTAL_ATTEMPTS)
+    )
+  };
 
   let result;
   let lastError;
+  let capReached = false;
+  let providersTried = 0;
   let lastAttemptedProvider = route.provider;
   let lastAttemptedModel = callOptions.model;
+  let usedFailoverIndex = 0;
+
   for (let i = 0; i < providerChain.length; i++) {
     const currentProvider = providerChain[i];
     const currentApiKey = getApiKeyForProvider(currentProvider);
@@ -701,19 +922,23 @@ async function executeAIRequest(params) {
 
     lastAttemptedProvider = currentProvider;
     lastAttemptedModel = currentCallOptions.model;
+    providersTried += 1;
 
     try {
       result = await callWithRetry(
         () => callProvider(currentProvider, filterResult.messages, currentCallOptions),
         options.retryConfig,
-        `${currentProvider}/${task || 'unknown'}`
+        `${currentProvider}/${task || 'unknown'}`,
+        attemptTracker
       );
+      usedFailoverIndex = i;
 
       if (i > 0) {
         logger.info('[ai-gateway] Failover succeeded', {
           primaryProvider: route.provider,
           usedProvider: currentProvider,
-          failoverIndex: i
+          failoverIndex: i,
+          requestId
         });
       }
 
@@ -721,9 +946,45 @@ async function executeAIRequest(params) {
     } catch (err) {
       lastError = err;
 
+      // Cross-provider attempt cap reached — stop iterating, do NOT try the
+      // next provider. The cap exists precisely to bound the chain, so we
+      // exit immediately rather than burn another attempt elsewhere.
+      if (err instanceof AttemptCapReachedError) {
+        capReached = true;
+        break;
+      }
+
+      // Auth / quota / 400-class shape errors: this provider is unusable but
+      // the next one might work. Skip remaining retries within current
+      // provider and advance. (Retries within current provider are already
+      // skipped because callWithRetry threw on the first non-retryable error.)
+      if (shouldAdvanceProvider(err)) {
+        if (i < providerChain.length - 1) {
+          logger.warn('[ai-gateway] Provider non-retryable error, advancing to fallback', {
+            failedProvider: currentProvider,
+            nextProvider: providerChain[i + 1],
+            statusCode: err.statusCode || err.status || null,
+            quotaExhausted: isQuotaExhaustedError(err),
+            error: err.message
+          });
+        }
+        continue;
+      }
+
+      // Other non-retryable errors (content policy, validation we can't
+      // recover from, unknown 4xx) — fail closed without failover.
       if (!isRetryableError(err)) {
-        // Non-retryable error (auth failure, content policy, etc.) — do not failover
-        await trackUsage(userId, task, currentProvider, currentCallOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext);
+        await trackUsage(userId, task, currentProvider, currentCallOptions.model, 0, 0, Date.now() - startTime, 'error', err.message, entityContext, requestId);
+        logFailoverComplete({
+          status: 'error',
+          totalAttempts: attemptTracker.count,
+          cap: attemptTracker.cap,
+          capReached: false,
+          finalProvider: currentProvider,
+          providersTried,
+          providerChainLength: providerChain.length,
+          errorMessage: err.message
+        });
         throw err;
       }
 
@@ -731,29 +992,67 @@ async function executeAIRequest(params) {
         logger.warn('[ai-gateway] Provider failed after retries, trying fallback', {
           failedProvider: currentProvider,
           nextProvider: providerChain[i + 1],
-          error: err.message
+          error: err.message,
+          requestId
         });
       }
     }
   }
 
   if (!result) {
-    // All providers exhausted (either all failed or all skipped due to missing API keys)
-    const finalError = lastError || new GatewayError(
-      `No configured AI providers available for this request (tried: ${providerChain.join(', ')})`,
-      'PROVIDER_NOT_CONFIGURED',
-      503
-    );
-    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, 'error', finalError.message, entityContext);
+    // All providers exhausted (either all failed, all skipped due to missing
+    // API keys, or the cross-chain attempt cap was hit).
+    let finalError;
+    if (capReached) {
+      finalError = new GatewayError(
+        `AI gateway exhausted attempt cap (${attemptTracker.count}/${attemptTracker.cap}) ` +
+        `after trying ${providersTried} provider(s) [${providerChain.slice(0, providersTried).join(', ')}]: ` +
+        `${lastError ? lastError.message : 'unknown error'}`,
+        'ATTEMPT_CAP_REACHED',
+        503
+      );
+    } else {
+      finalError = lastError || new GatewayError(
+        `No configured AI providers available for this request (tried: ${providerChain.join(', ')})`,
+        'PROVIDER_NOT_CONFIGURED',
+        503
+      );
+    }
+    // Distinguish cap-reached from generic provider-exhaustion in the usage
+    // record so admins can see "this user's request hit the cross-provider
+    // attempt cap" vs "all providers errored out". bd #863b.
+    const usageStatus = capReached ? 'cap_reached' : 'error';
+    await trackUsage(userId, task, lastAttemptedProvider, lastAttemptedModel, 0, 0, Date.now() - startTime, usageStatus, finalError.message, entityContext, requestId);
+    logFailoverComplete({
+      status: 'error',
+      totalAttempts: attemptTracker.count,
+      cap: attemptTracker.cap,
+      capReached,
+      finalProvider: lastAttemptedProvider,
+      providersTried,
+      providerChainLength: providerChain.length,
+      errorMessage: finalError.message
+    });
     throw finalError;
   }
+
+  logFailoverComplete({
+    status: 'success',
+    totalAttempts: attemptTracker.count,
+    cap: attemptTracker.cap,
+    capReached: false,
+    finalProvider: result.provider || lastAttemptedProvider,
+    providersTried,
+    providerChainLength: providerChain.length,
+    failoverIndex: usedFailoverIndex
+  });
 
   // Step 8: Track usage
   const latencyMs = Date.now() - startTime;
   await trackUsage(
     userId, task, result.provider, result.model,
     result.usage.inputTokens, result.usage.outputTokens,
-    latencyMs, 'success', null, entityContext
+    latencyMs, 'success', null, entityContext, requestId
   );
 
   return {
@@ -776,8 +1075,20 @@ async function executeAIRequest(params) {
 
 /**
  * Track an AI request in the usage model.
+ *
+ * @param {string} userId
+ * @param {string} task
+ * @param {string} provider
+ * @param {string} model
+ * @param {number} inputTokens
+ * @param {number} outputTokens
+ * @param {number} latencyMs
+ * @param {string} status
+ * @param {string} [errorMessage]
+ * @param {Object} [entityContext]
+ * @param {string} [requestId] - HTTP correlation id from req.id (null for non-HTTP callers)
  */
-async function trackUsage(userId, task, provider, model, inputTokens, outputTokens, latencyMs, status, errorMessage, entityContext) {
+async function trackUsage(userId, task, provider, model, inputTokens, outputTokens, latencyMs, status, errorMessage, entityContext, requestId = null) {
   if (!userId) return;
 
   try {
@@ -793,11 +1104,13 @@ async function trackUsage(userId, task, provider, model, inputTokens, outputToke
       status: status || 'success',
       errorMessage,
       entityType: entityContext?.entityType || null,
-      entityId: entityContext?.entityId || null
+      entityId: entityContext?.entityId || null,
+      requestId
     });
   } catch (err) {
-    // Don't fail the request due to tracking errors
-    logger.warn('[ai-gateway] Usage tracking failed', { error: err.message, userId });
+    // Don't fail the request due to tracking errors. Include requestId so the
+    // tracking failure itself can be correlated back to the originating HTTP call.
+    logger.warn('[ai-gateway] Usage tracking failed', { error: err.message, userId, requestId });
   }
 }
 
@@ -848,6 +1161,10 @@ const RETRYABLE_PATTERNS = [
  * @returns {boolean}
  */
 function isRetryableError(err) {
+  // Quota errors look like 429 but aren't retryable on the same provider —
+  // classify them out before the generic 429 check.
+  if (isQuotaExhaustedError(err)) return false;
+
   // Check HTTP status code (may be set by provider handlers)
   if (err.statusCode && RETRYABLE_STATUS_CODES.has(err.statusCode)) return true;
   if (err.status && RETRYABLE_STATUS_CODES.has(err.status)) return true;
@@ -855,6 +1172,63 @@ function isRetryableError(err) {
   // Check error message against known patterns
   const msg = err.message || '';
   return RETRYABLE_PATTERNS.some(pattern => pattern.test(msg));
+}
+
+/**
+ * Determine whether an error means "this provider is unusable; advance to the
+ * next one without retrying within the current provider". These are non-
+ * retryable errors that we still want to failover for, instead of throwing.
+ *
+ * Covers:
+ *   - 401 (auth) — provider key invalid; no point retrying
+ *   - 402 (payment required) — billing problem on this provider
+ *   - 429-quota (e.g. OpenAI `insufficient_quota`) — burned through monthly
+ *     allotment; retrying won't help, but next provider might
+ *   - 400-class shape/validation errors that aren't 404 (route mismatch is
+ *     not a provider problem we can recover from by switching)
+ *
+ * Pragmatically: if a 429 carries a quota signal, treat as quota; otherwise
+ * keep treating 429 as a transient rate-limit (retryable) and rely on the
+ * total-attempts cap to bound damage.
+ *
+ * @param {Error} err
+ * @returns {boolean}
+ */
+function shouldAdvanceProvider(err) {
+  if (!err) return false;
+  const status = err.statusCode || err.status;
+
+  if (status === 401 || status === 402) return true;
+  if (isQuotaExhaustedError(err)) return true;
+
+  // 400 (bad request) — payload shape problem; same shape will fail on retry.
+  // We failover because some providers are stricter than others (e.g. about
+  // optional fields), and the next provider might accept the request.
+  if (status === 400) return true;
+
+  return false;
+}
+
+/**
+ * Heuristic: is this error a hard quota/billing exhaustion (not a soft
+ * rate-limit)? OpenAI uses `code: 'insufficient_quota'`; others vary.
+ * Pattern-matched on common phrasings.
+ */
+function isQuotaExhaustedError(err) {
+  if (!err) return false;
+  if (err.code === 'insufficient_quota') return true;
+  if (err.type === 'insufficient_quota') return true;
+
+  const status = err.statusCode || err.status;
+  if (status !== 402 && status !== 429) {
+    // Quota signals only matter for the statuses that overlap with rate-limit
+    // / billing categories. A 500 with the word "quota" in the message is
+    // still transient.
+    if (status) return false;
+  }
+
+  const msg = (err.message || '').toLowerCase();
+  return /insufficient[_\s]quota|quota exceeded|exceeded your (current )?quota|billing|hard limit reached/.test(msg);
 }
 
 /**
@@ -907,21 +1281,57 @@ function sleep(ms) {
 }
 
 /**
+ * Sentinel error thrown when the cross-provider total-attempts cap is hit.
+ * Surfaces from `callWithRetry` and is recognised in the failover loop so it
+ * can stop iterating and produce a single user-facing error.
+ */
+class AttemptCapReachedError extends Error {
+  constructor(totalAttempts, cap, lastProviderError) {
+    super(
+      `AI gateway exhausted total attempt cap (${totalAttempts}/${cap}); ` +
+      `last error: ${lastProviderError ? lastProviderError.message : 'unknown'}`
+    );
+    this.name = 'AttemptCapReachedError';
+    this.code = 'ATTEMPT_CAP_REACHED';
+    this.statusCode = 503;
+    this.totalAttempts = totalAttempts;
+    this.cap = cap;
+    this.cause = lastProviderError;
+  }
+}
+
+/**
  * Call a provider with retry logic using exponential backoff and jitter.
  *
  * Only transient errors (rate limits, timeouts, 5xx) are retried.
  * Non-retryable errors (auth failures, validation, content blocked) are thrown immediately.
  *
+ * Every call (success OR failure) increments the optional shared `attemptTracker`
+ * counter. If the counter reaches `attemptTracker.cap` the function throws
+ * `AttemptCapReachedError` instead of issuing further calls. This bounds the
+ * total cross-provider attempt count when callers wire the same tracker through
+ * multiple provider invocations.
+ *
  * @param {Function} callFn - () => Promise<result> — the provider call to execute
  * @param {Object} [retryConfig] - Override default retry configuration
  * @param {string} [context] - Logging context (provider name, task)
+ * @param {{count: number, cap: number}} [attemptTracker] - Shared attempt counter (mutated)
  * @returns {Promise<Object>} Provider response
  */
-async function callWithRetry(callFn, retryConfig = {}, context = '') {
+async function callWithRetry(callFn, retryConfig = {}, context = '', attemptTracker = null) {
   const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
   let lastError;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    // Pre-call cap check — refuse to issue another LLM request if we'd blow
+    // the cross-provider budget. Surfaces a distinct sentinel so the failover
+    // loop can stop immediately rather than try the next provider.
+    if (attemptTracker && attemptTracker.count >= attemptTracker.cap) {
+      throw new AttemptCapReachedError(attemptTracker.count, attemptTracker.cap, lastError);
+    }
+
+    if (attemptTracker) attemptTracker.count += 1;
+
     try {
       return await callFn();
     } catch (err) {
@@ -935,6 +1345,11 @@ async function callWithRetry(callFn, retryConfig = {}, context = '') {
       // Don't retry if we've exhausted all attempts
       if (attempt >= config.maxRetries) {
         break;
+      }
+
+      // Don't bother sleeping if the next call would just fail the cap check.
+      if (attemptTracker && attemptTracker.count >= attemptTracker.cap) {
+        throw new AttemptCapReachedError(attemptTracker.count, attemptTracker.cap, err);
       }
 
       // Honor a server-supplied Retry-After if present (capped at maxDelayMs);
@@ -962,6 +1377,48 @@ async function callWithRetry(callFn, retryConfig = {}, context = '') {
 }
 
 // ---------------------------------------------------------------------------
+// Anomalous-output logging (prompt-injection defense, bd #8f36.11)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generic helper that callers (BienBot, document parser, etc.) can use to log
+ * anomalous LLM output in a uniform way. Logs at WARN when any anomaly count
+ * is non-zero, otherwise at DEBUG (so successful turns do not spam the log).
+ *
+ * Anomaly counts MUST be produced by the caller's own validation layer —
+ * never trusted from LLM output. The action-type names that appear in
+ * `unknown_action_types` are LLM-supplied strings; logging them is safe because
+ * we do not execute them, but callers should not feed them back into prompts.
+ *
+ * @param {string} source - A short tag identifying the caller (e.g. 'bienbot:turn').
+ * @param {object} anomalies
+ * @param {string[]} [anomalies.unknown_action_types] - Action types not in the allowlist.
+ * @param {Array<{type: string, summary: string}>} [anomalies.malformed_payloads]
+ *   - Actions that failed shape validation (zod or otherwise).
+ * @param {number} [anomalies.parse_errors] - Count of LLM responses that
+ *   failed strict JSON parsing (and went through fallback paths).
+ * @param {object} [extra] - Extra structured fields (sessionId, userId, etc.)
+ *   to attach to the log line.
+ */
+function logAnomalousOutput(source, anomalies = {}, extra = {}) {
+  const unknown = Array.isArray(anomalies.unknown_action_types) ? anomalies.unknown_action_types : [];
+  const malformed = Array.isArray(anomalies.malformed_payloads) ? anomalies.malformed_payloads : [];
+  const parseErrors = Number.isFinite(anomalies.parse_errors) ? anomalies.parse_errors : 0;
+  const tag = source ? `[ai-gateway:anomaly:${source}]` : '[ai-gateway:anomaly]';
+  const payload = {
+    unknown_action_types: unknown,
+    malformed_payloads: malformed,
+    parse_errors: parseErrors,
+    ...extra
+  };
+  if (unknown.length > 0 || malformed.length > 0 || parseErrors > 0) {
+    logger.warn(`${tag} anomalous output`, payload);
+  } else {
+    logger.debug(`${tag} clean output`, payload);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Custom error class
 // ---------------------------------------------------------------------------
 
@@ -983,9 +1440,14 @@ module.exports = {
   resolvePolicy,
   invalidatePolicyCache,
   GatewayError,
+  AttemptCapReachedError,
+  // Generic anomalous-output telemetry helper (bd #8f36.11)
+  logAnomalousOutput,
   // Exported for testing
   callWithRetry,
   isRetryableError,
+  shouldAdvanceProvider,
+  isQuotaExhaustedError,
   calculateRetryDelay,
   extractRetryAfterMs,
   applyContentFiltering,
@@ -993,6 +1455,7 @@ module.exports = {
   routeRequest,
   findTaskRoute,
   DEFAULT_RETRY_CONFIG,
+  DEFAULT_MAX_TOTAL_ATTEMPTS,
   // Exported so the AI controller and utilities can use the canonical
   // implementation. NOTE: this is the env-only resolver, not the policy-aware
   // routing path used inside executeAIRequest.

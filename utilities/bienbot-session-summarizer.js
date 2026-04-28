@@ -30,7 +30,7 @@ const MAX_MESSAGE_CHARS = MESSAGE_TOKEN_BUDGET * CHARS_PER_TOKEN;
  */
 const SYSTEM_PROMPT = `You are a summarizer for BienBot, a travel planning assistant.
 Given a conversation history and optional context about the travel entities involved,
-produce a concise summary and 2-3 suggested next steps.
+produce a concise summary, 2-3 suggested next steps, and the entity IDs the summary focuses on.
 
 Guidelines:
 - Write the summary in second person, addressing the user directly (e.g. "You were planning a trip to Tokyo" not "The user was planning a trip to Tokyo").
@@ -43,7 +43,10 @@ IMPORTANT — Plan items added in this session:
 If the context includes a section titled "--- Plan Items Added (Successfully Created) ---", those plan items WERE successfully created in the prior session. Confirm them in the summary by naming the items so the user sees what was added (e.g. "You added Tapas tour and Visit Sagrada Familia to your plan."). If many items were added, name a few representative ones and reference the total count.
 
 IMPORTANT — Proposed but unexecuted actions:
-If the context includes a section titled "--- Proposed Actions (Not Executed) ---", those entities were ONLY proposed and were NEVER actually created. Do NOT describe these proposed entities as existing or as something the user created. Instead, describe them as things the user was considering or had started to create.`;
+If the context includes a section titled "--- Proposed Actions (Not Executed) ---", those entities were ONLY proposed and were NEVER actually created. Do NOT describe these proposed entities as existing or as something the user created. Instead, describe them as things the user was considering or had started to create.
+
+IMPORTANT — Referenced entities:
+If the context includes a section titled "--- Available Entity IDs ---", that section lists every destination, experience, plan, and plan_item that appeared in the prior conversation along with its real database _id. When your summary focuses on a specific entity (e.g. "Casablanca has items due in 4 days"), include that entity's id in "referenced_entities" so the chat session can re-anchor on it. Use ONLY ids that appear verbatim in the available list — never invent. Order the array so the most central entity (the one the user is most likely to act on next) appears first. Limit to 4 entries.`;
 
 /**
  * Schema passed to the gateway so the provider returns structured output.
@@ -59,6 +62,20 @@ const SUMMARY_SCHEMA = {
         type: 'array',
         items: { type: 'string' },
         maxItems: 5
+      },
+      referenced_entities: {
+        type: 'array',
+        maxItems: 4,
+        items: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', enum: ['destination', 'experience', 'plan', 'plan_item'] },
+            _id: { type: 'string' },
+            name: { type: 'string' }
+          },
+          required: ['type', '_id', 'name'],
+          additionalProperties: false
+        }
       }
     },
     required: ['text', 'suggested_next_steps'],
@@ -91,7 +108,7 @@ async function summarizeSession({ messages, context, session, user } = {}, optio
   }
 
   const truncatedHistory = truncateMessages(messages);
-  const contextBlock = buildContextBlock(context, session);
+  const contextBlock = buildContextBlock(context, session, messages);
 
   const userPrompt = [
     contextBlock,
@@ -131,9 +148,30 @@ async function summarizeSession({ messages, context, session, user } = {}, optio
       return buildFallback(session, context);
     }
 
+    // Validate referenced_entities against the candidate list mined from
+    // session messages — guards against the LLM hallucinating IDs.
+    const candidateIds = new Set(extractCandidateEntities(messages).map(e => e._id));
+    const VALID_TYPES = new Set(['destination', 'experience', 'plan', 'plan_item']);
+    const objectIdLike = /^[a-fA-F0-9]{24}$/;
+    const referenced = Array.isArray(parsed.referenced_entities)
+      ? parsed.referenced_entities
+        .filter(e =>
+          e
+          && VALID_TYPES.has(e.type)
+          && typeof e._id === 'string'
+          && objectIdLike.test(e._id)
+          && candidateIds.has(e._id)
+          && typeof e.name === 'string'
+          && e.name.trim()
+        )
+        .slice(0, 4)
+        .map(e => ({ type: e.type, _id: e._id, name: e.name.trim().slice(0, 120) }))
+      : [];
+
     return {
       summary: parsed.text,
-      next_steps: parsed.suggested_next_steps.filter(s => typeof s === 'string').slice(0, 3)
+      next_steps: parsed.suggested_next_steps.filter(s => typeof s === 'string').slice(0, 3),
+      referenced_entities: referenced
     };
   } catch (err) {
     // Let security-related gateway errors (rate limit, token budget, AI disabled)
@@ -227,9 +265,43 @@ function extractAddedPlanItems(session) {
 }
 
 /**
+ * Mine entity refs from the session's message history. Pulls from
+ * structured_content blocks of type `entity_ref_list` AND from any inline
+ * entity-JSON or ⟦entity:N⟧ placeholders that resolved into entity_refs.
+ *
+ * Returned list is deduplicated by _id, preserving first-seen order.
+ *
+ * @param {Array<{ role, content, structured_content }>} messages
+ * @returns {Array<{ type, _id, name }>}
+ */
+function extractCandidateEntities(messages) {
+  if (!Array.isArray(messages)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const msg of messages) {
+    const blocks = Array.isArray(msg?.structured_content) ? msg.structured_content : [];
+    for (const block of blocks) {
+      if (block?.type !== 'entity_ref_list') continue;
+      const refs = Array.isArray(block?.data?.refs) ? block.data.refs : [];
+      for (const ref of refs) {
+        if (!ref?._id || typeof ref._id !== 'string') continue;
+        if (seen.has(ref._id)) continue;
+        seen.add(ref._id);
+        out.push({
+          type: ref.type || 'unknown',
+          _id: ref._id,
+          name: ref.name || ''
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Build a context block describing the entities involved in the session.
  */
-function buildContextBlock(context, session) {
+function buildContextBlock(context, session, messages) {
   const parts = [];
 
   if (session?.title) {
@@ -247,6 +319,23 @@ function buildContextBlock(context, session) {
   }
 
   const contextBlock = parts.length > 0 ? `--- Context ---\n${parts.join('\n')}` : null;
+
+  // Surface every entity that appeared in the prior conversation, with its
+  // database _id, so the LLM can return referenced_entities pointing at the
+  // specific records the summary focuses on. Without this list, the LLM
+  // has names but no IDs and would have to guess.
+  const candidates = extractCandidateEntities(messages || session?.messages);
+  let candidateBlock = null;
+  if (candidates.length > 0) {
+    const lines = [
+      '--- Available Entity IDs ---',
+      'Use ONLY these ids in referenced_entities (never invent):'
+    ];
+    for (const c of candidates.slice(0, 30)) {
+      lines.push(`- ${c.type}: ${c.name || '(unnamed)'} → ${c._id}`);
+    }
+    candidateBlock = lines.join('\n');
+  }
 
   // Surface successfully added plan items so the LLM can confirm them by name
   // in the resume greeting.
@@ -283,7 +372,7 @@ function buildContextBlock(context, session) {
     unexecutedBlock = unexecutedLines.join('\n');
   }
 
-  return [contextBlock, addedBlock, unexecutedBlock].filter(Boolean).join('\n\n') || null;
+  return [contextBlock, candidateBlock, addedBlock, unexecutedBlock].filter(Boolean).join('\n\n') || null;
 }
 
 /**
@@ -318,12 +407,14 @@ function buildFallback(session, context) {
     next_steps: [
       'Continue where you left off',
       'Ask BienBot a new question'
-    ]
+    ],
+    referenced_entities: []
   };
 }
 
 module.exports = {
   summarizeSession,
   // Exported for unit testing.
-  extractAddedPlanItems
+  extractAddedPlanItems,
+  extractCandidateEntities
 };

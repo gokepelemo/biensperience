@@ -132,6 +132,50 @@ describe('useBienBot', () => {
       expect(typeof result.current.clearSession).toBe('function');
       expect(typeof result.current.fetchSessions).toBe('function');
     });
+
+    it('exposes the full public API surface (post-split sanity check)', () => {
+      const { result } = renderHook(() => useBienBot());
+      const keys = Object.keys(result.current).sort();
+
+      // Snapshot of the public API after splitting useBienBot into useSessionManager,
+      // useSSEStream, and useActionManager. Adding/removing a public key requires
+      // updating this list (and likely consumer documentation too).
+      expect(keys).toEqual([
+        'appendMessage',
+        'appendStructuredContent',
+        'approveStep',
+        'cancelAction',
+        'cancelWorkflow',
+        'clearPersistedSession',
+        'clearSession',
+        'currentSession',
+        'deleteSession',
+        'editStep',
+        'executeActions',
+        'fetchSessions',
+        'getPersistedSession',
+        'isLoading',
+        'isStreaming',
+        'loadSession',
+        'messages',
+        'pendingActions',
+        'replaceInitialGreeting',
+        'resetSession',
+        'searchMutualFollowers',
+        'sendHiddenMessage',
+        'sendMessage',
+        'sendSharedComment',
+        'sessions',
+        'setPriorGreeting',
+        'setSuggestedNextSteps',
+        'shareSession',
+        'skipStep',
+        'suggestedNextSteps',
+        'switchContext',
+        'unshareSession',
+        'updateContext',
+      ]);
+    });
   });
 
   // ─── loadSession on mount ─────────────────────────────────────────────

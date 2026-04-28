@@ -27,6 +27,7 @@ const url = require('url');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const backendLogger = require('./backend-logger');
+const { isDenylisted } = require('./jwt-denylist');
 
 /**
  * Cache for user profile visibility to avoid repeated DB queries
@@ -407,16 +408,19 @@ function createWebSocketServer(server, options = {}) {
     }
 
     let user;
+    let decodedJti = null;
     try {
-      const secret = process.env.SECRET || process.env.JWT_SECRET;
+      const { getJwtSecret } = require('./secrets');
+      const secret = getJwtSecret();
       if (!secret) {
-        backendLogger.error('[WebSocket] Missing JWT secret (SECRET/JWT_SECRET)');
+        backendLogger.error('[WebSocket] Missing JWT secret (JWT_SECRET/SECRET)');
         ws.close(1011, 'Server error');
         return;
       }
 
       const decoded = jwt.verify(token, secret);
       user = decoded?.user || decoded;
+      decodedJti = decoded?.jti || null;
     } catch (error) {
       backendLogger.warn('[WebSocket] Connection rejected: Invalid token', {
         error: error.message
@@ -430,6 +434,22 @@ function createWebSocketServer(server, options = {}) {
       backendLogger.warn('[WebSocket] Connection rejected: Token missing user id');
       ws.close(4001, 'Unauthorized');
       return;
+    }
+
+    // Reject revoked tokens. Fire-and-forget: if Redis is unavailable
+    // isDenylisted() returns false (graceful), so this never blocks
+    // legitimate connections. We close the socket asynchronously if the
+    // jti has been revoked.
+    if (decodedJti) {
+      isDenylisted(decodedJti).then((revoked) => {
+        if (revoked && ws.readyState === WebSocket.OPEN) {
+          backendLogger.warn('[WebSocket] Closing connection: token denylisted', {
+            jti: decodedJti,
+            userId
+          });
+          try { ws.close(4001, 'Unauthorized'); } catch (_) { /* ignore */ }
+        }
+      }).catch(() => { /* fail open */ });
     }
 
     // Check connection limit per user
@@ -1164,13 +1184,20 @@ function getStats() {
 
 /**
  * Broadcast an event to a room from a controller
- * This is the primary method for controllers to push real-time updates
+ * This is the primary method for controllers to push real-time updates.
+ *
+ * Correlation IDs: callers should include `serverRequestId` (the originating
+ * `req.id`) in `event.payload` so the receiving client can correlate the WS
+ * frame back to the HTTP request that triggered it. The payload is spread
+ * verbatim, so any field set by the controller is preserved on the wire. For
+ * events without an originating request (background jobs, scheduled tasks),
+ * leave `serverRequestId` unset and the field will simply be absent.
  *
  * @param {string} roomType - 'experience' or 'plan'
  * @param {string} resourceId - The experience or plan ID
  * @param {object} event - The event to broadcast
  * @param {string} event.type - Event type (e.g., 'experience:updated', 'plan:item:added')
- * @param {object} event.payload - Event payload data
+ * @param {object} event.payload - Event payload data (include `serverRequestId` for correlation)
  * @param {string} [excludeUserId] - Optional user ID to exclude from broadcast (usually the sender)
  */
 function broadcastEvent(roomType, resourceId, event, excludeUserId = null) {
@@ -1197,7 +1224,11 @@ function broadcastEvent(roomType, resourceId, event, excludeUserId = null) {
       ...event.payload,
       roomId,
       timestamp: Date.now(),
-      version: event.version || Date.now()
+      version: event.version || Date.now(),
+      // Make serverRequestId explicit on the wire even if the caller's payload
+      // didn't include it — falls back to null so consumers can rely on the
+      // field's presence when filtering logs.
+      serverRequestId: event.payload?.serverRequestId ?? null
     }
   };
 
@@ -1261,7 +1292,9 @@ function sendEventToUser(userId, event) {
     payload: {
       ...event.payload,
       timestamp: Date.now(),
-      version: event.version || Date.now()
+      version: event.version || Date.now(),
+      // See broadcastEvent for the correlation-id contract.
+      serverRequestId: event.payload?.serverRequestId ?? null
     }
   };
 

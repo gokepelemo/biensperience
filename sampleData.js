@@ -2176,10 +2176,10 @@ async function createSampleData() {
       process.exit(1);
     }
 
-    if (!process.env.SECRET) {
-      output.error('❌ ERROR: SECRET environment variable is not set!');
-      output.error('Please ensure your .env file contains:');
-      output.error('SECRET=your-secret-key-here');
+    if (!process.env.JWT_SECRET && !process.env.SECRET) {
+      output.error('❌ ERROR: No JWT signing secret found!');
+      output.error('Please ensure your .env file contains JWT_SECRET (preferred) or SECRET:');
+      output.error('JWT_SECRET=your-secret-key-here');
       process.exit(1);
     }
 

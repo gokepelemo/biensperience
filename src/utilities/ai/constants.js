@@ -62,41 +62,8 @@ export const PROVIDER_ENDPOINTS = {
   [AI_PROVIDERS.GEMINI]: 'https://generativelanguage.googleapis.com/v1beta/models'
 };
 
-/**
- * System prompts for different tasks
- */
-import { lang } from '../../lang.constants';
-
-// Export system prompts from language constants so prompts can be localized
-// and centrally managed. Callers may still pass overrides via options.prompts.
-export const SYSTEM_PROMPTS = (lang && lang.current && lang.current.prompts) || {
-  // Fallbacks (should not be used in normal operation if lang.prompts is present)
-  [AI_TASKS.AUTOCOMPLETE]: `You are a helpful travel assistant that provides autocomplete suggestions for travel-related content.
-Provide concise, relevant completions that match the user's writing style.
-Only output the completion text, no explanations.`,
-
-  [AI_TASKS.EDIT_LANGUAGE]: `You are an expert editor for travel content.
-Improve the grammar, clarity, and flow of the text while maintaining the original meaning and tone.
-Fix any spelling or punctuation errors.
-Only output the edited text, no explanations or commentary.`,
-
-  [AI_TASKS.IMPROVE_DESCRIPTION]: `You are a skilled travel writer who creates engaging, vivid descriptions of destinations and experiences.
-Enhance the description to be more compelling, informative, and evocative while keeping it authentic and accurate.
-Maintain a friendly, conversational tone suitable for travel planning.
-Only output the improved description, no explanations.`,
-
-  [AI_TASKS.SUMMARIZE]: `You are a travel content summarizer.
-Create a concise, informative summary that captures the essential details.
-Focus on key highlights, practical information, and what makes the destination or experience unique.
-Only output the summary, no explanations.`,
-
-  [AI_TASKS.GENERATE_TIPS]: `You are an experienced traveler sharing practical tips.
-Generate helpful, actionable travel tips based on the destination or experience.
-Include local insights, best practices, and things to be aware of.
-Format tips as a JSON array of strings. Only output valid JSON.`,
-
-  [AI_TASKS.TRANSLATE]: `You are a professional translator specializing in travel content.
-Translate the text while preserving the meaning, tone, and cultural nuances.
-Adapt any culturally-specific references appropriately.
-Only output the translated text, no explanations.`
-};
+// Note: System prompts now live exclusively on the backend
+// (utilities/lang.constants.js → lang.en.prompts), resolved per-request via
+// `resolvePrompt()` in controllers/api/ai.js. Callers can still override on
+// a per-call basis by passing `options.prompts` to any high-level function;
+// the override is forwarded to the backend.

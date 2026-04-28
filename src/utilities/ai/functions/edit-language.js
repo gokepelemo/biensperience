@@ -1,41 +1,31 @@
 /**
  * AI Language Editing Function
  *
+ * Posts to POST /api/ai/edit-language. The backend owns prompt resolution and
+ * provider routing; callers may forward `options.prompts` for per-call
+ * overrides honored by the backend's `resolvePrompt()` path.
+ *
  * @module ai/functions/edit-language
  */
 
-import { AI_TASKS } from '../constants';
-import { complete } from '../complete';
-import { resolveSystemPrompt } from './_shared';
+import { postAIRequest } from './_request';
 
 /**
- * Edit and improve the language of text
+ * Edit and improve the language of text.
  *
  * @param {string} text - Text to edit
- * @param {Object} options - Options
- * @param {string} [options.tone] - Desired tone (formal, casual, professional)
- * @param {string} [options.provider] - Override provider
- * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
+ * @param {Object} [options] - Options
+ * @param {string} [options.tone] - Desired tone (formal, casual, professional) — forwarded to backend
+ * @param {Object} [options.prompts] - Optional caller prompt overrides forwarded to backend
+ * @param {string} [options.provider] - Override provider (forwarded)
+ * @param {string} [options.model] - Override model (forwarded)
  * @returns {Promise<string>} Edited text
  */
 export async function editLanguage(text, options = {}) {
-  const { tone = 'friendly' } = options;
-
-  const systemPrompt = resolveSystemPrompt(AI_TASKS.EDIT_LANGUAGE, options);
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: `Edit this text to improve its grammar and clarity. Maintain a ${tone} tone:\n\n${text}`
-    }
-  ];
-
-  const result = await complete(messages, {
-    ...options,
-    task: AI_TASKS.EDIT_LANGUAGE,
-    temperature: 0.3
+  const data = await postAIRequest('edit-language', {
+    text,
+    options
   });
 
-  return result.content.trim();
+  return typeof data?.edited === 'string' ? data.edited.trim() : '';
 }

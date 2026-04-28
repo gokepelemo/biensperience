@@ -20,8 +20,7 @@ const Document = require('../../models/document');
 const Plan = require('../../models/plan');
 const User = require('../../models/user');
 const { uploadWithPipeline, deleteFile, deleteFileSafe, retrieveFile, downloadToLocal } = require('../../utilities/upload-pipeline');
-const { getEnforcer } = require('../../utilities/permission-enforcer');
-const { isOwner, isCollaborator, isSuperAdmin } = require('../../utilities/permissions');
+const { getEnforcer, isOwner, isCollaborator, isSuperAdmin } = require('../../utilities/permission-enforcer');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const backendLogger = require('../../utilities/backend-logger');
 const {

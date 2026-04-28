@@ -2,10 +2,9 @@ const User = require("../../models/user");
 const Photo = require("../../models/photo");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto");
 const mongoose = require("mongoose");
 const { USER_ROLES } = require("../../utilities/user-roles");
-const { isSuperAdmin } = require("../../utilities/permissions");
+const { isSuperAdmin } = require("../../utilities/permission-enforcer");
 const { canManageFeatureFlags } = require("../../utilities/feature-flags");
 const { isSystemUser } = require("../../utilities/system-users");
 const backendLogger = require("../../utilities/backend-logger");
@@ -13,6 +12,9 @@ const { geocodeAddress } = require("../../utilities/geocoding-utils");
 const { invalidateVisibilityCache, broadcastEvent } = require("../../utilities/websocket-server");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const { getDefaultPhoto } = require("../../utilities/photo-utils");
+const { generateRawToken, hashToken } = require("../../utilities/token-hash");
+const { getJwtSecret } = require("../../utilities/secrets");
+const { generateJti } = require("../../utilities/jwt-denylist");
 
 function isE164PhoneNumber(value) {
   if (typeof value !== 'string') return false;
@@ -63,43 +65,26 @@ function buildJwtPayload(user) {
 }
 
 function createJWT(user) {
-  return jwt.sign({ user: buildJwtPayload(user) }, process.env.SECRET, { expiresIn: "24h" });
+  // jti enables Redis-backed revocation (see utilities/jwt-denylist.js).
+  return jwt.sign(
+    { user: buildJwtPayload(user), jti: generateJti() },
+    getJwtSecret(),
+    { expiresIn: "24h" }
+  );
 }
 
 async function create(req, res) {
   try {
-    // Validate required fields
-    if (!req.body.email || !req.body.password || !req.body.name) {
-      return errorResponse(res, null, 'Email, password, and name are required', 400);
-    }
-
-    // Validate password strength
-    if (typeof req.body.password !== 'string' || req.body.password.length < 3) {
-      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
-    }
-
-    // Validate email format
-    const email = req.body.email;
-    if (typeof email !== 'string' || email.length > 254 || email.length < 3) {
-      return errorResponse(res, null, 'Invalid email format', 400);
-    }
-
-    const hasAt = email.includes('@');
-    const hasDot = email.includes('.');
-    const atPosition = email.indexOf('@');
-    const lastDotPosition = email.lastIndexOf('.');
-
-    if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
+    // NOTE: name/email/password presence + format are enforced by the
+    // `signupSchema` zod middleware mounted on this route (see
+    // `routes/api/users.js` and `controllers/api/users.schemas.js`).
+    // The controller can trust that req.body has the correct shape.
 
     const user = await User.create(req.body);
 
-    // Generate email confirmation token
-    const confirmToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(confirmToken).digest('hex');
-
-    user.emailConfirmationToken = hashedToken;
+    // Generate email confirmation token (raw → email user, hash → DB)
+    const confirmToken = generateRawToken();
+    user.emailConfirmationToken = hashToken(confirmToken);
     user.emailConfirmationExpires = Date.now() + 24 * 3600000; // 24 hours
     await user.save();
 
@@ -128,21 +113,11 @@ async function create(req, res) {
 
 async function login(req, res) {
   try {
-    // Validate email format to prevent injection - use safer validation
+    // Email format and password presence are enforced by `loginSchema` zod
+    // middleware (see `routes/api/users.js`). We deliberately do NOT enforce
+    // an 8-char password floor on login because legacy accounts may still
+    // have shorter passwords.
     const email = req.body.email;
-    if (!email || typeof email !== 'string' || email.length > 254 || email.length < 3) {
-      return errorResponse(res, null, 'Invalid email format', 400);
-    }
-
-    // Basic email validation - check for @ and . with reasonable positioning
-    const hasAt = email.includes('@');
-    const hasDot = email.includes('.');
-    const atPosition = email.indexOf('@');
-    const lastDotPosition = email.lastIndexOf('.');
-
-    if (!hasAt || !hasDot || atPosition < 1 || lastDotPosition < atPosition + 2 || lastDotPosition >= email.length - 1) {
-      return errorResponse(res, null, 'Invalid email format', 400);
-    }
 
     const user = await User.findOne({ email: email })
       .populate("photos.photo", "url caption photo_credit photo_credit_url width height");
@@ -360,8 +335,8 @@ async function updateUser(req, res, next) {
       }
 
       // Validate new password
-      if (typeof updateData.password !== 'string' || updateData.password.length < 3) {
-        return res.status(400).json({ error: 'New password must be at least 3 characters' });
+      if (typeof updateData.password !== 'string' || updateData.password.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters' });
       }
     }
 
@@ -789,8 +764,8 @@ async function updateUserAsAdmin(req, res) {
     // Handle password update if provided (no old password required for admin)
     if (updateData.password) {
       // Validate new password
-      if (typeof updateData.password !== 'string' || updateData.password.length < 3) {
-        return errorResponse(res, null, 'New password must be at least 3 characters', 400);
+      if (typeof updateData.password !== 'string' || updateData.password.length < 8) {
+        return errorResponse(res, null, 'New password must be at least 8 characters', 400);
       }
     }
 
@@ -1492,11 +1467,9 @@ async function updateUserRole(req, res) {
  */
 async function requestPasswordReset(req, res) {
   try {
+    // Email presence and format are enforced by `forgotPasswordSchema` zod
+    // middleware (see `routes/api/users.js`).
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
 
     // Find user by email
     const user = await User.findOne({ email: email.toLowerCase().trim() });
@@ -1513,14 +1486,9 @@ async function requestPasswordReset(req, res) {
       return successResponse(res, {}, 'If an account exists, a reset email has been sent');
     }
 
-    // Generate reset token (32 bytes = 64 hex characters)
-    const resetToken = crypto.randomBytes(32).toString('hex');
-
-    // Hash the token before storing
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // Set token and expiration (1 hour from now)
-    user.resetPasswordToken = hashedToken;
+    // Generate reset token (raw → email user, hash → DB)
+    const resetToken = generateRawToken();
+    user.resetPasswordToken = hashToken(resetToken);
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
@@ -1552,23 +1520,13 @@ async function requestPasswordReset(req, res) {
  */
 async function resetPassword(req, res) {
   try {
+    // Token presence and password strength (>=8) are enforced by
+    // `resetPasswordSchema` zod middleware (see `routes/api/users.js`).
     const { token, password } = req.body;
 
-    if (!token || !password) {
-      return errorResponse(res, null, 'Token and new password are required', 400);
-    }
-
-    // Validate password strength
-    if (typeof password !== 'string' || password.length < 3) {
-      return errorResponse(res, null, 'Password must be at least 3 characters long', 400);
-    }
-
-    // Hash the token to match what's stored
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find user with valid token
+    // Hash the submitted token and look up by hash
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
+      resetPasswordToken: hashToken(token),
       resetPasswordExpires: { $gt: Date.now() }
     });
 
@@ -1612,12 +1570,9 @@ async function confirmEmail(req, res) {
       return errorResponse(res, null, 'Token is required', 400);
     }
 
-    // Hash the token to match what's stored
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Find user with valid token
+    // Hash the submitted token and look up by hash
     const user = await User.findOne({
-      emailConfirmationToken: hashedToken,
+      emailConfirmationToken: hashToken(token),
       emailConfirmationExpires: { $gt: Date.now() }
     });
 
@@ -1672,11 +1627,9 @@ async function resendConfirmation(req, res) {
       return successResponse(res, {}, 'If an account exists, a confirmation email has been sent');
     }
 
-    // Generate new confirmation token
-    const confirmToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(confirmToken).digest('hex');
-
-    user.emailConfirmationToken = hashedToken;
+    // Generate new confirmation token (raw → email user, hash → DB)
+    const confirmToken = generateRawToken();
+    user.emailConfirmationToken = hashToken(confirmToken);
     user.emailConfirmationExpires = Date.now() + 24 * 3600000; // 24 hours
     await user.save();
 

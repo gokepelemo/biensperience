@@ -1,20 +1,31 @@
-import { sendRequest, sendQueuedRequest, PRIORITY } from './send-request.js';
+import { sendApi, sendApiWithMeta } from './api-client.js';
+import { sendQueuedRequest, PRIORITY } from './send-request.js';
 import { logger } from './logger';
 import { broadcastEvent } from './event-bus';
 
 const BASE_URL = `/api/destinations/`;
 
 /**
- * Extracts data from standardized API response format.
- * Handles both new format { success: true, data: ... } and legacy format (direct data).
- * @param {Object} response - API response
- * @returns {*} Extracted data or original response
+ * Helper for queued GETs that need envelope unwrapping.
+ * Mirrors sendApi but goes through sendQueuedRequest for rate limiting.
  */
-function extractData(response) {
-    if (response && typeof response === 'object' && 'success' in response) {
-        return response.data;
+async function queuedSendApi(path, opts = {}) {
+    const resp = await sendQueuedRequest(path, "GET", null, opts);
+    if (resp && typeof resp === 'object' && 'success' in resp) {
+        return resp.data;
     }
-    return response;
+    return resp;
+}
+
+/**
+ * Helper for queued GETs that need both data and meta (pagination).
+ */
+async function queuedSendApiWithMeta(path, opts = {}) {
+    const resp = await sendQueuedRequest(path, "GET", null, opts);
+    if (resp && typeof resp === 'object' && 'success' in resp) {
+        return { data: resp.data, meta: resp.meta };
+    }
+    return resp;
 }
 
 /**
@@ -39,14 +50,10 @@ export async function getDestinations (filters = {}, options = {}) {
     }
 
     // Use queued request for rate limiting and coalescing
-    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/list', priority: PRIORITY.HIGH });
-    // Handle standardized response format { success, data, meta }
-    // Return { data, meta } for pagination support
-    if (resp && resp.success !== undefined) {
-        return { data: resp.data, meta: resp.meta };
-    }
-    // Legacy format support
-    return resp;
+    return await queuedSendApiWithMeta(`${BASE_URL}?${params.toString()}`, {
+        label: 'destinations/list',
+        priority: PRIORITY.HIGH
+    });
 }
 
 /**
@@ -56,12 +63,11 @@ export async function getDestinations (filters = {}, options = {}) {
 export async function getFavorites(userId) {
     if (!userId) return [];
     const params = new URLSearchParams({ favorited_by: String(userId) });
-    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/favorites', priority: PRIORITY.HIGH });
-
-    // Handle standardized response format { success, data }
-    const data = extractData(resp);
-    if (Array.isArray(data)) return data;
-    return [];
+    const data = await queuedSendApi(`${BASE_URL}?${params.toString()}`, {
+        label: 'destinations/favorites',
+        priority: PRIORITY.HIGH
+    });
+    return Array.isArray(data) ? data : [];
 }
 
 export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
@@ -69,12 +75,10 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
     Object.entries(filters || {}).forEach(([k, v]) => {
         if (v !== undefined && v !== null) params.append(k, v);
     });
-    const resp = await sendQueuedRequest(`${BASE_URL}?${params.toString()}`, "GET", null, { label: 'destinations/page', priority: PRIORITY.HIGH });
-    // Handle standardized response format { success, data, meta }
-    if (resp && resp.success !== undefined) {
-        return { data: resp.data, meta: resp.meta };
-    }
-    return resp;
+    return await queuedSendApiWithMeta(`${BASE_URL}?${params.toString()}`, {
+        label: 'destinations/page',
+        priority: PRIORITY.HIGH
+    });
 }
 
 /**
@@ -87,8 +91,9 @@ export async function getDestinationsPage(page = 1, limit = 30, filters = {}) {
  * @returns {Promise<Object>} Created destination object
  */
 export async function createDestination (destinationData) {
-    const resp = await sendRequest(`${BASE_URL}`, "POST", destinationData);
-    const result = extractData(resp);
+    // Need access to envelope to read meta.activityId, so unwrap=false then handle.
+    const resp = await sendApi("POST", `${BASE_URL}`, destinationData, { unwrap: false });
+    const result = (resp && typeof resp === 'object' && 'success' in resp) ? resp.data : resp;
 
     // If the server returned an activity id for the create action, attach it
     // as a non-persisted field for wizard-style multi-step flows.
@@ -124,11 +129,10 @@ export async function createDestination (destinationData) {
  */
 export async function showDestination (id) {
     // Critical navigation - use high priority for instant perception
-    const resp = await sendQueuedRequest(`${BASE_URL}${id}`, "GET", null, {
+    return await queuedSendApi(`${BASE_URL}${id}`, {
         priority: PRIORITY.HIGH,
         label: `destination/${id}`
     });
-    return extractData(resp);
 }
 
 /**
@@ -140,8 +144,7 @@ export async function showDestination (id) {
  * @returns {Promise<Object>} Updated destination object
  */
 export async function updateDestination (id, destinationData) {
-    const resp = await sendRequest(`${BASE_URL}${id}`, "PUT", destinationData);
-    const result = extractData(resp);
+    const result = await sendApi("PUT", `${BASE_URL}${id}`, destinationData);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for updated events
@@ -165,8 +168,7 @@ export async function updateDestination (id, destinationData) {
  * @returns {Promise<Object>} Deletion response
  */
 export async function deleteDestination (id) {
-    const resp = await sendRequest(`${BASE_URL}${id}`, "DELETE");
-    const result = extractData(resp);
+    const result = await sendApi("DELETE", `${BASE_URL}${id}`);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     try {
@@ -188,8 +190,7 @@ export async function deleteDestination (id) {
  * @returns {Promise<Object>} Updated destination object
  */
 export async function toggleUserFavoriteDestination (destinationId, userId) {
-    const resp = await sendRequest(`${BASE_URL}${destinationId}/user/${userId}`, "POST");
-    const result = extractData(resp);
+    const result = await sendApi("POST", `${BASE_URL}${destinationId}/user/${userId}`);
 
     // Emit event via event bus (handles local + cross-tab dispatch)
     // Standardized payload: { entity, entityId } for updated events
@@ -212,6 +213,5 @@ export async function toggleUserFavoriteDestination (destinationId, userId) {
  * @returns {Promise<Object>} { owner, permissions, directPermissions }
  */
 export async function getDestinationPermissions(destinationId) {
-  const response = await sendRequest(`${BASE_URL}${destinationId}/permissions`, "GET");
-  return (response && response.success && response.data) ? response.data : response;
+  return await sendApi("GET", `${BASE_URL}${destinationId}/permissions`);
 }

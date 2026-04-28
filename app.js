@@ -32,6 +32,10 @@ if (process.env.NODE_ENV !== 'test') {
   require("./config/database");
 }
 
+// Loud boot-time warning if any required secret is missing in production.
+const { getSessionSecret, getCsrfSecret, validateSecretsAtBoot } = require('./utilities/secrets');
+validateSecretsAtBoot();
+
 /**
  * Client development server port
  * @type {number}
@@ -70,9 +74,9 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isRender = process.env.RENDER === 'true';
 const sessionCookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || process.env.SECRET,
+  secret: getSessionSecret(),
   resave: false,
-  saveUninitialized: true, // Changed to true to create sessions for CSRF tokens
+  saveUninitialized: false, // Stateless CSRF (fixed session identifier in csrf-csrf config below) means anonymous visitors don't need empty sessions persisted; avoids a Mongo session-store write per unauthenticated visitor (incl. bots).
   cookie: {
     secure: isProduction || isRender, // Always secure in production/Render
     httpOnly: true, // Prevents client-side JS from accessing the cookie
@@ -92,7 +96,7 @@ if (isProduction && process.env.DATABASE_URL) {
     autoRemove: 'native', // Use MongoDB TTL index for automatic cleanup
     touchAfter: 24 * 3600, // Only update session once per 24 hours unless data changes
     crypto: {
-      secret: process.env.SESSION_SECRET || process.env.SECRET
+      secret: getSessionSecret()
     }
   });
   backendLogger.info('Session store: MongoDB (production)');
@@ -143,7 +147,7 @@ const {
   generateCsrfToken, // Used to create a CSRF token pair (correct name from csrf-csrf v4)
   doubleCsrfProtection, // Middleware to validate CSRF tokens
 } = doubleCsrf({
-  getSecret: () => process.env.CSRF_SECRET || process.env.SECRET,
+  getSecret: () => getCsrfSecret(),
   // Fixed identifier - security comes from cookie-header matching, not session binding
   getSessionIdentifier: () => 'biensperience-csrf-v1',
   cookieName: (isProduction || isRender) ? '__Host-biensperience.x-csrf-token' : 'biensperience.x-csrf-token',
@@ -178,8 +182,23 @@ app.use(express.json());
 
 // NOTE: Global rate limiter moved below (after auth) to allow super admin skip logic
 
-app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+/**
+ * Per-request correlation id. Honours an inbound X-Request-Id when present
+ * (so frontends and load balancers can pre-tag), otherwise generates a uuid.
+ * The id is echoed in the X-Request-Id response header and included in
+ * sanitised error responses for support lookups.
+ */
+const { randomUUID } = require('crypto');
+app.use((req, res, next) => {
+  const inbound = req.get('X-Request-Id');
+  req.id = (typeof inbound === 'string' && inbound.length > 0 && inbound.length <= 128)
+    ? inbound
+    : randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
 
 // Root endpoint - API info for API clients (must be BEFORE static file serving)
 app.get('/', (req, res, next) => {
@@ -348,11 +367,8 @@ app.use('/api', (req, res, next) => {
     return next();
   }
 
-  // Skip CSRF for super admins
-  if (req.user && (req.user.isSuperAdmin || req.user.role === 'super_admin')) {
-    backendLogger.debug('Skipping CSRF for super admin', { userId: req.user._id, isSuperAdmin: req.user.isSuperAdmin, role: req.user.role });
-    return next();
-  }
+  // NOTE: super admins are intentionally NOT bypassed — a hijacked super-admin session
+  // would otherwise face zero CSRF protection, which is the worst-case attacker target.
 
   backendLogger.debug('Applying CSRF protection', {
     sessionId: req.session?.id ? req.session.id.substring(0, 8) + '...' : 'none'
@@ -402,16 +418,23 @@ app.use("/health-check", (req, res) => {
   res.send("OK");
 });
 
-// Centralized API error handler: ensure API routes always return JSON
-// This catches errors thrown by middleware/controllers and prevents HTML error pages
-app.use('/api', (err, req, res, next) => {
-  backendLogger.error('Unhandled API error', { error: err && err.message, stack: err && err.stack, path: req.path });
-  // If headers already sent, delegate to default handler
-  if (res.headersSent) return next(err);
-  // Use standardized error response payload
-  const status = (err && (err.statusCode || err.status)) ? (err.statusCode || err.status) : 500;
-  return res.status(status).json({ success: false, error: (err && err.message) || 'Internal server error' });
+// /api/health — used by Render's healthCheckPath. Returns 200 when Mongo is
+// connected (readyState 1), 503 otherwise. Kept simple — no DB query — so a
+// flapping Mongo doesn't accidentally fail the healthcheck when reads work.
+app.get("/api/health", (req, res) => {
+  const mongoose = require("mongoose");
+  const ready = mongoose.connection?.readyState === 1;
+  if (ready) return res.status(200).json({ ok: true, mongo: "connected" });
+  return res.status(503).json({ ok: false, mongo: "disconnected" });
 });
+
+// Centralized API error handler: ensure API routes always return JSON.
+// Production: only operational errors (APIError, isOperational:true, or 4xx
+// status) surface their message; internal/5xx errors return a generic message
+// + correlation id so internal details (Mongo strings, library internals) are
+// never leaked. Full err+stack is always logged.
+const { buildApiErrorHandler } = require('./utilities/api-error');
+app.use('/api', buildApiErrorHandler({ logger: backendLogger }));
 
 // Catch-all route for React app (only in production)
 // SECURITY: Apply rate limiting to prevent abuse of static file serving

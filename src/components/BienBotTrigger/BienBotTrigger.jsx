@@ -381,6 +381,12 @@ BienBotPanelLazy.propTypes = {
       type: PropTypes.string,
       message: PropTypes.string,
     })),
+    suggestedPrompts: PropTypes.arrayOf(PropTypes.string),
+    referencedEntities: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      _id: PropTypes.string,
+      name: PropTypes.string,
+    })),
   }),
   clearAnalysisSuggestions: PropTypes.func,
   baseInvokeContext: PropTypes.shape({

@@ -4,7 +4,7 @@
 module.exports = {
   testEnvironment: 'jsdom',
   coveragePathIgnorePatterns: ['/node_modules/'],
-  testMatch: ['**/tests/hooks/**/*.test.js', '**/tests/machines/**/*.test.js', '**/tests/components/**/*.test.js', '**/tests/views/**/*.test.jsx'],
+  testMatch: ['**/tests/hooks/**/*.test.js', '**/tests/machines/**/*.test.js', '**/tests/components/**/*.test.js', '**/tests/views/**/*.test.jsx', '**/tests/utilities/ai/**/*.test.js'],
   setupFilesAfterEnv: ['<rootDir>/tests/setupTests.js'],
   testTimeout: 30000,
   verbose: true,

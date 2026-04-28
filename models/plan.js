@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
+const { getCachedVirtual, buildChildIndex, itemIdString } = require('./_virtual-cache');
 
 /**
  * Permission sub-schema for collaborative plan management
@@ -702,67 +703,173 @@ planSchema.index({ 'permissions._id': 1, 'permissions.entity': 1 });
 planSchema.index({ 'plan.location.geo': '2dsphere' });
 
 /**
- * Virtual property for total cost
+ * Plan virtuals — total_cost / max_planning_days / completion_percentage
+ * ----------------------------------------------------------------------
+ * Memoized via the shared WeakMap helper (models/_virtual-cache.js), parity
+ * with the Experience model's cost_estimate / max_planning_days fix.
+ *
+ * Why memoize:
+ *   - max_planning_days previously called flattenPlanItems which did a
+ *     filter() over the full array per item recursively — O(N^2).
+ *   - total_cost and completion_percentage are O(N) on their own, but list
+ *     endpoints call plan.toJSON() per row and many code paths re-serialize
+ *     repeatedly within a single request. Caching all three keeps behavior
+ *     consistent and removes a per-serialize cost from hot list views.
+ *
+ * Cache invalidation:
+ *   The helper is keyed on the plan items array reference (stable across
+ *   reads for a Mongoose document) and tied to a cheap fingerprint that
+ *   captures every input field each virtual reads. total_cost also folds
+ *   `costs` (a separate document-level array) into its fingerprint and
+ *   compute, so an edit to either array correctly invalidates the cache.
+ */
+
+function fingerprintPlanItemsCost(planItems) {
+  let costSum = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    costSum += Number(planItems[i].cost) || 0;
+  }
+  return `${planItems.length}:${costSum}`;
+}
+
+function fingerprintCostsArray(costsArr) {
+  if (!costsArr || !Array.isArray(costsArr) || costsArr.length === 0) return '0:0';
+  let costSum = 0;
+  for (let i = 0; i < costsArr.length; i++) {
+    costSum += Number(costsArr[i].cost) || 0;
+  }
+  return `${costsArr.length}:${costSum}`;
+}
+
+function fingerprintPlanItemsDays(planItems) {
+  let daysSum = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    daysSum += Number(planItems[i].planning_days) || 0;
+  }
+  return `${planItems.length}:${daysSum}`;
+}
+
+function fingerprintPlanItemsComplete(planItems) {
+  let completed = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    if (planItems[i].complete) completed += 1;
+  }
+  return `${planItems.length}:${completed}`;
+}
+
+function computePlanItemsCost(planItems) {
+  let total = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    total += Number(planItems[i].cost) || 0;
+  }
+  return total;
+}
+
+function computeCostsArrayTotal(costsArr) {
+  if (!costsArr || !Array.isArray(costsArr) || costsArr.length === 0) return 0;
+  let total = 0;
+  for (let i = 0; i < costsArr.length; i++) {
+    total += Number(costsArr[i].cost) || 0;
+  }
+  return total;
+}
+
+function computePlanMaxPlanningDays(planItems) {
+  // Iterative DFS via parent->children index. Traverses every item exactly
+  // once, replacing the old O(N^2) filter-inside-recursion approach. The
+  // old code ran addItem() for each root and filter()'d the entire array
+  // per node; this is O(N) total.
+  //
+  // Plan items reference each other via either plan_item_id (snapshot id)
+  // or _id (subdocument id). The shared helper's itemIdString() prefers
+  // plan_item_id and falls back to _id, matching the legacy semantics.
+  const childrenByParent = buildChildIndex(planItems);
+  const roots = childrenByParent.get('__root__') || [];
+  if (roots.length === 0) {
+    // Fallback: orphaned items (parent points to nothing in this array).
+    // Old flattenPlanItems would have skipped them entirely, so we match.
+    return 0;
+  }
+  let overallMax = 0;
+  for (const rootIdx of roots) {
+    const stack = [rootIdx];
+    while (stack.length > 0) {
+      const idx = stack.pop();
+      const item = planItems[idx];
+      const days = Number(item.planning_days) || 0;
+      if (days > overallMax) overallMax = days;
+      const idStr = itemIdString(item);
+      if (idStr) {
+        const childIndices = childrenByParent.get(idStr);
+        if (childIndices) {
+          for (const ci of childIndices) stack.push(ci);
+        }
+      }
+    }
+  }
+  return overallMax;
+}
+
+function computePlanCompletionPercentage(planItems) {
+  let completed = 0;
+  for (let i = 0; i < planItems.length; i++) {
+    if (planItems[i].complete) completed += 1;
+  }
+  return Math.round((completed / planItems.length) * 100);
+}
+
+/**
+ * Virtual property for total cost.
+ * Sums plan-item costs plus the document-level `costs` array.
+ *
+ * Cached via two helper calls (one per array). Each call uses its own
+ * fingerprint so edits to either array invalidate that side of the sum
+ * without busting the other.
  */
 planSchema.virtual("total_cost").get(function () {
-  if (!this.plan || !Array.isArray(this.plan)) return 0;
-  const itemsTotal = this.plan.reduce((sum, item) => sum + (item.cost || 0), 0);
-  const costsTotal = (this.costs && Array.isArray(this.costs))
-    ? this.costs.reduce((s, c) => s + (c.cost || 0), 0)
-    : 0;
+  const itemsTotal = getCachedVirtual(
+    this.plan,
+    'plan:total_cost:items',
+    fingerprintPlanItemsCost,
+    computePlanItemsCost,
+    0
+  );
+  const costsTotal = getCachedVirtual(
+    this.costs,
+    'plan:total_cost:costs',
+    fingerprintCostsArray,
+    computeCostsArrayTotal,
+    0
+  );
   return itemsTotal + costsTotal;
 });
 
 /**
- * Helper function to flatten plan items hierarchy
- * @param {Array} items - Plan items array
- * @returns {Array} Flattened array of all plan items
- */
-function flattenPlanItems(items) {
-  if (!Array.isArray(items)) return [];
-
-  const result = [];
-
-  function addItem(item) {
-    result.push(item);
-
-    // Find and add children
-    const children = items.filter(sub =>
-      sub.parent && sub.parent.toString() === (item.plan_item_id || item._id).toString()
-    );
-
-    children.forEach(child => addItem(child));
-  }
-
-  // Start with root items (no parent)
-  const rootItems = items.filter(item => !item.parent);
-  rootItems.forEach(item => addItem(item));
-
-  return result;
-}
-
-/**
- * Virtual property for maximum planning days
- * Considers all plan items in the hierarchy, not just top-level items
- * Named max_planning_days to be consistent with Experience model
+ * Virtual property for maximum planning days.
+ * Considers all plan items in the hierarchy, not just top-level items.
+ * Named max_planning_days to be consistent with Experience model.
  */
 planSchema.virtual("max_planning_days").get(function () {
-  if (!this.plan || !Array.isArray(this.plan)) return 0;
-
-  // Flatten the hierarchy to consider all items
-  const allItems = flattenPlanItems(this.plan);
-
-  // Find the maximum planning_days value
-  return allItems.reduce((max, item) => Math.max(max, item.planning_days || 0), 0);
+  return getCachedVirtual(
+    this.plan,
+    'plan:max_planning_days',
+    fingerprintPlanItemsDays,
+    computePlanMaxPlanningDays,
+    0
+  );
 });
 
 /**
- * Virtual property for completion percentage
+ * Virtual property for completion percentage.
  */
 planSchema.virtual("completion_percentage").get(function () {
-  if (!this.plan || !Array.isArray(this.plan) || this.plan.length === 0) return 0;
-  const completed = this.plan.filter(item => item.complete).length;
-  return Math.round((completed / this.plan.length) * 100);
+  return getCachedVirtual(
+    this.plan,
+    'plan:completion_percentage',
+    fingerprintPlanItemsComplete,
+    computePlanCompletionPercentage,
+    0
+  );
 });
 
 module.exports = mongoose.model("Plan", planSchema);

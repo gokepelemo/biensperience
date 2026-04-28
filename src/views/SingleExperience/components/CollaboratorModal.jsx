@@ -87,6 +87,18 @@ export default function CollaboratorModal({
     }
   }, [show]);
 
+  // Ensure timers are cleared on component unmount, regardless of `show` state.
+  useEffect(() => () => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    if (emailSuccessTimerRef.current) {
+      clearTimeout(emailSuccessTimerRef.current);
+      emailSuccessTimerRef.current = null;
+    }
+  }, []);
+
   // Auto-close modal after successful add/remove
   // Guarded by `show` so stale success state can't close a freshly opened modal.
   useEffect(() => {

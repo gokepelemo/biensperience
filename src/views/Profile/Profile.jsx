@@ -1005,6 +1005,21 @@ export default function Profile() {
     try { window.history.pushState(null, '', `${window.location.pathname}#${hash}`); } catch (e) {}
   }, []);
 
+  // Stable renderCard for the planned-experiences tab. Profile.jsx re-renders
+  // frequently (tab switches, follow state changes, etc.); without useCallback
+  // each render hands ProfileContentGrid a fresh function identity, defeating
+  // its React.memo and forcing every ExperienceCard child to re-render.
+  // Depends only on `plans` so identity is stable across unrelated state changes.
+  const renderExperienceCardForGrid = useCallback((experience, index) => (
+    <ExperienceCard
+      experience={experience}
+      key={experience._planId || experience._id || index}
+      userPlans={plans}
+      showSharedIcon={experience._isCollaborative || false}
+      planId={experience._planId}
+    />
+  ), [plans]);
+
   // Get the active tab key from uiState
   const activeTab = useMemo(() => {
     if (uiState.activity) return 'activity';
@@ -1799,15 +1814,7 @@ export default function Profile() {
                   meta={{ totalPages: expTotalPages }}
                   showPlaceholders={isOwnProfile && !showAllPlanned}
                   userPlans={plans}
-                  renderCard={(experience, index) => (
-                    <ExperienceCard
-                      experience={experience}
-                      key={experience._planId || experience._id || index}
-                      userPlans={plans}
-                      showSharedIcon={experience._isCollaborative || false}
-                      planId={experience._planId}
-                    />
-                  )}
+                  renderCard={renderExperienceCardForGrid}
                   emptyState={{
                     title: lang.current.profile.noPlannedExperiences,
                     description: isOwnProfile

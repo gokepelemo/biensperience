@@ -9,9 +9,24 @@
  * - executeActions() extracts context updates from results
  * - executeActions() marks actions as executed on session
  * - Error handling when handlers throw
+ *
+ * Mocking strategy (post bd #8667):
+ *   - Canonical CRUD handlers (executeCreate{Destination,Experience,Plan},
+ *     executeAddPlanItems, executeUpdatePlanItem, mark complete/incomplete,
+ *     executeDeletePlan, plan-branch invite/remove collaborator) call services
+ *     directly per bd #8f36.13 + bd #8667 — these tests mock at the service
+ *     boundary and assert on service-method invocations.
+ *   - Long-tail handlers (shift_plan_item_dates, update_plan, …) still
+ *     delegate to controllers — these tests retain controller-boundary mocks
+ *     and assertions.
  */
 
-// Mock controllers to avoid real DB calls in unit tests
+// Mock services for canonical handlers (bd #8f36.13 + bd #8667 path)
+jest.mock('../../services/destination-service');
+jest.mock('../../services/experience-service');
+jest.mock('../../services/plan-service');
+
+// Mock controllers for long-tail handlers that still delegate to controllers
 jest.mock('../../controllers/api/destinations');
 jest.mock('../../controllers/api/experiences');
 jest.mock('../../controllers/api/plans');
@@ -21,6 +36,10 @@ const {
   executeActions,
   ALLOWED_ACTION_TYPES
 } = require('../../utilities/bienbot-action-executor');
+
+const destinationService = require('../../services/destination-service');
+const experienceService = require('../../services/experience-service');
+const planService = require('../../services/plan-service');
 
 const destinationsController = require('../../controllers/api/destinations');
 const experiencesController = require('../../controllers/api/experiences');
@@ -40,19 +59,15 @@ function makeUser(overrides = {}) {
 }
 
 /**
- * Configure a controller mock to simulate a successful response.
- * The mock captures the (req, res) call and calls res.status(statusCode).json(body).
+ * Service-boundary mock helpers.
+ * Services return `{ <dataKey>, error?, code? }` — see services/*.js contracts.
  */
-function mockControllerSuccess(controllerFn, statusCode, body) {
-  controllerFn.mockImplementationOnce(async (req, res) => {
-    res.status(statusCode).json({ success: true, data: body });
-  });
+function mockServiceSuccess(serviceFn, dataKey, data) {
+  serviceFn.mockResolvedValueOnce({ [dataKey]: data });
 }
 
-function mockControllerError(controllerFn, statusCode, errorMsg) {
-  controllerFn.mockImplementationOnce(async (req, res) => {
-    res.status(statusCode).json({ success: false, error: errorMsg });
-  });
+function mockServiceError(serviceFn, code, errorMsg) {
+  serviceFn.mockResolvedValueOnce({ error: errorMsg, code });
 }
 
 function makeSession(actionId) {
@@ -127,13 +142,13 @@ describe('bienbot-action-executor', () => {
   });
 
   // -------------------------------------------------------------------------
-  // executeAction — create_destination
+  // executeAction — create_destination (canonical handler — service mock)
   // -------------------------------------------------------------------------
 
   describe('executeAction() — create_destination', () => {
-    it('calls destinations controller create and returns success result', async () => {
+    it('calls destination service createDestination and returns success result', async () => {
       const destData = { _id: 'dest-1', name: 'Kyoto, Japan', country: 'Japan' };
-      mockControllerSuccess(destinationsController.create, 201, destData);
+      mockServiceSuccess(destinationService.createDestination, 'destination', destData);
 
       const result = await executeAction(
         {
@@ -145,11 +160,11 @@ describe('bienbot-action-executor', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(destinationsController.create).toHaveBeenCalledTimes(1);
+      expect(destinationService.createDestination).toHaveBeenCalledTimes(1);
     });
 
-    it('returns failure when controller returns 4xx', async () => {
-      mockControllerError(destinationsController.create, 422, 'Name already exists');
+    it('returns failure when service returns error with 4xx code', async () => {
+      mockServiceError(destinationService.createDestination, 422, 'Name already exists');
 
       const result = await executeAction(
         { id: 'action_cdbad', type: 'create_destination', payload: { name: 'Dupe' } },
@@ -162,13 +177,13 @@ describe('bienbot-action-executor', () => {
   });
 
   // -------------------------------------------------------------------------
-  // executeAction — create_experience
+  // executeAction — create_experience (canonical handler — service mock)
   // -------------------------------------------------------------------------
 
   describe('executeAction() — create_experience', () => {
-    it('calls experiences controller create', async () => {
+    it('calls experience service createExperience with correct payload fields', async () => {
       const expData = { _id: 'exp-1', name: 'Cherry Blossom Tour' };
-      mockControllerSuccess(experiencesController.create, 201, expData);
+      mockServiceSuccess(experienceService.createExperience, 'experience', expData);
 
       const result = await executeAction(
         {
@@ -180,22 +195,24 @@ describe('bienbot-action-executor', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(experiencesController.create).toHaveBeenCalledTimes(1);
+      expect(experienceService.createExperience).toHaveBeenCalledTimes(1);
 
-      // Verify req body was built correctly
-      const req = experiencesController.create.mock.calls[0][0];
-      expect(req.body.name).toBe('Cherry Blossom Tour');
+      // Service is called with { data: { name, destination, ... }, actor }
+      const callArgs = experienceService.createExperience.mock.calls[0][0];
+      expect(callArgs.data.name).toBe('Cherry Blossom Tour');
+      expect(callArgs.data.destination).toBe('dest-1');
+      expect(callArgs.actor).toBe(user);
     });
   });
 
   // -------------------------------------------------------------------------
-  // executeAction — create_plan
+  // executeAction — create_plan (canonical handler — service mock)
   // -------------------------------------------------------------------------
 
   describe('executeAction() — create_plan', () => {
-    it('calls plans controller createPlan with correct params', async () => {
+    it('calls plan service createPlan with correct params', async () => {
       const planData = { _id: 'plan-1', experience: { _id: 'exp-1' } };
-      mockControllerSuccess(plansController.createPlan, 201, planData);
+      mockServiceSuccess(planService.createPlan, 'plan', planData);
 
       const result = await executeAction(
         {
@@ -207,10 +224,11 @@ describe('bienbot-action-executor', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(plansController.createPlan).toHaveBeenCalledTimes(1);
+      expect(planService.createPlan).toHaveBeenCalledTimes(1);
 
-      const req = plansController.createPlan.mock.calls[0][0];
-      expect(req.params.experienceId).toBe('exp-1');
+      const callArgs = planService.createPlan.mock.calls[0][0];
+      expect(callArgs.experienceId).toBe('exp-1');
+      expect(callArgs.actor).toBe(user);
     });
   });
 
@@ -220,7 +238,7 @@ describe('bienbot-action-executor', () => {
 
   describe('executeAction() — error handling', () => {
     it('returns failure when handler throws an exception', async () => {
-      destinationsController.create.mockImplementationOnce(() => {
+      destinationService.createDestination.mockImplementationOnce(() => {
         throw new Error('Unexpected DB error');
       });
 
@@ -235,7 +253,7 @@ describe('bienbot-action-executor', () => {
   });
 
   // -------------------------------------------------------------------------
-  // executeActions — batch processing
+  // executeActions — batch processing (canonical handlers — service mocks)
   // -------------------------------------------------------------------------
 
   describe('executeActions() — batch processing', () => {
@@ -243,8 +261,8 @@ describe('bienbot-action-executor', () => {
       const destData = { _id: 'dest-2', name: 'Seoul' };
       const expData = { _id: 'exp-2', name: 'Street Food Tour', destination: 'dest-2' };
 
-      mockControllerSuccess(destinationsController.create, 201, destData);
-      mockControllerSuccess(experiencesController.create, 201, expData);
+      mockServiceSuccess(destinationService.createDestination, 'destination', destData);
+      mockServiceSuccess(experienceService.createExperience, 'experience', expData);
 
       const actions = [
         { id: 'action_a1', type: 'create_destination', payload: { name: 'Seoul', country: 'South Korea' } },
@@ -261,7 +279,7 @@ describe('bienbot-action-executor', () => {
     });
 
     it('extracts destination_id from create_destination result into contextUpdates', async () => {
-      mockControllerSuccess(destinationsController.create, 201, { _id: 'dest-ctx' });
+      mockServiceSuccess(destinationService.createDestination, 'destination', { _id: 'dest-ctx' });
 
       const { contextUpdates } = await executeActions(
         [{ id: 'action_ctx1', type: 'create_destination', payload: { name: 'Berlin', country: 'Germany' } }],
@@ -273,7 +291,7 @@ describe('bienbot-action-executor', () => {
     });
 
     it('extracts experience_id and destination_id from create_experience result', async () => {
-      mockControllerSuccess(experiencesController.create, 201, {
+      mockServiceSuccess(experienceService.createExperience, 'experience', {
         _id: 'exp-ctx',
         destination: 'dest-linked'
       });
@@ -289,7 +307,7 @@ describe('bienbot-action-executor', () => {
     });
 
     it('extracts plan_id from create_plan result', async () => {
-      mockControllerSuccess(plansController.createPlan, 201, {
+      mockServiceSuccess(planService.createPlan, 'plan', {
         _id: 'plan-ctx',
         experience: { _id: 'exp-linked' }
       });
@@ -305,7 +323,7 @@ describe('bienbot-action-executor', () => {
     });
 
     it('calls session.markActionExecuted for each action', async () => {
-      mockControllerSuccess(destinationsController.create, 201, { _id: 'dest-mark' });
+      mockServiceSuccess(destinationService.createDestination, 'destination', { _id: 'dest-mark' });
 
       const session = makeSession();
       await executeActions(
@@ -320,7 +338,7 @@ describe('bienbot-action-executor', () => {
     });
 
     it('calls session.updateContext when contextUpdates is non-empty', async () => {
-      mockControllerSuccess(destinationsController.create, 201, { _id: 'dest-ctx-update' });
+      mockServiceSuccess(destinationService.createDestination, 'destination', { _id: 'dest-ctx-update' });
 
       const session = makeSession();
       await executeActions(
@@ -335,8 +353,8 @@ describe('bienbot-action-executor', () => {
     });
 
     it('continues processing remaining actions even if one fails', async () => {
-      mockControllerError(destinationsController.create, 422, 'Invalid data');
-      mockControllerSuccess(experiencesController.create, 201, { _id: 'exp-after-fail' });
+      mockServiceError(destinationService.createDestination, 422, 'Invalid data');
+      mockServiceSuccess(experienceService.createExperience, 'experience', { _id: 'exp-after-fail' });
 
       const { results } = await executeActions(
         [
@@ -351,7 +369,7 @@ describe('bienbot-action-executor', () => {
       expect(results[1].success).toBe(true);
     });
 
-    it('rejects unknown action types without calling any controller', async () => {
+    it('rejects unknown action types without calling any service', async () => {
       const { results } = await executeActions(
         [{ id: 'action_bad_type', type: 'drop_all_tables', payload: {} }],
         user,
@@ -359,9 +377,9 @@ describe('bienbot-action-executor', () => {
       );
 
       expect(results[0].success).toBe(false);
-      expect(destinationsController.create).not.toHaveBeenCalled();
-      expect(experiencesController.create).not.toHaveBeenCalled();
-      expect(plansController.createPlan).not.toHaveBeenCalled();
+      expect(destinationService.createDestination).not.toHaveBeenCalled();
+      expect(experienceService.createExperience).not.toHaveBeenCalled();
+      expect(planService.createPlan).not.toHaveBeenCalled();
     });
 
     it('returns empty arrays and contextUpdates when given no actions', async () => {
@@ -373,20 +391,48 @@ describe('bienbot-action-executor', () => {
 
   // -------------------------------------------------------------------------
   // select_destination
+  //
+  // This handler does NOT delegate to a service — it queries Destination
+  // directly + permission-enforcer.canView. We mock the model + enforcer
+  // narrowly with jest.spyOn so other handlers using these models in the
+  // same suite are unaffected.
   // -------------------------------------------------------------------------
 
   describe('select_destination', () => {
+    const Destination = require('../../models/destination');
+    const permissionEnforcer = require('../../utilities/permission-enforcer');
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     it('includes select_destination in ALLOWED_ACTION_TYPES', () => {
       expect(ALLOWED_ACTION_TYPES).toContain('select_destination');
     });
 
     it('executeAction select_destination returns destination_id in result body', async () => {
-      const mockUser = { _id: 'user123', email: 'test@test.com' };
+      const destinationId = 'a'.repeat(24);
+      const mockUser = { _id: '507f1f77bcf86cd799439011', email: 'test@test.com' };
+
+      // Mock Destination.findById(...).select(...).lean() chain.
+      const leanMock = jest.fn().mockResolvedValue({
+        _id: destinationId,
+        name: 'Tokyo',
+        country: 'Japan'
+      });
+      const selectMock = jest.fn().mockReturnValue({ lean: leanMock });
+      jest.spyOn(Destination, 'findById').mockReturnValue({ select: selectMock });
+
+      // Mock permission enforcer to allow the canView check.
+      jest.spyOn(permissionEnforcer, 'getEnforcer').mockReturnValue({
+        canView: jest.fn().mockResolvedValue({ allowed: true })
+      });
+
       const action = {
         id: 'action_test01',
         type: 'select_destination',
         payload: {
-          destination_id: 'a'.repeat(24),
+          destination_id: destinationId,
           destination_name: 'Tokyo',
           country: 'Japan',
           city: 'Tokyo'
@@ -394,12 +440,12 @@ describe('bienbot-action-executor', () => {
       };
       const result = await executeAction(action, mockUser);
       expect(result.statusCode).toBe(200);
-      expect(result.body.data.destination_id).toBe('a'.repeat(24));
+      expect(result.body.data.destination_id).toBe(destinationId);
     });
   });
 
   // -------------------------------------------------------------------------
-  // shift_plan_item_dates
+  // shift_plan_item_dates (long-tail — still delegates to controller)
   // -------------------------------------------------------------------------
 
   describe('shift_plan_item_dates', () => {
@@ -451,6 +497,7 @@ describe('bienbot-action-executor', () => {
 
   // -------------------------------------------------------------------------
   // executeUpdatePlan — auto-propose shift action
+  // (long-tail handler — still delegates to plansController.updatePlan)
   // -------------------------------------------------------------------------
 
   describe('executeUpdatePlan — auto-propose shift_plan_item_dates', () => {

@@ -214,6 +214,20 @@ const summarySchema = new Schema({
   suggested_next_steps: [{
     type: String
   }],
+  /**
+   * Entities the summarizer LLM identified as the focus of the resume recap.
+   * Used by the /resume controller to seed session.context so follow-up
+   * questions about a recap-mentioned entity skip disambiguation.
+   * Each entry: { type, _id, name }.
+   */
+  referenced_entities: [{
+    type: {
+      type: String,
+      enum: ['destination', 'experience', 'plan', 'plan_item']
+    },
+    _id: { type: String },
+    name: { type: String }
+  }],
   generated_at: {
     type: Date,
     default: null
@@ -544,10 +558,11 @@ bienBotSessionSchema.methods.markActionExecuted = async function (actionId, resu
 /**
  * Cache a resume summary.
  */
-bienBotSessionSchema.methods.cacheSummary = async function (text, suggestedNextSteps = []) {
+bienBotSessionSchema.methods.cacheSummary = async function (text, suggestedNextSteps = [], referencedEntities = []) {
   this.summary = {
     text,
     suggested_next_steps: suggestedNextSteps,
+    referenced_entities: Array.isArray(referencedEntities) ? referencedEntities : [],
     generated_at: new Date()
   };
   this.markModified('summary');

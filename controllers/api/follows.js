@@ -16,7 +16,7 @@ const Destination = require('../../models/destination');
 const Plan = require('../../models/plan');
 const backendLogger = require('../../utilities/backend-logger');
 const { broadcastEvent } = require('../../utilities/websocket-server');
-const { canView } = require('../../utilities/permissions');
+const { canView } = require('../../utilities/permission-enforcer');
 const { notifyUser } = require('../../utilities/notifications');
 const { getDefaultPhoto } = require('../../utilities/photo-utils');
 

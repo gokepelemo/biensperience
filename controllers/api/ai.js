@@ -16,6 +16,7 @@ const { lang } = require('../../utilities/lang.constants');
 const { executeAIRequest, GatewayError, getProviderForTask } = require('../../utilities/ai-gateway');
 const { getApiKeyForProvider } = require('../../utilities/ai-provider-registry');
 const { AI_PROVIDERS, AI_TASKS, DEFAULT_MODELS } = require('../../utilities/ai-constants');
+const { successResponse, errorResponse } = require('../../utilities/controller-helpers');
 
 // ---------------------------------------------------------------------------
 // Backward-compatible helpers (used by bienbot controller and others)
@@ -55,7 +56,13 @@ async function callProvider(provider, messages, options = {}) {
       temperature: options.temperature,
       maxTokens: options.maxTokens
     },
-    entityContext: options.entityContext || null
+    entityContext: options.entityContext || null,
+    // Propagate the originating HTTP request so the gateway can stamp
+    // the correlation id on AIUsage records and telemetry log lines.
+    // Callers without an HTTP context (background jobs, seeds) omit `_req`
+    // and the gateway gracefully resolves to a null requestId.
+    req: options._req || null,
+    requestId: options.requestId || null
   });
 
   // Return in the legacy format (without policyApplied)
@@ -73,19 +80,11 @@ async function callProvider(provider, messages, options = {}) {
 
 function handleGatewayError(error, res, userId) {
   if (error instanceof GatewayError) {
-    return res.status(error.statusCode).json({
-      success: false,
-      error: error.message,
-      code: error.code
-    });
+    return errorResponse(res, error, error.message, error.statusCode, error.code);
   }
 
   logger.error('AI request error', { error: error.message, userId });
-  return res.status(500).json({
-    success: false,
-    error: error.message || 'AI request failed',
-    code: error.code || 'UNKNOWN'
-  });
+  return errorResponse(res, error, error.message || 'AI request failed', 500, error.code || 'UNKNOWN');
 }
 
 // ---------------------------------------------------------------------------
@@ -127,10 +126,7 @@ exports.complete = async (req, res) => {
     const { messages, task = AI_TASKS.GENERAL, options = {}, entityContext = null } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Messages array is required'
-      });
+      return errorResponse(res, null, 'Messages array is required', 400);
     }
 
     logger.info('AI completion request', {
@@ -149,7 +145,8 @@ exports.complete = async (req, res) => {
         temperature: options.temperature,
         maxTokens: options.maxTokens
       },
-      entityContext
+      entityContext,
+      req
     });
 
     logger.debug('AI completion success', {
@@ -158,10 +155,7 @@ exports.complete = async (req, res) => {
       tokens: result.usage?.totalTokens ?? ((result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0))
     });
 
-    return res.json({
-      success: true,
-      data: result
-    });
+    return successResponse(res, result);
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
   }
@@ -176,17 +170,11 @@ exports.autocomplete = async (req, res) => {
     const { text, context = '', options = {} } = req.body;
 
     if (!text) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required'
-      });
+      return errorResponse(res, null, 'Text is required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     const systemPrompt = resolvePrompt(
@@ -215,16 +203,14 @@ exports.autocomplete = async (req, res) => {
         model: options.model,
         temperature: 0.7,
         maxTokens: 150
-      }
+      },
+      req
     });
 
-    return res.json({
-      success: true,
-      data: {
-        completion: result.content,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      completion: result.content,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -240,17 +226,11 @@ exports.improve = async (req, res) => {
     const { text, type = 'general', options = {} } = req.body;
 
     if (!text) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required'
-      });
+      return errorResponse(res, null, 'Text is required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     const systemPrompt = resolvePrompt(
@@ -279,16 +259,14 @@ exports.improve = async (req, res) => {
         model: options.model,
         temperature: 0.7,
         maxTokens: 500
-      }
+      },
+      req
     });
 
-    return res.json({
-      success: true,
-      data: {
-        improved: result.content,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      improved: result.content,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -304,17 +282,11 @@ exports.translate = async (req, res) => {
     const { text, targetLanguage, sourceLanguage = 'auto', options = {} } = req.body;
 
     if (!text || !targetLanguage) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text and target language are required'
-      });
+      return errorResponse(res, null, 'Text and target language are required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     const systemPrompt = resolvePrompt(
@@ -344,14 +316,83 @@ exports.translate = async (req, res) => {
         model: options.model,
         temperature: 0.3,
         maxTokens: 1000
+      },
+      req
+    });
+
+    return successResponse(res, {
+      translation: result.content,
+      targetLanguage,
+      provider: result.provider,
+      usage: result.usage
+    });
+  } catch (error) {
+    return handleGatewayError(error, res, req.user._id);
+  }
+};
+
+/**
+ * POST /api/ai/edit-language
+ * Edit/proofread text language endpoint
+ *
+ * Mirrors `improve` but is intended for language-level fixes (grammar, clarity,
+ * tone) rather than wholesale rewriting. Returns `data.edited`.
+ */
+exports.editLanguage = async (req, res) => {
+  try {
+    const { text, options = {} } = req.body;
+
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text is required'
+      });
+    }
+
+    if (text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text exceeds maximum length'
+      });
+    }
+
+    const systemPrompt = resolvePrompt(
+      options,
+      'edit_language',
+      'You are an expert editor for travel content. Improve the grammar, clarity, and flow of the text while maintaining the original meaning and tone. Fix any spelling or punctuation errors. Only output the edited text, no explanations or commentary.'
+    );
+
+    const tone = typeof options.tone === 'string' && options.tone.trim()
+      ? options.tone.trim()
+      : 'friendly';
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `Edit this text to improve its grammar and clarity. Maintain a ${tone} tone:\n\n${text}` }
+    ];
+
+    logger.info('AI edit-language request', {
+      userId: req.user._id,
+      textLength: text.length,
+      customPrompt: !!options.prompts?.edit_language
+    });
+
+    const result = await executeAIRequest({
+      messages,
+      task: AI_TASKS.EDIT_LANGUAGE,
+      user: req.user,
+      options: {
+        provider: options.provider,
+        model: options.model,
+        temperature: 0.3,
+        maxTokens: 800
       }
     });
 
     return res.json({
       success: true,
       data: {
-        translation: result.content,
-        targetLanguage,
+        edited: result.content,
         provider: result.provider,
         usage: result.usage
       }
@@ -370,17 +411,11 @@ exports.summarize = async (req, res) => {
     const { text, maxLength = 200, options = {} } = req.body;
 
     if (!text) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required'
-      });
+      return errorResponse(res, null, 'Text is required', 400);
     }
 
     if (text.length > MAX_TEXT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text exceeds maximum length'
-      });
+      return errorResponse(res, null, 'Text exceeds maximum length', 400);
     }
 
     // Parse and clamp maxLength to prevent NaN in arithmetic
@@ -412,16 +447,14 @@ exports.summarize = async (req, res) => {
         model: options.model,
         temperature: 0.5,
         maxTokens: Math.min(safeMaxLength * 2, 500)
-      }
+      },
+      req
     });
 
-    return res.json({
-      success: true,
-      data: {
-        summary: result.content,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      summary: result.content,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -438,10 +471,7 @@ exports.generateTips = async (req, res) => {
     let { category = 'general', count = DEFAULT_TIPS_COUNT } = req.body;
 
     if (!destination) {
-      return res.status(400).json({
-        success: false,
-        error: 'Destination is required'
-      });
+      return errorResponse(res, null, 'Destination is required', 400);
     }
 
     // Sanitize count: clamp to integer in [1, 20]
@@ -478,18 +508,16 @@ exports.generateTips = async (req, res) => {
         model: options.model,
         temperature: 0.8,
         maxTokens: 800
-      }
+      },
+      req
     });
 
-    return res.json({
-      success: true,
-      data: {
-        tips: result.content,
-        destination: safeDestination,
-        category: safeCategory,
-        provider: result.provider,
-        usage: result.usage
-      }
+    return successResponse(res, {
+      tips: result.content,
+      destination: safeDestination,
+      category: safeCategory,
+      provider: result.provider,
+      usage: result.usage
     });
   } catch (error) {
     return handleGatewayError(error, res, req.user._id);
@@ -507,13 +535,10 @@ exports.status = async (req, res) => {
 
   const available = Object.values(providers).some(v => v);
 
-  return res.json({
-    success: true,
-    data: {
-      available,
-      defaultProvider: process.env.AI_DEFAULT_PROVIDER || 'openai',
-      providers
-    }
+  return successResponse(res, {
+    available,
+    defaultProvider: process.env.AI_DEFAULT_PROVIDER || 'openai',
+    providers
   });
 };
 

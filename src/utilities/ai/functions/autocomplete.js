@@ -1,45 +1,36 @@
 /**
  * AI Autocomplete Function
  *
+ * Posts to POST /api/ai/autocomplete. The backend owns prompt resolution and
+ * provider routing; callers may forward `options.prompts` for per-call
+ * overrides honored by the backend's `resolvePrompt()` path.
+ *
  * @module ai/functions/autocomplete
  */
 
-import { AI_TASKS } from '../constants';
-import { complete } from '../complete';
-import { resolveSystemPrompt } from './_shared';
+import { postAIRequest } from './_request';
 
 /**
- * Autocomplete text with AI suggestions
+ * Autocomplete text with AI suggestions.
  *
  * @param {string} text - Text to complete
- * @param {Object} options - Options
+ * @param {Object} [options] - Options
  * @param {string} [options.context] - Additional context (e.g., destination name)
- * @param {string} [options.provider] - Override provider
- * @param {number} [options.maxLength] - Max completion length
- * @param {Object} [options.prompts] - Optional prompts override. An object mapping AI task keys (see `AI_TASKS`) to system prompt strings. When provided, the task-specific prompt will be used instead of the central `SYSTEM_PROMPTS`.
+ * @param {Object} [options.prompts] - Optional caller prompt overrides keyed by
+ *                                      backend prompt key (e.g., `autocomplete`).
+ *                                      Forwarded to the backend.
+ * @param {string} [options.provider] - Override provider (forwarded to backend)
+ * @param {string} [options.model] - Override model (forwarded to backend)
  * @returns {Promise<string>} Autocomplete suggestion
  */
 export async function autocomplete(text, options = {}) {
-  const { context = '', maxLength = 100 } = options;
+  const { context, ...rest } = options;
 
-  const systemPrompt = resolveSystemPrompt(AI_TASKS.AUTOCOMPLETE, options);
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: context
-        ? `Context: ${context}\n\nComplete this text (max ${maxLength} characters):\n"${text}"`
-        : `Complete this text (max ${maxLength} characters):\n"${text}"`
-    }
-  ];
-
-  const result = await complete(messages, {
-    ...options,
-    task: AI_TASKS.AUTOCOMPLETE,
-    maxTokens: Math.ceil(maxLength / 2),
-    temperature: 0.7
+  const data = await postAIRequest('autocomplete', {
+    text,
+    context,
+    options: rest
   });
 
-  return result.content.trim();
+  return typeof data?.completion === 'string' ? data.completion.trim() : '';
 }

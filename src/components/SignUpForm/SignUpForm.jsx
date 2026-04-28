@@ -382,6 +382,7 @@ function SignUpForm(props) {
                     placeholder={lang.current.placeholder.password}
                     required
                     autoComplete="new-password"
+                    minLength={8}
                     css={formInputCss}
                   />
                   <Button
@@ -411,6 +412,7 @@ function SignUpForm(props) {
                     placeholder={lang.current.placeholder.confirmPassword}
                     required
                     autoComplete="new-password"
+                    minLength={8}
                     css={formInputCss}
                   />
                   <Button

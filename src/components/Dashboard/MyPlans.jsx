@@ -1,34 +1,27 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Heading,
   Text,
   Button,
-  Container,
   Stack,
   FlexBetween,
   FadeIn,
   SkeletonLoader,
-  HashLink,
   EmptyState
 } from '../design-system';
-import { FaCheckCircle, FaCalendar, FaCalendarAlt, FaTasks, FaChevronRight, FaChevronDown, FaUsers, FaList, FaUser, FaUserFriends, FaThList } from 'react-icons/fa';
-import CostEstimate from '../CostEstimate/CostEstimate';
-import ActualCost from '../ActualCost/ActualCost';
-import Pill from '../Pill/Pill';
-import InfoTooltip from '../InfoTooltip/InfoTooltip';
+import { FaCalendarAlt, FaList, FaUser, FaUserFriends, FaThList } from 'react-icons/fa';
 import { SearchableSelectBasic } from '../FormField';
 import { getUserPlans, getCollaborators } from '../../utilities/plans-api';
 import { usePlanExperience } from '../../contexts/PlanExperienceContext';
-import { formatDateMetricCard } from '../../utilities/date-utils';
 import { eventBus } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
-import { getTotalCostTooltip } from '../../utilities/cost-utils';
 import { useViewModePreference } from '../../hooks/useUIPreference';
 import { useCurrencyConversion } from '../../hooks/useCurrencyConversion';
 import { useDataTransition } from '../../hooks/useDataTransition';
 import PlanCalendar from './PlanCalendar';
+import PlanRow from './PlanRow';
 import styles from './MyPlans.module.css';
 
 // View mode options (kept for local use, matches VIEW_MODES from preferences)
@@ -321,11 +314,11 @@ export default function MyPlans() {
     };
   }, []);
 
-  const togglePlan = (planId) => {
-    // If clicking already expanded plan, collapse it
-    // Otherwise, expand the clicked plan (collapsing any other)
-    setExpandedPlanId(expandedPlanId === planId ? null : planId);
-  };
+  // Stable callback so memoized PlanRow children don't re-render on parent state changes.
+  // Use functional setState so we don't depend on `expandedPlanId` in the dep array.
+  const togglePlan = useCallback((planId) => {
+    setExpandedPlanId(prev => (prev === planId ? null : planId));
+  }, []);
 
   // Subtle animation when plans data changes (new plans, completions, cost changes)
   const { transitionClass: plansTransitionClass } = useDataTransition(displayedPlans, {
@@ -338,7 +331,7 @@ export default function MyPlans() {
     })),
   });
 
-  const toggleCostAccordion = (planId) => {
+  const toggleCostAccordion = useCallback((planId) => {
     setExpandedCostAccordions(prev => {
       const newSet = new Set(prev);
       if (newSet.has(planId)) {
@@ -348,7 +341,11 @@ export default function MyPlans() {
       }
       return newSet;
     });
-  };
+  }, []);
+
+  // Stable view mode handlers
+  const handleSetListView = useCallback(() => setViewMode(VIEW_MODES.LIST), [setViewMode]);
+  const handleSetCalendarView = useCallback(() => setViewMode(VIEW_MODES.CALENDAR), [setViewMode]);
 
   return (
     <FadeIn>
@@ -374,7 +371,7 @@ export default function MyPlans() {
                   <button
                     type="button"
                     className={`${styles.viewToggleButton} ${viewMode === VIEW_MODES.LIST ? styles.active : ''}`}
-                    onClick={() => setViewMode(VIEW_MODES.LIST)}
+                    onClick={handleSetListView}
                     aria-pressed={viewMode === VIEW_MODES.LIST}
                     title={lang.current.dashboardView.listView}
                   >
@@ -383,7 +380,7 @@ export default function MyPlans() {
                   <button
                     type="button"
                     className={`${styles.viewToggleButton} ${viewMode === VIEW_MODES.CALENDAR ? styles.active : ''}`}
-                    onClick={() => setViewMode(VIEW_MODES.CALENDAR)}
+                    onClick={handleSetCalendarView}
                     aria-pressed={viewMode === VIEW_MODES.CALENDAR}
                     title={lang.current.dashboardView.calendarView}
                   >
@@ -448,270 +445,19 @@ export default function MyPlans() {
         {/* List View */}
         {!loading && displayedPlans.length > 0 && viewMode === VIEW_MODES.LIST && (
           <Stack spacing="md" className={plansTransitionClass}>
-            {displayedPlans.map((plan) => {
-              const isExpanded = expandedPlanId === plan._id;
-              const itemCount = (plan.plan || []).length;
-              const completedCount = (plan.plan || []).filter(item => item.complete).length;
-
-              // Use server-calculated completion percentage (virtual property)
-              // Fallback to local calculation if not available
-              const completionPercentage = plan.completion_percentage !== undefined
-                ? plan.completion_percentage
-                : (itemCount > 0 ? Math.round((completedCount / itemCount) * 100) : 0);
-
-              // Calculate actual total cost from plan costs (with currency conversion)
-              const actualTotalCost = calculateTotal(plan.costs || []);
-              const hasActualCosts = plan.costs && plan.costs.length > 0;
-              const experienceEstimate = plan.experience?.cost_estimate || 0;
-              const planEstimate = plan.total_cost || 0;
-
-              return (
-                <div
-                  key={plan._id}
-                  className={`${styles.planCard} ${isExpanded ? styles.expanded : ''}`}
-                  onClick={() => togglePlan(plan._id)}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isExpanded}
-                  aria-label={isExpanded
-                    ? lang.current.myPlans.collapsePlanAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')
-                    : lang.current.myPlans.expandPlanAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      togglePlan(plan._id);
-                    }
-                  }}
-                >
-                  {/* Plan Header - Always Visible */}
-                  <div className={styles.planHeader}>
-                    <div className={styles.planHeaderContent}>
-                      <div className={styles.planTitleSection}>
-                        <div className={styles.planTitleRow}>
-                          <Heading level={5} className={styles.planTitle}>
-                            {plan.experience?.name || 'Unnamed Experience'}
-                          </Heading>
-                          {plan.isCollaborative && (
-                            <span className={styles.sharedBadgeWrapper}>
-                              <Pill variant="info" size="sm" rounded>
-                                <FaUsers size={10} style={{ marginRight: '4px' }} />
-                                {lang.current.label.sharedPlan}
-                              </Pill>
-                              <InfoTooltip
-                                id={`shared-plan-${plan._id}`}
-                                content={lang.current.label.sharedPlanTooltip.replace('{ownerName}', plan.user?.name || 'the owner')}
-                                ariaLabel="Shared plan information"
-                              />
-                            </span>
-                          )}
-                        </div>
-                        <div className={styles.planMeta}>
-                          <span className={styles.metaItem}>
-                            <FaTasks size={12} />
-                            {lang.current.myPlans.itemsProgress.replace('{completed}', completedCount).replace('{total}', itemCount)}
-                          </span>
-                          {plan.planned_date && (
-                            <span className={styles.metaItem}>
-                              <FaCalendar size={12} />
-                              {formatDateMetricCard(plan.planned_date)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className={styles.planHeaderRight}>
-                        <div className={styles.planCost}>
-                          {hasActualCosts ? (
-                            <div className={styles.costBreakdown}>
-                              <div className={styles.costRow}>
-                                <Text size="sm" variant="muted">{lang.current.label.estimatedLabel}</Text>
-                                <Text weight="semibold" size="base">
-                                  <CostEstimate
-                                    cost={planEstimate}
-                                    showTooltip={true}
-                                    compact={true}
-                                    isActual={false}
-                                  />
-                                </Text>
-                              </div>
-                              <div className={styles.costRow}>
-                                <Text size="sm" variant="muted">{lang.current.label.actualLabel}</Text>
-                                <Text weight="bold" size="lg">
-                                  <CostEstimate
-                                    cost={actualTotalCost}
-                                    currency={userCurrency}
-                                    showTooltip={true}
-                                    compact={true}
-                                    isActual={true}
-                                    exact={true}
-                                    costCount={plan.costs?.length}
-                                  />
-                                </Text>
-                              </div>
-                            </div>
-                          ) : (
-                            <Text weight="bold" size="lg">
-                              <CostEstimate
-                                cost={plan.total_cost || 0}
-                                showTooltip={true}
-                                compact={true}
-                                isActual={false}
-                                exact={true}
-                              />
-                            </Text>
-                          )}
-                        </div>
-                        <div className={`${styles.expandIcon} ${isExpanded ? styles.rotated : ''}`}>
-                          <FaChevronRight size={16} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className={styles.progressBarContainer}>
-                      <div className={styles.progressBar}>
-                        <div
-                          className={styles.progressFill}
-                          style={{ width: `${completionPercentage}%` }}
-                          role="progressbar"
-                          aria-valuenow={completionPercentage}
-                          aria-valuemin="0"
-                          aria-valuemax="100"
-                        />
-                      </div>
-                      <Text size="xs" variant="muted" className={styles.progressText}>
-                        {lang.current.myPlans.percentComplete.replace('{percent}', completionPercentage)}
-                      </Text>
-                    </div>
-                  </div>
-
-                  {/* Plan Body - Collapsible */}
-                  {isExpanded && (
-                    <div className={styles.planBody}>
-                      {/* Plan Items Grid */}
-                      <div className={styles.planItemsGrid}>
-                        {(plan.plan || []).map((item) => {
-                          const isCompleted = item.complete || false;
-                          const itemLink = `/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}-item-${item._id}`;
-
-                          return (
-                            <HashLink
-                              key={item._id}
-                              to={itemLink}
-                              className={`${styles.planItem} ${isCompleted ? styles.completed : ''}`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {/* Completion Badge */}
-                              {isCompleted && (
-                                <div className={styles.completionBadge}>
-                                  <FaCheckCircle size={12} />
-                                  <span>{lang.current.myPlans.done}</span>
-                                </div>
-                              )}
-
-                              {/* Item Content */}
-                              <div className={styles.itemContent}>
-                                <Text
-                                  weight="semibold"
-                                  className={styles.itemText}
-                                  style={{
-                                    textDecoration: isCompleted ? 'line-through' : 'none',
-                                    color: isCompleted ? 'var(--color-text-muted)' : 'inherit'
-                                  }}
-                                >
-                                  {item.text}
-                                </Text>
-                                {Number(item.cost) > 0 && (
-                                  <Text size="sm" variant="muted" className={styles.itemCost}>
-                                    <CostEstimate
-                                      cost={item.cost}
-                                      showTooltip={true}
-                                      compact={true}
-                                      exact={true}
-                                    />
-                                  </Text>
-                                )}
-                              </div>
-                            </HashLink>
-                          );
-                        })}
-                      </div>
-
-                      {/* Additional Costs */}
-                      {plan.costs && plan.costs.length > 0 && (
-                        <div className={styles.additionalCosts}>
-                          <Heading level={6} className={styles.costSectionHeading}>{lang.current.heading.actualCosts}</Heading>
-                          
-                          {/* Total Cost Accordion */}
-                          <div className={styles.totalCostAccordion}>
-                            <div 
-                              className={`${styles.totalCostCard} ${expandedCostAccordions.has(plan._id) ? styles.expanded : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleCostAccordion(plan._id);
-                              }}
-                              role="button"
-                              tabIndex={0}
-                              aria-expanded={expandedCostAccordions.has(plan._id)}
-                              aria-label={expandedCostAccordions.has(plan._id)
-                                ? lang.current.myPlans.collapseCostBreakdownAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')
-                                : lang.current.myPlans.expandCostBreakdownAria.replace('{name}', plan.experience?.name || 'Unnamed Experience')}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  toggleCostAccordion(plan._id);
-                                }
-                              }}
-                            >
-                              <div className={styles.totalCostHeader}>
-                                <Text weight="semibold" size="base" className={styles.totalCostLabel}>{lang.current.label.totalSpent}</Text>
-                                <div className={styles.totalCostValue}>
-                                  <CostEstimate
-                                    cost={actualTotalCost}
-                                    currency={userCurrency}
-                                    showTooltip={true}
-                                    compact={true}
-                                    isActual={true}
-                                    exact={true}
-                                    tooltipContent={`${lang.current.label.trackedCosts}: ${getTotalCostTooltip(actualTotalCost, plan.costs, { currency: userCurrency })}`}
-                                    tooltipVariant="light"
-                                  />
-                                  <div className={`${styles.expandIcon} ${expandedCostAccordions.has(plan._id) ? styles.rotated : ''}`}>
-                                    <FaChevronRight size={14} />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Individual Costs - Accordion Body */}
-                            {expandedCostAccordions.has(plan._id) && (
-                              <div className={styles.costsAccordionBody}>
-                                <ActualCost
-                                  costs={plan.costs}
-                                  collaborators={collaborators.get(plan._id) || []}
-                                  planItems={plan.plan || []}
-                                  plan={plan}
-                                  currency={userCurrency}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* View Full Experience Button */}
-                      <div className={styles.planFooter}>
-                        <HashLink to={`/experiences/${plan.experience?._id || plan.experience}#plan-${plan._id}`}>
-                          <Button variant="outline" size="md" style={{ width: '100%' }}>
-                            {lang.current.myPlans.viewFullExperience}
-                          </Button>
-                        </HashLink>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {displayedPlans.map((plan) => (
+              <PlanRow
+                key={plan._id}
+                plan={plan}
+                isExpanded={expandedPlanId === plan._id}
+                isCostExpanded={expandedCostAccordions.has(plan._id)}
+                collaborators={collaborators.get(plan._id)}
+                userCurrency={userCurrency}
+                calculateTotal={calculateTotal}
+                onTogglePlan={togglePlan}
+                onToggleCost={toggleCostAccordion}
+              />
+            ))}
 
             {/* Load More Button */}
             {pagination.hasMore && (

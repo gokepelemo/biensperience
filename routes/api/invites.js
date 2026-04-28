@@ -22,6 +22,15 @@ const { isSuperAdmin } = require('../../utilities/permissions');
 const { sendInviteEmail } = require('../../utilities/email-service');
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const { notifyUser } = require('../../utilities/notifications');
+const { validate } = require('../../utilities/validate');
+const {
+  createInviteSchema,
+  bulkCreateInviteSchema,
+  validateInviteSchema,
+  redeemInviteSchema,
+  emailInviteSchema,
+  deleteInviteSchema,
+} = require('../../controllers/api/invites.schemas');
 
 /**
  * Middleware to ensure user is authenticated
@@ -87,7 +96,7 @@ router.get('/', requireAuth, async (req, res) => {
  *   customMessage: string (optional)
  * }
  */
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, validate(createInviteSchema), async (req, res) => {
   try {
     const {
       email,
@@ -191,7 +200,7 @@ router.post('/', requireAuth, async (req, res) => {
  *   }]
  * }
  */
-router.post('/bulk', requireAuth, requireSuperAdmin, async (req, res) => {
+router.post('/bulk', requireAuth, requireSuperAdmin, validate(bulkCreateInviteSchema), async (req, res) => {
   try {
     const { invites, sendEmail = false } = req.body;
 
@@ -284,7 +293,7 @@ router.post('/bulk', requireAuth, requireSuperAdmin, async (req, res) => {
  * Returns without email: { valid: true/false, requiresEmail: true }
  * Returns with email: { valid, inviterName, inviteeName, experienceNames, destinationNames, ... }
  */
-router.post('/validate', async (req, res) => {
+router.post('/validate', validate(validateInviteSchema), async (req, res) => {
   try {
     const { code, email } = req.body;
 
@@ -366,7 +375,7 @@ router.post('/validate', async (req, res) => {
  * This endpoint is called after signup with an invite code.
  * It adds the experiences and destinations to the user's account.
  */
-router.post('/redeem', requireAuth, async (req, res) => {
+router.post('/redeem', requireAuth, validate(redeemInviteSchema), async (req, res) => {
   try {
     const { code } = req.body;
 
@@ -597,7 +606,7 @@ router.post('/redeem', requireAuth, async (req, res) => {
  * DELETE /api/invites/:id
  * Deactivate an invite code
  */
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, validate(deleteInviteSchema), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -650,7 +659,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
  *   customMessage: string (optional)
  * }
  */
-router.post('/email', requireAuth, async (req, res) => {
+router.post('/email', requireAuth, validate(emailInviteSchema), async (req, res) => {
   try {
     const {
       email,

@@ -56,9 +56,14 @@ function attachTraceId(req, res, next) {
     });
   }
 
-  // Attach to request for use in controllers and logging
+  // Attach to request for use in controllers and logging.
+  // `req.id` is the canonical correlation id name used by the log-context
+  // helper (utilities/log-context.js) and downstream observability (AI gateway,
+  // WebSocket frames). `req.traceId` is retained for back-compat with existing
+  // log lines and the bien-trace-id response header contract.
   req.traceId = traceId;
-  
+  req.id = req.id || traceId;
+
   next();
 }
 

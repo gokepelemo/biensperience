@@ -13,6 +13,7 @@ const rateLimit = require('express-rate-limit');
 const aiCtrl = require('../../controllers/api/ai');
 const ensureLoggedIn = require('../../config/ensureLoggedIn');
 const { requireFeatureFlag } = require('../../utilities/feature-flag-middleware');
+const { createRateLimitStore } = require('../../utilities/rate-limit-store');
 
 // Helper: skip limiting for super admins
 function skipIfSuperAdmin(req) {
@@ -36,7 +37,8 @@ const aiRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: skipIfSuperAdmin
+  skip: skipIfSuperAdmin,
+  store: createRateLimitStore({ prefix: 'rl:ai:' })
 });
 
 /**
@@ -121,6 +123,23 @@ router.post(
   requireFeatureFlag('ai_features'),
   aiRateLimiter,
   aiCtrl.translate
+);
+
+/**
+ * @route   POST /api/ai/edit-language
+ * @desc    Edit/proofread text language (grammar, clarity, tone)
+ * @access  Private (requires ai_features flag)
+ * @body    {
+ *            text: string,
+ *            options?: object
+ *          }
+ */
+router.post(
+  '/edit-language',
+  ensureLoggedIn,
+  requireFeatureFlag('ai_features'),
+  aiRateLimiter,
+  aiCtrl.editLanguage
 );
 
 /**

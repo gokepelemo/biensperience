@@ -149,7 +149,15 @@ function MessageList({
                   ))}
                 </div>
               )}
-              <MessageContent text={msg.content} role={msg.role} />
+              <MessageContent
+                text={msg.content}
+                role={msg.role}
+                entityRefs={
+                  msg.entity_refs
+                    || msg.structured_content?.find(b => b.type === 'entity_ref_list')?.data?.refs
+                    || null
+                }
+              />
               {msg.structured_content?.length > 0 && (
                 <div className={styles.structuredContent}>
                   {msg.structured_content.map((block, blockIdx) => {

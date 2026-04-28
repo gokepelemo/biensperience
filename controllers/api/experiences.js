@@ -4,9 +4,13 @@ const Destination = require('../../models/destination');
 const User = require('../../models/user');
 const Plan = require('../../models/plan');
 const Photo = require('../../models/photo');
-const permissions = require('../../utilities/permissions');
-const { getEnforcer } = require('../../utilities/permission-enforcer');
+// bd #9224 — single entry point: permission-enforcer re-exports all helpers
+// from permissions.js (getAllPermissions, wouldCreateCircularDependency, etc.)
+// alongside the enforcer factory.
+const permissions = require('../../utilities/permission-enforcer');
+const { getEnforcer, isOwner, isCollaborator, isSuperAdmin, ROLES, ENTITY_TYPES } = permissions;
 const backendLogger = require('../../utilities/backend-logger');
+const { withRequest } = require('../../utilities/log-context');
 const { trackCreate, trackUpdate, trackDelete } = require('../../utilities/activity-tracker');
 const { hasFeatureFlag } = require('../../utilities/feature-flags');
 const { broadcastEvent } = require('../../utilities/websocket-server');
@@ -15,6 +19,7 @@ const { successResponse, errorResponse, paginatedResponse, validateObjectId } = 
 const { aggregateGroupSignals, refreshSignalsAndAffinity } = require('../../utilities/hidden-signals');
 const { ensureDefaultPhotoConsistency, setDefaultPhotoByIndex } = require('../../utilities/photo-utils');
 const { createPlanItemLocation } = require('../../utilities/address-utils');
+const experienceService = require('../../services/experience-service');
 
 // Helper function to escape regex special characters
 function escapeRegex(string) {
@@ -682,6 +687,7 @@ async function index(req, res) {
 }
 
 async function createExperience(req, res) {
+  const log = withRequest(req);
   try {
     // Initialize permissions array with owner
     req.body.permissions = [
@@ -728,7 +734,7 @@ async function createExperience(req, res) {
 
     // Log if curator is creating experience (curated status derived from owner's feature flag)
     if (hasFeatureFlag(req.user, 'curator')) {
-      backendLogger.info('Curator creating experience', { userId: req.user._id.toString(), name: req.body.name });
+      log.info('Curator creating experience', { name: req.body.name });
     }
 
     // Geocode location/map_location into a structured location object
@@ -741,7 +747,7 @@ async function createExperience(req, res) {
           req.body.map_location = geocodedLocation.address || req.body.map_location;
         }
       } catch (geoErr) {
-        backendLogger.warn('[createExperience] Geocoding failed, using raw value', { error: geoErr.message });
+        log.warn('[createExperience] Geocoding failed, using raw value', { error: geoErr.message });
         if (req.body.location && typeof req.body.location === 'string') {
           req.body.location = { address: req.body.location };
         }
@@ -758,14 +764,16 @@ async function createExperience(req, res) {
       reason: `Experience "${experience.name}" created`
     });
 
-    // Broadcast experience creation via WebSocket (async, non-blocking)
+    // Broadcast experience creation via WebSocket (async, non-blocking).
+    // serverRequestId lets the receiving client correlate the WS frame to
+    // the originating HTTP request.
     try {
       broadcastEvent('experience', experience._id.toString(), {
         type: 'experience:created',
-        payload: { experience, userId: req.user._id.toString() }
+        payload: { experience, userId: req.user._id.toString(), serverRequestId: req.id }
       });
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast experience creation', { error: wsErr.message });
     }
 
     // Fire-and-forget: re-aggregate destination signals
@@ -773,7 +781,7 @@ async function createExperience(req, res) {
 
     return successResponse(res, experience, 'Experience created successfully', 201);
   } catch (err) {
-    backendLogger.error('Error creating experience', { error: err.message, userId: req.user._id, name: req.body.name, destination: req.body.destination });
+    log.error('Error creating experience', { error: err.message, name: req.body.name, destination: req.body.destination });
     return errorResponse(res, err, 'Failed to create experience', 400);
   }
 }
@@ -1121,8 +1129,9 @@ async function showExperienceWithContext(req, res) {
 }
 
 async function updateExperience(req, res) {
-  backendLogger.info('updateExperience called', { experienceId: req.params.experienceId || req.params.id, userId: req.user._id });
+  const log = withRequest(req);
   const experienceId = req.params.experienceId || req.params.id;
+  log.info('updateExperience called', { experienceId });
 
   const { valid: expIdValid, objectId: expOid } = validateObjectId(experienceId, 'experienceId');
   if (!expIdValid) {
@@ -1130,12 +1139,12 @@ async function updateExperience(req, res) {
   }
 
   try {
-    backendLogger.info('Looking up experience', { experienceId });
+    log.info('Looking up experience', { experienceId });
     let experience = await Experience.findById(expOid);
-    backendLogger.info('Experience lookup result', { found: !!experience });
-    
+    log.info('Experience lookup result', { experienceId, found: !!experience });
+
     if (!experience) {
-      backendLogger.warn('Experience not found', { experienceId });
+      log.warn('Experience not found', { experienceId });
       return errorResponse(res, null, 'Experience not found', 404);
     }
     
@@ -1217,7 +1226,7 @@ async function updateExperience(req, res) {
           }
         }
       } catch (geoErr) {
-        backendLogger.warn('[updateExperience] Geocoding failed, using raw location', { error: geoErr.message });
+        log.warn('[updateExperience] Geocoding failed, using raw location', { error: geoErr.message });
         if (typeof updateData.location === 'string') {
           updateData.location = { address: updateData.location };
         }
@@ -1229,10 +1238,10 @@ async function updateExperience(req, res) {
           updateData.location = geocodedLocation;
         }
       } catch (geoErr) {
-        backendLogger.warn('[updateExperience] map_location geocoding failed', { error: geoErr.message });
+        log.warn('[updateExperience] map_location geocoding failed', { error: geoErr.message });
       }
     }
-    backendLogger.info('Filtered update data', {
+    log.info('Filtered update data', {
       experienceId,
       updateFields: Object.keys(updateData),
       originalBodyKeys: Object.keys(req.body)
@@ -1240,27 +1249,27 @@ async function updateExperience(req, res) {
 
     // Validate permissions if present
     if (updateData.permissions) {
-      backendLogger.debug('Validating permissions', { count: updateData.permissions.length });
+      log.debug('Validating permissions', { count: updateData.permissions.length });
       for (const perm of updateData.permissions) {
         if (!perm._id) {
-          backendLogger.error('Invalid permission: missing _id', { permission: perm, experienceId });
+          log.error('Invalid permission: missing _id', { permission: perm, experienceId });
           return errorResponse(res, null, 'Invalid permissions data: missing _id', 400);
         }
         if (!perm.entity || !['user', 'destination', 'experience'].includes(perm.entity)) {
-          backendLogger.error('Invalid permission: invalid entity', { permission: perm, experienceId });
+          log.error('Invalid permission: invalid entity', { permission: perm, experienceId });
           return errorResponse(res, null, 'Invalid permissions data: invalid entity', 400);
         }
       }
     }
-    
+
     // Capture previous state for activity tracking
     const previousState = experience.toObject();
-    
+
     experience = Object.assign(experience, updateData);
-    
-    backendLogger.info('About to save experience', { experienceId, bodyKeys: Object.keys(req.body) });
+
+    log.info('About to save experience', { experienceId, bodyKeys: Object.keys(req.body) });
     await experience.save();
-    backendLogger.info('Experience saved successfully', { experienceId });
+    log.info('Experience saved successfully', { experienceId });
     
     // Track update (non-blocking)
     trackUpdate({
@@ -1273,7 +1282,9 @@ async function updateExperience(req, res) {
       reason: `Experience "${experience.name}" updated`
     });
 
-    // Broadcast experience update via WebSocket (async, non-blocking)
+    // Broadcast experience update via WebSocket (async, non-blocking).
+    // serverRequestId lets the receiving client correlate the WS frame to
+    // the originating HTTP request.
     try {
       broadcastEvent('experience', experienceId.toString(), {
         type: 'experience:updated',
@@ -1281,11 +1292,12 @@ async function updateExperience(req, res) {
           experience,
           experienceId: experienceId.toString(),
           updatedFields: Object.keys(updateData),
-          userId: req.user._id.toString()
+          userId: req.user._id.toString(),
+          serverRequestId: req.id
         }
       }, req.user._id.toString()); // Exclude sender from broadcast
     } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
+      log.warn('[WebSocket] Failed to broadcast experience update', { error: wsErr.message });
     }
 
     // Fire-and-forget: re-aggregate destination signals
@@ -1293,43 +1305,43 @@ async function updateExperience(req, res) {
 
     return successResponse(res, experience, 'Experience updated successfully');
   } catch (err) {
-    backendLogger.error('Experience save error details', {
+    log.error('Experience save error details', {
       message: err.message,
       stack: err.stack,
       name: err.name,
       code: err.code,
       errors: err.errors
     });
-    
+
     // Safe logging to avoid undefined property access
     const safeExperienceId = experienceId || 'undefined';
-    const safeUserId = req.user && req.user._id ? req.user._id.toString() : 'undefined';
-    
-    backendLogger.error('Error saving experience', { 
-      error: err.message, 
-      errors: err.errors, 
-      userId: safeUserId, 
-      experienceId: safeExperienceId 
+
+    log.error('Error saving experience', {
+      error: err.message,
+      errors: err.errors,
+      experienceId: safeExperienceId
     });
-    
+
     return errorResponse(res, err, 'Failed to update experience', 400);
   }
 }
 
 async function deleteExperience(req, res) {
+  const log = withRequest(req);
   try {
-    // Validate ObjectId format
+    // Pre-fetch the experience for activity tracking and the "other users have
+    // plans" gate. Service performs the canonical permission check + delete.
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return errorResponse(res, null, 'Invalid experience ID format', 400);
     }
 
-    let experience = await Experience.findById(req.params.id);
-    
+    const experience = await Experience.findById(req.params.id);
     if (!experience) {
       return errorResponse(res, null, 'Experience not found', 404);
     }
 
-    // Check if user has permission to delete using PermissionEnforcer
+    // Permission check is duplicated here (service repeats it) so we can
+    // gate the "other users have plans" warning before the service is invoked.
     const enforcer = getEnforcer({ Destination, Experience, User });
     const permCheck = await enforcer.canDelete({
       userId: req.user._id,
@@ -1339,45 +1351,25 @@ async function deleteExperience(req, res) {
     if (!permCheck.allowed) {
       return errorResponse(res, null, permCheck.reason || 'Only the experience owner can delete it.', 403);
     }
-    
-    // Check if any other users have plans for this experience
-    // Only prevent deletion if non-owner users have plans (owners can cascade delete)
+
+    // Block non-owners from deleting an experience that has plans owned by others.
     const existingPlans = await Plan.find({ experience: req.params.id })
       .populate({
         path: 'user',
         select: '_id name email photos',
-        populate: [
-          {
-            path: 'photos',
-            model: 'Photo'
-          }
-        ]
+        populate: [{ path: 'photos', model: 'Photo' }]
       });
-    
+
     if (existingPlans.length > 0) {
-      // Check if any plan belongs to someone other than the owner
       const otherUserPlans = existingPlans.filter(
         plan => plan.user._id.toString() !== req.user._id.toString()
       );
-      
-      // If there are plans by other users, the owner can still delete (cascade delete)
-      // Only non-owners are prevented from deleting experiences with other users' plans
       if (otherUserPlans.length > 0 && !permCheck.allowed) {
-        // Get unique users with their plan details
-        const usersWithPlans = otherUserPlans.map(plan => ({
-          userId: plan.user._id,
-          name: plan.user.name,
-          email: plan.user.email,
-          photos: plan.user.photos,
-          planId: plan._id,
-          plannedDate: plan.planned_date
-      }));
-        
         return errorResponse(res, null, 'This experience cannot be deleted because other users have created plans for it. You can transfer ownership to one of these users instead.', 409);
       }
     }
-    
-    // Track deletion (non-blocking) - must happen before deleteOne()
+
+    // Track deletion (non-blocking) before service runs.
     trackDelete({
       resource: experience,
       resourceType: 'Experience',
@@ -1385,64 +1377,26 @@ async function deleteExperience(req, res) {
       req,
       reason: `Experience "${experience.name}" deleted`
     });
-    
-    // Get plan IDs before deletion so frontend can emit events for cascade-deleted plans
-    let deletedPlanIds = [];
-    let deletedPlansCount = 0;
 
-    // Delete all plans associated with this experience
-    // This prevents orphaned plans showing as "Unnamed Experience" on dashboards
-    try {
-      // First, get the plan IDs so we can return them
-      const plansToDelete = await Plan.find({ experience: req.params.id }).select('_id user').lean();
-      deletedPlanIds = plansToDelete.map(p => ({
-        planId: p._id.toString(),
-        userId: p.user ? p.user.toString() : null
-      }));
+    // Delegate cascade-delete + WebSocket broadcast to the service.
+    const result = await experienceService.deleteExperience({
+      experienceId: req.params.id,
+      actor: req.user
+    });
 
-      // Then delete them
-      const deleteResult = await Plan.deleteMany({ experience: req.params.id });
-      deletedPlansCount = deleteResult.deletedCount;
-
-      backendLogger.info('Deleted associated plans', {
-        experienceId: req.params.id,
-        plansDeleted: deletedPlansCount,
-        planIds: deletedPlanIds.map(p => p.planId)
-      });
-    } catch (planDeleteErr) {
-      backendLogger.error('Error deleting associated plans', {
-        error: planDeleteErr.message,
-        experienceId: req.params.id
-      });
-      // Don't fail the experience deletion if plan deletion fails
-      // The plans will become orphaned but the experience deletion should succeed
+    if (result.error) {
+      return errorResponse(res, null, result.error, result.code || 400);
     }
 
-    await experience.deleteOne();
-
-    // Broadcast experience deletion via WebSocket (async, non-blocking)
-    try {
-      broadcastEvent('experience', req.params.id.toString(), {
-        type: 'experience:deleted',
-        payload: {
-          experienceId: req.params.id.toString(),
-          deletedPlans: deletedPlanIds,
-          userId: req.user._id.toString()
-        }
-      }, req.user._id.toString());
-    } catch (wsErr) {
-      backendLogger.warn('[WebSocket] Failed to broadcast experience deletion', { error: wsErr.message });
-    }
-
-    // Return deletion info including cascade-deleted plans for frontend event emission
+    // NOTE: cascade-delete + WebSocket broadcast happen inside
+    // experienceService.deleteExperience (bd #8f36.13). The service does NOT
+    // currently thread req.id into its WS broadcast — see follow-up bd ticket
+    // to extend service signatures with requestId for 648f-style correlation.
     return successResponse(res, {
-      deletedPlans: {
-        count: deletedPlansCount,
-        plans: deletedPlanIds
-      }
+      deletedPlans: result.deletedPlans
     }, 'Experience deleted successfully');
   } catch (err) {
-    backendLogger.error('Error deleting experience', { error: err.message, userId: req.user._id, experienceId: req.params.id });
+    log.error('Error deleting experience', { error: err.message, experienceId: req.params.id });
     return errorResponse(res, err, 'Failed to delete experience', 400);
   }
 }
@@ -1909,8 +1863,7 @@ async function showUserExperiences(req, res) {
 
     const plans = await query.exec();
 
-    // Check if requester is super admin
-    const { isSuperAdmin } = require('../../utilities/permissions');
+    // Check if requester is super admin (top-level isSuperAdmin from permission-enforcer)
     const includePlanIds = isSuperAdmin(req.user);
 
     let uniqueExperiences;
@@ -2338,16 +2291,8 @@ async function addExperiencePermission(req, res) {
     }
 
     const { _id, entity, type } = req.body;
-
-    // Validate required fields
-    if (!_id || !entity) {
-      return errorResponse(res, null, 'Permission must have _id and entity fields', 400);
-    }
-
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(_id)) {
-      return errorResponse(res, null, 'Invalid permission _id format', 400);
-    }
+    // Format/presence checks for `_id`, `entity`, and `_id` ObjectId shape
+    // are handled by `validate(addExperiencePermissionSchema)` in the route.
 
     // Validate entity exists
     if (entity === permissions.ENTITY_TYPES.USER) {
