@@ -267,13 +267,9 @@ async function showDestination(req, res) {
 }
 
 async function updateDestination(req, res) {
+  // Validation enforced by updateDestinationSchema (see destinations.schemas.js).
   const log = withRequest(req);
   try {
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid destination ID format', 400);
-    }
-
     let destination = await Destination.findById(req.params.id);
 
     if (!destination) {
@@ -610,6 +606,7 @@ async function toggleUserFavoriteDestination(req, res) {
 }
 
 async function addPhoto(req, res) {
+  // Validation enforced by addDestinationPhotoSchema (see destinations.schemas.js).
   try {
     const destination = await Destination.findById(req.params.id);
 
@@ -629,10 +626,6 @@ async function addPhoto(req, res) {
     }
 
     const { url, photo_credit, photo_credit_url } = req.body;
-
-    if (!url) {
-      return errorResponse(res, null, 'Photo URL is required', 400);
-    }
 
     // Add photo to photos array
     destination.photos.push({
@@ -780,12 +773,8 @@ async function setDefaultPhoto(req, res) {
  * POST /api/destinations/:id/permissions
  */
 async function addDestinationPermission(req, res) {
+  // Validation enforced by addDestinationPermissionSchema (see destinations.schemas.js).
   try {
-    // Validate destination ID
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid destination ID format', 400);
-    }
-
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
@@ -962,17 +951,8 @@ async function removeDestinationPermission(req, res) {
  * PATCH /api/destinations/:id/permissions/:userId
  */
 async function updateDestinationPermission(req, res) {
+  // Validation enforced by updateDestinationPermissionSchema (see destinations.schemas.js).
   try {
-    // Validate destination ID
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid destination ID format', 400);
-    }
-
-    // Validate user ID
-    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
     const destination = await Destination.findById(req.params.id);
 
     if (!destination) {
@@ -985,10 +965,6 @@ async function updateDestinationPermission(req, res) {
     }
 
     const { type } = req.body;
-
-    if (!type) {
-      return errorResponse(res, null, 'Permission type is required', 400);
-    }
 
     // Update permission using enforcer (SECURE)
     const enforcer = getEnforcer({ Destination, Experience, User });

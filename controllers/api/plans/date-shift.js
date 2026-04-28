@@ -36,14 +36,14 @@ const { sanitizeLocation, filterNotesByVisibility, isPlanMember } = require('./_
 
 
 const shiftPlanItemDates = asyncHandler(async (req, res) => {
+  // Validation enforced by shiftPlanItemDatesSchema (see plans.schemas.js).
+  // The finite-and-non-zero guard below remains because the schema only
+  // enforces that diff_ms is a number-or-string, not that it parses to a
+  // finite, non-zero value.
   const { id } = req.params;
   const { diff_ms } = req.body;
 
-  if (!validateObjectId(id)) {
-    return errorResponse(res, null, 'Invalid plan ID', 400);
-  }
-
-  if (diff_ms === undefined || diff_ms === null || !Number.isFinite(Number(diff_ms)) || Number(diff_ms) === 0) {
+  if (!Number.isFinite(Number(diff_ms)) || Number(diff_ms) === 0) {
     return errorResponse(res, null, 'diff_ms must be a finite non-zero number', 400);
   }
 

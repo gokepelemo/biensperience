@@ -41,6 +41,7 @@ const { sanitizeLocation, filterNotesByVisibility, isPlanMember } = require('./_
  * Initializes plan with snapshot of current experience plan items
  */
 const createPlan = asyncHandler(async (req, res) => {
+  // Validation enforced by createPlanSchema (see plans.schemas.js).
   const { experienceId } = req.params;
   const { planned_date, currency } = req.body;
 
@@ -53,12 +54,6 @@ const createPlan = asyncHandler(async (req, res) => {
     requestMethod: req.method,
     requestPath: req.path
   });
-
-  // Validate ObjectId
-  if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-    backendLogger.warn('Invalid experience ID format', { experienceId });
-    return errorResponse(res, null, "Invalid experience ID", 400);
-  }
 
   if (!req.user || !req.user._id) {
     backendLogger.warn('Plan creation attempted without authentication', {
@@ -767,12 +762,9 @@ const checkUserPlanForExperience = asyncHandler(async (req, res) => {
  */
 
 const updatePlan = asyncHandler(async (req, res) => {
+  // Validation enforced by updatePlanSchema (see plans.schemas.js).
   const { id } = req.params;
   const updates = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return errorResponse(res, null, "Invalid plan ID", 400);
-  }
 
   const plan = await Plan.findById(id);
 

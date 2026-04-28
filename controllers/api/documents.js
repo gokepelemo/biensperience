@@ -137,6 +137,9 @@ function sanitizeObjectId(id) {
  * POST /api/documents
  */
 async function uploadDocument(req, res) {
+  // Validation enforced by uploadDocumentSchema (see documents.schemas.js).
+  // entityType / entityId presence + format are guaranteed by the schema; the
+  // multer file presence check below is intentional (file binary is not in body).
   let localFilePath = null;
   let uploadedS3Key = null;
 
@@ -148,16 +151,9 @@ async function uploadDocument(req, res) {
 
     const { entityType, entityId, planId, planItemId, aiParsingEnabled = true, documentTypeHint, visibility = 'collaborators' } = req.body;
 
-    // Validate entity type
-    if (!entityType || !['plan', 'plan_item', 'experience', 'destination'].includes(entityType)) {
-      return res.status(400).json({ error: 'Invalid entityType. Must be: plan, plan_item, experience, or destination' });
-    }
-
-    if (!entityId || !mongoose.Types.ObjectId.isValid(entityId)) {
-      return res.status(400).json({ error: 'Invalid entityId' });
-    }
-
-    // For plan_item, planId is required
+    // For plan_item, planId is required (conditional business rule, not pure
+    // validation — schema marks planId .optional() because other entity types
+    // do not need it).
     if (entityType === 'plan_item' && (!planId || !mongoose.Types.ObjectId.isValid(planId))) {
       return res.status(400).json({ error: 'planId is required for plan_item documents' });
     }
@@ -549,13 +545,10 @@ async function getDocumentsByEntity(req, res) {
  * POST /api/documents/:id/reprocess
  */
 async function reprocessDocument(req, res) {
+  // Validation enforced by reprocessDocumentSchema (see documents.schemas.js).
   let localFilePath = null;
 
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
-    }
-
     const document = await Document.findById(req.params.id);
 
     if (!document) {
@@ -694,11 +687,8 @@ async function reprocessDocument(req, res) {
  * Use permanentDelete for actual S3 and DB deletion (super admin only).
  */
 async function deleteDocument(req, res) {
+  // Validation enforced by deleteDocumentSchema (see documents.schemas.js).
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
-    }
-
     const document = await Document.findById(req.params.id);
 
     if (!document) {
@@ -900,11 +890,11 @@ async function getSupportedTypes(req, res) {
  * PATCH /api/documents/:id/visibility
  */
 async function updateVisibility(req, res) {
+  // Validation enforced by updateVisibilitySchema (see documents.schemas.js).
+  // The enum check below is intentionally retained because callers / tests
+  // assert on the specific `Invalid visibility...` error message; the schema
+  // therefore only enforces the type/length, not the enum.
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid document ID' });
-    }
-
     const { visibility } = req.body;
 
     if (!visibility || !['collaborators', 'private'].includes(visibility)) {

@@ -36,16 +36,13 @@ const { sanitizeLocation, filterNotesByVisibility, isPlanMember } = require('./_
 
 
 const updatePlanItem = asyncHandler(async (req, res) => {
+  // Validation enforced by updatePlanItemSchema (see plans.schemas.js).
   const { id, itemId } = req.params;
   const {
     complete, cost, planning_days, text, url, activity_type,
     location, lat, lng, address, scheduled_date, scheduled_time,
     photos, visibility
   } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(itemId)) {
-    return res.status(400).json({ error: "Invalid ID" });
-  }
 
   const plan = await Plan.findById(id);
 
@@ -467,12 +464,9 @@ const updatePlanItem = asyncHandler(async (req, res) => {
  */
 
 const addPlanItem = asyncHandler(async (req, res) => {
+  // Validation enforced by addPlanItemSchema (see plans.schemas.js).
   const { id } = req.params;
   const { text, url, cost, planning_days, parent, photo, activity_type, location, lat, lng, address, plan_item_id } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid plan ID" });
-  }
 
   const plan = await Plan.findById(id);
 
@@ -506,11 +500,8 @@ const addPlanItem = asyncHandler(async (req, res) => {
       return res.status(400).json({ error: 'Plan item nesting is disabled (max nesting level is 0)' });
     }
 
+    // ObjectId format for `parent` is validated by addPlanItemSchema.
     const parentIdStr = parent.toString();
-
-    if (!mongoose.Types.ObjectId.isValid(parentIdStr)) {
-      return res.status(400).json({ error: 'Invalid parent plan item ID' });
-    }
 
     const findPlanItemByAnyId = (idStr) => {
       return (plan.plan || []).find(item => {
@@ -699,6 +690,7 @@ const deletePlanItem = asyncHandler(async (req, res) => {
  */
 
 const reorderPlanItems = asyncHandler(async (req, res) => {
+  // Validation enforced by reorderPlanItemsSchema (see plans.schemas.js).
   const { id } = req.params;
   const { plan: reorderedItems } = req.body;
 
@@ -707,21 +699,6 @@ const reorderPlanItems = asyncHandler(async (req, res) => {
     itemCount: reorderedItems?.length,
     userId: req.user?._id?.toString()
   });
-
-  // Validate plan ID
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    backendLogger.warn('Invalid plan ID format', { planId: id });
-    return res.status(400).json({ error: "Invalid plan ID" });
-  }
-
-  // Validate reorderedItems
-  if (!Array.isArray(reorderedItems)) {
-    backendLogger.warn('Invalid plan items format - not an array', {
-      planId: id,
-      receivedType: typeof reorderedItems
-    });
-    return res.status(400).json({ error: "Plan items must be an array" });
-  }
 
   // Find the plan
   const plan = await Plan.findById(id);
@@ -820,16 +797,9 @@ const reorderPlanItems = asyncHandler(async (req, res) => {
  */
 
 const assignPlanItem = asyncHandler(async (req, res) => {
+  // Validation enforced by assignPlanItemSchema (see plans.schemas.js).
   const { id, itemId } = req.params;
   const { assignedTo } = req.body;
-
-  if (!assignedTo) {
-    return res.status(400).json({ error: 'assignedTo user ID is required' });
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(assignedTo)) {
-    return res.status(400).json({ error: 'Invalid user ID format' });
-  }
 
   const plan = await Plan.findById(id);
   if (!plan) {

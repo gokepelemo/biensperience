@@ -61,7 +61,10 @@ const updateVisibilitySchema = z.object({
   params: z.object({ id: objectIdSchema }).passthrough(),
   body: z
     .object({
-      visibility: z.enum(['collaborators', 'private']),
+      // NOTE: kept loose at the schema layer so the controller can return its
+      // legacy `{ error: 'Invalid visibility...' }` shape that existing callers
+      // (and tests) match on (see documents.test.js "invalid visibility").
+      visibility: z.string().max(32),
     })
     .passthrough(),
 });

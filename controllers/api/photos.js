@@ -77,12 +77,8 @@ async function createPhoto(req, res) {
 }
 
 async function updatePhoto(req, res) {
+  // Validation enforced by updatePhotoSchema (see photos.schemas.js).
   try {
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid photo ID format' });
-    }
-
     let photo = await Photo.findById(req.params.id);
     if (!photo) {
       return errorResponse(res, null, 'Photo not found', 404);
@@ -193,12 +189,9 @@ async function deletePhoto(req, res) {
 }
 
 async function createPhotoFromUrl(req, res) {
+  // Validation enforced by createPhotoFromUrlSchema (see photos.schemas.js).
   try {
     const { url, photo_credit, photo_credit_url, width, height } = req.body;
-
-    if (!url) {
-      return errorResponse(res, null, 'Photo URL is required', 400);
-    }
 
     const photoData = {
       photo_credit: photo_credit || 'Biensperience',
@@ -338,15 +331,8 @@ async function getPhotosByIds(req, res) {
  * Add a collaborator to a photo
  */
 async function addCollaborator(req, res) {
+  // Validation enforced by photoCollaboratorSchema (see photos.schemas.js).
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid photo ID format', 400);
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(req.body.userId)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
     const photo = await Photo.findById(req.params.id);
     if (!photo) {
       return errorResponse(res, null, 'Photo not found', 404);
@@ -475,15 +461,8 @@ async function removeCollaborator(req, res) {
  * Add a contributor to a photo
  */
 async function addContributor(req, res) {
+  // Validation enforced by photoCollaboratorSchema (see photos.schemas.js).
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid photo ID format', 400);
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(req.body.userId)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
     const photo = await Photo.findById(req.params.id);
     if (!photo) {
       return errorResponse(res, null, 'Photo not found', 404);

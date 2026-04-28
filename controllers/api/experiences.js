@@ -1129,18 +1129,14 @@ async function showExperienceWithContext(req, res) {
 }
 
 async function updateExperience(req, res) {
+  // Validation enforced by updateExperienceSchema (see experiences.schemas.js).
   const log = withRequest(req);
-  const experienceId = req.params.experienceId || req.params.id;
+  const experienceId = req.params.id;
   log.info('updateExperience called', { experienceId });
-
-  const { valid: expIdValid, objectId: expOid } = validateObjectId(experienceId, 'experienceId');
-  if (!expIdValid) {
-    return errorResponse(res, null, 'Invalid experience ID format', 400);
-  }
 
   try {
     log.info('Looking up experience', { experienceId });
-    let experience = await Experience.findById(expOid);
+    let experience = await Experience.findById(experienceId);
     log.info('Experience lookup result', { experienceId, found: !!experience });
 
     if (!experience) {
@@ -1402,12 +1398,8 @@ async function deleteExperience(req, res) {
 }
 
 async function createPlanItem(req, res) {
+  // Validation enforced by createPlanItemSchema (see experiences.schemas.js).
   try {
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
-      return errorResponse(res, null, 'Invalid experience ID format', 400);
-    }
-
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
@@ -1455,10 +1447,7 @@ async function createPlanItem(req, res) {
         return errorResponse(res, null, 'Plan item nesting is disabled (max nesting level is 0)', 400);
       }
 
-      if (!mongoose.Types.ObjectId.isValid(req.body.parent)) {
-        return errorResponse(res, null, 'Invalid parent plan item ID format', 400);
-      }
-
+      // ObjectId format for `parent` is validated by createPlanItemSchema.
       const parentItem = experience.plan_items.id(req.body.parent);
       if (!parentItem) {
         return errorResponse(res, null, 'Parent plan item not found in this experience', 400);
@@ -1494,7 +1483,7 @@ async function createPlanItem(req, res) {
         return errorResponse(res, null, `Cannot add a child item deeper than max nesting level ${maxNestingLevel}`, 400);
       }
     }
-    
+
     // Sanitize plan item data before saving
     const planItemData = {
       text: req.body.text,
@@ -1556,15 +1545,8 @@ async function createPlanItem(req, res) {
 }
 
 async function updatePlanItem(req, res) {
+  // Validation enforced by updatePlanItemSchema (see experiences.schemas.js).
   try {
-    // Validate ObjectIds
-    if (!mongoose.Types.ObjectId.isValid(req.params.experienceId)) {
-      return errorResponse(res, null, 'Invalid experience ID format', 400);
-    }
-    if (!mongoose.Types.ObjectId.isValid(req.params.planItemId)) {
-      return errorResponse(res, null, 'Invalid plan item ID format', 400);
-    }
-
     let experience = await Experience.findById(req.params.experienceId)
       .populate("destination")
       .populate({
@@ -1620,10 +1602,7 @@ async function updatePlanItem(req, res) {
         return errorResponse(res, null, 'Plan item nesting is disabled (max nesting level is 0)', 400);
       }
 
-      if (!mongoose.Types.ObjectId.isValid(req.body.parent)) {
-        return errorResponse(res, null, 'Invalid parent plan item ID format', 400);
-      }
-
+      // ObjectId format for `parent` is validated by updatePlanItemSchema.
       if (req.body.parent.toString() === req.params.planItemId.toString()) {
         return errorResponse(res, null, 'Plan item cannot be its own parent', 400);
       }
@@ -2105,6 +2084,7 @@ async function getTagName(req, res) {
 }
 
 async function addPhoto(req, res) {
+  // Validation enforced by addExperiencePhotoSchema (see experiences.schemas.js).
   try {
     const experience = await Experience.findById(req.params.id);
 
@@ -2124,10 +2104,6 @@ async function addPhoto(req, res) {
     }
 
     const { photoId } = req.body;
-
-    if (!photoId) {
-      return errorResponse(res, null, 'Photo ID is required', 400);
-    }
 
     // Add photo to photos array
     experience.photos.push({
@@ -2273,12 +2249,8 @@ async function setDefaultPhoto(req, res) {
  * POST /api/experiences/:id/permissions
  */
 async function addExperiencePermission(req, res) {
+  // Validation enforced by addExperiencePermissionSchema (see experiences.schemas.js).
   try {
-    // Validate experience ID
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid experience ID format', 400);
-    }
-
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
@@ -2493,17 +2465,8 @@ async function removeExperiencePermission(req, res) {
  * PATCH /api/experiences/:id/permissions/:userId
  */
 async function updateExperiencePermission(req, res) {
+  // Validation enforced by updateExperiencePermissionSchema (see experiences.schemas.js).
   try {
-    // Validate experience ID
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid experience ID format', 400);
-    }
-
-    // Validate user ID
-    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
     const experience = await Experience.findById(req.params.id);
 
     if (!experience) {
@@ -2516,10 +2479,6 @@ async function updateExperiencePermission(req, res) {
     }
 
     const { type } = req.body;
-
-    if (!type) {
-      return errorResponse(res, null, 'Permission type is required', 400);
-    }
 
     // Update permission using enforcer (SECURE)
     const { getEnforcer } = require('../../utilities/permission-enforcer');
@@ -2695,6 +2654,7 @@ async function transferOwnership(req, res) {
  * Reorder experience plan items
  */
 async function reorderExperiencePlanItems(req, res) {
+  // Validation enforced by reorderPlanItemsSchema (see experiences.schemas.js).
   const { experienceId } = req.params;
   const { plan_items: reorderedItems } = req.body;
 
@@ -2710,21 +2670,6 @@ async function reorderExperiencePlanItems(req, res) {
   });
 
   try {
-    // Validate experience ID
-    if (!mongoose.Types.ObjectId.isValid(experienceId)) {
-      backendLogger.warn('Invalid experience ID format', { experienceId });
-      return errorResponse(res, null, 'Invalid experience ID', 400);
-    }
-
-    // Validate reorderedItems
-    if (!Array.isArray(reorderedItems)) {
-      backendLogger.warn('Invalid plan items format - not an array', {
-        experienceId,
-        receivedType: typeof reorderedItems
-      });
-      return errorResponse(res, null, 'Plan items must be an array', 400);
-    }
-
     // Validate that all items have _id
     const itemsWithoutId = reorderedItems.filter(item => !item._id);
     if (itemsWithoutId.length > 0) {
