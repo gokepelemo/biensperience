@@ -36,17 +36,14 @@ const { sanitizeLocation, filterNotesByVisibility, isPlanMember } = require('./_
 
 
 const addPlanItemNote = asyncHandler(async (req, res) => {
+  // Validation enforced by addPlanItemNoteSchema (see plans.schemas.js).
+  // The trim-only-empty guard below remains because the schema's
+  // `min(1)` only checks the raw length, not trimmed content.
   const { id, itemId } = req.params;
   const { content, visibility = 'contributors' } = req.body;
 
-  if (!content || !content.trim()) {
+  if (!content.trim()) {
     return res.status(400).json({ error: 'Note content is required' });
-  }
-
-  // Validate visibility
-  const validVisibility = ['private', 'contributors'];
-  if (!validVisibility.includes(visibility)) {
-    return res.status(400).json({ error: 'Invalid visibility value. Must be "private" or "contributors"' });
   }
 
   const plan = await Plan.findById(id);
@@ -179,19 +176,13 @@ const addPlanItemNote = asyncHandler(async (req, res) => {
  */
 
 const updatePlanItemNote = asyncHandler(async (req, res) => {
+  // Validation enforced by updatePlanItemNoteSchema (see plans.schemas.js).
+  // Trimmed-non-empty guard retained — schema's `min(1)` is raw-length only.
   const { id, itemId, noteId } = req.params;
   const { content, visibility } = req.body;
 
-  if (!content || !content.trim()) {
+  if (!content.trim()) {
     return res.status(400).json({ error: 'Note content is required' });
-  }
-
-  // Validate visibility if provided
-  if (visibility !== undefined) {
-    const validVisibility = ['private', 'contributors'];
-    if (!validVisibility.includes(visibility)) {
-      return res.status(400).json({ error: 'Invalid visibility value. Must be "private" or "contributors"' });
-    }
   }
 
   const plan = await Plan.findById(id);

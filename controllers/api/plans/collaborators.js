@@ -36,12 +36,9 @@ const { sanitizeLocation, filterNotesByVisibility, isPlanMember } = require('./_
 
 
 const requestPlanAccess = asyncHandler(async (req, res) => {
+  // Validation enforced by requestPlanAccessSchema (see plans.schemas.js).
   const { id } = req.params;
   const { message = '' } = req.body || {};
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return errorResponse(res, null, 'Invalid plan ID', 400);
-  }
 
   const plan = await Plan.findById(id)
     .select('user experience accessRequests')
@@ -215,20 +212,9 @@ const requestPlanAccess = asyncHandler(async (req, res) => {
  */
 
 const respondToAccessRequest = asyncHandler(async (req, res) => {
+  // Validation enforced by respondToAccessRequestSchema (see plans.schemas.js).
   const { id, requestId } = req.params;
   const { action } = req.body || {};
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return errorResponse(res, null, 'Invalid plan ID', 400);
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(requestId)) {
-    return errorResponse(res, null, 'Invalid request ID', 400);
-  }
-
-  if (!['approve', 'decline'].includes(action)) {
-    return errorResponse(res, null, 'Action must be "approve" or "decline"', 400);
-  }
 
   const plan = await Plan.findById(id)
     .select('user experience accessRequests permissions')
@@ -409,12 +395,9 @@ const getAccessRequests = asyncHandler(async (req, res) => {
  */
 
 const addCollaborator = asyncHandler(async (req, res) => {
+  // Validation enforced by addCollaboratorSchema (see plans.schemas.js).
   const { id } = req.params;
   const { userId } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
-    return errorResponse(res, null, "Invalid ID", 400);
-  }
 
   const plan = await Plan.findById(id);
 
@@ -1182,11 +1165,8 @@ const approveByToken = asyncHandler(async (req, res) => {
  */
 
 const setMemberLocation = asyncHandler(async (req, res) => {
+  // Validation enforced by setMemberLocationSchema (see plans.schemas.js).
   const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return errorResponse(res, null, 'Invalid plan ID', 400);
-  }
 
   const plan = await Plan.findById(id);
   if (!plan) {
@@ -1201,10 +1181,8 @@ const setMemberLocation = asyncHandler(async (req, res) => {
 
   const { location, travel_cost_estimate, currency } = req.body;
 
-  // Validate location object
-  if (!location || typeof location !== 'object' || Array.isArray(location)) {
-    return errorResponse(res, null, 'A location object is required', 400);
-  }
+  // location object presence + type are validated by the schema; the per-field
+  // semantic checks below remain (address length / geo coordinate range).
   if (location.address !== undefined && (typeof location.address !== 'string' || location.address.length > 500)) {
     return errorResponse(res, null, 'location.address must be a string up to 500 characters', 400);
   }

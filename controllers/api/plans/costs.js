@@ -36,19 +36,14 @@ const { sanitizeLocation, filterNotesByVisibility, isPlanMember } = require('./_
 
 
 const addCost = asyncHandler(async (req, res) => {
+  // Validation enforced by addCostSchema (see plans.schemas.js).
+  // The `isNaN(Number(cost))` guard below is retained because the schema only
+  // enforces `cost` is a number-or-string, not that the string is parseable.
   const { id } = req.params;
   const { title, description, cost, currency, category, date, plan_item, collaborator } = req.body;
 
-  if (!title || title.trim() === '') {
-    return res.status(400).json({ error: 'Cost title is required' });
-  }
-
-  if (cost === undefined || cost === null || isNaN(Number(cost))) {
+  if (isNaN(Number(cost))) {
     return res.status(400).json({ error: 'Valid cost amount is required' });
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid plan ID' });
   }
 
   const plan = await Plan.findById(id);
@@ -71,21 +66,17 @@ const addCost = asyncHandler(async (req, res) => {
   }
 
   // Validate plan_item exists in plan if provided
+  // (ObjectId format already enforced by addCostSchema)
   if (plan_item) {
-    if (!mongoose.Types.ObjectId.isValid(plan_item)) {
-      return res.status(400).json({ error: 'Invalid plan item ID' });
-    }
     const itemExists = plan.plan.some(item => item._id.toString() === plan_item.toString());
     if (!itemExists) {
       return res.status(400).json({ error: 'Plan item not found in this plan' });
     }
   }
 
-  // Validate collaborator is a member of the plan if provided (using inherited permissions)
+  // Validate collaborator is a member of the plan if provided
+  // (ObjectId format already enforced by addCostSchema)
   if (collaborator) {
-    if (!mongoose.Types.ObjectId.isValid(collaborator)) {
-      return res.status(400).json({ error: 'Invalid collaborator ID' });
-    }
     const isMember = await isPlanMember(plan, collaborator);
     if (!isMember) {
       return res.status(400).json({ error: 'Collaborator must be a member of this plan' });
@@ -273,12 +264,9 @@ const getCosts = asyncHandler(async (req, res) => {
  */
 
 const updateCost = asyncHandler(async (req, res) => {
+  // Validation enforced by updateCostSchema (see plans.schemas.js).
   const { id, costId } = req.params;
   const { title, description, cost, currency, category, date, plan_item, collaborator } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(costId)) {
-    return res.status(400).json({ error: 'Invalid ID' });
-  }
 
   const plan = await Plan.findById(id);
   if (!plan) {
@@ -334,13 +322,11 @@ const updateCost = asyncHandler(async (req, res) => {
   }
 
   // Validate and update plan_item if provided
+  // (ObjectId format already enforced by updateCostSchema)
   if (plan_item !== undefined) {
     if (plan_item === null) {
       costEntry.plan_item = null;
     } else {
-      if (!mongoose.Types.ObjectId.isValid(plan_item)) {
-        return res.status(400).json({ error: 'Invalid plan item ID' });
-      }
       const itemExists = plan.plan.some(item => item._id.toString() === plan_item.toString());
       if (!itemExists) {
         return res.status(400).json({ error: 'Plan item not found in this plan' });
@@ -349,14 +335,12 @@ const updateCost = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate and update collaborator if provided (using inherited permissions)
+  // Validate and update collaborator if provided
+  // (ObjectId format already enforced by updateCostSchema)
   if (collaborator !== undefined) {
     if (collaborator === null) {
       costEntry.collaborator = null;
     } else {
-      if (!mongoose.Types.ObjectId.isValid(collaborator)) {
-        return res.status(400).json({ error: 'Invalid collaborator ID' });
-      }
       const isMember = await isPlanMember(plan, collaborator);
       if (!isMember) {
         return res.status(400).json({ error: 'Collaborator must be a member of this plan' });

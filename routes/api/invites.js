@@ -201,12 +201,9 @@ router.post('/', requireAuth, validate(createInviteSchema), async (req, res) => 
  * }
  */
 router.post('/bulk', requireAuth, requireSuperAdmin, validate(bulkCreateInviteSchema), async (req, res) => {
+  // Validation enforced by bulkCreateInviteSchema (see invites.schemas.js).
   try {
     const { invites, sendEmail = false } = req.body;
-
-    if (!Array.isArray(invites) || invites.length === 0) {
-      return res.status(400).json({ error: 'invites must be a non-empty array' });
-    }
 
     const result = await InviteCode.bulkCreateInvites(invites, req.user._id);
 
@@ -294,12 +291,9 @@ router.post('/bulk', requireAuth, requireSuperAdmin, validate(bulkCreateInviteSc
  * Returns with email: { valid, inviterName, inviteeName, experienceNames, destinationNames, ... }
  */
 router.post('/validate', validate(validateInviteSchema), async (req, res) => {
+  // Validation enforced by validateInviteSchema (see invites.schemas.js).
   try {
     const { code, email } = req.body;
-
-    if (!code) {
-      return res.status(400).json({ error: 'code is required' });
-    }
 
     const result = await InviteCode.validateCode(code, email);
 
@@ -376,12 +370,9 @@ router.post('/validate', validate(validateInviteSchema), async (req, res) => {
  * It adds the experiences and destinations to the user's account.
  */
 router.post('/redeem', requireAuth, validate(redeemInviteSchema), async (req, res) => {
+  // Validation enforced by redeemInviteSchema (see invites.schemas.js).
   try {
     const { code } = req.body;
-
-    if (!code) {
-      return res.status(400).json({ error: 'code is required' });
-    }
 
     const result = await InviteCode.redeemCode(code, req.user._id);
 
@@ -660,6 +651,7 @@ router.delete('/:id', requireAuth, validate(deleteInviteSchema), async (req, res
  * }
  */
 router.post('/email', requireAuth, validate(emailInviteSchema), async (req, res) => {
+  // Validation enforced by emailInviteSchema (see invites.schemas.js).
   try {
     const {
       email,
@@ -670,12 +662,6 @@ router.post('/email', requireAuth, validate(emailInviteSchema), async (req, res)
       customMessage,
       permissionType
     } = req.body;
-
-    if (!email || !name || !resourceType || !resourceId) {
-      return res.status(400).json({
-        error: 'email, name, resourceType, and resourceId are required'
-      });
-    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
