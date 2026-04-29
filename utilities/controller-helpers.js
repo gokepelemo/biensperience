@@ -143,13 +143,25 @@ function errorResponse(res, err = null, message = 'An error occurred', statusCod
 }
 
 /**
- * Async wrapper for controller functions with automatic error handling
+ * Async wrapper for controller functions with automatic error handling.
+ *
+ * The wrapper RETURNS the inner promise so callers that invoke the wrapped
+ * controller programmatically (e.g. the BienBot action executor, which uses
+ * a mock req/res to call controllers without going through the HTTP layer)
+ * can `await` controller completion. Express itself ignores middleware return
+ * values, so returning the promise is backwards-compatible for route usage.
+ *
+ * Without this `return`, `await wrappedController(req, res)` resolves to
+ * `undefined` immediately while the controller is still running — the action
+ * executor would then read an empty response body and treat the action as a
+ * silent no-op, even though the DB write eventually succeeds.
+ *
  * @param {Function} fn - Async controller function
- * @returns {Function} - Wrapped function with error handling
+ * @returns {Function} - Wrapped function whose call returns the inner promise
  */
 function asyncHandler(fn) {
   return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch((err) => {
+    return Promise.resolve(fn(req, res, next)).catch((err) => {
       backendLogger.error('Controller error', { error: err.message, method: req.method, url: req.url, userId: req.user?._id });
 
       // Handle specific error types with standardized format
