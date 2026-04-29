@@ -948,6 +948,100 @@ exports.chat = async (req, res) => {
     return errorResponse(res, null, 'Failed to load session', 500);
   }
 
+  // --- Reconcile session.context with the current invokeContext ---
+  // The user might be on Plan B right now while session.context still holds
+  // Plan A from earlier in the conversation. The system prompt teaches the
+  // LLM to use plan_id-in-context as the action target ("set the date for
+  // this plan" → update_plan {plan_id: <ctx.plan_id>}), so a stale ctx will
+  // cause the wrong plan to be mutated.
+  //
+  // Whenever the request carries a fresh invokeContext (= what the user is
+  // viewing right now), trust it: overwrite the matching slot in
+  // session.context, and cascade-clear children whose parent just changed.
+  // Mirrors the cascade in updateContext (sessions.js) so the chat path and
+  // the explicit-switch path stay in sync.
+  //
+  // Skipped for brand-new sessions because the create-branch above already
+  // seeded session.context from the same invokeContext.
+  if (sessionId && resolvedInvokeContext && resolvedInvokeContext.entity_id && resolvedInvokeContext.entity !== 'user') {
+    try {
+      const existingCtx = session.context || {};
+      const newId = resolvedInvokeContext.entity_id.toString();
+      const ctxSet = {};
+      const ctxUnset = {};
+
+      switch (resolvedInvokeContext.entity) {
+        case 'destination':
+          if (existingCtx.destination_id?.toString() !== newId) {
+            ctxSet['context.destination_id'] = newId;
+            if (existingCtx.experience_id) ctxUnset['context.experience_id'] = '';
+            if (existingCtx.plan_id) ctxUnset['context.plan_id'] = '';
+            if (existingCtx.plan_item_id) ctxUnset['context.plan_item_id'] = '';
+          }
+          break;
+        case 'experience':
+          if (existingCtx.experience_id?.toString() !== newId) {
+            ctxSet['context.experience_id'] = newId;
+            if (existingCtx.plan_id) ctxUnset['context.plan_id'] = '';
+            if (existingCtx.plan_item_id) ctxUnset['context.plan_item_id'] = '';
+          }
+          break;
+        case 'plan':
+          if (existingCtx.plan_id?.toString() !== newId) {
+            ctxSet['context.plan_id'] = newId;
+            if (existingCtx.plan_item_id) ctxUnset['context.plan_item_id'] = '';
+          }
+          break;
+        case 'plan_item':
+          if (existingCtx.plan_item_id?.toString() !== newId) {
+            ctxSet['context.plan_item_id'] = newId;
+            // Surface parent plan_id if the client supplied it and it differs
+            const parentPlanId = invokeContext._parentPlanId
+              || navigationSchema?.plan_item?.plan_id
+              || null;
+            if (parentPlanId && existingCtx.plan_id?.toString() !== parentPlanId) {
+              ctxSet['context.plan_id'] = parentPlanId;
+            }
+          }
+          break;
+      }
+
+      const setKeys = Object.keys(ctxSet);
+      const unsetKeys = Object.keys(ctxUnset);
+      if (setKeys.length > 0 || unsetKeys.length > 0) {
+        const atomic = {};
+        if (setKeys.length > 0) atomic.$set = ctxSet;
+        if (unsetKeys.length > 0) atomic.$unset = ctxUnset;
+        await BienBotSession.findByIdAndUpdate(session._id, atomic);
+        // Mirror the persisted change onto our in-memory session so downstream
+        // context-block builders see the reconciled IDs without a re-read.
+        for (const k of setKeys) {
+          const slot = k.replace(/^context\./, '');
+          session.context = session.context || {};
+          session.context[slot] = ctxSet[k];
+        }
+        for (const k of unsetKeys) {
+          const slot = k.replace(/^context\./, '');
+          if (session.context) delete session.context[slot];
+        }
+        logger.info('[bienbot] Reconciled session.context with invokeContext', {
+          sessionId: session._id.toString(),
+          entity: resolvedInvokeContext.entity,
+          entity_id: newId,
+          set: setKeys.map(k => k.replace(/^context\./, '')),
+          unset: unsetKeys.map(k => k.replace(/^context\./, ''))
+        });
+      }
+    } catch (reconcileErr) {
+      // Non-fatal — fall back to the original session.context. The LLM may
+      // still target the stale entity, but the rest of the turn proceeds.
+      logger.warn('[bienbot] Failed to reconcile session.context', {
+        error: reconcileErr.message,
+        sessionId: session._id.toString()
+      });
+    }
+  }
+
   // --- LLM pipeline gate ---
   // Hard enforcement: only session owners may reach the LLM pipeline.
   // Editors are always diverted to the shared-comment path above and must never
