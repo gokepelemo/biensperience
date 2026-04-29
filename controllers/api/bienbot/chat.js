@@ -861,11 +861,20 @@ exports.chat = async (req, res) => {
         // greetings without it are silently dropped to prevent prompt injection.
         const isServerAnalysisGreeting = sanitizedGreeting.startsWith('[ANALYSIS]');
         if (sanitizedGreeting && isServerAnalysisGreeting) {
-          try {
-            await session.addMessage('assistant', sanitizedGreeting, { message_type: 'greeting' });
-          } catch (greetingErr) {
-            // Non-fatal — proceed without the prior greeting
-            logger.warn('[bienbot] Failed to persist prior greeting', { error: greetingErr.message });
+          // Strip the [ANALYSIS] sentinel before persisting — it is a server-side
+          // origin marker, not user-facing content. Leaving it in the stored message
+          // would surface "[ANALYSIS] 🔍 Here's what I noticed..." every time the
+          // session is reloaded in the panel.
+          const greetingForStorage = sanitizedGreeting
+            .replace(/^\[ANALYSIS\]\s*\n?/, '')
+            .trim();
+          if (greetingForStorage) {
+            try {
+              await session.addMessage('assistant', greetingForStorage, { message_type: 'greeting' });
+            } catch (greetingErr) {
+              // Non-fatal — proceed without the prior greeting
+              logger.warn('[bienbot] Failed to persist prior greeting', { error: greetingErr.message });
+            }
           }
         }
       }
