@@ -10,11 +10,12 @@
  * - Pagination support
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan } from 'react-icons/fa';
 import EmptyState from '../EmptyState/EmptyState';
 import Loading from '../Loading/Loading';
 import DocumentViewerModal from '../DocumentViewerModal';
+import Pagination from '../Pagination/Pagination';
 import { Modal, Button, Tooltip, ProgressBar } from '../design-system';
 import {
   getDocumentsByEntity,
@@ -37,8 +38,9 @@ import { eventBus, broadcastEvent } from '../../utilities/event-bus';
 import DropZone from '../DropZone';
 import styles from './DocumentsTab.module.css';
 
-// Pagination config
-const DEFAULT_PAGE_SIZE = 10;
+// Pagination config — page size of 50 per CLAUDE.md "ALWAYS paginate lists" rule.
+// The shared <Pagination> component hides its chrome automatically when totalPages <= 1.
+const DEFAULT_PAGE_SIZE = 50;
 
 /**
  * Get icon for document type based on mime type
@@ -65,7 +67,11 @@ function formatDate(dateString) {
 export default function DocumentsTab({
   planItem,
   plan,
-  canEdit = false
+  canEdit = false,
+  // When false, skip the documents fetch entirely. Subscriptions still register
+  // so concurrent updates to the active item don't get missed when the user
+  // switches back. Defers initial load until the user opens this tab.
+  isActive = true
 }) {
   const { user } = useUser();
   const [documents, setDocuments] = useState([]);
@@ -88,6 +94,10 @@ export default function DocumentsTab({
   });
   const [uploadMode, setUploadMode] = useState(false); // Whether we're in upload mode (shows drop zone)
   const fileInputRef = useRef(null);
+  // Tracks the {planItemId, scope} we last fetched for. Lets the lazy-load
+  // effect skip refetching when the tab is re-activated for the same item
+  // without showDisabled/admin-scope changes.
+  const fetchedKeyRef = useRef(null);
 
   // Check if user has AI features enabled
   const hasAiFeatures = hasFeatureFlag(user, 'ai_features');
@@ -118,9 +128,19 @@ export default function DocumentsTab({
     }
   }, [planItem?._id, plan?._id, isAdmin, showDisabled]);
 
+  // Lazy-load: only fetch when the tab is visible AND the (item, scope) key
+  // hasn't been fetched yet. Prevents background fetches when the user
+  // keyboard-navigates between plan items without opening this tab.
   useEffect(() => {
+    if (!isActive) return;
+    if (!planItem?._id || !plan?._id) return;
+
+    const scopeKey = `${planItem._id}|${isAdmin && showDisabled ? 'admin-disabled' : 'normal'}`;
+    if (fetchedKeyRef.current === scopeKey) return;
+
+    fetchedKeyRef.current = scopeKey;
     fetchDocuments();
-  }, [fetchDocuments]);
+  }, [isActive, fetchDocuments, planItem?._id, plan?._id, isAdmin, showDisabled]);
 
   // Subscribe to document events for real-time updates
   useEffect(() => {
@@ -260,11 +280,13 @@ export default function DocumentsTab({
     }
   }, [planItem?._id, plan?._id, hasAiFeatures]);
 
-  // Handle drag-and-drop file upload
+  // Handle drag-and-drop file upload — surfaces aggregated progress so the
+  // existing <ProgressBar> renders during the multi-file upload.
   const handleDrop = useCallback(async (files) => {
     if (!files || files.length === 0) return;
 
-    logger.info('[DocumentsTab] Files dropped for upload', { count: files.length });
+    const fileArray = Array.from(files);
+    logger.info('[DocumentsTab] Files dropped for upload', { count: fileArray.length });
 
     setUploading(true);
     setError(null);
@@ -272,25 +294,45 @@ export default function DocumentsTab({
     try {
       const uploadedDocs = [];
 
-      for (const file of Array.from(files)) {
-        logger.debug('[DocumentsTab] Uploading dropped document', { fileName: file.name });
+      for (let idx = 0; idx < fileArray.length; idx++) {
+        const file = fileArray[idx];
+        logger.debug('[DocumentsTab] Uploading dropped document', {
+          fileName: file.name,
+          index: idx + 1,
+          total: fileArray.length
+        });
+
+        setUploadProgress({
+          loaded: 0,
+          total: file.size,
+          percent: 0,
+          fileName: fileArray.length > 1
+            ? `${file.name} (${idx + 1}/${fileArray.length})`
+            : file.name
+        });
 
         const newDoc = await uploadDocument(file, {
           entityType: 'plan_item',
           entityId: planItem._id,
           planId: plan._id,
           planItemId: planItem._id,
-          visibility: 'collaborators', // Default to collaborators
-          aiParsingEnabled: hasAiFeatures
+          visibility: 'collaborators',
+          aiParsingEnabled: hasAiFeatures,
+          onProgress: (progress) => {
+            setUploadProgress(prev => prev ? {
+              ...prev,
+              loaded: progress.loaded,
+              total: progress.total,
+              percent: progress.percent
+            } : prev);
+          }
         });
 
         uploadedDocs.push(newDoc);
       }
 
       if (uploadedDocs.length > 0) {
-        // Add documents to state
         setDocuments(prev => {
-          // Check for duplicates
           const filtered = uploadedDocs.filter(newDoc =>
             !prev.some(existing => existing._id === newDoc._id)
           );
@@ -307,8 +349,9 @@ export default function DocumentsTab({
       setError(err.message || 'Failed to upload documents');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
-  }, [planItem?._id, plan?._id, hasAiFeatures, documents.length]);
+  }, [planItem?._id, plan?._id, hasAiFeatures]);
 
   // Handle visibility toggle
   const handleVisibilityToggle = useCallback(async (documentId, currentVisibility) => {
@@ -448,20 +491,29 @@ export default function DocumentsTab({
     setPreviewDoc(null);
   }, []);
 
-  // Get AI summary for a document
-  const getAiSummary = useCallback((doc) => {
-    if (!doc.aiParsedData) return null;
+  // Precompute AI summaries once per documents array. Previously this ran
+  // inside two render branches per document — for 50 docs that was ~100
+  // Object.entries/regex passes per render.
+  const aiSummariesById = useMemo(() => {
+    const map = new Map();
+    documents.forEach((doc) => {
+      if (!doc?.aiParsedData) return;
+      const { summary, documentType, ...fields } = doc.aiParsedData;
+      const relevantFields = Object.entries(fields)
+        .filter(([key, value]) => value && !['_id', 'createdAt', 'updatedAt'].includes(key))
+        .map(([key, value]) => ({
+          label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+          value: typeof value === 'object' ? JSON.stringify(value) : String(value)
+        }));
+      map.set(doc._id, { summary, documentType, fields: relevantFields });
+    });
+    return map;
+  }, [documents]);
 
-    const { summary, documentType, ...fields } = doc.aiParsedData;
-    const relevantFields = Object.entries(fields)
-      .filter(([key, value]) => value && !['_id', 'createdAt', 'updatedAt'].includes(key))
-      .map(([key, value]) => ({
-        label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-        value: typeof value === 'object' ? JSON.stringify(value) : String(value)
-      }));
-
-    return { summary, documentType, fields: relevantFields };
-  }, []);
+  const getAiSummary = useCallback(
+    (doc) => (doc?._id ? aiSummariesById.get(doc._id) || null : null),
+    [aiSummariesById]
+  );
 
   // Handle page change
   const handlePageChange = useCallback((newPage) => {
@@ -974,32 +1026,16 @@ export default function DocumentsTab({
         </div>
       )}
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className={styles.pagination}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(pagination.page - 1)}
-            disabled={pagination.page <= 1 || loading}
-            aria-label="Previous page"
-          >
-            <FaChevronLeft />
-          </Button>
-          <span className={styles.pageInfo}>
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages || loading}
-            aria-label="Next page"
-          >
-            <FaChevronRight />
-          </Button>
-        </div>
-      )}
+      {/* Pagination — chrome auto-hides when totalPages <= 1 */}
+      <Pagination
+        page={pagination.page}
+        totalPages={pagination.totalPages}
+        totalResults={pagination.total}
+        resultsPerPage={pagination.limit}
+        onPageChange={handlePageChange}
+        disabled={loading}
+        variant="compact"
+      />
 
       {/* AI Summary Modal */}
       <Modal

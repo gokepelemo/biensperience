@@ -215,49 +215,6 @@
   }
 }
 
-/* Link bar - shown when plan item has external URL */
-.planItemLinkBar {
-  padding: 0.75rem 1.5rem;
-  background: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border-light);
-  display: flex;
-  justify-content: flex-end;
-  box-sizing: border-box;
-  max-width: 100%;
-
-  @media (max-width: 768px) {
-    padding: 0.75rem;
-  }
-}
-
-.planItemLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 300ms ease;
-  cursor: pointer;
-  border: none;
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
-  font-size: clamp(0.875rem, 1.25vw, 1rem);
-  color: var(--color-primary);
-  background: transparent;
-  border: 1px solid var(--color-primary);
-  text-decoration: none;
-  white-space: nowrap;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-
-  &:hover {
-    background: rgba(var(--color-primary-rgb), 0.1);
-    color: var(--color-primary);
-    transform: translateY(-1px);
-  }
-}
-
 /* Assignment section */
 .assignmentSection {
   padding: 1.25rem 1.5rem;
@@ -347,12 +304,6 @@
     outline: 2px solid #667eea;
   outline-offset: 2px;
     background: var(--color-bg-primary);
-  }
-}
-
-.assignmentSelect {
-  @media (max-width: 768px) {
-    width: 100%;
   }
 }
 
@@ -690,17 +641,6 @@
   display: none !important;
 }
 
-.comingSoonMessage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1; /* Fill available space */
-  min-height: 200px;
-  color: var(--color-text-muted);
-  font-style: italic;
-  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
-}
-
 /* =============================================================================
  * CHAT TAB STYLES - Mirroring MessagesModal design system
  * =============================================================================
@@ -721,11 +661,6 @@
   @media (max-width: 991px) {
     min-height: max(300px, min-content);
   }
-}
-
-.chatLoading {
-  color: var(--color-text-muted);
-  padding: 1rem;
 }
 
 /* Chat pane - mirrors .pane from MessagesModal */
@@ -1113,92 +1048,6 @@
   font-size: clamp(0.875rem, 1.25vw, 1rem);
 }
 
-/* Cost breakdown list */
-.costBreakdown {
-  width: 100%;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed var(--color-border-light);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.costItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0;
-  font-size: clamp(0.875rem, 1.25vw, 1rem);
-
-  &:not(:last-child) {
-    border-bottom: 1px dashed var(--color-border-light);
-    padding-bottom: 0.5rem;
-  }
-}
-
-.costTitle {
-  color: var(--color-text-secondary);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.costAmount {
-  color: var(--color-primary);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-/* Add Cost Button - inline cost addition */
-.addCostButton {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px dashed var(--color-border-medium);
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  font-size: clamp(0.875rem, 1.25vw, 1rem);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 150ms;
-  min-width: 120px;
-  justify-content: center;
-
-  &:hover {
-    background: rgba(var(--color-primary-rgb), 0.1);
-    border-color: var(--color-primary);
-    border-style: solid;
-    color: var(--color-primary);
-  }
-
-  &:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  /* Mobile/Tablet: Full width for touch targets */
-  @media (max-width: 991px) {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-}
-
-.addCostIcon {
-  font-size: clamp(1.0625rem, 2vw, 1.3125rem);
-  line-height: 1;
-  font-weight: 700;
-}
-
-.addCostText {
-  white-space: nowrap;
-}
-
 /* + Add Button with Dropdown - uses Button component */
 .addDropdownWrapper {
   position: relative;
@@ -1579,41 +1428,6 @@
   max-width: 100%;
   overflow-wrap: break-word;
   word-break: break-all;
-}
-
-/* Empty state for details tab - fills available space and centers content */
-.detailsEmptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem;
-  text-align: center;
-  /* Fill all available space */
-  flex: 1 1 0;
-  /* Explicit height for Safari */
-  height: 100%;
-  /* Allow shrinking below content size */
-  min-height: 0;
-}
-
-.detailsEmptyIcon {
-  font-size: 48px;
-  margin-bottom: 1rem;
-  opacity: 0.6;
-}
-
-.detailsEmptyText {
-  font-size: clamp(1.0625rem, 2vw, 1.3125rem);
-  font-weight: 500;
-  color: var(--color-text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.detailsEmptyHint {
-  font-size: clamp(0.875rem, 1.25vw, 1rem);
-  color: var(--color-text-muted);
-  max-width: 300px;
 }
 
 /* =============================================

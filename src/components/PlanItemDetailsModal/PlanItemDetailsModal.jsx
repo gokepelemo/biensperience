@@ -37,7 +37,6 @@ import { formatPlanningTime, getPlanningTimeTooltip } from '../../utilities/plan
 import { formatCostEstimate, formatActualCost, getCostEstimateTooltip, getTrackedCostTooltip } from '../../utilities/cost-utils';
 import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
 import { updatePlanItem } from '../../utilities/plans-api';
-import { broadcastEvent } from '../../utilities/event-bus';
 import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
 import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
@@ -150,7 +149,6 @@ export default function PlanItemDetailsModal({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDetailTypeSelectorModal, setShowDetailTypeSelectorModal] = useState(false);
-  const [locationSaving, setLocationSaving] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
   const [pdfExportBlocked, setPdfExportBlocked] = useState(false);
   // Local state for immediate UI feedback on scheduled date/time changes
@@ -837,6 +835,7 @@ export default function PlanItemDetailsModal({
       }
       groups[category].items.push({
         ...transport,
+        _key: 'transport',
         _displayTitle: transport.trackingNumber || transport.vendor || 'Transport',
         _displayDeparture: formatDateTime(transport.departureTime),
         _displayArrival: formatDateTime(transport.arrivalTime),
@@ -858,6 +857,7 @@ export default function PlanItemDetailsModal({
       }
       groups[category].items.push({
         ...accommodation,
+        _key: 'accommodation',
         _displayTitle: accommodation.name || accommodation.confirmationNumber || 'Accommodation',
         _displayCheckIn: formatDateTime(accommodation.checkIn),
         _displayCheckOut: formatDateTime(accommodation.checkOut),
@@ -879,6 +879,7 @@ export default function PlanItemDetailsModal({
       }
       groups[category].items.push({
         ...parking,
+        _key: 'parking',
         _displayTitle: parking.facilityName || parking.confirmationNumber || 'Parking',
         _displayStart: formatDateTime(parking.startTime),
         _displayEnd: formatDateTime(parking.endTime),
@@ -900,6 +901,7 @@ export default function PlanItemDetailsModal({
       }
       groups[category].items.push({
         ...discount,
+        _key: 'discount',
         _displayTitle: discount.code || discount.description || 'Discount',
         _displayExpires: formatDateTime(discount.expiresAt),
         type,
@@ -916,9 +918,10 @@ export default function PlanItemDetailsModal({
           items: []
         };
       }
-      actualCosts.forEach(cost => {
+      actualCosts.forEach((cost, i) => {
         groups[category].items.push({
           ...cost,
+          _key: cost._id ? `cost-${cost._id}` : `cost-i-${i}`,
           type: DETAIL_TYPES.COST,
           typeConfig: DETAIL_TYPE_CONFIG[DETAIL_TYPES.COST]
         });
@@ -1057,8 +1060,6 @@ export default function PlanItemDetailsModal({
       throw new Error('Missing plan or plan item ID');
     }
 
-    setLocationSaving(true);
-
     try {
       // Update plan item with new location via PATCH
       await updatePlanItem(plan._id, planItem._id, {
@@ -1075,8 +1076,6 @@ export default function PlanItemDetailsModal({
     } catch (err) {
       logger.error('[PlanItemDetailsModal] Failed to save location', { error: err.message });
       throw err; // Let AddLocationModal handle the error display
-    } finally {
-      setLocationSaving(false);
     }
   }, [plan?._id, planItem?._id]);
 
@@ -1777,7 +1776,7 @@ export default function PlanItemDetailsModal({
                       <div className={styles.detailsCategoryItems}>
                         {category.items.map((item, index) => (
                           <DetailItemCard
-                            key={item._id || index}
+                            key={item._key || `${categoryKey}-${index}`}
                             item={item}
                             collaborators={collaborators}
                             styles={styles}
@@ -1947,7 +1946,7 @@ export default function PlanItemDetailsModal({
           )}
 
           {/* PhotosTab - keep mounted but hidden to preserve state during tab switches */}
-          {/* Use CSS class instead of inline display to maintain flex height chain */}
+          {/* isActive gates the network fetch so background tabs don't make requests */}
           <div
             className={`${styles.photosTabWrapper} ${activeTab === 'photos' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
@@ -1956,11 +1955,12 @@ export default function PlanItemDetailsModal({
               plan={plan}
               canEdit={canEdit}
               currentUser={currentUser}
+              isActive={activeTab === 'photos'}
             />
           </div>
 
           {/* DocumentsTab - keep mounted but hidden to preserve state during tab switches */}
-          {/* Use CSS class instead of inline display to maintain flex height chain */}
+          {/* isActive gates the network fetch so background tabs don't make requests */}
           <div
             className={`${styles.documentsTabWrapper} ${activeTab === 'documents' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
@@ -1968,6 +1968,7 @@ export default function PlanItemDetailsModal({
               planItem={planItem}
               plan={plan}
               canEdit={canEdit}
+              isActive={activeTab === 'documents'}
             />
           </div>
         </div>

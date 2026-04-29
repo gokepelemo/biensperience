@@ -587,22 +587,6 @@
   border-radius: var(--radius-md);
 }
 
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border-light);
-}
-
-.pageInfo {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
 /* Responsive adjustments */
 @media (max-width: 576px) {
   .documentCard {

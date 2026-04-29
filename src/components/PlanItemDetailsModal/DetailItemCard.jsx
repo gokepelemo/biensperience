@@ -33,7 +33,7 @@ export default function DetailItemCard({ item, collaborators = [], styles }) {
         <div className={styles.detailItemTitle}>{title}</div>
         <dl className={styles.detailItemMeta}>
           {fields.map((field, i) => (
-            <div key={`${field.label}-${i}`} className={styles.detailMetaRow}>
+            <div key={i} className={styles.detailMetaRow}>
               <dt>{field.label}:</dt>
               <dd className={field.className ? styles[field.className] : undefined}>
                 {field.value}

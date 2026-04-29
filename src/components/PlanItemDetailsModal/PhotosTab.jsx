@@ -10,7 +10,7 @@
  * - Supports photo deletion for uploaders and super admins
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import PhotoCard from '../PhotoCard/PhotoCard';
 import PhotoUpload from '../PhotoUpload/PhotoUpload';
 import EmptyState from '../EmptyState/EmptyState';
@@ -43,16 +43,20 @@ export default function PhotosTab({
   planItem,
   plan,
   canEdit = false,
-  currentUser
+  currentUser,
+  // When false, skip the network fetch on plan-item changes. Lets the parent
+  // keep this component mounted (preserving local state) without firing
+  // requests for tabs the user never actually opens.
+  isActive = true
 }) {
   // ============================================
   // STATE
   // ============================================
   
-  // Photos state - this is the SOURCE OF TRUTH while component is mounted
-  const [photos, setPhotos] = useState([]);           // Full photo objects with URLs
-  const [photoIds, setPhotoIds] = useState([]);       // Just the IDs
-  
+  // Photos state - this is the SOURCE OF TRUTH while component is mounted.
+  // photoIds is derived (each photo carries its _id) so the two can never drift.
+  const [photos, setPhotos] = useState([]);
+
   // UI state
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -83,9 +87,13 @@ export default function PhotosTab({
   // ============================================
   // DERIVED VALUES
   // ============================================
-  
+
   const planItemIdStr = normalizeId(planItem?._id);
   const hasPhotos = photos.length > 0;
+  const photoIds = useMemo(
+    () => photos.map(p => normalizeId(p?._id)).filter(Boolean),
+    [photos]
+  );
 
   // ============================================
   // INITIALIZATION - Only when plan item changes
@@ -94,6 +102,10 @@ export default function PhotosTab({
   useEffect(() => {
     // Skip if no plan item
     if (!planItem || !planItemIdStr) return;
+
+    // Skip when the tab isn't visible — defer fetches until the user actually
+    // opens this tab. Re-runs when isActive flips, so the load happens lazily.
+    if (!isActive) return;
 
     // Skip if we've already loaded for this plan item
     // This is the KEY guard that prevents resets when props update
@@ -140,13 +152,17 @@ export default function PhotosTab({
 
       getPhotosByIds(ids)
         .then((fetchedPhotos) => {
-          logger.info('[PhotosTab] Fetched photos with permissions', { 
+          logger.info('[PhotosTab] Fetched photos with permissions', {
             count: fetchedPhotos.length,
             hasPermissions: fetchedPhotos.some(p => p.permissions?.length > 0)
           });
           setPhotos(fetchedPhotos);
-          setPhotoIds(ids);
-          savedPhotoIds.current = ids.join(',');
+          // Use the actually-fetched IDs, not the requested IDs, so a stale
+          // reference dropped during fetch doesn't immediately re-trigger save.
+          savedPhotoIds.current = fetchedPhotos
+            .map(p => normalizeId(p?._id))
+            .filter(Boolean)
+            .join(',');
           isInitialized.current = true;
         })
         .catch((err) => {
@@ -155,13 +171,12 @@ export default function PhotosTab({
           // Fallback: use populated photos if available (they just won't have delete capability)
           const hasPopulatedPhotos = photoArray.length > 0 &&
             typeof photoArray[0] === 'object' && photoArray[0]?.url;
-          if (hasPopulatedPhotos) {
-            setPhotos(photoArray);
-            setPhotoIds(ids);
-          } else {
-            setPhotos([]);
-            setPhotoIds([]);
-          }
+          const fallbackPhotos = hasPopulatedPhotos ? photoArray : [];
+          setPhotos(fallbackPhotos);
+          savedPhotoIds.current = fallbackPhotos
+            .map(p => normalizeId(p?._id))
+            .filter(Boolean)
+            .join(',');
           isInitialized.current = true;
         })
         .finally(() => {
@@ -171,63 +186,44 @@ export default function PhotosTab({
       // No photos
       logger.debug('[PhotosTab] No photos for this plan item');
       setPhotos([]);
-      setPhotoIds([]);
       savedPhotoIds.current = '';
       isInitialized.current = true;
     }
-  }, [planItemIdStr]); // ONLY depend on plan item ID
+  }, [planItemIdStr, isActive]); // Lazy-load on first activation per plan item
 
   // ============================================
   // PHOTO UPLOAD HANDLER
   // ============================================
   
   /**
-   * Handle data changes from PhotoUpload component
-   * PhotoUpload uses functional updates, so we need to handle both patterns
-   * 
-   * Note: We avoid nested setState by computing both new photos and IDs together,
-   * then setting them in separate (non-nested) calls.
+   * Handle data changes from PhotoUpload component.
+   * PhotoUpload may pass an object directly OR a functional updater of the
+   * form (prevData) => newData where data = { photos, photos_full }.
+   *
+   * We persist only `photos_full`. The `photos` ID array is derived from it
+   * via useMemo, so the two can never drift out of sync.
    */
   const handlePhotoDataChange = useCallback((dataOrUpdater) => {
     if (typeof dataOrUpdater === 'function') {
-      // Functional update from PhotoUpload
-      // Compute new state based on current state via refs to avoid nested setState
       setPhotos(prevPhotos => {
-        // Compute the new data using functional updater
-        const prevData = { photos: photoIds, photos_full: prevPhotos };
+        const prevData = {
+          photos: prevPhotos.map(p => normalizeId(p?._id)).filter(Boolean),
+          photos_full: prevPhotos
+        };
         const newData = dataOrUpdater(prevData);
-        
-        // Extract new IDs
-        const newIds = (newData.photos || []).map(id => 
-          typeof id === 'object' ? normalizeId(id._id || id) : normalizeId(id)
-        ).filter(Boolean);
-        
         logger.debug('[PhotosTab] Photos updated (functional)', {
           prevCount: prevPhotos.length,
           newCount: newData.photos_full?.length || 0
         });
-        
-        // Schedule photoIds update outside of this setState
-        // Using setTimeout(0) to avoid nested setState anti-pattern
-        setTimeout(() => setPhotoIds(newIds), 0);
-        
         return newData.photos_full || [];
       });
     } else {
-      // Direct update
       logger.debug('[PhotosTab] Photos updated (direct)', {
         count: dataOrUpdater.photos_full?.length || 0
       });
-      
-      const newPhotos = dataOrUpdater.photos_full || [];
-      const newIds = (dataOrUpdater.photos || []).map(id => 
-        typeof id === 'object' ? normalizeId(id._id || id) : normalizeId(id)
-      ).filter(Boolean);
-      
-      setPhotos(newPhotos);
-      setPhotoIds(newIds);
+      setPhotos(dataOrUpdater.photos_full || []);
     }
-  }, [photoIds]);
+  }, []);
 
   // ============================================
   // DRAG AND DROP HANDLER
@@ -266,16 +262,14 @@ export default function PhotosTab({
       }
 
       if (uploadedPhotos.length > 0) {
-        // Update local state with new photos
-        const newPhotos = [...photos, ...uploadedPhotos];
-        const newIds = [...photoIds, ...uploadedPhotos.map(p => p._id)];
-
-        setPhotos(newPhotos);
-        setPhotoIds(newIds);
-
-        logger.info('[PhotosTab] Photos uploaded via drag-drop', {
-          uploadedCount: uploadedPhotos.length,
-          totalCount: newPhotos.length
+        // Functional update — avoid stale-closure capture across the upload loop.
+        setPhotos(prev => {
+          const next = [...prev, ...uploadedPhotos];
+          logger.info('[PhotosTab] Photos uploaded via drag-drop', {
+            uploadedCount: uploadedPhotos.length,
+            totalCount: next.length
+          });
+          return next;
         });
       } else {
         setError('No valid image files were uploaded');
@@ -286,7 +280,7 @@ export default function PhotosTab({
     } finally {
       setUploading(false);
     }
-  }, [photos, photoIds, planItem?.text]);
+  }, [planItem?.text]);
 
   // ============================================
   // AUTO-SAVE
@@ -422,10 +416,9 @@ export default function PhotosTab({
       
       logger.info('[PhotosTab] Photo deleted', { photoId });
       
-      // 2. Remove from local state
+      // 2. Remove from local state (photoIds derives from photos via useMemo)
       setPhotos(prev => prev.filter(p => normalizeId(p._id) !== photoId));
-      setPhotoIds(prev => prev.filter(id => id !== photoId));
-      
+
       // 3. Close modal
       setShowDeleteModal(false);
       setPhotoToDelete(null);

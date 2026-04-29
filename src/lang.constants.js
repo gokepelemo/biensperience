@@ -48,6 +48,7 @@ const en = {
     backToExperiences: "← Back to Experiences",
     backToExperience: "Back to Experience",
     viewAllExperiences: "View All Experiences",
+    viewAllDestinations: "View All Destinations",
     backToDestinations: "← Back to Destinations",
     backToHome: "← Back to Home",
     backToLogin: "← Back to Login",
