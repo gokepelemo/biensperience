@@ -97,13 +97,6 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   // (clearSession/resetSession/loadSession) and useSSEStream can cancel it.
   const abortControllerRef = useRef(null);
 
-  // Keep sessionIdRef in sync with currentSession
-  useEffect(() => {
-    if (currentSession?._id) {
-      sessionIdRef.current = currentSession._id;
-    }
-  }, [currentSession]);
-
   // ---------------------------------------------------------------------------
   // Action manager — owns pendingActions slice + execute/cancel/workflow helpers
   // ---------------------------------------------------------------------------
@@ -190,6 +183,16 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
   // Keep the sessionManagerRef pointing at the latest manager so the wrappers
   // injected into useActionManager / useSSEStream resolve to the live setters.
   sessionManagerRef.current = sessionManager;
+
+  // Keep sessionIdRef in sync with currentSession.
+  // Placed after the sessionManager destructuring to avoid a TDZ error —
+  // currentSession is owned by useSessionManager above and is not in scope
+  // until that destructuring completes.
+  useEffect(() => {
+    if (currentSession?._id) {
+      sessionIdRef.current = currentSession._id;
+    }
+  }, [currentSession]);
 
 
   // ---------------------------------------------------------------------------

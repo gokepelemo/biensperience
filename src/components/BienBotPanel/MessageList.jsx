@@ -150,7 +150,15 @@ function MessageList({
                 </div>
               )}
               <MessageContent
-                text={msg.content}
+                text={
+                  // Defensive strip of the [ANALYSIS] origin sentinel for any
+                  // legacy sessions persisted before the chat handler started
+                  // stripping it on write. The sentinel is a server-side
+                  // validation marker, never user-facing copy.
+                  msg.role === 'assistant' && typeof msg.content === 'string'
+                    ? msg.content.replace(/^\[ANALYSIS\]\s*\n?/, '')
+                    : msg.content
+                }
                 role={msg.role}
                 entityRefs={
                   msg.entity_refs

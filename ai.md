@@ -54,6 +54,7 @@ This document covers the full AI stack powering the platform: the shared AI Gate
     - [BienBot](#bienbot)
     - [Frontend AI](#frontend-ai)
   - [BienBot API Architecture](#bienbot-api-architecture)
+    - [Controller Module Structure](#controller-module-structure)
     - [Invocation Contexts](#invocation-contexts)
     - [Entry Points](#entry-points)
     - [How it works](#how-it-works)
@@ -169,7 +170,7 @@ The Biensperience AI stack is designed as a layered architecture where **any fea
 
 | Layer | File(s) | Purpose |
 |-------|---------|---------|
-| **Feature Layer** | `controllers/api/ai.js`, `controllers/api/bienbot.js`, `utilities/ai-document-utils.js` | Individual AI-powered features make requests via the gateway |
+| **Feature Layer** | `controllers/api/ai.js`, `controllers/api/bienbot/` (façade `controllers/api/bienbot.js`), `utilities/ai-document-utils.js` | Individual AI-powered features make requests via the gateway |
 | **AI Gateway** | `utilities/ai-gateway.js` | Central entry point — resolves policies, enforces guardrails, routes to the right provider, tracks usage |
 | **Provider Registry** | `utilities/ai-provider-registry.js` | Manages provider handlers, DB-backed config, API key resolution, provider calling logic |
 | **Data Layer** | `models/ai-policy.js`, `models/ai-provider-config.js`, `models/ai-usage.js`, `models/intent-corpus.js`, `models/intent-classification-log.js`, `models/intent-classifier-config.js` | Persists policies, provider configs, usage analytics, intent corpus, classification logs, and classifier configuration |
@@ -840,7 +841,7 @@ To let BienBot propose and execute a new type of write action:
 3. Implement the execution logic (reuse existing controller functions)
 4. Update the LLM system prompt to describe the new action type
 5. Add the action type to the event emission map in `src/utilities/bienbot-api.js`
-6. If the action produces a structured content block, add its type to `STRUCTURED_CONTENT_TYPES` in `bienbot-action-executor.js`, add a `case` in `mapReadOnlyResultToStructuredContent()` in `controllers/api/bienbot.js`, and add a renderer in `BienBotPanel.jsx`
+6. If the action produces a structured content block, add its type to `STRUCTURED_CONTENT_TYPES` in `bienbot-action-executor.js`, add a `case` in `mapReadOnlyResultToStructuredContent()` in `controllers/api/bienbot/_shared.js`, and add a renderer in `BienBotPanel.jsx`
 
 ### Frontend: Creating an AI-Powered Component
 
@@ -903,7 +904,14 @@ function MyAIComponent({ destination }) {
 | `utilities/bienbot-context-builders.js` | Entity-aware context builders for LLM prompts; includes affinity block injection |
 | `utilities/bienbot-action-executor.js` | Action execution via existing controller logic; exports ALLOWED_ACTION_TYPES and STRUCTURED_CONTENT_TYPES |
 | `utilities/bienbot-session-summarizer.js` | Session compression for resume greeting; never throws |
-| `controllers/api/bienbot.js` | BienBot API controller (orchestration, SSE streaming, all 18 endpoints) |
+| `controllers/api/bienbot.js` | Façade — re-exports the 24-symbol surface from the modules below; entry point for routes & tests |
+| `controllers/api/bienbot/_shared.js` | Cross-cutting helpers: imports, lazy `loadModels()`, `escapeUserInputLiteral`, history/context budgets, SSE helpers, `mapReadOnlyResultToStructuredContent`, NAV regexes, `TOOL_CALL_LABELS`, ENTITY_LABEL_MAP |
+| `controllers/api/bienbot/system-prompt.js` | `buildSystemPrompt`, `buildContextBlocks`, `extractSearchTermFromHistory` |
+| `controllers/api/bienbot/chat.js` | `POST /chat` (SSE), `parseLLMResponse`, `repairUnescapedInlineJson`, `executeToolCallLoop`, `runPlanDiscover` |
+| `controllers/api/bienbot/actions.js` | `ACTION_ENTITY_VERIFY` map, `verifyPendingActionEntityIds`, `explodeWorkflows`, and the execute / delete / patch / getWorkflowState handlers |
+| `controllers/api/bienbot/sessions.js` | resume, list, get, delete, updateContext, share/unshare collaborators, mutual followers, cross-session memory, applyTips |
+| `controllers/api/bienbot/analyze.js` | `POST /analyze` proactive entity analysis (stateless) |
+| `controllers/api/bienbot/attachments.js` | Signed-URL serving for stored session attachments |
 | `routes/api/bienbot.js` | Route definitions with auth, feature flags, rate limiting, file upload middleware |
 
 ### Frontend AI
@@ -937,6 +945,45 @@ BienBot is a stateful, intent-driven AI assistant built on top of the platform A
 2. **In-context invocation** — a floating trigger available on every entity page (Destination, Experience, Plan, etc.) that opens BienBot pre-loaded with awareness of the entity currently on screen.
 
 In both modes the same pipeline runs: the bot classifies intent (via NLP.js), fetches entity context from MongoDB, constructs an augmented LLM prompt (via the AI Gateway), optionally executes write actions (with a confirmation step), and streams the response back.
+
+---
+
+### Controller Module Structure
+
+The controller is a thin façade plus seven concern-focused modules under `controllers/api/bienbot/`. Routes, tests, and any external consumer import from `controllers/api/bienbot`; the façade re-exports the 24-symbol surface that callers depend on: `chat`, `execute`, `resume`, `listSessions`, `getSession`, `deleteSession`, `updateContext`, `deletePendingAction`, `updatePendingAction`, `getWorkflowState`, `addSessionCollaborator`, `removeSessionCollaborator`, `getMutualFollowers`, `getMemory`, `clearMemory`, `applyTips`, `analyze`, `getAttachmentUrl`, plus the testing fixtures `parseLLMResponse`, `verifyPendingActionEntityIds`, `buildSystemPrompt`, `escapeUserInputLiteral`, `_executeToolCallLoopForTest`, `_ACTION_ENTITY_VERIFY_FOR_TEST`.
+
+| Module | Concern |
+|---|---|
+| `bienbot.js` (façade) | Re-exports each handler from its source module; entry point for routes, tests, and external consumers |
+| `bienbot/_shared.js` | External requires + `bootstrapToolRegistry()`; lazy `loadModels()` with model getters; `escapeUserInputLiteral` (USER_INPUT sentinel escape); `MAX_MESSAGE_LENGTH`, history/context budgets; `ENTITY_LABEL_MAP`, `TOOL_CALL_LABELS`, NAV regexes; `mergeReferencedEntitiesIntoContext`, `resolveEntityLabel`, `findPlanContainingItem`; `enforceContextBudget`, `buildTokenAwareHistory`; SSE helpers; `adaptiveChunks`, `mapReadOnlyResultToStructuredContent` |
+| `bienbot/system-prompt.js` | `buildSystemPrompt` (long static rule block including ATTENTION SIGNALS, TRAVEL SIGNALS, AFFINITY SIGNALS, DISCOVERY RESULTS); `extractSearchTermFromHistory`; `buildContextBlocks` (intent-driven parallel context-builder dispatch) |
+| `bienbot/chat.js` | `repairUnescapedInlineJson`, `parseLLMResponse` (with prompt-injection anomaly tracking), `executeToolCallLoop` (one-round tool-use cap), the `chat` SSE handler, and `runPlanDiscover`. Largest module — the `chat` handler is monolithic by design to preserve pipeline cohesion. |
+| `bienbot/actions.js` | `ACTION_ENTITY_VERIFY` map (also re-exported as `_ACTION_ENTITY_VERIFY_FOR_TEST`), `verifyPendingActionEntityIds` (drops actions with hallucinated IDs), `explodeWorkflows` (workflow → individual pending actions), and the endpoints `execute`, `deletePendingAction`, `updatePendingAction`, `getWorkflowState` |
+| `bienbot/sessions.js` | Session lifecycle: `resume` (cached summary + greeting), `listSessions`, `getSession`, `deleteSession`, `updateContext`, `addSessionCollaborator`, `removeSessionCollaborator`, `getMutualFollowers`, `getMemory`, `clearMemory`, `applyTips` |
+| `bienbot/analyze.js` | `ANALYZE_ENTITY_MAP`, `resolveModeFromDaysUntil` (overdue / today / imminent / preparation / planning), `buildAnalyzeSystemPrompt`, and the stateless `analyze` handler |
+| `bienbot/attachments.js` | `getAttachmentUrl` — signed-URL serving for `messages.attachments` stored in the protected S3 bucket |
+
+**Dependency direction (no cycles):**
+
+```
+bienbot.js (façade)
+   ↓
+chat.js → system-prompt.js
+       → actions.js
+       → _shared.js
+sessions.js → _shared.js
+actions.js → _shared.js
+analyze.js → _shared.js
+attachments.js → _shared.js
+system-prompt.js → _shared.js
+```
+
+**Adding a new handler:**
+- Pick the module by concern (action lifecycle → `actions.js`; session lifecycle → `sessions.js`; new endpoint → new module).
+- Re-export it from `bienbot.js` so routes and tests find it on the public surface.
+- If it needs cross-cutting helpers, add them to `_shared.js` and destructure from there.
+
+**Test fixture exports** — `parseLLMResponse`, `verifyPendingActionEntityIds`, `buildSystemPrompt`, `escapeUserInputLiteral`, `_executeToolCallLoopForTest`, and `_ACTION_ENTITY_VERIFY_FOR_TEST` — live in their natural module (`chat.js`, `actions.js`, `system-prompt.js`, `_shared.js`) and are re-exported by the façade so test imports stay stable.
 
 ---
 
@@ -1228,7 +1275,7 @@ The main chat endpoint includes only the **last 10 messages** from `session.mess
 - Future conversation search
 
 ```javascript
-// controllers/api/bienbot.js
+// controllers/api/bienbot/chat.js
 const recentMessages = (session.messages || []).slice(-10);
 ```
 
@@ -1431,7 +1478,7 @@ The notification is suppressed if:
 | `utilities/bienbot-intent-corpus.json` | Training corpus with example utterances for each intent — add new utterances here to improve classification |
 | `utilities/bienbot-action-executor.js` | Takes the structured `actions[]` array from the LLM and calls the existing controller logic (destinations, experiences, plans, invites). Returns results that update the session context. |
 | `utilities/bienbot-session-summarizer.js` | Compresses session message history into a summary + suggested next steps for session resume. Never throws — always returns a usable object. |
-| `controllers/api/bienbot.js` | Express controller — orchestrates the above layers, handles streaming via SSE, validates inputs |
+| `controllers/api/bienbot.js` + `controllers/api/bienbot/` | Façade plus seven per-concern modules (chat, actions, sessions, analyze, attachments, system-prompt, _shared) — orchestrate the above layers, handle SSE streaming, validate inputs |
 | `routes/api/bienbot.js` | Route definitions, applies `ensureLoggedIn`, `requireFeatureFlag('ai_features')`, and a dedicated rate limiter |
 
 #### Frontend
@@ -2216,7 +2263,7 @@ Summary is cached; re-opening the panel within 6 hours skips the LLM call and re
 | 3 | `utilities/bienbot-session-summarizer.js` | Compresses history + context into summary + next steps; used by `/resume` endpoint |
 | 4 | `utilities/bienbot-context-builders.js` | One builder per entity type, respects permissions |
 | 5 | `utilities/bienbot-action-executor.js` | Strict allowlist, reuses existing controller functions |
-| 6 | `controllers/api/bienbot.js` | Orchestrates layers, SSE streaming, input validation |
+| 6 | `controllers/api/bienbot.js` (+ `controllers/api/bienbot/*.js`) | Façade + per-concern modules orchestrating the layers, SSE streaming, input validation |
 | 7 | `routes/api/bienbot.js` | Routes + auth + rate limiter; register in `app.js` |
 | 8 | `src/utilities/bienbot-api.js` | Frontend API calls, `broadcastEvent` on mutations |
 | 9 | `src/hooks/useBienBot.js` | Conversation state, streaming, pending action management; `resumeSession` triggers greeting |
@@ -2512,7 +2559,7 @@ Quantitative-to-qualitative mappings:
 - Completion rate: `moderate completion` (20–49%) → `solid completion` (50–79%) → `very high completion` (80%+)
 - Affinity: `different from your usual travel style` (<0.4) → `moderate match` (0.4–0.6) → `strong match for your travel style` (>0.6)
 
-**Cache-miss fallback** (`controllers/api/bienbot.js` — `POST /api/bienbot/chat`):
+**Cache-miss fallback** (`controllers/api/bienbot/chat.js` — `POST /api/bienbot/chat`):
 - Before building the invoke context, the controller checks the affinity cache.
 - On a cache miss, it **awaits** `computeAndCacheAffinity(userId, experienceId)` — this is the only blocking call site; all other triggers are fire-and-forget.
 - The freshly computed entry is then available to `buildContextForInvokeContext()`.

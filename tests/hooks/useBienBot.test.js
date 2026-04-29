@@ -167,6 +167,7 @@ describe('useBienBot', () => {
         'sendSharedComment',
         'sessions',
         'setPriorGreeting',
+        'setPriorReferencedEntities',
         'setSuggestedNextSteps',
         'shareSession',
         'skipStep',

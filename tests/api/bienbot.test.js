@@ -611,8 +611,10 @@ describe('BienBot API', () => {
     });
 
     it('system prompt includes ATTENTION handling instruction', () => {
+      // After bd #f4ed the controller was split: buildSystemPrompt now lives
+      // in controllers/api/bienbot/system-prompt.js. Read the prompt module.
       const src = require('fs').readFileSync(
-        require('path').resolve(__dirname, '../../controllers/api/bienbot.js'),
+        require('path').resolve(__dirname, '../../controllers/api/bienbot/system-prompt.js'),
         'utf8'
       );
       expect(src).toContain('ATTENTION SIGNALS');
