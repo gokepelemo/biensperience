@@ -193,61 +193,118 @@ async function suggestPlanItems(payload, user) {
       }
     }
 
-    // --- Tier 3: Wikivoyage structured plan items (no API key required) ---
+    // --- Tier 3: Wikivoyage + TripAdvisor (always attempted) ---
+    // External-source enrichment runs unconditionally — even when community
+    // suggestions already fill the limit — so the picker reflects a mix of
+    // local and external recommendations whenever an external source has
+    // anything to say. Items are merged into `suggestions` only while slots
+    // remain (limit-bounded), but the fetches always fire so we never silently
+    // skip an external source that might have novel ideas.
+    //
+    // Wikivoyage (Tier 3): no API key required.
+    // TripAdvisor   (Tier 4): env-keyed (TRIPADVISOR_API_KEY); silently skipped
+    //                         when the key is absent.
+    //
+    // Both run in parallel since they hit independent upstreams and we want
+    // their combined work to overlap with the LLM reformulation that follows.
+    const wvFetchBudget = Math.max(5, limit + 5);
+    const taFetchBudget = Math.max(5, limit + 5);
+
+    const [wvRaw, taRaw] = await Promise.all([
+      fetchWikivoyagePlanItems(destination.name, { maxTotal: wvFetchBudget })
+        .catch(err => {
+          logger.warn('[bienbot-external-data] Wikivoyage fetch failed', { error: err.message });
+          return [];
+        }),
+      fetchTripAdvisorAttractions(destination.name, taFetchBudget, user)
+        .catch(err => {
+          logger.warn('[bienbot-external-data] TripAdvisor fetch failed', { error: err.message });
+          return [];
+        })
+    ]);
+
+    // Reformulate passive place-names → active action phrases (e.g.
+    // "Christchurch Art Gallery" → "Visit the Christchurch Art Gallery").
+    // The reformulation prompt is generic enough to handle both Wikivoyage and
+    // TripAdvisor inputs; falls back to the original names if the AI gateway
+    // is unavailable.
+    let wvItems = wvRaw;
+    let taItems = taRaw;
+    if (wvItems.length > 0) {
+      wvItems = await reformulateWikivoyagePlanItems(wvItems, destination.name, user);
+    }
+    if (taItems.length > 0) {
+      taItems = await reformulateWikivoyagePlanItems(taItems, destination.name, user);
+    }
+
     let wikivoyageCount = 0;
-    if (suggestions.length < limit) {
-      let wvItems = await fetchWikivoyagePlanItems(destination.name, {
-        maxTotal: Math.min(10, limit - suggestions.length + 5)
-      });
+    let tripadvisorCount = 0;
 
-      // Reformulate passive place-names → active action phrases (e.g.
-      // "Christchurch Art Gallery" → "Visit the Christchurch Art Gallery").
-      // Falls back to the original names if the LLM is unavailable.
-      if (wvItems.length > 0) {
-        wvItems = await reformulateWikivoyagePlanItems(wvItems, destination.name, user);
+    const buildExistingNormalized = () => [
+      ...candidates.map(c => c.normalized),
+      ...suggestions
+        .filter(s => s.source_type === 'google_maps' || s.source_type === 'wikivoyage')
+        .map(s => s.text.toLowerCase())
+    ];
+
+    const isDuplicateName = (norm, existingNormalized) =>
+      existingNormalized.some(t =>
+        normalizedSimilarity(t, norm) > 0.8 || norm.includes(t) || t.includes(norm)
+      ) ||
+      excludeNormalized.some(ex =>
+        normalizedSimilarity(ex, norm) > 0.8 || norm.includes(ex) || ex.includes(norm)
+      );
+
+    for (const item of wvItems) {
+      if (suggestions.length >= limit) break;
+      const norm = item.name.toLowerCase();
+      if (!isDuplicateName(norm, buildExistingNormalized())) {
+        suggestions.push({
+          text: item.name,
+          frequency: 0,
+          sources: ['Wikivoyage'],
+          source_type: 'wikivoyage',
+          activity_type: item.activity_type,
+          cost_estimate: null,
+          metadata: {
+            description: item.description || null,
+            source_url: item.source_url
+          }
+        });
+        wikivoyageCount++;
       }
+    }
 
-      const existingNormalized = [
-        ...candidates.map(c => c.normalized),
-        ...suggestions
-          .filter(s => s.source_type === 'google_maps')
-          .map(s => s.text.toLowerCase())
-      ];
-
-      for (const item of wvItems) {
-        if (suggestions.length >= limit) break;
-        const norm = item.name.toLowerCase();
-        const isDuplicate =
-          existingNormalized.some(t =>
-            normalizedSimilarity(t, norm) > 0.8 || norm.includes(t) || t.includes(norm)
-          ) ||
-          excludeNormalized.some(ex =>
-            normalizedSimilarity(ex, norm) > 0.8 || norm.includes(ex) || ex.includes(norm)
-          );
-        if (!isDuplicate) {
-          suggestions.push({
-            text: item.name,
-            frequency: 0,
-            sources: ['Wikivoyage'],
-            source_type: 'wikivoyage',
-            activity_type: item.activity_type,
-            cost_estimate: null,
-            metadata: {
-              description: item.description || null,
-              source_url: item.source_url
-            }
-          });
-          wikivoyageCount++;
-        }
+    for (const item of taItems) {
+      if (suggestions.length >= limit) break;
+      const norm = item.name.toLowerCase();
+      if (!isDuplicateName(norm, buildExistingNormalized())) {
+        suggestions.push({
+          text: item.name,
+          frequency: 0,
+          sources: ['TripAdvisor'],
+          source_type: 'tripadvisor',
+          activity_type: item.activity_type || 'sightseeing',
+          cost_estimate: null,
+          metadata: {
+            rating: item.rating || null,
+            num_reviews: item.num_reviews || null,
+            source_url: item.source_url || null
+          }
+        });
+        tripadvisorCount++;
       }
     }
 
     logger.info('[bienbot-external-data] Plan item suggestions generated', {
       destinationId: destination_id,
       candidateCount: candidates.length,
-      communityCount: suggestions.length - poiCount - wikivoyageCount,
+      communityCount: suggestions.length - poiCount - wikivoyageCount - tripadvisorCount,
       poiCount,
       wikivoyageCount,
+      tripadvisorCount,
+      wikivoyageRawCount: wvRaw.length,
+      tripadvisorRawCount: taRaw.length,
       returnedCount: suggestions.length,
       sourceExperiences: experiences.length,
       userId: user._id.toString()
@@ -1338,6 +1395,66 @@ async function cleanupSessionPhotos(session) {
 // `fetch_destination_tips` and `fetch_destination_places` (Google Maps) in
 // the same tool-use turn; the loop runs them in parallel.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// TripAdvisor enrichment for suggest_plan_items
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch TripAdvisor attractions for a destination via the registry tool, then
+ * normalize them into the same `{ name, activity_type, source_url }` shape
+ * that fetchWikivoyagePlanItems returns. Returns an empty array when the
+ * provider is disabled (no TRIPADVISOR_API_KEY) or when the upstream errors —
+ * suggest_plan_items must never fail because an external source is missing.
+ *
+ * @param {string} destinationName
+ * @param {number} limit
+ * @param {object} user
+ * @returns {Promise<Array<{ name: string, rating: number|null, num_reviews: number|null, activity_type: string, source_url: string|null }>>}
+ */
+async function fetchTripAdvisorAttractions(destinationName, limit, user) {
+  let registry;
+  try {
+    registry = require('./bienbot-tool-registry');
+    const { bootstrap } = require('./bienbot-tool-registry/bootstrap');
+    bootstrap();
+  } catch (err) {
+    logger.debug('[bienbot-external-data] TripAdvisor: registry unavailable', { error: err.message });
+    return [];
+  }
+
+  // getTool returns null when the provider is disabled (no env key) — in that
+  // case we silently skip TripAdvisor enrichment. This is the same pattern
+  // suggestPlanItems uses for Google Maps via the GOOGLE_MAPS_API_KEY check.
+  if (!registry.getTool('fetch_destination_attractions')) {
+    return [];
+  }
+
+  const response = await registry.executeRegisteredTool(
+    'fetch_destination_attractions',
+    { destination_name: destinationName, limit: Math.min(limit, 20) },
+    user
+  );
+
+  if (!response?.success || !Array.isArray(response.body?.attractions)) {
+    logger.debug('[bienbot-external-data] TripAdvisor returned no attractions', {
+      destinationName,
+      statusCode: response?.statusCode,
+      error: response?.body?.error
+    });
+    return [];
+  }
+
+  return response.body.attractions
+    .filter(a => a && typeof a.name === 'string' && a.name.trim().length > 0)
+    .map(a => ({
+      name: a.name,
+      rating: a.rating ?? null,
+      num_reviews: a.num_reviews ?? null,
+      activity_type: 'sightseeing',
+      source_url: a.web_url || null
+    }));
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

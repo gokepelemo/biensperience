@@ -427,8 +427,11 @@ describe('bienbot-external-data', () => {
       });
     });
 
-    it('does not call Wikivoyage when community suggestions already fill the limit', async () => {
-      // 3 experiences each contributing a unique item → fills limit=3 from community
+    it('still calls Wikivoyage even when community suggestions already fill the limit', async () => {
+      // External-source enrichment always runs (community-only is no longer the
+      // exit condition). The merged list is still capped at `limit`, so the
+      // Wikivoyage results may not surface in the output, but the upstream
+      // fetch is still issued — verifying that behavior here.
       Destination.findById.mockReturnValue(chainable({ _id: VALID_ID, name: 'Tokyo' }));
       const experiences = [
         { name: 'Trip A', plan_items: [{ content: 'Shibuya Crossing' }] },
@@ -443,12 +446,21 @@ describe('bienbot-external-data', () => {
         }),
       });
       delete process.env.GOOGLE_MAPS_API_KEY;
-      global.fetch = jest.fn();
+      // Wikivoyage will still be queried; provide a minimal valid response so
+      // the fetch chain resolves cleanly.
+      const sectionsResponse = { parse: { sections: [{ line: 'See', index: '1' }] } };
+      const seeContent = { parse: { text: { '*': '' } } };
+      global.fetch = jest.fn()
+        .mockResolvedValueOnce(mockFetchResponse(sectionsResponse))
+        .mockResolvedValueOnce(mockFetchResponse(seeContent));
 
       const result = await suggestPlanItems({ destination_id: VALID_ID, limit: 3 }, mockUser);
       expect(result.statusCode).toBe(200);
-      // fetch should not have been called for Wikivoyage
-      expect(global.fetch).not.toHaveBeenCalled();
+      // The Wikivoyage upstream MUST be called even when community filled the
+      // limit — that is the always-on enrichment guarantee.
+      expect(global.fetch).toHaveBeenCalled();
+      // The final list is still bounded by limit.
+      expect(result.body.data.suggestions.length).toBeLessThanOrEqual(3);
     });
 
     it('deduplicates Wikivoyage items against community suggestions', async () => {
