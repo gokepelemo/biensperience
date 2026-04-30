@@ -10,6 +10,8 @@ import Loading from "../../components/Loading/Loading";
 import { deduplicateById, deduplicateFuzzy } from "../../utilities/deduplication";
 import { sortItems, filterDestinations } from "../../utilities/sort-filter";
 import { Container, Mobile, Desktop, EmptyState, DestinationCardSkeleton } from "../../components/design-system";
+import { SimpleGrid } from "@chakra-ui/react";
+import { CARD_MIN_WIDTHS } from "../AppHome/AppHome";
 import { logger } from "../../utilities/logger";
 import { lang } from "../../lang.constants";
 
@@ -121,33 +123,35 @@ export default function Destinations() {
 
       {(loading || !initialLoadComplete) ? (
         <Container className={styles.my4}>
-          <div className={styles.destinationsList}>
+          <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.destination} gap="6" alignItems="stretch" mb="8">
             <DestinationCardSkeleton count={destinationsMeta.limit} />
-          </div>
+          </SimpleGrid>
         </Container>
       ) : (
         <Container className={styles.my4}>
-          <div className={styles.destinationsList}>
-            {processedDestinations.length > 0 ? (
-              processedDestinations.map((destination, index) => (
+          {processedDestinations.length > 0 ? (
+            <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.destination} gap="6" alignItems="stretch" mb="8">
+              {processedDestinations.map((destination, index) => (
                 destination ? (
                   <DestinationCard
                     destination={destination}
                     key={destination._id || index}
                     forcePreload={true}
+                    fluid
                   />
                 ) : (
                   <DestinationCardSkeleton key={`placeholder-${index}`} count={1} />
                 )
-              ))
-            ) : (
-              <EmptyState
-                variant="search"
-                title={lang.current.destinationsView.noDestinationsFound}
-                description={lang.current.destinationsView.noDestinationsDescription}
-                size="md"
-              />
-            )}
+              ))}
+            </SimpleGrid>
+          ) : (
+            <EmptyState
+              variant="search"
+              title={lang.current.destinationsView.noDestinationsFound}
+              description={lang.current.destinationsView.noDestinationsDescription}
+              size="md"
+            />
+          )}
             {destinationsMeta?.hasMore && !loadingMore && (
               <div style={{ textAlign: 'center', width: '100%', marginTop: 24 }}>
                 <div ref={sentinelRef} style={{ height: 1 }} />
@@ -167,7 +171,6 @@ export default function Destinations() {
                 <Loading size="md" variant="overlay" animation="engine" message={lang.current.destinationsView.loadingMore} />
               </div>
             )}
-          </div>
         </Container>
       )}
     </PageWrapper>

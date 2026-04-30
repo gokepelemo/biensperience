@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Box, Flex } from "@chakra-ui/react";
+import { Box, Flex, SimpleGrid } from "@chakra-ui/react";
+import { CARD_MIN_WIDTHS } from "../AppHome/AppHome";
 import { useUser } from "../../contexts/UserContext";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useData } from "../../contexts/DataContext";
@@ -725,36 +726,37 @@ export default function Experiences() {
 
       {initialLoading || loading || directFilterLoading || !initialLoadComplete ? (
         <FadeIn>
-          <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
+          <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.experience} gap="6" alignItems="stretch" mb="8">
             <ExperienceCardSkeleton count={experiencesMeta.limit} />
-          </Flex>
+          </SimpleGrid>
         </FadeIn>
       ) : (
         <FadeIn>
           <>
-            <Flex ref={experiencesGridRef} wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
-              {displayedExperiences.length > 0 ? (
-                displayedExperiences.map((experience, index) => (
+            {displayedExperiences.length > 0 ? (
+              <SimpleGrid ref={experiencesGridRef} minChildWidth={CARD_MIN_WIDTHS.experience} gap="6" alignItems="stretch" mb="8">
+                {displayedExperiences.map((experience, index) => (
                   experience ? (
                     <ExperienceCard
                       key={experience?._id || `exp-${index}`}
                       experience={experience}
                       userPlans={plans}
                       forcePreload={true}
+                      fluid
                     />
                   ) : (
                     <ExperienceCardSkeleton key={`placeholder-${index}`} count={1} />
                   )
-                ))
-              ) : (
-                <EmptyState
-                  variant="search"
-                  title={lang.current.emptyState.noExperiencesFound}
-                  description={lang.current.emptyState.noExperiencesFoundDescription}
-                  size="md"
-                />
-              )}
-            </Flex>
+                ))}
+              </SimpleGrid>
+            ) : (
+              <EmptyState
+                variant="search"
+                title={lang.current.emptyState.noExperiencesFound}
+                description={lang.current.emptyState.noExperiencesFoundDescription}
+                size="md"
+              />
+            )}
 
             {!initialLoading && !loading && !directFilterLoading && displayedExperiences.length > 0 && experiencesMeta?.hasMore && (
               <Box w="100%" textAlign="center" mt="4" mb="5">

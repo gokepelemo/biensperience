@@ -101,6 +101,7 @@ const ProfileContentGrid = forwardRef(function ProfileContentGrid({
               key={item._id || index}
               experience={item}
               userPlans={userPlans}
+              fluid
             />
           );
         })}

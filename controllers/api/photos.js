@@ -1,11 +1,94 @@
 const mongoose = require('mongoose');
 const Photo = require("../../models/photo");
 const User = require("../../models/user");
+const Experience = require("../../models/experience");
+const Destination = require("../../models/destination");
+const Plan = require("../../models/plan");
 const { uploadWithPipeline, deleteFileSafe } = require("../../utilities/upload-pipeline");
 const { getEnforcer, isOwner } = require("../../utilities/permission-enforcer");
 const { successResponse, errorResponse, validateObjectId } = require("../../utilities/controller-helpers");
 const { broadcastEvent } = require('../../utilities/websocket-server');
 const backendLogger = require("../../utilities/backend-logger");
+
+/**
+ * Pull a deleted photo's references from every collection that links to it.
+ * Loads + saves the wrapped collections (User/Experience/Destination) so the
+ * photos invariant hook has a chance to re-normalise default flags after the
+ * removal. Plan plan_items use bare ObjectId arrays — $pull is sufficient there.
+ *
+ * Best-effort: cleanup failure is logged but does not roll back the photo
+ * deletion. The user already authorised that operation; an orphan ref is
+ * preferable to a stuck delete.
+ */
+async function cleanupPhotoReferences(photoId) {
+  const idStr = String(photoId);
+
+  // User.photos[{photo, default}] — load + filter + save to fire pre('save').
+  try {
+    const affectedUsers = await User.find({ 'photos.photo': photoId }).select('_id photos');
+    await Promise.all(affectedUsers.map(async (u) => {
+      u.photos = (u.photos || []).filter(p => p?.photo && String(p.photo) !== idStr);
+      await u.save();
+    }));
+  } catch (err) {
+    backendLogger.error('[photo-cleanup] User cleanup failed', { error: err.message, photoId: idStr });
+  }
+
+  // Experience.photos[{photo, default}] — same pattern.
+  try {
+    const affectedExperiences = await Experience.find({ 'photos.photo': photoId }).select('_id photos');
+    await Promise.all(affectedExperiences.map(async (exp) => {
+      exp.photos = (exp.photos || []).filter(p => p?.photo && String(p.photo) !== idStr);
+      await exp.save();
+    }));
+  } catch (err) {
+    backendLogger.error('[photo-cleanup] Experience cleanup failed', { error: err.message, photoId: idStr });
+  }
+
+  // Experience.plan_items[].photo (single optional ref) — $unset via $pull-like
+  // syntax doesn't apply here; use updateMany + arrayFilters to clear.
+  try {
+    await Experience.updateMany(
+      { 'plan_items.photo': photoId },
+      { $unset: { 'plan_items.$[item].photo': '' } },
+      { arrayFilters: [{ 'item.photo': photoId }] }
+    );
+  } catch (err) {
+    backendLogger.error('[photo-cleanup] Experience plan_items cleanup failed', { error: err.message, photoId: idStr });
+  }
+
+  // Destination.photos[{photo, default}] — same pattern as User/Experience.
+  try {
+    const affectedDestinations = await Destination.find({ 'photos.photo': photoId }).select('_id photos');
+    await Promise.all(affectedDestinations.map(async (d) => {
+      d.photos = (d.photos || []).filter(p => p?.photo && String(p.photo) !== idStr);
+      await d.save();
+    }));
+  } catch (err) {
+    backendLogger.error('[photo-cleanup] Destination cleanup failed', { error: err.message, photoId: idStr });
+  }
+
+  // Plan.plan_items[].photos and Plan.plan_items[].details.photos are bare
+  // ObjectId arrays — $pull at the document level handles them directly.
+  try {
+    await Plan.updateMany(
+      {
+        $or: [
+          { 'plan_items.photos': photoId },
+          { 'plan_items.details.photos': photoId }
+        ]
+      },
+      {
+        $pull: {
+          'plan_items.$[].photos': photoId,
+          'plan_items.$[].details.photos': photoId
+        }
+      }
+    );
+  } catch (err) {
+    backendLogger.error('[photo-cleanup] Plan plan_items cleanup failed', { error: err.message, photoId: idStr });
+  }
+}
 
 async function createPhoto(req, res) {
   let rand = Math.ceil(Math.random() * 500);
@@ -169,8 +252,12 @@ async function deletePhoto(req, res) {
     // Delete from database
     const photoId = photo._id.toString();
     await photo.deleteOne();
-    // Photo deleted from database successfully
-    
+
+    // Sweep references from User / Experience / Destination / Plan so the
+    // populate path doesn't return { photo: null, default: true } on next read
+    // and the avatar resolver doesn't fail-through to initials.
+    await cleanupPhotoReferences(photo._id);
+
     // Broadcast photo:deleted event
     try {
       broadcastEvent('photo', photoId, {
@@ -180,7 +267,7 @@ async function deletePhoto(req, res) {
     } catch (err) {
       backendLogger.error('Failed to broadcast photo:deleted event', { error: err.message, photoId });
     }
-    
+
     return successResponse(res, null, 'Photo deleted successfully');
   } catch (err) {
     backendLogger.error('Delete photo error', { error: err.message, userId: req.user._id, photoId: req.params.id });

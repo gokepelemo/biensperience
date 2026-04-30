@@ -1017,6 +1017,7 @@ export default function Profile() {
       userPlans={plans}
       showSharedIcon={experience._isCollaborative || false}
       planId={experience._planId}
+      fluid
     />
   ), [plans]);
 
@@ -1279,10 +1280,28 @@ export default function Profile() {
       ? 'destinations'
       : 'experiences';
 
+    // Pass shape hints to the skeleton so it doesn't reserve space for fields
+    // that will not render. For the viewer's own profile we know everything
+    // from UserContext; for other users we use sensible defaults that
+    // minimise the worst-case shift direction (collapse-upward, which yanks
+    // content out from under the user's reading position).
+    const skeletonHasBio = isOwner ? !!user?.bio : false;
+    const skeletonHasLocation = isOwner ? !!user?.location : false;
+    // Verified badge: true when we know the viewer is verified, otherwise
+    // default true (most users are post-signup) — see ProfileHeaderSkeleton
+    // comment for the directional-shift rationale.
+    const skeletonHasVerifiedBadge = isOwner ? !!user?.emailConfirmed : true;
+
     return (
       <div style={{ backgroundColor: 'var(--color-bg-primary)', minHeight: '100vh', padding: 'var(--space-8) 0' }}>
         <Container>
-          <ProfileSkeleton isOwner={isOwner} activeTab={activeTab} />
+          <ProfileSkeleton
+            isOwner={isOwner}
+            activeTab={activeTab}
+            hasBio={skeletonHasBio}
+            hasLocation={skeletonHasLocation}
+            hasVerifiedBadge={skeletonHasVerifiedBadge}
+          />
         </Container>
       </div>
     );

@@ -765,25 +765,60 @@ userSchema.index({ 'feature_flags.flag': 1 });
 userSchema.index({ 'feature_flags.enabled': 1, 'feature_flags.flag': 1 });
 
 /**
+ * Normalize a photos array in place so exactly one entry has default: true.
+ * Mirrors the .save() invariant for paths that bypass document middleware
+ * (findOneAndUpdate, updateOne, etc).
+ */
+function normalizePhotosDefaults(photos) {
+  if (!Array.isArray(photos) || photos.length === 0) return;
+  const defaultCount = photos.filter(p => p && p.default).length;
+  if (defaultCount === 0) {
+    photos[0].default = true;
+  } else if (defaultCount > 1) {
+    // Keep the LAST default:true entry; clear the rest.
+    let found = false;
+    for (let i = photos.length - 1; i >= 0; i--) {
+      if (photos[i].default && !found) {
+        found = true;
+      } else if (photos[i]) {
+        photos[i].default = false;
+      }
+    }
+  }
+}
+
+/**
  * Pre-save hook: enforce the photos invariant (exactly one default: true entry).
  */
 userSchema.pre('save', function (next) {
   if (this.isModified('photos') && this.photos.length > 0) {
-    const defaultCount = this.photos.filter(p => p.default).length;
-    if (defaultCount === 0) {
-      this.photos[0].default = true;
-    } else if (defaultCount > 1) {
-      let found = false;
-      for (let i = this.photos.length - 1; i >= 0; i--) {
-        if (this.photos[i].default && !found) {
-          found = true;
-        } else {
-          this.photos[i].default = false;
-        }
-      }
-    }
+    normalizePhotosDefaults(this.photos);
   }
   next();
 });
+
+/**
+ * Pre-update hook: enforce the same photos invariant on findOneAndUpdate /
+ * updateOne / updateMany paths. Without this, a malformed update body (zero or
+ * multiple default:true entries) would be persisted and silently break the
+ * "find the default" path used by avatar resolution.
+ *
+ * Mongoose normalizes update operators here, so we have to inspect both
+ * top-level (replacement) and $set forms.
+ */
+function applyPhotosInvariantOnUpdate() {
+  const update = this.getUpdate();
+  if (!update) return;
+  if (Array.isArray(update.photos)) {
+    normalizePhotosDefaults(update.photos);
+  }
+  if (update.$set && Array.isArray(update.$set.photos)) {
+    normalizePhotosDefaults(update.$set.photos);
+  }
+}
+
+userSchema.pre('findOneAndUpdate', applyPhotosInvariantOnUpdate);
+userSchema.pre('updateOne', applyPhotosInvariantOnUpdate);
+userSchema.pre('updateMany', applyPhotosInvariantOnUpdate);
 
 module.exports = mongoose.model("User", userSchema);

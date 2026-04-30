@@ -38,11 +38,6 @@ router.post('/reset-password', authLimiter, validate(resetPasswordSchema), users
 router.get('/confirm-email/:token', usersCtrl.confirmEmail);
 router.post('/resend-confirmation', authLimiter, usersCtrl.resendConfirmation);
 
-// Photo management routes
-router.post('/:id/photos', ensureLoggedIn, modificationLimiter, usersCtrl.addPhoto);
-router.delete('/:id/photos/:photoIndex', ensureLoggedIn, modificationLimiter, usersCtrl.removePhoto);
-router.put('/:id/photos/default', ensureLoggedIn, modificationLimiter, usersCtrl.setDefaultPhoto);
-
 // Role management routes (super admin only)
 router.put('/:id/role', ensureLoggedIn, modificationLimiter, usersCtrl.updateUserRole);
 

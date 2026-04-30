@@ -15,8 +15,19 @@ function getDefaultPhoto(resource) {
   if (!resource || !resource.photos || resource.photos.length === 0) {
     return null;
   }
-  const entry = resource.photos.find(p => p.default);
-  return entry ? entry.photo : resource.photos[0].photo;
+  // Walk ALL entries in default-first order so an orphaned default entry
+  // (photo: null because the underlying Photo doc was deleted) doesn't shadow
+  // a perfectly valid non-default entry. This matches frontend's
+  // resolveUrlFromUser walk so the two never disagree on resolution.
+  const sorted = resource.photos.slice().sort(
+    (a, b) => (b?.default ? 1 : 0) - (a?.default ? 1 : 0)
+  );
+  for (const entry of sorted) {
+    if (entry?.photo && typeof entry.photo === 'object' && entry.photo.url) {
+      return entry.photo;
+    }
+  }
+  return null;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Flex } from "@chakra-ui/react";
+import { Box, Flex, SimpleGrid } from "@chakra-ui/react";
+import { CARD_MIN_WIDTHS } from "../AppHome/AppHome";
 import { useData } from "../../contexts/DataContext";
 import ExperienceCard from "../../components/ExperienceCard/ExperienceCard";
 import PageOpenGraph from "../../components/OpenGraph/PageOpenGraph";
@@ -200,32 +201,33 @@ export default function ExperiencesByTag() {
 
       {loading ? (
         <FadeIn>
-          <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
+          <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.experience} gap="6" alignItems="stretch" mb="8">
             <ExperienceCardSkeleton count={ITEMS_PER_PAGE} />
-          </Flex>
+          </SimpleGrid>
         </FadeIn>
       ) : (
         <FadeIn>
-          <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
-            {displayedExperiences.length > 0 ? (
-              displayedExperiences.map((experience, index) => (
+          {displayedExperiences.length > 0 ? (
+            <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.experience} gap="6" alignItems="stretch" mb="8">
+              {displayedExperiences.map((experience, index) => (
                 <FadeIn key={experience?._id || `exp-${index}`} delay={index * 0.1}>
                   {experience ? (
                     <ExperienceCard
                       experience={experience}
                       userPlans={plans}
                       forcePreload={true}
+                      fluid
                     />
                   ) : (
-                    <Box w="12rem" h="8rem" display="inline-block" m="0.5rem">
-                      <Box position="relative" w="100%" h="100%">
-                        <SkeletonLoader variant="rectangle" width="100%" height="100%" />
-                      </Box>
+                    <Box w="100%" h="8rem">
+                      <SkeletonLoader variant="rectangle" width="100%" height="100%" />
                     </Box>
                   )}
                 </FadeIn>
-              ))
-            ) : (
+              ))}
+            </SimpleGrid>
+          ) : (
+            <Flex wrap="wrap" gap="8" justify="center" align="flex-start" mb="8">
               <Alert
                 type="info"
                 style={{ textAlign: 'center', width: '100%' }}
@@ -236,8 +238,8 @@ export default function ExperiencesByTag() {
                   {lang.current.experiencesByTag.browseAll}
                 </Button>
               </Alert>
-            )}
-          </Flex>
+            </Flex>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (

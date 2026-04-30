@@ -139,11 +139,40 @@ export default function BienBotTrigger({
       } else {
         setInvokeContextOverride(null);
       }
+      // Hand off the spinner to panelLoading; greetingLoading was set true at
+      // bienbot:analyzing_start (if this open was preceded by an analysis call).
+      // Clearing it here keeps the FAB spinner continuous: greetingLoading was
+      // covering the API call, panelLoading covers the panel-mount/load phase.
+      setGreetingLoading(false);
       setPanelMounted(true);
       setPanelLoading(true);
       setPanelOpen(true);
     });
     return unsub;
+  }, [hasChatAccess]);
+
+  // Subscribe to bienbot:analyzing_start / _end so the FAB spinner runs
+  // during the analyzeEntity API call (~1-3s for the LLM). Without this,
+  // only the trigger button's own loading state is visible — clicking
+  // "Discuss" / "Analyze" gives no feedback on BienBot itself until the
+  // panel finally pops open with the results.
+  useEffect(() => {
+    if (!hasChatAccess) return;
+    const unsubStart = subscribeToEvent('bienbot:analyzing_start', () => {
+      logger.debug('[BienBotTrigger] Analysis started — flipping greetingLoading');
+      setGreetingLoading(true);
+    });
+    const unsubEnd = subscribeToEvent('bienbot:analyzing_end', () => {
+      logger.debug('[BienBotTrigger] Analysis ended');
+      // On success, bienbot:open fires immediately after and takes over the
+      // spinner via panelLoading. We still clear greetingLoading here so the
+      // error path (no bienbot:open follow-up) returns the FAB to idle.
+      setGreetingLoading(false);
+    });
+    return () => {
+      unsubStart();
+      unsubEnd();
+    };
   }, [hasChatAccess]);
 
   const handleOpen = useCallback(async () => {

@@ -1074,46 +1074,6 @@ async function updateUserAsAdmin(req, res) {
   }
 }
 
-async function addPhoto(req, res) {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return errorResponse(res, null, 'User not found', 404);
-    }
-
-    if (req.user._id.toString() !== user._id.toString()) {
-      return errorResponse(res, null, 'Not authorized to modify this user profile', 401);
-    }
-
-    const { url, photo_credit, photo_credit_url } = req.body;
-
-    if (!url) {
-      return errorResponse(res, null, 'Photo URL is required', 400);
-    }
-
-    // Add photo to photos array
-    user.photos.push({
-      url,
-      photo_credit: photo_credit || 'Unknown',
-      photo_credit_url: photo_credit_url || url
-    });
-
-    await user.save();
-
-    // Generate new JWT token with updated user data
-    const token = createJWT(user);
-    return successResponse(res, { user, token }, 'Photo added successfully', 201);
-  } catch (err) {
-    backendLogger.error('Error adding photo to user', { error: err.message, userId: req.params.id, url: req.body.url });
-    return errorResponse(res, err, 'Failed to add photo', 400);
-  }
-}
-
 /**
  * Start SMS-based phone verification for the current user.
  * Stores a pending verificationId on the user so they can complete verification after re-login.
@@ -1229,80 +1189,6 @@ async function confirmPhoneVerification(req, res) {
   } catch (err) {
     backendLogger.error('Error confirming phone verification', { error: err.message, userId: req.params.id });
     return errorResponse(res, err, 'Failed to confirm phone verification', 500);
-  }
-}
-
-async function removePhoto(req, res) {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return errorResponse(res, null, 'User not found', 404);
-    }
-
-    if (req.user._id.toString() !== user._id.toString()) {
-      return errorResponse(res, null, 'Not authorized to modify this user profile', 401);
-    }
-
-    const photoIndex = parseInt(req.params.photoIndex);
-
-    if (photoIndex < 0 || photoIndex >= user.photos.length) {
-      return errorResponse(res, null, 'Invalid photo index', 400);
-    }
-
-    // Remove photo from array
-    const removedPhoto = user.photos[photoIndex];
-    user.photos.splice(photoIndex, 1);
-
-    // Ensure exactly one default photo is set
-    ensureDefaultPhotoConsistency(user);
-
-    await user.save();
-
-    // Generate new JWT token with updated user data
-    const token = createJWT(user);
-    return successResponse(res, { user, token }, 'Photo removed successfully');
-  } catch (err) {
-    backendLogger.error('Error removing photo from user', { error: err.message, userId: req.params.id, photoIndex: req.params.photoIndex });
-    return errorResponse(res, err, 'Failed to remove photo', 400);
-  }
-}
-
-async function setDefaultPhoto(req, res) {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return errorResponse(res, null, 'Invalid user ID format', 400);
-    }
-
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return errorResponse(res, null, 'User not found', 404);
-    }
-
-    if (req.user._id.toString() !== user._id.toString()) {
-      return errorResponse(res, null, 'Not authorized to modify this user profile', 401);
-    }
-
-    const photoIndex = parseInt(req.body.photoIndex);
-
-    if (photoIndex < 0 || photoIndex >= user.photos.length) {
-      return errorResponse(res, null, 'Invalid photo index', 400);
-    }
-
-    setDefaultPhotoByIndex(user, photoIndex);
-    await user.save();
-
-    // Generate new JWT token with updated user data
-    const token = createJWT(user);
-    return successResponse(res, { user, token }, 'Default photo set successfully');
-  } catch (err) {
-    backendLogger.error('Error setting default photo', { error: err.message, userId: req.params.id, photoIndex: req.body.photoIndex });
-    return errorResponse(res, err, 'Failed to set default photo', 400);
   }
 }
 
@@ -2120,9 +2006,6 @@ module.exports = {
   updateUserAsAdmin,
   startPhoneVerification,
   confirmPhoneVerification,
-  addPhoto,
-  removePhoto,
-  setDefaultPhoto,
   searchUsers,
   searchOwnedEntities,
   updateUserRole,

@@ -12,11 +12,22 @@ import { SkeletonLoader, Row, Col } from '../../../components/design-system';
 import activityFeedStyles from '../../../components/ActivityFeed/ActivityFeed.module.css';
 import styles from '../Profile.module.css';
 
-export default function ProfileSkeleton({ isOwner = false, activeTab = 'activity' }) {
+export default function ProfileSkeleton({
+  isOwner = false,
+  activeTab = 'activity',
+  hasBio = false,
+  hasLocation = false,
+  hasVerifiedBadge = true,
+}) {
   return (
     <>
       {/* Profile Header Card Skeleton */}
-      <ProfileHeaderSkeleton isOwner={isOwner} />
+      <ProfileHeaderSkeleton
+        isOwner={isOwner}
+        hasBio={hasBio}
+        hasLocation={hasLocation}
+        hasVerifiedBadge={hasVerifiedBadge}
+      />
 
       {/* Tab Navigation Skeleton */}
       <ProfileTabsSkeleton />

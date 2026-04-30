@@ -30,10 +30,14 @@
 
 .navLink {
   display: inline-flex;
-  align-items: center;
+  /* Align text to the bottom of the button so its visual bottom edge matches
+     the brand text — both buttons are 44px tall, so equal padding-bottom +
+     flex-end alignment guarantees identical text-bottom Y positions. */
+  align-items: flex-end;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 0.75rem;
+  /* padding-bottom matches .brandButton so both text bottoms coincide. */
+  padding: 0.75rem 0.75rem 0.875rem;
   margin: 0;
   cursor: pointer;
   position: relative;
@@ -162,13 +166,20 @@
   border: none;
   cursor: pointer;
   display: inline-flex;
-  align-items: center;
+  /* Bottom-align text. The padding-bottom here is intentionally 1px smaller
+     than .navLink's (13px vs 14px) to compensate for descender depth: at
+     line-height: 1, the em-square bottom is below the visible baseline by
+     ~0.21em (font-dependent). Brand text at 18px has a 3.78px descender;
+     nav text at 14px has a 2.94px descender; the ~1px difference is exactly
+     the offset we need so the BASELINES (bottoms of B / D / i / e — letters
+     with no descender) coincide rather than the em-square bottoms. */
+  align-items: flex-end;
   color: var(--color-text-primary);
   font-weight: 700;
   font-size: var(--font-size-lg);
   font-family: var(--font-family-base);
   line-height: 1;
-  padding: 0.5rem 0.5rem;
+  padding: 0.5rem 0.5rem 0.8125rem;
   height: var(--btn-height-md);
   min-height: var(--btn-height-md);
   transition: all 300ms;

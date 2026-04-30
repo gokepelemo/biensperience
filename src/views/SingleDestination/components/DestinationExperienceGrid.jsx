@@ -7,9 +7,11 @@
  */
 
 import { useRef, useEffect, useCallback } from 'react';
+import { SimpleGrid } from '@chakra-ui/react';
 import ExperienceCard from '../../../components/ExperienceCard/ExperienceCard';
-import { SkeletonLoader, EmptyState, Row, Col } from '../../../components/design-system';
+import { SkeletonLoader, EmptyState } from '../../../components/design-system';
 import { lang } from '../../../lang.constants';
+import { CARD_MIN_WIDTHS } from '../../AppHome/AppHome';
 import styles from './DestinationExperienceGrid.module.css';
 
 /**
@@ -72,18 +74,16 @@ export default function DestinationExperienceGrid({
         <h3 className={styles.sectionTitle}>
           {lang.current.heading.experiencesIn.replace('{destinationName}', destinationName)}
         </h3>
-        <Row className={styles.justifyCenter}>
+        <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.experience} gap="6" alignItems="stretch" mb="4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Col
-              md={6}
+            <SkeletonLoader
               key={`skeleton-${i}`}
-              className={styles.flexCenter}
-              style={{ marginBottom: 'var(--space-4)' }}
-            >
-              <SkeletonLoader variant="rectangle" width="100%" height="280px" />
-            </Col>
+              variant="rectangle"
+              width="100%"
+              height="280px"
+            />
           ))}
-        </Row>
+        </SimpleGrid>
       </section>
     );
   }
@@ -99,34 +99,27 @@ export default function DestinationExperienceGrid({
 
       {displayedExperiences.length > 0 ? (
         <>
-          <Row className={styles.justifyCenter}>
+          <SimpleGrid minChildWidth={CARD_MIN_WIDTHS.experience} gap="6" alignItems="stretch" mb="4">
             {displayedExperiences.map((experience, index) => (
               experience ? (
-                <Col
-                  md={6}
+                <ExperienceCard
                   key={experience._id || index}
-                  className={styles.flexCenter}
-                  style={{ marginBottom: 'var(--space-4)' }}
-                >
-                  <ExperienceCard
-                    experience={experience}
-                    userPlans={userPlans}
-                    forcePreload={true}
-                    onOptimisticDelete={onOptimisticDelete}
-                  />
-                </Col>
+                  experience={experience}
+                  userPlans={userPlans}
+                  forcePreload={true}
+                  onOptimisticDelete={onOptimisticDelete}
+                  fluid
+                />
               ) : (
-                <Col
-                  md={6}
+                <SkeletonLoader
                   key={`placeholder-${index}`}
-                  className={styles.flexCenter}
-                  style={{ marginBottom: 'var(--space-4)' }}
-                >
-                  <SkeletonLoader variant="rectangle" width="100%" height="280px" />
-                </Col>
+                  variant="rectangle"
+                  width="100%"
+                  height="280px"
+                />
               )
             ))}
-          </Row>
+          </SimpleGrid>
 
           {/* Infinite scroll sentinel - loads more when visible */}
           {hasMore && (

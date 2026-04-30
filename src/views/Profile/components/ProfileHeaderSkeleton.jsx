@@ -19,7 +19,17 @@ import { Card } from '../../../components/design-system';
 import SkeletonLoader from '../../../components/SkeletonLoader/SkeletonLoader';
 import styles from '../Profile.module.css';
 
-export default function ProfileHeaderSkeleton({ isOwner = false }) {
+export default function ProfileHeaderSkeleton({
+  isOwner = false,
+  hasBio = false,
+  hasLocation = false,
+  // Default true: most users complete email verification after signup, so the
+  // verified-badge skeleton matches the common case. Real content omits the
+  // badge for unverified users, which produces a small horizontal shift on
+  // the name row — preferable to the alternative (default false → badge
+  // appearing pushes name leftward, more visually noticeable).
+  hasVerifiedBadge = true,
+}) {
   return (
     <Card className={styles.profileHeaderCard}>
       {/* Cover Image / Gradient - Same as actual component */}
@@ -49,45 +59,53 @@ export default function ProfileHeaderSkeleton({ isOwner = false }) {
                 width="200px"
                 height="calc(var(--profile-skeleton-name-font-size) * 1.2)"
               />
-              <SkeletonLoader
-                variant="circle"
-                width="var(--profile-skeleton-verified-size)"
-                height="var(--profile-skeleton-verified-size)"
-              />
+              {hasVerifiedBadge && (
+                <SkeletonLoader
+                  variant="circle"
+                  width="var(--profile-skeleton-verified-size)"
+                  height="var(--profile-skeleton-verified-size)"
+                />
+              )}
             </div>
 
-            {/* Location - matches .profileLocation (font-size-base, gap space-2, margin-bottom space-3)
-                Real content is conditional, but we reserve the space to avoid upward shift
-                when location IS present (the common case). Use visibility:hidden-style min-height
-                so the skeleton reserves the row. */}
-            <div className={styles.profileLocation}>
-              <SkeletonLoader
-                variant="circle"
-                width="var(--profile-skeleton-location-icon-size)"
-                height="var(--profile-skeleton-location-icon-size)"
-              />
-              <SkeletonLoader
-                variant="text"
-                width="120px"
-                height="calc(var(--font-size-base) * 1.25)"
-              />
-            </div>
+            {/* Location skeleton — only render when the real content will also
+                render this row. Otherwise we reserve space the real content
+                will not use, producing a downward layout shift on load. The
+                hasLocation hint comes from UserContext when this is the
+                viewer's own profile; for other users we default to false
+                (the conservative shape — no shift if absent, only a small
+                downward shift if present). */}
+            {hasLocation && (
+              <div className={styles.profileLocation}>
+                <SkeletonLoader
+                  variant="circle"
+                  width="var(--profile-skeleton-location-icon-size)"
+                  height="var(--profile-skeleton-location-icon-size)"
+                />
+                <SkeletonLoader
+                  variant="text"
+                  width="120px"
+                  height="calc(var(--font-size-base) * 1.25)"
+                />
+              </div>
+            )}
 
-            {/* Bio - matches .profileBio (font-size-base, line-height-relaxed, margin-bottom space-4)
-                Real content is conditional; we show skeleton to reserve common-case space. */}
-            <div className={styles.profileBio}>
-              <SkeletonLoader
-                variant="text"
-                width="100%"
-                height="calc(var(--font-size-base) * var(--line-height-relaxed, 1.625))"
-                style={{ marginBottom: 'var(--space-2)' }}
-              />
-              <SkeletonLoader
-                variant="text"
-                width="85%"
-                height="calc(var(--font-size-base) * var(--line-height-relaxed, 1.625))"
-              />
-            </div>
+            {/* Bio skeleton — same conditional reasoning as location above. */}
+            {hasBio && (
+              <div className={styles.profileBio}>
+                <SkeletonLoader
+                  variant="text"
+                  width="100%"
+                  height="calc(var(--font-size-base) * var(--line-height-relaxed, 1.625))"
+                  style={{ marginBottom: 'var(--space-2)' }}
+                />
+                <SkeletonLoader
+                  variant="text"
+                  width="85%"
+                  height="calc(var(--font-size-base) * var(--line-height-relaxed, 1.625))"
+                />
+              </div>
+            )}
 
             {/* Metrics Bar - matches real content: 5 clickable metrics + 4 dividers
                 Real metrics use .profileMetricClickable which adds padding space-1/space-2

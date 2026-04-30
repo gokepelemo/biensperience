@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Box, Flex } from "@chakra-ui/react";
+import { Box, Flex, SimpleGrid } from "@chakra-ui/react";
 import { useData } from "../../contexts/DataContext";
 import { useUser } from "../../contexts/UserContext";
 import { useExperienceWizard } from "../../contexts/ExperienceWizardContext";
@@ -17,6 +17,19 @@ import { getExperiences } from "../../utilities/experiences-api";
 const DISPLAY_LIMIT = 12;
 const CURATED_FETCH_LIMIT = 50;
 
+// Single source of truth for the minimum card widths used in card grids.
+// Each value matches the card's natural fixed-size width (12rem / 20rem) so
+// fluid cards in `repeat(auto-fill, minmax(MIN, 1fr))` tracks render at the
+// SAME size on the homepage, the Destinations view, the Experiences view,
+// and any other consumer that imports these constants.
+//
+// Exported so the listing views (Destinations.jsx, Experiences.jsx, etc.) can
+// import the same values rather than redefining them and drifting.
+export const CARD_MIN_WIDTHS = {
+  destination: '12.5rem',
+  experience: '20rem'
+};
+
 /**
  * Renders one homepage section: heading, card grid (skeletons / cards / empty),
  * and an optional "Browse all" link when the list overflows DISPLAY_LIMIT.
@@ -31,26 +44,48 @@ function HomeSection({
   primaryAction,
   onPrimaryAction,
   browseAllLabel,
-  browseAllTo
+  browseAllTo,
+  // justify-content of the (Flex-mode) cards row. Default 'center' matches
+  // the destinations section's centered cluster look. Ignored in grid mode.
+  justify = 'center',
+  // When set, the row uses SimpleGrid with `minChildWidth` so cards anchor
+  // to a fixed minimum size regardless of container width — that keeps card
+  // sizes consistent across views (homepage vs Destinations / Experiences
+  // listing pages). Pair with `fluid` card variant for full effect.
+  minChildWidth = null
 }) {
+  // Wrap cards row in either a Grid or a Flex depending on which mode is
+  // requested. In grid mode we skip the FlexCenter wrapper — a flex parent
+  // would treat SimpleGrid as a flex item and collapse its width to
+  // min-content (which for fluid cards is ~0).
+  const renderRow = (children) => minChildWidth
+    ? (
+      <SimpleGrid
+        minChildWidth={minChildWidth}
+        gap="6"
+        mb="8"
+        alignItems="stretch"
+        className="animation-fade-in"
+      >
+        {children}
+      </SimpleGrid>
+    )
+    : (
+      <FlexCenter className="animation-fade-in">
+        <Flex wrap="wrap" gap="6" justify={justify} align="stretch" mb="8">{children}</Flex>
+      </FlexCenter>
+    );
+
   return (
     <>
       <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
         {title}
       </Heading>
       {isLoading ? (
-        <FlexCenter className="animation-fade-in">
-          <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
-            <SkeletonComponent count={DISPLAY_LIMIT} />
-          </Flex>
-        </FlexCenter>
+        renderRow(<SkeletonComponent count={DISPLAY_LIMIT} />)
       ) : items.length > 0 ? (
         <>
-          <FlexCenter className="animation-fade-in">
-            <Flex wrap="wrap" gap="4" justify="center" align="stretch" mb="8">
-              {items.slice(0, DISPLAY_LIMIT).map(renderCard)}
-            </Flex>
-          </FlexCenter>
+          {renderRow(items.slice(0, DISPLAY_LIMIT).map(renderCard))}
           {items.length > DISPLAY_LIMIT && browseAllLabel && (
             <Box flex="0 0 100%" maxW="100%" textAlign="center" mt="6" mb="12">
               <Button
@@ -179,6 +214,7 @@ export default function AppHome() {
         key={destination._id}
         destination={destination}
         className="animation-fade-in"
+        fluid
       />
     ),
     []
@@ -191,6 +227,7 @@ export default function AppHome() {
         experience={experience}
         className="animation-fade-in"
         userPlans={plans}
+        fluid
       />
     ),
     [plans]
@@ -235,6 +272,7 @@ export default function AppHome() {
             onPrimaryAction={handleCreateDestination}
             browseAllLabel={lang.current.button.viewAllDestinations}
             browseAllTo="/destinations"
+            minChildWidth={CARD_MIN_WIDTHS.destination}
           />
           <HomeSection
             title={lang.current.heading.curatedExperiences}
@@ -247,6 +285,7 @@ export default function AppHome() {
             onPrimaryAction={handleCreateExperience}
             browseAllLabel={lang.current.button.viewAllExperiences}
             browseAllTo="/experiences"
+            minChildWidth={CARD_MIN_WIDTHS.experience}
           />
         </>
       )}

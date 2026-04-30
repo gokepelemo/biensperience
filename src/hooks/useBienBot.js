@@ -35,12 +35,32 @@ export function openWithSession(sessionId) {
  * Call the stateless analyze endpoint and open BienBot with the results
  * displayed as a synthetic assistant message.
  *
+ * Emits two lifecycle events around the analysis call so BienBot's own UI
+ * (FAB spinner) can reflect the in-flight analysis to the user, in addition
+ * to the trigger button's local loading state:
+ *
+ *   - `bienbot:analyzing_start` — emitted immediately before the API call.
+ *     BienBotTrigger flips greetingLoading=true, which makes the FAB spinner
+ *     show until the analysis resolves and the panel takes over.
+ *   - `bienbot:analyzing_end` — emitted in the finally branch (success or
+ *     error). BienBotTrigger clears greetingLoading. On success, the
+ *     subsequent `bienbot:open` event mounts the panel; on error, neither
+ *     fires and the FAB returns to idle.
+ *
  * @param {string} entity - 'experience' | 'destination' | 'plan'
  * @param {string} entityId - MongoDB ObjectId string
  * @param {string} entityLabel - Human-readable entity name for the message header
  */
 export async function openWithAnalysis(entity, entityId, entityLabel) {
-  const result = await analyzeEntity(entity, entityId);
+  broadcastEvent('bienbot:analyzing_start', { entity, entityId, entityLabel });
+  let result;
+  try {
+    result = await analyzeEntity(entity, entityId);
+  } catch (err) {
+    broadcastEvent('bienbot:analyzing_end', { entity, entityId, entityLabel, error: err?.message });
+    throw err;
+  }
+  broadcastEvent('bienbot:analyzing_end', { entity, entityId, entityLabel });
   broadcastEvent('bienbot:open', {
     analysisSuggestions: {
       entity,
@@ -284,12 +304,13 @@ export default function useBienBot({ sessionId: initialSessionId = null, invokeC
         const displayText = contextDescription || `"${label}"`;
         const isUserEntity = entity?.toLowerCase() === 'user';
         const isOwnProfile = isUserEntity && userId && entityId && entityId.toString() === userId.toString();
+        const humanizedEntity = (entity || '').replace(/_/g, ' ');
         let ackContent;
         if (isSwitch) {
           if (isOwnProfile) {
             ackContent = `Context has changed to your profile. You can take actions on it with BienBot.`;
           } else {
-            ackContent = `Context switched to ${displayText}. I'll now focus on this ${entity} unless you tell me otherwise.`;
+            ackContent = `Context switched to ${displayText}. I'll now focus on this ${humanizedEntity} unless you tell me otherwise.`;
           }
         } else {
           if (isOwnProfile) {

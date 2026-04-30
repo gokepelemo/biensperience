@@ -119,13 +119,13 @@ const UserAvatar = ({
   // a single API request via microtask batching in avatar-cache.js.
   const [lazyUrl, setLazyUrl] = useState(null);
   // Initialise from the module-level cache so remounts don't briefly show
-  // the skeleton when the avatar status is already known (URL or explicit null).
-  // resolvedUrl is safe to use here — it's computed above before any hooks.
+  // the skeleton when the URL is already known. The cache now stores positive
+  // URLs only (null/undefined absent → will trigger a lazy fetch), so a
+  // truthy cached value here means "we already have a URL, no fetch needed".
   const [fetchDone, setFetchDone] = useState(() => {
     if (!user?._id || resolvedUrl !== null) return false;
-    // resolvedUrl is null; check whether we already fetched for this user.
     const cached = getCachedAvatarUrl(user._id.toString());
-    return cached !== undefined; // true for both URL and explicit null in cache
+    return !!cached;
   });
 
   // Version counter bumped when the avatar cache is invalidated for this user.
@@ -135,13 +135,17 @@ const UserAvatar = ({
 
   // Subscribe to avatar:changed events so already-mounted components
   // re-fetch when a photo is uploaded/deleted or the user record changes.
+  // Note: we intentionally do NOT clear lazyUrl here — clearing it would force
+  // an isResolving=true render and flash the skeleton on every user:updated
+  // event (name change, preference toggle, etc.). Bumping fetchVersion is
+  // enough to make the fetch effect re-run; it then replaces lazyUrl with the
+  // new URL (or explicit null) once the request resolves, so the visible URL
+  // stays put until we actually have the new one.
   useEffect(() => {
     if (!user?._id) return;
     const userId = user._id.toString();
     const unsub = eventBus.subscribe('avatar:changed', (event) => {
       if (event?.userId?.toString() === userId) {
-        setLazyUrl(null);
-        setFetchDone(false);
         setFetchVersion(v => v + 1);
       }
     });
@@ -151,14 +155,15 @@ const UserAvatar = ({
   useEffect(() => {
     if (resolvedUrl !== null || !user?._id) {
       if (lazyUrl !== null) setLazyUrl(null);
-      setFetchDone(false);
       return;
     }
 
     let cancelled = false;
     fetchAvatarUrl(user._id).then(url => {
       if (!cancelled) {
-        if (url) setLazyUrl(url);
+        // Always assign — including null when the user no longer has an avatar.
+        // Without this the previous URL would linger after a delete.
+        setLazyUrl(url);
         setFetchDone(true);
       }
     });
