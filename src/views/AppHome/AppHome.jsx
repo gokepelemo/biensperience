@@ -78,7 +78,7 @@ function HomeSection({
 
   return (
     <>
-      <Heading level={2} className="animation-fade-in" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+      <Heading level={2} className="animation-fade-in" mt={6} mb={6}>
         {title}
       </Heading>
       {isLoading ? (
@@ -93,7 +93,6 @@ function HomeSection({
                 to={browseAllTo}
                 variant="link"
                 size="sm"
-                style={{ minHeight: 'auto', minWidth: 'auto', textDecoration: 'none' }}
               >
                 {browseAllLabel}
               </Button>
@@ -242,7 +241,7 @@ export default function AppHome() {
         ogTitle={lang.current.viewMeta.defaultTitle}
         ogDescription={lang.current.viewMeta.defaultDescription}
       />
-      <HeroBanner className="animation-fade-in" />
+      {!isEmptyState && <HeroBanner className="animation-fade-in" />}
 
       {isEmptyState ? (
         <FlexCenter>
