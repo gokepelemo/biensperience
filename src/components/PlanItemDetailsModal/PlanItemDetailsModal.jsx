@@ -4,12 +4,10 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Dropdown } from '../design-system';
-import { FaPlus, FaShareAlt, FaChevronDown, FaRobot } from 'react-icons/fa';
-import { Modal, Alert, Tooltip } from '../design-system';
-import Button from '../Button/Button';
+import { FaChevronDown } from 'react-icons/fa';
+import { Modal, Dropdown } from '../design-system';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
-import AddPlanItemDetailModal, { DETAIL_TYPE_CONFIG } from '../AddPlanItemDetailModal';
+import AddPlanItemDetailModal, { DETAIL_TYPES } from '../AddPlanItemDetailModal';
 import AddDetailTypeModal from '../AddDetailTypeModal';
 import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
@@ -21,15 +19,11 @@ import ChatTab from './ChatTab';
 import EditableTitle from './EditableTitle';
 import ItemNavBar from './ItemNavBar';
 import AssignmentSection from './AssignmentSection';
+import CostPlanningInfoSection from './CostPlanningInfoSection';
 import styles from './PlanItemDetailsModal.module.css';
-import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
-import { formatPlanningTime, getPlanningTimeTooltip } from '../../utilities/planning-time-utils';
-import { formatCostEstimate, formatActualCost, getCostEstimateTooltip, getTrackedCostTooltip } from '../../utilities/cost-utils';
 import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
-import { updatePlanItem } from '../../utilities/plans-api';
 import { lang } from '../../lang.constants';
-import { displayInTimezone } from '../../utilities/time-utils';
 import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
 import { useNavigationContext } from '../../contexts/NavigationContext';
 import usePlanItemNavigation from '../../hooks/usePlanItemNavigation';
@@ -84,9 +78,6 @@ export default function PlanItemDetailsModal({
 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [ratesLoaded, setRatesLoaded] = useState(false);
-  // Add dropdown state
-  const [showAddDropdown, setShowAddDropdown] = useState(false);
-  const [addDropdownFilter, setAddDropdownFilter] = useState('');
   const [showAddDetailModal, setShowAddDetailModal] = useState(false);
   const [selectedDetailType, setSelectedDetailType] = useState(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -96,11 +87,6 @@ export default function PlanItemDetailsModal({
   // Local state for immediate UI feedback on scheduled date/time changes
   const [localScheduledDate, setLocalScheduledDate] = useState(null);
   const [localScheduledTime, setLocalScheduledTime] = useState(null);
-
-  // Plan item chat state (rendered ONLY in this modal's Chat tab)
-  // Track which plan item the current chat channel belongs to
-  const addDropdownRef = useRef(null);
-  const addDropdownFilterRef = useRef(null);
 
   // Mobile/Tablet: allow the details modal to scroll within its fixed overlay.
   // Uses 991px breakpoint to match tab dropdown visibility (same breakpoint as .detailsTabs display: none)
@@ -217,7 +203,6 @@ export default function PlanItemDetailsModal({
         to: initialTab
       });
       setActiveTab(initialTab);
-      setShowAddDropdown(false);
       setShowLocationModal(false);
       setShowDateModal(false);
       setShowDetailTypeSelectorModal(false);
@@ -251,57 +236,6 @@ export default function PlanItemDetailsModal({
     onPrev,
     onNext,
   });
-
-  // Handle click outside for add dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        addDropdownRef.current &&
-        !addDropdownRef.current.contains(event.target)
-      ) {
-        setShowAddDropdown(false);
-      }
-    };
-
-    if (showAddDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showAddDropdown]);
-
-  // Clear filter and focus input when Add dropdown opens
-  useEffect(() => {
-    if (showAddDropdown) {
-      setAddDropdownFilter('');
-      // Focus filter input after dropdown renders
-      requestAnimationFrame(() => {
-        addDropdownFilterRef.current?.focus();
-      });
-    }
-  }, [showAddDropdown]);
-
-  // Build detail type items array and trie filter for the Add dropdown
-  const detailTypeItems = useMemo(() => {
-    return Object.entries(DETAIL_TYPE_CONFIG).map(([type, config]) => ({
-      type,
-      label: config.label,
-      icon: config.icon,
-      description: config.description || ''
-    }));
-  }, []);
-
-  const detailTypeTrieFilter = useMemo(() => {
-    // Index by label and description for comprehensive search
-    return createSimpleFilter(['label', 'description']).buildIndex(detailTypeItems);
-  }, [detailTypeItems]);
-
-  // Filter detail types based on dropdown filter input using trie
-  const filteredDetailTypes = useMemo(() => {
-    if (addDropdownFilter.trim() === '') {
-      return detailTypeItems;
-    }
-    return detailTypeTrieFilter.filter(addDropdownFilter, { rankResults: true });
-  }, [addDropdownFilter, detailTypeItems, detailTypeTrieFilter]);
 
   /**
    * Handle entity click from mentions in notes
@@ -399,16 +333,12 @@ export default function PlanItemDetailsModal({
     return actualCosts.reduce((sum, cost) => sum + getConvertedAmount(cost), 0);
   }, [actualCosts, getConvertedAmount]);
 
-  // Handle add dropdown toggle
-  // NOTE: These callbacks MUST be before early return to maintain hooks order
-  const handleToggleAddDropdown = useCallback(() => {
-    setShowAddDropdown(prev => !prev);
-  }, []);
-
-  // Handle selecting a detail type from dropdown
+  // Route a selected detail type from the dropdown / empty-state modal to
+  // the right next step. Kept in the parent because the AddDetailTypeModal
+  // empty-state path also needs it.
+  // NOTE: This callback MUST be before early return to maintain hooks order.
   const handleSelectDetailType = useCallback((type) => {
     setSelectedDetailType(type);
-    setShowAddDropdown(false);
 
     // Handle DATE type specially - open simple date modal
     if (type === DETAIL_TYPES.DATE) {
@@ -521,37 +451,6 @@ export default function PlanItemDetailsModal({
     : (planItem.scheduled_date && new Date(planItem.scheduled_date).getTime() ? planItem.scheduled_date : null);
   const scheduledTime = localScheduledTime || planItem.scheduled_time || null;
 
-  // Format scheduled date for display (short format without year)
-  const getFormattedScheduledDate = () => {
-    if (!scheduledDate) return null;
-    const result = displayInTimezone(scheduledDate, { weekday: 'short', month: 'short', day: 'numeric' }, currentUser);
-    return result || null;
-  };
-
-  // Format scheduled date for tooltip (full format with year)
-  const getFullScheduledDate = () => {
-    if (!scheduledDate) return null;
-    const result = displayInTimezone(scheduledDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }, currentUser);
-    return result || null;
-  };
-
-  // Format scheduled time for display (12-hour format)
-  const getFormattedScheduledTime = () => {
-    if (!scheduledTime) return null;
-    // Handle HH:MM format
-    if (/^\d{2}:\d{2}$/.test(scheduledTime)) {
-      const [hours, minutes] = scheduledTime.split(':');
-      const h = parseInt(hours, 10);
-      const period = h >= 12 ? 'PM' : 'AM';
-      const displayHour = h % 12 || 12;
-      return `${displayHour}:${minutes} ${period}`;
-    }
-    return scheduledTime;
-  };
-
-  // Check if we have any info to display in the info section
-  const hasInfoToDisplay = scheduledDate || planningDays > 0 || costEstimate > 0 || actualCosts.length > 0;
-
   return (
     <>
       <Modal
@@ -591,170 +490,26 @@ export default function PlanItemDetailsModal({
         />
 
         {/* Cost & Planning Info Section */}
-        {hasInfoToDisplay && (
-          <div className={styles.costPlanningSection}>
-            {/* Scheduled Date/Time */}
-            {scheduledDate && (
-              <div
-                className={`${styles.infoCard} ${styles.scheduledDateCard}`}
-                onClick={() => setShowDateModal(true)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowDateModal(true); }}
-                title={lang.current.tooltip.clickToEditScheduledDate}
-              >
-                <span className={styles.infoIcon}>📅</span>
-                <div className={styles.infoContent}>
-                  <span className={styles.infoLabel}>Scheduled</span>
-                  <span className={styles.scheduledDateValue}>
-                    {getFormattedScheduledDate()}
-                    {scheduledTime && <span className={styles.scheduledTime}> at {getFormattedScheduledTime()}</span>}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Planning Days */}
-            {planningDays > 0 && (
-              <Tooltip content={getPlanningTimeTooltip()} placement="top">
-                <div className={styles.infoCard}>
-                  <span className={styles.infoIcon}>⏱️</span>
-                  <div className={styles.infoContent}>
-                    <span className={styles.infoLabel}>{lang.en.label.planningTime}</span>
-                    <span className={styles.infoValue}>
-                      {formatPlanningTime(planningDays)}
-                    </span>
-                  </div>
-                </div>
-              </Tooltip>
-            )}
-
-            {/* Cost Estimate - forecasted by experience creator */}
-            {costEstimate > 0 && (
-              <Tooltip content={getCostEstimateTooltip(costEstimate, { currency })} placement="top">
-                <div className={styles.infoCard}>
-                  <span className={styles.infoIcon}>💰</span>
-                  <div className={styles.infoContent}>
-                    <span className={styles.infoLabel}>{lang.en.heading.estimatedCost}</span>
-                    <span className={styles.infoValue}>
-                      {formatCostEstimate(costEstimate, { currency })}
-                    </span>
-                  </div>
-                </div>
-              </Tooltip>
-            )}
-
-            {/* Tracked Costs - shows total only (itemized on Details tab) */}
-            {actualCosts.length > 0 && (
-              <Tooltip content={getTrackedCostTooltip(totalActualCost, actualCosts.length, { currency })} placement="top">
-                <div className={styles.infoCard}>
-                  <span className={styles.infoIcon}>💵</span>
-                  <div className={styles.infoContent}>
-                    <span className={styles.infoLabel}>
-                      {lang.en.heading.trackedCosts || 'Tracked Costs'}
-                    </span>
-                    <span className={styles.infoValue}>
-                      {formatActualCost(totalActualCost, { currency, exact: true })}
-                    </span>
-                  </div>
-                </div>
-              </Tooltip>
-            )}
-
-            {/* Action buttons: Add and Share - stacked vertically */}
-            {(canEdit && (onAddCostForItem || onAddDetail)) || onShare || hasBienBot ? (
-              <div className={styles.actionButtonsStack}>
-                {/* + Add Button with Dropdown - add costs, transport details, etc. */}
-                {canEdit && (onAddCostForItem || onAddDetail) && (
-                  <div className={styles.addDropdownWrapper} ref={addDropdownRef}>
-                    <Tooltip content={showAddDropdown ? '' : 'Add costs, reservations, or other details'} placement="top">
-                      <Button
-                        variant="gradient"
-                        size="sm"
-                        onClick={handleToggleAddDropdown}
-                        aria-expanded={showAddDropdown}
-                        aria-haspopup="menu"
-                        leftIcon={<FaPlus />}
-                        rightIcon={<span className={styles.addButtonCaret}>▾</span>}
-                      >
-                        {lang.current.button.add}
-                      </Button>
-                    </Tooltip>
-
-                    {showAddDropdown && (
-                      <div className={styles.addDropdownMenu} role="menu">
-                        {/* Filter input for searching detail types */}
-                        <div className={styles.addDropdownFilterWrapper}>
-                          <input
-                            ref={addDropdownFilterRef}
-                            type="text"
-                            className={styles.addDropdownFilterInput}
-                            placeholder={lang.current.placeholder.search}
-                            value={addDropdownFilter}
-                            onChange={(e) => setAddDropdownFilter(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            aria-label={lang.current.aria.filterDetailTypes}
-                          />
-                        </div>
-                        {/* Filtered list of detail types */}
-                        <div className={styles.addDropdownItems}>
-                          {filteredDetailTypes.length > 0 ? (
-                            filteredDetailTypes.map((item) => (
-                              <button
-                                key={item.type}
-                                type="button"
-                                className={styles.addDropdownItem}
-                                onClick={() => handleSelectDetailType(item.type)}
-                                role="menuitem"
-                              >
-                                <span className={styles.addDropdownIcon}>{item.icon}</span>
-                                <span className={styles.addDropdownLabel}>{item.label}</span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className={styles.addDropdownNoResults}>
-                              No matching types
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Share Button */}
-                {onShare && (
-                  <Tooltip content="Share this plan item" placement="top">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onShare(planItem)}
-                      leftIcon={<FaShareAlt />}
-                      fullWidth
-                    >
-                      {lang.current.planItemDetailsModal.share}
-                    </Button>
-                  </Tooltip>
-                )}
-
-                {/* BienBot Discuss Button */}
-                {hasBienBot && (
-                  <Tooltip content={`${bienbotLabel} this plan item with BienBot`} placement="top">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleBienBot}
-                      leftIcon={<FaRobot />}
-                      fullWidth
-                    >
-                      {bienbotLabel}
-                    </Button>
-                  </Tooltip>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
+        <CostPlanningInfoSection
+          planItem={planItem}
+          currentUser={currentUser}
+          scheduledDate={scheduledDate}
+          scheduledTime={scheduledTime}
+          planningDays={planningDays}
+          costEstimate={costEstimate}
+          currency={currency}
+          actualCosts={actualCosts}
+          totalActualCost={totalActualCost}
+          canEdit={canEdit}
+          onShare={onShare}
+          onAddCostForItem={onAddCostForItem}
+          onAddDetail={onAddDetail}
+          onEditDate={() => setShowDateModal(true)}
+          onSelectDetailType={handleSelectDetailType}
+          hasBienBot={hasBienBot}
+          bienbotLabel={bienbotLabel}
+          onBienBot={handleBienBot}
+        />
 
         {/* Tab options configuration */}
         {(() => {
