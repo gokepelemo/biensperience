@@ -6,30 +6,19 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from '../design-system';
-import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight, FaRobot } from 'react-icons/fa';
-import {
-  Chat,
-  Channel,
-  MessageInput,
-  MessageList,
-  Thread,
-  Window
-} from 'stream-chat-react';
-import 'stream-chat-react/dist/css/v2/index.css';
+import { FaPlus, FaShareAlt, FaChevronDown, FaChevronLeft, FaChevronRight, FaRobot } from 'react-icons/fa';
 import { Modal, Alert, Tooltip } from '../design-system';
 import Button from '../Button/Button';
-import Loading from '../Loading/Loading';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
-import AddPlanItemDetailModal, { DETAIL_TYPES, DETAIL_TYPE_CONFIG, DETAIL_CATEGORIES } from '../AddPlanItemDetailModal';
+import AddPlanItemDetailModal, { DETAIL_TYPE_CONFIG } from '../AddPlanItemDetailModal';
 import AddDetailTypeModal from '../AddDetailTypeModal';
 import AddLocationModal from '../AddLocationModal';
 import AddDateModal from '../AddDateModal';
-import GoogleMap from '../GoogleMap/GoogleMap';
-import EmptyState from '../EmptyState/EmptyState';
 import DocumentsTab from './DocumentsTab';
 import PhotosTab from './PhotosTab';
-import DetailItemCard from './DetailItemCard';
-import getDetailDisplayFields from './getDetailDisplayFields';
+import DetailsTab from './DetailsTab';
+import LocationTab from './LocationTab';
+import ChatTab from './ChatTab';
 import styles from './PlanItemDetailsModal.module.css';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
@@ -39,9 +28,7 @@ import { convertCostToTarget, fetchRates } from '../../utilities/currency-conver
 import { updatePlanItem } from '../../utilities/plans-api';
 import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
-import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
 import { displayInTimezone } from '../../utilities/time-utils';
-import CollaboratorDetailsSection from './CollaboratorDetailsSection';
 import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
 import { useNavigationContext } from '../../contexts/NavigationContext';
 import usePlanItemNavigation from '../../hooks/usePlanItemNavigation';
@@ -1066,76 +1053,20 @@ export default function PlanItemDetailsModal({
           aria-labelledby={`tab-${activeTab}`}
         >
           {activeTab === 'details' && (
-            <div className={styles.detailsTabContent}>
-              {/* Popup blocked warning */}
-              {pdfExportBlocked && (
-                <Alert
-                  type="warning"
-                  message="Your browser blocked the PDF export popup. Please allow popups for this site and try again."
-                  dismissible
-                  onClose={() => setPdfExportBlocked(false)}
-                />
-              )}
-              {/* Export PDF button */}
-              {totalDetailsCount > 0 && (
-                <div className={styles.detailsExportBar}>
-                  <Tooltip content="Export all details to PDF" placement="left">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportPDF}
-                      leftIcon={<FaFilePdf />}
-                    >
-                      {lang.current.planItemDetailsModal.exportPdf}
-                    </Button>
-                  </Tooltip>
-                </div>
-              )}
-
-              {/* Grouped details list */}
-              {totalDetailsCount > 0 ? (
-                <div className={styles.detailsGroupedList}>
-                  {Object.entries(groupedDetails).map(([categoryKey, category]) => (
-                    <div key={categoryKey} className={styles.detailsCategory}>
-                      <h3 className={styles.detailsCategoryTitle}>
-                        <span className={styles.detailsCategoryIcon}>{category.icon}</span>
-                        <span>{category.label}</span>
-                        <span className={styles.detailsCategoryCount}>({category.items.length})</span>
-                      </h3>
-                      <div className={styles.detailsCategoryItems}>
-                        {category.items.map((item, index) => (
-                          <DetailItemCard
-                            key={item._key || `${categoryKey}-${index}`}
-                            item={item}
-                            collaborators={collaborators}
-                            styles={styles}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  variant="generic"
-                  icon="📋"
-                  title={lang.current.planItemDetailsModal.noDetailsAdded}
-                  description={lang.current.planItemDetailsModal.noDetailsDescription}
-                  primaryAction={canEdit && (onAddCostForItem || onAddDetail) ? (lang.current.planItemDetailsModal.addDetails || 'Add Details') : null}
-                  onPrimaryAction={canEdit && (onAddCostForItem || onAddDetail) ? () => setShowDetailTypeSelectorModal(true) : null}
-                  size="md"
-                  fillContainer={collaborators.length === 0}
-                />
-              )}
-
-              {/* Per-collaborator details */}
-              <CollaboratorDetailsSection
-                collaborators={collaborators}
-                plan={plan}
-                currentUser={currentUser}
-                styles={styles}
-              />
-            </div>
+            <DetailsTab
+              pdfExportBlocked={pdfExportBlocked}
+              onDismissPdfExportBlocked={() => setPdfExportBlocked(false)}
+              totalDetailsCount={totalDetailsCount}
+              groupedDetails={groupedDetails}
+              onExportPDF={handleExportPDF}
+              collaborators={collaborators}
+              canEdit={canEdit}
+              onAddCostForItem={onAddCostForItem}
+              onAddDetail={onAddDetail}
+              onAddDetailRequest={() => setShowDetailTypeSelectorModal(true)}
+              plan={plan}
+              currentUser={currentUser}
+            />
           )}
 
           {/* NotesTab - keep mounted but hidden to preserve form state during tab switches.
@@ -1168,110 +1099,28 @@ export default function PlanItemDetailsModal({
           <div
             className={`${styles.locationTabContent} ${activeTab === 'location' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
-              {locationForMap ? (
-                <>
-                  {/* Location details */}
-                  <div className={styles.locationHeader}>
-                    <div className={styles.locationIcon}>
-                      <FaMapMarkerAlt />
-                    </div>
-                    <div className={styles.locationInfo}>
-                      <div className={styles.locationAddress}>
-                        {planItem.location.address}
-                      </div>
-                      {(planItem.location.city || planItem.location.state || planItem.location.country) && (
-                        <div className={styles.locationMeta}>
-                          {[planItem.location.city, planItem.location.state, planItem.location.country]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    {canEdit && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowLocationModal(true)}
-                      >
-                        {lang.current.planItemDetailsModal.change}
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Copyable address bar */}
-                  <Tooltip content={addressCopied ? "Copied!" : "Click to copy address for use in other apps"} placement="top">
-                    <button
-                      type="button"
-                      className={`${styles.copyableAddressBar} ${addressCopied ? styles.copied : ''}`}
-                      onClick={handleCopyAddress}
-                      aria-label={lang.current.aria.copyAddressToClipboard}
-                    >
-                      <span className={styles.copyableAddressText}>
-                        {fullCopyableAddress}
-                      </span>
-                      <span className={styles.copyAddressIcon}>
-                        {addressCopied ? <FaCheck /> : <FaCopy />}
-                      </span>
-                    </button>
-                  </Tooltip>
-
-                  {/* Google Map with Get Directions button */}
-                  <div className={styles.locationMapWrapper}>
-                    <GoogleMap
-                      location={locationForMap}
-                      height={400}
-                      showDirections={true}
-                      title={`Map of ${planItem.location.address}`}
-                    />
-                  </div>
-                </>
-              ) : (
-                <EmptyState
-                  variant="generic"
-                  icon="📍"
-                  title={lang.current.planItemDetailsModal.noLocationSet}
-                  description={lang.current.planItemDetailsModal.noLocationDescription}
-                  primaryAction={canEdit ? lang.current.planItemDetailsModal.addLocation : null}
-                  onPrimaryAction={canEdit ? () => setShowLocationModal(true) : null}
-                  size="md"
-                  fillContainer
-                />
-              )}
-            </div>
+            <LocationTab
+              planItem={planItem}
+              locationForMap={locationForMap}
+              fullCopyableAddress={fullCopyableAddress}
+              addressCopied={addressCopied}
+              onCopyAddress={handleCopyAddress}
+              canEdit={canEdit}
+              onEditLocation={() => setShowLocationModal(true)}
+              onAddLocation={() => setShowLocationModal(true)}
+            />
+          </div>
 
           {activeTab === 'chat' && (
-            <div className={styles.chatTabWrapper}>
-              {!streamApiKey && (
-                <Alert
-                  type="danger"
-                  message="Chat is not configured (missing VITE_STREAM_CHAT_API_KEY)."
-                />
-              )}
-
-              {mergedChatError && <Alert type="danger" message={mergedChatError} />}
-
-              {streamApiKey && !mergedChatError && chatShouldShowLoading && (
-                <Loading size="sm" variant="centered" message="Loading chat..." />
-              )}
-
-              {!mergedChatLoading && chatClient && chatChannel && (
-                <div className={styles.chatPane}>
-                  <Chat
-                    client={chatClient}
-                    theme={uiTheme === 'dark' ? 'str-chat__theme-dark' : 'str-chat__theme-light'}
-                  >
-                    <Channel channel={chatChannel} Avatar={StreamChatAvatar}>
-                      <Window>
-                        {/* No ChannelHeader - chat is already in plan item context (modal title) */}
-                        <MessageList />
-                        <MessageInput focus />
-                      </Window>
-                      <Thread />
-                    </Channel>
-                  </Chat>
-                </div>
-              )}
-            </div>
+            <ChatTab
+              streamApiKey={streamApiKey}
+              mergedChatError={mergedChatError}
+              mergedChatLoading={mergedChatLoading}
+              chatShouldShowLoading={chatShouldShowLoading}
+              chatClient={chatClient}
+              chatChannel={chatChannel}
+              uiTheme={uiTheme}
+            />
           )}
 
           {/* PhotosTab - keep mounted but hidden to preserve state during tab switches */}
