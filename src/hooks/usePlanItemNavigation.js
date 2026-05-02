@@ -10,20 +10,30 @@ export default function usePlanItemNavigation({ show, onPrev, onNext }) {
   useEffect(() => {
     if (!show || (!onPrev && !onNext)) return undefined;
 
-    const handleKeyDown = (e) => {
-      const el = document.activeElement;
-      const tag = el?.tagName?.toLowerCase();
-      const role = el?.getAttribute?.('role');
-      if (
-        tag === 'input' ||
-        tag === 'textarea' ||
-        tag === 'select' ||
-        el?.isContentEditable ||
-        role === 'tab' ||
-        role === 'option'
-      ) {
-        return;
+    const isTypingTarget = (el) => {
+      if (!el) return false;
+      const tag = el.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      const role = el.getAttribute?.('role');
+      if (role === 'tab' || role === 'option') return true;
+      if (el.isContentEditable) return true;
+      // Walk ancestors so focus inside a contenteditable shadow / mention popover
+      // / Stream Chat MessageInput counts even when the focused descendant is a
+      // bare span/div without its own opt-out. data-bien-no-nav explicitly opts
+      // a subtree out of arrow-key plan-item navigation.
+      let node = el;
+      while (node && node !== document.body) {
+        if (node.dataset?.bienNoNav !== undefined) return true;
+        if (node.isContentEditable) return true;
+        const ce = node.getAttribute?.('contenteditable');
+        if (ce === '' || ce === 'true' || ce === 'plaintext-only') return true;
+        node = node.parentElement;
       }
+      return false;
+    };
+
+    const handleKeyDown = (e) => {
+      if (isTypingTarget(document.activeElement)) return;
 
       if (e.key === 'ArrowLeft' && onPrev) {
         e.preventDefault();

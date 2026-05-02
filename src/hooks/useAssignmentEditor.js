@@ -66,9 +66,36 @@ export default function useAssignmentEditor({
     requestAnimationFrame(positionDropdown);
     window.addEventListener('scroll', positionDropdown, true);
     window.addEventListener('resize', positionDropdown);
+
+    // Modal-body scroll on mobile (allowBodyScroll) doesn't always bubble in
+    // a way the capture-phase window listener catches reliably. Walk the DOM
+    // to find scrollable ancestors of the input and attach to each of those.
+    const scrollableAncestors = [];
+    let node = assignmentInputRef.current.parentElement;
+    while (node && node !== document.body) {
+      const cs = window.getComputedStyle(node);
+      const overflowY = cs.overflowY;
+      const overflowX = cs.overflowX;
+      if (
+        overflowY === 'auto' ||
+        overflowY === 'scroll' ||
+        overflowX === 'auto' ||
+        overflowX === 'scroll'
+      ) {
+        scrollableAncestors.push(node);
+      }
+      node = node.parentElement;
+    }
+    scrollableAncestors.forEach((n) =>
+      n.addEventListener('scroll', positionDropdown)
+    );
+
     return () => {
       window.removeEventListener('scroll', positionDropdown, true);
       window.removeEventListener('resize', positionDropdown);
+      scrollableAncestors.forEach((n) =>
+        n.removeEventListener('scroll', positionDropdown)
+      );
     };
   }, [isEditingAssignment]);
 
@@ -128,6 +155,18 @@ export default function useAssignmentEditor({
         case 'ArrowUp':
           e.preventDefault();
           setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+          break;
+        case 'Tab':
+          // Trap Tab inside the open dropdown: forward = next option,
+          // back = previous. Esc or selection still exits.
+          e.preventDefault();
+          if (e.shiftKey) {
+            setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+          } else {
+            setHighlightedIndex((prev) =>
+              prev < filteredCollaborators.length ? prev + 1 : prev
+            );
+          }
           break;
         case 'Enter':
           e.preventDefault();

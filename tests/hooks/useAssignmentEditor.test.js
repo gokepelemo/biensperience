@@ -123,6 +123,19 @@ describe('useAssignmentEditor', () => {
     expect(props.onAssign).toHaveBeenCalledWith('u2');
   });
 
+  it('Tab traps focus within the dropdown by advancing highlight (forward and shift+back)', () => {
+    const { result } = setup();
+    const preventDefault = jest.fn();
+    act(() => result.current.handleAssignmentClick());
+    act(() => result.current.handleAssignmentKeyDown({ key: 'Tab', shiftKey: false, preventDefault }));
+    expect(result.current.highlightedIndex).toBe(1);
+    act(() => result.current.handleAssignmentKeyDown({ key: 'Tab', shiftKey: false, preventDefault }));
+    expect(result.current.highlightedIndex).toBe(2);
+    act(() => result.current.handleAssignmentKeyDown({ key: 'Tab', shiftKey: true, preventDefault }));
+    expect(result.current.highlightedIndex).toBe(1);
+    expect(preventDefault).toHaveBeenCalledTimes(3);
+  });
+
   it('Escape closes the dropdown and clears the search', () => {
     const { result } = setup();
     const preventDefault = jest.fn();

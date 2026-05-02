@@ -74,6 +74,38 @@ describe('usePlanItemNavigation', () => {
     expect(onPrev).not.toHaveBeenCalled();
   });
 
+  it('skips when an ancestor has data-bien-no-nav (Stream Chat / mention popover opt-out)', () => {
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('data-bien-no-nav', '');
+    const inner = document.createElement('span');
+    inner.tabIndex = 0;
+    wrapper.appendChild(inner);
+    document.body.appendChild(wrapper);
+    inner.focus();
+
+    const onPrev = jest.fn();
+    renderHook(() => usePlanItemNavigation({ show: true, onPrev, onNext: jest.fn() }));
+
+    fireKey('ArrowLeft');
+    expect(onPrev).not.toHaveBeenCalled();
+  });
+
+  it('skips when an ancestor is contentEditable even if focused descendant is a span', () => {
+    const editable = document.createElement('div');
+    editable.setAttribute('contenteditable', 'true');
+    const inner = document.createElement('span');
+    inner.tabIndex = 0;
+    editable.appendChild(inner);
+    document.body.appendChild(editable);
+    inner.focus();
+
+    const onPrev = jest.fn();
+    renderHook(() => usePlanItemNavigation({ show: true, onPrev, onNext: jest.fn() }));
+
+    fireKey('ArrowLeft');
+    expect(onPrev).not.toHaveBeenCalled();
+  });
+
   it('detaches keyboard listener on unmount', () => {
     const onPrev = jest.fn();
     const { unmount } = renderHook(() =>

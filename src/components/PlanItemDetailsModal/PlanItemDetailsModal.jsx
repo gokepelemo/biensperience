@@ -3,7 +3,7 @@
  * Modal for viewing and managing all details of a plan item (notes, assignment, etc.)
  */
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from '../design-system';
 import { FaPlus, FaShareAlt, FaFilePdf, FaMapMarkerAlt, FaCopy, FaCheck, FaChevronDown, FaChevronLeft, FaChevronRight, FaRobot } from 'react-icons/fa';
@@ -93,6 +93,7 @@ export default function PlanItemDetailsModal({
   onNext
 }) {
   const streamApiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
+  const assignmentListboxId = useId();
 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [ratesLoaded, setRatesLoaded] = useState(false);
@@ -914,10 +915,24 @@ export default function PlanItemDetailsModal({
                     value={assignmentSearch}
                     onChange={(e) => setAssignmentSearch(e.target.value)}
                     onKeyDown={handleAssignmentKeyDown}
+                    role="combobox"
+                    aria-expanded={isEditingAssignment}
+                    aria-controls={assignmentListboxId}
+                    aria-autocomplete="list"
+                    aria-activedescendant={`${assignmentListboxId}-opt-${highlightedIndex}`}
                   />
                   {(isEditingAssignment && (filteredCollaborators.length > 0 || assignmentSearch)) && createPortal(
-                    <div ref={dropdownRef} className={styles.assignmentDropdown}>
+                    <div
+                      ref={dropdownRef}
+                      className={styles.assignmentDropdown}
+                      id={assignmentListboxId}
+                      role="listbox"
+                    >
                       <div
+                        id={`${assignmentListboxId}-opt-0`}
+                        role="option"
+                        aria-selected={highlightedIndex === 0}
+                        tabIndex={-1}
                         className={`${styles.assignmentOption} ${highlightedIndex === 0 ? styles.highlighted : ''}`}
                         onMouseDown={(e) => {
                           e.preventDefault();
@@ -931,23 +946,28 @@ export default function PlanItemDetailsModal({
                       {filteredCollaborators.map((collab, index) => {
                         const userId = collab._id || collab.user?._id;
                         const userName = collab.name || collab.user?.name || lang.current.planItemDetailsModal.unknownUser;
+                        const optIndex = index + 1;
                         return (
                           <div
                             key={userId}
-                            className={`${styles.assignmentOption} ${highlightedIndex === index + 1 ? styles.highlighted : ''}`}
+                            id={`${assignmentListboxId}-opt-${optIndex}`}
+                            role="option"
+                            aria-selected={highlightedIndex === optIndex}
+                            tabIndex={-1}
+                            className={`${styles.assignmentOption} ${highlightedIndex === optIndex ? styles.highlighted : ''}`}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               handleSelectCollaborator(collab);
                             }}
-                            onMouseEnter={() => setHighlightedIndex(index + 1)}
+                            onMouseEnter={() => setHighlightedIndex(optIndex)}
                           >
                             <span className={styles.assignmentOptionText}>{userName}</span>
                           </div>
                         );
                       })}
                       {filteredCollaborators.length === 0 && assignmentSearch && (
-                        <div className={`${styles.assignmentOption} ${styles.disabled}`}>
+                        <div className={`${styles.assignmentOption} ${styles.disabled}`} role="presentation">
                           <span className={styles.assignmentOptionText}>{lang.current.planItemDetailsModal.noCollaboratorsFound}</span>
                         </div>
                       )}
