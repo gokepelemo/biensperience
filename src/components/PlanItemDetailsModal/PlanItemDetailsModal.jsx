@@ -4,8 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { FaChevronDown } from 'react-icons/fa';
-import { Modal, Dropdown } from '../design-system';
+import { Modal } from '../design-system';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
 import AddPlanItemDetailModal, { DETAIL_TYPES } from '../AddPlanItemDetailModal';
 import AddDetailTypeModal from '../AddDetailTypeModal';
@@ -20,6 +19,7 @@ import EditableTitle from './EditableTitle';
 import ItemNavBar from './ItemNavBar';
 import AssignmentSection from './AssignmentSection';
 import CostPlanningInfoSection from './CostPlanningInfoSection';
+import TabsBar from './TabsBar';
 import styles from './PlanItemDetailsModal.module.css';
 import { logger } from '../../utilities/logger';
 import { convertCostToTarget, fetchRates } from '../../utilities/currency-conversion';
@@ -511,78 +511,14 @@ export default function PlanItemDetailsModal({
           onBienBot={handleBienBot}
         />
 
-        {/* Tab options configuration */}
-        {(() => {
-          const tabOptions = [
-            { key: 'details', label: lang.current.planItemDetailsModal.tabDetails, badge: totalDetailsCount > 0 ? `(${totalDetailsCount})` : null },
-            { key: 'notes', label: lang.current.planItemDetailsModal.tabNotes, badge: notes.length > 0 ? `(${notes.length})` : null },
-            { key: 'location', label: lang.current.planItemDetailsModal.tabLocation, badge: planItem?.location?.address ? '✓' : null },
-            { key: 'chat', label: lang.current.planItemDetailsModal.tabChat, badge: null },
-            { key: 'photos', label: lang.current.planItemDetailsModal.tabPhotos, badge: null },
-            { key: 'documents', label: lang.current.planItemDetailsModal.tabDocuments, badge: null }
-          ];
-          const activeOption = tabOptions.find(opt => opt.key === activeTab) || tabOptions[0];
-
-          return (
-            <>
-              {/* Desktop: Traditional tab buttons */}
-              <div className={styles.detailsTabs} role="tablist" aria-label="Plan item details tabs">
-                {tabOptions.map(opt => (
-                  <button
-                    key={opt.key}
-                    id={`tab-${opt.key}`}
-                    role="tab"
-                    aria-selected={activeTab === opt.key}
-                    aria-controls={`tabpanel-${opt.key}`}
-                    className={`${styles.detailsTab} ${activeTab === opt.key ? styles.active : ''}`}
-                    onClick={() => setActiveTab(opt.key)}
-                    type="button"
-                  >
-                    {opt.label} {opt.badge}
-                  </button>
-                ))}
-              </div>
-
-              {/* Mobile/Tablet: Dropdown selector */}
-              <div className={styles.tabsDropdownWrapper}>
-                <Dropdown onSelect={(key) => setActiveTab(key)} className={styles.tabsDropdown}>
-                  <Dropdown.Toggle variant="outline-secondary" className={styles.tabsDropdownToggle}>
-                    <span className={styles.tabsDropdownLabel}>
-                      {activeOption.label} {activeOption.badge}
-                    </span>
-                    <FaChevronDown className={styles.tabsDropdownIcon} />
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu
-                    className={styles.tabsDropdownMenu}
-                    renderOnMount
-                    popperConfig={{
-                      strategy: 'fixed',
-                      modifiers: [
-                        {
-                          name: 'preventOverflow',
-                          options: {
-                            boundary: 'viewport'
-                          }
-                        }
-                      ]
-                    }}
-                  >
-                    {tabOptions.map(opt => (
-                      <Dropdown.Item
-                        key={opt.key}
-                        eventKey={opt.key}
-                        active={activeTab === opt.key}
-                        className={styles.tabsDropdownItem}
-                      >
-                        {opt.label} {opt.badge}
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown>
-              </div>
-            </>
-          );
-        })()}
+        {/* Tab options + tabs/dropdown */}
+        <TabsBar
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          totalDetailsCount={totalDetailsCount}
+          notesCount={notes.length}
+          hasLocation={!!planItem?.location?.address}
+        />
 
         {/* Tab content - height calculated dynamically via JavaScript */}
         <div
