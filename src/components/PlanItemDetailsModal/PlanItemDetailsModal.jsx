@@ -39,14 +39,16 @@ import { convertCostToTarget, fetchRates } from '../../utilities/currency-conver
 import { updatePlanItem } from '../../utilities/plans-api';
 import { lang } from '../../lang.constants';
 import { sanitizeUrl } from '../../utilities/sanitize';
-import { getOrCreatePlanItemChannel } from '../../utilities/chat-api';
-import useStreamChat from '../../hooks/useStreamChat';
 import StreamChatAvatar from '../ChatModal/StreamChatAvatar';
-import { getFriendlyChatErrorMessage } from '../../utilities/chat-error-utils';
 import { displayInTimezone } from '../../utilities/time-utils';
 import CollaboratorDetailsSection from './CollaboratorDetailsSection';
 import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
 import { useNavigationContext } from '../../contexts/NavigationContext';
+import usePlanItemNavigation from '../../hooks/usePlanItemNavigation';
+import useTitleEditor from '../../hooks/useTitleEditor';
+import useGroupedDetails from '../../hooks/useGroupedDetails';
+import useAssignmentEditor from '../../hooks/useAssignmentEditor';
+import useChatChannel from '../../hooks/useChatChannel';
 
 export default function PlanItemDetailsModal({
   show,
@@ -92,54 +94,7 @@ export default function PlanItemDetailsModal({
 }) {
   const streamApiKey = import.meta.env.VITE_STREAM_CHAT_API_KEY;
 
-  const [uiTheme, setUiTheme] = useState(() => {
-    try {
-      const root = document?.documentElement;
-      const theme = root?.getAttribute('data-theme');
-      return theme === 'dark' ? 'dark' : 'light';
-    } catch (e) {
-      return 'light';
-    }
-  });
-
-  // Keep Stream Chat theme aligned with app theme while modal is open.
-  useEffect(() => {
-    if (!show) return undefined;
-
-    try {
-      const root = document?.documentElement;
-      if (!root || !window?.MutationObserver) return undefined;
-
-      const updateTheme = () => {
-        try {
-          const theme = root.getAttribute('data-theme');
-          setUiTheme(theme === 'dark' ? 'dark' : 'light');
-        } catch (e) {
-          // ignore
-        }
-      };
-
-      updateTheme();
-
-      const observer = new MutationObserver(updateTheme);
-      observer.observe(root, {
-        attributes: true,
-        attributeFilter: ['data-theme']
-      });
-
-      return () => observer.disconnect();
-    } catch (e) {
-      return undefined;
-    }
-  }, [show]);
-
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [isEditingAssignment, setIsEditingAssignment] = useState(false);
-  const [assignmentSearch, setAssignmentSearch] = useState('');
-  const [filteredCollaborators, setFilteredCollaborators] = useState([]);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleText, setTitleText] = useState('');
   const [ratesLoaded, setRatesLoaded] = useState(false);
   // Add dropdown state
   const [showAddDropdown, setShowAddDropdown] = useState(false);
@@ -156,19 +111,9 @@ export default function PlanItemDetailsModal({
   const [localScheduledTime, setLocalScheduledTime] = useState(null);
 
   // Plan item chat state (rendered ONLY in this modal's Chat tab)
-  const [chatChannel, setChatChannel] = useState(null);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState('');
   // Track which plan item the current chat channel belongs to
-  const chatChannelPlanItemIdRef = useRef(null);
-  const assignmentInputRef = useRef(null);
-  const dropdownRef = useRef(null);
-  const titleInputRef = useRef(null);
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
-  // Touch tracking refs for swipe-to-navigate
-  const touchStartXRef = useRef(null);
-  const touchStartYRef = useRef(null);
   // Address copy reset timer
   const addressCopyTimerRef = useRef(null);
   useEffect(() => () => {
@@ -234,103 +179,21 @@ export default function PlanItemDetailsModal({
     };
   }, [show, plan?._id, planItemIdStr, setNavigatedEntity, clearNavigationLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canInitChat = useMemo(() => {
-    return Boolean(show && activeTab === 'chat' && streamApiKey && plan?._id && planItemIdStr);
-  }, [show, activeTab, streamApiKey, plan?._id, planItemIdStr]);
-
   const {
-    client: chatClient,
-    loading: chatClientLoading,
-    error: chatClientError
-  } = useStreamChat({
-    connectWhen: canInitChat,
-    disconnectWhen: !show,
+    chatClient,
+    chatChannel,
+    mergedChatError,
+    mergedChatLoading,
+    canInitChat,
+    chatShouldShowLoading,
+    uiTheme,
+  } = useChatChannel({
+    show,
+    activeTab,
     apiKey: streamApiKey,
-    context: 'PlanItemDetailsModal'
+    plan,
+    planItem,
   });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function initChat() {
-      if (!canInitChat) return;
-
-      // The Stream client initializes asynchronously. Wait until it's available
-      // before trying to create/watch a channel.
-      if (!chatClient || typeof chatClient.channel !== 'function') return;
-
-      // Check if we're switching to a different plan item
-      // If so, clear the existing channel so we can initialize a new one
-      const currentChannelPlanItemId = chatChannelPlanItemIdRef.current;
-      if (currentChannelPlanItemId && currentChannelPlanItemId !== planItemIdStr) {
-        // Switching plan items - clear the old channel
-        setChatChannel(null);
-        chatChannelPlanItemIdRef.current = null;
-        // Allow the effect to re-run with cleared state
-        return;
-      }
-
-      // Skip if already connected to the correct channel (persists across tab switches)
-      if (chatClient && chatChannel && currentChannelPlanItemId === planItemIdStr) return;
-
-      setChatLoading(true);
-      setChatError('');
-
-      try {
-        // Ensure a plan-item scoped group channel exists
-        const planId = normalizeId(plan?._id);
-        const planItemId = planItemIdStr;
-
-        const { id: channelId } = await getOrCreatePlanItemChannel(planId, planItemId);
-
-        const streamChannel = chatClient.channel('messaging', channelId);
-        await streamChannel.watch();
-
-        if (!cancelled) {
-          setChatChannel(streamChannel);
-          chatChannelPlanItemIdRef.current = planItemIdStr;
-        }
-      } catch (err) {
-        logger.error('[PlanItemDetailsModal] Failed to initialize plan item chat', err);
-        if (!cancelled) {
-          setChatError(
-            getFriendlyChatErrorMessage(err, { defaultMessage: 'Failed to initialize chat' })
-          );
-        }
-      } finally {
-        if (!cancelled) setChatLoading(false);
-      }
-    }
-
-    initChat();
-
-    return () => {
-      cancelled = true;
-    };
-    // We check chatClient/chatChannel to skip if already connected.
-    // This prevents reconnection when switching tabs since we keep connection alive.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canInitChat, chatClient, chatChannel, plan?._id, planItemIdStr]);
-
-  // Cleanup chat connection when modal closes
-  // NOTE: We only disconnect when the modal closes, NOT when switching tabs.
-  // This prevents the "can't use channel after disconnect" error when using Thread.
-  // The chat connection stays alive while the modal is open (even on other tabs).
-  useEffect(() => {
-    // Only cleanup when modal is closing
-    if (show) return;
-
-    // Clear state immediately to unmount Stream components first
-    setChatChannel(null);
-    setChatError('');
-    setChatLoading(false);
-    chatChannelPlanItemIdRef.current = null;
-  }, [show]);
-
-  const mergedChatError = chatClientError || chatError;
-  const mergedChatLoading = chatClientLoading || chatLoading;
-  const chatNotReady = canInitChat && (!chatClient || !chatChannel);
-  const chatShouldShowLoading = (canInitChat && (mergedChatLoading || chatNotReady)) || (canInitChat && !mergedChatError && !chatClient && !chatClientLoading);
 
   // Track what we've initialized for - only reset on ACTUAL changes
   const initializedForRef = useRef({ show: false, planItemId: null });
@@ -405,65 +268,11 @@ export default function PlanItemDetailsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, planItem?.scheduled_date, planItem?.scheduled_time]);
 
-  // Keyboard navigation: ArrowLeft = prev item, ArrowRight = next item
-  useEffect(() => {
-    if (!show || (!onPrev && !onNext)) return;
-
-    const handleKeyDown = (e) => {
-      const el = document.activeElement;
-      const tag = el?.tagName?.toLowerCase();
-      const role = el?.getAttribute?.('role');
-      // Skip when user is interacting with a text input or navigable widget
-      if (
-        tag === 'input' || tag === 'textarea' || tag === 'select' ||
-        el?.isContentEditable ||
-        role === 'tab' || role === 'option'
-      ) return;
-
-      if (e.key === 'ArrowLeft' && onPrev) {
-        e.preventDefault();
-        onPrev();
-      } else if (e.key === 'ArrowRight' && onNext) {
-        e.preventDefault();
-        onNext();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [show, onPrev, onNext]);
-
-  // Swipe gesture handlers for touch-to-navigate between plan items
-  const handleTouchStart = useCallback((e) => {
-    if (e.touches.length !== 1) {
-      touchStartXRef.current = null;
-      touchStartYRef.current = null;
-      return;
-    }
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-  }, []);
-
-  const handleTouchEnd = useCallback((e) => {
-    if (touchStartXRef.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-    const dy = e.changedTouches[0].clientY - touchStartYRef.current;
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
-
-    // Must exceed threshold and be primarily horizontal (not a scroll)
-    const SWIPE_THRESHOLD = 60;
-    if (Math.abs(dx) < SWIPE_THRESHOLD) return;
-    if (Math.abs(dx) < Math.abs(dy) * 1.5) return;
-
-    if (dx < 0 && onNext) {
-      // Swipe left → next item
-      onNext();
-    } else if (dx > 0 && onPrev) {
-      // Swipe right → prev item
-      onPrev();
-    }
-  }, [onPrev, onNext]);
+  const { handleTouchStart, handleTouchEnd } = usePlanItemNavigation({
+    show,
+    onPrev,
+    onNext,
+  });
 
   // Handle click outside for add dropdown
   useEffect(() => {
@@ -493,63 +302,37 @@ export default function PlanItemDetailsModal({
     }
   }, [showAddDropdown]);
 
-  // Focus title input when editing starts
-  useEffect(() => {
-    if (isEditingTitle && titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select();
-    }
-  }, [isEditingTitle]);
+  const {
+    isEditingTitle,
+    setIsEditingTitle,
+    titleText,
+    setTitleText,
+    titleInputRef,
+    handleTitleClick,
+    handleTitleBlur,
+    handleTitleKeyDown,
+  } = useTitleEditor(planItem, canEdit, onUpdateTitle);
 
-  // Handle title click to start editing
-  const handleTitleClick = useCallback(() => {
-    if (canEdit && onUpdateTitle) {
-      setTitleText(planItem?.text || '');
-      setIsEditingTitle(true);
-    }
-  }, [canEdit, onUpdateTitle, planItem?.text]);
-
-  // Handle title blur to save
-  const handleTitleBlur = useCallback(async () => {
-    setIsEditingTitle(false);
-    const trimmedTitle = titleText.trim();
-    // Only save if title changed and is not empty
-    if (trimmedTitle && trimmedTitle !== planItem?.text && onUpdateTitle) {
-      try {
-        await onUpdateTitle(trimmedTitle);
-      } catch (error) {
-        logger.error('[PlanItemDetailsModal] Failed to update title', { error });
-        // Revert to original on error
-        setTitleText(planItem?.text || '');
-      }
-    } else {
-      // Revert to original if empty or unchanged
-      setTitleText(planItem?.text || '');
-    }
-  }, [titleText, planItem?.text, onUpdateTitle]);
-
-  // Handle title key events
-  const handleTitleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      titleInputRef.current?.blur();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setTitleText(planItem?.text || '');
-      setIsEditingTitle(false);
-    }
-  }, [planItem?.text]);
-
-  // Build trie index for fast collaborator search
-  const collaboratorTrieFilter = useMemo(() => {
-    if (!collaborators || collaborators.length === 0) return null;
-    // Normalize collaborators to have a 'name' field for trie indexing
-    const normalizedCollabs = collaborators.map(collab => ({
-      ...collab,
-      name: collab.name || collab.user?.name || ''
-    }));
-    return createSimpleFilter(['name']).buildIndex(normalizedCollabs);
-  }, [collaborators]);
+  const {
+    isEditingAssignment,
+    setIsEditingAssignment,
+    assignmentSearch,
+    setAssignmentSearch,
+    filteredCollaborators,
+    highlightedIndex,
+    setHighlightedIndex,
+    assignmentInputRef,
+    dropdownRef,
+    handleAssignmentClick,
+    handleSelectCollaborator,
+    handleUnassign,
+    handleAssignmentKeyDown,
+  } = useAssignmentEditor({
+    collaborators,
+    canEdit,
+    onAssign,
+    onUnassign,
+  });
 
   // Build detail type items array and trie filter for the Add dropdown
   const detailTypeItems = useMemo(() => {
@@ -573,84 +356,6 @@ export default function PlanItemDetailsModal({
     }
     return detailTypeTrieFilter.filter(addDropdownFilter, { rankResults: true });
   }, [addDropdownFilter, detailTypeItems, detailTypeTrieFilter]);
-
-  // Filter collaborators based on search using trie
-  useEffect(() => {
-    if (assignmentSearch.trim() === '') {
-      setFilteredCollaborators(collaborators);
-    } else if (collaboratorTrieFilter) {
-      // Use trie for O(m) filtering
-      const filtered = collaboratorTrieFilter.filter(assignmentSearch, { rankResults: true });
-      setFilteredCollaborators(filtered);
-    } else {
-      // Fallback to linear search
-      const searchLower = assignmentSearch.toLowerCase();
-      const filtered = collaborators.filter(collab => {
-        const name = collab.name || collab.user?.name || '';
-        return name.toLowerCase().includes(searchLower);
-      });
-      setFilteredCollaborators(filtered);
-    }
-    setHighlightedIndex(0);
-  }, [assignmentSearch, collaborators, collaboratorTrieFilter]);
-
-  // Focus input and position dropdown when editing starts
-  useEffect(() => {
-    if (isEditingAssignment && assignmentInputRef.current) {
-      assignmentInputRef.current.focus();
-
-      // Position the fixed dropdown relative to the input, respecting viewport bounds
-      const positionDropdown = () => {
-        if (dropdownRef.current && assignmentInputRef.current) {
-          const inputRect = assignmentInputRef.current.getBoundingClientRect();
-          const dropdownHeight = dropdownRef.current.offsetHeight || 200;
-          const spaceBelow = window.innerHeight - inputRect.bottom - 4;
-          const spaceAbove = inputRect.top - 4;
-
-          // Position above input if not enough space below, and enough space above
-          if (spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
-            dropdownRef.current.style.top = `${inputRect.top - dropdownHeight - 4}px`;
-          } else {
-            dropdownRef.current.style.top = `${inputRect.bottom + 4}px`;
-          }
-          dropdownRef.current.style.left = `${inputRect.left}px`;
-          dropdownRef.current.style.width = `${inputRect.width}px`;
-        }
-      };
-
-      // Initial position after render
-      requestAnimationFrame(positionDropdown);
-
-      // Reposition on scroll/resize
-      window.addEventListener('scroll', positionDropdown, true);
-      window.addEventListener('resize', positionDropdown);
-      return () => {
-        window.removeEventListener('scroll', positionDropdown, true);
-        window.removeEventListener('resize', positionDropdown);
-      };
-    }
-  }, [isEditingAssignment]);
-
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target) &&
-        assignmentInputRef.current &&
-        !assignmentInputRef.current.contains(event.target)
-      ) {
-        setIsEditingAssignment(false);
-        setAssignmentSearch('');
-      }
-    };
-
-    if (isEditingAssignment) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isEditingAssignment]);
-
 
   /**
    * Handle entity click from mentions in notes
@@ -800,149 +505,10 @@ export default function PlanItemDetailsModal({
    * Group all details (flights, hotels, parking, discounts, costs, etc.) by category
    * Returns an object with category keys and arrays of details
    */
-  const groupedDetails = useMemo(() => {
-    if (!planItem?.details) return {};
-
-    const formatDateTime = (value) => {
-      if (!value) return null;
-      try {
-        const d = value instanceof Date ? value : new Date(value);
-        if (Number.isNaN(d.getTime())) return null;
-        return d.toLocaleString();
-      } catch (e) {
-        return null;
-      }
-    };
-
-    const groups = {};
-
-    // Canonical backend details (single objects)
-    const transport = planItem.details?.transport;
-    if (transport?.mode) {
-      const type = transport.mode;
-      const typeConfig = DETAIL_TYPE_CONFIG[type] || {
-        label: 'Transport',
-        icon: '🚗',
-        description: 'Transport details',
-        category: 'transportation'
-      };
-      const category = typeConfig.category || 'transportation';
-      if (!groups[category]) {
-        groups[category] = {
-          ...DETAIL_CATEGORIES[category],
-          items: []
-        };
-      }
-      groups[category].items.push({
-        ...transport,
-        _key: 'transport',
-        _displayTitle: transport.trackingNumber || transport.vendor || 'Transport',
-        _displayDeparture: formatDateTime(transport.departureTime),
-        _displayArrival: formatDateTime(transport.arrivalTime),
-        type,
-        typeConfig
-      });
-    }
-
-    const accommodation = planItem.details?.accommodation;
-    if (accommodation && (accommodation.name || accommodation.confirmationNumber || accommodation.checkIn || accommodation.checkOut)) {
-      const type = DETAIL_TYPES.HOTEL;
-      const typeConfig = DETAIL_TYPE_CONFIG[type];
-      const category = typeConfig?.category || 'accommodation';
-      if (!groups[category]) {
-        groups[category] = {
-          ...DETAIL_CATEGORIES[category],
-          items: []
-        };
-      }
-      groups[category].items.push({
-        ...accommodation,
-        _key: 'accommodation',
-        _displayTitle: accommodation.name || accommodation.confirmationNumber || 'Accommodation',
-        _displayCheckIn: formatDateTime(accommodation.checkIn),
-        _displayCheckOut: formatDateTime(accommodation.checkOut),
-        type,
-        typeConfig
-      });
-    }
-
-    const parking = planItem.details?.parking;
-    if (parking && (parking.facilityName || parking.address || parking.confirmationNumber || parking.startTime || parking.endTime)) {
-      const type = DETAIL_TYPES.PARKING;
-      const typeConfig = DETAIL_TYPE_CONFIG[type];
-      const category = typeConfig?.category || 'parking';
-      if (!groups[category]) {
-        groups[category] = {
-          ...DETAIL_CATEGORIES[category],
-          items: []
-        };
-      }
-      groups[category].items.push({
-        ...parking,
-        _key: 'parking',
-        _displayTitle: parking.facilityName || parking.confirmationNumber || 'Parking',
-        _displayStart: formatDateTime(parking.startTime),
-        _displayEnd: formatDateTime(parking.endTime),
-        type,
-        typeConfig
-      });
-    }
-
-    const discount = planItem.details?.discount;
-    if (discount && (discount.code || discount.description || discount.discountValue !== undefined)) {
-      const type = DETAIL_TYPES.DISCOUNT;
-      const typeConfig = DETAIL_TYPE_CONFIG[type];
-      const category = typeConfig?.category || 'discount';
-      if (!groups[category]) {
-        groups[category] = {
-          ...DETAIL_CATEGORIES[category],
-          items: []
-        };
-      }
-      groups[category].items.push({
-        ...discount,
-        _key: 'discount',
-        _displayTitle: discount.code || discount.description || 'Discount',
-        _displayExpires: formatDateTime(discount.expiresAt),
-        type,
-        typeConfig
-      });
-    }
-
-    // Include tracked costs in the expense category (from plan.costs, the canonical source)
-    if (actualCosts.length > 0) {
-      const category = 'expense';
-      if (!groups[category]) {
-        groups[category] = {
-          ...DETAIL_CATEGORIES[category],
-          items: []
-        };
-      }
-      actualCosts.forEach((cost, i) => {
-        groups[category].items.push({
-          ...cost,
-          _key: cost._id ? `cost-${cost._id}` : `cost-i-${i}`,
-          type: DETAIL_TYPES.COST,
-          typeConfig: DETAIL_TYPE_CONFIG[DETAIL_TYPES.COST]
-        });
-      });
-    }
-
-    // Sort groups by category order
-    const sortedGroups = {};
-    Object.entries(groups)
-      .sort((a, b) => (a[1].order || 99) - (b[1].order || 99))
-      .forEach(([key, value]) => {
-        sortedGroups[key] = value;
-      });
-
-    return sortedGroups;
-  }, [planItem?.details, actualCosts]);
-
-  // Count total details for the tab badge
-  const totalDetailsCount = useMemo(() => {
-    return Object.values(groupedDetails).reduce((sum, group) => sum + group.items.length, 0);
-  }, [groupedDetails]);
+  const { groupedDetails, totalDetailsCount } = useGroupedDetails(
+    planItem,
+    actualCosts
+  );
 
   // BienBot Discuss action (ai_features flag guard)
   const { label: bienbotLabel, hasAccess: hasBienBot, handleOpen: handleBienBot } =
@@ -1251,61 +817,6 @@ export default function PlanItemDetailsModal({
     return assignee?.name || assignee?.user?.name || lang.current.planItemDetailsModal.unknownUser;
   };
 
-  const handleAssignmentClick = () => {
-    if (canEdit) {
-      setIsEditingAssignment(true);
-      setAssignmentSearch('');
-    }
-  };
-
-  const handleSelectCollaborator = async (collaborator) => {
-    const userId = collaborator._id || collaborator.user?._id;
-    setIsEditingAssignment(false);
-    setAssignmentSearch('');
-
-    if (userId) {
-      await onAssign(userId);
-    }
-  };
-
-  const handleUnassign = async () => {
-    setIsEditingAssignment(false);
-    setAssignmentSearch('');
-    await onUnassign();
-  };
-
-  const handleKeyDown = (e) => {
-    if (!filteredCollaborators.length && highlightedIndex !== 0) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < filteredCollaborators.length ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (highlightedIndex === 0) {
-          // Unassign option
-          handleUnassign();
-        } else if (highlightedIndex <= filteredCollaborators.length) {
-          handleSelectCollaborator(filteredCollaborators[highlightedIndex - 1]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setIsEditingAssignment(false);
-        setAssignmentSearch('');
-        break;
-      default:
-        break;
-    }
-  };
 
   // Editable title component - shows input when editing, clickable text otherwise
   const editableTitle = canEdit && onUpdateTitle ? (
@@ -1402,7 +913,7 @@ export default function PlanItemDetailsModal({
                     placeholder={lang.current.planItemDetailsModal.searchCollaborators}
                     value={assignmentSearch}
                     onChange={(e) => setAssignmentSearch(e.target.value)}
-                    onKeyDown={handleKeyDown}
+                    onKeyDown={handleAssignmentKeyDown}
                   />
                   {(isEditingAssignment && (filteredCollaborators.length > 0 || assignmentSearch)) && createPortal(
                     <div ref={dropdownRef} className={styles.assignmentDropdown}>
