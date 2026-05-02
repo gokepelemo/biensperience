@@ -19,6 +19,7 @@ import PhotosTab from './PhotosTab';
 import DetailsTab from './DetailsTab';
 import LocationTab from './LocationTab';
 import ChatTab from './ChatTab';
+import EditableTitle from './EditableTitle';
 import styles from './PlanItemDetailsModal.module.css';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
@@ -32,7 +33,6 @@ import { displayInTimezone } from '../../utilities/time-utils';
 import { useBienBotEntityAction } from '../../hooks/useBienBotEntityAction';
 import { useNavigationContext } from '../../contexts/NavigationContext';
 import usePlanItemNavigation from '../../hooks/usePlanItemNavigation';
-import useTitleEditor from '../../hooks/useTitleEditor';
 import useGroupedDetails from '../../hooks/useGroupedDetails';
 import useAssignmentEditor from '../../hooks/useAssignmentEditor';
 import useChatChannel from '../../hooks/useChatChannel';
@@ -221,8 +221,6 @@ export default function PlanItemDetailsModal({
       setActiveTab(initialTab);
       setIsEditingAssignment(false);
       setAssignmentSearch('');
-      setIsEditingTitle(false);
-      setTitleText(planItem?.text || '');
       setShowAddDropdown(false);
       setShowLocationModal(false);
       setShowDateModal(false);
@@ -285,17 +283,6 @@ export default function PlanItemDetailsModal({
       });
     }
   }, [showAddDropdown]);
-
-  const {
-    isEditingTitle,
-    setIsEditingTitle,
-    titleText,
-    setTitleText,
-    titleInputRef,
-    handleTitleClick,
-    handleTitleBlur,
-    handleTitleKeyDown,
-  } = useTitleEditor(planItem, canEdit, onUpdateTitle);
 
   const {
     isEditingAssignment,
@@ -604,41 +591,19 @@ export default function PlanItemDetailsModal({
   };
 
 
-  // Editable title component - shows input when editing, clickable text otherwise
-  const editableTitle = canEdit && onUpdateTitle ? (
-    isEditingTitle ? (
-      <input
-        ref={titleInputRef}
-        type="text"
-        className={styles.titleInput}
-        value={titleText}
-        onChange={(e) => setTitleText(e.target.value)}
-        onBlur={handleTitleBlur}
-        onKeyDown={handleTitleKeyDown}
-        aria-label={lang.current.aria.editPlanItemTitle}
-      />
-    ) : (
-      <span
-        className={styles.editableTitle}
-        onClick={handleTitleClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
-        title={lang.current.tooltip.clickToEditTitle}
-      >
-        {planItem.text || 'Plan Item'}
-      </span>
-    )
-  ) : (
-    planItem.text || 'Plan Item'
-  );
-
   return (
     <>
       <Modal
         show={show}
         onClose={onClose}
-        title={editableTitle}
+        title={
+          <EditableTitle
+            key={planItemIdStr}
+            planItem={planItem}
+            canEdit={canEdit}
+            onUpdateTitle={onUpdateTitle}
+          />
+        }
         size="fullscreen"
       centered={false}
       trapFocus={false}
