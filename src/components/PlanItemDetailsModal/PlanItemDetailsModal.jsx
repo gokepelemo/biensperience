@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from '../design-system';
-import { FaPlus, FaShareAlt, FaChevronDown, FaChevronLeft, FaChevronRight, FaRobot } from 'react-icons/fa';
+import { FaPlus, FaShareAlt, FaChevronDown, FaRobot } from 'react-icons/fa';
 import { Modal, Alert, Tooltip } from '../design-system';
 import Button from '../Button/Button';
 import PlanItemNotes from '../PlanItemNotes/PlanItemNotes';
@@ -20,6 +20,7 @@ import DetailsTab from './DetailsTab';
 import LocationTab from './LocationTab';
 import ChatTab from './ChatTab';
 import EditableTitle from './EditableTitle';
+import ItemNavBar from './ItemNavBar';
 import styles from './PlanItemDetailsModal.module.css';
 import { createSimpleFilter } from '../../utilities/trie';
 import { logger } from '../../utilities/logger';
@@ -617,31 +618,7 @@ export default function PlanItemDetailsModal({
         onTouchEnd={(onPrev || onNext) ? handleTouchEnd : undefined}
       >
         {/* Item navigation bar - prev/next with keyboard and swipe support */}
-        {(onPrev || onNext) && (
-          <div className={styles.itemNavigation}>
-            <button
-              type="button"
-              className={styles.itemNavBtn}
-              onClick={onPrev}
-              disabled={!onPrev}
-              aria-label="Previous plan item"
-              title="Previous item (← arrow key)"
-            >
-              <FaChevronLeft />
-            </button>
-            <span className={styles.itemNavHint}>Use arrow keys or swipe to navigate</span>
-            <button
-              type="button"
-              className={styles.itemNavBtn}
-              onClick={onNext}
-              disabled={!onNext}
-              aria-label="Next plan item"
-              title="Next item (→ arrow key)"
-            >
-              <FaChevronRight />
-            </button>
-          </div>
-        )}
+        <ItemNavBar onPrev={onPrev} onNext={onNext} />
         {/* Assignment section */}
         <div className={styles.assignmentSection}>
           <label className={styles.assignmentLabel}>{lang.current.planItemDetailsModal.assignedTo}</label>
