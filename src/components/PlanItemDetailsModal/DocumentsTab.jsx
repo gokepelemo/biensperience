@@ -11,12 +11,13 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { FaUpload, FaLock, FaUsers, FaRobot, FaTrash, FaFileAlt, FaFilePdf, FaFileImage, FaEye, FaUndo, FaSkullCrossbones, FaBan } from 'react-icons/fa';
+import { FaUpload, FaSkullCrossbones, FaBan } from 'react-icons/fa';
 import EmptyState from '../EmptyState/EmptyState';
 import Loading from '../Loading/Loading';
 import DocumentViewerModal from '../DocumentViewerModal';
 import Pagination from '../Pagination/Pagination';
 import { Modal, Button, Tooltip, ProgressBar } from '../design-system';
+import DocumentRow from './DocumentRow';
 import {
   getDocumentsByEntity,
   uploadDocument,
@@ -41,28 +42,6 @@ import styles from './DocumentsTab.module.css';
 // Pagination config — page size of 50 per CLAUDE.md "ALWAYS paginate lists" rule.
 // The shared <Pagination> component hides its chrome automatically when totalPages <= 1.
 const DEFAULT_PAGE_SIZE = 50;
-
-/**
- * Get icon for document type based on mime type
- */
-function getDocumentIcon(mimeType) {
-  if (mimeType?.startsWith('image/')) return <FaFileImage />;
-  if (mimeType === 'application/pdf') return <FaFilePdf />;
-  return <FaFileAlt />;
-}
-
-/**
- * Format date for display
- */
-function formatDate(dateString) {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-}
 
 export default function DocumentsTab({
   planItem,
@@ -700,331 +679,47 @@ export default function DocumentsTab({
         </div>
       )}
 
-      {/* Documents list */}
-      {canEdit && uploadMode ? (
-        <DropZone
-          onDrop={handleDrop}
-          accept={getAcceptAttribute()}
-          multiple={true}
-          disabled={uploading}
-          dropMessage="Drop documents here to upload"
-          className={styles.documentDropZone}
-        >
+      {/* Documents list — rendered once and conditionally wrapped in DropZone */}
+      {(() => {
+        const list = (
           <div className={styles.documentsList}>
             {documents.map((doc) => {
-              const isOwner = isDocumentOwner(doc);
               const aiSummary = hasAiFeatures ? getAiSummary(doc) : null;
-              const hasAiData = !!aiSummary;
-              const isDisabled = doc.isDisabled;
-
               return (
-                <div
+                <DocumentRow
                   key={doc._id}
-                  className={`${styles.documentCard} ${isDisabled ? styles.disabledDocument : ''}`}
-                >
-                  {/* Disabled indicator */}
-                  {isDisabled && (
-                    <div className={styles.disabledBadge}>
-                      <FaBan />
-                      <span>Disabled</span>
-                    </div>
-                  )}
-
-                  {/* Document icon and info */}
-                  <div className={styles.documentIcon}>
-                    {getDocumentIcon(doc.mimeType)}
-                  </div>
-
-                  <div className={styles.documentInfo}>
-                    <div className={styles.documentName}>
-                      {doc.originalFilename}
-                    </div>
-                    <div className={styles.documentMeta}>
-                      <span>{formatFileSize(doc.fileSize)}</span>
-                      <span className={styles.metaSeparator}>•</span>
-                      <span>{formatDate(doc.createdAt)}</span>
-                      {doc.user?.name && (
-                        <>
-                          <span className={styles.metaSeparator}>•</span>
-                          <span>{doc.user.name}</span>
-                        </>
-                      )}
-                      {isDisabled && doc.disabledAt && (
-                        <>
-                          <span className={styles.metaSeparator}>•</span>
-                          <span className={styles.disabledInfo}>
-                            Disabled {formatDate(doc.disabledAt)}
-                            {doc.disabledBy?.name && ` by ${doc.disabledBy.name}`}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className={styles.documentActions}>
-                    {/* Preview button */}
-                    <Tooltip content="Preview document" placement="top">
-                      <button
-                        type="button"
-                        className={styles.previewButton}
-                        onClick={() => handlePreview(doc)}
-                        disabled={loadingPreview === doc._id}
-                        aria-label="Preview document"
-                      >
-                        {loadingPreview === doc._id ? (
-                          <span className={styles.loadingSpinnerSmall}></span>
-                        ) : (
-                          <FaEye />
-                        )}
-                      </button>
-                    </Tooltip>
-
-                    {/* AI badge - shows if document has AI parsed data */}
-                    {hasAiData && (
-                      <Tooltip content="View AI-generated summary" placement="top">
-                        <button
-                          type="button"
-                          className={styles.aiBadge}
-                          onClick={() => setShowAiSummary(doc._id)}
-                          aria-label="View AI summary"
-                        >
-                          <FaRobot />
-                        </button>
-                      </Tooltip>
-                    )}
-
-                    {/* Visibility toggle - only for document owner and not disabled */}
-                    {isOwner && !isDisabled && (
-                      <Tooltip
-                        content={doc.visibility === 'private'
-                          ? 'Private - only you can see this. Click to share with collaborators.'
-                          : 'Shared with collaborators. Click to make private.'}
-                        placement="top"
-                      >
-                        <button
-                          type="button"
-                          className={`${styles.visibilityButton} ${doc.visibility === 'private' ? styles.private : styles.shared}`}
-                          onClick={() => handleVisibilityToggle(doc._id, doc.visibility)}
-                          aria-label={doc.visibility === 'private' ? 'Make visible to collaborators' : 'Make private'}
-                        >
-                          {doc.visibility === 'private' ? <FaLock /> : <FaUsers />}
-                        </button>
-                      </Tooltip>
-                    )}
-
-                    {/* Non-owner visibility indicator */}
-                    {!isOwner && doc.visibility === 'private' && !isDisabled && (
-                      <Tooltip content="Private document" placement="top">
-                        <span className={`${styles.visibilityIndicator} ${styles.private}`}>
-                          <FaLock />
-                        </span>
-                      </Tooltip>
-                    )}
-
-                    {/* Super admin actions for disabled documents */}
-                    {isAdmin && isDisabled && (
-                      <>
-                        <Tooltip content="Restore document 🔐" placement="top">
-                          <button
-                            type="button"
-                            className={styles.restoreButton}
-                            onClick={() => handleRestore(doc._id)}
-                            aria-label="Restore document"
-                          >
-                            <FaUndo />
-                          </button>
-                        </Tooltip>
-                        <Tooltip content="Permanently delete 🔐" placement="top">
-                          <button
-                            type="button"
-                            className={styles.permanentDeleteButton}
-                            onClick={() => setPermanentDeleteConfirm(doc._id)}
-                            aria-label="Permanently delete document"
-                          >
-                            <FaSkullCrossbones />
-                          </button>
-                        </Tooltip>
-                      </>
-                    )}
-
-                    {/* Delete button - only for document owner and not disabled */}
-                    {isOwner && canEdit && !isDisabled && (
-                      <Tooltip content="Delete document" placement="top">
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                          onClick={() => setDeleteConfirm(doc._id)}
-                          aria-label="Delete document"
-                        >
-                          <FaTrash />
-                        </button>
-                      </Tooltip>
-                    )}
-                  </div>
-                </div>
+                  doc={doc}
+                  isOwner={isDocumentOwner(doc)}
+                  isAdmin={isAdmin}
+                  canEdit={canEdit}
+                  hasAiData={!!aiSummary}
+                  isLoadingPreview={loadingPreview === doc._id}
+                  onPreview={handlePreview}
+                  onShowAiSummary={setShowAiSummary}
+                  onVisibilityToggle={handleVisibilityToggle}
+                  onRestore={handleRestore}
+                  onPermanentDelete={setPermanentDeleteConfirm}
+                  onDelete={setDeleteConfirm}
+                />
               );
             })}
           </div>
-        </DropZone>
-      ) : (
-        <div className={styles.documentsList}>
-          {documents.map((doc) => {
-            const isOwner = isDocumentOwner(doc);
-            const aiSummary = hasAiFeatures ? getAiSummary(doc) : null;
-            const hasAiData = !!aiSummary;
-            const isDisabled = doc.isDisabled;
-
-            return (
-              <div
-                key={doc._id}
-                className={`${styles.documentCard} ${isDisabled ? styles.disabledDocument : ''}`}
-              >
-                {/* Disabled indicator */}
-                {isDisabled && (
-                  <div className={styles.disabledBadge}>
-                    <FaBan />
-                    <span>Disabled</span>
-                  </div>
-                )}
-
-                {/* Document icon and info */}
-                <div className={styles.documentIcon}>
-                  {getDocumentIcon(doc.mimeType)}
-                </div>
-
-                <div className={styles.documentInfo}>
-                  <div className={styles.documentName}>
-                    {doc.originalFilename}
-                  </div>
-                  <div className={styles.documentMeta}>
-                    <span>{formatFileSize(doc.fileSize)}</span>
-                    <span className={styles.metaSeparator}>•</span>
-                    <span>{formatDate(doc.createdAt)}</span>
-                    {doc.user?.name && (
-                      <>
-                        <span className={styles.metaSeparator}>•</span>
-                        <span>{doc.user.name}</span>
-                      </>
-                    )}
-                    {isDisabled && doc.disabledAt && (
-                      <>
-                        <span className={styles.metaSeparator}>•</span>
-                        <span className={styles.disabledInfo}>
-                          Disabled {formatDate(doc.disabledAt)}
-                          {doc.disabledBy?.name && ` by ${doc.disabledBy.name}`}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className={styles.documentActions}>
-                  {/* Preview button */}
-                  <Tooltip content="Preview document" placement="top">
-                    <button
-                      type="button"
-                      className={styles.previewButton}
-                      onClick={() => handlePreview(doc)}
-                      disabled={loadingPreview === doc._id}
-                      aria-label="Preview document"
-                    >
-                      {loadingPreview === doc._id ? (
-                        <span className={styles.loadingSpinnerSmall}></span>
-                      ) : (
-                        <FaEye />
-                      )}
-                    </button>
-                  </Tooltip>
-
-                  {/* AI badge - shows if document has AI parsed data */}
-                  {hasAiData && (
-                    <Tooltip content="View AI-generated summary" placement="top">
-                      <button
-                        type="button"
-                        className={styles.aiBadge}
-                        onClick={() => setShowAiSummary(doc._id)}
-                        aria-label="View AI summary"
-                      >
-                        <FaRobot />
-                      </button>
-                    </Tooltip>
-                  )}
-
-                  {/* Visibility toggle - only for document owner and not disabled */}
-                  {isOwner && !isDisabled && (
-                    <Tooltip
-                      content={doc.visibility === 'private'
-                        ? 'Private - only you can see this. Click to share with collaborators.'
-                        : 'Shared with collaborators. Click to make private.'}
-                      placement="top"
-                    >
-                      <button
-                        type="button"
-                        className={`${styles.visibilityButton} ${doc.visibility === 'private' ? styles.private : styles.shared}`}
-                        onClick={() => handleVisibilityToggle(doc._id, doc.visibility)}
-                        aria-label={doc.visibility === 'private' ? 'Make visible to collaborators' : 'Make private'}
-                      >
-                        {doc.visibility === 'private' ? <FaLock /> : <FaUsers />}
-                      </button>
-                    </Tooltip>
-                  )}
-
-                  {/* Non-owner visibility indicator */}
-                  {!isOwner && doc.visibility === 'private' && !isDisabled && (
-                    <Tooltip content="Private document" placement="top">
-                      <span className={`${styles.visibilityIndicator} ${styles.private}`}>
-                        <FaLock />
-                      </span>
-                    </Tooltip>
-                  )}
-
-                  {/* Super admin actions for disabled documents */}
-                  {isAdmin && isDisabled && (
-                    <>
-                      <Tooltip content="Restore document 🔐" placement="top">
-                        <button
-                          type="button"
-                          className={styles.restoreButton}
-                          onClick={() => handleRestore(doc._id)}
-                          aria-label="Restore document"
-                        >
-                          <FaUndo />
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="Permanently delete 🔐" placement="top">
-                        <button
-                          type="button"
-                          className={styles.permanentDeleteButton}
-                          onClick={() => setPermanentDeleteConfirm(doc._id)}
-                          aria-label="Permanently delete document"
-                        >
-                          <FaSkullCrossbones />
-                        </button>
-                      </Tooltip>
-                    </>
-                  )}
-
-                  {/* Delete button - only for document owner and not disabled */}
-                  {isOwner && canEdit && !isDisabled && (
-                    <Tooltip content="Delete document" placement="top">
-                      <button
-                        type="button"
-                        className={styles.deleteButton}
-                        onClick={() => setDeleteConfirm(doc._id)}
-                        aria-label="Delete document"
-                      >
-                        <FaTrash />
-                      </button>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+        );
+        return canEdit && uploadMode ? (
+          <DropZone
+            onDrop={handleDrop}
+            accept={getAcceptAttribute()}
+            multiple={true}
+            disabled={uploading}
+            dropMessage="Drop documents here to upload"
+            className={styles.documentDropZone}
+          >
+            {list}
+          </DropZone>
+        ) : (
+          list
+        );
+      })()}
 
       {/* Pagination — chrome auto-hides when totalPages <= 1 */}
       <Pagination
