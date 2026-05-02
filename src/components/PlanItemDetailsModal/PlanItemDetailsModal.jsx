@@ -49,6 +49,8 @@ import useTitleEditor from '../../hooks/useTitleEditor';
 import useGroupedDetails from '../../hooks/useGroupedDetails';
 import useAssignmentEditor from '../../hooks/useAssignmentEditor';
 import useChatChannel from '../../hooks/useChatChannel';
+import exportPlanItemDetailsPDF from '../../utilities/exportPlanItemDetailsPDF';
+import usePlanItemActions from '../../hooks/usePlanItemActions';
 
 export default function PlanItemDetailsModal({
   show,
@@ -105,7 +107,6 @@ export default function PlanItemDetailsModal({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDetailTypeSelectorModal, setShowDetailTypeSelectorModal] = useState(false);
-  const [addressCopied, setAddressCopied] = useState(false);
   const [pdfExportBlocked, setPdfExportBlocked] = useState(false);
   // Local state for immediate UI feedback on scheduled date/time changes
   const [localScheduledDate, setLocalScheduledDate] = useState(null);
@@ -115,11 +116,6 @@ export default function PlanItemDetailsModal({
   // Track which plan item the current chat channel belongs to
   const addDropdownRef = useRef(null);
   const addDropdownFilterRef = useRef(null);
-  // Address copy reset timer
-  const addressCopyTimerRef = useRef(null);
-  useEffect(() => () => {
-    if (addressCopyTimerRef.current) clearTimeout(addressCopyTimerRef.current);
-  }, []);
 
   // Mobile/Tablet: allow the details modal to scroll within its fixed overlay.
   // Uses 991px breakpoint to match tab dropdown visibility (same breakpoint as .detailsTabs display: none)
@@ -523,239 +519,41 @@ export default function PlanItemDetailsModal({
    * Uses safe DOM APIs (createElement, textContent) to prevent XSS
    */
   const handleExportPDF = useCallback(() => {
-    // Helper to create element with text content (XSS-safe)
-    const createEl = (tag, className, text) => {
-      const el = document.createElement(tag);
-      if (className) el.className = className;
-      if (text !== undefined) el.textContent = String(text);
-      return el;
-    };
-
-    // Helper to add a meta row to the dl element
-    const addMetaRow = (dl, label, value) => {
-      if (value) {
-        dl.appendChild(createEl('dt', null, `${label}:`));
-        dl.appendChild(createEl('dd', null, String(value)));
-      }
-    };
-
-    // Get display fields using shared utility (same mapping as DetailItemCard UI)
-
-    // Create printable document structure using safe DOM APIs
-    const printContent = document.createElement('div');
-
-    // Add print styles (static content, no user data)
-    const style = document.createElement('style');
-    style.textContent = `
-      @media print {
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        .print-header { margin-bottom: 24px; border-bottom: 2px solid #333; padding-bottom: 16px; }
-        .print-title { font-size: 24px; font-weight: bold; margin: 0 0 8px 0; }
-        .print-subtitle { font-size: 14px; color: #666; margin: 0; }
-        .print-category { margin-bottom: 24px; }
-        .print-category-title { font-size: 18px; font-weight: 600; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ddd; }
-        .print-item { padding: 12px; margin-bottom: 8px; background: #f5f5f5; border-radius: 8px; }
-        .print-item-type { font-size: 12px; color: #666; margin-bottom: 4px; }
-        .print-item-title { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
-        .print-item-meta { font-size: 12px; color: #666; }
-        .print-item-meta dt { font-weight: 500; display: inline; }
-        .print-item-meta dd { display: inline; margin: 0 16px 0 4px; }
-      }
-    `;
-    printContent.appendChild(style);
-
-    // Header (user data via textContent)
-    const header = createEl('div', 'print-header');
-    const itemName = planItem?.text || 'Plan Item';
-    const titleText = experienceName ? `${experienceName} - ${itemName}` : itemName;
-    header.appendChild(createEl('h1', 'print-title', titleText));
-    header.appendChild(createEl('p', 'print-subtitle', `Exported on ${new Date().toLocaleDateString()}`));
-    printContent.appendChild(header);
-
-    // Categories and items (all user data via textContent)
-    Object.entries(groupedDetails).forEach(([, category]) => {
-      const categoryDiv = createEl('div', 'print-category');
-      categoryDiv.appendChild(createEl('h2', 'print-category-title', `${category.icon} ${category.label}`));
-
-      category.items.forEach(item => {
-        const itemDiv = createEl('div', 'print-item');
-        itemDiv.appendChild(createEl('div', 'print-item-type', `${item.typeConfig.icon} ${item.typeConfig.label}`));
-        itemDiv.appendChild(createEl('div', 'print-item-title', item.title || item._displayTitle || item.name || item.trackingNumber || item.confirmationNumber || 'Detail'));
-
-        const dl = document.createElement('dl');
-        dl.className = 'print-item-meta';
-
-        // Use type-specific display fields (same as UI)
-        const displayFields = getDetailDisplayFields(item, { collaborators });
-        displayFields.forEach(field => {
-          addMetaRow(dl, field.label, field.value);
-        });
-
-        itemDiv.appendChild(dl);
-        categoryDiv.appendChild(itemDiv);
-      });
-
-      printContent.appendChild(categoryDiv);
+    const { popupBlocked } = exportPlanItemDetailsPDF({
+      planItem,
+      experienceName,
+      groupedDetails,
+      collaborators,
     });
+    if (popupBlocked) setPdfExportBlocked(true);
+  }, [planItem, experienceName, groupedDetails, collaborators]);
 
-    // Open print dialog using safe DOM serialization
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      // Set the document title (shows in tab and PDF filename)
-      // Include experience name if available for better context
-      printWindow.document.title = titleText;
+  const {
+    saveLocation,
+    saveDate,
+    locationForMap,
+    fullCopyableAddress,
+    copyAddress: handleCopyAddress,
+    addressCopied,
+  } = usePlanItemActions(plan, planItem);
 
-      // Use DOM methods instead of document.write for safety
-      printWindow.document.body.appendChild(printContent.cloneNode(true));
-      printWindow.document.close();
-      printWindow.print();
-      printWindow.close();
-    } else {
-      // Popup was blocked by the browser
-      logger.warn('[PlanItemDetailsModal] PDF export popup blocked by browser');
-      setPdfExportBlocked(true);
-    }
-  }, [planItem?.text, experienceName, groupedDetails, targetCurrency, getConvertedAmount, collaborators]);
-
-  /**
-   * Handle saving location from AddLocationModal
-   * Updates the plan item via PATCH.
-   * The updatePlanItem utility already broadcasts events, so no need to emit again.
-   */
-  const handleSaveLocation = useCallback(async (locationData) => {
-    if (!plan?._id || !planItem?._id) {
-      throw new Error('Missing plan or plan item ID');
-    }
-
-    try {
-      // Update plan item with new location via PATCH
-      await updatePlanItem(plan._id, planItem._id, {
-        location: locationData
-      });
-
-      logger.info('[PlanItemDetailsModal] Location saved successfully', {
-        planId: plan._id,
-        itemId: planItem._id,
-        location: locationData.address
-      });
-
+  const handleSaveLocation = useCallback(
+    async (locationData) => {
+      await saveLocation(locationData);
       setShowLocationModal(false);
-    } catch (err) {
-      logger.error('[PlanItemDetailsModal] Failed to save location', { error: err.message });
-      throw err; // Let AddLocationModal handle the error display
-    }
-  }, [plan?._id, planItem?._id]);
+    },
+    [saveLocation]
+  );
 
-  /**
-   * Handle saving date from AddDateModal
-   * Updates the plan item via PATCH and emits event
-   */
-  const handleSaveDate = useCallback(async (dateData) => {
-    if (!plan?._id || !planItem?._id) {
-      throw new Error('Missing plan or plan item ID');
-    }
-
-    try {
-      // Update plan item with new scheduled date/time via PATCH
-      await updatePlanItem(plan._id, planItem._id, {
-        scheduled_date: dateData.scheduled_date,
-        scheduled_time: dateData.scheduled_time
-      });
-
-      logger.info('[PlanItemDetailsModal] Date saved successfully', {
-        planId: plan._id,
-        itemId: planItem._id,
-        scheduledDate: dateData.scheduled_date,
-        scheduledTime: dateData.scheduled_time
-      });
-
-      // Update local state immediately for UI feedback (Scheduled card appears instantly)
+  const handleSaveDate = useCallback(
+    async (dateData) => {
+      await saveDate(dateData);
       setLocalScheduledDate(dateData.scheduled_date || null);
       setLocalScheduledTime(dateData.scheduled_time || null);
-
-      // The updatePlanItem utility already broadcasts events, so no need to emit again
       setShowDateModal(false);
-    } catch (err) {
-      logger.error('[PlanItemDetailsModal] Failed to save date', { error: err.message });
-      throw err; // Let AddDateModal handle the error display
-    }
-  }, [plan?._id, planItem?._id]);
-
-  /**
-   * Get location string for Google Map
-   */
-  const getLocationForMap = useCallback(() => {
-    const location = planItem?.location;
-    if (!location) return null;
-
-    // If we have coordinates, use them
-    if (location.geo?.coordinates?.length === 2) {
-      const [lng, lat] = location.geo.coordinates;
-      return `${lat},${lng}`;
-    }
-
-    // Fall back to address
-    return location.address || null;
-  }, [planItem?.location]);
-
-  /**
-   * Get full formatted address for copying
-   * Combines address with city, state, country for a complete copyable string
-   */
-  const getFullCopyableAddress = useCallback(() => {
-    const location = planItem?.location;
-    if (!location?.address) return '';
-
-    // Build full address string
-    const parts = [location.address];
-    const locationParts = [location.city, location.state, location.country].filter(Boolean);
-    if (locationParts.length > 0) {
-      parts.push(locationParts.join(', '));
-    }
-    if (location.postalCode) {
-      parts.push(location.postalCode);
-    }
-
-    return parts.join(', ');
-  }, [planItem?.location]);
-
-  /**
-   * Handle copying address to clipboard
-   */
-  const handleCopyAddress = useCallback(async () => {
-    const address = getFullCopyableAddress();
-    if (!address) return;
-
-    try {
-      await navigator.clipboard.writeText(address);
-      setAddressCopied(true);
-      logger.debug('[PlanItemDetailsModal] Address copied to clipboard', { address });
-
-      // Reset the copied state after 2 seconds
-      if (addressCopyTimerRef.current) clearTimeout(addressCopyTimerRef.current);
-      addressCopyTimerRef.current = setTimeout(() => {
-        setAddressCopied(false);
-      }, 2000);
-    } catch (err) {
-      logger.error('[PlanItemDetailsModal] Failed to copy address', { error: err.message });
-      // Fallback for browsers without clipboard API
-      const textArea = document.createElement('textarea');
-      textArea.value = address;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-9999px';
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setAddressCopied(true);
-        if (addressCopyTimerRef.current) clearTimeout(addressCopyTimerRef.current);
-        addressCopyTimerRef.current = setTimeout(() => setAddressCopied(false), 2000);
-      } catch (fallbackErr) {
-        logger.error('[PlanItemDetailsModal] Fallback copy also failed', { error: fallbackErr.message });
-      }
-      document.body.removeChild(textArea);
-    }
-  }, [getFullCopyableAddress]);
+    },
+    [saveDate]
+  );
 
   if (!planItem) return null;
 
@@ -1370,7 +1168,7 @@ export default function PlanItemDetailsModal({
           <div
             className={`${styles.locationTabContent} ${activeTab === 'location' ? styles.tabWrapperActive : styles.tabWrapperHidden}`}
           >
-              {getLocationForMap() ? (
+              {locationForMap ? (
                 <>
                   {/* Location details */}
                   <div className={styles.locationHeader}>
@@ -1409,7 +1207,7 @@ export default function PlanItemDetailsModal({
                       aria-label={lang.current.aria.copyAddressToClipboard}
                     >
                       <span className={styles.copyableAddressText}>
-                        {getFullCopyableAddress()}
+                        {fullCopyableAddress}
                       </span>
                       <span className={styles.copyAddressIcon}>
                         {addressCopied ? <FaCheck /> : <FaCopy />}
@@ -1420,7 +1218,7 @@ export default function PlanItemDetailsModal({
                   {/* Google Map with Get Directions button */}
                   <div className={styles.locationMapWrapper}>
                     <GoogleMap
-                      location={getLocationForMap()}
+                      location={locationForMap}
                       height={400}
                       showDirections={true}
                       title={`Map of ${planItem.location.address}`}
